@@ -854,6 +854,14 @@ body{
   </button>
 </nav>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const supabaseClient = supabase.createClient(
+    'https://hqwdehqsllyvrcnlcytj.supabase.co',
+    'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt',
+    { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+  );
+</script>
 
 <script>
 /* ---------- navigation ---------- */
