@@ -939,7 +939,7 @@ async function doLogin() {
   if (error) { msg.textContent = error.message; return; }
 
   closeAuth();
-showScreen('screen-today');   // continue into your existing flow
+startOnboarding();  // continue into your existing flow
 }
 
 /* ---------- navigation ---------- */
