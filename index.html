@@ -361,6 +361,24 @@ body{
 
 .toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:11px 20px;border-radius:100px;opacity:0;pointer-events:none;transition:all .35s cubic-bezier(.3,.7,.3,1);z-index:60;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #authModal { position:fixed; inset:0; z-index:9999;
+    display:flex; align-items:center; justify-content:center; }
+  .auth-overlay { position:absolute; inset:0; background:rgba(0,0,0,.6); }
+  .auth-box { position:relative; background:#fff; color:#111;
+    padding:28px 24px; border-radius:12px; width:90%; max-width:340px;
+    box-shadow:0 12px 40px rgba(0,0,0,.3); font-family:inherit; }
+  .auth-box h2 { margin:0 0 16px; font-size:20px; }
+  .auth-box input { display:block; width:100%; box-sizing:border-box;
+    margin:0 0 12px; padding:11px 12px; border:1px solid #ccc;
+    border-radius:8px; font-size:15px; }
+  .auth-box > div > button { width:100%; padding:12px; border:none;
+    border-radius:8px; background:#C0272D; color:#fff; font-size:15px;
+    font-weight:600; cursor:pointer; }
+  .auth-close { position:absolute; top:10px; right:14px; border:none;
+    background:none; font-size:24px; line-height:1; cursor:pointer; color:#888; }
+  .auth-msg { min-height:18px; margin:10px 0 0; font-size:13px; color:#C0272D; }
+  .auth-switch { margin:14px 0 0; font-size:13px; text-align:center; color:#555; }
+  .auth-switch a { color:#C0272D; cursor:pointer; text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -373,8 +391,8 @@ body{
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
   </div>
   <div class="w-btns">
-    <button class="w-btn primary" onclick="startOnboarding()">Create account</button>
-    <button class="w-btn" onclick="startOnboarding()">Log in</button>
+    <button class="w-btn primary" onclick="openSignup()">Create account</button>
+    <button class="w-btn" onclick="openLogin()">Log in</button>
     <button class="w-btn" onclick="startOnboarding()"> Continue with Apple</button>
     <button class="w-btn" onclick="startOnboarding()">G&ensp;Continue with Google</button>
     <button class="w-skip" onclick="skipToApp()">Skip intro — view a built athlete profile</button>
@@ -863,7 +881,67 @@ body{
   );
 </script>
 
-<script>
+<script>// ---- Auth modal controls ----
+function openSignup() {
+  document.getElementById('authModal').style.display = 'flex';
+  showSignupForm();
+}
+function openLogin() {
+  document.getElementById('authModal').style.display = 'flex';
+  showLoginForm();
+}
+function closeAuth() {
+  document.getElementById('authModal').style.display = 'none';
+}
+function showSignupForm() {
+  document.getElementById('signupForm').style.display = 'block';
+  document.getElementById('loginForm').style.display = 'none';
+}
+function showLoginForm() {
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+}
+
+// ---- Signup ----
+async function doSignup() {
+  const name = document.getElementById('suName').value.trim();
+  const email = document.getElementById('suEmail').value.trim();
+  const password = document.getElementById('suPassword').value;
+  const msg = document.getElementById('suMsg');
+  msg.textContent = 'Creating account...';
+
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: name } }
+  });
+
+  if (error) { msg.textContent = error.message; return; }
+
+  msg.style.color = '#1a7f37';
+  msg.textContent = 'Account created! You can start now.';
+  closeAuth();
+  startOnboarding();   // continue into your existing flow
+}
+
+// ---- Login ----
+async function doLogin() {
+  const email = document.getElementById('liEmail').value.trim();
+  const password = document.getElementById('liPassword').value;
+  const msg = document.getElementById('liMsg');
+  msg.textContent = 'Logging in...';
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) { msg.textContent = error.message; return; }
+
+  closeAuth();
+  startOnboarding();   // continue into your existing flow
+}
+
 /* ---------- navigation ---------- */
 function go(btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
@@ -1125,5 +1203,36 @@ function quizPick(btn,correct){
   }
 }
 </script>
+<!-- Auth modals -->
+<div id="authModal" style="display:none;">
+  <div class="auth-overlay" onclick="closeAuth()"></div>
+
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuth()">&times;</button>
+
+    <!-- Signup -->
+    <div id="signupForm">
+      <h2>Create Account</h2>
+      <input id="suName" type="text" placeholder="Full name" />
+      <input id="suEmail" type="email" placeholder="Email" />
+      <input id="suPassword" type="password" placeholder="Password (min 6 chars)" />
+      <button onclick="doSignup()">Create Account</button>
+      <p class="auth-msg" id="suMsg"></p>
+      <p class="auth-switch">Already have an account?
+        <a onclick="showLoginForm()">Log in</a></p>
+    </div>
+
+    <!-- Login -->
+    <div id="loginForm" style="display:none;">
+      <h2>Log In</h2>
+      <input id="liEmail" type="email" placeholder="Email" />
+      <input id="liPassword" type="password" placeholder="Password" />
+      <button onclick="doLogin()">Log In</button>
+      <p class="auth-msg" id="liMsg"></p>
+      <p class="auth-switch">No account yet?
+        <a onclick="showSignupForm()">Create one</a></p>
+    </div>
+  </div>
+</div>
 </body>
 </html>
