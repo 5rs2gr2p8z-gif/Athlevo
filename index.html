@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Athlevo — Endurance Operating System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#ffffff;
+  --card:#f6f6f4;
+  --card2:#fbfbfa;
+  --ink:#141416;
+  --ink2:#6d7075;
+  --ink3:#9a9da3;
+  --line:#ebebe8;
+  --red:#C0272D;
+  --red-soft:#faf0f0;
+  --good:#1f9d5b;
+  --warn:#c98a1e;
+  --r-lg:22px;
+  --r-md:16px;
+  --r-sm:10px;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --serif:"Fraunces",Georgia,serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans);
+  background:#eeeeec;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.45;
+}
+.device{
+  max-width:430px;margin:0 auto;background:var(--paper);
+  min-height:100dvh;position:relative;
+  display:flex;flex-direction:column;
+  box-shadow:0 0 0 1px rgba(0,0,0,.04),0 24px 80px rgba(0,0,0,.10);
+}
+@media(min-width:480px){.device{margin:28px auto;min-height:calc(100dvh - 56px);border-radius:44px;overflow:hidden}}
+
+/* ---------- typography ---------- */
+.serif{font-family:var(--serif)}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+/* ---------- app shell ---------- */
+.screen{display:none;flex:1;flex-direction:column;overflow-y:auto;padding-bottom:96px;animation:screenIn .34s cubic-bezier(.22,.8,.3,1)}
+.screen.active{display:flex}
+@keyframes screenIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.pad{padding:0 22px}
+.section-title{font-family:var(--serif);font-size:20px;font-weight:500;letter-spacing:-.01em;margin-bottom:14px}
+.spacer-lg{height:34px;flex-shrink:0}
+.spacer-md{height:20px;flex-shrink:0}
+
+/* ---------- tab bar ---------- */
+.tabbar{
+  position:absolute;left:0;right:0;bottom:0;z-index:40;
+  display:flex;justify-content:space-around;align-items:flex-start;
+  padding:10px 8px calc(14px + env(safe-area-inset-bottom));
+  background:rgba(255,255,255,.86);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-top:1px solid var(--line);
+}
+.tab{background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink3);width:64px;padding:2px 0;transition:color .2s}
+.tab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:10px;font-weight:600;letter-spacing:.02em}
+.tab.on{color:var(--ink)}
+.tab.on .dotmark{opacity:1}
+.dotmark{width:4px;height:4px;border-radius:50%;background:var(--red);opacity:0;transition:opacity .2s;margin-top:1px}
+.tab:focus-visible{outline:2px solid var(--red);outline-offset:2px;border-radius:8px}
+
+/* ---------- cards ---------- */
+.card{background:var(--card);border-radius:var(--r-lg);padding:20px}
+.card.white{background:var(--paper);border:1px solid var(--line)}
+.hairline{height:1px;background:var(--line);border:none}
+
+/* ---------- home ---------- */
+.statusrow{display:flex;justify-content:space-between;align-items:center;padding:18px 22px 0;font-size:12px;font-weight:600;color:var(--ink2)}
+.greet{padding:26px 22px 6px}
+.greet h1{font-family:var(--serif);font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1.12}
+.greet p{color:var(--ink2);font-size:14px;margin-top:6px}
+.greet .wx{display:inline-flex;align-items:center;gap:6px}
+
+/* readiness hero */
+.readiness{display:flex;align-items:center;gap:20px;padding:22px}
+.ring{position:relative;width:118px;height:118px;flex-shrink:0}
+.ring svg{transform:rotate(-90deg)}
+.ring .track{stroke:var(--line)}
+.ring .fill{stroke:var(--good);stroke-linecap:round;transition:stroke-dashoffset 1.1s cubic-bezier(.3,.7,.3,1)}
+.ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .center b{font-size:32px;font-weight:700;letter-spacing:-.03em}
+.ring .center i{font-style:normal;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.readiness-copy h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
+.readiness-copy p{font-size:13.5px;color:var(--ink2);margin-top:4px}
+
+/* decision card — the signature */
+.decision{margin:0 22px;background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:22px;overflow:hidden}
+.decision .eyebrow{color:rgba(255,255,255,.5)}
+.decision h3{font-family:var(--serif);font-size:21px;font-weight:500;line-height:1.25;margin:10px 0 6px}
+.decision>p{font-size:13.5px;color:rgba(255,255,255,.72);line-height:1.5}
+.why-toggle{margin-top:16px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);border:none;color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;padding:9px 14px;border-radius:100px;cursor:pointer;transition:background .2s}
+.why-toggle:hover{background:rgba(255,255,255,.16)}
+.why-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;transition:transform .3s}
+.decision.open .why-toggle svg{transform:rotate(180deg)}
+.ledger{max-height:0;overflow:hidden;transition:max-height .45s cubic-bezier(.3,.7,.3,1)}
+.decision.open .ledger{max-height:460px}
+.ledger-inner{padding-top:18px}
+.factor{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid rgba(255,255,255,.12);font-size:13px}
+.factor .f-name{color:rgba(255,255,255,.65)}
+.factor .f-val{font-weight:600;font-variant-numeric:tabular-nums}
+.factor .f-dir{font-size:11px;font-weight:700;margin-left:8px}
+.dir-down{color:#f2a6a6}.dir-up{color:#9fd8b4}.dir-flat{color:rgba(255,255,255,.45)}
+.ledger-verdict{margin-top:14px;padding:13px 15px;background:rgba(192,39,45,.22);border:1px solid rgba(192,39,45,.45);border-radius:var(--r-md);font-size:13px;line-height:1.55;color:#fff}
+.ledger-verdict b{color:#ffb3b6}
+
+/* stat grid */
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:22px}
+.stat{background:var(--card);border-radius:var(--r-md);padding:16px}
+.stat .eyebrow{margin-bottom:8px}
+.stat b{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.stat small{display:block;font-size:12px;color:var(--ink2);margin-top:3px}
+.spark{margin-top:10px;display:flex;align-items:flex-end;gap:3px;height:26px}
+.spark i{flex:1;background:#dcdcd8;border-radius:2px}
+.spark i.hi{background:var(--ink)}
+
+/* race + note */
+.race{margin:0 22px;display:flex;align-items:center;justify-content:space-between;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
+.race b{font-size:15px;font-weight:650;display:block}
+.race small{font-size:12.5px;color:var(--ink2)}
+.race .days{text-align:right}
+.race .days b{font-size:26px;font-weight:700;letter-spacing:-.03em}
+.race .days small{letter-spacing:.08em;text-transform:uppercase;font-weight:600;font-size:10px;color:var(--ink3)}
+.coachnote{margin:14px 22px 0;background:var(--red-soft);border-radius:var(--r-lg);padding:18px 20px}
+.coachnote .eyebrow{color:var(--red);margin-bottom:6px}
+.coachnote p{font-size:14px;line-height:1.55}
+
+/* ---------- chat ---------- */
+.chat-head{padding:20px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:17px;flex-shrink:0}
+.chat-head b{font-size:15px;font-weight:650;display:block}
+.chat-head small{font-size:12px;color:var(--good);font-weight:600;display:flex;align-items:center;gap:5px}
+.chat-head small::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--good)}
+.chatlog{flex:1;padding:18px 18px 8px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:86%;font-size:14.5px;line-height:1.55;animation:msgIn .3s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg.user{align-self:flex-end;background:var(--ink);color:#fff;padding:11px 15px;border-radius:20px 20px 5px 20px}
+.msg.ai{align-self:flex-start;background:var(--card);padding:14px 16px;border-radius:20px 20px 20px 5px}
+.msg.ai .call{font-weight:650}
+.msg.ai .whyblock{margin-top:10px;padding:11px 13px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);font-size:13.5px}
+.msg.ai .whyblock .eyebrow{color:var(--red);margin-bottom:5px}
+.msg.ai .whyblock ul{margin:4px 0 0 16px}
+.msg.ai .whyblock li{margin:3px 0;color:var(--ink2)}
+.msg.ai .whyblock li b{color:var(--ink)}
+.msg.ai .change{margin-top:10px;font-size:13.5px;color:var(--ink2)}
+.msg.ai .change b{color:var(--ink)}
+.typing{align-self:flex-start;background:var(--card);border-radius:20px;padding:14px 18px;display:flex;gap:5px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--ink3);animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,70%,100%{opacity:.3}35%{opacity:1}}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 18px;scrollbar-width:none;flex-shrink:0}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;background:var(--paper);border:1px solid var(--line);border-radius:100px;padding:8px 15px;font-family:var(--sans);font-size:13px;font-weight:550;color:var(--ink);cursor:pointer;transition:border-color .2s,background .2s}
+.chip:hover{border-color:var(--ink3)}
+.composer{display:flex;gap:10px;padding:10px 18px 16px;flex-shrink:0}
+.composer input{flex:1;border:1px solid var(--line);background:var(--card2);border-radius:100px;padding:13px 18px;font-family:var(--sans);font-size:14.5px;outline:none;transition:border-color .2s}
+.composer input:focus{border-color:var(--ink3)}
+.send{width:46px;height:46px;border-radius:50%;background:var(--red);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s}
+.send:active{transform:scale(.92)}
+.send svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#screen-coachai{padding-bottom:88px}
+
+/* ---------- train ---------- */
+.weekstrip{display:flex;gap:8px;padding:16px 22px 6px;overflow-x:auto;scrollbar-width:none}
+.weekstrip::-webkit-scrollbar{display:none}
+.day{flex:1;min-width:44px;text-align:center;padding:10px 0 12px;border-radius:var(--r-md);cursor:pointer;border:1px solid transparent;transition:background .2s}
+.day small{display:block;font-size:10px;font-weight:600;letter-spacing:.08em;color:var(--ink3);text-transform:uppercase}
+.day b{display:block;font-size:17px;font-weight:650;margin-top:4px}
+.day .dd{width:5px;height:5px;border-radius:50%;margin:6px auto 0;background:var(--ink3)}
+.day .dd.key{background:var(--red)}
+.day .dd.none{background:transparent}
+.day.sel{background:var(--ink);color:#fff}
+.day.sel small{color:rgba(255,255,255,.55)}
+.day.sel .dd{background:#fff}
+.day.sel .dd.key{background:#ff8a8f}
+.workout{margin:14px 22px 0;background:var(--card);border-radius:var(--r-lg);padding:20px;cursor:pointer}
+.workout .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.zone-badge{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:5px 11px;border-radius:100px;background:var(--paper);border:1px solid var(--line);color:var(--ink2)}
+.zone-badge.threshold{background:var(--red);border-color:var(--red);color:#fff}
+.workout h3{font-family:var(--serif);font-size:20px;font-weight:500;margin-top:12px;letter-spacing:-.01em}
+.workout .meta{display:flex;gap:16px;margin-top:8px;font-size:13px;color:var(--ink2)}
+.workout .meta b{color:var(--ink);font-weight:650}
+.session-detail{max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.3,.7,.3,1)}
+.workout.open .session-detail{max-height:700px}
+.sd-inner{padding-top:18px}
+.chart-label{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
+.intervals{display:flex;align-items:flex-end;gap:3px;height:88px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:12px}
+.intervals i{border-radius:3px 3px 0 0;background:#d8d8d4;flex-grow:1}
+.intervals i.t{background:var(--red)}
+.steps{margin-top:14px}
+.step{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:13.5px}
+.step span{color:var(--ink2)}
+.step b{font-weight:650;font-variant-numeric:tabular-nums}
+.learn-link{margin-top:16px;display:flex;align-items:center;justify-content:space-between;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:13px 15px;font-size:13.5px;font-weight:600;cursor:pointer}
+.learn-link small{display:block;font-weight:500;color:var(--ink2);font-size:12px;margin-top:2px}
+.learn-link .arr{color:var(--red);font-size:16px}
+.zonekey{margin:22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
+.zk-row{display:flex;align-items:center;gap:12px;padding:8px 0;font-size:13.5px}
+.zk-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.zk-row b{width:86px;font-weight:650}
+.zk-row span{color:var(--ink2);font-size:12.5px}
+
+/* ---------- trends ---------- */
+.bigchart{margin:0 22px;background:var(--card);border-radius:var(--r-lg);padding:20px}
+.bigchart h3{font-size:15px;font-weight:650}
+.bigchart .sub{font-size:12.5px;color:var(--ink2);margin-top:2px;margin-bottom:14px}
+.legend{display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--ink2)}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.dist{display:flex;height:14px;border-radius:100px;overflow:hidden;margin-top:14px}
+.dist i{height:100%}
+.dist-labels{display:flex;justify-content:space-between;margin-top:10px;font-size:11.5px;color:var(--ink2)}
+.predict{margin:14px 22px 0;background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:22px;display:flex;justify-content:space-between;align-items:center}
+.predict .eyebrow{color:rgba(255,255,255,.5)}
+.predict h3{font-family:var(--serif);font-size:30px;font-weight:500;margin-top:8px;letter-spacing:-.01em}
+.predict p{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:4px}
+.conf{width:74px;height:74px;border-radius:50%;border:1px solid rgba(255,255,255,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.conf b{font-size:19px}.conf small{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+
+/* ---------- you / integrations / coach mode ---------- */
+.profilehead{padding:26px 22px 8px;display:flex;align-items:center;gap:16px}
+.pfp{width:60px;height:60px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--serif);font-size:24px;display:flex;align-items:center;justify-content:center}
+.profilehead h1{font-family:var(--serif);font-size:24px;font-weight:500}
+.profilehead p{font-size:13px;color:var(--ink2)}
+.integ{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.integ-row{display:flex;align-items:center;gap:14px;padding:15px 18px;border-top:1px solid var(--line)}
+.integ-row:first-child{border-top:none}
+.ilogo{width:38px;height:38px;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
+.integ-row .in{flex:1}
+.integ-row b{font-size:14px;font-weight:650;display:block}
+.integ-row small{font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--good)}
+.sync-dot.pulse{animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.connect-btn{font-family:var(--sans);font-size:12.5px;font-weight:650;color:var(--red);background:var(--red-soft);border:none;border-radius:100px;padding:8px 15px;cursor:pointer}
+.connected-check{color:var(--good);font-weight:700;font-size:13px}
+.rowlink{margin:0 22px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:var(--r-lg);padding:18px 20px;cursor:pointer}
+.rowlink b{font-size:14.5px;font-weight:650;display:block}
+.rowlink small{font-size:12.5px;color:var(--ink2)}
+.rowlink .arr{color:var(--ink3);font-size:18px}
+.edu-scroll{display:flex;gap:12px;overflow-x:auto;padding:0 22px;scrollbar-width:none}
+.edu-scroll::-webkit-scrollbar{display:none}
+.edu-card{flex-shrink:0;width:190px;background:var(--card);border-radius:var(--r-lg);padding:18px;cursor:pointer}
+.edu-card .eyebrow{color:var(--red)}
+.edu-card h4{font-family:var(--serif);font-size:16.5px;font-weight:500;line-height:1.3;margin-top:8px}
+.edu-card small{display:block;font-size:12px;color:var(--ink2);margin-top:8px}
+
+/* coach mode */
+.cm-head{background:var(--ink);color:#fff;padding:20px 22px 18px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.cm-head h1{font-family:var(--serif);font-size:21px;font-weight:500}
+.cm-head p{font-size:12px;color:rgba(255,255,255,.55);margin-top:2px}
+.cm-exit{background:rgba(255,255,255,.12);border:none;color:#fff;font-family:var(--sans);font-size:12.5px;font-weight:600;padding:8px 15px;border-radius:100px;cursor:pointer}
+.cm-stats{display:flex;gap:12px;padding:18px 22px 0}
+.cm-stat{flex:1;background:var(--card);border-radius:var(--r-md);padding:14px;text-align:center}
+.cm-stat b{font-size:21px;font-weight:700;letter-spacing:-.02em;display:block}
+.cm-stat b.flag{color:var(--red)}
+.cm-stat small{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.athlete{margin:0 22px 12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
+.athlete .row1{display:flex;align-items:center;gap:12px}
+.a-pfp{width:40px;height:40px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.athlete b{font-size:14.5px;font-weight:650;display:block}
+.athlete .row1 small{font-size:12px;color:var(--ink2)}
+.compliance{margin-left:auto;text-align:right}
+.compliance b{font-size:16px}
+.compliance small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.flagline{margin-top:12px;background:var(--red-soft);border-radius:var(--r-sm);padding:11px 13px;font-size:13px;line-height:1.5}
+.flagline b{color:var(--red);display:inline;font-size:13px}
+.cm-actions{display:flex;gap:8px;margin-top:12px}
+.cm-btn{flex:1;font-family:var(--sans);font-size:13px;font-weight:650;padding:10px;border-radius:100px;cursor:pointer;border:1px solid var(--line);background:var(--paper);transition:transform .12s}
+.cm-btn:active{transform:scale(.97)}
+.cm-btn.approve{background:var(--ink);border-color:var(--ink);color:#fff}
+/* ---------- welcome ---------- */
+.welcome{justify-content:space-between;padding:0!important}
+.w-top{padding:90px 30px 0}
+.w-mark{font-family:var(--serif);font-size:44px;font-weight:500;letter-spacing:-.02em}
+.w-mark i{font-style:normal;color:var(--red)}
+.w-tag{font-size:16px;color:var(--ink2);margin-top:14px;line-height:1.5;max-width:290px}
+.w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:10px}
+.w-btn{font-family:var(--sans);font-size:15px;font-weight:650;padding:16px;border-radius:100px;cursor:pointer;border:1px solid var(--line);background:var(--paper);transition:transform .12s}
+.w-btn:active{transform:scale(.98)}
+.w-btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.w-skip{background:none;border:none;font-family:var(--sans);font-size:13px;color:var(--ink3);padding:10px;cursor:pointer}
+
+/* ---------- onboarding interview ---------- */
+.ob-progress{height:3px;background:var(--line);flex-shrink:0}
+.ob-progress i{display:block;height:100%;background:var(--red);width:5%;transition:width .5s cubic-bezier(.3,.7,.3,1)}
+.ob-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.ob-chip{background:var(--paper);border:1px solid var(--line);border-radius:100px;padding:10px 17px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:border-color .2s,transform .12s}
+.ob-chip:hover{border-color:var(--ink)}
+.ob-chip:active{transform:scale(.96)}
+.connect-card{margin-top:12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:16px;text-align:center}
+.connect-card .ilogo{margin:0 auto 10px}
+.connect-card b{font-size:14.5px}
+.connect-card p{font-size:12.5px;color:var(--ink2);margin:4px 0 12px}
+.connect-card button{width:100%;font-family:var(--sans);font-size:14px;font-weight:650;padding:12px;border-radius:100px;border:none;background:var(--ink);color:#fff;cursor:pointer}
+.importbar{height:6px;background:var(--line);border-radius:100px;overflow:hidden;margin-top:12px}
+.importbar i{display:block;height:100%;background:var(--good);width:0%;transition:width 2.4s cubic-bezier(.3,.7,.5,1)}
+
+/* ---------- thinking ---------- */
+.think{justify-content:center;padding:0 34px!important}
+.think .eyebrow{color:var(--red);margin-bottom:18px}
+.think h2{font-family:var(--serif);font-size:26px;font-weight:500;letter-spacing:-.01em;margin-bottom:30px}
+.tline{display:flex;align-items:center;gap:12px;font-size:14.5px;color:var(--ink3);padding:9px 0;opacity:0;transform:translateY(6px);transition:all .4s ease}
+.tline.show{opacity:1;transform:none;color:var(--ink)}
+.tline .tick{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .3s}
+.tline.done .tick{background:var(--ink);border-color:var(--ink);color:#fff}
+.tline b{font-weight:650}
+.think-cta{margin-top:34px;opacity:0;transition:opacity .5s}
+.think-cta.show{opacity:1}
+.think-cta button{width:100%;font-family:var(--sans);font-size:15px;font-weight:650;padding:16px;border-radius:100px;border:none;background:var(--red);color:#fff;cursor:pointer}
+
+/* ---------- paywall ---------- */
+.pay{padding:0 26px!important;justify-content:center}
+.pay .eyebrow{color:var(--red)}
+.pay h2{font-family:var(--serif);font-size:30px;font-weight:500;letter-spacing:-.02em;margin:10px 0 6px}
+.pay>p{font-size:14px;color:var(--ink2);margin-bottom:22px}
+.feat{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);font-size:14.5px}
+.feat:last-of-type{border-bottom:1px solid var(--line)}
+.feat .fdot{width:22px;height:22px;border-radius:50%;background:var(--red-soft);color:var(--red);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pay .price{margin:20px 0 14px;font-size:13.5px;color:var(--ink2)}
+.pay .price b{color:var(--ink);font-size:15px}
+
+/* ---------- memory panel ---------- */
+.memory{margin:0 22px;background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:20px}
+.memory .eyebrow{color:rgba(255,255,255,.5)}
+.memory h4{font-family:var(--serif);font-size:17px;font-weight:500;margin:8px 0 4px}
+.memory>p{font-size:12.5px;color:rgba(255,255,255,.6);margin-bottom:10px}
+.mem-item{display:flex;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,.12);font-size:13.5px;align-items:baseline}
+.mem-item i{font-style:normal;color:#ff9ba0;font-size:11px}
+
+/* ---------- lesson modal ---------- */
+.modal-back{position:absolute;inset:0;background:rgba(20,20,22,.45);z-index:80;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
+.modal-back.show{display:flex;animation:fadeIn .25s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.lesson{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:82%;overflow-y:auto;padding:26px 24px 34px;animation:slideUp .4s cubic-bezier(.3,.7,.3,1)}
+@keyframes slideUp{from{transform:translateY(60px)}to{transform:none}}
+.lesson .eyebrow{color:var(--red)}
+.lesson h3{font-family:var(--serif);font-size:23px;font-weight:500;margin:8px 0 12px;letter-spacing:-.01em}
+.lesson p{font-size:14.5px;line-height:1.65;color:var(--ink2);margin-bottom:12px}
+.lesson p b{color:var(--ink)}
+.quiz{margin-top:18px;background:var(--card);border-radius:var(--r-md);padding:18px}
+.quiz .eyebrow{color:var(--ink3)}
+.quiz h5{font-size:15px;font-weight:650;margin:6px 0 12px;line-height:1.4}
+.qopt{display:block;width:100%;text-align:left;font-family:var(--sans);font-size:14px;font-weight:550;padding:13px 16px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--paper);cursor:pointer;margin-bottom:8px;transition:all .2s}
+.qopt.right{border-color:var(--good);background:#eef8f2;color:var(--good);font-weight:700}
+.qopt.wrong{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.lesson-done{width:100%;margin-top:14px;font-family:var(--sans);font-size:14.5px;font-weight:650;padding:14px;border-radius:100px;border:none;background:var(--ink);color:#fff;cursor:pointer}
+
+.toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:11px 20px;border-radius:100px;opacity:0;pointer-events:none;transition:all .35s cubic-bezier(.3,.7,.3,1);z-index:60;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="device">
+
+<!-- ══════════════ WELCOME ══════════════ -->
+<section class="screen welcome active" id="screen-welcome">
+  <div class="w-top">
+    <div class="w-mark serif">Athlevo<i>.</i></div>
+    <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
+  </div>
+  <div class="w-btns">
+    <button class="w-btn primary" onclick="startOnboarding()">Create account</button>
+    <button class="w-btn" onclick="startOnboarding()">Log in</button>
+    <button class="w-btn" onclick="startOnboarding()"> Continue with Apple</button>
+    <button class="w-btn" onclick="startOnboarding()">G&ensp;Continue with Google</button>
+    <button class="w-skip" onclick="skipToApp()">Skip intro — view a built athlete profile</button>
+  </div>
+</section>
+
+<!-- ══════════════ ONBOARDING INTERVIEW ══════════════ -->
+<section class="screen" id="screen-onboard" style="padding-bottom:20px">
+  <div class="ob-progress"><i id="obBar"></i></div>
+  <div class="chat-head">
+    <div class="avatar serif">A</div>
+    <div><b>Athlevo Coach</b><small>Building your training system</small></div>
+  </div>
+  <div class="chatlog" id="obLog"></div>
+</section>
+
+<!-- ══════════════ THINKING ══════════════ -->
+<section class="screen think" id="screen-thinking">
+  <div>
+    <span class="eyebrow">Building your system</span>
+    <h2 class="serif">I'm thinking through your training the way a coach would.</h2>
+    <div id="thinkLines">
+      <div class="tline"><span class="tick">✓</span><span>Reviewing <b>214 imported activities</b>…</span></div>
+      <div class="tline"><span class="tick">✓</span><span>Analyzing training load — last 12 weeks…</span></div>
+      <div class="tline"><span class="tick">✓</span><span>Calculating current capacity…</span></div>
+      <div class="tline"><span class="tick">✓</span><span>Estimating threshold — <b>≈ 4:55/km</b>…</span></div>
+      <div class="tline"><span class="tick">✓</span><span>Reviewing <b>Pampanga</b> heat &amp; humidity patterns…</span></div>
+      <div class="tline"><span class="tick">✓</span><span>Reviewing sleep trends…</span></div>
+      <div class="tline"><span class="tick">✓</span><span>Mapping goal — <b>marathon, hilly, September</b>…</span></div>
+      <div class="tline"><span class="tick">✓</span><span>Fitting <b>5 training days</b> around your schedule…</span></div>
+    </div>
+    <div class="think-cta" id="thinkCta">
+      <button onclick="goPaywall()">Your system is ready →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ PAYWALL ══════════════ -->
+<section class="screen pay" id="screen-paywall">
+  <div>
+    <span class="eyebrow">Athlevo Premium</span>
+    <h2 class="serif">Your coach is ready, Dean.</h2>
+    <p>Everything I just built stays free to preview. Premium turns it on.</p>
+    <div class="feat"><span class="fdot">✓</span>AI coach — adapts your plan every morning</div>
+    <div class="feat"><span class="fdot">✓</span>Unlimited chat, with reasoning on every answer</div>
+    <div class="feat"><span class="fdot">✓</span>Full analytics &amp; race prediction</div>
+    <div class="feat"><span class="fdot">✓</span>Integrated lessons — learn the method as you train</div>
+    <div class="feat"><span class="fdot">✓</span>Human coach support &amp; monthly calls</div>
+    <p class="price"><b>14 days free</b>, then ₱599/month. Cancel anytime.</p>
+    <div class="w-btns" style="padding:0">
+      <button class="w-btn primary" style="background:var(--red);border-color:var(--red)" onclick="finishOnboarding('Trial started — 14 days free')">Start free trial</button>
+      <button class="w-skip" onclick="finishOnboarding('Continuing on Free')">Continue with Free</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ TODAY ══════════════ -->
+<section class="screen" id="screen-today">
+  <div class="statusrow"><span class="num">6:12</span><span>ATHLEVO</span><span class="num">◉ 82%</span></div>
+  <div class="greet">
+    <h1 class="serif">Good morning,<br>Dean.</h1>
+    <p>Wednesday, July 8 · <span class="wx">31°C, feels like 36° · 78% humidity</span></p>
+  </div>
+
+  <div class="readiness">
+    <div class="ring">
+      <svg width="118" height="118" viewBox="0 0 118 118">
+        <circle class="track" cx="59" cy="59" r="52" stroke-width="9" fill="none"/>
+        <circle class="fill" id="readyRing" cx="59" cy="59" r="52" stroke-width="9" fill="none"
+          stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+      </svg>
+      <div class="center"><b class="num">74</b><i>Readiness</i></div>
+    </div>
+    <div class="readiness-copy">
+      <h2>Ready — with one caveat.</h2>
+      <p>Your body absorbed Monday's Threshold session well, but last night's sleep was short. Today is adjusted, not cancelled.</p>
+    </div>
+  </div>
+
+  <!-- signature: the decision card -->
+  <div class="decision" id="decisionCard">
+    <span class="eyebrow">Today's call · Week 6 of 15</span>
+    <h3 class="serif">Keep the Control session — trimmed by 15 minutes.</h3>
+    <p>60 min Control (5:45–5:55/km) instead of 75. Same stimulus, lower total cost. Run before 7:00 AM to stay ahead of the heat.</p>
+    <button class="why-toggle" onclick="toggleDecision()" aria-expanded="false">
+      Why this decision
+      <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="ledger">
+      <div class="ledger-inner">
+        <div class="factor"><span class="f-name">Sleep</span><span><span class="f-val num">5h 42m</span><span class="f-dir dir-down">▼ SHORT</span></span></div>
+        <div class="factor"><span class="f-name">HRV (7-day baseline 64)</span><span><span class="f-val num">61 ms</span><span class="f-dir dir-flat">— STABLE</span></span></div>
+        <div class="factor"><span class="f-name">Resting HR</span><span><span class="f-val num">49 bpm</span><span class="f-dir dir-up">▲ NORMAL</span></span></div>
+        <div class="factor"><span class="f-name">Heat index at 6 AM</span><span><span class="f-val num">33°</span><span class="f-dir dir-down">▼ HIGH COST</span></span></div>
+        <div class="factor"><span class="f-name">7-day load ramp</span><span><span class="f-val num">+8%</span><span class="f-dir dir-flat">— ON PLAN</span></span></div>
+        <div class="factor"><span class="f-name">Monday Threshold compliance</span><span><span class="f-val num">98%</span><span class="f-dir dir-up">▲ ABSORBED</span></span></div>
+        <div class="ledger-verdict"><b>The reasoning:</b> HRV is stable, so no red flag — but short sleep plus a 33° heat index raises today's total cost. Cutting 15 minutes preserves the aerobic stimulus while protecting Friday's key Threshold session. We never trade tomorrow's quality for today's volume.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="statgrid">
+    <div class="stat"><span class="eyebrow">Sleep</span><b class="num">5:42</b><small>−1h 33m vs. need</small>
+      <div class="spark"><i style="height:70%"></i><i style="height:85%"></i><i style="height:60%"></i><i style="height:90%"></i><i style="height:78%"></i><i style="height:82%"></i><i class="hi" style="height:45%"></i></div></div>
+    <div class="stat"><span class="eyebrow">HRV</span><b class="num">61 <small style="display:inline">ms</small></b><small>Baseline 64 · stable</small>
+      <div class="spark"><i style="height:60%"></i><i style="height:72%"></i><i style="height:66%"></i><i style="height:80%"></i><i style="height:74%"></i><i style="height:70%"></i><i class="hi" style="height:64%"></i></div></div>
+    <div class="stat"><span class="eyebrow">Body battery</span><b class="num">68</b><small>Drained faster overnight</small>
+      <div class="spark"><i style="height:90%"></i><i style="height:76%"></i><i style="height:82%"></i><i style="height:88%"></i><i style="height:70%"></i><i style="height:80%"></i><i class="hi" style="height:62%"></i></div></div>
+    <div class="stat"><span class="eyebrow">Training load</span><b class="num">412</b><small>Optimal band 380–450</small>
+      <div class="spark"><i style="height:50%"></i><i style="height:58%"></i><i style="height:64%"></i><i style="height:60%"></i><i style="height:72%"></i><i style="height:78%"></i><i class="hi" style="height:82%"></i></div></div>
+  </div>
+
+  <div class="race">
+    <div><b>Marathon — Hilly Course</b><small>Goal 3:40–3:50 · Build phase</small></div>
+    <div class="days"><b class="num">63</b><small>Days</small></div>
+  </div>
+
+  <div class="coachnote">
+    <span class="eyebrow">Coach's note</span>
+    <p>Solid week so far, Dean. Your Control pace is drifting faster than prescribed — hold 5:45–5:55. Discipline at low intensity is what buys speed at high intensity.</p>
+  </div>
+  <div class="spacer-lg"></div>
+</section>
+
+<!-- ══════════════ COACH AI ══════════════ -->
+<section class="screen" id="screen-coachai">
+  <div class="chat-head">
+    <div class="avatar serif">A</div>
+    <div><b>Athlevo Coach</b><small>Knows your full history · 24/7</small></div>
+  </div>
+  <div class="chatlog" id="chatlog">
+    <div class="msg ai">
+      <span class="call">Morning, Dean. I've already reviewed last night.</span>
+      <div class="change">Short sleep, stable HRV, heat index 33° by 6 AM. I trimmed today's Control run to 60 minutes — the full reasoning is on your Today screen. Ask me anything.</div>
+    </div>
+  </div>
+  <div class="chips" id="chips">
+    <button class="chip" onclick="ask('Why am I running easy today?')">Why easy today?</button>
+    <button class="chip" onclick="ask('I only slept 5 hours.')">I only slept 5 hours</button>
+    <button class="chip" onclick="ask('My calf feels tight.')">My calf feels tight</button>
+    <button class="chip" onclick="ask('My knee hurts.')">My knee hurts</button>
+    <button class="chip" onclick="ask('Can I move tomorrow\u2019s workout?')">Move tomorrow's workout?</button>
+    <button class="chip" onclick="ask('Explain LT2.')">Explain LT2</button>
+    <button class="chip" onclick="ask('What shoes should I wear?')">What shoes today?</button>
+  </div>
+  <div class="composer">
+    <input id="chatInput" type="text" placeholder="Ask your coach anything…" aria-label="Message your coach" onkeydown="if(event.key==='Enter')sendMsg()">
+    <button class="send" onclick="sendMsg()" aria-label="Send">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+</section>
+
+<!-- ══════════════ TRAIN ══════════════ -->
+<section class="screen" id="screen-train">
+  <div class="greet" style="padding-bottom:0">
+    <h1 class="serif" style="font-size:28px">Training</h1>
+    <p>Week 6 of 15 · Build phase · 58 km planned</p>
+  </div>
+  <div class="weekstrip">
+    <button class="day" onclick="selDay(this)"><small>Mon</small><b class="num">6</b><div class="dd key"></div></button>
+    <button class="day" onclick="selDay(this)"><small>Tue</small><b class="num">7</b><div class="dd"></div></button>
+    <button class="day sel" onclick="selDay(this)"><small>Wed</small><b class="num">8</b><div class="dd"></div></button>
+    <button class="day" onclick="selDay(this)"><small>Thu</small><b class="num">9</b><div class="dd"></div></button>
+    <button class="day" onclick="selDay(this)"><small>Fri</small><b class="num">10</b><div class="dd key"></div></button>
+    <button class="day" onclick="selDay(this)"><small>Sat</small><b class="num">11</b><div class="dd none"></div></button>
+    <button class="day" onclick="selDay(this)"><small>Sun</small><b class="num">12</b><div class="dd key"></div></button>
+  </div>
+
+  <div class="workout open" onclick="this.classList.toggle('open')">
+    <div class="top">
+      <div><span class="eyebrow">Today · Adjusted by Coach</span></div>
+      <span class="zone-badge">Control</span>
+    </div>
+    <h3 class="serif">Control Run — 60 min</h3>
+    <div class="meta"><span>Pace <b>5:45–5:55</b></span><span>HR <b>&lt;152</b></span><span>Cost <b>Moderate</b></span></div>
+    <div class="session-detail">
+      <div class="sd-inner">
+        <div class="chart-label">Session profile</div>
+        <div class="intervals" aria-hidden="true">
+          <i style="height:30%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:30%"></i>
+        </div>
+        <div class="steps">
+          <div class="step"><span>Warm-up</span><b>10 min Ground · 6:30+</b></div>
+          <div class="step"><span>Main</span><b>42 min Control · 5:45–5:55</b></div>
+          <div class="step"><span>Cool-down</span><b>8 min Ground</b></div>
+          <div class="step"><span>Hydration</span><b>500 ml before · carry 500 ml</b></div>
+        </div>
+        <div class="learn-link" onclick="event.stopPropagation();toast('Opening: The Control Zone')">
+          <div>Why Control pace builds your marathon<small>4 min read · Athlevo Method</small></div>
+          <span class="arr">→</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="workout" onclick="this.classList.toggle('open')">
+    <div class="top">
+      <div><span class="eyebrow">Friday · Key session</span></div>
+      <span class="zone-badge threshold">Threshold</span>
+    </div>
+    <h3 class="serif">4 × 8 min Threshold</h3>
+    <div class="meta"><span>Pace <b>4:52–4:58</b></span><span>Rest <b>2 min jog</b></span><span>Cost <b>High</b></span></div>
+    <div class="session-detail">
+      <div class="sd-inner">
+        <div class="chart-label">Session profile</div>
+        <div class="intervals" aria-hidden="true">
+          <i style="height:30%"></i><i class="t" style="height:80%"></i><i style="height:35%"></i><i class="t" style="height:80%"></i><i style="height:35%"></i><i class="t" style="height:80%"></i><i style="height:35%"></i><i class="t" style="height:80%"></i><i style="height:30%"></i>
+        </div>
+        <div class="steps">
+          <div class="step"><span>Warm-up</span><b>15 min + 4 strides</b></div>
+          <div class="step"><span>Main</span><b>4 × 8 min @ 4:52–4:58</b></div>
+          <div class="step"><span>Recovery</span><b>2 min Ground jog</b></div>
+          <div class="step"><span>Start time</span><b>Before 6:30 AM (heat)</b></div>
+        </div>
+        <div class="learn-link" onclick="event.stopPropagation();openLesson()">
+          <div>Why threshold training matters<small>4 min lesson + quiz · Norwegian model</small></div>
+          <span class="arr">→</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="workout" onclick="this.classList.toggle('open')">
+    <div class="top">
+      <div><span class="eyebrow">Sunday · Long run</span></div>
+      <span class="zone-badge">Ground</span>
+    </div>
+    <h3 class="serif">Long Run — 24 km</h3>
+    <div class="meta"><span>Pace <b>6:10–6:30</b></span><span>Fuel <b>every 40 min</b></span><span>Cost <b>High</b></span></div>
+    <div class="session-detail">
+      <div class="sd-inner">
+        <div class="steps" style="margin-top:0">
+          <div class="step"><span>Route</span><b>Rolling hills — race-specific</b></div>
+          <div class="step"><span>Fueling</span><b>1 gel every 40 min + electrolytes</b></div>
+          <div class="step"><span>Last 4 km</span><b>Progress to 5:50 if fresh</b></div>
+        </div>
+        <div class="learn-link" onclick="event.stopPropagation();toast('Opening: Fueling the Long Run')">
+          <div>Fueling the long run in heat<small>5 min read · Total Cost Accounting</small></div>
+          <span class="arr">→</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="zonekey">
+    <div class="chart-label">The Athlevo zones</div>
+    <div class="zk-row"><span class="zk-dot" style="background:#c9c9c4"></span><b>Ground</b><span>Aerobic base — conversational, builds the engine</span></div>
+    <div class="zk-row"><span class="zk-dot" style="background:#8f9096"></span><b>Control</b><span>Steady aerobic — marathon-supporting effort</span></div>
+    <div class="zk-row"><span class="zk-dot" style="background:#C0272D"></span><b>Threshold</b><span>LT2 work — the engine's ceiling, used precisely</span></div>
+    <div class="zk-row"><span class="zk-dot" style="background:#141416"></span><b>Edge</b><span>VO₂ and speed — small doses, big cost</span></div>
+  </div>
+  <div class="spacer-lg"></div>
+</section>
+
+<!-- ══════════════ TRENDS ══════════════ -->
+<section class="screen" id="screen-trends">
+  <div class="greet" style="padding-bottom:16px">
+    <h1 class="serif" style="font-size:28px">Trends</h1>
+    <p>Last 6 weeks · Build phase</p>
+  </div>
+
+  <div class="predict">
+    <div>
+      <span class="eyebrow">Predicted marathon</span>
+      <h3 class="serif num">3:46:20</h3>
+      <p>Inside your 3:40–3:50 goal window</p>
+    </div>
+    <div class="conf"><b class="num">84%</b><small>Confid.</small></div>
+  </div>
+  <div class="spacer-md"></div>
+
+  <div class="bigchart">
+    <h3>Fitness vs. fatigue</h3>
+    <p class="sub">Fitness climbing steadily; fatigue peaks absorbed within 48h</p>
+    <svg viewBox="0 0 320 120" width="100%" aria-label="Fitness and fatigue trend chart">
+      <line x1="0" y1="100" x2="320" y2="100" stroke="#ebebe8"/>
+      <line x1="0" y1="60" x2="320" y2="60" stroke="#ebebe8"/>
+      <line x1="0" y1="20" x2="320" y2="20" stroke="#ebebe8"/>
+      <path d="M0,92 C40,88 60,80 100,74 C140,68 180,60 220,52 C260,44 290,40 320,34" fill="none" stroke="#141416" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M0,86 C30,70 50,92 80,72 C110,52 140,84 180,62 C220,42 250,76 290,56 C305,48 312,52 320,48" fill="none" stroke="#C0272D" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 0" opacity=".85"/>
+    </svg>
+    <div class="legend"><span><i style="background:#141416"></i>Fitness</span><span><i style="background:#C0272D"></i>Fatigue</span></div>
+  </div>
+  <div class="spacer-md"></div>
+
+  <div class="bigchart">
+    <h3>Weekly volume</h3>
+    <p class="sub">Consistency 92% · ramp held under 10%/week</p>
+    <svg viewBox="0 0 320 110" width="100%" aria-label="Weekly volume bar chart">
+      <g fill="#d8d8d4">
+        <rect x="10"  y="58" width="36" height="46" rx="5"/>
+        <rect x="62"  y="50" width="36" height="54" rx="5"/>
+        <rect x="114" y="44" width="36" height="60" rx="5"/>
+        <rect x="166" y="62" width="36" height="42" rx="5"/>
+        <rect x="218" y="36" width="36" height="68" rx="5"/>
+      </g>
+      <rect x="270" y="28" width="36" height="76" rx="5" fill="#141416"/>
+      <g font-family="-apple-system,sans-serif" font-size="10" fill="#9a9da3" text-anchor="middle">
+        <text x="28" y="112">42</text><text x="80" y="112">46</text><text x="132" y="112">49</text><text x="184" y="112">40</text><text x="236" y="112">54</text><text x="288" y="112" fill="#141416" font-weight="700">58</text>
+      </g>
+    </svg>
+  </div>
+  <div class="spacer-md"></div>
+
+  <div class="bigchart">
+    <h3>Training distribution</h3>
+    <p class="sub">Pyramid intact — most of your week lives in Ground</p>
+    <div class="dist">
+      <i style="width:62%;background:#c9c9c4"></i>
+      <i style="width:22%;background:#8f9096"></i>
+      <i style="width:12%;background:#C0272D"></i>
+      <i style="width:4%;background:#141416"></i>
+    </div>
+    <div class="dist-labels"><span>Ground 62%</span><span>Control 22%</span><span>Thresh 12%</span><span>Edge 4%</span></div>
+  </div>
+  <div class="spacer-md"></div>
+
+  <div class="bigchart">
+    <h3>Heat adaptation</h3>
+    <p class="sub">HR drift at fixed Control pace, same route, 31°C mornings</p>
+    <svg viewBox="0 0 320 100" width="100%" aria-label="Heat adaptation trend">
+      <line x1="0" y1="80" x2="320" y2="80" stroke="#ebebe8"/>
+      <path d="M0,24 C60,28 110,38 160,48 C210,58 270,64 320,68" fill="none" stroke="#C0272D" stroke-width="2.5" stroke-linecap="round"/>
+      <g font-family="-apple-system,sans-serif" font-size="10" fill="#9a9da3">
+        <text x="0" y="16">+11 bpm drift</text><text x="252" y="62">+4 bpm drift</text>
+      </g>
+    </svg>
+    <p class="sub" style="margin:10px 0 0">You're adapting. The heat is becoming a smaller tax on every session.</p>
+  </div>
+  <div class="spacer-lg"></div>
+</section>
+
+<!-- ══════════════ YOU ══════════════ -->
+<section class="screen" id="screen-you">
+  <div class="profilehead">
+    <div class="pfp serif">D</div>
+    <div>
+      <h1 class="serif">Dean Castro</h1>
+      <p>Marathon build · Pampanga, PH · Elite plan</p>
+    </div>
+  </div>
+  <div class="spacer-md"></div>
+
+  <div class="memory">
+    <span class="eyebrow">Coach memory</span>
+    <h4 class="serif">What I know about you</h4>
+    <p>Learned from our conversations and your data. I never ask twice.</p>
+    <div class="mem-item"><i>●</i>Marathon in September — hilly course, goal 3:40–3:50</div>
+    <div class="mem-item"><i>●</i>Trains in Pampanga heat — 31°C mornings, 78% humidity</div>
+    <div class="mem-item"><i>●</i>Sleep is the recurring weak point — evenings run late</div>
+    <div class="mem-item"><i>●</i>Past shin splints — watch load ramps &gt;10%</div>
+    <div class="mem-item"><i>●</i>Prefers morning runs &amp; heart-rate guidance</div>
+    <div class="mem-item"><i>●</i>Responds well to Norwegian threshold work</div>
+    <div class="mem-item"><i>●</i>Cycling background — clean cross-training substitute</div>
+  </div>
+  <div class="spacer-lg"></div>
+
+  <div class="pad"><div class="section-title serif">Connected devices &amp; apps</div></div>
+  <div class="integ">
+    <div class="integ-row"><div class="ilogo">G</div><div class="in"><b>Garmin Connect</b><small><span class="sync-dot pulse"></span>Syncing — this morning's sleep</small></div><span class="connected-check">✓</span></div>
+    <div class="integ-row"><div class="ilogo">S</div><div class="in"><b>Strava</b><small><span class="sync-dot"></span>Synced 6:02 AM</small></div><span class="connected-check">✓</span></div>
+    <div class="integ-row"><div class="ilogo">W</div><div class="in"><b>WHOOP</b><small>Recovery, strain &amp; sleep staging</small></div><button class="connect-btn" onclick="connectRow(this)">Connect</button></div>
+    <div class="integ-row"><div class="ilogo">C</div><div class="in"><b>COROS</b><small>Watch data &amp; running power</small></div><button class="connect-btn" onclick="connectRow(this)">Connect</button></div>
+    <div class="integ-row"><div class="ilogo">A</div><div class="in"><b>Apple Health</b><small><span class="sync-dot"></span>Synced continuously</small></div><span class="connected-check">✓</span></div>
+    <div class="integ-row"><div class="ilogo">St</div><div class="in"><b>Stryd</b><small>Running power &amp; wind resistance</small></div><button class="connect-btn" onclick="connectRow(this)">Connect</button></div>
+    <div class="integ-row"><div class="ilogo">I</div><div class="in"><b>Intervals.icu</b><small>Advanced load analytics</small></div><button class="connect-btn" onclick="connectRow(this)">Connect</button></div>
+  </div>
+  <div class="spacer-lg"></div>
+
+  <div class="pad"><div class="section-title serif">Learn the method</div></div>
+  <div class="edu-scroll">
+    <div class="edu-card" onclick="openLesson()"><span class="eyebrow">Zones</span><h4>Why Threshold works — and why more isn't better</h4><small>6 min · Norwegian model</small></div>
+    <div class="edu-card" onclick="toast('Opening: Total Cost Accounting')"><span class="eyebrow">Philosophy</span><h4>Total Cost Accounting: training is not your only load</h4><small>5 min · Athlevo Method</small></div>
+    <div class="edu-card" onclick="toast('Opening: Heat — The Invisible Interval')"><span class="eyebrow">Environment</span><h4>Heat is an invisible interval</h4><small>4 min · Tropical training</small></div>
+    <div class="edu-card" onclick="toast('Opening: LT1 vs LT2')"><span class="eyebrow">Science</span><h4>LT1 vs LT2 — the two doors of endurance</h4><small>7 min · Physiology</small></div>
+  </div>
+  <div class="spacer-lg"></div>
+
+  <div class="pad"><div class="section-title serif">Community</div></div>
+  <div class="rowlink" onclick="toast('Community — coming in v1.1')">
+    <div><b>Athlevo Athletes</b><small>Questions, discussion &amp; leaderboards</small></div><span class="arr">→</span>
+  </div>
+  <div class="spacer-md" style="height:12px"></div>
+  <div class="rowlink" onclick="toast('Office hours: Sunday 8 PM')">
+    <div><b>Coach office hours</b><small>Live Q&amp;A every Sunday evening</small></div><span class="arr">→</span>
+  </div>
+  <div class="spacer-lg"></div>
+
+  <div class="pad"><div class="section-title serif">Coaching</div></div>
+  <div class="rowlink" onclick="enterCoachMode()">
+    <div><b>Coach Mode</b><small>Manage your athlete roster</small></div><span class="arr" style="color:var(--red)">→</span>
+  </div>
+  <div class="spacer-lg"></div>
+</section>
+
+<!-- ══════════════ COACH MODE ══════════════ -->
+<section class="screen" id="screen-coachmode">
+  <div class="cm-head">
+    <div><h1 class="serif">Coach Mode</h1><p>Athlevo Coaching · 12 active athletes</p></div>
+    <button class="cm-exit" onclick="exitCoachMode()">Exit</button>
+  </div>
+  <div class="cm-stats">
+    <div class="cm-stat"><b class="num">12</b><small>Athletes</small></div>
+    <div class="cm-stat"><b class="num">91%</b><small>Compliance</small></div>
+    <div class="cm-stat"><b class="num flag">3</b><small>Flags</small></div>
+  </div>
+  <div class="spacer-md"></div>
+  <div class="pad"><div class="section-title serif">Needs your decision</div></div>
+
+  <div class="athlete">
+    <div class="row1"><div class="a-pfp">RG</div><div><b>RJ Gomez</b><small>Marathon · Peak phase</small></div><div class="compliance"><b class="num">96%</b><small>Compl.</small></div></div>
+    <div class="flagline"><b>Flag:</b> HRV down 14% for 3 straight days + reported heavy legs. AI proposes converting tomorrow's Threshold to Control and re-testing Friday.</div>
+    <div class="cm-actions"><button class="cm-btn approve" onclick="decide(this,'Approved — RJ\u2019s plan updated')">Approve change</button><button class="cm-btn" onclick="decide(this,'Override saved — original session kept')">Override</button></div>
+  </div>
+
+  <div class="athlete">
+    <div class="row1"><div class="a-pfp">HY</div><div><b>Herma Joy Yutig</b><small>10K · Build phase</small></div><div class="compliance"><b class="num">88%</b><small>Compl.</small></div></div>
+    <div class="flagline"><b>Flag:</b> Missed 2 of 3 sessions this week (work schedule). AI proposes compressing the week: keep the key session, drop one Ground run.</div>
+    <div class="cm-actions"><button class="cm-btn approve" onclick="decide(this,'Approved — Herma\u2019s week compressed')">Approve change</button><button class="cm-btn" onclick="decide(this,'Override saved')">Override</button></div>
+  </div>
+
+  <div class="athlete">
+    <div class="row1"><div class="a-pfp">CP</div><div><b>Carlo Panton</b><small>Half marathon · Base</small></div><div class="compliance"><b class="num">94%</b><small>Compl.</small></div></div>
+    <div class="flagline"><b>Flag:</b> Ran Control sessions 20s/km too fast twice this week. AI proposes an automated pace-discipline message before his next session.</div>
+    <div class="cm-actions"><button class="cm-btn approve" onclick="decide(this,'Message queued for Carlo')">Send message</button><button class="cm-btn" onclick="decide(this,'Dismissed')">Dismiss</button></div>
+  </div>
+
+  <div class="pad"><div class="section-title serif" style="margin-top:10px">On track</div></div>
+  <div class="athlete"><div class="row1"><div class="a-pfp">RD</div><div><b>Rupert Delson</b><small>5K · Sharpening</small></div><div class="compliance"><b class="num">98%</b><small>Compl.</small></div></div></div>
+  <div class="athlete"><div class="row1"><div class="a-pfp">AP</div><div><b>Abby Panghulan</b><small>10K · Build</small></div><div class="compliance"><b class="num">92%</b><small>Compl.</small></div></div></div>
+  <div class="athlete"><div class="row1"><div class="a-pfp">JD</div><div><b>JM Destacamento</b><small>Marathon · Base</small></div><div class="compliance"><b class="num">90%</b><small>Compl.</small></div></div></div>
+  <div class="spacer-lg"></div>
+</section>
+
+<div class="toast" id="toast">Done</div>
+
+<!-- ══════════════ LESSON MODAL ══════════════ -->
+<div class="modal-back" id="lessonModal" onclick="if(event.target===this)closeLesson()">
+  <div class="lesson">
+    <span class="eyebrow">4-minute lesson · Athlevo Method</span>
+    <h3 class="serif">Why Threshold works — and why more isn't better</h3>
+    <p><b>LT2 is your sustainable ceiling.</b> Below it, lactate production and clearance stay in balance. Above it, the debt compounds and the session's recovery cost explodes.</p>
+    <p><b>The Norwegian insight:</b> train slightly <b>below</b> LT2, in controlled repeats. You accumulate far more quality minutes per week than one heroic effort ever could — and you can repeat it Friday after Friday.</p>
+    <p><b>Your application:</b> that's why your repeats are 4:52–4:58/km, not "as fast as possible." The pace ceiling is the workout.</p>
+    <div class="quiz">
+      <span class="eyebrow">Quick check</span>
+      <h5>The Athlevo Method prescribes threshold repeats slightly ___ LT2.</h5>
+      <button class="qopt" onclick="quizPick(this,false)">Above — push the ceiling by exceeding it</button>
+      <button class="qopt" onclick="quizPick(this,true)">Below — repeatable quality, controlled cost</button>
+    </div>
+    <button class="lesson-done" onclick="closeLesson()">Done — back to training</button>
+  </div>
+</div>
+
+<!-- ══════════════ TAB BAR ══════════════ -->
+<nav class="tabbar" id="tabbar" style="display:none">
+  <button class="tab on" data-screen="screen-today" onclick="go(this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+    <span>Today</span><div class="dotmark"></div>
+  </button>
+  <button class="tab" data-screen="screen-coachai" onclick="go(this)">
+    <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>
+    <span>Coach</span><div class="dotmark"></div>
+  </button>
+  <button class="tab" data-screen="screen-train" onclick="go(this)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    <span>Train</span><div class="dotmark"></div>
+  </button>
+  <button class="tab" data-screen="screen-trends" onclick="go(this)">
+    <svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+    <span>Trends</span><div class="dotmark"></div>
+  </button>
+  <button class="tab" data-screen="screen-you" onclick="go(this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    <span>You</span><div class="dotmark"></div>
+  </button>
+</nav>
+</div>
+
+<script>
+/* ---------- navigation ---------- */
+function go(btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(btn.dataset.screen).classList.add('active');
+  if(btn.dataset.screen==='screen-today') animateRing();
+}
+function enterCoachMode(){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-coachmode').classList.add('active');
+  document.getElementById('tabbar').style.display='none';
+}
+function exitCoachMode(){
+  document.getElementById('tabbar').style.display='flex';
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-you').classList.add('active');
+}
+
+/* ---------- readiness ring ---------- */
+function animateRing(){
+  const ring=document.getElementById('readyRing');
+  const score=74, C=326.7;
+  ring.style.strokeDashoffset=C;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    ring.style.strokeDashoffset=C*(1-score/100);
+  }));
+}
+window.addEventListener('load',animateRing);
+
+/* ---------- decision card ---------- */
+function toggleDecision(){
+  const c=document.getElementById('decisionCard');
+  c.classList.toggle('open');
+  c.querySelector('.why-toggle').setAttribute('aria-expanded',c.classList.contains('open'));
+}
+
+/* ---------- day selector ---------- */
+function selDay(el){
+  document.querySelectorAll('.day').forEach(d=>d.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+/* ---------- toast ---------- */
+let toastTimer;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ---------- coach mode decisions ---------- */
+function decide(btn,msg){
+  const card=btn.closest('.athlete');
+  card.style.transition='opacity .4s, transform .4s';
+  card.style.opacity='.35';
+  card.querySelector('.flagline').style.textDecoration='none';
+  card.querySelectorAll('.cm-btn').forEach(b=>b.disabled=true);
+  toast(msg);
+}
+
+/* ---------- integrations ---------- */
+function connectRow(btn){
+  const row=btn.closest('.integ-row');
+  btn.outerHTML='<span class="connected-check">✓</span>';
+  row.querySelector('small').innerHTML='<span class="sync-dot pulse"></span>Connecting — first sync in progress';
+  toast('Connected');
+  setTimeout(()=>{row.querySelector('small').innerHTML='<span class="sync-dot"></span>Synced just now';},2600);
+}
+
+/* ---------- AI coach ---------- */
+const BRAIN=[
+ {k:['easy','why am i running'],r:{
+   call:"You're running easy because Friday is the session that actually moves your fitness.",
+   why:["<b>Monday's Threshold</b> created the stimulus — today is where it gets absorbed","<b>Sleep 5h42</b> means recovery capacity is already reduced","<b>Heat index 33°</b> adds cost to every kilometer, even slow ones"],
+   change:"Easy days aren't filler — they're the payment that makes hard days affordable. Hold <b>5:45–5:55/km</b>. If you drift faster, you're borrowing from Friday."}},
+ {k:['slept','5 hours','sleep'],r:{
+   call:"Noted — and I already accounted for it in today's plan.",
+   why:["<b>One short night</b> with stable HRV (61 vs baseline 64) = adjust, don't cancel","<b>Two+ short nights</b> would change the picture — that's when injury risk climbs","<b>Body battery 68</b> confirms reduced but workable capacity"],
+   change:"Today stays at 60 min Control. Priority tonight: <b>in bed by 9:30 PM</b>. If tomorrow's HRV drops below 55, Friday's Threshold becomes Control automatically — and I'll tell you why."}},
+ {k:['knee','hurt','pain','injur'],r:{
+   call:"Stop — let's assess before you run on it.",
+   why:["<b>Location matters:</b> front-of-knee under load suggests patellofemoral irritation; outside-of-knee points to IT band","<b>Your history:</b> no knee flags in the last 12 weeks, so this is new — new pain gets respect","<b>Load context:</b> volume ramped +8% this week, a common window for niggles"],
+   change:"Rate it 1–10. <b>Under 3 and no change while walking:</b> swap today for 40 min bike (your cycling background makes this a clean substitute). <b>3 or above, or sharp:</b> full rest today and tell me tomorrow morning. A missed Wednesday costs nothing. A torn-up July costs the marathon."}},
+ {k:['move','tomorrow','reschedule','shift'],r:{
+   call:"Yes — tomorrow is flexible. Here's the trade.",
+   why:["<b>Tomorrow is Ground</b> (recovery run) — low structural importance","<b>Friday is Threshold</b> — the anchor of the week, protected at all costs","<b>Rule:</b> easy days move freely; key sessions need 48h spacing"],
+   change:"Move tomorrow's run to Saturday morning, keep Friday's Threshold where it is, and Sunday's long run stays. Want me to update the calendar?"}},
+ {k:['lt2','threshold','lactate'],r:{
+   call:"LT2 is the highest effort your body can sustain in equilibrium — the ceiling of 'sustainable.'",
+   why:["<b>Below LT2:</b> lactate production and clearance balance — you can hold it for a long time","<b>Above LT2:</b> lactate accumulates faster than you clear it — the clock starts ticking","<b>For you</b>, that sits around 4:52–4:58/km right now, which is exactly where Friday's repeats live"],
+   change:"The Norwegian insight we build on: train <b>at</b> the threshold, not above it. Slightly under LT2, repeated often, moves the ceiling up without the recovery bill of going over. That's why your Threshold work feels controlled, not heroic."}},
+ {k:['shoe','wear'],r:{
+   call:"Daily trainers today — save the plated shoes.",
+   why:["<b>Today is Control</b> — no need for carbon assistance at 5:45/km","<b>Plated shoes change your mechanics</b> — we ration them for Threshold and race day so the stimulus stays specific","<b>Heat note:</b> pick your most breathable pair; 31° mornings punish thick uppers"],
+   change:"Rotation rule: trainers for Ground and Control, plated for Friday's Threshold and the marathon itself."}},
+];
+const FALLBACK={
+  call:"Good question — here's how I'd think about it.",
+  why:["<b>Your context:</b> week 6 of 15, build phase, 63 days to race day","<b>Current state:</b> readiness 74, load in the optimal band, heat-adapting well","<b>Principle:</b> every decision protects the next key session"],
+  change:"Give me a bit more detail and I'll give you a specific call — with the reasoning behind it."};
+
+/* multi-turn triage: the coach asks before it decides */
+const CALF=[
+ {q:"Before I decide anything — where exactly?",chips:["Upper calf, inside","Mid-belly","Low, near the Achilles"]},
+ {q:"And how bad, 1–10, right now walking around?",chips:["1–3 · just tight","4–6 · noticeable","7+ · it hurts"]},
+ {q:"Last one: can you do 10 single-leg hops on it pain-free?",chips:["Yes, no pain","No / not sure"]},
+];
+let calfStage=-1,calfAns=[];
+function calfAsk(stage){
+  const log=document.getElementById('chatlog');
+  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);scrollChat();
+  setTimeout(()=>{
+    t.remove();
+    const m=document.createElement('div');m.className='msg ai';
+    m.innerHTML='<span class="call">'+CALF[stage].q+'</span><div class="ob-chips">'+CALF[stage].chips.map(c=>'<button class="ob-chip" onclick="calfPick(this)">'+c+'</button>').join('')+'</div>';
+    log.appendChild(m);scrollChat();
+  },1000);
+}
+function calfPick(btn){
+  const log=document.getElementById('chatlog');
+  calfAns.push(btn.textContent);
+  btn.closest('.ob-chips').remove();
+  const u=document.createElement('div');u.className='msg user';u.textContent=btn.textContent;log.appendChild(u);
+  calfStage++;
+  if(calfStage<CALF.length){calfAsk(calfStage);return;}
+  const severe=calfAns[1].startsWith('7')||calfAns[2].startsWith('No');
+  const achilles=calfAns[0].includes('Achilles');
+  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);scrollChat();
+  setTimeout(()=>{
+    t.remove();
+    const m=document.createElement('div');m.className='msg ai';
+    const call=severe?"Then today's run is off. That's a decision, not a suggestion.":"Okay — this reads like tightness, not injury. We adapt, we don't panic.";
+    const why=achilles
+      ?["<b>Location near the Achilles</b> is the one we never gamble with — tendon issues punish impatience","<b>Your history:</b> past shin splints means your lower legs get extra respect","<b>Load context:</b> volume is ramping — classic window for tendon complaints"]
+      :["<b>Muscle-belly tightness</b> usually responds to reduced load, not zero load","<b>Hop test result</b> is the best field screen we have — yours guides the call","<b>Today is Control</b>, not a key session — cheap to modify, expensive to force"];
+    const change=severe
+      ?"Full rest today. Gentle calf raises tomorrow morning — if pain-free, we test a 20 min jog. If not, I'm flagging Coach Dean for a look. Tell me how it feels tomorrow; <b>I'll remember this either way.</b>"
+      :"Swap today for <b>40 min easy bike</b> (your cycling background makes this a clean substitute) + 5 min of slow calf raises after. If it's quiet tomorrow, Friday's Threshold stays. <b>Logged to your injury history.</b>";
+    m.innerHTML='<span class="call">'+call+'</span><div class="whyblock"><span class="eyebrow">Why</span><ul>'+why.map(w=>'<li>'+w+'</li>').join('')+'</ul></div><div class="change">'+change+'</div>';
+    log.appendChild(m);scrollChat();
+  },1400);
+}
+
+function ask(q){document.getElementById('chatInput').value=q;sendMsg();}
+function sendMsg(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  const log=document.getElementById('chatlog');
+  const u=document.createElement('div');u.className='msg user';u.textContent=text;log.appendChild(u);
+  scrollChat();
+  const low=text.toLowerCase();
+  if(low.includes('calf')||low.includes('tight')){calfStage=0;calfAns=[];calfAsk(0);return;}
+  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);
+  scrollChat();
+  const hit=BRAIN.find(b=>b.k.some(k=>low.includes(k)))||{r:FALLBACK};
+  setTimeout(()=>{
+    t.remove();
+    const m=document.createElement('div');m.className='msg ai';
+    m.innerHTML='<span class="call">'+hit.r.call+'</span>'
+      +'<div class="whyblock"><span class="eyebrow">Why</span><ul>'+hit.r.why.map(w=>'<li>'+w+'</li>').join('')+'</ul></div>'
+      +'<div class="change">'+hit.r.change+'</div>';
+    log.appendChild(m);scrollChat();
+  },1300);
+}
+function scrollChat(){
+  const s=document.getElementById('screen-coachai');
+  s.scrollTop=s.scrollHeight;
+}
+
+/* ══════════════ ONBOARDING ══════════════ */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function skipToApp(){finishOnboarding('Welcome back, Dean');}
+function startOnboarding(){showScreen('screen-onboard');obNext(0);}
+
+const OB=[
+ {ai:"Hi Dean. I'm going to build your training system — not a template, <b>yours</b>. This takes about 8 minutes. Ready?",chips:["Let's go"]},
+ {ai:"What's the goal?",chips:["🏃 Marathon","10K","HYROX","General fitness"]},
+ {ai:"Marathon — good. When, and what kind of course?",chips:["September · hilly","Not sure yet"]},
+ {ai:"Noted: <b>September, hilly</b>. Hills change how we build your long runs.<br><br>Tell me about you — age, height, weight?",chips:["20 · 5'9\" · 80 kg"]},
+ {ai:"How many years have you been running seriously?",chips:["3+ years","1–3 years","Just started"]},
+ {ai:"Any injuries I should respect? Be honest — this changes how I ramp your load.",chips:["Shin splints (past)","None"]},
+ {ai:"Shin splints, noted <b>permanently</b>. I'll cap your weekly ramp at 10% and flag any early warning signs.<br><br>How many days a week can you train?",chips:["4","5","6"]},
+ {ai:"Five days — enough for two quality sessions and a real long run.<br><br>What's on your wrist?",chips:["Garmin","COROS","Apple Watch","None"]},
+ {ai:"Perfect. If you connect it, I can read your entire training history instead of asking twenty more questions.",connect:true},
+ {ai:"<b>214 activities imported.</b> I can already see your threshold sessions, your heat drift, your real weekly volume.<br><br>Honestly? I now know more about your running than most coaches would learn in a month.",chips:["Build my system →"],final:true},
+];
+let obStep=-1;
+function obNext(step){
+  obStep=step;
+  const log=document.getElementById('obLog');
+  document.getElementById('obBar').style.width=Math.round(((step+1)/OB.length)*100)+'%';
+  const s=OB[step];
+  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);
+  obScroll();
+  setTimeout(()=>{
+    t.remove();
+    const m=document.createElement('div');m.className='msg ai';
+    let html='<span style="line-height:1.55">'+s.ai+'</span>';
+    if(s.chips){html+='<div class="ob-chips">'+s.chips.map(c=>'<button class="ob-chip" onclick="obPick(this)">'+c+'</button>').join('')+'</div>';}
+    if(s.connect){html+='<div class="connect-card"><div class="ilogo">G</div><b>Garmin Connect</b><p>Activities · sleep · HRV · training load</p><button onclick="obConnect(this)">Connect Garmin</button><div class="importbar"><i></i></div></div>';}
+    m.innerHTML=html;log.appendChild(m);obScroll();
+  },900);
+}
+function obPick(btn){
+  const s=OB[obStep];
+  const log=document.getElementById('obLog');
+  btn.closest('.ob-chips').remove();
+  const u=document.createElement('div');u.className='msg user';u.textContent=btn.textContent;log.appendChild(u);
+  obScroll();
+  if(s.final){setTimeout(startThinking,600);return;}
+  setTimeout(()=>obNext(obStep+1),500);
+}
+function obConnect(btn){
+  btn.textContent='Requesting permission…';btn.disabled=true;
+  const bar=btn.parentElement.querySelector('.importbar i');
+  setTimeout(()=>{btn.textContent='Importing 214 activities…';bar.style.width='100%';},700);
+  setTimeout(()=>{btn.textContent='✓ Connected';btn.style.background='var(--good)';},3300);
+  setTimeout(()=>obNext(obStep+1),3900);
+}
+function obScroll(){const s=document.getElementById('screen-onboard');s.scrollTop=s.scrollHeight;}
+
+/* thinking sequence */
+function startThinking(){
+  showScreen('screen-thinking');
+  const lines=document.querySelectorAll('#thinkLines .tline');
+  lines.forEach((l,i)=>{
+    setTimeout(()=>l.classList.add('show'),i*620);
+    setTimeout(()=>l.classList.add('done'),i*620+480);
+  });
+  setTimeout(()=>document.getElementById('thinkCta').classList.add('show'),lines.length*620+500);
+}
+function goPaywall(){showScreen('screen-paywall');}
+function finishOnboarding(msg){
+  document.getElementById('tabbar').style.display='flex';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelector('[data-screen="screen-today"]').classList.add('on');
+  showScreen('screen-today');
+  animateRing();
+  toast(msg);
+}
+
+/* ══════════════ LESSON + QUIZ ══════════════ */
+function openLesson(){document.getElementById('lessonModal').classList.add('show');}
+function closeLesson(){document.getElementById('lessonModal').classList.remove('show');}
+function quizPick(btn,correct){
+  btn.parentElement.querySelectorAll('.qopt').forEach(b=>b.disabled=true);
+  btn.classList.add(correct?'right':'wrong');
+  if(correct){toast('Lesson complete ✓');}
+  else{
+    btn.parentElement.querySelectorAll('.qopt')[1].classList.add('right');
+    toast('Close — below LT2 is the key');
+  }
+}
+</script>
+</body>
+</html>
