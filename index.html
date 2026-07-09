@@ -1143,18 +1143,27 @@ function showScreen(id){
   document.getElementById(id).classList.add('active');
 }
 function skipToApp(){finishOnboarding('Welcome back, Dean');}
-function startOnboarding(){showScreen('screen-onboard');obNext(0);}
+function startOnboarding(){
+  onboardingAnswers = {
+    goal: null,
+    race_type: null,
+    injury_history: null,
+    training_days: null,
+    device: null
+  };
+  showScreen('screen-onboard');
+}
 
 const OB=[
  {ai:"Hi Dean. I'm going to build your training system — not a template, <b>yours</b>. This takes about 8 minutes. Ready?",chips:["Let's go"]},
- {ai:"What's the goal?",chips:["🏃 Marathon","10K","HYROX","General fitness"]},
- {ai:"Marathon — good. When, and what kind of course?",chips:["September · hilly","Not sure yet"]},
+ {key:"goal",ai:"What's the goal?",chips:["🏃 Marathon","10K","HYROX","General fitness"]},
+ {key:"race_type",ai:"Marathon — good. When, and what kind of course?",chips:["September · hilly","Not sure yet"]},
  {ai:"Noted: <b>September, hilly</b>. Hills change how we build your long runs.<br><br>Tell me about you — age, height, weight?",chips:["20 · 5'9\" · 80 kg"]},
  {ai:"How many years have you been running seriously?",chips:["3+ years","1–3 years","Just started"]},
- {ai:"Any injuries I should respect? Be honest — this changes how I ramp your load.",chips:["Shin splints (past)","None"]},
+ {key:"injury_history",ai:"Any injuries I should respect? Be honest — this changes how I ramp your load.",chips:["Shin splints (past)","None"]},
  {ai:"Shin splints, noted <b>permanently</b>. I'll cap your weekly ramp at 10% and flag any early warning signs.<br><br>How many days a week can you train?",chips:["4","5","6"]},
- {ai:"Five days — enough for two quality sessions and a real long run.<br><br>What's on your wrist?",chips:["Garmin","COROS","Apple Watch","None"]},
- {ai:"Perfect. If you connect it, I can read your entire training history instead of asking twenty more questions.",connect:true},
+ {key:"training_days",ai:"Five days — enough for two quality sessions and a real long run.<br><br>What's on your wrist?",chips:["Garmin","COROS","Apple Watch","None"]},
+ {key:"device", ai:"Perfect. If you connect it, I can read your entire training history instead of asking twenty more questions.",connect:true},
  {ai:"<b>214 activities imported.</b> I can already see your threshold sessions, your heat drift, your real weekly volume.<br><br>Honestly? I now know more about your running than most coaches would learn in a month.",chips:["Build my system →"],final:true},
 ];
 let obStep=-1;
@@ -1176,6 +1185,9 @@ function obNext(step){
 }
 function obPick(btn){
   const s=OB[obStep];
+  if (s.key) {
+  onboardingAnswers[s.key] = btn.textContent.trim();
+}
   const log=document.getElementById('obLog');
   btn.closest('.ob-chips').remove();
   const u=document.createElement('div');u.className='msg user';u.textContent=btn.textContent;log.appendChild(u);
