@@ -1216,6 +1216,7 @@ function startThinking(){
 }
 function goPaywall(){showScreen('screen-paywall');}
 async function saveOnboardingProfile() {
+  alert(JSON.stringify(onboardingAnswers));
   const { data: { user } } = await supabaseClient.auth.getUser();
 
   if (!user) {
