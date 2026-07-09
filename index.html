@@ -881,7 +881,13 @@ body{
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const supabaseClient = supabase.createClient(
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+});
     'https://hqwdehqsllyvrcnlcytj.supabase.co',
     'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt',
     { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
