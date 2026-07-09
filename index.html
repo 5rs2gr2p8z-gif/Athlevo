@@ -1226,11 +1226,11 @@ async function saveOnboardingProfile() {
   const { error } = await supabaseClient
   .from('profiles')
   .update({
-    goal: 'Marathon',
-    race_type: 'Hilly course',
-    injury_history: 'Shin splints',
-    training_days: 5,
-    device: 'Garmin'
+    goal: onboardingAnswers.goal,
+race_type: onboardingAnswers.race_type,
+injury_history: onboardingAnswers.injury_history,
+training_days: Number(onboardingAnswers.training_days),
+device: onboardingAnswers.device
   })
   .eq('id', user.id);
 
