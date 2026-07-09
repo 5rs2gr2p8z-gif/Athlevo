@@ -949,6 +949,18 @@ async function doLogin() {
 document.getElementById('tabbar').style.display = '';
 showScreen('screen-today');  // continue into your existing flow
 }
+async function doLogout() {
+  const { error } = await supabaseClient.auth.signOut();
+
+  if (error) {
+    console.error('Logout failed:', error.message);
+    toast('Logout failed');
+    return;
+  }
+
+  document.getElementById('tabbar').style.display = 'none';
+  showScreen('screen-welcome');
+}
 
 /* ---------- navigation ---------- */
 function go(btn){
