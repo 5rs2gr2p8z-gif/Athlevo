@@ -1201,7 +1201,29 @@ function startThinking(){
   setTimeout(()=>document.getElementById('thinkCta').classList.add('show'),lines.length*620+500);
 }
 function goPaywall(){showScreen('screen-paywall');}
+async function saveOnboardingProfile() {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+
+  if (!user) {
+    console.error('No authenticated user');
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from('profiles')
+    .upsert({
+      id: user.id,
+      goal: 'Marathon',
+      race_type: 'Hilly course',
+      injury_history: 'Shin splints',
+      training_days: 5,
+      device: 'Garmin'
+    }, { onConflict: 'id' });
+
+  if (error) console.error('Profile save failed:', error.message);
+}
 function finishOnboarding(msg){
+  saveOnboardingProfile();
   document.getElementById('tabbar').style.display='flex';
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.querySelector('[data-screen="screen-today"]').classList.add('on');
