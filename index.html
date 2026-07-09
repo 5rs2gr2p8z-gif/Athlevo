@@ -1210,15 +1210,15 @@ async function saveOnboardingProfile() {
   }
 
   const { error } = await supabaseClient
-    .from('profiles')
-    .upsert({
-      id: user.id,
-      goal: 'Marathon',
-      race_type: 'Hilly course',
-      injury_history: 'Shin splints',
-      training_days: 5,
-      device: 'Garmin'
-    }, { onConflict: 'id' });
+  .from('profiles')
+  .update({
+    goal: 'Marathon',
+    race_type: 'Hilly course',
+    injury_history: 'Shin splints',
+    training_days: 5,
+    device: 'Garmin'
+  })
+  .eq('id', user.id);
 
   if (error) console.error('Profile save failed:', error.message);
 }
