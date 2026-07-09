@@ -1222,6 +1222,18 @@ function quizPick(btn,correct){
     toast('Close — below LT2 is the key');
   }
 }
+// Restore session on page load
+(async () => {
+  const { data } = await supabaseClient.auth.getSession();
+
+  if (data.session) {
+    document.getElementById('tabbar').style.display = '';
+    showScreen('screen-today');
+  } else {
+    document.getElementById('tabbar').style.display = 'none';
+    showScreen('screen-welcome');
+  }
+})();
 </script>
 <!-- Auth modals -->
 <div id="authModal" style="display:none;">
