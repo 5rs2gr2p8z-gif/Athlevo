@@ -951,8 +951,19 @@ async function doLogin() {
   if (error) { msg.textContent = error.message; return; }
 
   closeAuth();
-document.getElementById('tabbar').style.display = '';
-showScreen('screen-today');  // continue into your existing flow
+
+const { data: profile } = await supabaseClient
+  .from('profiles')
+  .select('goal, device')
+  .eq('id', data.user.id)
+  .maybeSingle();
+
+if (!profile || profile.goal == null || profile.device == null) {
+  startOnboarding();
+} else {
+  document.getElementById('tabbar').style.display = 'flex';
+  showScreen('screen-today');
+}
 }
 async function doLogout() {
   const { error } = await supabaseClient.auth.signOut();
