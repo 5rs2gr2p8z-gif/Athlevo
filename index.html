@@ -1262,18 +1262,37 @@ function quizPick(btn,correct){
     toast('Close — below LT2 is the key');
   }
 }
-// Restore session on page load
-(async () => {
-  const { data } = await supabaseClient.auth.getSession();
+// ---- Session restore on page load ----
+async function restoreSession() {
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) { console.error('getSession error:', error.message); return; }
 
-  if (data.session) {
-    document.getElementById('tabbar').style.display = '';
-    showScreen('screen-today');
-  } else {
-    document.getElementById('tabbar').style.display = 'none';
+  if (!data.session) {
     showScreen('screen-welcome');
+    return;
   }
-})();
+
+  const userId = data.session.user.id;
+
+  const { data: profile, error: profErr } = await supabaseClient
+    .from('profiles')
+    .select('goal, device')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (profErr) {
+    console.error('Profile lookup failed:', profErr.message);
+    startOnboarding();          // fail safe: onboarding beats a broken dashboard
+    return;
+  }
+
+  if (!profile || profile.goal == null || profile.device == null) {
+    startOnboarding();
+  } else {
+    showScreen('screen-today');
+  }
+}
+
 </script>
 <!-- Auth modals -->
 <div id="authModal" style="display:none;">
