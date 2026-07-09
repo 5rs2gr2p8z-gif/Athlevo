@@ -1162,6 +1162,9 @@ function startOnboarding(){
     device: null
   };
   showScreen('screen-onboard');
+obStep = -1;
+document.getElementById('obLog').innerHTML = '';
+obNext(0);
 }
 
 const OB=[
