@@ -957,6 +957,7 @@ const { data: profile } = await supabaseClient
   .select('goal, device')
   .eq('id', data.user.id)
   .maybeSingle();
+  alert(JSON.stringify(profile));
 
 if (!profile || profile.goal == null || profile.device == null) {
   startOnboarding();
