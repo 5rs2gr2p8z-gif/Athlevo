@@ -29,7 +29,7 @@ export default async function handler(req, res) {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
         },
         body: JSON.stringify({
-          model: "gpt-5.6",
+          model: "gpt-5.6-luna",
           reasoning: {
             effort: "low"
           },
