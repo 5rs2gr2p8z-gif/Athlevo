@@ -29,13 +29,61 @@ function addChatMessage(role, text) {
 
   return message;
 }
+async function saveConversationMessage(role, message) {
+  const {
+    data: { user },
+    error: userError
+  } = await supabaseClient.auth.getUser();
 
+  if (userError || !user) {
+    console.error("Cannot save message: no authenticated user.", userError);
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("coach_conversations")
+    .insert({
+      user_id: user.id,
+      role,
+      message
+    });
+
+  if (error) {
+    console.error("Could not save conversation message:", error);
+  }
+}
+
+async function loadConversationHistory() {
+  const {
+    data: { user },
+    error: userError
+  } = await supabaseClient.auth.getUser();
+
+  if (userError || !user) {
+    console.error("Cannot load history: no authenticated user.", userError);
+    return [];
+  }
+
+  const { data, error } = await supabaseClient
+    .from("coach_conversations")
+    .select("role, message, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Could not load conversation history:", error);
+    return [];
+  }
+
+  return data || [];
+}
 async function askCoach(question) {
   const cleanQuestion = question?.trim();
 
   if (!cleanQuestion) return;
 
   addChatMessage("user", cleanQuestion);
+  await saveConversationMessage("user", cleanQuestion);
 
   const loadingMessage = addChatMessage(
     "ai",
@@ -68,8 +116,11 @@ async function askCoach(question) {
       throw new Error(data.error || "Coach request failed.");
     }
 
-    loadingMessage.querySelector(".change").textContent =
-      data.answer || "I could not generate a response.";
+    const answer = data.answer || "I could not generate a response.";
+
+loadingMessage.querySelector(".change").textContent = answer;
+
+await saveConversationMessage("assistant", answer);
   } catch (error) {
     console.error("Athlevo Coach error:", error);
 
@@ -104,3 +155,4 @@ function sendMsg() {
 window.askCoach = askCoach;
 window.ask = ask;
 window.sendMsg = sendMsg;
+window.loadConversationHistory = loadConversationHistory;
