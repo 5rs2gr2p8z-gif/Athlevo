@@ -68,6 +68,7 @@ ${question}
     );
 
     const data = await openAIResponse.json();
+    console.log(JSON.stringify(data, null, 2));
 
     if (!openAIResponse.ok) {
       console.error("OpenAI error:", data);
