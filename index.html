@@ -881,17 +881,16 @@ body{
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+ const SUPABASE_URL = 'https://hqwdehqsllyvrcnlcytj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
+  persistSession: true,
+  autoRefreshToken: true,
+  detectSessionInUrl: true,
+}
 });
-    'https://hqwdehqsllyvrcnlcytj.supabase.co',
-    'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt',
-    { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
-  );
+
 </script>
 
 <script>// ---- Auth modal controls ----
@@ -967,7 +966,7 @@ if (!profile || profile.goal == null || profile.device == null) {
   showScreen('screen-today');
 }
 }
-async function doLogout() {
+async function dologout() {
   const { error } = await supabaseClient.auth.signOut();
 
   if (error) {
@@ -1278,37 +1277,50 @@ function quizPick(btn,correct){
     toast('Close — below LT2 is the key');
   }
 }
+
 // ---- Session restore on page load ----
-async function restoreSession() {
-  const { data, error } = await supabaseClient.auth.getSession();
-  if (error) { console.error('getSession error:', error.message); return; }
-
-  if (!data.session) {
-    showScreen('screen-welcome');
-    return;
-  }
-
-  const userId = data.session.user.id;
-
-  const { data: profile, error: profErr } = await supabaseClient
-    .from('profiles')
-    .select('goal, device')
-    .eq('id', userId)
+async function routeAfterAuth(userId) {
+  const { data: profile, error } = await supabaseClient
+    .from("profiles")
+    .select("goal, device")
+    .eq("id", userId)
     .maybeSingle();
 
-  if (profErr) {
-    console.error('Profile lookup failed:', profErr.message);
-    startOnboarding();          // fail safe: onboarding beats a broken dashboard
+  if (error) {
+    console.error("Profile lookup failed:", error.message);
+    startOnboarding();
     return;
   }
 
   if (!profile || profile.goal == null || profile.device == null) {
     startOnboarding();
-  } else {
-    showScreen('screen-today');
+    return;
   }
-}
 
+  document.getElementById("tabbar").style.display = "flex";
+  showScreen("screen-today");
+}
+async function restoreSession() {
+  const {
+    data: { session },
+    error
+  } = await supabaseClient.auth.getSession();
+
+  if (error) {
+    console.error("Session restore failed:", error);
+    showScreen("screen-welcome");
+    return;
+  }
+
+  if (!session) {
+    showScreen("screen-welcome");
+    return;
+  }
+
+  console.log("Session restored:", session.user.email);
+
+  await routeAfterAuth(session.user.id);
+}
 </script>
 <!-- Auth modals -->
 <div id="authModal" style="display:none;">
@@ -1342,4 +1354,9 @@ async function restoreSession() {
   </div>
 </div>
 </body>
+<script src="js/brain.js"></script>
+<script src="js/coach.js"></script>
+<script>
+  restoreSession();
+</script>
 </html>
