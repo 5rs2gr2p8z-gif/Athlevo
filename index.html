@@ -966,7 +966,7 @@ if (!profile || profile.goal == null || profile.device == null) {
   showScreen('screen-today');
 }
 }
-async function dologout() {
+async function doLogout() {
   const { error } = await supabaseClient.auth.signOut();
 
   if (error) {
