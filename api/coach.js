@@ -83,9 +83,17 @@ return res.status(200).json({
 });
     }
 
-    return res.status(200).json({
-      answer: data.output_text || "No response generated"
-    });
+    const answer =
+  data.output_text ||
+  data.output
+    ?.flatMap(item => item.content || [])
+    .find(content => content.type === "output_text")
+    ?.text ||
+  "No response generated";
+
+return res.status(200).json({
+  answer
+});
   } catch (error) {
     console.error("Coach API error:", error);
 
