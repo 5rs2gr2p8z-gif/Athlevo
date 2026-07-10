@@ -72,9 +72,14 @@ ${question}
     if (!openAIResponse.ok) {
       console.error("OpenAI error:", data);
 
-      return res.status(openAIResponse.status).json({
-        error: data?.error?.message || "OpenAI request failed"
-      });
+      const answer =
+  data.output_text ||
+  data.output?.[0]?.content?.[0]?.text ||
+  "No response generated";
+
+return res.status(200).json({
+  answer
+});
     }
 
     return res.status(200).json({
