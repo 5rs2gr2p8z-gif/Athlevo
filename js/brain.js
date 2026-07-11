@@ -439,11 +439,52 @@ async function refreshAthleteUI() {
   }
 }
 
+async function syncStravaActivities() {
+  try {
+    const {
+      data: { session },
+      error: sessionError
+    } = await supabaseClient.auth.getSession();
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    if (!session?.access_token) {
+      throw new Error("Please log in again before syncing Strava.");
+    }
+
+    const response = await fetch("/api/strava/sync", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || "Could not synchronize Strava activities."
+      );
+    }
+
+    console.log("Strava synchronization complete:", result);
+
+    return result;
+  } catch (error) {
+    console.error("Strava synchronization failed:", error);
+    throw error;
+  }
+}
+
 window.AthlevoBrain = {
   loadAthleteProfile,
   buildCoachingContext,
   updateTodayDashboard,
   updateAthleteProfileScreens,
   resetAthleteUI,
-  refreshAthleteUI
+  refreshAthleteUI,
+  syncStravaActivities
 };

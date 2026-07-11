@@ -1577,6 +1577,36 @@ async function restoreSession() {
 <script src="js/coach.js"></script>
 <script src="js/onboarding.js"></script>
 <script>
-  restoreSession();
+  async function initializeAthlevoApp() {
+    await restoreSession();
+
+    const url = new URL(window.location.href);
+    const stravaStatus = url.searchParams.get("strava");
+
+    if (stravaStatus !== "connected") {
+      return;
+    }
+
+    try {
+      const result = await AthlevoBrain.syncStravaActivities();
+
+      console.log(
+        `Imported ${result.activitiesSaved ?? 0} Strava activities.`
+      );
+
+      await AthlevoBrain.refreshAthleteUI();
+
+      url.searchParams.delete("strava");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    } catch (error) {
+      console.error("Initial Strava import failed:", error);
+      alert(
+        error.message ||
+          "Strava connected, but the first activity import failed."
+      );
+    }
+  }
+
+  initializeAthlevoApp();
 </script>
 </html>
