@@ -400,13 +400,33 @@ body{
 </section>
 
 <!-- ══════════════ ONBOARDING INTERVIEW ══════════════ -->
-<section class="screen" id="screen-onboard" style="padding-bottom:20px">
-  <div class="ob-progress"><i id="obBar"></i></div>
-  <div class="chat-head">
-    <div class="avatar serif">A</div>
-    <div><b>Athlevo Coach</b><small>Building your training system</small></div>
-  </div>
-  <div class="chatlog" id="obLog"></div>
+<section class="screen" id="screen-onboard">
+
+    <div class="chat-head">
+        <div class="avatar serif">A</div>
+        <div>
+            <b>Athlevo Coach</b>
+            <small>Building your athlete profile</small>
+        </div>
+    </div>
+
+    <div class="chatlog" id="obLog"></div>
+
+    <div class="composer">
+
+        <input
+            id="obInput"
+            type="text"
+            placeholder="Type your answer..."
+            autocomplete="off"
+        >
+
+        <button id="obSend">
+            Send
+        </button>
+
+    </div>
+
 </section>
 
 <!-- ══════════════ THINKING ══════════════ -->
@@ -1394,6 +1414,7 @@ async function restoreSession() {
 </body>
 <script src="js/brain.js"></script>
 <script src="js/coach.js"></script>
+<script src="js/onboarding.js"></script>
 <script>
   restoreSession();
 </script>
