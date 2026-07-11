@@ -563,6 +563,193 @@ function updateTodayActivityData(summary) {
   }
 }
 
+function updateTrainActivityData(activities = [], summary = null) {
+  const setText = (id, value) => {
+    const element = document.getElementById(id);
+
+    if (element) {
+      element.textContent = value;
+    }
+  };
+
+  const formatDistance = meters => {
+    const value = Number(meters);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return "—";
+    }
+
+    return `${(value / 1000).toFixed(1)} km`;
+  };
+
+  const formatDuration = seconds => {
+    const value = Number(seconds);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return "—";
+    }
+
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.round((value % 3600) / 60);
+
+    return hours > 0
+      ? `${hours}h ${minutes}m`
+      : `${minutes} min`;
+  };
+
+  const formatPace = activity => {
+    const distance = Number(activity.distance_meters);
+    const movingTime = Number(activity.moving_time_seconds);
+
+    if (
+      !Number.isFinite(distance) ||
+      distance <= 0 ||
+      !Number.isFinite(movingTime) ||
+      movingTime <= 0
+    ) {
+      return "—";
+    }
+
+    const secondsPerKilometer = movingTime / (distance / 1000);
+    const minutes = Math.floor(secondsPerKilometer / 60);
+    const seconds = Math.round(secondsPerKilometer % 60);
+
+    return `${minutes}:${String(seconds).padStart(2, "0")}/km`;
+  };
+
+  const formatDate = value => {
+    if (!value) {
+      return "Unknown date";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "Unknown date";
+    }
+
+    return date.toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric"
+    });
+  };
+
+  const safeActivities = Array.isArray(activities)
+    ? activities
+    : [];
+
+  setText(
+    "trainWeeklyDistance",
+    summary
+      ? `${summary.sevenDayDistanceKilometers.toFixed(1)} km`
+      : "—"
+  );
+
+  setText(
+    "trainWeeklyHours",
+    summary
+      ? `${summary.sevenDayTrainingHours.toFixed(1)} hrs`
+      : "—"
+  );
+
+  setText(
+    "trainSummaryTitle",
+    summary?.sevenDayActivityCount
+      ? `${summary.sevenDayActivityCount} activities in the last 7 days`
+      : "No recent training recorded."
+  );
+
+  setText(
+    "trainSummaryContext",
+    summary?.sevenDayActivityCount
+      ? `${summary.sevenDayDistanceKilometers.toFixed(
+          1
+        )} km and ${summary.sevenDayTrainingHours.toFixed(
+          1
+        )} hours imported from Strava.`
+      : "Connect Strava or record a workout to begin building your history."
+  );
+
+  const container = document.getElementById(
+    "trainRecentActivities"
+  );
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+
+  const recentActivities = safeActivities.slice(0, 5);
+
+  if (!recentActivities.length) {
+    container.innerHTML = `
+      <div class="decision">
+        <h3>No imported activities yet.</h3>
+        <p>Connect Strava to begin building your training history.</p>
+      </div>
+    `;
+
+    return;
+  }
+
+  recentActivities.forEach(activity => {
+    const card = document.createElement("div");
+    card.className = "decision";
+
+    const activityType =
+      activity.sport_type ||
+      activity.activity_type ||
+      "Activity";
+
+    const heartRate =
+      Number(activity.average_heartrate) > 0
+        ? `${Math.round(
+            Number(activity.average_heartrate)
+          )} bpm`
+        : "No HR data";
+
+    card.innerHTML = `
+      <span class="eyebrow">
+        ${formatDate(activity.start_date)} · ${activityType}
+      </span>
+
+      <h3>${activity.name || activityType}</h3>
+
+      <p>
+        ${formatDistance(activity.distance_meters)}
+        · ${formatDuration(activity.moving_time_seconds)}
+        · ${formatPace(activity)}
+      </p>
+
+      <div class="ledger">
+        <div class="ledger-inner">
+          <div class="factor">
+            <span class="f-name">Average heart rate</span>
+            <span class="f-val num">${heartRate}</span>
+          </div>
+
+          <div class="factor">
+            <span class="f-name">Elevation gain</span>
+            <span class="f-val num">
+              ${
+                Number(activity.elevation_gain_meters) > 0
+                  ? `${Math.round(
+                      Number(activity.elevation_gain_meters)
+                    )} m`
+                  : "—"
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+  });
+}
+
 async function refreshAthleteUI() {
   resetAthleteUI();
 
@@ -581,6 +768,7 @@ async function refreshAthleteUI() {
     const activitySummary = buildActivitySummary(activities);
 
     updateTodayActivityData(activitySummary);
+    updateTrainActivityData(activities, activitySummary);
 
     console.log("Athlete UI updated for:", profile.id);
 
@@ -793,6 +981,7 @@ window.AthlevoBrain = {
   updateTodayDashboard,
   updateTodayActivityData,
   updateAthleteProfileScreens,
+  updateTrainActivityData,
   resetAthleteUI,
   refreshAthleteUI,
   syncStravaActivities
