@@ -415,6 +415,154 @@ function resetAthleteUI() {
   }
 }
 
+function updateTodayActivityData(summary) {
+  const setText = (id, value) => {
+    const element = document.getElementById(id);
+
+    if (element) {
+      element.textContent = value;
+    }
+  };
+
+  const formatDistance = meters => {
+    const value = Number(meters);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return "—";
+    }
+
+    return `${(value / 1000).toFixed(1)} km`;
+  };
+
+  const formatDuration = seconds => {
+    const value = Number(seconds);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return "—";
+    }
+
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.round((value % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+
+    return `${minutes} min`;
+  };
+
+  const formatDate = value => {
+    if (!value) {
+      return "—";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
+
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  };
+
+  if (!summary?.latestActivity) {
+    setText("todayLatestActivityName", "No imported activity yet.");
+    setText(
+      "todayLatestActivitySummary",
+      "Connect Strava or record a workout to begin building your training history."
+    );
+    setText("todayLatestDistance", "—");
+    setText("todayLatestDuration", "—");
+    setText("todayLatestHeartRate", "—");
+    setText("todayLatestDate", "—");
+    setText("todaySevenDayDistance", "—");
+    setText("todaySevenDayHours", "—");
+    setText("todaySevenDayActivities", "0");
+    setText("todaySevenDayHeartRate", "—");
+    return;
+  }
+
+  const activity = summary.latestActivity;
+
+  const activityType =
+    activity.sport_type ||
+    activity.activity_type ||
+    "Activity";
+
+  const distanceText = formatDistance(activity.distance_meters);
+  const durationText = formatDuration(activity.moving_time_seconds);
+
+  setText(
+    "todayLatestActivityName",
+    activity.name || activityType
+  );
+
+  setText(
+    "todayLatestActivitySummary",
+    `${activityType} · ${distanceText} · ${durationText}`
+  );
+
+  setText(
+    "todayLatestDistance",
+    distanceText
+  );
+
+  setText(
+    "todayLatestDuration",
+    durationText
+  );
+
+  setText(
+    "todayLatestHeartRate",
+    Number(activity.average_heartrate) > 0
+      ? `${Math.round(Number(activity.average_heartrate))} bpm`
+      : "Not available"
+  );
+
+  setText(
+    "todayLatestDate",
+    formatDate(activity.start_date)
+  );
+
+  setText(
+    "todaySevenDayDistance",
+    `${summary.sevenDayDistanceKilometers.toFixed(1)} km`
+  );
+
+  setText(
+    "todaySevenDayHours",
+    `${summary.sevenDayTrainingHours.toFixed(1)} hrs`
+  );
+
+  setText(
+    "todaySevenDayActivities",
+    String(summary.sevenDayActivityCount)
+  );
+
+  if (summary.sevenDayAverageHeartRate) {
+    setText(
+      "todaySevenDayHeartRate",
+      `${Math.round(summary.sevenDayAverageHeartRate)} bpm`
+    );
+
+    setText(
+      "todayHeartRateContext",
+      "Average across activities with heart-rate data"
+    );
+  } else {
+    setText("todaySevenDayHeartRate", "—");
+
+    setText(
+      "todayHeartRateContext",
+      "No heart-rate data available from Strava"
+    );
+  }
+}
+
 async function refreshAthleteUI() {
   resetAthleteUI();
 
@@ -429,9 +577,18 @@ async function refreshAthleteUI() {
     updateTodayDashboard(profile);
     updateAthleteProfileScreens(profile);
 
+    const activities = await loadAthleteActivities(200);
+    const activitySummary = buildActivitySummary(activities);
+
+    updateTodayActivityData(activitySummary);
+
     console.log("Athlete UI updated for:", profile.id);
 
-    return profile;
+    return {
+      profile,
+      activities,
+      activitySummary
+    };
   } catch (error) {
     console.error("Could not update athlete UI:", error);
     resetAthleteUI();
@@ -634,6 +791,7 @@ window.AthlevoBrain = {
   buildActivitySummary,
   buildCoachingContext,
   updateTodayDashboard,
+  updateTodayActivityData,
   updateAthleteProfileScreens,
   resetAthleteUI,
   refreshAthleteUI,

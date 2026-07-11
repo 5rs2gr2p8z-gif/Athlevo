@@ -523,83 +523,111 @@ body{
 </div>
 
   <!-- signature: the decision card -->
-  <div class="decision" id="decisionCard">
-  <span class="eyebrow">Today’s training</span>
+ <div class="decision" id="decisionCard">
+  <span class="eyebrow">Latest activity</span>
 
-  <h3>No workout recommendation yet.</h3>
+  <h3 id="todayLatestActivityName">
+    No imported activity yet.
+  </h3>
 
-  <p>
-    Athlevo needs your current training plan, recent workouts, and recovery
-    context before it can make a responsible recommendation.
+  <p id="todayLatestActivitySummary">
+    Connect Strava or record a workout to begin building your training history.
   </p>
-    <button class="why-toggle" onclick="toggleDecision()" aria-expanded="false">
-      Why this decision
-      <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-   <div class="ledger">
-  <div class="ledger-inner">
-    <div class="factor">
-      <span class="f-name">Recent workouts</span>
-      <span><span class="f-val num">No data</span></span>
-    </div>
 
-    <div class="factor">
-      <span class="f-name">Recovery</span>
-      <span><span class="f-val num">No data</span></span>
-    </div>
+  <button
+    class="why-toggle"
+    onclick="toggleDecision()"
+    aria-expanded="false"
+  >
+    Activity details
+    <svg viewBox="0 0 24 24">
+      <path d="M6 9l6 6 6-6"></path>
+    </svg>
+  </button>
 
-    <div class="factor">
-      <span class="f-name">Training plan</span>
-      <span><span class="f-val num">Not connected</span></span>
-    </div>
+  <div class="ledger">
+    <div class="ledger-inner">
 
-    <div class="ledger-verdict">
-      <b>Why there is no recommendation:</b>
-      Athlevo will not invent a workout without real training and recovery data.
+      <div class="factor">
+        <span class="f-name">Distance</span>
+        <span>
+          <span class="f-val num" id="todayLatestDistance">—</span>
+        </span>
+      </div>
+
+      <div class="factor">
+        <span class="f-name">Moving time</span>
+        <span>
+          <span class="f-val num" id="todayLatestDuration">—</span>
+        </span>
+      </div>
+
+      <div class="factor">
+        <span class="f-name">Average heart rate</span>
+        <span>
+          <span class="f-val num" id="todayLatestHeartRate">—</span>
+        </span>
+      </div>
+
+      <div class="factor">
+        <span class="f-name">Completed</span>
+        <span>
+          <span class="f-val" id="todayLatestDate">—</span>
+        </span>
+      </div>
+
     </div>
   </div>
 </div>
 
  <div class="statgrid">
+
   <div class="stat">
-    <span class="eyebrow">Sleep</span>
-    <b class="num">—</b>
-    <small>No data recorded</small>
+    <span class="eyebrow">7-day distance</span>
+    <b class="num" id="todaySevenDayDistance">—</b>
+    <small>From imported activities</small>
 
     <div class="spark">
-      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i>
     </div>
   </div>
 
   <div class="stat">
-    <span class="eyebrow">HRV</span>
-    <b class="num">—</b>
-    <small>Requires wearable data</small>
+    <span class="eyebrow">Training time</span>
+    <b class="num" id="todaySevenDayHours">—</b>
+    <small>Moving time in the last 7 days</small>
 
     <div class="spark">
-      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i>
     </div>
   </div>
 
   <div class="stat">
-    <span class="eyebrow">Recovery</span>
-    <b class="num">—</b>
-    <small>Not available yet</small>
+    <span class="eyebrow">Activities</span>
+    <b class="num" id="todaySevenDayActivities">—</b>
+    <small>Completed in the last 7 days</small>
 
     <div class="spark">
-      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i>
     </div>
   </div>
 
   <div class="stat">
-    <span class="eyebrow">Training load</span>
-    <b class="num">—</b>
-    <small>Import workouts to begin</small>
+    <span class="eyebrow">Average HR</span>
+    <b class="num" id="todaySevenDayHeartRate">—</b>
+    <small id="todayHeartRateContext">
+      Heart-rate permission or compatible data required
+    </small>
 
     <div class="spark">
-      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i><i></i>
+      <i></i><i></i><i></i>
     </div>
   </div>
+
 </div>
 
   <div class="race">
