@@ -851,7 +851,12 @@ body{
   <div class="spacer-lg"></div>
 
  <div class="integ">
-  <div class="integ-row">
+  <div
+  class="integ-row"
+  onclick="connectStrava()"
+  role="button"
+  tabindex="0"
+>
     <div class="ilogo">S</div>
 
     <div class="in">
@@ -1101,6 +1106,50 @@ async function doLogout() {
   showScreen('screen-welcome');
 }
 window.doLogout = doLogout;
+
+async function connectStrava() {
+  try {
+    const {
+      data: { session },
+      error
+    } = await supabaseClient.auth.getSession();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!session?.access_token) {
+      throw new Error("Please log in again before connecting Strava.");
+    }
+
+    const response = await fetch("/api/strava/connect", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Could not connect to Strava."
+      );
+    }
+
+    if (!data.authorizationUrl) {
+      throw new Error("Strava authorization URL was not returned.");
+    }
+
+    window.location.href = data.authorizationUrl;
+  } catch (error) {
+    console.error("Strava connection failed:", error);
+    alert(error.message || "Could not connect to Strava.");
+  }
+}
+
+window.connectStrava = connectStrava;
 
 /* ---------- navigation ---------- */
 function go(btn){
