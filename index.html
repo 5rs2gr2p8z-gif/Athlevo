@@ -1477,6 +1477,7 @@ async function routeAfterAuth(userId) {
 
   document.getElementById("tabbar").style.display = "flex";
   showScreen("screen-today");
+  await AthlevoBrain.refreshAthleteUI();
 }
 async function restoreSession() {
   const {

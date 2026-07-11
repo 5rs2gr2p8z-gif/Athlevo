@@ -563,11 +563,12 @@ async function finishAthlevoOnboarding() {
     window.setTimeout(() => {
       const tabbar = document.getElementById("tabbar");
 
-      if (tabbar) {
-        tabbar.style.display = "flex";
-      }
+     if (tabbar) {
+    tabbar.style.display = "flex";
+}
 
-      showScreen("screen-today");
+await AthlevoBrain.refreshAthleteUI();
+showScreen("screen-today");
     }, 900);
   } catch (error) {
     console.error("Could not complete onboarding:", error);
@@ -606,12 +607,13 @@ async function startAthlevoOnboarding() {
     if (athlevoOnboardingProfile.onboarding_complete) {
       const tabbar = document.getElementById("tabbar");
 
-      if (tabbar) {
-        tabbar.style.display = "flex";
-      }
+     if (tabbar) {
+    tabbar.style.display = "flex";
+}
 
-      showScreen("screen-today");
-      return;
+await AthlevoBrain.refreshAthleteUI();
+showScreen("screen-today");
+return;
     }
 
     const savedStep = Number(

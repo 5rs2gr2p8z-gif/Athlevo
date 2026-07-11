@@ -311,9 +311,31 @@ function updateAthleteProfileScreens(profile) {
   }
 }
 
+async function refreshAthleteUI() {
+  try {
+    const profile = await loadAthleteProfile();
+
+    if (!profile) {
+      console.error("No athlete profile returned.");
+      return null;
+    }
+
+    updateTodayDashboard(profile);
+    updateAthleteProfileScreens(profile);
+
+    console.log("Athlete UI updated:", profile);
+
+    return profile;
+  } catch (error) {
+    console.error("Could not update athlete UI:", error);
+    return null;
+  }
+}
+
 window.AthlevoBrain = {
   loadAthleteProfile,
   buildCoachingContext,
   updateTodayDashboard,
-  updateAthleteProfileScreens
+  updateAthleteProfileScreens,
+  refreshAthleteUI
 };
