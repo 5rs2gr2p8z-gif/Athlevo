@@ -544,9 +544,94 @@ async function loadAthleteActivities(limit = 200) {
   return activities || [];
 }
 
+function buildActivitySummary(activities = []) {
+  const validActivities = Array.isArray(activities)
+    ? activities.filter(activity => activity?.start_date)
+    : [];
+
+  const sortedActivities = [...validActivities].sort(
+    (a, b) => new Date(b.start_date) - new Date(a.start_date)
+  );
+
+  const latestActivity = sortedActivities[0] || null;
+
+  const now = new Date();
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(now.getDate() - 7);
+
+  const recentActivities = sortedActivities.filter(
+    activity => new Date(activity.start_date) >= sevenDaysAgo
+  );
+
+  const sevenDayDistanceMeters = recentActivities.reduce(
+    (total, activity) =>
+      total + (Number(activity.distance_meters) || 0),
+    0
+  );
+
+  const sevenDayMovingSeconds = recentActivities.reduce(
+    (total, activity) =>
+      total + (Number(activity.moving_time_seconds) || 0),
+    0
+  );
+
+  const activitiesWithHeartRate = recentActivities.filter(
+    activity =>
+      Number.isFinite(Number(activity.average_heartrate)) &&
+      Number(activity.average_heartrate) > 0
+  );
+
+  const sevenDayAverageHeartRate = activitiesWithHeartRate.length
+    ? activitiesWithHeartRate.reduce(
+        (total, activity) =>
+          total + Number(activity.average_heartrate),
+        0
+      ) / activitiesWithHeartRate.length
+    : null;
+
+  const weeklyVolumes = [];
+
+  for (let weekIndex = 5; weekIndex >= 0; weekIndex -= 1) {
+    const weekEnd = new Date(now);
+    weekEnd.setDate(now.getDate() - weekIndex * 7);
+
+    const weekStart = new Date(weekEnd);
+    weekStart.setDate(weekEnd.getDate() - 7);
+
+    const weekActivities = sortedActivities.filter(activity => {
+      const activityDate = new Date(activity.start_date);
+
+      return activityDate >= weekStart && activityDate < weekEnd;
+    });
+
+    const distanceMeters = weekActivities.reduce(
+      (total, activity) =>
+        total + (Number(activity.distance_meters) || 0),
+      0
+    );
+
+    weeklyVolumes.push({
+      startDate: weekStart.toISOString(),
+      endDate: weekEnd.toISOString(),
+      activityCount: weekActivities.length,
+      distanceKilometers: distanceMeters / 1000
+    });
+  }
+
+  return {
+    latestActivity,
+    sevenDayActivityCount: recentActivities.length,
+    sevenDayDistanceKilometers: sevenDayDistanceMeters / 1000,
+    sevenDayTrainingHours: sevenDayMovingSeconds / 3600,
+    sevenDayAverageHeartRate,
+    weeklyVolumes
+  };
+}
+
 window.AthlevoBrain = {
   loadAthleteProfile,
   loadAthleteActivities,
+  buildActivitySummary,
   buildCoachingContext,
   updateTodayDashboard,
   updateAthleteProfileScreens,
