@@ -67,7 +67,41 @@ function buildCoachingContext(profile) {
   };
 }
 
+function updateTodayDashboard(profile) {
+  if (!profile) {
+    return;
+  }
+
+  const nameElement = document.getElementById("todayAthleteName");
+  const contextElement = document.getElementById("todayContextLine");
+
+  if (nameElement) {
+    const preferredName =
+      profile.full_name?.trim() ||
+      profile.email?.split("@")[0] ||
+      "Athlete";
+
+    nameElement.textContent = preferredName;
+  }
+
+  if (contextElement) {
+    const sport = profile.primary_sport?.trim();
+    const goal = profile.goal?.trim();
+
+    if (sport && goal) {
+      contextElement.textContent = `${sport} · ${goal}`;
+    } else if (goal) {
+      contextElement.textContent = goal;
+    } else if (sport) {
+      contextElement.textContent = `${sport} athlete profile`;
+    } else {
+      contextElement.textContent = "Your athlete profile is ready.";
+    }
+  }
+}
+
 window.AthlevoBrain = {
   loadAthleteProfile,
-  buildCoachingContext
+  buildCoachingContext,
+  updateTodayDashboard
 };

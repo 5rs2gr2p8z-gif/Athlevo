@@ -473,30 +473,65 @@ body{
 <section class="screen" id="screen-today">
   <div class="statusrow"><span class="num">6:12</span><span>ATHLEVO</span><span class="num">◉ 82%</span></div>
   <div class="greet">
-    <h1 class="serif">Good morning,<br>Dean.</h1>
-    <p>Wednesday, July 8 · <span class="wx">31°C, feels like 36° · 78% humidity</span></p>
+  <h1 class="serif">
+    Good morning,<br><span id="todayAthleteName">Athlete</span>.
+  </h1>
+
+  <p id="todayContextLine">
+    Your athlete profile is ready.
+  </p>
+</div>
+
+  <div class="readiness" id="readinessEmptyState">
+  <div class="ring">
+    <svg width="118" height="118" viewBox="0 0 118 118">
+      <circle
+        class="track"
+        cx="59"
+        cy="59"
+        r="52"
+        stroke-width="9"
+        fill="none"
+      />
+
+      <circle
+        class="fill"
+        cx="59"
+        cy="59"
+        r="52"
+        stroke-width="9"
+        fill="none"
+        stroke-dasharray="326.7"
+        stroke-dashoffset="326.7"
+      />
+    </svg>
+
+    <div class="center">
+      <b class="num">—</b>
+      <i>Readiness</i>
+    </div>
   </div>
 
-  <div class="readiness">
-    <div class="ring">
-      <svg width="118" height="118" viewBox="0 0 118 118">
-        <circle class="track" cx="59" cy="59" r="52" stroke-width="9" fill="none"/>
-        <circle class="fill" id="readyRing" cx="59" cy="59" r="52" stroke-width="9" fill="none"
-          stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
-      </svg>
-      <div class="center"><b class="num">74</b><i>Readiness</i></div>
-    </div>
-    <div class="readiness-copy">
-      <h2>Ready — with one caveat.</h2>
-      <p>Your body absorbed Monday's Threshold session well, but last night's sleep was short. Today is adjusted, not cancelled.</p>
-    </div>
+  <div class="readiness-copy">
+    <h2>Not enough data yet.</h2>
+
+    <p>
+      Connect a training source or record workouts, sleep, and recovery
+      information before Athlevo generates a readiness score.
+    </p>
   </div>
+</div>
 
   <!-- signature: the decision card -->
   <div class="decision" id="decisionCard">
-    <span class="eyebrow">Today's call · Week 6 of 15</span>
-    <h3 class="serif">Keep the Control session — trimmed by 15 minutes.</h3>
-    <p>60 min Control (5:45–5:55/km) instead of 75. Same stimulus, lower total cost. Run before 7:00 AM to stay ahead of the heat.</p>
+  <span class="eyebrow">Today’s training</span>
+
+  <h3>No workout recommendation yet.</h3>
+
+  <p>
+    Athlevo needs your current training plan, recent workouts, and recovery
+    context before it can make a responsible recommendation.
+  </p>
     <button class="why-toggle" onclick="toggleDecision()" aria-expanded="false">
       Why this decision
       <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
