@@ -750,6 +750,200 @@ function updateTrainActivityData(activities = [], summary = null) {
   });
 }
 
+function updateTrendsActivityData(activities = [], summary = null) {
+  const setText = (id, value) => {
+    const element = document.getElementById(id);
+
+    if (element) {
+      element.textContent = value;
+    }
+  };
+
+  const safeActivities = Array.isArray(activities)
+    ? activities
+    : [];
+
+  const weeklyVolumes = Array.isArray(summary?.weeklyVolumes)
+    ? summary.weeklyVolumes
+    : [];
+
+  const currentWeek =
+    weeklyVolumes[weeklyVolumes.length - 1] || null;
+
+  const previousWeek =
+    weeklyVolumes[weeklyVolumes.length - 2] || null;
+
+  const currentDistance =
+    Number(currentWeek?.distanceKilometers) || 0;
+
+  const previousDistance =
+    Number(previousWeek?.distanceKilometers) || 0;
+
+  setText(
+    "trendCurrentDistance",
+    `${currentDistance.toFixed(1)} km`
+  );
+
+  setText(
+    "trendPreviousDistance",
+    `${previousDistance.toFixed(1)} km`
+  );
+
+  setText(
+    "trendImportedActivities",
+    String(safeActivities.length)
+  );
+
+  if (previousDistance > 0) {
+    const changePercent =
+      ((currentDistance - previousDistance) /
+        previousDistance) *
+      100;
+
+    const roundedChange = Math.round(changePercent);
+    const sign = roundedChange > 0 ? "+" : "";
+
+    setText(
+      "trendWeeklyChange",
+      `${sign}${roundedChange}%`
+    );
+
+    if (changePercent > 10) {
+      setText(
+        "trendWeeklyChangeContext",
+        "Volume increased by more than 10%"
+      );
+    } else if (changePercent < -10) {
+      setText(
+        "trendWeeklyChangeContext",
+        "Volume decreased by more than 10%"
+      );
+    } else {
+      setText(
+        "trendWeeklyChangeContext",
+        "Volume remained relatively stable"
+      );
+    }
+  } else {
+    setText("trendWeeklyChange", "—");
+    setText(
+      "trendWeeklyChangeContext",
+      "Previous-week distance is unavailable"
+    );
+  }
+
+  const weeksWithTraining = weeklyVolumes.filter(
+    week => Number(week.distanceKilometers) > 0
+  );
+
+  const highestVolume = weeklyVolumes.reduce(
+    (highest, week) =>
+      Number(week.distanceKilometers) >
+      Number(highest?.distanceKilometers || 0)
+        ? week
+        : highest,
+    null
+  );
+
+  if (!weeksWithTraining.length) {
+    setText(
+      "trendVolumeTitle",
+      "No six-week training history yet."
+    );
+
+    setText(
+      "trendVolumeContext",
+      "Complete and import activities to begin building your volume trend."
+    );
+  } else {
+    setText(
+      "trendVolumeTitle",
+      `${weeksWithTraining.length} of 6 weeks contain training`
+    );
+
+    setText(
+      "trendVolumeContext",
+      highestVolume
+        ? `Highest seven-day volume: ${Number(
+            highestVolume.distanceKilometers
+          ).toFixed(1)} km.`
+        : "Weekly volume is being calculated."
+    );
+  }
+
+  const chart = document.getElementById(
+    "trendWeeklyVolumeChart"
+  );
+
+  if (!chart) {
+    return;
+  }
+
+  chart.innerHTML = "";
+
+  if (!weeklyVolumes.length) {
+    const emptyMessage = document.createElement("p");
+    emptyMessage.textContent =
+      "No weekly activity history available.";
+    chart.appendChild(emptyMessage);
+    return;
+  }
+
+  const maximumDistance = Math.max(
+    ...weeklyVolumes.map(
+      week => Number(week.distanceKilometers) || 0
+    ),
+    1
+  );
+
+  weeklyVolumes.forEach((week, index) => {
+    const distance =
+      Number(week.distanceKilometers) || 0;
+
+    const heightPercent = Math.max(
+      (distance / maximumDistance) * 100,
+      distance > 0 ? 8 : 2
+    );
+
+    const column = document.createElement("div");
+
+    column.style.flex = "1";
+    column.style.minWidth = "0";
+    column.style.textAlign = "center";
+
+    const value = document.createElement("small");
+    value.textContent = `${distance.toFixed(1)}`;
+
+    const barTrack = document.createElement("div");
+
+    barTrack.style.height = "120px";
+    barTrack.style.display = "flex";
+    barTrack.style.alignItems = "flex-end";
+    barTrack.style.margin = "6px 0";
+    barTrack.style.borderRadius = "10px";
+    barTrack.style.overflow = "hidden";
+    barTrack.style.background = "rgba(0, 0, 0, 0.05)";
+
+    const bar = document.createElement("div");
+
+    bar.style.width = "100%";
+    bar.style.height = `${heightPercent}%`;
+    bar.style.background = "currentColor";
+    bar.style.opacity =
+      index === weeklyVolumes.length - 1 ? "1" : "0.25";
+    bar.style.borderRadius = "8px 8px 0 0";
+
+    const label = document.createElement("small");
+    label.textContent = `W${index + 1}`;
+
+    barTrack.appendChild(bar);
+    column.appendChild(value);
+    column.appendChild(barTrack);
+    column.appendChild(label);
+    chart.appendChild(column);
+  });
+}
+
 async function refreshAthleteUI() {
   resetAthleteUI();
 
@@ -769,6 +963,7 @@ async function refreshAthleteUI() {
 
     updateTodayActivityData(activitySummary);
     updateTrainActivityData(activities, activitySummary);
+    updateTrendsActivityData(activities, activitySummary);
 
     console.log("Athlete UI updated for:", profile.id);
 
@@ -982,6 +1177,7 @@ window.AthlevoBrain = {
   updateTodayActivityData,
   updateAthleteProfileScreens,
   updateTrainActivityData,
+  updateTrendsActivityData,
   resetAthleteUI,
   refreshAthleteUI,
   syncStravaActivities

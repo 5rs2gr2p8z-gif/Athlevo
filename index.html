@@ -803,57 +803,77 @@ body{
 
   <div class="statgrid">
 
-    <div class="stat">
-      <span class="eyebrow">Baseline distance</span>
-
-      <b class="num" id="trendWeeklyDistance">—</b>
-
-      <small>Current self-reported weekly distance</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Baseline training time</span>
-
-      <b class="num" id="trendWeeklyHours">—</b>
-
-      <small>Current self-reported weekly hours</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Imported activities</span>
-
-      <b class="num">0</b>
-
-      <small>No training source connected</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Trend confidence</span>
-
-      <b class="num">—</b>
-
-      <small>Requires several weeks of activity data</small>
-    </div>
-
+  <div class="stat">
+    <span class="eyebrow">Current 7 days</span>
+    <b class="num" id="trendCurrentDistance">—</b>
+    <small>Imported activity distance</small>
   </div>
+
+  <div class="stat">
+    <span class="eyebrow">Previous 7 days</span>
+    <b class="num" id="trendPreviousDistance">—</b>
+    <small>Imported activity distance</small>
+  </div>
+
+  <div class="stat">
+    <span class="eyebrow">Week-over-week</span>
+    <b class="num" id="trendWeeklyChange">—</b>
+    <small id="trendWeeklyChangeContext">
+      Waiting for enough activity history
+    </small>
+  </div>
+
+  <div class="stat">
+    <span class="eyebrow">Imported activities</span>
+    <b class="num" id="trendImportedActivities">0</b>
+    <small>Available for analysis</small>
+  </div>
+
+</div>
 
   <div class="spacer-md"></div>
 
-  <div class="race">
-    <div>
-      <b>No performance prediction available</b>
+  <div class="decision">
+  <span class="eyebrow">Six-week volume</span>
 
-      <small>
-        Race predictions require real recent workouts, volume, pace, heart rate,
-        and consistency data.
-      </small>
-    </div>
+  <h3 id="trendVolumeTitle">
+    Loading training history...
+  </h3>
 
-    <div class="days">
-      <b class="num">—</b>
-      <small>Confidence</small>
-    </div>
+  <p id="trendVolumeContext">
+    Athlevo is calculating your real weekly volume from imported activities.
+  </p>
+
+  <div
+    id="trendWeeklyVolumeChart"
+    style="
+      display:flex;
+      align-items:flex-end;
+      gap:8px;
+      min-height:180px;
+      padding-top:24px;
+    "
+  ></div>
+</div>
+
+<div class="spacer-md"></div>
+
+<div class="race">
+  <div>
+    <b>No performance prediction available</b>
+
+    <small>
+      Race predictions will remain unavailable until Athlevo has a validated
+      model using appropriate distance, pace, heart-rate, terrain, and
+      consistency data.
+    </small>
   </div>
+
+  <div class="days">
+    <b class="num">—</b>
+    <small>Confidence</small>
+  </div>
+</div>
 
   <div class="spacer-lg"></div>
 
