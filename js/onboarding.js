@@ -108,14 +108,16 @@ const ATHLEVO_ONBOARDING_QUESTIONS = [
         : `Current weekly distance: approximately ${answer} km.`
   },
   {
-    field: "weekly_hours",
-    question:
-      "Approximately how many total hours do you currently train each week?",
-    type: "number",
-    minimum: 0,
-    maximum: 100,
-    acknowledgement: answer => `Current training load: approximately ${answer} hours per week.`
-  },
+  field: "weekly_hours",
+  question:
+    "Approximately how many total hours do you currently train each week? You can enter one number or a range, such as 5 or 4-6.",
+  type: "number",
+  minimum: 0,
+  maximum: 100,
+  rangeStrategy: "average",
+  acknowledgement: answer =>
+    `Current training load: approximately ${answer} hours per week.`
+},
   {
     field: "injury_history",
     question:
@@ -127,15 +129,17 @@ const ATHLEVO_ONBOARDING_QUESTIONS = [
         : `I’ll treat this as an important constraint: ${answer}`
   },
   {
-    field: "available_days",
-    question:
-      "How many days per week can you realistically train—not ideally, but consistently?",
-    type: "number",
-    minimum: 1,
-    maximum: 7,
-    acknowledgement: answer =>
-      `${answer} training days gives us a realistic weekly structure.`
-  },
+  field: "available_days",
+  question:
+    "How many days per week can you realistically train—not ideally, but consistently? You can enter one number or a range, such as 4 or 4-5.",
+  type: "number",
+  minimum: 1,
+  maximum: 7,
+  rangeStrategy: "minimum",
+  integer: true,
+  acknowledgement: answer =>
+    `${answer} reliable training days gives us a realistic weekly structure.`
+},
   {
     field: "preferred_training_time",
     question:
@@ -240,13 +244,76 @@ function normalizeOnboardingAnswer(question, rawAnswer) {
 
   if (
     question.nullable &&
-    ["none", "n/a", "na", "not applicable", "no"].includes(lowercaseAnswer)
+    [
+      "none",
+      "n/a",
+      "na",
+      "not applicable",
+      "no",
+      "not sure",
+      "unknown"
+    ].includes(lowercaseAnswer)
   ) {
     return null;
   }
 
   if (question.type === "number") {
-    const number = Number(trimmedAnswer);
+    const cleanedAnswer = lowercaseAnswer
+      .replace(/approximately/g, "")
+      .replace(/approx\./g, "")
+      .replace(/approx/g, "")
+      .replace(/around/g, "")
+      .replace(/about/g, "")
+      .replace(/roughly/g, "")
+      .replace(/hours?/g, "")
+      .replace(/hrs?/g, "")
+      .replace(/days?/g, "")
+      .replace(/kilometers?/g, "")
+      .replace(/kilometres?/g, "")
+      .replace(/kms?/g, "")
+      .trim();
+
+    const rangeMatch = cleanedAnswer.match(
+      /^(\d+(?:\.\d+)?)\s*(?:-|–|—|to)\s*(\d+(?:\.\d+)?)$/
+    );
+
+    let number;
+
+    if (rangeMatch) {
+      const minimumValue = Number(rangeMatch[1]);
+      const maximumValue = Number(rangeMatch[2]);
+
+      if (
+        !Number.isFinite(minimumValue) ||
+        !Number.isFinite(maximumValue)
+      ) {
+        throw new Error("Please enter a valid number or range.");
+      }
+
+      if (minimumValue > maximumValue) {
+        throw new Error(
+          "Please enter the lower number first, such as 4-5."
+        );
+      }
+
+      if (question.rangeStrategy === "minimum") {
+        number = minimumValue;
+      } else if (question.rangeStrategy === "maximum") {
+        number = maximumValue;
+      } else {
+        number = (minimumValue + maximumValue) / 2;
+      }
+    } else {
+      const numberMatch = cleanedAnswer.match(/\d+(?:\.\d+)?/);
+
+      if (!numberMatch) {
+        throw new Error(
+          "Please enter a number or range, such as 5 or 4-5."
+        );
+      }
+
+      number = Number(numberMatch[0]);
+    }
 
     if (!Number.isFinite(number)) {
       throw new Error("Please enter a valid number.");
@@ -256,14 +323,22 @@ function normalizeOnboardingAnswer(question, rawAnswer) {
       typeof question.minimum === "number" &&
       number < question.minimum
     ) {
-      throw new Error(`Please enter a value of at least ${question.minimum}.`);
+      throw new Error(
+        `Please enter a value of at least ${question.minimum}.`
+      );
     }
 
     if (
       typeof question.maximum === "number" &&
       number > question.maximum
     ) {
-      throw new Error(`Please enter a value no higher than ${question.maximum}.`);
+      throw new Error(
+        `Please enter a value no higher than ${question.maximum}.`
+      );
+    }
+
+    if (question.integer === true) {
+      number = Math.floor(number);
     }
 
     return number;
