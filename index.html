@@ -657,182 +657,164 @@ body{
 
 <!-- ══════════════ TRAIN ══════════════ -->
 <section class="screen" id="screen-train">
-  <div class="greet" style="padding-bottom:0">
-    <h1 class="serif" style="font-size:28px">Training</h1>
-    <p>Week 6 of 15 · Build phase · 58 km planned</p>
-  </div>
-  <div class="weekstrip">
-    <button class="day" onclick="selDay(this)"><small>Mon</small><b class="num">6</b><div class="dd key"></div></button>
-    <button class="day" onclick="selDay(this)"><small>Tue</small><b class="num">7</b><div class="dd"></div></button>
-    <button class="day sel" onclick="selDay(this)"><small>Wed</small><b class="num">8</b><div class="dd"></div></button>
-    <button class="day" onclick="selDay(this)"><small>Thu</small><b class="num">9</b><div class="dd"></div></button>
-    <button class="day" onclick="selDay(this)"><small>Fri</small><b class="num">10</b><div class="dd key"></div></button>
-    <button class="day" onclick="selDay(this)"><small>Sat</small><b class="num">11</b><div class="dd none"></div></button>
-    <button class="day" onclick="selDay(this)"><small>Sun</small><b class="num">12</b><div class="dd key"></div></button>
+
+  <div class="greet">
+    <h1 class="serif">Training</h1>
+    <p>Your current training context and future plan.</p>
   </div>
 
-  <div class="workout open" onclick="this.classList.toggle('open')">
-    <div class="top">
-      <div><span class="eyebrow">Today · Adjusted by Coach</span></div>
-      <span class="zone-badge">Control</span>
-    </div>
-    <h3 class="serif">Control Run — 60 min</h3>
-    <div class="meta"><span>Pace <b>5:45–5:55</b></span><span>HR <b>&lt;152</b></span><span>Cost <b>Moderate</b></span></div>
-    <div class="session-detail">
-      <div class="sd-inner">
-        <div class="chart-label">Session profile</div>
-        <div class="intervals" aria-hidden="true">
-          <i style="height:30%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:55%"></i><i style="height:30%"></i>
-        </div>
-        <div class="steps">
-          <div class="step"><span>Warm-up</span><b>10 min Ground · 6:30+</b></div>
-          <div class="step"><span>Main</span><b>42 min Control · 5:45–5:55</b></div>
-          <div class="step"><span>Cool-down</span><b>8 min Ground</b></div>
-          <div class="step"><span>Hydration</span><b>500 ml before · carry 500 ml</b></div>
-        </div>
-        <div class="learn-link" onclick="event.stopPropagation();toast('Opening: The Control Zone')">
-          <div>Why Control pace builds your marathon<small>4 min read · Athlevo Method</small></div>
-          <span class="arr">→</span>
-        </div>
-      </div>
-    </div>
+  <div class="decision">
+    <span class="eyebrow">Training plan</span>
+
+    <h3>No structured plan assigned yet.</h3>
+
+    <p>
+      Athlevo has your athlete profile, but it does not yet have enough
+      workout history to responsibly generate or adjust a training plan.
+    </p>
   </div>
 
-  <div class="workout" onclick="this.classList.toggle('open')">
-    <div class="top">
-      <div><span class="eyebrow">Friday · Key session</span></div>
-      <span class="zone-badge threshold">Threshold</span>
+  <div class="spacer-md"></div>
+
+  <div class="statgrid">
+
+    <div class="stat">
+      <span class="eyebrow">Current weekly distance</span>
+
+      <b class="num" id="trainWeeklyDistance">—</b>
+
+      <small>Self-reported during onboarding</small>
     </div>
-    <h3 class="serif">4 × 8 min Threshold</h3>
-    <div class="meta"><span>Pace <b>4:52–4:58</b></span><span>Rest <b>2 min jog</b></span><span>Cost <b>High</b></span></div>
-    <div class="session-detail">
-      <div class="sd-inner">
-        <div class="chart-label">Session profile</div>
-        <div class="intervals" aria-hidden="true">
-          <i style="height:30%"></i><i class="t" style="height:80%"></i><i style="height:35%"></i><i class="t" style="height:80%"></i><i style="height:35%"></i><i class="t" style="height:80%"></i><i style="height:35%"></i><i class="t" style="height:80%"></i><i style="height:30%"></i>
-        </div>
-        <div class="steps">
-          <div class="step"><span>Warm-up</span><b>15 min + 4 strides</b></div>
-          <div class="step"><span>Main</span><b>4 × 8 min @ 4:52–4:58</b></div>
-          <div class="step"><span>Recovery</span><b>2 min Ground jog</b></div>
-          <div class="step"><span>Start time</span><b>Before 6:30 AM (heat)</b></div>
-        </div>
-        <div class="learn-link" onclick="event.stopPropagation();openLesson()">
-          <div>Why threshold training matters<small>4 min lesson + quiz · Norwegian model</small></div>
-          <span class="arr">→</span>
-        </div>
-      </div>
+
+    <div class="stat">
+      <span class="eyebrow">Current weekly hours</span>
+
+      <b class="num" id="trainWeeklyHours">—</b>
+
+      <small>Self-reported during onboarding</small>
     </div>
+
+    <div class="stat">
+      <span class="eyebrow">Training availability</span>
+
+      <b class="num" id="trainAvailableDays">—</b>
+
+      <small>Reliable days per week</small>
+    </div>
+
+    <div class="stat">
+      <span class="eyebrow">Preferred training time</span>
+
+      <b class="num" id="trainPreferredTime">—</b>
+
+      <small>Based on your normal schedule</small>
+    </div>
+
   </div>
 
-  <div class="workout" onclick="this.classList.toggle('open')">
-    <div class="top">
-      <div><span class="eyebrow">Sunday · Long run</span></div>
-      <span class="zone-badge">Ground</span>
+  <div class="spacer-md"></div>
+
+  <div class="race">
+    <div>
+      <b>Workout history not connected</b>
+
+      <small>
+        Connect Strava or record workouts manually to build your training history.
+      </small>
     </div>
-    <h3 class="serif">Long Run — 24 km</h3>
-    <div class="meta"><span>Pace <b>6:10–6:30</b></span><span>Fuel <b>every 40 min</b></span><span>Cost <b>High</b></span></div>
-    <div class="session-detail">
-      <div class="sd-inner">
-        <div class="steps" style="margin-top:0">
-          <div class="step"><span>Route</span><b>Rolling hills — race-specific</b></div>
-          <div class="step"><span>Fueling</span><b>1 gel every 40 min + electrolytes</b></div>
-          <div class="step"><span>Last 4 km</span><b>Progress to 5:50 if fresh</b></div>
-        </div>
-        <div class="learn-link" onclick="event.stopPropagation();toast('Opening: Fueling the Long Run')">
-          <div>Fueling the long run in heat<small>5 min read · Total Cost Accounting</small></div>
-          <span class="arr">→</span>
-        </div>
-      </div>
+
+    <div class="days">
+      <b class="num">—</b>
+      <small>Workouts</small>
     </div>
   </div>
 
-  <div class="zonekey">
-    <div class="chart-label">The Athlevo zones</div>
-    <div class="zk-row"><span class="zk-dot" style="background:#c9c9c4"></span><b>Ground</b><span>Aerobic base — conversational, builds the engine</span></div>
-    <div class="zk-row"><span class="zk-dot" style="background:#8f9096"></span><b>Control</b><span>Steady aerobic — marathon-supporting effort</span></div>
-    <div class="zk-row"><span class="zk-dot" style="background:#C0272D"></span><b>Threshold</b><span>LT2 work — the engine's ceiling, used precisely</span></div>
-    <div class="zk-row"><span class="zk-dot" style="background:#141416"></span><b>Edge</b><span>VO₂ and speed — small doses, big cost</span></div>
-  </div>
   <div class="spacer-lg"></div>
+
 </section>
 
 <!-- ══════════════ TRENDS ══════════════ -->
 <section class="screen" id="screen-trends">
-  <div class="greet" style="padding-bottom:16px">
-    <h1 class="serif" style="font-size:28px">Trends</h1>
-    <p>Last 6 weeks · Build phase</p>
+
+  <div class="greet">
+    <h1 class="serif">Trends</h1>
+
+    <p>
+      Your training patterns will appear as real activity history accumulates.
+    </p>
   </div>
 
-  <div class="predict">
+  <div class="decision">
+
+    <span class="eyebrow">Performance trends</span>
+
+    <h3>No imported training history yet.</h3>
+
+    <p>
+      Athlevo will not calculate fitness, fatigue, race predictions, or training
+      trends until it has enough real workout data.
+    </p>
+
+  </div>
+
+  <div class="spacer-md"></div>
+
+  <div class="statgrid">
+
+    <div class="stat">
+      <span class="eyebrow">Baseline distance</span>
+
+      <b class="num" id="trendWeeklyDistance">—</b>
+
+      <small>Current self-reported weekly distance</small>
+    </div>
+
+    <div class="stat">
+      <span class="eyebrow">Baseline training time</span>
+
+      <b class="num" id="trendWeeklyHours">—</b>
+
+      <small>Current self-reported weekly hours</small>
+    </div>
+
+    <div class="stat">
+      <span class="eyebrow">Imported activities</span>
+
+      <b class="num">0</b>
+
+      <small>No training source connected</small>
+    </div>
+
+    <div class="stat">
+      <span class="eyebrow">Trend confidence</span>
+
+      <b class="num">—</b>
+
+      <small>Requires several weeks of activity data</small>
+    </div>
+
+  </div>
+
+  <div class="spacer-md"></div>
+
+  <div class="race">
     <div>
-      <span class="eyebrow">Predicted marathon</span>
-      <h3 class="serif num">3:46:20</h3>
-      <p>Inside your 3:40–3:50 goal window</p>
+      <b>No performance prediction available</b>
+
+      <small>
+        Race predictions require real recent workouts, volume, pace, heart rate,
+        and consistency data.
+      </small>
     </div>
-    <div class="conf"><b class="num">84%</b><small>Confid.</small></div>
-  </div>
-  <div class="spacer-md"></div>
 
-  <div class="bigchart">
-    <h3>Fitness vs. fatigue</h3>
-    <p class="sub">Fitness climbing steadily; fatigue peaks absorbed within 48h</p>
-    <svg viewBox="0 0 320 120" width="100%" aria-label="Fitness and fatigue trend chart">
-      <line x1="0" y1="100" x2="320" y2="100" stroke="#ebebe8"/>
-      <line x1="0" y1="60" x2="320" y2="60" stroke="#ebebe8"/>
-      <line x1="0" y1="20" x2="320" y2="20" stroke="#ebebe8"/>
-      <path d="M0,92 C40,88 60,80 100,74 C140,68 180,60 220,52 C260,44 290,40 320,34" fill="none" stroke="#141416" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M0,86 C30,70 50,92 80,72 C110,52 140,84 180,62 C220,42 250,76 290,56 C305,48 312,52 320,48" fill="none" stroke="#C0272D" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 0" opacity=".85"/>
-    </svg>
-    <div class="legend"><span><i style="background:#141416"></i>Fitness</span><span><i style="background:#C0272D"></i>Fatigue</span></div>
-  </div>
-  <div class="spacer-md"></div>
-
-  <div class="bigchart">
-    <h3>Weekly volume</h3>
-    <p class="sub">Consistency 92% · ramp held under 10%/week</p>
-    <svg viewBox="0 0 320 110" width="100%" aria-label="Weekly volume bar chart">
-      <g fill="#d8d8d4">
-        <rect x="10"  y="58" width="36" height="46" rx="5"/>
-        <rect x="62"  y="50" width="36" height="54" rx="5"/>
-        <rect x="114" y="44" width="36" height="60" rx="5"/>
-        <rect x="166" y="62" width="36" height="42" rx="5"/>
-        <rect x="218" y="36" width="36" height="68" rx="5"/>
-      </g>
-      <rect x="270" y="28" width="36" height="76" rx="5" fill="#141416"/>
-      <g font-family="-apple-system,sans-serif" font-size="10" fill="#9a9da3" text-anchor="middle">
-        <text x="28" y="112">42</text><text x="80" y="112">46</text><text x="132" y="112">49</text><text x="184" y="112">40</text><text x="236" y="112">54</text><text x="288" y="112" fill="#141416" font-weight="700">58</text>
-      </g>
-    </svg>
-  </div>
-  <div class="spacer-md"></div>
-
-  <div class="bigchart">
-    <h3>Training distribution</h3>
-    <p class="sub">Pyramid intact — most of your week lives in Ground</p>
-    <div class="dist">
-      <i style="width:62%;background:#c9c9c4"></i>
-      <i style="width:22%;background:#8f9096"></i>
-      <i style="width:12%;background:#C0272D"></i>
-      <i style="width:4%;background:#141416"></i>
+    <div class="days">
+      <b class="num">—</b>
+      <small>Confidence</small>
     </div>
-    <div class="dist-labels"><span>Ground 62%</span><span>Control 22%</span><span>Thresh 12%</span><span>Edge 4%</span></div>
   </div>
-  <div class="spacer-md"></div>
 
-  <div class="bigchart">
-    <h3>Heat adaptation</h3>
-    <p class="sub">HR drift at fixed Control pace, same route, 31°C mornings</p>
-    <svg viewBox="0 0 320 100" width="100%" aria-label="Heat adaptation trend">
-      <line x1="0" y1="80" x2="320" y2="80" stroke="#ebebe8"/>
-      <path d="M0,24 C60,28 110,38 160,48 C210,58 270,64 320,68" fill="none" stroke="#C0272D" stroke-width="2.5" stroke-linecap="round"/>
-      <g font-family="-apple-system,sans-serif" font-size="10" fill="#9a9da3">
-        <text x="0" y="16">+11 bpm drift</text><text x="252" y="62">+4 bpm drift</text>
-      </g>
-    </svg>
-    <p class="sub" style="margin:10px 0 0">You're adapting. The heat is becoming a smaller tax on every session.</p>
-  </div>
   <div class="spacer-lg"></div>
+
 </section>
 
 <!-- ══════════════ YOU ══════════════ -->
@@ -1143,21 +1125,25 @@ function exitCoachMode(){
 }
 
 /* ---------- readiness ring ---------- */
-function animateRing(){
-  const ring=document.getElementById('readyRing');
-  const score=74, C=326.7;
-  ring.style.strokeDashoffset=C;
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    ring.style.strokeDashoffset=C*(1-score/100);
-  }));
-}
-window.addEventListener('load',animateRing);
+function animateRing() {
+  const ring = document.querySelector(".ring .fill");
 
-/* ---------- decision card ---------- */
-function toggleDecision(){
-  const c=document.getElementById('decisionCard');
-  c.classList.toggle('open');
-  c.querySelector('.why-toggle').setAttribute('aria-expanded',c.classList.contains('open'));
+  if (!ring) {
+    return;
+  }
+
+  const readinessValue = Number(ring.dataset.value);
+
+  if (!Number.isFinite(readinessValue)) {
+    ring.style.strokeDashoffset = "326.7";
+    return;
+  }
+
+  const circumference = 326.7;
+  const offset =
+    circumference - (readinessValue / 100) * circumference;
+
+  ring.style.strokeDashoffset = String(offset);
 }
 
 /* ---------- day selector ---------- */

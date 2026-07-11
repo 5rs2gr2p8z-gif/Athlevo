@@ -309,6 +309,73 @@ function updateAthleteProfileScreens(profile) {
   if (garminMark) {
     garminMark.textContent = profile.garmin_connected ? "✓" : "—";
   }
+    const weeklyDistance =
+    profile.weekly_distance !== null &&
+    profile.weekly_distance !== undefined
+      ? `${profile.weekly_distance} km`
+      : "Not provided";
+
+  const weeklyHours =
+    profile.weekly_hours !== null &&
+    profile.weekly_hours !== undefined
+      ? `${profile.weekly_hours} hrs`
+      : "Not provided";
+
+  const availableDays =
+    profile.available_days ??
+    profile.training_days ??
+    null;
+
+  const availableDaysText =
+    availableDays !== null
+      ? `${availableDays} days`
+      : "Not provided";
+
+  const preferredTime =
+    profile.preferred_training_time?.trim() ||
+    "Not provided";
+
+  const trainWeeklyDistance =
+    document.getElementById("trainWeeklyDistance");
+
+  const trainWeeklyHours =
+    document.getElementById("trainWeeklyHours");
+
+  const trainAvailableDays =
+    document.getElementById("trainAvailableDays");
+
+  const trainPreferredTime =
+    document.getElementById("trainPreferredTime");
+
+  const trendWeeklyDistance =
+    document.getElementById("trendWeeklyDistance");
+
+  const trendWeeklyHours =
+    document.getElementById("trendWeeklyHours");
+
+  if (trainWeeklyDistance) {
+    trainWeeklyDistance.textContent = weeklyDistance;
+  }
+
+  if (trainWeeklyHours) {
+    trainWeeklyHours.textContent = weeklyHours;
+  }
+
+  if (trainAvailableDays) {
+    trainAvailableDays.textContent = availableDaysText;
+  }
+
+  if (trainPreferredTime) {
+    trainPreferredTime.textContent = preferredTime;
+  }
+
+  if (trendWeeklyDistance) {
+    trendWeeklyDistance.textContent = weeklyDistance;
+  }
+
+  if (trendWeeklyHours) {
+    trendWeeklyHours.textContent = weeklyHours;
+  }
 }
 
 async function refreshAthleteUI() {
