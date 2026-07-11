@@ -122,6 +122,7 @@ async function askCoach(question) {
   try {
     const profile = await AthlevoBrain.loadAthleteProfile();
 AthlevoBrain.updateTodayDashboard(profile);
+AthlevoBrain.updateAthleteProfileScreens(profile);
 
     if (!profile) {
       throw new Error("No athlete profile was found.");

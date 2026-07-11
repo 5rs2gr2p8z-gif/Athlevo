@@ -536,39 +536,93 @@ body{
       Why this decision
       <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <div class="ledger">
-      <div class="ledger-inner">
-        <div class="factor"><span class="f-name">Sleep</span><span><span class="f-val num">5h 42m</span><span class="f-dir dir-down">▼ SHORT</span></span></div>
-        <div class="factor"><span class="f-name">HRV (7-day baseline 64)</span><span><span class="f-val num">61 ms</span><span class="f-dir dir-flat">— STABLE</span></span></div>
-        <div class="factor"><span class="f-name">Resting HR</span><span><span class="f-val num">49 bpm</span><span class="f-dir dir-up">▲ NORMAL</span></span></div>
-        <div class="factor"><span class="f-name">Heat index at 6 AM</span><span><span class="f-val num">33°</span><span class="f-dir dir-down">▼ HIGH COST</span></span></div>
-        <div class="factor"><span class="f-name">7-day load ramp</span><span><span class="f-val num">+8%</span><span class="f-dir dir-flat">— ON PLAN</span></span></div>
-        <div class="factor"><span class="f-name">Monday Threshold compliance</span><span><span class="f-val num">98%</span><span class="f-dir dir-up">▲ ABSORBED</span></span></div>
-        <div class="ledger-verdict"><b>The reasoning:</b> HRV is stable, so no red flag — but short sleep plus a 33° heat index raises today's total cost. Cutting 15 minutes preserves the aerobic stimulus while protecting Friday's key Threshold session. We never trade tomorrow's quality for today's volume.</div>
-      </div>
+   <div class="ledger">
+  <div class="ledger-inner">
+    <div class="factor">
+      <span class="f-name">Recent workouts</span>
+      <span><span class="f-val num">No data</span></span>
+    </div>
+
+    <div class="factor">
+      <span class="f-name">Recovery</span>
+      <span><span class="f-val num">No data</span></span>
+    </div>
+
+    <div class="factor">
+      <span class="f-name">Training plan</span>
+      <span><span class="f-val num">Not connected</span></span>
+    </div>
+
+    <div class="ledger-verdict">
+      <b>Why there is no recommendation:</b>
+      Athlevo will not invent a workout without real training and recovery data.
+    </div>
+  </div>
+</div>
+
+ <div class="statgrid">
+  <div class="stat">
+    <span class="eyebrow">Sleep</span>
+    <b class="num">—</b>
+    <small>No data recorded</small>
+
+    <div class="spark">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
     </div>
   </div>
 
-  <div class="statgrid">
-    <div class="stat"><span class="eyebrow">Sleep</span><b class="num">5:42</b><small>−1h 33m vs. need</small>
-      <div class="spark"><i style="height:70%"></i><i style="height:85%"></i><i style="height:60%"></i><i style="height:90%"></i><i style="height:78%"></i><i style="height:82%"></i><i class="hi" style="height:45%"></i></div></div>
-    <div class="stat"><span class="eyebrow">HRV</span><b class="num">61 <small style="display:inline">ms</small></b><small>Baseline 64 · stable</small>
-      <div class="spark"><i style="height:60%"></i><i style="height:72%"></i><i style="height:66%"></i><i style="height:80%"></i><i style="height:74%"></i><i style="height:70%"></i><i class="hi" style="height:64%"></i></div></div>
-    <div class="stat"><span class="eyebrow">Body battery</span><b class="num">68</b><small>Drained faster overnight</small>
-      <div class="spark"><i style="height:90%"></i><i style="height:76%"></i><i style="height:82%"></i><i style="height:88%"></i><i style="height:70%"></i><i style="height:80%"></i><i class="hi" style="height:62%"></i></div></div>
-    <div class="stat"><span class="eyebrow">Training load</span><b class="num">412</b><small>Optimal band 380–450</small>
-      <div class="spark"><i style="height:50%"></i><i style="height:58%"></i><i style="height:64%"></i><i style="height:60%"></i><i style="height:72%"></i><i style="height:78%"></i><i class="hi" style="height:82%"></i></div></div>
+  <div class="stat">
+    <span class="eyebrow">HRV</span>
+    <b class="num">—</b>
+    <small>Requires wearable data</small>
+
+    <div class="spark">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
   </div>
+
+  <div class="stat">
+    <span class="eyebrow">Recovery</span>
+    <b class="num">—</b>
+    <small>Not available yet</small>
+
+    <div class="spark">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+  </div>
+
+  <div class="stat">
+    <span class="eyebrow">Training load</span>
+    <b class="num">—</b>
+    <small>Import workouts to begin</small>
+
+    <div class="spark">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+  </div>
+</div>
 
   <div class="race">
-    <div><b>Marathon — Hilly Course</b><small>Goal 3:40–3:50 · Build phase</small></div>
-    <div class="days"><b class="num">63</b><small>Days</small></div>
+  <div>
+    <b id="todayRaceName">No target race set</b>
+    <small id="todayRaceContext">
+      Add a race and date in your athlete profile.
+    </small>
   </div>
 
-  <div class="coachnote">
-    <span class="eyebrow">Coach's note</span>
-    <p>Solid week so far, Dean. Your Control pace is drifting faster than prescribed — hold 5:45–5:55. Discipline at low intensity is what buys speed at high intensity.</p>
+  <div class="days">
+    <b class="num" id="todayRaceDays">—</b>
+    <small>Days</small>
   </div>
+</div>
+
+ <div class="coachnote">
+  <span class="eyebrow">Coach’s note</span>
+
+  <p id="todayCoachNote">
+    No personal coach note has been recorded yet.
+  </p>
+</div>
   <div class="spacer-lg"></div>
 </section>
 
@@ -784,39 +838,70 @@ body{
 <!-- ══════════════ YOU ══════════════ -->
 <section class="screen" id="screen-you">
   <div class="profilehead">
-    <div class="pfp serif">D</div>
-    <div>
-      <h1 class="serif">Dean Castro</h1>
-      <p>Marathon build · Pampanga, PH · Elite plan</p>
-    </div>
+  <div class="pfp serif" id="profileInitial">A</div>
+
+  <div>
+    <h1 class="serif" id="profileName">Athlete</h1>
+
+    <p id="profileSummary">
+      Athlete profile
+    </p>
   </div>
+</div>
   <div class="spacer-md"></div>
 
-  <div class="memory">
-    <span class="eyebrow">Coach memory</span>
-    <h4 class="serif">What I know about you</h4>
-    <p>Learned from our conversations and your data. I never ask twice.</p>
-    <div class="mem-item"><i>●</i>Marathon in September — hilly course, goal 3:40–3:50</div>
-    <div class="mem-item"><i>●</i>Trains in Pampanga heat — 31°C mornings, 78% humidity</div>
-    <div class="mem-item"><i>●</i>Sleep is the recurring weak point — evenings run late</div>
-    <div class="mem-item"><i>●</i>Past shin splints — watch load ramps &gt;10%</div>
-    <div class="mem-item"><i>●</i>Prefers morning runs &amp; heart-rate guidance</div>
-    <div class="mem-item"><i>●</i>Responds well to Norwegian threshold work</div>
-    <div class="mem-item"><i>●</i>Cycling background — clean cross-training substitute</div>
+ <div class="memory">
+  <span class="eyebrow">Coach memory</span>
+
+  <h4 class="serif">What I know about you</h4>
+
+  <p>
+    Built from your athlete profile and information you have actually provided.
+  </p>
+
+  <div id="profileMemoryList">
+    <div class="mem-item">
+      <i></i>
+      <span>No athlete memory recorded yet.</span>
+    </div>
   </div>
+</div>
   <div class="spacer-lg"></div>
 
-  <div class="pad"><div class="section-title serif">Connected devices &amp; apps</div></div>
-  <div class="integ">
-    <div class="integ-row"><div class="ilogo">G</div><div class="in"><b>Garmin Connect</b><small><span class="sync-dot pulse"></span>Syncing — this morning's sleep</small></div><span class="connected-check">✓</span></div>
-    <div class="integ-row"><div class="ilogo">S</div><div class="in"><b>Strava</b><small><span class="sync-dot"></span>Synced 6:02 AM</small></div><span class="connected-check">✓</span></div>
-    <div class="integ-row"><div class="ilogo">W</div><div class="in"><b>WHOOP</b><small>Recovery, strain &amp; sleep staging</small></div><button class="connect-btn" onclick="connectRow(this)">Connect</button></div>
-    <div class="integ-row"><div class="ilogo">C</div><div class="in"><b>COROS</b><small>Watch data &amp; running power</small></div><button class="connect-btn" onclick="connectRow(this)">Connect</button></div>
-    <div class="integ-row"><div class="ilogo">A</div><div class="in"><b>Apple Health</b><small><span class="sync-dot"></span>Synced continuously</small></div><span class="connected-check">✓</span></div>
-    <div class="integ-row"><div class="ilogo">St</div><div class="in"><b>Stryd</b><small>Running power &amp; wind resistance</small></div><button class="connect-btn" onclick="connectRow(this)">Connect</button></div>
-    <div class="integ-row"><div class="ilogo">I</div><div class="in"><b>Intervals.icu</b><small>Advanced load analytics</small></div><button class="connect-btn" onclick="connectRow(this)">Connect</button></div>
+ <div class="integ">
+  <div class="integ-row">
+    <div class="ilogo">S</div>
+
+    <div class="in">
+      <b>Strava</b>
+      <small id="stravaConnectionStatus">Not connected</small>
+    </div>
+
+    <span id="stravaConnectionMark">—</span>
   </div>
-  <div class="spacer-lg"></div>
+
+  <div class="integ-row">
+    <div class="ilogo">G</div>
+
+    <div class="in">
+      <b>Garmin Connect</b>
+      <small id="garminConnectionStatus">Not connected</small>
+    </div>
+
+    <span id="garminConnectionMark">—</span>
+  </div>
+
+  <div class="integ-row">
+    <div class="ilogo">C</div>
+
+    <div class="in">
+      <b>COROS</b>
+      <small>Not connected</small>
+    </div>
+
+    <span>—</span>
+  </div>
+</div>
 
   <div class="pad"><div class="section-title serif">Learn the method</div></div>
   <div class="edu-scroll">
