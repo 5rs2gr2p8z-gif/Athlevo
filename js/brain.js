@@ -479,8 +479,74 @@ async function syncStravaActivities() {
   }
 }
 
+async function loadAthleteActivities(limit = 200) {
+  const {
+    data: { user },
+    error: userError
+  } = await supabaseClient.auth.getUser();
+
+  if (userError) {
+    console.error("Could not get current athlete:", userError);
+    return [];
+  }
+
+  if (!user) {
+    console.log("No athlete is logged in.");
+    return [];
+  }
+
+  const safeLimit = Math.min(
+    Math.max(Number(limit) || 200, 1),
+    200
+  );
+
+  const { data: activities, error: activitiesError } =
+    await supabaseClient
+      .from("activities")
+      .select(`
+        id,
+        user_id,
+        source,
+        external_activity_id,
+        name,
+        sport_type,
+        activity_type,
+        distance_meters,
+        moving_time_seconds,
+        elapsed_time_seconds,
+        elevation_gain_meters,
+        average_speed_mps,
+        average_heartrate,
+        max_heartrate,
+        average_cadence,
+        start_date,
+        timezone,
+        trainer,
+        commute
+      `)
+      .eq("user_id", user.id)
+      .order("start_date", { ascending: false })
+      .limit(safeLimit);
+
+  if (activitiesError) {
+    console.error(
+      "Could not load athlete activities:",
+      activitiesError
+    );
+    return [];
+  }
+
+  console.log(
+    `Loaded ${activities?.length || 0} activities for athlete:`,
+    user.id
+  );
+
+  return activities || [];
+}
+
 window.AthlevoBrain = {
   loadAthleteProfile,
+  loadAthleteActivities,
   buildCoachingContext,
   updateTodayDashboard,
   updateAthleteProfileScreens,
