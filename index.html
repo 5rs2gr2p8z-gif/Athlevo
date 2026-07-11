@@ -987,6 +987,9 @@ function go(btn){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(btn.dataset.screen).classList.add('active');
   if(btn.dataset.screen==='screen-today') animateRing();
+  if (btn.dataset.screen === "screen-coachai") {
+  renderConversationHistory();
+}
 }
 function enterCoachMode(){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));

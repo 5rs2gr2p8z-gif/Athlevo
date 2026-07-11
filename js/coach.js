@@ -85,6 +85,27 @@ async function loadConversationHistory() {
 
   return data || [];
 }
+async function renderConversationHistory() {
+  const chatlog = document.getElementById("chatlog");
+
+  if (!chatlog) {
+    console.error("Chat log not found.");
+    return;
+  }
+
+  const history = await loadConversationHistory();
+
+  if (!history.length) return;
+
+  chatlog.innerHTML = "";
+
+  history.forEach(item => {
+    const role = item.role === "assistant" ? "ai" : "user";
+    addChatMessage(role, item.message);
+  });
+
+  chatlog.scrollTop = chatlog.scrollHeight;
+}
 async function askCoach(question) {
   const cleanQuestion = question?.trim();
 
@@ -165,3 +186,4 @@ window.ask = ask;
 window.sendMsg = sendMsg;
 window.loadConversationHistory = loadConversationHistory;
 window.saveConversationMessage = saveConversationMessage;
+window.renderConversationHistory = renderConversationHistory;
