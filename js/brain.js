@@ -17,19 +17,10 @@ async function loadAthleteProfile() {
   }
 
   const { data: profile, error: profileError } = await supabaseClient
-    .from("profiles")
-    .select(`
-      id,
-      email,
-      full_name,
-      goal,
-      race_type,
-      injury_history,
-      training_days,
-      device
-    `)
-    .eq("id", user.id)
-    .maybeSingle();
+  .from("profiles")
+  .select("*")
+  .eq("id", user.id)
+  .maybeSingle();
 
   if (profileError) {
     console.error("Could not load athlete profile:", profileError);
@@ -378,23 +369,72 @@ function updateAthleteProfileScreens(profile) {
   }
 }
 
+function resetAthleteUI() {
+  const setText = (id, value) => {
+    const element = document.getElementById(id);
+
+    if (element) {
+      element.textContent = value;
+    }
+  };
+
+  setText("todayAthleteName", "Athlete");
+  setText("todayContextLine", "Your athlete profile is loading.");
+
+  setText("profileName", "Athlete");
+  setText("profileInitial", "A");
+  setText("profileSummary", "Athlete profile");
+
+  setText("todayRaceName", "No target race set");
+  setText("todayRaceContext", "Add a race and date in your athlete profile.");
+  setText("todayRaceDays", "—");
+  setText("todayCoachNote", "No personal coach note has been recorded yet.");
+
+  setText("trainWeeklyDistance", "—");
+  setText("trainWeeklyHours", "—");
+  setText("trainAvailableDays", "—");
+  setText("trainPreferredTime", "—");
+
+  setText("trendWeeklyDistance", "—");
+  setText("trendWeeklyHours", "—");
+
+  setText("stravaConnectionStatus", "Not connected");
+  setText("stravaConnectionMark", "—");
+  setText("garminConnectionStatus", "Not connected");
+  setText("garminConnectionMark", "—");
+
+  const memoryList = document.getElementById("profileMemoryList");
+
+  if (memoryList) {
+    memoryList.innerHTML = `
+      <div class="mem-item">
+        <i></i>
+        <span>No athlete memory recorded yet.</span>
+      </div>
+    `;
+  }
+}
+
 async function refreshAthleteUI() {
+  resetAthleteUI();
+
   try {
     const profile = await loadAthleteProfile();
 
     if (!profile) {
-      console.error("No athlete profile returned.");
+      console.log("No profile exists for the current athlete.");
       return null;
     }
 
     updateTodayDashboard(profile);
     updateAthleteProfileScreens(profile);
 
-    console.log("Athlete UI updated:", profile);
+    console.log("Athlete UI updated for:", profile.id);
 
     return profile;
   } catch (error) {
     console.error("Could not update athlete UI:", error);
+    resetAthleteUI();
     return null;
   }
 }
@@ -404,5 +444,6 @@ window.AthlevoBrain = {
   buildCoachingContext,
   updateTodayDashboard,
   updateAthleteProfileScreens,
+  resetAthleteUI,
   refreshAthleteUI
 };

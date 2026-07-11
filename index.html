@@ -1101,6 +1101,7 @@ async function doLogout() {
     toast('Logout failed');
     return;
   }
+  AthlevoBrain.resetAthleteUI();
 
   document.getElementById('tabbar').style.display = 'none';
   showScreen('screen-welcome');
