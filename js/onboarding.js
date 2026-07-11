@@ -560,7 +560,7 @@ async function finishAthlevoOnboarding() {
       "Your athlete profile is complete. I now have enough context to begin coaching you responsibly."
     );
 
-    window.setTimeout(() => {
+    window.setTimeout(async () => {
       const tabbar = document.getElementById("tabbar");
 
      if (tabbar) {

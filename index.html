@@ -1366,7 +1366,11 @@ let obStep=-1;
 function obNext(step){
   obStep=step;
   const log=document.getElementById('obLog');
-  document.getElementById('obBar').style.width=Math.round(((step+1)/OB.length)*100)+'%';
+  const obBar = document.getElementById("obBar");
+
+if (obBar) {
+  obBar.style.width = "0%";
+}
   const s=OB[step];
   const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);
   obScroll();
