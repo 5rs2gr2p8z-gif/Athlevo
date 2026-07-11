@@ -40,17 +40,25 @@ async function saveConversationMessage(role, message) {
     return;
   }
 
-  const { error } = await supabaseClient
-    .from("coach_conversations")
-    .insert({
+  console.log("Saving conversation for:", user.id, role, message);
+
+const { data, error } = await supabaseClient
+  .from("coach_conversations")
+  .insert([
+    {
       user_id: user.id,
       role,
       message
-    });
+    }
+  ])
+  .select();
 
-  if (error) {
-    console.error("Could not save conversation message:", error);
-  }
+if (error) {
+  console.error("Could not save conversation message:", error);
+  return;
+}
+
+console.log("Conversation saved successfully:", data);
 }
 
 async function loadConversationHistory() {
@@ -156,3 +164,4 @@ window.askCoach = askCoach;
 window.ask = ask;
 window.sendMsg = sendMsg;
 window.loadConversationHistory = loadConversationHistory;
+window.saveConversationMessage = saveConversationMessage;
