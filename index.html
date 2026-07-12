@@ -828,6 +828,58 @@ body{
   height: var(--athlevo-tabbar-height);
   z-index: 50;
 }
+
+.plan-header{
+
+    background:white;
+
+    border-radius:20px;
+
+    padding:20px;
+
+    margin-bottom:18px;
+
+    box-shadow:0 8px 30px rgba(0,0,0,.05);
+
+}
+
+.plan-race{
+
+    font-size:14px;
+
+    color:#999;
+
+}
+
+.plan-phase{
+
+    color:#d11a2a;
+
+    font-weight:600;
+
+    margin-top:8px;
+
+}
+
+.week-focus{
+
+    margin-top:14px;
+
+}
+
+.session-card{
+
+    background:white;
+
+    border-radius:18px;
+
+    padding:18px;
+
+    margin-bottom:14px;
+
+    box-shadow:0 6px 20px rgba(0,0,0,.05);
+
+}
 </style>
 </head>
 <body>
@@ -1198,6 +1250,10 @@ body{
 
 <!-- ══════════════ TRAIN ══════════════ -->
 <section class="screen" id="screen-train">
+
+  <div id="trainHeader"></div>
+
+<div id="weekSessions"></div>
 
   <div class="greet">
     <h1 class="serif">Training</h1>
@@ -1735,6 +1791,11 @@ async function go(btn){
   document.getElementById(btn.dataset.screen).classList.add('active');
   if(btn.dataset.screen==='screen-today') animateRing();
   if (btn.dataset.screen === "screen-coachai") {
+    if(btn.dataset.screen==="screen-train"){
+
+    loadWeeklyPlan();
+
+}
   await renderConversationHistory();
 
   requestAnimationFrame(() => {
@@ -2164,6 +2225,7 @@ async function restoreSession() {
 <script src="js/dailyBrief.js"></script>
 <script src="js/renderCoachResponse.js"></script>
 <script src="js/coach.js"></script>
+<script src="js/train.js"></script>
 <script src="js/onboarding.js"></script>
 <script>
   async function initializeAthlevoApp() {
