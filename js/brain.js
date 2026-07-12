@@ -31,29 +31,318 @@ async function loadAthleteProfile() {
   return profile;
 }
 
-function buildCoachingContext(profile) {
+function buildCoachingContext(
+  profile,
+  activities = [],
+  activitySummary = null
+) {
   if (!profile) return null;
+
+  const safeActivities = Array.isArray(activities)
+    ? activities
+    : [];
+
+  const recentActivities = safeActivities
+    .slice(0, 5)
+    .map(activity => {
+      const distanceMeters =
+        Number(activity.distance_meters) || 0;
+
+      const movingTimeSeconds =
+        Number(activity.moving_time_seconds) || 0;
+
+      const distanceKilometers =
+        distanceMeters > 0
+          ? Number((distanceMeters / 1000).toFixed(2))
+          : null;
+
+      const durationMinutes =
+        movingTimeSeconds > 0
+          ? Math.round(movingTimeSeconds / 60)
+          : null;
+
+      let averagePacePerKilometer = null;
+
+      if (distanceMeters > 0 && movingTimeSeconds > 0) {
+        const secondsPerKilometer =
+          movingTimeSeconds / (distanceMeters / 1000);
+
+        const paceMinutes = Math.floor(
+          secondsPerKilometer / 60
+        );
+
+        const paceSeconds = Math.round(
+          secondsPerKilometer % 60
+        );
+
+        averagePacePerKilometer =
+          `${paceMinutes}:${String(paceSeconds).padStart(
+            2,
+            "0"
+          )}/km`;
+      }
+
+      return {
+        name:
+          activity.name ||
+          activity.sport_type ||
+          activity.activity_type ||
+          "Activity",
+
+        sportType:
+          activity.sport_type ||
+          activity.activity_type ||
+          "Unknown",
+
+        startDate: activity.start_date || null,
+        distanceKilometers,
+        durationMinutes,
+        averagePacePerKilometer,
+
+        averageHeartRate:
+          Number(activity.average_heartrate) > 0
+            ? Math.round(
+                Number(activity.average_heartrate)
+              )
+            : null,
+
+        maximumHeartRate:
+          Number(activity.max_heartrate) > 0
+            ? Math.round(Number(activity.max_heartrate))
+            : null,
+
+        elevationGainMeters:
+          Number(activity.elevation_gain_meters) > 0
+            ? Math.round(
+                Number(activity.elevation_gain_meters)
+              )
+            : null,
+
+        trainer: Boolean(activity.trainer)
+      };
+    });
+
+  const weeklyVolumes = Array.isArray(
+    activitySummary?.weeklyVolumes
+  )
+    ? activitySummary.weeklyVolumes.map(
+        (week, index) => ({
+          weekNumber: index + 1,
+          startDate: week.startDate,
+          endDate: week.endDate,
+          activityCount:
+            Number(week.activityCount) || 0,
+          distanceKilometers: Number(
+            (
+              Number(week.distanceKilometers) || 0
+            ).toFixed(1)
+          )
+        })
+      )
+    : [];
+
+  const latestActivity =
+    activitySummary?.latestActivity || null;
 
   return {
     athlete: {
       id: profile.id,
       name: profile.full_name || "Athlete",
-      email: profile.email || null
+      email: profile.email || null,
+
+      age:
+        Number(profile.age) > 0
+          ? Number(profile.age)
+          : null,
+
+      sex: profile.sex || null,
+
+      heightCentimeters:
+        Number(profile.height_cm) > 0
+          ? Number(profile.height_cm)
+          : null,
+
+      weightKilograms:
+        Number(profile.weight_kg) > 0
+          ? Number(profile.weight_kg)
+          : null
     },
 
     trainingProfile: {
       goal: profile.goal || "Not provided",
       raceType: profile.race_type || "Not provided",
-      injuryHistory: profile.injury_history || "None reported",
-      trainingDays: profile.training_days || null,
-      device: profile.device || "None"
+      targetRace: profile.target_race || null,
+      targetRaceDate: profile.target_race_date || null,
+
+      injuryHistory:
+        profile.injury_history || "None reported",
+
+      trainingDays:
+        profile.training_days ?? null,
+
+      device: profile.device || "None",
+
+      experienceLevel:
+        profile.experience_level || null,
+
+      preferredTrainingTime:
+        profile.preferred_training_time || null,
+
+      workSchedule:
+        profile.work_schedule || null,
+
+      nutritionContext:
+        profile.nutrition_context || null,
+
+      coachNotes:
+        profile.coach_notes || null,
+
+      additionalContext:
+        profile.additional_context || null
+    },
+
+    importedTrainingData: {
+      source:
+        safeActivities.length > 0
+          ? "Strava"
+          : "No connected training data",
+
+      totalImportedActivities:
+        safeActivities.length,
+
+      lastSevenDays: {
+        activityCount:
+          Number(
+            activitySummary?.sevenDayActivityCount
+          ) || 0,
+
+        distanceKilometers: Number(
+          (
+            Number(
+              activitySummary
+                ?.sevenDayDistanceKilometers
+            ) || 0
+          ).toFixed(1)
+        ),
+
+        trainingHours: Number(
+          (
+            Number(
+              activitySummary?.sevenDayTrainingHours
+            ) || 0
+          ).toFixed(1)
+        ),
+
+        averageHeartRate:
+          Number(
+            activitySummary?.sevenDayAverageHeartRate
+          ) > 0
+            ? Math.round(
+                Number(
+                  activitySummary
+                    .sevenDayAverageHeartRate
+                )
+              )
+            : null
+      },
+
+      latestActivity: latestActivity
+        ? {
+            name:
+              latestActivity.name ||
+              latestActivity.sport_type ||
+              latestActivity.activity_type ||
+              "Activity",
+
+            sportType:
+              latestActivity.sport_type ||
+              latestActivity.activity_type ||
+              "Unknown",
+
+            startDate:
+              latestActivity.start_date || null,
+
+            distanceKilometers:
+              Number(latestActivity.distance_meters) > 0
+                ? Number(
+                    (
+                      Number(
+                        latestActivity.distance_meters
+                      ) / 1000
+                    ).toFixed(2)
+                  )
+                : null,
+
+            durationMinutes:
+              Number(
+                latestActivity.moving_time_seconds
+              ) > 0
+                ? Math.round(
+                    Number(
+                      latestActivity.moving_time_seconds
+                    ) / 60
+                  )
+                : null,
+
+            averageHeartRate:
+              Number(
+                latestActivity.average_heartrate
+              ) > 0
+                ? Math.round(
+                    Number(
+                      latestActivity.average_heartrate
+                    )
+                  )
+                : null
+          }
+        : null,
+
+      recentActivities,
+      sixWeekVolumeHistory: weeklyVolumes
+    },
+
+    missingData: {
+      sleep:
+        true,
+
+      hrv:
+        true,
+
+      readiness:
+        true,
+
+      recovery:
+        true,
+
+      bodyBattery:
+        true,
+
+      wearableRecoveryData:
+        true,
+
+      heartRate:
+        !recentActivities.some(
+          activity =>
+            Number(activity.averageHeartRate) > 0
+        )
     },
 
     coachingRules: {
       respectInjuries: true,
       prioritizeConsistency: true,
       explainEveryDecision: true,
-      avoidGenericAdvice: true
+      avoidGenericAdvice: true,
+
+      neverInventData: true,
+
+      acknowledgeMissingData: true,
+
+      distinguishRecordedFactsFromInference: true,
+
+      doNotClaimSleepHrvRecoveryOrReadinessData:
+        true,
+
+      useImportedTrainingDataWhenRelevant: true
     }
   };
 }

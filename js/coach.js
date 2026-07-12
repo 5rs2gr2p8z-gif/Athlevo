@@ -120,14 +120,33 @@ async function askCoach(question) {
   );
 
   try {
-    const profile = await AthlevoBrain.loadAthleteProfile();
+    const profile =
+  await AthlevoBrain.loadAthleteProfile();
 
-    if (!profile) {
-      throw new Error("No athlete profile was found.");
-    }
+if (!profile) {
+  throw new Error(
+    "No athlete profile was found."
+  );
+}
 
-    const context = AthlevoBrain.buildCoachingContext(profile);
+const activities =
+  await AthlevoBrain.loadAthleteActivities(200);
 
+const activitySummary =
+  AthlevoBrain.buildActivitySummary(activities);
+
+const context =
+  AthlevoBrain.buildCoachingContext(
+    profile,
+    activities,
+    activitySummary
+  );
+
+if (!context) {
+  throw new Error(
+    "The athlete coaching context could not be created."
+  );
+}
     const response = await fetch("/api/coach", {
       method: "POST",
       headers: {
