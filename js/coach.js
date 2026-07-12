@@ -135,6 +135,9 @@ const activities =
 const activitySummary =
   AthlevoBrain.buildActivitySummary(activities);
 
+const athleteMemory =
+  await AthlevoMemory.loadAthleteMemory();
+
 const context =
   AthlevoBrain.buildCoachingContext(
     profile,
@@ -147,6 +150,14 @@ if (!context) {
     "The athlete coaching context could not be created."
   );
 }
+
+context.longTermMemory = athleteMemory.map(memory => ({
+  id: memory.id,
+  category: memory.category,
+  content: memory.content,
+  importance: memory.importance,
+  updatedAt: memory.updated_at
+}));
     const response = await fetch("/api/coach", {
       method: "POST",
       headers: {
