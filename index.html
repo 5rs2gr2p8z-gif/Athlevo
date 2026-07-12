@@ -451,6 +451,71 @@ body{
     env(safe-area-inset-bottom)
   );
 }
+/* ===== DAILY COACH BRIEFING ===== */
+
+.daily-brief-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.daily-brief-section p {
+  margin: 7px 0 0;
+}
+
+.daily-brief-details {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.daily-brief-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.daily-brief-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.daily-brief-details summary::after {
+  content: " +";
+}
+
+.daily-brief-details[open] summary::after {
+  content: " −";
+}
+
+.daily-brief-details p {
+  margin: 12px 0 0;
+}
+
+.daily-brief-limitations {
+  margin-top: 14px;
+}
+
+.daily-brief-limitations-title {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.daily-brief-limitation {
+  margin: 6px 0 0;
+  font-size: 13px;
+  opacity: 0.78;
+}
+
+.daily-brief-status {
+  margin: 14px 0 0;
+  font-size: 12px;
+  opacity: 0.65;
+}
 </style>
 </head>
 <body>
@@ -595,6 +660,51 @@ body{
     </p>
   </div>
 </div>
+
+<!-- ===== DAILY COACH BRIEFING ===== -->
+<div class="decision" id="dailyBriefCard">
+  <span class="eyebrow">Daily coach briefing</span>
+
+  <h3 id="dailyBriefHeadline">
+    Preparing your coaching brief...
+  </h3>
+
+  <p id="dailyBriefTrainingSummary">
+    Athlevo is reviewing your athlete profile and imported training.
+  </p>
+
+  <div class="daily-brief-section">
+    <span class="f-name">Coach observation</span>
+    <p id="dailyBriefObservation">
+      No observation available yet.
+    </p>
+  </div>
+
+  <div class="daily-brief-section">
+    <span class="f-name">Recommendation</span>
+    <p id="dailyBriefRecommendation">
+      No recommendation available yet.
+    </p>
+  </div>
+
+  <details class="daily-brief-details">
+    <summary>Why this recommendation</summary>
+
+    <p id="dailyBriefReasoning">
+      Athlevo will explain the evidence behind the decision here.
+    </p>
+
+    <div id="dailyBriefLimitations"></div>
+  </details>
+
+  <p
+    id="dailyBriefStatus"
+    class="daily-brief-status"
+    aria-live="polite"
+  ></p>
+</div>
+
+<div class="spacer-md"></div>
 
   <!-- signature: the decision card -->
  <div class="decision" id="decisionCard">
@@ -1654,6 +1764,7 @@ async function routeAfterAuth(userId) {
   document.getElementById("tabbar").style.display = "flex";
   showScreen("screen-today");
   await AthlevoBrain.refreshAthleteUI();
+  await AthlevoDailyBrief.load();
 }
 async function restoreSession() {
   const {
@@ -1711,11 +1822,13 @@ async function restoreSession() {
 </body>
 <script src="js/brain.js"></script>
 <script src="js/memory.js"></script>
+<script src="js/dailyBrief.js"></script>
 <script src="js/coach.js"></script>
 <script src="js/onboarding.js"></script>
 <script>
   async function initializeAthlevoApp() {
     await restoreSession();
+    await AthlevoDailyBrief.load();
 
     const url = new URL(window.location.href);
     const stravaStatus = url.searchParams.get("strava");
