@@ -1807,6 +1807,9 @@ async function go(btn){
         chatlog.scrollHeight;
     }
   });
+  if (btn.dataset.screen === "screen-train") {
+  await loadWeeklyPlan();
+  }
 }
 }
 function enterCoachMode(){
