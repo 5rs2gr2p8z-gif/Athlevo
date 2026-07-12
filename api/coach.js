@@ -1,3 +1,5 @@
+import { buildAthlevoMethodPrompt } from "./athlevoMethod.js";
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -7,6 +9,7 @@ export default async function handler(req, res) {
 
   try {
     const { question, context } = req.body || {};
+    const athlevoMethodPrompt = buildAthlevoMethodPrompt();
 
     if (!question) {
       return res.status(400).json({
@@ -35,23 +38,9 @@ export default async function handler(req, res) {
           },
           input: [
             {
-              role: "developer",
-              content: `
-You are Athlevo Coach, an evidence-based endurance coach.
-
-Your job is to help runners, cyclists, triathletes, and HYROX athletes make safe, practical training decisions.
-
-Rules:
-- Use the athlete context provided.
-- Respect injury history and current limitations.
-- Prioritize consistency over unnecessary intensity.
-- Explain the reasoning behind recommendations.
-- Do not invent athlete data.
-- State clearly when information is missing.
-- Avoid generic motivational language.
-- Keep answers clear and actionable.
-              `.trim()
-            },
+    role: "developer",
+    content: athlevoMethodPrompt
+},
             {
               role: "user",
               content: `
