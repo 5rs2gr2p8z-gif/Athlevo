@@ -1789,6 +1789,12 @@ async function go(btn){
   btn.classList.add('on');
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(btn.dataset.screen).classList.add('active');
+  if (
+  btn.dataset.screen === "screen-train" &&
+  typeof window.loadWeeklyPlan === "function"
+) {
+  await window.loadWeeklyPlan();
+}
   if(btn.dataset.screen==='screen-today') animateRing();
   if (btn.dataset.screen === "screen-coachai") {
     if(btn.dataset.screen==="screen-train"){
