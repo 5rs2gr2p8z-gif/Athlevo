@@ -108,7 +108,7 @@ body{
 .hairline{height:1px;background:var(--line);border:none}
 
 /* ---------- home ---------- */
-.statusrow{display:flex;justify-content:space-between;align-items:center;padding:18px 22px 0;font-size:12px;font-weight:600;color:var(--ink2)}
+.statusrow{display:flex;justify-content:center;align-items:center;padding:18px 22px 0;font-size:12px;font-weight:600;color:var(--ink2)}
 .greet{padding:26px 22px 6px}
 .greet h1{font-family:var(--serif);font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1.12}
 .greet p{color:var(--ink2);font-size:14px;margin-top:6px}
@@ -543,7 +543,9 @@ body{
 
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
-  <div class="statusrow"><span class="num">6:12</span><span>ATHLEVO</span><span class="num">◉ 82%</span></div>
+  <div class="statusrow">
+  <span>ATHLEVO</span>
+</div>
   <div class="greet">
   <h1 class="serif">
     Good morning,<br><span id="todayAthleteName">Athlete</span>.
