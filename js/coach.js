@@ -106,6 +106,79 @@ async function renderConversationHistory() {
 
   chatlog.scrollTop = chatlog.scrollHeight;
 }
+async function extractAthleteMemoryFromMessage(message) {
+  try {
+    const {
+      data: { session },
+      error: sessionError
+    } = await supabaseClient.auth.getSession();
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    if (!session?.access_token) {
+      console.log(
+        "Memory extraction skipped: no authenticated session."
+      );
+
+      return {
+        memories: [],
+        extractedCount: 0
+      };
+    }
+
+    const response = await fetch(
+      "/api/memory/extract",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:
+            `Bearer ${session.access_token}`
+        },
+
+        body: JSON.stringify({
+          message
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result?.error ||
+        "Could not extract athlete memory."
+      );
+    }
+
+    console.log(
+      "Athlete memory extraction:",
+      result
+    );
+
+    return result;
+  } catch (error) {
+    /*
+     * Memory extraction must never prevent the
+     * athlete from receiving a coaching response.
+     */
+    console.error(
+      "Athlete memory extraction failed:",
+      error
+    );
+
+    return {
+      memories: [],
+      extractedCount: 0,
+      error:
+        error?.message ||
+        "Memory extraction failed."
+    };
+  }
+}
 async function askCoach(question) {
   const cleanQuestion = question?.trim();
 
@@ -113,6 +186,9 @@ async function askCoach(question) {
 
   addChatMessage("user", cleanQuestion);
   await saveConversationMessage("user", cleanQuestion);
+  await extractAthleteMemoryFromMessage(
+  cleanQuestion
+);
 
   const loadingMessage = addChatMessage(
     "ai",
