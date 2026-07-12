@@ -27,6 +27,15 @@ function addChatMessage(role, text) {
   chatlog.appendChild(message);
   chatlog.scrollTop = chatlog.scrollHeight;
 
+  requestAnimationFrame(() => {
+  const chatlog =
+    document.getElementById("chatlog");
+
+  if (chatlog) {
+    chatlog.scrollTop =
+      chatlog.scrollHeight;
+  }
+});
   return message;
 }
 async function saveConversationMessage(role, message) {

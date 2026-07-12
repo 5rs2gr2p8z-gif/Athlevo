@@ -637,6 +637,102 @@ body{
   font-weight: 600;
   line-height: 1.55;
 }
+
+/* ===== COACH SCREEN LAYOUT ===== */
+
+#screen-coachai {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+#screen-coachai.active {
+  display: flex;
+}
+
+/* Coach identity/header stays at the top */
+#screen-coachai .coach-head {
+  position: relative;
+  z-index: 5;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Only the conversation scrolls */
+#chatlog {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 18px;
+}
+
+/* Suggestions + input remain above the bottom navigation */
+#screen-coachai .coach-composer {
+  position: relative;
+  z-index: 6;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--line);
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+/* ===== COACH SCREEN LAYOUT ===== */
+
+#screen-coachai {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+#screen-coachai.active {
+  display: flex;
+}
+
+#screen-coachai .coach-head {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+
+#screen-coachai #chatlog {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 18px;
+}
+
+#screen-coachai .coach-composer {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 6;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--line);
+  padding: 10px 18px 12px;
+}
+
+#screen-coachai .coach-composer .chips {
+  margin-bottom: 10px;
+}
 </style>
 </head>
 <body>
@@ -961,31 +1057,88 @@ body{
 
 <!-- ══════════════ COACH AI ══════════════ -->
 <section class="screen" id="screen-coachai">
-  <div class="chat-head">
-    <div class="avatar serif">A</div>
-    <div><b>Athlevo Coach</b><small>Knows your full history · 24/7</small></div>
+  <div class="chat-head coach-head">
+ <div class="avatar coach-logo">
+  <img
+    src="assets/athlevo-logo.png"
+    alt="Athlevo"
+  />
+</div>
+
+  <div>
+    <b>Athlevo Coach</b>
   </div>
+</div>
   <div class="chatlog" id="chatlog">
     <div class="msg ai">
       <span class="call">Morning, Dean. I've already reviewed last night.</span>
       <div class="change">Short sleep, stable HRV, heat index 33° by 6 AM. I trimmed today's Control run to 60 minutes — the full reasoning is on your Today screen. Ask me anything.</div>
     </div>
   </div>
+  <div class="coach-composer">
+
   <div class="chips" id="chips">
-    <button class="chip" onclick="ask('Why am I running easy today?')">Why easy today?</button>
-    <button class="chip" onclick="ask('I only slept 5 hours.')">I only slept 5 hours</button>
-    <button class="chip" onclick="ask('My calf feels tight.')">My calf feels tight</button>
-    <button class="chip" onclick="ask('My knee hurts.')">My knee hurts</button>
-    <button class="chip" onclick="ask('Can I move tomorrow\u2019s workout?')">Move tomorrow's workout?</button>
-    <button class="chip" onclick="ask('Explain LT2.')">Explain LT2</button>
-    <button class="chip" onclick="ask('What shoes should I wear?')">What shoes today?</button>
-  </div>
-  <div class="composer">
-    <input id="chatInput" type="text" placeholder="Ask your coach anything…" aria-label="Message your coach" onkeydown="if(event.key==='Enter')sendMsg()">
-    <button class="send" onclick="sendMsg()" aria-label="Send">
-      <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    <button class="chip" onclick="ask('Why am I running easy today?')">
+      Why easy today?
+    </button>
+
+    <button class="chip" onclick="ask('I only slept 5 hours')">
+      I only slept 5 hours
+    </button>
+
+    <button class="chip" onclick="ask('My calf feels tight')">
+      My calf feels tight
+    </button>
+
+    <button class="chip" onclick="ask('My knee hurts')">
+      My knee hurts
+    </button>
+
+    <button class="chip" onclick="ask('Can I move my workout?')">
+      Can I move my workout?
+    </button>
+
+    <button class="chip" onclick="ask('Explain LT2')">
+      Explain LT2
+    </button>
+
+    <button class="chip" onclick="ask('What shoes should I use?')">
+      What shoes should I use?
     </button>
   </div>
+
+  <div class="composer">
+    <input
+      id="chatInput"
+      type="text"
+      placeholder="Ask your coach anything..."
+    />
+
+    <button
+      class="send"
+      onclick="sendMsg()"
+      aria-label="Send message"
+    >
+      <svg viewBox="0 0 24 24">
+        <path d="M5 12h14M13 5l7 7-7 7"></path>
+      </svg>
+    </button>
+  </div>
+
+</div>
+  .coach-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+}
+
+.coach-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 </section>
 
 <!-- ══════════════ TRAIN ══════════════ -->
@@ -1520,14 +1673,24 @@ async function connectStrava() {
 window.connectStrava = connectStrava;
 
 /* ---------- navigation ---------- */
-function go(btn){
+async function go(btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   btn.classList.add('on');
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(btn.dataset.screen).classList.add('active');
   if(btn.dataset.screen==='screen-today') animateRing();
   if (btn.dataset.screen === "screen-coachai") {
-  renderConversationHistory();
+  await renderConversationHistory();
+
+  requestAnimationFrame(() => {
+    const chatlog =
+      document.getElementById("chatlog");
+
+    if (chatlog) {
+      chatlog.scrollTop =
+        chatlog.scrollHeight;
+    }
+  });
 }
 }
 function enterCoachMode(){
