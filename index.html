@@ -48,7 +48,20 @@ body{
 .num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 
 /* ---------- app shell ---------- */
-.screen{display:none;flex:1;flex-direction:column;overflow-y:auto;padding-bottom:96px;animation:screenIn .34s cubic-bezier(.22,.8,.3,1)}
+.screen {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding-bottom: 110px;
+
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
 .screen.active{display:flex}
 @keyframes screenIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -59,12 +72,24 @@ body{
 .spacer-md{height:20px;flex-shrink:0}
 
 /* ---------- tab bar ---------- */
-.tabbar{
-  position:absolute;left:0;right:0;bottom:0;z-index:40;
-  display:flex;justify-content:space-around;align-items:flex-start;
-  padding:10px 8px calc(14px + env(safe-area-inset-bottom));
-  background:rgba(255,255,255,.86);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-top:1px solid var(--line);
+.tabbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+
+  padding: 10px 8px calc(14px + env(safe-area-inset-bottom));
+
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  border-top: 1px solid var(--line);
 }
 .tab{background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink3);width:64px;padding:2px 0;transition:color .2s}
 .tab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -379,6 +404,50 @@ body{
   .auth-msg { min-height:18px; margin:10px 0 0; font-size:13px; color:#C0272D; }
   .auth-switch { margin:14px 0 0; font-size:13px; text-align:center; color:#555; }
   .auth-switch a { color:#C0272D; cursor:pointer; text-decoration:underline; }
+/* ===== FIXED BOTTOM NAVIGATION ===== */
+
+.device {
+  position: relative;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+/* Each page scrolls independently behind the fixed tab bar */
+.screen {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Prevent the final content from hiding behind the navigation */
+  padding-bottom: 110px;
+
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Keep the navigation visible at all times */
+#tabbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+
+  width: 100%;
+  margin: 0;
+
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+
+  padding-bottom: max(
+    10px,
+    env(safe-area-inset-bottom)
+  );
+}
 </style>
 </head>
 <body>
