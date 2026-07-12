@@ -516,6 +516,127 @@ body{
   font-size: 12px;
   opacity: 0.65;
 }
+
+/* ===== RICH COACH RESPONSES ===== */
+
+.coach-rich-response {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.coach-response-headline {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.coach-response-direct {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.coach-response-section {
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+.coach-response-section-title {
+  margin: 0 0 7px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.coach-response-section-body {
+  margin: 0;
+  line-height: 1.62;
+}
+
+.coach-response-list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+}
+
+.coach-response-list li {
+  margin: 7px 0;
+  line-height: 1.5;
+}
+
+.coach-callout {
+  margin-top: 12px;
+  padding: 13px 14px;
+  border-radius: 14px;
+}
+
+.coach-callout-success {
+  background: rgba(28, 147, 83, 0.09);
+  border: 1px solid rgba(28, 147, 83, 0.18);
+}
+
+.coach-callout-warning {
+  background: rgba(202, 45, 50, 0.08);
+  border: 1px solid rgba(202, 45, 50, 0.16);
+}
+
+.coach-callout-tip,
+.coach-callout-decision {
+  background: rgba(0, 0, 0, 0.055);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.coach-callout-label,
+.coach-mission-label,
+.coach-confidence-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.68;
+}
+
+.coach-callout-text,
+.coach-mission-text {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.coach-mission {
+  padding: 15px;
+  border-radius: 15px;
+  background: #171719;
+  color: white;
+}
+
+.coach-confidence {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 13px;
+  border-top: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+.coach-confidence-label {
+  margin: 0;
+}
+
+.coach-confidence-value {
+  font-size: 16px;
+}
+
+.coach-response-closing {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  font-weight: 600;
+  line-height: 1.55;
+}
 </style>
 </head>
 <body>
@@ -1823,6 +1944,7 @@ async function restoreSession() {
 <script src="js/brain.js"></script>
 <script src="js/memory.js"></script>
 <script src="js/dailyBrief.js"></script>
+<script src="js/renderCoachResponse.js"></script>
 <script src="js/coach.js"></script>
 <script src="js/onboarding.js"></script>
 <script>

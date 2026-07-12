@@ -100,9 +100,26 @@ async function renderConversationHistory() {
   chatlog.innerHTML = "";
 
   history.forEach(item => {
-    const role = item.role === "assistant" ? "ai" : "user";
-    addChatMessage(role, item.message);
-  });
+  const role =
+    item.role === "assistant" ? "ai" : "user";
+
+  const messageElement = addChatMessage(
+    role,
+    item.message
+  );
+
+  if (item.role === "assistant") {
+    const responseContainer =
+      messageElement?.querySelector(".change");
+
+    if (responseContainer) {
+      renderCoachResponse(
+        responseContainer,
+        item.message
+      );
+    }
+  }
+});
 
   chatlog.scrollTop = chatlog.scrollHeight;
 }
@@ -251,11 +268,31 @@ context.longTermMemory = athleteMemory.map(memory => ({
       throw new Error(data.error || "Coach request failed.");
     }
 
-    const answer = data.answer || "I could not generate a response.";
+    const answer =
+  data.answer || {
+    response_type: "standard",
+    headline: null,
+    direct_answer:
+      "I could not generate a response.",
+    compliment: null,
+    sections: [],
+    mission: null,
+    confidence: null,
+    closing: null
+  };
 
-loadingMessage.querySelector(".change").textContent = answer;
+const responseContainer =
+  loadingMessage.querySelector(".change");
 
-await saveConversationMessage("assistant", answer);
+renderCoachResponse(
+  responseContainer,
+  answer
+);
+
+await saveConversationMessage(
+  "assistant",
+  JSON.stringify(answer)
+);
   } catch (error) {
     console.error("Athlevo Coach error:", error);
 
