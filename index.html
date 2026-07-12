@@ -448,7 +448,6 @@ body{
 
   padding-bottom: max(
     10px,
-    env(safe-area-inset-bottom)
   );
 }
 /* ===== DAILY COACH BRIEFING ===== */
@@ -638,21 +637,6 @@ body{
   line-height: 1.55;
 }
 
-/* ===== COACH SCREEN LAYOUT ===== */
-
-#screen-coachai {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  display: none;
-  flex-direction: column;
-  padding-bottom: 0;
-}
-
-#screen-coachai.active {
-  display: flex;
-}
-
 /* Coach identity/header stays at the top */
 #screen-coachai .coach-head {
   position: relative;
@@ -671,7 +655,7 @@ body{
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 18px;
+  padding-bottom: 8px;
 }
 
 /* Suggestions + input remain above the bottom navigation */
@@ -729,7 +713,7 @@ body{
   -webkit-backdrop-filter: blur(16px);
 
   border-top: 1px solid var(--line);
-  padding: 10px 18px 12px;
+  padding: 10px 18px 10px;
 }
 
 #screen-coachai .coach-composer .chips {
@@ -751,6 +735,98 @@ body{
   height: 130%;
   object-fit: cover;
   object-position: center;
+}
+
+/* ===== FINAL COACH SCREEN LAYOUT ===== */
+
+.device {
+  position: relative;
+  overflow: hidden;
+}
+
+:root {
+  --athlevo-tabbar-height: 74px;
+}
+
+/* Coach occupies only the space above the tab bar */
+#screen-coachai {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--athlevo-tabbar-height);
+
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+
+  display: none;
+  flex-direction: column;
+}
+
+#screen-coachai.active {
+  display: flex;
+}
+
+/* Fixed within the Coach screen */
+#screen-coachai .coach-head {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 3;
+  background: #fff;
+}
+
+/* Only this area scrolls */
+#screen-coachai #chatlog {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 12px;
+}
+
+/* Composer sits naturally above the tab bar */
+#screen-coachai .coach-composer {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 4;
+
+  margin: 0;
+  padding: 10px 18px 12px;
+
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid var(--line);
+}
+
+/* Keep generated suggestions on one horizontal row */
+#screen-coachai .coach-composer .chips {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+#screen-coachai .coach-composer .chips::-webkit-scrollbar {
+  display: none;
+}
+
+#screen-coachai .coach-composer .chip {
+  flex: 0 0 auto;
+}
+
+/* Tab bar owns the reserved bottom area */
+.tabbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--athlevo-tabbar-height);
+  z-index: 50;
 }
 </style>
 </head>
