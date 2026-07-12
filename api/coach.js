@@ -149,19 +149,28 @@ ${question}
 
         closing: {
           type: ["string", "null"]
-        }
+        },
+        suggested_replies: {
+  type: "array",
+  minItems: 0,
+  maxItems: 3,
+  items: {
+    type: "string"
+  }
+}
       },
 
       required: [
-        "response_type",
-        "headline",
-        "direct_answer",
-        "compliment",
-        "sections",
-        "mission",
-        "confidence",
-        "closing"
-      ]
+  "response_type",
+  "headline",
+  "direct_answer",
+  "compliment",
+  "sections",
+  "mission",
+  "confidence",
+  "closing",
+  "suggested_replies"
+]
     }
   }
 }
@@ -206,7 +215,8 @@ try {
     sections: [],
     mission: null,
     confidence: null,
-    closing: null
+    closing: null,
+    suggested_replies: []
   };
 }
 

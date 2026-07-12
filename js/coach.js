@@ -130,6 +130,28 @@ async function renderConversationHistory() {
   }
 });
 
+const latestAssistantMessage =
+  [...history]
+    .reverse()
+    .find(
+      item => item.role === "assistant"
+    );
+
+if (latestAssistantMessage) {
+  try {
+    const parsed =
+      JSON.parse(
+        latestAssistantMessage.message
+      );
+
+    renderSuggestedReplies(
+      parsed.suggested_replies || []
+    );
+  } catch (error) {
+    renderSuggestedReplies([]);
+  }
+}
+
   chatlog.scrollTop = chatlog.scrollHeight;
 }
 async function extractAthleteMemoryFromMessage(message) {
@@ -287,7 +309,8 @@ context.longTermMemory = athleteMemory.map(memory => ({
     sections: [],
     mission: null,
     confidence: null,
-    closing: null
+    closing: null,
+    suggested_replies: []
   };
 
 const responseContainer =
@@ -296,6 +319,10 @@ const responseContainer =
 renderCoachResponse(
   responseContainer,
   answer
+);
+
+renderSuggestedReplies(
+  answer.suggested_replies
 );
 
 await saveConversationMessage(

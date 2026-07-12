@@ -323,8 +323,68 @@ function renderCoachResponse(
   }
 }
 
+function renderSuggestedReplies(replies) {
+  const chipsContainer =
+    document.getElementById("chips");
+
+  if (!chipsContainer) {
+    return;
+  }
+
+  chipsContainer.innerHTML = "";
+
+  if (
+    !Array.isArray(replies) ||
+    replies.length === 0
+  ) {
+    chipsContainer.style.display = "none";
+    return;
+  }
+
+  replies.slice(0, 3).forEach(reply => {
+    if (
+      typeof reply !== "string" ||
+      !reply.trim()
+    ) {
+      return;
+    }
+
+    const button =
+      document.createElement("button");
+
+    button.type = "button";
+    button.className = "chip";
+    button.textContent = reply.trim();
+
+    button.addEventListener("click", () => {
+      const input =
+        document.getElementById("chatInput");
+
+      if (!input) {
+        return;
+      }
+
+      input.value = reply.trim();
+      input.focus();
+
+      if (
+        typeof window.sendMsg === "function"
+      ) {
+        window.sendMsg();
+      }
+    });
+
+    chipsContainer.appendChild(button);
+  });
+
+  chipsContainer.style.display = "flex";
+}
+
 window.renderCoachResponse =
   renderCoachResponse;
 
 window.parseCoachResponse =
   parseCoachResponse;
+
+  window.renderSuggestedReplies =
+  renderSuggestedReplies;
