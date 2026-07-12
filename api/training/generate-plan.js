@@ -1544,8 +1544,15 @@ export default async function handler(
       );
     }
 
-    const weekStart =
-      getMondayOfCurrentWeek();
+    const today = new Date();
+
+const currentWeekMonday =
+    getMondayOfCurrentWeek();
+
+const weekStart =
+    today.getDay() === 0
+        ? addDays(currentWeekMonday, 7)
+        : currentWeekMonday;
 
     const weekEnd =
       addDays(weekStart, 6);
