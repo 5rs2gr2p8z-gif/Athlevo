@@ -1,3 +1,11 @@
+import {
+  addDays,
+  calculateWeeksUntilRace,
+  formatDateKey,
+  getPlanningWeekStart,
+  parseDateValue
+} from "./lib/dateUtils.js";
+
 import { buildAthlevoMethodPrompt } from "../athlevoMethod.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -136,103 +144,6 @@ async function loadRecentActivities(userId) {
     : [];
 }
 
-function getManilaDateParts(date = new Date()) {
-  const parts = new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone: "Asia/Manila",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit"
-    }
-  ).formatToParts(date);
-
-  const values = {};
-
-  parts.forEach(part => {
-    if (part.type !== "literal") {
-      values[part.type] = part.value;
-    }
-  });
-
-  return {
-    year: Number(values.year),
-    month: Number(values.month),
-    day: Number(values.day)
-  };
-}
-
-function createDateFromParts({
-  year,
-  month,
-  day
-}) {
-  return new Date(
-    Date.UTC(year, month - 1, day, 12, 0, 0)
-  );
-}
-
-function formatDateKey(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function addDays(date, days) {
-  const copy = new Date(date);
-
-  copy.setUTCDate(copy.getUTCDate() + days);
-
-  return copy;
-}
-
-function getMondayOfCurrentWeek() {
-  const manilaParts = getManilaDateParts();
-  const today = createDateFromParts(manilaParts);
-
-  const weekday = today.getUTCDay();
-
-  const daysSinceMonday =
-    weekday === 0
-      ? 6
-      : weekday - 1;
-
-  return addDays(
-    today,
-    -daysSinceMonday
-  );
-}
-
-function parseDateValue(value) {
-  if (
-    typeof value !== "string" ||
-    !value.trim()
-  ) {
-    return null;
-  }
-
-  const match = value
-    .trim()
-    .match(/^(\d{4})-(\d{2})-(\d{2})$/);
-
-  if (!match) {
-    return null;
-  }
-
-  const parsedDate = new Date(
-    Date.UTC(
-      Number(match[1]),
-      Number(match[2]) - 1,
-      Number(match[3]),
-      12,
-      0,
-      0
-    )
-  );
-
-  return Number.isNaN(parsedDate.getTime())
-    ? null
-    : parsedDate;
-}
-
 function getTargetRaceDate(profile) {
   return (
     profile?.race_date ||
@@ -256,24 +167,6 @@ function getTargetRaceName(profile) {
   }
 
   return String(value).trim();
-}
-
-function calculateWeeksUntilRace(
-  raceDate,
-  weekStart
-) {
-  if (!raceDate) {
-    return null;
-  }
-
-  const milliseconds =
-    raceDate.getTime() -
-    weekStart.getTime();
-
-  return Math.ceil(
-    milliseconds /
-      (7 * 24 * 60 * 60 * 1000)
-  );
 }
 
 function getActivityDate(activity) {
@@ -1550,12 +1443,10 @@ const currentWeekMonday =
     getMondayOfCurrentWeek();
 
 const weekStart =
-    today.getDay() === 0
-        ? addDays(currentWeekMonday, 7)
-        : currentWeekMonday;
+  getPlanningWeekStart();
 
-    const weekEnd =
-      addDays(weekStart, 6);
+const weekEnd =
+  addDays(weekStart, 6);
 
     const targetRace =
       getTargetRaceName(profile);
