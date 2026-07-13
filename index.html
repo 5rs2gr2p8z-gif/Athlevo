@@ -867,19 +867,60 @@ body{
 
 }
 
+/* ===== EXPANDABLE WORKOUT CARDS (Train) ===== */
+
 .session-card{
-
-    background:white;
-
-    border-radius:18px;
-
-    padding:18px;
-
-    margin-bottom:14px;
-
-    box-shadow:0 6px 20px rgba(0,0,0,.05);
-
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  margin:0 22px 14px;
+  box-shadow:0 6px 20px rgba(0,0,0,.05);
+  overflow:hidden;
 }
+.session-card.rest{background:var(--card2)}
+.sc-head{
+  display:block;width:100%;text-align:left;
+  background:none;border:none;
+  font-family:var(--sans);color:var(--ink);
+  padding:18px 20px;cursor:pointer;
+}
+.sc-head.static{cursor:default}
+.sc-head:focus-visible{outline:2px solid var(--red);outline-offset:-2px;border-radius:var(--r-lg)}
+.sc-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sc-date{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.sc-badge{
+  font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 11px;border-radius:100px;
+  background:var(--red-soft);color:var(--red);
+}
+.sc-badge.rest{background:var(--card);color:var(--ink3)}
+.sc-title{font-family:var(--serif);font-size:20px;font-weight:500;letter-spacing:-.01em;margin-top:10px}
+.sc-meta{display:flex;align-items:baseline;gap:8px;margin-top:6px;font-size:13px;color:var(--ink2)}
+.sc-meta b{color:var(--ink);font-weight:650;font-variant-numeric:tabular-nums}
+.sc-dot{color:var(--ink3)}
+.sc-purpose{margin-top:8px;font-size:13.5px;line-height:1.5;color:var(--ink2)}
+.sc-toggle{
+  margin-top:14px;display:inline-flex;align-items:center;gap:7px;
+  font-size:13px;font-weight:650;color:var(--red);
+}
+.sc-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .3s}
+.session-card.open .sc-toggle svg{transform:rotate(180deg)}
+.sc-detail{max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.3,.7,.3,1)}
+.sc-detail-inner{padding:0 20px 20px}
+.sc-lead{font-size:14px;line-height:1.6;color:var(--ink);padding-top:2px}
+.sc-section{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
+.sc-section:first-child{margin-top:0}
+.sc-section-label{font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+.sc-section p{font-size:14px;line-height:1.6;color:var(--ink);margin:0}
+.sc-list{margin:0;padding-left:18px}
+.sc-list li{font-size:14px;line-height:1.55;margin:5px 0;color:var(--ink)}
+.sc-section-reasoning{
+  border-top:none;
+  background:var(--red-soft);
+  border-radius:var(--r-md);
+  padding:13px 15px;
+}
+.sc-section-reasoning .sc-section-label{color:var(--red)}
 </style>
 </head>
 <body>
