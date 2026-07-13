@@ -1442,9 +1442,6 @@ export default async function handler(
 const weekStart =
   getPlanningWeekStart();
 
-const weekStart =
-  getPlanningWeekStart();
-
 const weekEnd =
   addDays(weekStart, 6);
 
