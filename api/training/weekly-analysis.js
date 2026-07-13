@@ -6,7 +6,7 @@ import {
   getManilaDateParts,
   getMondayOfCurrentWeek,
   parseDateValue
-} from "./lib/dateUtils.js";
+} from "../../lib/server/dateUtils.js";
 
 import {
   assessInjuryRisk,
@@ -25,7 +25,7 @@ import {
   matchPlannedSessions,
   summarizeActivityTotals,
   toNumber
-} from "./lib/weeklyAnalysis.js";
+} from "../../lib/server/weeklyAnalysis.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =

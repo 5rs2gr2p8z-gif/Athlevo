@@ -1,4 +1,4 @@
-import { buildAthlevoMethodPrompt } from "../athlevoMethod.js";
+import { buildAthlevoMethodPrompt } from "../../lib/server/athlevoMethod.js";
 
 import {
   addDays,
@@ -6,7 +6,7 @@ import {
   formatDateKey,
   getPlanningWeekStart,
   parseDateValue
-} from "./lib/dateUtils.js";
+} from "../../lib/server/dateUtils.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =

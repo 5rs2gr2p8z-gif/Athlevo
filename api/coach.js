@@ -1,4 +1,4 @@
-import { buildAthlevoMethodPrompt } from "./athlevoMethod.js";
+import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
