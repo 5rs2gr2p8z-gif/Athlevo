@@ -1439,8 +1439,8 @@ export default async function handler(
 
     const today = new Date();
 
-const currentWeekMonday =
-    getMondayOfCurrentWeek();
+const weekStart =
+  getPlanningWeekStart();
 
 const weekStart =
   getPlanningWeekStart();
