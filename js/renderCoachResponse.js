@@ -199,6 +199,47 @@ function renderCoachResponse(
     return;
   }
 
+  // Compact "Coach Context" summary — what the coach actually reviewed
+  // before answering. Only truthful items (assembled client-side from
+  // the real context) are shown; nothing is fabricated.
+  if (
+    Array.isArray(response.coach_context) &&
+    response.coach_context.length > 0
+  ) {
+    const contextBlock = createCoachElement(
+      "div",
+      "coach-context"
+    );
+
+    contextBlock.appendChild(
+      createCoachElement(
+        "span",
+        "coach-context-label",
+        "Coach Context"
+      )
+    );
+
+    const contextList = createCoachElement(
+      "ul",
+      "coach-context-list"
+    );
+
+    response.coach_context.forEach(item => {
+      if (typeof item !== "string" || !item.trim()) {
+        return;
+      }
+
+      contextList.appendChild(
+        createCoachElement("li", "", item)
+      );
+    });
+
+    if (contextList.childElementCount > 0) {
+      contextBlock.appendChild(contextList);
+      container.appendChild(contextBlock);
+    }
+  }
+
   if (response.headline) {
     container.appendChild(
       createCoachElement(
@@ -270,47 +311,9 @@ function renderCoachResponse(
     container.appendChild(mission);
   }
 
-  if (
-    Number.isFinite(
-      Number(response.confidence)
-    )
-  ) {
-    const confidence = Math.min(
-      100,
-      Math.max(
-        0,
-        Math.round(
-          Number(response.confidence)
-        )
-      )
-    );
-
-    const confidenceWrapper =
-      createCoachElement(
-        "div",
-        "coach-confidence"
-      );
-
-    confidenceWrapper.appendChild(
-      createCoachElement(
-        "span",
-        "coach-confidence-label",
-        "Decision confidence"
-      )
-    );
-
-    confidenceWrapper.appendChild(
-      createCoachElement(
-        "strong",
-        "coach-confidence-value",
-        `${confidence}%`
-      )
-    );
-
-    container.appendChild(
-      confidenceWrapper
-    );
-  }
+  // Note: response.confidence is intentionally NOT rendered. It may be
+  // returned internally, but athletes should never see AI decision
+  // confidence, scoring, or other implementation metadata.
 
   if (response.closing) {
     container.appendChild(

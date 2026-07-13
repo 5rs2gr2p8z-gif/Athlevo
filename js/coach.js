@@ -300,6 +300,7 @@ async function loadWeekExecutionForCoach() {
 
     return {
       weekStart: data.weekStart || null,
+      phase: data.plan?.phase || null,
       sessions
     };
   } catch (error) {
@@ -309,6 +310,66 @@ async function loadWeekExecutionForCoach() {
     );
     return null;
   }
+}
+
+/*
+ * Builds the compact "Coach Context" summary shown above a reply. Every
+ * item reflects context that was actually assembled and sent — nothing
+ * is invented. Items are omitted when the underlying data is absent.
+ */
+function buildCoachContextSummary(context) {
+  const items = [];
+
+  const week = context?.currentWeekExecution || null;
+  const sessions = Array.isArray(week?.sessions) ? week.sessions : [];
+
+  const now = new Date();
+  const todayKey =
+    `${now.getFullYear()}-` +
+    `${String(now.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(now.getDate()).padStart(2, "0")}`;
+
+  const hasToday = sessions.some(
+    session => String(session.date || "").slice(0, 10) === todayKey
+  );
+
+  if (hasToday) {
+    items.push("Reviewed today's workout");
+  }
+
+  if (sessions.length > 0) {
+    items.push("Checked your weekly plan");
+  }
+
+  const recentCount =
+    Number(context?.importedTrainingData?.totalImportedActivities) ||
+    (Array.isArray(context?.importedTrainingData?.recentActivities)
+      ? context.importedTrainingData.recentActivities.length
+      : 0);
+
+  if (recentCount > 0) {
+    items.push("Reviewed recent training");
+  }
+
+  const hasExecution = sessions.some(
+    session => session.status && session.status !== "planned"
+  );
+
+  if (hasExecution) {
+    items.push("Considered workout execution");
+  }
+
+  const phase =
+    typeof week?.phase === "string" && week.phase.trim()
+      ? week.phase.trim()
+      : "";
+
+  if (phase) {
+    const label = phase.charAt(0).toUpperCase() + phase.slice(1);
+    items.push(`Current phase: ${label}`);
+  }
+
+  return items;
 }
 
 async function askCoach(question) {
@@ -402,6 +463,10 @@ context.currentWeekExecution =
     closing: null,
     suggested_replies: []
   };
+
+// Attach the truthful Coach Context summary so it renders above the
+// reply and persists with the saved conversation history.
+answer.coach_context = buildCoachContextSummary(context);
 
 const responseContainer =
   loadingMessage.querySelector(".change");
