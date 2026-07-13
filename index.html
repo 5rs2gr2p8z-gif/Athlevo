@@ -386,10 +386,13 @@ body{
 .mem-item i{font-style:normal;color:#ff9ba0;font-size:11px}
 
 /* ---------- lesson modal ---------- */
-.modal-back{position:absolute;inset:0;background:rgba(20,20,22,.45);z-index:80;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
+/* Bottom-sheet modals must sit ABOVE the fixed bottom navigation
+   (#tabbar is z-index:1000) so their lower controls are never covered
+   or unreachable. */
+.modal-back{position:absolute;inset:0;background:rgba(20,20,22,.45);z-index:1200;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
 .modal-back.show{display:flex;animation:fadeIn .25s}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.lesson{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:82%;overflow-y:auto;padding:26px 24px 34px;animation:slideUp .4s cubic-bezier(.3,.7,.3,1)}
+.lesson{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp .4s cubic-bezier(.3,.7,.3,1)}
 @keyframes slideUp{from{transform:translateY(60px)}to{transform:none}}
 .lesson .eyebrow{color:var(--red)}
 .lesson h3{font-family:var(--serif);font-size:23px;font-weight:500;margin:8px 0 12px;letter-spacing:-.01em}
@@ -1062,6 +1065,18 @@ body{
 .fb-prefill{font-size:12px;color:var(--ink3);margin:12px 0 0;line-height:1.45}
 .fb-rpe,.fb-pain-scale{flex-wrap:wrap}
 .fb-rpe .ci-dot,.fb-pain-scale .ci-dot{width:30px;height:34px}
+
+/* ---------- beta feedback form ---------- */
+.fb-optional{font-weight:500;color:var(--ink3);text-transform:none;letter-spacing:0;font-size:12px}
+#betaFeedbackModal .ci-input{min-height:0}
+#betaFeedbackModal textarea.ci-input{min-height:96px}
+#betaFeedbackModal select.ci-input{
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236d7075' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;background-size:16px;padding-right:40px;
+}
+.fb-check{display:flex;align-items:center;gap:10px;padding:14px 0 2px;font-size:13.5px;color:var(--ink);cursor:pointer}
+.fb-check input{width:18px;height:18px;accent-color:var(--ink);flex-shrink:0}
 </style>
 </head>
 <body>
@@ -1198,11 +1213,11 @@ body{
   </div>
 
   <div class="readiness-copy">
-    <h2>Not enough data yet.</h2>
+    <h2 id="readinessTitle">Not enough data yet.</h2>
 
-    <p>
-      Connect a training source or record workouts, sleep, and recovery
-      information before Athlevo generates a readiness score.
+    <p id="readinessCopy">
+      Connect Strava or record a workout to begin your training history, then
+      complete a readiness check.
     </p>
   </div>
 </div>
@@ -1550,9 +1565,9 @@ body{
 
     <span class="eyebrow">Performance trends</span>
 
-    <h3>No imported training history yet.</h3>
+    <h3 id="trendPerformanceTitle">No imported training history yet.</h3>
 
-    <p>
+    <p id="trendPerformanceContext">
       Athlevo will not calculate fitness, fatigue, race predictions, or training
       trends until it has enough real workout data.
     </p>
@@ -1731,9 +1746,9 @@ body{
   </div>
   <div class="spacer-lg"></div>
 
-  <div class="pad"><div class="section-title serif">Coaching</div></div>
-  <div class="rowlink" onclick="enterCoachMode()">
-    <div><b>Coach Mode</b><small>Manage your athlete roster</small></div><span class="arr" style="color:var(--red)">→</span>
+  <div class="pad"><div class="section-title serif">Feedback</div></div>
+  <div class="rowlink" onclick="openBetaFeedback()">
+    <div><b>Feedback &amp; Suggestions</b><small>Report a bug, share an idea, or tell us what felt confusing.</small></div><span class="arr">→</span>
   </div>
   <div class="spacer-lg"></div>
 <div class="spacer-lg"></div>
@@ -1745,8 +1760,13 @@ body{
 <div class="spacer-lg"></div>
 </section>
 
-<!-- ══════════════ COACH MODE ══════════════ -->
-<section class="screen" id="screen-coachmode">
+<!-- ══════════════ COACH MODE ══════════════
+     DISABLED for the athlete-facing private beta. Athletes are not
+     coaches, so this sample roster must never be reachable. The markup
+     and its enterCoachMode()/decide() helpers are retained (hidden +
+     no athlete entry point) so they can seed a real coach dashboard
+     later. Do not link to this section from athlete screens. -->
+<section class="screen" id="screen-coachmode" hidden aria-hidden="true" style="display:none">
   <div class="cm-head">
     <div><h1 class="serif">Coach Mode</h1><p>Athlevo Coaching · 12 active athletes</p></div>
     <button class="cm-exit" onclick="exitCoachMode()">Exit</button>
@@ -1810,6 +1830,9 @@ body{
 <!-- ══════════════ SESSION FEEDBACK MODAL ══════════════ -->
 <div class="modal-back" id="feedbackModal"></div>
 
+<!-- ══════════════ BETA FEEDBACK & SUGGESTIONS MODAL ══════════════ -->
+<div class="modal-back" id="betaFeedbackModal"></div>
+
 <!-- ══════════════ TAB BAR ══════════════ -->
 <nav class="tabbar" id="tabbar" style="display:none">
   <button class="tab on" data-screen="screen-today" onclick="go(this)">
@@ -1836,6 +1859,8 @@ body{
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+ // Build identifier attached to beta feedback submissions.
+ window.ATHLEVO_BUILD = "beta-2026.07.13";
  const SUPABASE_URL = 'https://hqwdehqsllyvrcnlcytj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -2016,9 +2041,10 @@ async function go(btn){
 }
 }
 function enterCoachMode(){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('screen-coachmode').classList.add('active');
-  document.getElementById('tabbar').style.display='none';
+  // Coach Mode is disabled in the athlete-facing beta. Kept as a no-op
+  // (rather than deleted) so the roster markup/logic can seed a future
+  // real coach dashboard without resurrecting an athlete entry point.
+  console.log('Coach Mode is disabled in the athlete beta.');
 }
 function exitCoachMode(){
   document.getElementById('tabbar').style.display='flex';
@@ -2432,6 +2458,7 @@ async function restoreSession() {
 <script src="js/renderCoachResponse.js"></script>
 <script src="js/coach.js"></script>
 <script src="js/train.js"></script>
+<script src="js/feedback.js"></script>
 <script src="js/onboarding.js"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that

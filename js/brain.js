@@ -803,6 +803,26 @@ function updateTodayActivityData(summary) {
     });
   };
 
+  // Readiness is separate from training history. When activities exist,
+  // the missing input is readiness/recovery data — never tell a
+  // connected athlete to "connect a training source". Nothing here
+  // fabricates a readiness, HRV, sleep, or recovery value.
+  const hasAnyActivity = Boolean(summary?.latestActivity);
+
+  setText(
+    "readinessTitle",
+    hasAnyActivity
+      ? "Readiness not available yet."
+      : "Not enough data yet."
+  );
+
+  setText(
+    "readinessCopy",
+    hasAnyActivity
+      ? "Complete today's readiness check or connect a supported recovery source when available. Athlevo will not estimate readiness, HRV, sleep, or recovery it has not been given."
+      : "Connect Strava or record a workout to begin your training history, then complete a readiness check."
+  );
+
   if (!summary?.latestActivity) {
     setText("todayLatestActivityName", "No imported activity yet.");
     setText(
@@ -854,7 +874,7 @@ function updateTodayActivityData(summary) {
     "todayLatestHeartRate",
     Number(activity.average_heartrate) > 0
       ? `${Math.round(Number(activity.average_heartrate))} bpm`
-      : "Not available"
+      : "Not recorded"
   );
 
   setText(
@@ -1046,7 +1066,11 @@ function updateTrainActivityData(activities = [], summary = null) {
   });
 }
 
-function updateTrendsActivityData(activities = [], summary = null) {
+function updateTrendsActivityData(
+  activities = [],
+  summary = null,
+  totalActivityCount = null
+) {
   const setText = (id, value) => {
     const element = document.getElementById(id);
 
@@ -1062,6 +1086,36 @@ function updateTrendsActivityData(activities = [], summary = null) {
   const weeklyVolumes = Array.isArray(summary?.weeklyVolumes)
     ? summary.weeklyVolumes
     : [];
+
+  // True total from a count query when available; the loaded array is
+  // capped at the query limit, so never present that cap as the total.
+  const importedCount =
+    Number.isFinite(Number(totalActivityCount)) &&
+    Number(totalActivityCount) >= 0
+      ? Number(totalActivityCount)
+      : safeActivities.length;
+
+  const hasHistory =
+    importedCount > 0 ||
+    safeActivities.length > 0 ||
+    Boolean(summary?.latestActivity);
+
+  // Performance-trends card: distinguish "no history at all" from
+  // "history exists but comparable-performance analysis is limited".
+  // Never claim improvement without validated comparable data.
+  setText(
+    "trendPerformanceTitle",
+    hasHistory
+      ? "Training history imported."
+      : "No imported training history yet."
+  );
+
+  setText(
+    "trendPerformanceContext",
+    hasHistory
+      ? "More comparable pace, heart-rate, terrain, and workout-structure data is needed before Athlevo can calculate reliable performance trends."
+      : "Athlevo will not calculate fitness, fatigue, race predictions, or training trends until it has enough real workout data."
+  );
 
   const currentWeek =
     weeklyVolumes[weeklyVolumes.length - 1] || null;
@@ -1087,7 +1141,7 @@ function updateTrendsActivityData(activities = [], summary = null) {
 
   setText(
     "trendImportedActivities",
-    String(safeActivities.length)
+    String(importedCount)
   );
 
   if (previousDistance > 0) {
@@ -1257,9 +1311,16 @@ async function refreshAthleteUI() {
     const activities = await loadAthleteActivities(200);
     const activitySummary = buildActivitySummary(activities);
 
+    // Exact total (not the 200-row query cap) for the Trends count.
+    const totalActivityCount = await countAthleteActivities();
+
     updateTodayActivityData(activitySummary);
     updateTrainActivityData(activities, activitySummary);
-    updateTrendsActivityData(activities, activitySummary);
+    updateTrendsActivityData(
+      activities,
+      activitySummary,
+      totalActivityCount
+    );
 
     console.log("Athlete UI updated for:", profile.id);
 
@@ -1312,6 +1373,39 @@ async function syncStravaActivities() {
   } catch (error) {
     console.error("Strava synchronization failed:", error);
     throw error;
+  }
+}
+
+/*
+ * Returns the athlete's exact number of imported activities using a
+ * head-only count query (no rows fetched), so the Trends "Imported
+ * activities" figure reflects the true total rather than the 200-row
+ * load cap. Returns null if the count can't be determined.
+ */
+async function countAthleteActivities() {
+  try {
+    const {
+      data: { user }
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) {
+      return null;
+    }
+
+    const { count, error } = await supabaseClient
+      .from("activities")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Could not count activities:", error);
+      return null;
+    }
+
+    return Number.isFinite(Number(count)) ? Number(count) : null;
+  } catch (error) {
+    console.error("Activity count failed:", error);
+    return null;
   }
 }
 
