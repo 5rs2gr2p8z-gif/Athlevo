@@ -1093,7 +1093,6 @@ body{
     <button class="w-btn" onclick="openLogin()">Log in</button>
     <button class="w-btn" onclick="startOnboarding()"> Continue with Apple</button>
     <button class="w-btn" onclick="startOnboarding()">G&ensp;Continue with Google</button>
-    <button class="w-skip" onclick="skipToApp()">Skip intro — view a built athlete profile</button>
   </div>
 </section>
 
@@ -1127,45 +1126,10 @@ body{
 
 </section>
 
-<!-- ══════════════ THINKING ══════════════ -->
-<section class="screen think" id="screen-thinking">
-  <div>
-    <span class="eyebrow">Building your system</span>
-    <h2 class="serif">I'm thinking through your training the way a coach would.</h2>
-    <div id="thinkLines">
-      <div class="tline"><span class="tick">✓</span><span>Reviewing <b>214 imported activities</b>…</span></div>
-      <div class="tline"><span class="tick">✓</span><span>Analyzing training load — last 12 weeks…</span></div>
-      <div class="tline"><span class="tick">✓</span><span>Calculating current capacity…</span></div>
-      <div class="tline"><span class="tick">✓</span><span>Estimating threshold — <b>≈ 4:55/km</b>…</span></div>
-      <div class="tline"><span class="tick">✓</span><span>Reviewing <b>Pampanga</b> heat &amp; humidity patterns…</span></div>
-      <div class="tline"><span class="tick">✓</span><span>Reviewing sleep trends…</span></div>
-      <div class="tline"><span class="tick">✓</span><span>Mapping goal — <b>marathon, hilly, September</b>…</span></div>
-      <div class="tline"><span class="tick">✓</span><span>Fitting <b>5 training days</b> around your schedule…</span></div>
-    </div>
-    <div class="think-cta" id="thinkCta">
-      <button onclick="goPaywall()">Your system is ready →</button>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════════ PAYWALL ══════════════ -->
-<section class="screen pay" id="screen-paywall">
-  <div>
-    <span class="eyebrow">Athlevo Premium</span>
-    <h2 class="serif">Your coach is ready, Dean.</h2>
-    <p>Everything I just built stays free to preview. Premium turns it on.</p>
-    <div class="feat"><span class="fdot">✓</span>AI coach — adapts your plan every morning</div>
-    <div class="feat"><span class="fdot">✓</span>Unlimited chat, with reasoning on every answer</div>
-    <div class="feat"><span class="fdot">✓</span>Full analytics &amp; race prediction</div>
-    <div class="feat"><span class="fdot">✓</span>Integrated lessons — learn the method as you train</div>
-    <div class="feat"><span class="fdot">✓</span>Human coach support &amp; monthly calls</div>
-    <p class="price"><b>14 days free</b>, then ₱599/month. Cancel anytime.</p>
-    <div class="w-btns" style="padding:0">
-      <button class="w-btn primary" style="background:var(--red);border-color:var(--red)" onclick="finishOnboarding('Trial started — 14 days free')">Start free trial</button>
-      <button class="w-skip" onclick="finishOnboarding('Continuing on Free')">Continue with Free</button>
-    </div>
-  </div>
-</section>
+<!-- The scripted "thinking" and paywall demo screens were removed: they
+     displayed fabricated athlete data (214 activities, ≈4:55/km, marathon
+     / hilly / September, "Dean") and were only reachable from the old
+     scripted onboarding, which has been replaced by js/onboarding.js. -->
 
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
@@ -1932,19 +1896,10 @@ async function doLogin() {
 
   closeAuth();
 
-const { data: profile } = await supabaseClient
-  .from('profiles')
-  .select('goal, device')
-  .eq('id', data.user.id)
-  .maybeSingle();
-  alert(JSON.stringify(profile));
-
-if (!profile || profile.goal == null || profile.device == null) {
-  startOnboarding();
-} else {
-  document.getElementById('tabbar').style.display = 'flex';
-  showScreen('screen-today');
-}
+  // Use the single authoritative post-auth routing flow so Today,
+  // activities, Daily Brief, weekly plan, Train/Trends data, profile,
+  // and Strava state all load immediately — no page refresh required.
+  await routeAfterAuth(data.user.id);
 }
 async function doLogout() {
   const { error } = await supabaseClient.auth.signOut();
@@ -1999,7 +1954,10 @@ async function connectStrava() {
     window.location.href = data.authorizationUrl;
   } catch (error) {
     console.error("Strava connection failed:", error);
-    alert(error.message || "Could not connect to Strava.");
+
+    if (typeof toast === "function") {
+      toast(error.message || "Could not connect to Strava.");
+    }
   }
 }
 
@@ -2052,6 +2010,26 @@ function exitCoachMode(){
   document.getElementById('screen-you').classList.add('active');
 }
 
+/* Today "Latest activity" card — expands the details ledger. (The
+   handler was referenced by the card but never defined, so the toggle
+   silently threw; this restores the intended expand/collapse using the
+   existing .decision.open CSS.) */
+function toggleDecision() {
+  const card = document.getElementById("decisionCard");
+
+  if (!card) {
+    return;
+  }
+
+  const isOpen = card.classList.toggle("open");
+
+  const toggle = card.querySelector(".why-toggle");
+
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  }
+}
+
 /* ---------- readiness ring ---------- */
 function animateRing() {
   const ring = document.querySelector(".ring .fill");
@@ -2099,266 +2077,32 @@ function decide(btn,msg){
   toast(msg);
 }
 
-/* ---------- integrations ---------- */
-function connectRow(btn){
-  const row=btn.closest('.integ-row');
-  btn.outerHTML='<span class="connected-check">✓</span>';
-  row.querySelector('small').innerHTML='<span class="sync-dot pulse"></span>Connecting — first sync in progress';
-  toast('Connected');
-  setTimeout(()=>{row.querySelector('small').innerHTML='<span class="sync-dot"></span>Synced just now';},2600);
-}
+/* The inline demo coach engine (BRAIN / FALLBACK / CALF and the
+   duplicate ask()/sendMsg()) has been removed. It contained fabricated
+   physiological values (sleep, HRV, body battery, readiness, heat
+   index) and canned injury assumptions. The real coach in js/coach.js
+   is authoritative and provides window.ask / window.sendMsg. The fake
+   Garmin/COROS connectRow() handler was also removed. */
 
-/* ---------- AI coach ---------- */
-const BRAIN=[
- {k:['easy','why am i running'],r:{
-   call:"You're running easy because Friday is the session that actually moves your fitness.",
-   why:["<b>Monday's Threshold</b> created the stimulus — today is where it gets absorbed","<b>Sleep 5h42</b> means recovery capacity is already reduced","<b>Heat index 33°</b> adds cost to every kilometer, even slow ones"],
-   change:"Easy days aren't filler — they're the payment that makes hard days affordable. Hold <b>5:45–5:55/km</b>. If you drift faster, you're borrowing from Friday."}},
- {k:['slept','5 hours','sleep'],r:{
-   call:"Noted — and I already accounted for it in today's plan.",
-   why:["<b>One short night</b> with stable HRV (61 vs baseline 64) = adjust, don't cancel","<b>Two+ short nights</b> would change the picture — that's when injury risk climbs","<b>Body battery 68</b> confirms reduced but workable capacity"],
-   change:"Today stays at 60 min Control. Priority tonight: <b>in bed by 9:30 PM</b>. If tomorrow's HRV drops below 55, Friday's Threshold becomes Control automatically — and I'll tell you why."}},
- {k:['knee','hurt','pain','injur'],r:{
-   call:"Stop — let's assess before you run on it.",
-   why:["<b>Location matters:</b> front-of-knee under load suggests patellofemoral irritation; outside-of-knee points to IT band","<b>Your history:</b> no knee flags in the last 12 weeks, so this is new — new pain gets respect","<b>Load context:</b> volume ramped +8% this week, a common window for niggles"],
-   change:"Rate it 1–10. <b>Under 3 and no change while walking:</b> swap today for 40 min bike (your cycling background makes this a clean substitute). <b>3 or above, or sharp:</b> full rest today and tell me tomorrow morning. A missed Wednesday costs nothing. A torn-up July costs the marathon."}},
- {k:['move','tomorrow','reschedule','shift'],r:{
-   call:"Yes — tomorrow is flexible. Here's the trade.",
-   why:["<b>Tomorrow is Ground</b> (recovery run) — low structural importance","<b>Friday is Threshold</b> — the anchor of the week, protected at all costs","<b>Rule:</b> easy days move freely; key sessions need 48h spacing"],
-   change:"Move tomorrow's run to Saturday morning, keep Friday's Threshold where it is, and Sunday's long run stays. Want me to update the calendar?"}},
- {k:['lt2','threshold','lactate'],r:{
-   call:"LT2 is the highest effort your body can sustain in equilibrium — the ceiling of 'sustainable.'",
-   why:["<b>Below LT2:</b> lactate production and clearance balance — you can hold it for a long time","<b>Above LT2:</b> lactate accumulates faster than you clear it — the clock starts ticking","<b>For you</b>, that sits around 4:52–4:58/km right now, which is exactly where Friday's repeats live"],
-   change:"The Norwegian insight we build on: train <b>at</b> the threshold, not above it. Slightly under LT2, repeated often, moves the ceiling up without the recovery bill of going over. That's why your Threshold work feels controlled, not heroic."}},
- {k:['shoe','wear'],r:{
-   call:"Daily trainers today — save the plated shoes.",
-   why:["<b>Today is Control</b> — no need for carbon assistance at 5:45/km","<b>Plated shoes change your mechanics</b> — we ration them for Threshold and race day so the stimulus stays specific","<b>Heat note:</b> pick your most breathable pair; 31° mornings punish thick uppers"],
-   change:"Rotation rule: trainers for Ground and Control, plated for Friday's Threshold and the marathon itself."}},
-];
-const FALLBACK={
-  call:"Good question — here's how I'd think about it.",
-  why:["<b>Your context:</b> week 6 of 15, build phase, 63 days to race day","<b>Current state:</b> readiness 74, load in the optimal band, heat-adapting well","<b>Principle:</b> every decision protects the next key session"],
-  change:"Give me a bit more detail and I'll give you a specific call — with the reasoning behind it."};
-
-/* multi-turn triage: the coach asks before it decides */
-const CALF=[
- {q:"Before I decide anything — where exactly?",chips:["Upper calf, inside","Mid-belly","Low, near the Achilles"]},
- {q:"And how bad, 1–10, right now walking around?",chips:["1–3 · just tight","4–6 · noticeable","7+ · it hurts"]},
- {q:"Last one: can you do 10 single-leg hops on it pain-free?",chips:["Yes, no pain","No / not sure"]},
-];
-let calfStage=-1,calfAns=[];
-function calfAsk(stage){
-  const log=document.getElementById('chatlog');
-  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);scrollChat();
-  setTimeout(()=>{
-    t.remove();
-    const m=document.createElement('div');m.className='msg ai';
-    m.innerHTML='<span class="call">'+CALF[stage].q+'</span><div class="ob-chips">'+CALF[stage].chips.map(c=>'<button class="ob-chip" onclick="calfPick(this)">'+c+'</button>').join('')+'</div>';
-    log.appendChild(m);scrollChat();
-  },1000);
-}
-function calfPick(btn){
-  const log=document.getElementById('chatlog');
-  calfAns.push(btn.textContent);
-  btn.closest('.ob-chips').remove();
-  const u=document.createElement('div');u.className='msg user';u.textContent=btn.textContent;log.appendChild(u);
-  calfStage++;
-  if(calfStage<CALF.length){calfAsk(calfStage);return;}
-  const severe=calfAns[1].startsWith('7')||calfAns[2].startsWith('No');
-  const achilles=calfAns[0].includes('Achilles');
-  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);scrollChat();
-  setTimeout(()=>{
-    t.remove();
-    const m=document.createElement('div');m.className='msg ai';
-    const call=severe?"Then today's run is off. That's a decision, not a suggestion.":"Okay — this reads like tightness, not injury. We adapt, we don't panic.";
-    const why=achilles
-      ?["<b>Location near the Achilles</b> is the one we never gamble with — tendon issues punish impatience","<b>Your history:</b> past shin splints means your lower legs get extra respect","<b>Load context:</b> volume is ramping — classic window for tendon complaints"]
-      :["<b>Muscle-belly tightness</b> usually responds to reduced load, not zero load","<b>Hop test result</b> is the best field screen we have — yours guides the call","<b>Today is Control</b>, not a key session — cheap to modify, expensive to force"];
-    const change=severe
-      ?"Full rest today. Gentle calf raises tomorrow morning — if pain-free, we test a 20 min jog. If not, I'm flagging Coach Dean for a look. Tell me how it feels tomorrow; <b>I'll remember this either way.</b>"
-      :"Swap today for <b>40 min easy bike</b> (your cycling background makes this a clean substitute) + 5 min of slow calf raises after. If it's quiet tomorrow, Friday's Threshold stays. <b>Logged to your injury history.</b>";
-    m.innerHTML='<span class="call">'+call+'</span><div class="whyblock"><span class="eyebrow">Why</span><ul>'+why.map(w=>'<li>'+w+'</li>').join('')+'</ul></div><div class="change">'+change+'</div>';
-    log.appendChild(m);scrollChat();
-  },1400);
-}
-
-function ask(q){document.getElementById('chatInput').value=q;sendMsg();}
-function sendMsg(){
-  const input=document.getElementById('chatInput');
-  const text=input.value.trim();
-  if(!text)return;
-  input.value='';
-  const log=document.getElementById('chatlog');
-  const u=document.createElement('div');u.className='msg user';u.textContent=text;log.appendChild(u);
-  scrollChat();
-  const low=text.toLowerCase();
-  if(low.includes('calf')||low.includes('tight')){calfStage=0;calfAns=[];calfAsk(0);return;}
-  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);
-  scrollChat();
-  const hit=BRAIN.find(b=>b.k.some(k=>low.includes(k)))||{r:FALLBACK};
-  setTimeout(()=>{
-    t.remove();
-    const m=document.createElement('div');m.className='msg ai';
-    m.innerHTML='<span class="call">'+hit.r.call+'</span>'
-      +'<div class="whyblock"><span class="eyebrow">Why</span><ul>'+hit.r.why.map(w=>'<li>'+w+'</li>').join('')+'</ul></div>'
-      +'<div class="change">'+hit.r.change+'</div>';
-    log.appendChild(m);scrollChat();
-  },1300);
-}
-function scrollChat(){
-  const s=document.getElementById('screen-coachai');
-  s.scrollTop=s.scrollHeight;
-}
-
-/* ══════════════ ONBOARDING ══════════════ */
+/* ══════════════ SCREEN SWITCH ══════════════ */
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
-function skipToApp(){finishOnboarding('Welcome back, Dean');}
+/* Onboarding is handled by the single authoritative flow in
+   js/onboarding.js (startAthlevoOnboarding). It asks real questions,
+   echoes the athlete's actual answers, validates input, awaits each
+   save, ensures the profile row exists, and only completes on a
+   confirmed write. The previous scripted flow (hardcoded "Hi Dean",
+   marathon/September/hilly assumptions, fixed body metrics and injury
+   history, the "214 activities" fabrication, and the debug alert) has
+   been removed. */
 function startOnboarding(){
-  onboardingAnswers = {
-    goal: null,
-    race_type: null,
-    injury_history: null,
-    training_days: null,
-    device: null
-  };
-  showScreen('screen-onboard');
-obStep = -1;
-document.getElementById('obLog').innerHTML = '';
-obNext(0);
-}
-
-const OB = [
-{
-  ai: "Hi Dean. I'm going to build your training system — not a template, <b>yours</b>. This takes about 8 minutes. Ready?",
-  chips: ["Let's go"]
-},
-{
-  key: "goal",
-  ai: "What's the goal?",
-  chips: ["🏃 Marathon", "10K", "HYROX", "General fitness"]
-},
-{
-  key: "race_type",
-  ai: "Marathon — good. When, and what course?",
-  chips: ["September · hilly", "Not sure yet"]
-},
-{
-  ai: "Noted: <b>September, hilly</b>. Hills change how we build your long runs.<br><br>Tell me about your age, height, weight?",
-  chips: ["20 · 5'9 · 75kg"]
-},
-{
-  ai: "How many years have you been running seriously?",
-  chips: ["3+ years", "1–3 years", "Just started"]
-},
-{
-  key: "injury_history",
-  ai: "Any injuries I should respect? Be honest — this changes how I ramp your load.",
-  chips: ["Shin splints (past)", "None"]
-},
-{
-  key: "training_days",
-  ai: "Shin splints, noted <b>permanently</b>. I'll cap your weekly ramp at 10% and flag any early warning signs.<br><br>How many days a week can you train?",
-  chips: ["3", "4", "5", "6", "7"]
-},
-{
-  key: "device",
-  ai: "Five days — enough for two quality sessions and a real long run.<br><br>What's on your wrist?",
-  chips: ["Garmin", "COROS", "Apple Watch", "None"]
-},
-{
-  ai: "Perfect. If you connect it, I can read your entire training history instead of asking twenty more questions.",
-  connect: true
-},
-{
-  ai: "<b>214 activities imported.</b><br><br>I can already see your threshold sessions, your heat drift, your real weekly volume.<br><br>Honestly? I now know more about your training than most coaches would after two months."
-}
-];
-let obStep=-1;
-function obNext(step){
-  obStep=step;
-  const log=document.getElementById('obLog');
-  const obBar = document.getElementById("obBar");
-
-if (obBar) {
-  obBar.style.width = "0%";
-}
-  const s=OB[step];
-  const t=document.createElement('div');t.className='typing';t.innerHTML='<i></i><i></i><i></i>';log.appendChild(t);
-  obScroll();
-  setTimeout(()=>{
-    t.remove();
-    const m=document.createElement('div');m.className='msg ai';
-    let html='<span style="line-height:1.55">'+s.ai+'</span>';
-    if(s.chips){html+='<div class="ob-chips">'+s.chips.map(c=>'<button class="ob-chip" onclick="obPick(this)">'+c+'</button>').join('')+'</div>';}
-    if(s.connect){html+='<div class="connect-card"><div class="ilogo">G</div><b>Garmin Connect</b><p>Activities · sleep · HRV · training load</p><button onclick="obConnect(this)">Connect Garmin</button><div class="importbar"><i></i></div></div>';}
-    m.innerHTML=html;log.appendChild(m);obScroll();
-  },900);
-}
-function obPick(btn){
-  const s=OB[obStep];
-  if (s.key) {
-  onboardingAnswers[s.key] = btn.textContent.trim();
-}
-  const log=document.getElementById('obLog');
-  btn.closest('.ob-chips').remove();
-  const u=document.createElement('div');u.className='msg user';u.textContent=btn.textContent;log.appendChild(u);
-  obScroll();
-  if(s.final){setTimeout(startThinking,600);return;}
-  setTimeout(()=>obNext(obStep+1),500);
-}
-function obConnect(btn){
-  btn.textContent='Requesting permission…';btn.disabled=true;
-  const bar=btn.parentElement.querySelector('.importbar i');
-  setTimeout(()=>{btn.textContent='Importing 214 activities…';bar.style.width='100%';},700);
-  setTimeout(()=>{btn.textContent='✓ Connected';btn.style.background='var(--good)';},3300);
-  setTimeout(()=>obNext(obStep+1),3900);
-}
-function obScroll(){const s=document.getElementById('screen-onboard');s.scrollTop=s.scrollHeight;}
-
-/* thinking sequence */
-function startThinking(){
-  showScreen('screen-thinking');
-  const lines=document.querySelectorAll('#thinkLines .tline');
-  lines.forEach((l,i)=>{
-    setTimeout(()=>l.classList.add('show'),i*620);
-    setTimeout(()=>l.classList.add('done'),i*620+480);
-  });
-  setTimeout(()=>document.getElementById('thinkCta').classList.add('show'),lines.length*620+500);
-}
-function goPaywall(){showScreen('screen-paywall');}
-async function saveOnboardingProfile() {
-  alert(JSON.stringify(onboardingAnswers));
-  const { data: { user } } = await supabaseClient.auth.getUser();
-
-  if (!user) {
-    console.error('No authenticated user');
-    return;
+  if (typeof window.startAthlevoOnboarding === "function") {
+    window.startAthlevoOnboarding();
+  } else {
+    console.error("Onboarding flow (js/onboarding.js) is not loaded.");
   }
-
-  const { error } = await supabaseClient
-  .from('profiles')
-  .update({
-    goal: onboardingAnswers.goal,
-race_type: onboardingAnswers.race_type,
-injury_history: onboardingAnswers.injury_history,
-training_days: Number(onboardingAnswers.training_days),
-device: onboardingAnswers.device
-  })
-  .eq('id', user.id);
-
-  if (error) console.error('Profile save failed:', error.message);
-}
-function finishOnboarding(msg){
-  saveOnboardingProfile();
-  document.getElementById('tabbar').style.display='flex';
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  document.querySelector('[data-screen="screen-today"]').classList.add('on');
-  showScreen('screen-today');
-  animateRing();
-  toast(msg);
 }
 
 /* ══════════════ LESSON + QUIZ ══════════════ */
@@ -2395,8 +2139,16 @@ async function routeAfterAuth(userId) {
 
   document.getElementById("tabbar").style.display = "flex";
   showScreen("screen-today");
+
+  // Authoritative post-auth data load (used by both session restore and
+  // interactive login). refreshAthleteUI populates Today/Train/Trends +
+  // profile + Strava state; then the brief and the weekly plan load.
   await AthlevoBrain.refreshAthleteUI();
   await AthlevoDailyBrief.load();
+
+  if (typeof window.loadWeeklyPlan === "function") {
+    await window.loadWeeklyPlan();
+  }
 }
 async function restoreSession() {
   const {
@@ -2561,11 +2313,8 @@ async function restoreSession() {
         error?.message || error
       );
 
-      if (announce) {
-        alert(
-          error.message ||
-            "Strava connected, but the first activity import failed."
-        );
+      if (announce && typeof toast === "function") {
+        toast("Strava connected, but the first import didn't finish");
       }
 
       return null;
@@ -2597,26 +2346,49 @@ async function restoreSession() {
 
   window.syncStravaNow = syncStravaNow;
 
+  // Surfaces the Strava OAuth outcome as a calm toast. Never exposes
+  // tokens or raw error details.
+  function handleStravaResult(state) {
+    const messages = {
+      connected: "Strava connected",
+      cancelled: "Strava connection was cancelled",
+      error: "Couldn't connect to Strava — please try again",
+      invalid_state:
+        "That Strava link expired — please connect again",
+      missing_code:
+        "Strava didn't complete the connection — please try again"
+    };
+
+    const message = messages[state];
+
+    if (message && typeof toast === "function") {
+      toast(message);
+    }
+  }
+
   async function initializeAthlevoApp() {
     await restoreSession();
     await AthlevoDailyBrief.load();
 
     const url = new URL(window.location.href);
-    const justConnected =
-      url.searchParams.get("strava") === "connected";
+    const stravaResult = url.searchParams.get("strava");
+    const justConnected = stravaResult === "connected";
 
-    // Sync on open so the app never shows an out-of-date "latest"
-    // workout — but honour the cooldown. A fresh connection always
-    // syncs immediately (no prior timestamp), and bypasses the cooldown.
-    await syncStravaAndRefresh({
-      announce: justConnected,
-      manual: justConnected
-    });
-
-    if (justConnected) {
+    // Report the OAuth result (success, cancellation, or failure) and
+    // strip the parameter from the URL. The authenticated session is
+    // left untouched.
+    if (stravaResult) {
+      handleStravaResult(stravaResult);
       url.searchParams.delete("strava");
       window.history.replaceState({}, "", url.pathname + url.search);
     }
+
+    // Sync on open so the app never shows an out-of-date "latest"
+    // workout — honouring the cooldown. A fresh connection bypasses it.
+    await syncStravaAndRefresh({
+      announce: false,
+      manual: justConnected
+    });
   }
 
   initializeAthlevoApp();

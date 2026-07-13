@@ -145,8 +145,34 @@ async function markProfileConnected(userId) {
   }
 }
 
+// Resolves the public app origin to redirect back to. Prefers the
+// configured PUBLIC_APP_URL env var, validates it is a real http(s)
+// origin, and falls back to the known production URL. This avoids
+// hardcoding a single origin while never redirecting somewhere unsafe.
+function resolveAppUrl() {
+  const fallback = "https://athlevo-ai.vercel.app";
+  const configured = process.env.PUBLIC_APP_URL;
+
+  if (typeof configured !== "string" || !configured.trim()) {
+    return fallback;
+  }
+
+  try {
+    const parsed = new URL(configured.trim());
+
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return fallback;
+    }
+
+    // Strip any trailing slash so query strings append cleanly.
+    return parsed.origin;
+  } catch {
+    return fallback;
+  }
+}
+
 export default async function handler(request, response) {
-  const appUrl = "https://athlevo-ai.vercel.app";
+  const appUrl = resolveAppUrl();
 
   try {
     if (request.method !== "GET") {
@@ -166,7 +192,7 @@ export default async function handler(request, response) {
     if (!code || !state) {
       return response.redirect(
         302,
-        `${appUrl}?strava=missing_parameters`
+        `${appUrl}?strava=missing_code`
       );
     }
 
