@@ -268,6 +268,8 @@ async function loadWeekExecutionForCoach() {
           asPrescribed: record.as_prescribed,
           actualDurationMinutes: record.actual_duration_minutes,
           actualDistanceKm: record.actual_distance_km,
+          actualAveragePace: record.actual_average_pace,
+          actualAverageHr: record.actual_average_hr,
           rpe: record.actual_rpe,
           feeling: record.overall_feeling,
           painPresent: record.pain_present === true,

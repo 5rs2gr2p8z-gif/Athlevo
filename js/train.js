@@ -444,11 +444,11 @@ function findSessionById(sessionId) {
 function getStatusMeta(status) {
     switch (status) {
         case "completed":
-            return { label: "Completed", cls: "done" };
+            return { label: "Completed", cls: "done", glyph: "✓" };
         case "modified":
-            return { label: "Modified", cls: "mod" };
+            return { label: "Modified", cls: "mod", glyph: "↺" };
         case "skipped":
-            return { label: "Skipped", cls: "skip" };
+            return { label: "Skipped", cls: "skip", glyph: "⊘" };
         default:
             return null;
     }
@@ -535,7 +535,7 @@ function renderSessions(sessions) {
                     }
                     ${
                         statusMeta
-                            ? `<span class="sc-status ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span>`
+                            ? `<span class="sc-status ${statusMeta.cls}">${statusMeta.glyph} ${escapeHtml(statusMeta.label)}</span>`
                             : ""
                     }
                 </div>
@@ -649,10 +649,21 @@ function buildSessionActions(session, rest, record) {
         );
     }
 
+    const timestamp = hasRecord
+        ? buildRecordTimestamp(record)
+        : "";
+
     const editRow = hasRecord
-        ? `<div class="sc-act-note">${escapeHtml(
-              buildRecordSummary(record)
-          )}<button class="sc-act-edit" type="button" data-action="edit">Edit</button></div>`
+        ? `<div class="sc-act-note">
+               <span class="sc-act-summary">${escapeHtml(
+                   buildRecordSummary(record)
+               )}${
+                   timestamp
+                       ? ` <span class="sc-act-time">· ${escapeHtml(timestamp)}</span>`
+                       : ""
+               }</span>
+               <button class="sc-act-edit" type="button" data-action="edit">Edit</button>
+           </div>`
         : "";
 
     return `
@@ -661,6 +672,29 @@ function buildSessionActions(session, rest, record) {
             <div class="sc-act-row">${buttons.join("")}</div>
         </div>
     `;
+}
+
+/* "logged Jul 13, 2:40 PM" from the record's submission time. */
+function buildRecordTimestamp(record) {
+    const raw =
+        record?.updated_at || record?.completed_at || null;
+
+    if (!raw) {
+        return "";
+    }
+
+    const date = new Date(raw);
+
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+
+    return "logged " + date.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
 }
 
 /* A short, human summary of what was logged — never raw JSON. */
@@ -688,6 +722,18 @@ function buildRecordSummary(record) {
 
     if (Number.isFinite(distance) && distance > 0) {
         parts.push(`${distance} km`);
+    }
+
+    const pace = cleanText(record.actual_average_pace);
+
+    if (pace) {
+        parts.push(pace);
+    }
+
+    const hr = Number(record.actual_average_hr);
+
+    if (Number.isFinite(hr) && hr > 0) {
+        parts.push(`${Math.round(hr)} bpm`);
     }
 
     const rpe = Number(record.actual_rpe);
@@ -1588,10 +1634,27 @@ function buildDurationDistance(record, matched) {
         fbNumber(record?.actual_distance_km) ||
         fbNumber(matched?.actual_distance_km);
 
+    const hr =
+        fbNumber(record?.actual_average_hr) ||
+        fbNumber(matched?.average_heartrate);
+
+    const pace =
+        cleanText(record?.actual_average_pace) ||
+        cleanText(matched?.average_pace);
+
+    // Strava match banner. It is only a suggestion — the athlete can
+    // reject it, which flags a manual override and unlinks the activity.
     const prefillNote = matched
-        ? `<p class="fb-prefill">Prefilled from your Strava activity${
-              matched.name ? ` “${escapeHtml(matched.name)}”` : ""
-          } — correct it if needed.</p>`
+        ? `<div class="fb-matched" id="fbMatched">
+               <p class="fb-prefill">Prefilled from your Strava activity${
+                   matched.name ? ` “${escapeHtml(matched.name)}”` : ""
+               }${
+                   matched.activity_type
+                       ? ` (${escapeHtml(formatSessionType(matched.activity_type))})`
+                       : ""
+               } — edit anything below.</p>
+               <button class="fb-unmatch" type="button" id="fbUnmatch">Not this activity?</button>
+           </div>`
         : "";
 
     return `
@@ -1604,6 +1667,16 @@ function buildDurationDistance(record, matched) {
             <div>
                 <div class="ci-label">Distance (km)</div>
                 <input id="fbDistance" class="ci-input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Optional" value="${distance}">
+            </div>
+        </div>
+        <div class="ci-row fb-grid">
+            <div>
+                <div class="ci-label">Avg pace</div>
+                <input id="fbPace" class="ci-input" type="text" inputmode="text" placeholder="e.g. 5:30/km" value="${escapeHtml(pace)}">
+            </div>
+            <div>
+                <div class="ci-label">Avg HR (bpm)</div>
+                <input id="fbHR" class="ci-input" type="number" inputmode="numeric" min="0" placeholder="Optional" value="${hr}">
             </div>
         </div>
     `;
@@ -1835,6 +1908,30 @@ function wireFeedbackSheet(modal, record) {
         });
     });
 
+    // "Not this activity?" — reject the auto-suggested Strava match so
+    // we never silently trust the wrong workout. Flags a manual override
+    // and clears the prefilled numbers for the athlete to fill in.
+    const unmatch = modal.querySelector("#fbUnmatch");
+
+    if (unmatch) {
+        unmatch.addEventListener("click", () => {
+            feedbackDraft.manual_activity_override = true;
+
+            ["fbDuration", "fbDistance", "fbPace", "fbHR"].forEach(id => {
+                const field = modal.querySelector(`#${id}`);
+                if (field) {
+                    field.value = "";
+                }
+            });
+
+            const banner = modal.querySelector("#fbMatched");
+            if (banner) {
+                banner.innerHTML =
+                    '<p class="fb-prefill">Not linked to a Strava activity — enter your own numbers.</p>';
+            }
+        });
+    }
+
     modal
         .querySelector("#fbSubmit")
         .addEventListener("click", submitFeedback);
@@ -1916,6 +2013,17 @@ async function submitFeedback() {
             body.overall_feeling = feedbackDraft.overall_feeling;
         }
 
+        const paceValue = readValue("fbPace");
+        const hrValue = readValue("fbHR");
+
+        if (paceValue) {
+            body.actual_average_pace = paceValue;
+        }
+
+        if (hrValue) {
+            body.actual_average_hr = Number(hrValue);
+        }
+
         body.pain_present = feedbackDraft.pain_present === true;
 
         if (body.pain_present) {
@@ -1932,7 +2040,15 @@ async function submitFeedback() {
             body.athlete_notes = readValue("fbWhatChanged") || null;
         }
 
+        // Link the auto-suggested Strava activity unless the athlete
+        // rejected it ("Not this activity?"), which flags a manual
+        // override so the wrong workout is never silently trusted.
+        const overrode = feedbackDraft.manual_activity_override === true;
+
+        body.manual_activity_override = overrode;
+
         const matched =
+            !overrode &&
             (mode === "complete" || mode === "rest_alt") &&
             session.matched_activity
                 ? session.matched_activity
