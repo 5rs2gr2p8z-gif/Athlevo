@@ -144,6 +144,105 @@ async function loadRecentActivities(userId) {
     : [];
 }
 
+async function optionalSupabaseRequest(path) {
+  try {
+    return await supabaseRequest(path);
+  } catch (error) {
+    console.error(
+      "Optional adaptation data unavailable:",
+      error?.message
+    );
+    return null;
+  }
+}
+
+/*
+ * Loads last week's plan, its sessions, the stored weekly progress
+ * summary, and the most recent check-in. Every part is optional:
+ * a missing table or empty result must never block plan
+ * generation.
+ */
+async function loadAdaptationContext(userId, weekStart) {
+  const previousWeekStart = formatDateKey(
+    addDays(weekStart, -7)
+  );
+
+  const encodedUserId = encodeURIComponent(userId);
+
+  const [previousPlans, summaries, checkIns] =
+    await Promise.all([
+      optionalSupabaseRequest(
+        `training_plans?user_id=eq.${encodedUserId}` +
+          `&week_start=eq.${previousWeekStart}` +
+          "&select=id,week_focus,weekly_intent,phase," +
+          "planned_distance_km,planned_hours,coach_summary" +
+          "&order=updated_at.desc&limit=1"
+      ),
+
+      optionalSupabaseRequest(
+        `weekly_progress_summaries?user_id=eq.${encodedUserId}` +
+          `&week_start=eq.${previousWeekStart}` +
+          "&select=week_start,week_end,planned_sessions," +
+          "completed_sessions,completion_rate," +
+          "planned_duration_minutes,completed_duration_minutes," +
+          "planned_distance_km,completed_distance_km," +
+          "comparable_run_count,pace_change_seconds_per_km," +
+          "heart_rate_change_bpm,training_load_direction," +
+          "consistency_status,recovery_status," +
+          "injury_risk_status,trajectory_status," +
+          "confidence_score,progress_narrative,key_wins," +
+          "key_concerns,next_week_priorities&limit=1"
+      ),
+
+      optionalSupabaseRequest(
+        `weekly_check_ins?user_id=eq.${encodedUserId}` +
+          "&select=week_start,overall_fatigue,sleep_quality," +
+          "muscle_soreness,motivation,stress_level," +
+          "perceived_training_load,pain_or_injury,pain_details," +
+          "sessions_felt,confidence_for_next_week,athlete_notes," +
+          "submitted_at&order=week_start.desc&limit=1"
+      )
+    ]);
+
+  const previousPlan = Array.isArray(previousPlans)
+    ? previousPlans[0] || null
+    : null;
+
+  let previousSessions = [];
+
+  if (previousPlan?.id) {
+    const rows = await optionalSupabaseRequest(
+      `training_sessions?user_id=eq.${encodedUserId}` +
+        `&training_plan_id=eq.${encodeURIComponent(previousPlan.id)}` +
+        "&select=session_date,title,session_type," +
+        "duration_minutes,distance_km,intensity,status" +
+        "&order=session_date.asc"
+    );
+
+    previousSessions = Array.isArray(rows) ? rows : [];
+  }
+
+  const latestCheckIn = Array.isArray(checkIns)
+    ? checkIns[0] || null
+    : null;
+
+  // Only use a check-in from the last two weeks.
+  const checkInIsRecent =
+    latestCheckIn?.week_start &&
+    latestCheckIn.week_start >=
+      formatDateKey(addDays(weekStart, -14));
+
+  return {
+    previousWeekStart,
+    previousPlan,
+    previousSessions,
+    progressSummary: Array.isArray(summaries)
+      ? summaries[0] || null
+      : null,
+    weeklyCheckIn: checkInIsRecent ? latestCheckIn : null
+  };
+}
+
 function getTargetRaceDate(profile) {
   return (
     profile?.race_date ||
@@ -622,7 +721,8 @@ async function generateWeeklyPlan({
   weekStart,
   weekEnd,
   periodization,
-  phaseGuidance
+  phaseGuidance,
+  adaptationContext
 }) {
   const athlevoMethodPrompt =
     buildAthlevoMethodPrompt();
@@ -718,6 +818,19 @@ Rules:
 17. Keep instructions clear and executable.
 18. Leave target_pace, target_hr, target_rpe, fueling, notes, or any other text field as an empty string whenever the supplied athlete context is insufficient to fill it. Never invent values.
 19. Return valid structured data only.
+
+WEEKLY ADAPTATION RULES
+
+The athlete data may include previousWeek (last week's plan and sessions), weeklyProgressSummary (server-computed truth about what actually happened), and weeklyCheckIn (the athlete's own report). Adapt the new week using them:
+
+1. Trust weeklyProgressSummary numbers over impressions. Never invent completion, pace, heart-rate, sleep, soreness, or recovery information that is not in the supplied data.
+2. If completion was low because of schedule constraints, reorganize days or reduce complexity. Do not automatically reduce fitness targets.
+3. If the check-in shows high fatigue (4 or 5) or poor sleep (1 or 2), reduce load and protect recovery this week.
+4. If pain or injury is reported, avoid aggravating intensity, adjust affected sessions, and state a clear safety recommendation in why_it_changed and in the affected sessions' notes.
+5. If completion was strong and recovery is stable, progress load conservatively — roughly 5 to 10 percent, never more.
+6. Never move missed sessions into this week. A missed week stays missed.
+7. Never let one good or bad workout drive a large change. Adapt to weekly patterns, not single days.
+8. Fill what_changed, why_it_changed, and kept_stable with short, specific, truthful statements about this plan versus last week. If there is no previous week data, say so plainly in those fields and plan normally.
             `.trim()
           },
 
@@ -762,7 +875,27 @@ Rules:
 
                   intendedZoneDistribution:
                     phaseGuidance.distribution
-                }
+                },
+
+                previousWeek:
+                  adaptationContext?.previousPlan
+                    ? {
+                        weekStart:
+                          adaptationContext.previousWeekStart,
+                        plan:
+                          adaptationContext.previousPlan,
+                        sessions:
+                          adaptationContext.previousSessions
+                      }
+                    : null,
+
+                weeklyProgressSummary:
+                  adaptationContext?.progressSummary ||
+                  null,
+
+                weeklyCheckIn:
+                  adaptationContext?.weeklyCheckIn ||
+                  null
               },
               null,
               2
@@ -810,6 +943,18 @@ Rules:
                     "number",
                     "null"
                   ]
+                },
+
+                what_changed: {
+                  type: "string"
+                },
+
+                why_it_changed: {
+                  type: "string"
+                },
+
+                kept_stable: {
+                  type: "string"
                 },
 
                 sessions: {
@@ -979,6 +1124,9 @@ Rules:
                 "progression_reasoning",
                 "planned_distance_km",
                 "planned_hours",
+                "what_changed",
+                "why_it_changed",
+                "kept_stable",
                 "sessions"
               ]
             }
@@ -1065,20 +1213,7 @@ async function saveTrainingPlan({
   periodization,
   phaseGuidance
 }) {
-  const rows = await supabaseRequest(
-    [
-      "training_plans",
-      "?on_conflict=user_id,week_start"
-    ].join(""),
-    {
-      method: "POST",
-
-      headers: {
-        Prefer:
-          "resolution=merge-duplicates,return=representation"
-      },
-
-      body: {
+  const planBody = {
         user_id: userId,
 
         week_start:
@@ -1145,6 +1280,17 @@ async function saveTrainingPlan({
             ? `Compressed preparation: ${plan.progression_reasoning}`
             : plan.progression_reasoning,
 
+        adaptation: {
+          what_changed:
+            plan.what_changed || "",
+
+          why_it_changed:
+            plan.why_it_changed || "",
+
+          kept_stable:
+            plan.kept_stable || ""
+        },
+
         status: "active",
 
         generated_at:
@@ -1152,9 +1298,42 @@ async function saveTrainingPlan({
 
         updated_at:
           new Date().toISOString()
+      };
+
+  const upsertPlan = body =>
+    supabaseRequest(
+      [
+        "training_plans",
+        "?on_conflict=user_id,week_start"
+      ].join(""),
+      {
+        method: "POST",
+
+        headers: {
+          Prefer:
+            "resolution=merge-duplicates,return=representation"
+        },
+
+        body
       }
-    }
-  );
+    );
+
+  let rows;
+
+  try {
+    rows = await upsertPlan(planBody);
+  } catch (error) {
+    // Backward compatibility: if the adaptation column does not
+    // exist yet (migration not run), save the plan without it.
+    console.error(
+      "Plan save with adaptation failed, retrying without it:",
+      error?.message
+    );
+
+    const { adaptation, ...legacyBody } = planBody;
+
+    rows = await upsertPlan(legacyBody);
+  }
 
   return Array.isArray(rows)
     ? rows[0] || null
@@ -1414,6 +1593,12 @@ const weekEnd =
         periodization
       );
 
+    const adaptationContext =
+      await loadAdaptationContext(
+        user.id,
+        weekStart
+      );
+
     const generatedPlan =
       await generateWeeklyPlan({
         profile,
@@ -1425,7 +1610,8 @@ const weekEnd =
         weekStart,
         weekEnd,
         periodization,
-        phaseGuidance
+        phaseGuidance,
+        adaptationContext
       });
 
     validateSessionDates(

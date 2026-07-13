@@ -921,6 +921,90 @@ body{
   padding:13px 15px;
 }
 .sc-section-reasoning .sc-section-label{color:var(--red)}
+
+/* ===== WEEKLY PROGRESS + GOAL COUNTDOWN (Train) ===== */
+
+.wp-goal{
+  margin:0 22px 14px;background:var(--ink);color:#fff;
+  border-radius:var(--r-lg);padding:22px;
+}
+.wp-goal .eyebrow{color:rgba(255,255,255,.5)}
+.wp-goal-race{font-family:var(--serif);font-size:21px;font-weight:500;letter-spacing:-.01em;margin-top:8px}
+.wp-goal-date{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:3px}
+.wp-count{display:flex;gap:22px;margin-top:16px}
+.wp-count b{font-size:26px;font-weight:700;letter-spacing:-.03em;display:block;font-variant-numeric:tabular-nums}
+.wp-count small{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+.wp-phase{margin-top:12px;font-size:13px;color:rgba(255,255,255,.72)}
+.wp-traj{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)}
+.wp-traj-row{display:flex;align-items:center;gap:10px}
+.traj-chip{
+  font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 12px;border-radius:100px;
+}
+.traj-chip.ahead{background:rgba(31,157,91,.28);color:#9fd8b4}
+.traj-chip.on_track{background:rgba(255,255,255,.14);color:#fff}
+.traj-chip.caution{background:rgba(201,138,30,.26);color:#f2cf9a}
+.traj-chip.at_risk{background:rgba(192,39,45,.32);color:#ffb3b6}
+.traj-chip.insufficient_data{background:rgba(255,255,255,.1);color:rgba(255,255,255,.55)}
+.wp-traj-conf{font-size:11px;color:rgba(255,255,255,.5);letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.wp-traj p{font-size:13px;line-height:1.55;color:rgba(255,255,255,.72);margin-top:8px}
+
+.wp-card{
+  margin:0 22px 14px;background:var(--paper);
+  border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:20px;box-shadow:0 6px 20px rgba(0,0,0,.05);
+}
+.wp-narrative{font-size:14px;line-height:1.62;margin-top:10px}
+.wp-bar{height:6px;background:var(--line);border-radius:100px;overflow:hidden;margin-top:14px}
+.wp-bar i{display:block;height:100%;background:var(--ink);border-radius:100px}
+.wp-bar-label{display:flex;justify-content:space-between;margin-top:7px;font-size:12px;color:var(--ink2)}
+.wp-bar-label b{color:var(--ink);font-weight:650;font-variant-numeric:tabular-nums}
+.wp-line{display:flex;gap:10px;align-items:baseline;margin-top:12px;font-size:13.5px;line-height:1.5}
+.wp-line .wp-tag{flex-shrink:0;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:100px}
+.wp-tag.win{background:#eef8f2;color:var(--good)}
+.wp-tag.concern{background:var(--red-soft);color:var(--red)}
+.wp-detail{max-height:0;overflow:hidden;transition:max-height .45s cubic-bezier(.3,.7,.3,1)}
+.wp-detail-inner{padding-top:14px}
+.wp-detail .sc-section:first-child{margin-top:0;border-top:none;padding-top:0}
+.wp-toggle{
+  margin-top:14px;display:inline-flex;align-items:center;gap:7px;
+  background:none;border:none;cursor:pointer;font-family:var(--sans);
+  font-size:13px;font-weight:650;color:var(--red);padding:0;
+}
+.wp-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .3s}
+.wp-card.open .wp-toggle svg{transform:rotate(180deg)}
+.checkin-btn{
+  width:100%;margin-top:16px;font-family:var(--sans);
+  font-size:14.5px;font-weight:650;padding:14px;border-radius:100px;
+  border:none;background:var(--red);color:#fff;cursor:pointer;
+  transition:transform .12s;
+}
+.checkin-btn:active{transform:scale(.98)}
+
+/* ===== WEEKLY CHECK-IN MODAL ===== */
+
+.ci-row{padding:13px 0;border-top:1px solid var(--line)}
+.ci-row:first-of-type{border-top:none}
+.ci-label{font-size:14px;font-weight:650}
+.ci-hints{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--ink3)}
+.ci-scale{display:flex;gap:6px;margin-top:6px}
+.ci-dot{
+  flex:1;min-width:0;padding:9px 0;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--paper);
+  font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink2);
+  cursor:pointer;transition:all .15s;text-align:center;
+}
+.ci-dot.sel{background:var(--ink);border-color:var(--ink);color:#fff}
+.ci-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.ci-chips .ob-chip.sel{background:var(--ink);border-color:var(--ink);color:#fff}
+.ci-input{
+  width:100%;margin-top:10px;border:1px solid var(--line);
+  background:var(--card2);border-radius:var(--r-md);padding:12px 14px;
+  font-family:var(--sans);font-size:14px;line-height:1.5;outline:none;
+  resize:vertical;min-height:64px;box-sizing:border-box;
+}
+.ci-input:focus{border-color:var(--ink3)}
+.ci-msg{min-height:16px;margin-top:10px;font-size:12.5px;color:var(--red)}
 </style>
 </head>
 <body>
@@ -1299,6 +1383,8 @@ body{
 
   <div id="trainHeader"></div>
 
+  <div id="weeklyProgress"></div>
+
 <div id="weekSessions"></div>
 
   <div class="decision">
@@ -1653,6 +1739,9 @@ body{
     <button class="lesson-done" onclick="closeLesson()">Done — back to training</button>
   </div>
 </div>
+
+<!-- ══════════════ WEEKLY CHECK-IN MODAL ══════════════ -->
+<div class="modal-back" id="checkinModal"></div>
 
 <!-- ══════════════ TAB BAR ══════════════ -->
 <nav class="tabbar" id="tabbar" style="display:none">

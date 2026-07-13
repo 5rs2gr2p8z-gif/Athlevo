@@ -22,12 +22,15 @@ async function loadWeeklyPlan() {
 
     if (!data.hasPlan) {
         renderNoPlan();
-        return;
+    } else {
+        renderWeekHeader(data.plan);
+        renderSessions(data.sessions);
     }
 
-    renderWeekHeader(data.plan);
+    currentPlanAdaptation =
+        data.plan?.adaptation || null;
 
-    renderSessions(data.sessions);
+    loadWeeklyLoop(session.access_token);
 
 }
 
@@ -633,6 +636,690 @@ function setSessionCardToggle(card, expanded) {
 
 }
 
+/* ══════════════ weekly adaptive loop UI ══════════════ */
+
+let currentPlanAdaptation = null;
+let weeklyCheckinAnswers = {};
+
+const CHECKIN_SCALES = [
+    { key: "overall_fatigue", label: "Overall fatigue", low: "Fresh", high: "Exhausted", max: 5 },
+    { key: "sleep_quality", label: "Sleep quality", low: "Poor", high: "Excellent", max: 5 },
+    { key: "muscle_soreness", label: "Muscle soreness", low: "None", high: "Severe", max: 5 },
+    { key: "motivation", label: "Motivation", low: "Low", high: "High", max: 5 },
+    { key: "stress_level", label: "Life stress", low: "Calm", high: "Very high", max: 5 },
+    { key: "perceived_training_load", label: "How hard was this week overall?", low: "Very easy", high: "Maximal", max: 10 },
+    { key: "confidence_for_next_week", label: "Confidence for next week", low: "Low", high: "High", max: 5 }
+];
+
+const CHECKIN_FELT_OPTIONS = [
+    "Mostly easy",
+    "About right",
+    "Mostly hard",
+    "Mixed"
+];
+
+async function loadWeeklyLoop(token) {
+
+    const container =
+        document.getElementById("weeklyProgress");
+
+    if (!container) {
+        return;
+    }
+
+    try {
+
+        const headers = {
+            Authorization: `Bearer ${token}`
+        };
+
+        const [analysisRes, checkinRes] =
+            await Promise.all([
+                fetch("/api/training/weekly-analysis", { headers }),
+                fetch("/api/training/check-in", { headers })
+            ]);
+
+        const analysis =
+            analysisRes.ok ? await analysisRes.json() : null;
+
+        const checkin =
+            checkinRes.ok ? await checkinRes.json() : null;
+
+        renderWeeklyProgress(container, analysis, checkin);
+
+    } catch (error) {
+        console.error("Weekly loop unavailable:", error);
+        container.innerHTML = "";
+    }
+
+}
+
+function formatRaceDate(value) {
+
+    const match =
+        String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+    if (!match) {
+        return "";
+    }
+
+    const date = new Date(
+        Number(match[1]),
+        Number(match[2]) - 1,
+        Number(match[3])
+    );
+
+    return date.toLocaleDateString(undefined, {
+        month: "long",
+        day: "numeric",
+        year: "numeric"
+    });
+}
+
+function renderWeeklyProgress(container, analysis, checkin) {
+
+    if (!analysis) {
+        container.innerHTML = "";
+        return;
+    }
+
+    const parts = [];
+
+    parts.push(renderGoalCard(analysis));
+    parts.push(renderProgressCard(analysis, checkin));
+
+    container.innerHTML = parts.filter(Boolean).join("");
+
+    const toggle =
+        container.querySelector(".wp-toggle");
+
+    if (toggle) {
+        toggle.addEventListener("click", () =>
+            toggleProgressDetail(
+                toggle.closest(".wp-card")
+            )
+        );
+    }
+
+    const cta =
+        container.querySelector(".checkin-btn");
+
+    if (cta) {
+        cta.addEventListener("click", openWeeklyCheckin);
+    }
+
+}
+
+function renderGoalCard(analysis) {
+
+    const countdown = analysis.countdown || {};
+    const trajectory = analysis.trajectory || null;
+
+    const hasRace =
+        countdown.targetRace || countdown.raceDate;
+
+    if (!hasRace && !trajectory) {
+        return "";
+    }
+
+    const pieces = [];
+
+    pieces.push(`<span class="eyebrow">Goal</span>`);
+
+    pieces.push(
+        `<div class="wp-goal-race">${escapeHtml(
+            cleanText(countdown.targetRace) || "Current training block"
+        )}</div>`
+    );
+
+    const readableDate =
+        formatRaceDate(countdown.raceDate);
+
+    if (readableDate) {
+        pieces.push(
+            `<div class="wp-goal-date">${escapeHtml(readableDate)}</div>`
+        );
+    }
+
+    const weeks = Number(countdown.weeksUntilRace);
+    const days = Number(countdown.daysUntilRace);
+
+    if (Number.isFinite(days) && days >= 0) {
+
+        const countBlocks = [];
+
+        if (Number.isFinite(weeks) && weeks >= 0) {
+            countBlocks.push(
+                `<div><b class="num">${weeks}</b><small>Weeks</small></div>`
+            );
+        }
+
+        countBlocks.push(
+            `<div><b class="num">${days}</b><small>Days</small></div>`
+        );
+
+        pieces.push(
+            `<div class="wp-count">${countBlocks.join("")}</div>`
+        );
+    }
+
+    const phase =
+        formatSessionType(countdown.phase);
+
+    if (phase) {
+
+        const week =
+            Number(countdown.phaseWeek);
+
+        const length =
+            Number(countdown.phaseLengthWeeks);
+
+        const progress =
+            Number.isFinite(week) && Number.isFinite(length)
+                ? ` — week ${week} of ${length}`
+                : "";
+
+        pieces.push(
+            `<div class="wp-phase">${escapeHtml(phase + progress)} phase</div>`
+        );
+    }
+
+    if (trajectory && trajectory.status) {
+
+        const statusClass = String(trajectory.status)
+            .replace(/[^a-z_]/g, "");
+
+        const confidence =
+            cleanText(trajectory.confidenceLabel);
+
+        pieces.push(`
+            <div class="wp-traj">
+                <div class="wp-traj-row">
+                    <span class="traj-chip ${statusClass}">${escapeHtml(
+                        cleanText(trajectory.label) || "—"
+                    )}</span>
+                    ${
+                        confidence
+                            ? `<span class="wp-traj-conf">${escapeHtml(confidence)} confidence</span>`
+                            : ""
+                    }
+                </div>
+                ${
+                    cleanText(trajectory.explanation)
+                        ? `<p>${escapeHtml(trajectory.explanation)}</p>`
+                        : ""
+                }
+            </div>
+        `);
+    }
+
+    return `<div class="wp-goal">${pieces.join("")}</div>`;
+}
+
+function renderProgressCard(analysis, checkin) {
+
+    const summary = analysis.summary || null;
+    const needsCheckin = Boolean(checkin?.needed);
+
+    if (!summary && !needsCheckin) {
+        return "";
+    }
+
+    const pieces = [];
+
+    pieces.push(`<span class="eyebrow">Weekly progress</span>`);
+
+    if (summary) {
+
+        const narrative =
+            cleanText(summary.progress_narrative);
+
+        if (narrative) {
+            pieces.push(
+                `<p class="wp-narrative">${escapeHtml(narrative)}</p>`
+            );
+        }
+
+        const rate = Number(summary.completion_rate);
+
+        if (
+            Number.isFinite(rate) &&
+            Number(summary.planned_sessions) > 0
+        ) {
+
+            const percent =
+                Math.round(rate * 100);
+
+            pieces.push(`
+                <div class="wp-bar"><i style="width:${Math.min(100, percent)}%"></i></div>
+                <div class="wp-bar-label">
+                    <span>Session completion</span>
+                    <b>${summary.completed_sessions}/${summary.planned_sessions} · ${percent}%</b>
+                </div>
+            `);
+        }
+
+        const wins = Array.isArray(summary.key_wins)
+            ? summary.key_wins.map(cleanText).filter(Boolean)
+            : [];
+
+        const concerns = Array.isArray(summary.key_concerns)
+            ? summary.key_concerns.map(cleanText).filter(Boolean)
+            : [];
+
+        if (wins.length) {
+            pieces.push(
+                `<div class="wp-line"><span class="wp-tag win">Win</span><span>${escapeHtml(wins[0])}</span></div>`
+            );
+        }
+
+        if (concerns.length) {
+            pieces.push(
+                `<div class="wp-line"><span class="wp-tag concern">Watch</span><span>${escapeHtml(concerns[0])}</span></div>`
+            );
+        }
+
+        const detailSections =
+            buildProgressDetailSections(summary, wins, concerns);
+
+        if (detailSections) {
+            pieces.push(`
+                <button class="wp-toggle" type="button">
+                    <span>Details</span>
+                    <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg>
+                </button>
+                <div class="wp-detail">
+                    <div class="wp-detail-inner">${detailSections}</div>
+                </div>
+            `);
+        }
+    }
+
+    if (needsCheckin) {
+        pieces.push(
+            `<button class="checkin-btn" type="button">Complete weekly check-in</button>`
+        );
+    }
+
+    return `<div class="wp-card">${pieces.join("")}</div>`;
+}
+
+function buildProgressDetailSections(summary, wins, concerns) {
+
+    const sections = [];
+
+    const listSection = (label, items) => {
+
+        if (!items.length) {
+            return;
+        }
+
+        sections.push(`
+            <div class="sc-section">
+                <div class="sc-section-label">${escapeHtml(label)}</div>
+                <ul class="sc-list">${items
+                    .map(item => `<li>${escapeHtml(item)}</li>`)
+                    .join("")}</ul>
+            </div>
+        `);
+    };
+
+    listSection("Wins", wins);
+    listSection("Concerns", concerns);
+
+    const priorities =
+        Array.isArray(summary.next_week_priorities)
+            ? summary.next_week_priorities
+                  .map(cleanText)
+                  .filter(Boolean)
+            : [];
+
+    listSection("Next week priorities", priorities);
+
+    const numbers = [];
+
+    const plannedMin =
+        Number(summary.planned_duration_minutes);
+
+    const completedMin =
+        Number(summary.completed_duration_minutes);
+
+    if (plannedMin > 0 || completedMin > 0) {
+        numbers.push(
+            `Duration: ${completedMin > 0 ? completedMin : 0} of ${plannedMin > 0 ? plannedMin : "—"} planned minutes`
+        );
+    }
+
+    const plannedKm =
+        Number(summary.planned_distance_km);
+
+    const completedKm =
+        Number(summary.completed_distance_km);
+
+    if (plannedKm > 0 || completedKm > 0) {
+        numbers.push(
+            `Distance: ${completedKm > 0 ? completedKm : 0} of ${plannedKm > 0 ? plannedKm : "—"} planned km`
+        );
+    }
+
+    const loadDirection =
+        formatSessionType(summary.training_load_direction);
+
+    if (
+        loadDirection &&
+        loadDirection !== "Insufficient Data"
+    ) {
+        numbers.push(`Training load: ${loadDirection.toLowerCase()}`);
+    }
+
+    listSection("This week in numbers", numbers);
+
+    /* plan adaptation — what changed and why */
+    if (currentPlanAdaptation) {
+
+        const adaptation = [
+            ["What changed", currentPlanAdaptation.what_changed],
+            ["Why", currentPlanAdaptation.why_it_changed],
+            ["Kept stable", currentPlanAdaptation.kept_stable]
+        ]
+            .map(([label, value]) => [label, cleanText(value)])
+            .filter(([, value]) => value);
+
+        adaptation.forEach(([label, value]) => {
+            sections.push(`
+                <div class="sc-section">
+                    <div class="sc-section-label">${escapeHtml(label)}</div>
+                    <p>${escapeHtml(value)}</p>
+                </div>
+            `);
+        });
+    }
+
+    return sections.join("");
+}
+
+function toggleProgressDetail(card) {
+
+    if (!card) {
+        return;
+    }
+
+    const detail =
+        card.querySelector(".wp-detail");
+
+    if (!detail) {
+        return;
+    }
+
+    const isOpen =
+        card.classList.contains("open");
+
+    card.classList.toggle("open", !isOpen);
+
+    detail.style.maxHeight = isOpen
+        ? "0px"
+        : detail.scrollHeight + "px";
+
+}
+
+/* ══════════════ weekly check-in modal ══════════════ */
+
+function openWeeklyCheckin() {
+
+    weeklyCheckinAnswers = {
+        pain_or_injury: null
+    };
+
+    const modal =
+        document.getElementById("checkinModal");
+
+    if (!modal) {
+        return;
+    }
+
+    const scaleRows = CHECKIN_SCALES.map(scale => {
+
+        const dots = [];
+
+        for (let value = 1; value <= scale.max; value += 1) {
+            dots.push(
+                `<button class="ci-dot" type="button" data-key="${scale.key}" data-value="${value}">${value}</button>`
+            );
+        }
+
+        return `
+            <div class="ci-row">
+                <div class="ci-label">${escapeHtml(scale.label)}</div>
+                <div class="ci-scale">${dots.join("")}</div>
+                <div class="ci-hints">
+                    <span>${escapeHtml(scale.low)}</span>
+                    <span>${escapeHtml(scale.high)}</span>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    const feltChips = CHECKIN_FELT_OPTIONS.map(
+        option =>
+            `<button class="ob-chip" type="button" data-felt="${escapeHtml(option)}">${escapeHtml(option)}</button>`
+    ).join("");
+
+    modal.innerHTML = `
+        <div class="lesson">
+            <span class="eyebrow">Weekly check-in · 1 minute</span>
+            <h3 class="serif">How did this week actually feel?</h3>
+            <p>Honest answers shape next week's plan. Nothing here is judged.</p>
+
+            ${scaleRows}
+
+            <div class="ci-row">
+                <div class="ci-label">How did the sessions feel?</div>
+                <div class="ci-chips">${feltChips}</div>
+            </div>
+
+            <div class="ci-row">
+                <div class="ci-label">Any pain or injury?</div>
+                <div class="ci-chips">
+                    <button class="ob-chip" type="button" data-pain="no">No</button>
+                    <button class="ob-chip" type="button" data-pain="yes">Yes</button>
+                </div>
+                <textarea
+                    id="ciPainDetails"
+                    class="ci-input"
+                    placeholder="Where, when, and how bad?"
+                    style="display:none"></textarea>
+            </div>
+
+            <div class="ci-row">
+                <div class="ci-label">Anything else your coach should know?</div>
+                <textarea
+                    id="ciNotes"
+                    class="ci-input"
+                    placeholder="Optional"></textarea>
+            </div>
+
+            <p class="ci-msg" id="ciMsg"></p>
+
+            <button class="lesson-done" type="button" id="ciSubmit">
+                Submit check-in
+            </button>
+        </div>
+    `;
+
+    modal.querySelectorAll(".ci-dot").forEach(dot => {
+        dot.addEventListener("click", () => {
+
+            const key = dot.dataset.key;
+
+            weeklyCheckinAnswers[key] =
+                Number(dot.dataset.value);
+
+            modal
+                .querySelectorAll(`.ci-dot[data-key="${key}"]`)
+                .forEach(other =>
+                    other.classList.toggle("sel", other === dot)
+                );
+        });
+    });
+
+    modal.querySelectorAll("[data-felt]").forEach(chip => {
+        chip.addEventListener("click", () => {
+
+            weeklyCheckinAnswers.sessions_felt =
+                chip.dataset.felt;
+
+            modal
+                .querySelectorAll("[data-felt]")
+                .forEach(other =>
+                    other.classList.toggle("sel", other === chip)
+                );
+        });
+    });
+
+    modal.querySelectorAll("[data-pain]").forEach(chip => {
+        chip.addEventListener("click", () => {
+
+            const hasPain =
+                chip.dataset.pain === "yes";
+
+            weeklyCheckinAnswers.pain_or_injury = hasPain;
+
+            modal
+                .querySelectorAll("[data-pain]")
+                .forEach(other =>
+                    other.classList.toggle("sel", other === chip)
+                );
+
+            document.getElementById(
+                "ciPainDetails"
+            ).style.display = hasPain ? "block" : "none";
+        });
+    });
+
+    modal
+        .querySelector("#ciSubmit")
+        .addEventListener("click", submitWeeklyCheckin);
+
+    modal.onclick = event => {
+        if (event.target === modal) {
+            closeWeeklyCheckin();
+        }
+    };
+
+    modal.classList.add("show");
+
+}
+
+function closeWeeklyCheckin() {
+
+    const modal =
+        document.getElementById("checkinModal");
+
+    if (modal) {
+        modal.classList.remove("show");
+        modal.innerHTML = "";
+    }
+
+}
+
+async function submitWeeklyCheckin() {
+
+    const message =
+        document.getElementById("ciMsg");
+
+    const unanswered = CHECKIN_SCALES.filter(
+        scale =>
+            !Number.isFinite(
+                weeklyCheckinAnswers[scale.key]
+            )
+    );
+
+    if (
+        unanswered.length ||
+        !weeklyCheckinAnswers.sessions_felt ||
+        weeklyCheckinAnswers.pain_or_injury === null
+    ) {
+        if (message) {
+            message.textContent =
+                "Please answer the remaining questions first.";
+        }
+        return;
+    }
+
+    const painDetails =
+        document.getElementById("ciPainDetails");
+
+    const notes =
+        document.getElementById("ciNotes");
+
+    const body = {
+        ...weeklyCheckinAnswers,
+        pain_details:
+            weeklyCheckinAnswers.pain_or_injury && painDetails
+                ? painDetails.value.trim()
+                : null,
+        athlete_notes:
+            notes ? notes.value.trim() || null : null
+    };
+
+    const submitButton =
+        document.getElementById("ciSubmit");
+
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Saving...";
+    }
+
+    try {
+
+        const {
+            data: { session }
+        } = await supabaseClient.auth.getSession();
+
+        const res = await fetch("/api/training/check-in", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(
+                data.error || "The check-in could not be saved."
+            );
+        }
+
+        closeWeeklyCheckin();
+
+        if (typeof toast === "function") {
+            toast("Check-in saved — thank you");
+        }
+
+        // refresh the section so the prompt disappears
+        loadWeeklyLoop(session.access_token);
+
+    } catch (error) {
+
+        console.error("Check-in submit failed:", error);
+
+        if (message) {
+            message.textContent =
+                error.message ||
+                "The check-in could not be saved.";
+        }
+
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = "Submit check-in";
+        }
+    }
+
+}
+
 async function generateWeek(){
 
     const {
@@ -646,6 +1333,22 @@ async function generateWeek(){
     button.disabled=true;
 
     button.innerText="Generating...";
+
+    // Refresh last week's analysis so the new plan adapts to the
+    // freshest truth about what actually happened. Best effort.
+    try {
+        await fetch("/api/training/weekly-analysis", {
+            headers: {
+                Authorization:
+                    `Bearer ${session.access_token}`
+            }
+        });
+    } catch (error) {
+        console.error(
+            "Pre-generation analysis refresh failed:",
+            error
+        );
+    }
 
     await fetch(
         "/api/training/generate-plan",
