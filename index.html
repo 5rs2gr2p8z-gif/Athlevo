@@ -1005,6 +1005,47 @@ body{
 }
 .ci-input:focus{border-color:var(--ink3)}
 .ci-msg{min-height:16px;margin-top:10px;font-size:12.5px;color:var(--red)}
+
+/* ---------- session status + feedback actions ---------- */
+.sc-status{
+  margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;padding:3px 9px;border-radius:100px;
+}
+.sc-status.done{background:#eef8f2;color:var(--good)}
+.sc-status.mod{background:#fbf3e4;color:var(--warn)}
+.sc-status.skip{background:var(--red-soft);color:var(--red)}
+
+/* left accent bar reflecting the logged status */
+.session-card.status-done{box-shadow:inset 3px 0 0 var(--good)}
+.session-card.status-mod{box-shadow:inset 3px 0 0 var(--warn)}
+.session-card.status-skip{box-shadow:inset 3px 0 0 var(--red)}
+
+.sc-actions{padding:0 20px 18px;border-top:1px solid var(--line);margin-top:2px;padding-top:14px}
+.session-card.rest .sc-actions{padding-bottom:16px}
+.sc-act-row{display:flex;gap:8px;flex-wrap:wrap}
+.sc-act{
+  flex:1;min-width:88px;font-family:var(--sans);font-size:13.5px;font-weight:650;
+  padding:11px 12px;border-radius:100px;border:1px solid var(--line);
+  background:var(--paper);color:var(--ink);cursor:pointer;transition:all .16s;
+}
+.sc-act:hover{border-color:var(--ink)}
+.sc-act:active{transform:scale(.97)}
+.sc-act.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sc-act-note{
+  display:flex;align-items:center;gap:10px;margin-bottom:12px;
+  font-size:12.5px;color:var(--ink2);
+}
+.sc-act-edit{
+  margin-left:auto;flex-shrink:0;background:none;border:none;
+  font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--red);
+  cursor:pointer;padding:2px 4px;
+}
+.fb-grid{display:flex;gap:12px}
+.fb-grid>div{flex:1}
+.fb-grid .ci-input{min-height:0;resize:none}
+.fb-prefill{font-size:12px;color:var(--ink3);margin:12px 0 0;line-height:1.45}
+.fb-rpe,.fb-pain-scale{flex-wrap:wrap}
+.fb-rpe .ci-dot,.fb-pain-scale .ci-dot{width:30px;height:34px}
 </style>
 </head>
 <body>
@@ -1742,6 +1783,9 @@ body{
 
 <!-- ══════════════ WEEKLY CHECK-IN MODAL ══════════════ -->
 <div class="modal-back" id="checkinModal"></div>
+
+<!-- ══════════════ SESSION FEEDBACK MODAL ══════════════ -->
+<div class="modal-back" id="feedbackModal"></div>
 
 <!-- ══════════════ TAB BAR ══════════════ -->
 <nav class="tabbar" id="tabbar" style="display:none">

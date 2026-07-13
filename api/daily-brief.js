@@ -1,4 +1,5 @@
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
+import { summarizeExecutionRecord } from "../lib/server/executionRecords.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -122,6 +123,54 @@ async function loadActivities(userId) {
   );
 
   return Array.isArray(rows) ? rows : [];
+}
+
+// Recent explicit workout feedback. Optional: the table may not exist
+// yet, so a failure must never block the daily brief.
+async function loadRecentExecution(userId) {
+  try {
+    const rows = await supabaseRequest(
+      [
+        "workout_execution_records",
+        `?user_id=eq.${encodeURIComponent(userId)}`,
+        "&select=*",
+        "&order=updated_at.desc",
+        "&limit=14"
+      ].join("")
+    );
+
+    return Array.isArray(rows) ? rows : [];
+  } catch (error) {
+    console.error(
+      "Execution records unavailable for brief:",
+      error?.message
+    );
+    return [];
+  }
+}
+
+function buildFeedbackContext(records) {
+  return (records || [])
+    .map(record => {
+      const summary = summarizeExecutionRecord(record);
+
+      if (!summary) {
+        return null;
+      }
+
+      const snapshot =
+        record.original_session_snapshot &&
+        typeof record.original_session_snapshot === "object"
+          ? record.original_session_snapshot
+          : {};
+
+      return {
+        session_date: snapshot.session_date || null,
+        prescribed: snapshot.title || snapshot.session_type || null,
+        ...summary
+      };
+    })
+    .filter(Boolean);
 }
 
 function getDateKey(date = new Date()) {
@@ -412,6 +461,7 @@ async function generateBriefing({
   profile,
   memories,
   activityContext,
+  feedbackContext,
   briefingDate
 }) {
   const methodPrompt =
@@ -468,6 +518,8 @@ The reasoning must explain why the recommendation follows from the available evi
 Data limitations should explicitly name important missing inputs.
 
 If there are no imported activities, say that there is not enough recent activity data and do not create a workout recommendation.
+
+The athlete data may include sessionFeedback: the athlete's own reports of recently planned sessions (completed, skipped, or modified, with RPE, feeling, and pain). Use it as recorded fact. Never shame a skipped or modified session. If pain was reported, be cautious and conservative about intensity near the affected area, and do not diagnose. If a session was skipped for schedule reasons, treat it as a scheduling matter, not lost fitness. Do not invent feedback that is not present.
             `.trim()
           },
 
@@ -479,7 +531,11 @@ If there are no imported activities, say that there is not enough recent activit
                 athleteProfile: profile,
                 athleteMemories: memories,
                 importedTraining:
-                  activityContext
+                  activityContext,
+                sessionFeedback:
+                  feedbackContext && feedbackContext.length
+                    ? feedbackContext
+                    : null
               },
               null,
               2
@@ -675,11 +731,13 @@ export default async function handler(req, res) {
     const [
       profile,
       memories,
-      activities
+      activities,
+      executionRecords
     ] = await Promise.all([
       loadProfile(user.id),
       loadMemories(user.id),
-      loadActivities(user.id)
+      loadActivities(user.id),
+      loadRecentExecution(user.id)
     ]);
 
     if (!profile) {
@@ -689,9 +747,25 @@ export default async function handler(req, res) {
       });
     }
 
+    const feedbackContext =
+      buildFeedbackContext(executionRecords);
+
     const briefingDate = getDateKey();
+
+    // Fold a light feedback signature into the fingerprint so newly
+    // recorded feedback regenerates today's brief.
+    const feedbackFingerprint = executionRecords
+      .map(
+        record =>
+          `${record.training_session_id || ""}:` +
+          `${record.status || ""}:${record.updated_at || ""}`
+      )
+      .join("|");
+
     const activityFingerprint =
-      createActivityFingerprint(activities);
+      createActivityFingerprint(activities) +
+      "##" +
+      feedbackFingerprint;
 
     const cachedBriefing =
       await loadCachedBriefing(
@@ -722,6 +796,7 @@ export default async function handler(req, res) {
         profile,
         memories,
         activityContext,
+        feedbackContext,
         briefingDate
       });
 

@@ -8,6 +8,12 @@ import {
   parseDateValue
 } from "../../lib/server/dateUtils.js";
 
+import {
+  extractExecutionSignals,
+  indexRecordsBySession,
+  summarizeExecutionRecord
+} from "../../lib/server/executionRecords.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -209,18 +215,52 @@ async function loadAdaptationContext(userId, weekStart) {
     : null;
 
   let previousSessions = [];
+  let previousExecution = [];
 
   if (previousPlan?.id) {
     const rows = await optionalSupabaseRequest(
       `training_sessions?user_id=eq.${encodedUserId}` +
         `&training_plan_id=eq.${encodeURIComponent(previousPlan.id)}` +
-        "&select=session_date,title,session_type," +
+        "&select=id,session_date,title,session_type," +
         "duration_minutes,distance_km,intensity,status" +
         "&order=session_date.asc"
     );
 
     previousSessions = Array.isArray(rows) ? rows : [];
+
+    const previousSessionIds = previousSessions
+      .map(session => session?.id)
+      .filter(Boolean);
+
+    if (previousSessionIds.length > 0) {
+      const executionRows = await optionalSupabaseRequest(
+        "workout_execution_records" +
+          `?user_id=eq.${encodedUserId}` +
+          `&training_session_id=in.(${previousSessionIds
+            .map(id => encodeURIComponent(id))
+            .join(",")})` +
+          "&select=*"
+      );
+
+      previousExecution = Array.isArray(executionRows)
+        ? executionRows
+        : [];
+    }
   }
+
+  // Fold each session's explicit feedback onto the prescription so the
+  // model sees prescribed-vs-actual in one place.
+  const executionMap = indexRecordsBySession(previousExecution);
+
+  const previousSessionsWithFeedback = previousSessions.map(session => {
+    const feedback = session?.id
+      ? summarizeExecutionRecord(executionMap.get(String(session.id)))
+      : null;
+
+    return feedback
+      ? { ...session, athlete_feedback: feedback }
+      : session;
+  });
 
   const latestCheckIn = Array.isArray(checkIns)
     ? checkIns[0] || null
@@ -235,7 +275,8 @@ async function loadAdaptationContext(userId, weekStart) {
   return {
     previousWeekStart,
     previousPlan,
-    previousSessions,
+    previousSessions: previousSessionsWithFeedback,
+    executionSignals: extractExecutionSignals(previousExecution),
     progressSummary: Array.isArray(summaries)
       ? summaries[0] || null
       : null,
@@ -831,6 +872,18 @@ The athlete data may include previousWeek (last week's plan and sessions), weekl
 6. Never move missed sessions into this week. A missed week stays missed.
 7. Never let one good or bad workout drive a large change. Adapt to weekly patterns, not single days.
 8. Fill what_changed, why_it_changed, and kept_stable with short, specific, truthful statements about this plan versus last week. If there is no previous week data, say so plainly in those fields and plan normally.
+
+SESSION FEEDBACK RULES
+
+Each previousWeek session may carry athlete_feedback (the athlete's own report: completed, skipped, or modified, with actual duration, RPE, feeling, and pain). sessionExecutionSignals summarizes pain reports, skips, and hard sessions across the week. Use them as follows:
+
+a. Never shame the athlete for a skip or modification, in any text field. State facts and adjust plainly.
+b. A single skipped or modified session is not a trend. Do not overhaul the week over one day.
+c. If a skip reason is schedule, travel, or weather, adjust which days sessions land on. Do not reduce fitness targets for those skips.
+d. If any session reports pain (pain_present), treat the affected area carefully next week, avoid aggravating intensity, and name the precaution in why_it_changed and in the affected sessions' notes. Pain is remembered for future planning.
+e. If sessions were repeatedly reported as harder than expected or at RPE 8 or above while recovery is not strong, hold or ease intensity rather than progressing.
+f. If strong completion and modifications still landed the intended work with stable recovery, conservative progression is acceptable.
+g. Only when adjust_remaining_week signals the athlete asked for it should missed days trigger reshaping of the remaining week — and even then, never move missed intensity into the next day.
             `.trim()
           },
 
@@ -895,6 +948,10 @@ The athlete data may include previousWeek (last week's plan and sessions), weekl
 
                 weeklyCheckIn:
                   adaptationContext?.weeklyCheckIn ||
+                  null,
+
+                sessionExecutionSignals:
+                  adaptationContext?.executionSignals ||
                   null
               },
               null,

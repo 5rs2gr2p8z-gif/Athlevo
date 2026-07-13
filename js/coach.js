@@ -227,6 +227,88 @@ async function extractAthleteMemoryFromMessage(message) {
     };
   }
 }
+async function loadWeekExecutionForCoach() {
+  try {
+    const {
+      data: { session }
+    } = await supabaseClient.auth.getSession();
+
+    if (!session?.access_token) {
+      return null;
+    }
+
+    const res = await fetch("/api/training/get-week", {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+
+    if (!data?.hasPlan || !Array.isArray(data.sessions)) {
+      return null;
+    }
+
+    const sessions = data.sessions.map(item => {
+      const record = item.execution || null;
+
+      const entry = {
+        date: item.session_date || null,
+        title: item.title || null,
+        type: item.session_type || null,
+        status: record?.status || "planned"
+      };
+
+      if (record) {
+        entry.feedback = {
+          asPrescribed: record.as_prescribed,
+          actualDurationMinutes: record.actual_duration_minutes,
+          actualDistanceKm: record.actual_distance_km,
+          rpe: record.actual_rpe,
+          feeling: record.overall_feeling,
+          painPresent: record.pain_present === true,
+          painLocation: record.pain_location,
+          painSeverity: record.pain_severity,
+          skipReason: record.skip_reason,
+          modificationReason: record.modification_reason,
+          notes: record.athlete_notes
+        };
+
+        // Drop empty keys so the model never sees null/undefined.
+        Object.keys(entry.feedback).forEach(key => {
+          const value = entry.feedback[key];
+
+          if (
+            value === null ||
+            value === undefined ||
+            value === "" ||
+            value === false
+          ) {
+            delete entry.feedback[key];
+          }
+        });
+      }
+
+      return entry;
+    });
+
+    return {
+      weekStart: data.weekStart || null,
+      sessions
+    };
+  } catch (error) {
+    console.error(
+      "Could not load week execution for coach:",
+      error
+    );
+    return null;
+  }
+}
+
 async function askCoach(question) {
   const cleanQuestion = question?.trim();
 
@@ -282,6 +364,12 @@ context.longTermMemory = athleteMemory.map(memory => ({
   importance: memory.importance,
   updatedAt: memory.updated_at
 }));
+
+// This week's prescribed sessions plus the athlete's own execution
+// feedback (completed / skipped / modified, with pain and RPE). Best
+// effort: coaching must still work if this is unavailable.
+context.currentWeekExecution =
+  await loadWeekExecutionForCoach();
     const response = await fetch("/api/coach", {
       method: "POST",
       headers: {

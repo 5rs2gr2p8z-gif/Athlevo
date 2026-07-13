@@ -27,6 +27,11 @@ import {
   toNumber
 } from "../../lib/server/weeklyAnalysis.js";
 
+import {
+  extractExecutionSignals,
+  indexRecordsBySession
+} from "../../lib/server/executionRecords.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -248,11 +253,33 @@ export default async function handler(request, response) {
       ? await supabaseRequest(
           `training_sessions?user_id=eq.${userId}` +
             `&training_plan_id=eq.${encodeURIComponent(plan.id)}` +
-            "&select=session_date,title,sport,session_type," +
+            "&select=id,session_date,title,sport,session_type," +
             "duration_minutes,distance_km,intensity,status" +
             "&order=session_date.asc"
         ).then(rows => (Array.isArray(rows) ? rows : []))
       : [];
+
+    // Explicit per-session feedback for this plan's sessions. Optional:
+    // the table may not exist yet, or hold no rows.
+    const sessionIds = sessions
+      .map(session => session?.id)
+      .filter(Boolean);
+
+    const executionRecords =
+      sessionIds.length > 0
+        ? await optionalRequest(
+            "workout_execution_records" +
+              `?user_id=eq.${userId}` +
+              `&training_session_id=in.(${sessionIds
+                .map(id => encodeURIComponent(id))
+                .join(",")})` +
+              "&select=*"
+          ).then(rows => (Array.isArray(rows) ? rows : []))
+        : [];
+
+    const executionMap = indexRecordsBySession(executionRecords);
+    const executionSignals =
+      extractExecutionSignals(executionRecords);
 
     /* ── computation ─────────────────────────────────────────── */
 
@@ -270,7 +297,8 @@ export default async function handler(request, response) {
 
     const matching = matchPlannedSessions(
       sessions,
-      weekActivities
+      weekActivities,
+      executionMap
     );
 
     const comparable = findComparableRuns(
@@ -335,7 +363,8 @@ export default async function handler(request, response) {
     const injuryMemories = filterInjuryMemories(memories);
     const injuryRisk = assessInjuryRisk(
       checkIn,
-      injuryMemories
+      injuryMemories,
+      executionSignals
     );
 
     /* ── goal countdown ──────────────────────────────────────── */
@@ -423,14 +452,16 @@ export default async function handler(request, response) {
       comparable,
       recovery,
       injuryRisk,
-      checkIn
+      checkIn,
+      executionSignals
     });
 
     const priorities = buildNextWeekPriorities({
       matching,
       recovery,
       injuryRisk,
-      consistencyStatus
+      consistencyStatus,
+      executionSignals
     });
 
     const summary = {
@@ -471,7 +502,12 @@ export default async function handler(request, response) {
         long_run: matching.longRun,
         comparable_pairs: comparable.pairs,
         comparable_pair_count: comparable.pairCount,
-        active_day_count: completedTotals.activeDayCount
+        active_day_count: completedTotals.activeDayCount,
+        feedback_record_count: executionRecords.length,
+        pain_reports: executionSignals.painReports,
+        skips: executionSignals.skips,
+        athlete_requested_week_adjustment:
+          executionSignals.adjustmentRequested
       },
 
       updated_at: new Date().toISOString()

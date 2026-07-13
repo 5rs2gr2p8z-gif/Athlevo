@@ -432,6 +432,28 @@ function renderDetailSection(section) {
 
 /* ══════════════ session cards ══════════════ */
 
+let currentSessions = [];
+
+function findSessionById(sessionId) {
+    return currentSessions.find(
+        session => String(session.id) === String(sessionId)
+    ) || null;
+}
+
+/* Visual + label mapping for an execution status. */
+function getStatusMeta(status) {
+    switch (status) {
+        case "completed":
+            return { label: "Completed", cls: "done" };
+        case "modified":
+            return { label: "Modified", cls: "mod" };
+        case "skipped":
+            return { label: "Skipped", cls: "skip" };
+        default:
+            return null;
+    }
+}
+
 function renderSessions(sessions) {
 
     const container =
@@ -439,11 +461,17 @@ function renderSessions(sessions) {
 
     container.innerHTML = "";
 
+    currentSessions = Array.isArray(sessions) ? sessions : [];
+
     sessions.forEach(session => {
 
         const rest = isRestSession(session);
         const sections = buildDetailSections(session);
         const description = cleanText(session.description);
+        const record = session.execution || null;
+        const statusMeta = record
+            ? getStatusMeta(record.status)
+            : null;
 
         const hasDetail =
             sections.length > 0 || description.length > 0;
@@ -485,7 +513,11 @@ function renderSessions(sessions) {
         const card = document.createElement("div");
 
         card.className =
-            "session-card" + (rest ? " rest" : "");
+            "session-card" +
+            (rest ? " rest" : "") +
+            (statusMeta ? ` status-${statusMeta.cls}` : "");
+
+        card.dataset.sessionId = session.id || "";
 
         const headTag = hasDetail ? "button" : "div";
 
@@ -499,6 +531,11 @@ function renderSessions(sessions) {
                     ${
                         typeLabel
                             ? `<span class="sc-badge${rest ? " rest" : ""}">${escapeHtml(typeLabel)}</span>`
+                            : ""
+                    }
+                    ${
+                        statusMeta
+                            ? `<span class="sc-status ${statusMeta.cls}">${escapeHtml(statusMeta.label)}</span>`
                             : ""
                     }
                 </div>
@@ -553,10 +590,158 @@ function renderSessions(sessions) {
                 );
         }
 
+        if (session.id) {
+            card.insertAdjacentHTML(
+                "beforeend",
+                buildSessionActions(session, rest, record)
+            );
+
+            wireSessionActions(card, session);
+        }
+
         container.appendChild(card);
 
     });
 
+}
+
+/* ══════════════ execution feedback ══════════════ */
+
+const SKIP_REASONS = [
+    { key: "fatigue", label: "Fatigue" },
+    { key: "pain", label: "Pain / injury" },
+    { key: "illness", label: "Illness" },
+    { key: "schedule", label: "Schedule" },
+    { key: "weather", label: "Weather" },
+    { key: "travel", label: "Travel" },
+    { key: "motivation", label: "Motivation" },
+    { key: "other", label: "Other" }
+];
+
+const FEELING_OPTIONS = [
+    { key: "easier", label: "Easier than expected" },
+    { key: "as_expected", label: "As expected" },
+    { key: "harder", label: "Harder than expected" }
+];
+
+/*
+ * The action row under each card. Non-rest days offer Complete / Modify
+ * / Skip. Rest days offer Rest completed / Trained instead. When
+ * feedback already exists, an Edit affordance is shown alongside so the
+ * athlete can revise it.
+ */
+function buildSessionActions(session, rest, record) {
+
+    const hasRecord = Boolean(record);
+
+    const buttons = [];
+
+    if (rest) {
+        buttons.push(
+            `<button class="sc-act" type="button" data-action="rest_done">Rest completed</button>`,
+            `<button class="sc-act" type="button" data-action="rest_alt">Trained instead</button>`
+        );
+    } else {
+        buttons.push(
+            `<button class="sc-act primary" type="button" data-action="complete">Complete</button>`,
+            `<button class="sc-act" type="button" data-action="modify">Modify</button>`,
+            `<button class="sc-act" type="button" data-action="skip">Skip</button>`
+        );
+    }
+
+    const editRow = hasRecord
+        ? `<div class="sc-act-note">${escapeHtml(
+              buildRecordSummary(record)
+          )}<button class="sc-act-edit" type="button" data-action="edit">Edit</button></div>`
+        : "";
+
+    return `
+        <div class="sc-actions">
+            ${editRow}
+            <div class="sc-act-row">${buttons.join("")}</div>
+        </div>
+    `;
+}
+
+/* A short, human summary of what was logged — never raw JSON. */
+function buildRecordSummary(record) {
+
+    if (!record) {
+        return "";
+    }
+
+    const parts = [];
+
+    const meta = getStatusMeta(record.status);
+
+    if (meta) {
+        parts.push(meta.label);
+    }
+
+    const duration = Number(record.actual_duration_minutes);
+
+    if (Number.isFinite(duration) && duration > 0) {
+        parts.push(`${Math.round(duration)} min`);
+    }
+
+    const distance = Number(record.actual_distance_km);
+
+    if (Number.isFinite(distance) && distance > 0) {
+        parts.push(`${distance} km`);
+    }
+
+    const rpe = Number(record.actual_rpe);
+
+    if (Number.isFinite(rpe) && rpe > 0) {
+        parts.push(`RPE ${rpe}`);
+    }
+
+    if (record.pain_present === true) {
+        const location = cleanText(record.pain_location);
+        parts.push(location ? `pain: ${location}` : "pain reported");
+    }
+
+    if (record.skip_reason) {
+        parts.push(formatSessionType(record.skip_reason).toLowerCase());
+    }
+
+    return parts.filter(Boolean).join(" · ") || "Feedback saved";
+}
+
+function wireSessionActions(card, session) {
+
+    card.querySelectorAll("[data-action]").forEach(button => {
+        button.addEventListener("click", event => {
+
+            event.stopPropagation();
+
+            const action = button.dataset.action;
+            const record = session.execution || null;
+
+            if (action === "rest_done") {
+                submitRestCompleted(session, record);
+                return;
+            }
+
+            if (action === "edit") {
+                // Reopen the flow that matches the saved status.
+                const mode =
+                    record?.status === "skipped"
+                        ? "skip"
+                        : record?.status === "modified"
+                        ? (isRestSession(session) ? "rest_alt" : "modify")
+                        : "complete";
+
+                openFeedbackSheet(session, mode, record);
+                return;
+            }
+
+            const mode =
+                action === "rest_alt" ? "rest_alt" : action;
+
+            openFeedbackSheet(session, mode, record);
+        });
+    });
 }
 
 function toggleSessionCard(card, container) {
@@ -1318,6 +1503,563 @@ async function submitWeeklyCheckin() {
         }
     }
 
+}
+
+let feedbackDraft = {};
+let feedbackContext = null;
+let feedbackReplacePending = false;
+
+function fbNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : "";
+}
+
+/* Builds a 1–10 RPE dot scale. */
+function buildRpeScale(selected) {
+    const dots = [];
+
+    for (let value = 1; value <= 10; value += 1) {
+        dots.push(
+            `<button class="ci-dot" type="button" data-fb="actual_rpe" data-value="${value}"${
+                Number(selected) === value ? ' data-sel="1"' : ""
+            }>${value}</button>`
+        );
+    }
+
+    return `
+        <div class="ci-row">
+            <div class="ci-label">Effort (RPE 1–10)</div>
+            <div class="ci-scale fb-rpe">${dots.join("")}</div>
+            <div class="ci-hints"><span>Very easy</span><span>Maximal</span></div>
+        </div>
+    `;
+}
+
+function buildFeelingChips(selected) {
+    const chips = FEELING_OPTIONS.map(
+        option =>
+            `<button class="ob-chip" type="button" data-fb="overall_feeling" data-value="${option.key}"${
+                selected === option.key ? " data-sel=\"1\"" : ""
+            }>${escapeHtml(option.label)}</button>`
+    ).join("");
+
+    return `
+        <div class="ci-row">
+            <div class="ci-label">How did it feel?</div>
+            <div class="ci-chips">${chips}</div>
+        </div>
+    `;
+}
+
+function buildPainBlock(record) {
+    const hasPain = record?.pain_present === true;
+
+    return `
+        <div class="ci-row">
+            <div class="ci-label">Any pain?</div>
+            <div class="ci-chips">
+                <button class="ob-chip" type="button" data-fb="pain_present" data-value="no"${
+                    hasPain ? "" : " data-sel=\"1\""
+                }>No</button>
+                <button class="ob-chip" type="button" data-fb="pain_present" data-value="yes"${
+                    hasPain ? " data-sel=\"1\"" : ""
+                }>Yes</button>
+            </div>
+            <div id="fbPainDetail" style="${hasPain ? "" : "display:none"}">
+                <input
+                    id="fbPainLocation"
+                    class="ci-input"
+                    type="text"
+                    placeholder="Where does it hurt?"
+                    value="${escapeHtml(cleanText(record?.pain_location))}">
+                <div class="ci-label" style="margin-top:10px">Severity (1–10)</div>
+                <div class="ci-scale fb-pain-scale"></div>
+            </div>
+        </div>
+    `;
+}
+
+function buildDurationDistance(record, matched) {
+    const duration =
+        fbNumber(record?.actual_duration_minutes) ||
+        fbNumber(matched?.actual_duration_minutes);
+
+    const distance =
+        fbNumber(record?.actual_distance_km) ||
+        fbNumber(matched?.actual_distance_km);
+
+    const prefillNote = matched
+        ? `<p class="fb-prefill">Prefilled from your Strava activity${
+              matched.name ? ` “${escapeHtml(matched.name)}”` : ""
+          } — correct it if needed.</p>`
+        : "";
+
+    return `
+        ${prefillNote}
+        <div class="ci-row fb-grid">
+            <div>
+                <div class="ci-label">Duration (min)</div>
+                <input id="fbDuration" class="ci-input" type="number" inputmode="numeric" min="0" placeholder="—" value="${duration}">
+            </div>
+            <div>
+                <div class="ci-label">Distance (km)</div>
+                <input id="fbDistance" class="ci-input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Optional" value="${distance}">
+            </div>
+        </div>
+    `;
+}
+
+function feedbackSheetTitle(mode) {
+    switch (mode) {
+        case "complete":
+            return { eyebrow: "Log workout", title: "How did it go?" };
+        case "modify":
+            return { eyebrow: "Modify workout", title: "What did you change?" };
+        case "skip":
+            return { eyebrow: "Skip workout", title: "No problem — what happened?" };
+        case "rest_alt":
+            return { eyebrow: "Trained instead", title: "What did you do?" };
+        default:
+            return { eyebrow: "Feedback", title: "Update your session" };
+    }
+}
+
+function openFeedbackSheet(session, mode, existingRecord) {
+
+    const modal = document.getElementById("feedbackModal");
+
+    if (!modal) {
+        return;
+    }
+
+    feedbackReplacePending = false;
+
+    feedbackContext = {
+        session,
+        mode,
+        existingRecord: existingRecord || null
+    };
+
+    const record = existingRecord || null;
+    const matched =
+        mode === "complete" || mode === "rest_alt"
+            ? session.matched_activity || null
+            : null;
+
+    feedbackDraft = {
+        overall_feeling: record?.overall_feeling || null,
+        actual_rpe: Number(record?.actual_rpe) || null,
+        pain_present: record?.pain_present === true,
+        pain_severity: Number(record?.pain_severity) || null,
+        skip_reason: record?.skip_reason || null,
+        adjust_remaining_week: record?.adjust_remaining_week === true,
+        as_prescribed: record?.as_prescribed !== false
+    };
+
+    const heading = feedbackSheetTitle(mode);
+
+    const blocks = [];
+
+    if (mode === "complete") {
+        blocks.push(`
+            <div class="ci-row">
+                <div class="ci-label">Did you complete it as prescribed?</div>
+                <div class="ci-chips">
+                    <button class="ob-chip" type="button" data-fb="as_prescribed" data-value="yes"${
+                        feedbackDraft.as_prescribed ? " data-sel=\"1\"" : ""
+                    }>Yes</button>
+                    <button class="ob-chip" type="button" data-fb="as_prescribed" data-value="no"${
+                        feedbackDraft.as_prescribed ? "" : " data-sel=\"1\""
+                    }>Not quite</button>
+                </div>
+            </div>
+        `);
+        blocks.push(buildDurationDistance(record, matched));
+        blocks.push(buildRpeScale(feedbackDraft.actual_rpe));
+        blocks.push(buildFeelingChips(feedbackDraft.overall_feeling));
+        blocks.push(buildPainBlock(record));
+        blocks.push(notesField(record, "Anything else worth noting?"));
+    } else if (mode === "modify") {
+        blocks.push(textField("fbWhatChanged", "What changed?", cleanText(record?.athlete_notes), "e.g. cut the intervals short, ran easy instead"));
+        blocks.push(textField("fbWhy", "Why was it modified?", cleanText(record?.modification_reason), "e.g. legs felt heavy"));
+        blocks.push(buildDurationDistance(record, matched));
+        blocks.push(buildRpeScale(feedbackDraft.actual_rpe));
+        blocks.push(buildFeelingChips(feedbackDraft.overall_feeling));
+        blocks.push(buildPainBlock(record));
+    } else if (mode === "skip") {
+        const reasonChips = SKIP_REASONS.map(
+            reason =>
+                `<button class="ob-chip" type="button" data-fb="skip_reason" data-value="${reason.key}"${
+                    feedbackDraft.skip_reason === reason.key ? " data-sel=\"1\"" : ""
+                }>${escapeHtml(reason.label)}</button>`
+        ).join("");
+
+        blocks.push(`
+            <div class="ci-row">
+                <div class="ci-label">Main reason</div>
+                <div class="ci-chips">${reasonChips}</div>
+            </div>
+        `);
+        blocks.push(notesField(record, "Optional — anything to add?"));
+        blocks.push(`
+            <div class="ci-row">
+                <div class="ci-label">Adjust the rest of this week?</div>
+                <div class="ci-chips">
+                    <button class="ob-chip" type="button" data-fb="adjust_remaining_week" data-value="no"${
+                        feedbackDraft.adjust_remaining_week ? "" : " data-sel=\"1\""
+                    }>Keep the plan</button>
+                    <button class="ob-chip" type="button" data-fb="adjust_remaining_week" data-value="yes"${
+                        feedbackDraft.adjust_remaining_week ? " data-sel=\"1\"" : ""
+                    }>Please adjust</button>
+                </div>
+            </div>
+        `);
+    } else if (mode === "rest_alt") {
+        blocks.push(textField("fbWhatChanged", "What did you do instead?", cleanText(record?.athlete_notes), "e.g. easy 30 min swim"));
+        blocks.push(buildDurationDistance(record, matched));
+        blocks.push(buildRpeScale(feedbackDraft.actual_rpe));
+        blocks.push(buildFeelingChips(feedbackDraft.overall_feeling));
+        blocks.push(buildPainBlock(record));
+    }
+
+    modal.innerHTML = `
+        <div class="lesson">
+            <span class="eyebrow">${escapeHtml(heading.eyebrow)}</span>
+            <h3 class="serif">${escapeHtml(heading.title)}</h3>
+            <p>${escapeHtml(cleanText(session.title) || "This session")} · ${escapeHtml(formatSessionDate(session.session_date))}</p>
+
+            ${blocks.join("")}
+
+            <p class="ci-msg" id="fbMsg"></p>
+
+            <button class="lesson-done" type="button" id="fbSubmit">
+                ${existingRecord ? "Update feedback" : "Save feedback"}
+            </button>
+        </div>
+    `;
+
+    wireFeedbackSheet(modal, record);
+
+    modal.onclick = event => {
+        if (event.target === modal) {
+            closeFeedbackSheet();
+        }
+    };
+
+    modal.classList.add("show");
+}
+
+function notesField(record, placeholder) {
+    return textField(
+        "fbNotes",
+        "Notes",
+        cleanText(record?.athlete_notes),
+        placeholder
+    );
+}
+
+function textField(id, label, value, placeholder) {
+    return `
+        <div class="ci-row">
+            <div class="ci-label">${escapeHtml(label)}</div>
+            <textarea id="${id}" class="ci-input" placeholder="${escapeHtml(placeholder || "")}">${escapeHtml(value || "")}</textarea>
+        </div>
+    `;
+}
+
+function renderPainSeverityScale(modal) {
+    const container = modal.querySelector(".fb-pain-scale");
+
+    if (!container) {
+        return;
+    }
+
+    const dots = [];
+
+    for (let value = 1; value <= 10; value += 1) {
+        dots.push(
+            `<button class="ci-dot" type="button" data-fb="pain_severity" data-value="${value}"${
+                feedbackDraft.pain_severity === value ? " data-sel=\"1\"" : ""
+            }>${value}</button>`
+        );
+    }
+
+    container.innerHTML = dots.join("");
+    applyDotSelection(modal);
+}
+
+function applyDotSelection(modal) {
+    modal.querySelectorAll(".ci-dot[data-sel], .ob-chip[data-sel]").forEach(el => {
+        el.classList.add("sel");
+    });
+}
+
+function wireFeedbackSheet(modal, record) {
+
+    renderPainSeverityScale(modal);
+    applyDotSelection(modal);
+
+    // Single-select chips and dots (grouped by data-fb).
+    modal.querySelectorAll("[data-fb]").forEach(el => {
+        el.addEventListener("click", () => {
+
+            const key = el.dataset.fb;
+            const rawValue = el.dataset.value;
+
+            if (key === "pain_present") {
+                const hasPain = rawValue === "yes";
+                feedbackDraft.pain_present = hasPain;
+
+                const detail =
+                    modal.querySelector("#fbPainDetail");
+
+                if (detail) {
+                    detail.style.display = hasPain ? "block" : "none";
+                }
+            } else if (key === "adjust_remaining_week") {
+                feedbackDraft.adjust_remaining_week = rawValue === "yes";
+            } else if (key === "as_prescribed") {
+                feedbackDraft.as_prescribed = rawValue === "yes";
+            } else if (key === "actual_rpe" || key === "pain_severity") {
+                feedbackDraft[key] = Number(rawValue);
+            } else {
+                feedbackDraft[key] = rawValue;
+            }
+
+            // Update selection styling within the same group.
+            modal
+                .querySelectorAll(`[data-fb="${key}"]`)
+                .forEach(other =>
+                    other.classList.toggle("sel", other === el)
+                );
+        });
+    });
+
+    modal
+        .querySelector("#fbSubmit")
+        .addEventListener("click", submitFeedback);
+}
+
+function closeFeedbackSheet() {
+    const modal = document.getElementById("feedbackModal");
+
+    if (modal) {
+        modal.classList.remove("show");
+        modal.innerHTML = "";
+    }
+
+    feedbackContext = null;
+    feedbackDraft = {};
+    feedbackReplacePending = false;
+}
+
+function readValue(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : "";
+}
+
+async function submitFeedback() {
+
+    if (!feedbackContext) {
+        return;
+    }
+
+    const { session, mode, existingRecord } = feedbackContext;
+    const message = document.getElementById("fbMsg");
+    const submit = document.getElementById("fbSubmit");
+
+    // Build the payload for the chosen flow.
+    const body = {
+        training_session_id: session.id
+    };
+
+    const durationValue = readValue("fbDuration");
+    const distanceValue = readValue("fbDistance");
+
+    if (mode === "skip") {
+        if (!feedbackDraft.skip_reason) {
+            if (message) {
+                message.textContent = "Please pick a main reason.";
+            }
+            return;
+        }
+
+        body.status = "skipped";
+        body.skip_reason = feedbackDraft.skip_reason;
+        body.adjust_remaining_week =
+            feedbackDraft.adjust_remaining_week === true;
+        body.athlete_notes = readValue("fbNotes") || null;
+
+        // A pain-related skip still records pain so injury memory sees it.
+        if (feedbackDraft.skip_reason === "pain") {
+            body.pain_present = true;
+            body.pain_location = readValue("fbPainLocation") || null;
+        }
+    } else {
+        // complete / modify / rest_alt all report actuals.
+        body.status =
+            mode === "complete" ? "completed" : "modified";
+
+        if (durationValue) {
+            body.actual_duration_minutes = Number(durationValue);
+        }
+
+        if (distanceValue) {
+            body.actual_distance_km = Number(distanceValue);
+        }
+
+        if (feedbackDraft.actual_rpe) {
+            body.actual_rpe = feedbackDraft.actual_rpe;
+        }
+
+        if (feedbackDraft.overall_feeling) {
+            body.overall_feeling = feedbackDraft.overall_feeling;
+        }
+
+        body.pain_present = feedbackDraft.pain_present === true;
+
+        if (body.pain_present) {
+            body.pain_location = readValue("fbPainLocation") || null;
+            body.pain_severity = feedbackDraft.pain_severity || null;
+        }
+
+        if (mode === "complete") {
+            body.as_prescribed = feedbackDraft.as_prescribed !== false;
+            body.athlete_notes = readValue("fbNotes") || null;
+        } else {
+            // modify / rest_alt
+            body.modification_reason = readValue("fbWhy") || null;
+            body.athlete_notes = readValue("fbWhatChanged") || null;
+        }
+
+        const matched =
+            (mode === "complete" || mode === "rest_alt") &&
+            session.matched_activity
+                ? session.matched_activity
+                : null;
+
+        if (matched?.id) {
+            body.imported_activity_id = matched.id;
+        }
+    }
+
+    // Confirm before permanently replacing existing feedback.
+    if (existingRecord && !feedbackReplacePending) {
+        feedbackReplacePending = true;
+
+        if (message) {
+            message.textContent =
+                "This replaces your saved feedback. Tap again to confirm.";
+        }
+
+        if (submit) {
+            submit.textContent = "Replace saved feedback";
+        }
+
+        return;
+    }
+
+    if (submit) {
+        submit.disabled = true;
+        submit.textContent = "Saving...";
+    }
+
+    try {
+        const {
+            data: { session: authSession }
+        } = await supabaseClient.auth.getSession();
+
+        const res = await fetch("/api/training/get-week", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${authSession.access_token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(
+                data.error || "That feedback could not be saved."
+            );
+        }
+
+        closeFeedbackSheet();
+
+        if (typeof toast === "function") {
+            toast("Session updated");
+        }
+
+        await loadWeeklyPlan();
+
+    } catch (error) {
+        console.error("Feedback submit failed:", error);
+
+        feedbackReplacePending = false;
+
+        if (message) {
+            message.textContent =
+                error.message || "That feedback could not be saved.";
+        }
+
+        if (submit) {
+            submit.disabled = false;
+            submit.textContent = existingRecord
+                ? "Update feedback"
+                : "Save feedback";
+        }
+    }
+}
+
+/* Rest day marked complete — no sheet needed, but confirm a replace. */
+async function submitRestCompleted(session, existingRecord) {
+
+    if (
+        existingRecord &&
+        !window.confirm("Replace your saved feedback for this day?")
+    ) {
+        return;
+    }
+
+    try {
+        const {
+            data: { session: authSession }
+        } = await supabaseClient.auth.getSession();
+
+        const res = await fetch("/api/training/get-week", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${authSession.access_token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                training_session_id: session.id,
+                status: "completed",
+                as_prescribed: true
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.error || "Could not update.");
+        }
+
+        if (typeof toast === "function") {
+            toast("Rest logged");
+        }
+
+        await loadWeeklyPlan();
+
+    } catch (error) {
+        console.error("Rest completion failed:", error);
+
+        if (typeof toast === "function") {
+            toast("Could not save — please try again");
+        }
+    }
 }
 
 async function generateWeek(){
