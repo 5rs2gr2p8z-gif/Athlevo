@@ -1,3 +1,5 @@
+import { buildAthlevoMethodPrompt } from "../athlevoMethod.js";
+
 import {
   addDays,
   calculateWeeksUntilRace,
@@ -5,8 +7,6 @@ import {
   getPlanningWeekStart,
   parseDateValue
 } from "./lib/dateUtils.js";
-
-import { buildAthlevoMethodPrompt } from "../athlevoMethod.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
