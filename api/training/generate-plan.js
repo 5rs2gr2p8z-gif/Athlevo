@@ -713,10 +713,11 @@ Rules:
 12. Do not claim access to sleep, HRV, readiness, weather, soreness, or recovery information unless it appears in the supplied data.
 13. If preparation is compressed, state that clearly and prioritize safe completion and durability over aggressive race-specific loading.
 14. Each session must explain why it exists in the current phase.
-15. Rest days should use session_type "rest", sport "rest", duration_minutes null, and intensity "Rest".
-16. Use ISO dates in YYYY-MM-DD format.
+15. Rest days must use the same session structure with session_type "rest", sport "rest", duration_minutes null, intensity "Rest", and empty arrays for warmup, main_set, cooldown, instructions, and adjustment_rules.
+16. Use ISO dates in YYYY-MM-DD format, and set day to the weekday name that matches session_date.
 17. Keep instructions clear and executable.
-18. Return valid structured data only.
+18. Leave target_pace, target_hr, target_rpe, fueling, notes, or any other text field as an empty string whenever the supplied athlete context is insufficient to fill it. Never invent values.
+19. Return valid structured data only.
             `.trim()
           },
 
@@ -828,6 +829,19 @@ Rules:
                           "^\\d{4}-\\d{2}-\\d{2}$"
                       },
 
+                      day: {
+                        type: "string",
+                        enum: [
+                          "Monday",
+                          "Tuesday",
+                          "Wednesday",
+                          "Thursday",
+                          "Friday",
+                          "Saturday",
+                          "Sunday"
+                        ]
+                      },
+
                       title: {
                         type: "string"
                       },
@@ -862,10 +876,11 @@ Rules:
                       },
 
                       purpose: {
-                        type: [
-                          "string",
-                          "null"
-                        ]
+                        type: "string"
+                      },
+
+                      description: {
+                        type: "string"
                       },
 
                       instructions: {
@@ -877,138 +892,44 @@ Rules:
                       },
 
                       warmup: {
-                        type: [
-                          "object",
-                          "null"
-                        ],
-                        additionalProperties:
-                          false,
-
-                        properties: {
-                          duration_minutes: {
-                            type: [
-                              "integer",
-                              "null"
-                            ]
-                          },
-
-                          instructions: {
-                            type: "array",
-                            items: {
-                              type: "string"
-                            }
-                          }
-                        },
-
-                        required: [
-                          "duration_minutes",
-                          "instructions"
-                        ]
+                        type: "array",
+                        items: {
+                          type: "string"
+                        }
                       },
 
                       main_set: {
-                        type: [
-                          "object",
-                          "null"
-                        ],
-                        additionalProperties:
-                          false,
-
-                        properties: {
-                          description: {
-                            type: [
-                              "string",
-                              "null"
-                            ]
-                          },
-
-                          repetitions: {
-                            type: [
-                              "integer",
-                              "null"
-                            ]
-                          },
-
-                          work_duration_minutes: {
-                            type: [
-                              "number",
-                              "null"
-                            ]
-                          },
-
-                          recovery_duration_minutes: {
-                            type: [
-                              "number",
-                              "null"
-                            ]
-                          },
-
-                          instructions: {
-                            type: "array",
-                            items: {
-                              type: "string"
-                            }
-                          }
-                        },
-
-                        required: [
-                          "description",
-                          "repetitions",
-                          "work_duration_minutes",
-                          "recovery_duration_minutes",
-                          "instructions"
-                        ]
+                        type: "array",
+                        items: {
+                          type: "string"
+                        }
                       },
 
                       cooldown: {
-                        type: [
-                          "object",
-                          "null"
-                        ],
-                        additionalProperties:
-                          false,
-
-                        properties: {
-                          duration_minutes: {
-                            type: [
-                              "integer",
-                              "null"
-                            ]
-                          },
-
-                          instructions: {
-                            type: "array",
-                            items: {
-                              type: "string"
-                            }
-                          }
-                        },
-
-                        required: [
-                          "duration_minutes",
-                          "instructions"
-                        ]
+                        type: "array",
+                        items: {
+                          type: "string"
+                        }
                       },
 
-                      pace_guidance: {
-                        type: [
-                          "string",
-                          "null"
-                        ]
+                      target_pace: {
+                        type: "string"
                       },
 
-                      heart_rate_guidance: {
-                        type: [
-                          "string",
-                          "null"
-                        ]
+                      target_hr: {
+                        type: "string"
                       },
 
-                      fueling_guidance: {
-                        type: [
-                          "string",
-                          "null"
-                        ]
+                      target_rpe: {
+                        type: "string"
+                      },
+
+                      fueling: {
+                        type: "string"
+                      },
+
+                      notes: {
+                        type: "string"
                       },
 
                       adjustment_rules: {
@@ -1020,15 +941,13 @@ Rules:
                       },
 
                       coach_reasoning: {
-                        type: [
-                          "string",
-                          "null"
-                        ]
+                        type: "string"
                       }
                     },
 
                     required: [
                       "session_date",
+                      "day",
                       "title",
                       "sport",
                       "session_type",
@@ -1036,13 +955,16 @@ Rules:
                       "distance_km",
                       "intensity",
                       "purpose",
+                      "description",
                       "instructions",
                       "warmup",
                       "main_set",
                       "cooldown",
-                      "pace_guidance",
-                      "heart_rate_guidance",
-                      "fueling_guidance",
+                      "target_pace",
+                      "target_hr",
+                      "target_rpe",
+                      "fueling",
+                      "notes",
                       "adjustment_rules",
                       "coach_reasoning"
                     ]
@@ -1282,23 +1204,35 @@ async function saveTrainingSessions({
       instructions:
         session.instructions || [],
 
+      day:
+        session.day,
+
+      description:
+        session.description,
+
       warmup:
-        session.warmup,
+        session.warmup || [],
 
       main_set:
-        session.main_set,
+        session.main_set || [],
 
       cooldown:
-        session.cooldown,
+        session.cooldown || [],
 
       pace_guidance:
-        session.pace_guidance,
+        session.target_pace,
 
       heart_rate_guidance:
-        session.heart_rate_guidance,
+        session.target_hr,
+
+      target_rpe:
+        session.target_rpe,
 
       fueling_guidance:
-        session.fueling_guidance,
+        session.fueling,
+
+      notes:
+        session.notes,
 
       adjustment_rules:
         session.adjustment_rules ||
