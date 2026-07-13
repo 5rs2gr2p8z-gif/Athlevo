@@ -1,5 +1,92 @@
 console.log("Athlevo Brain Loaded");
 
+/*
+ * Formats a running pace as "m:ss/km". Rounds the total seconds-per-km
+ * BEFORE splitting into minutes and seconds so the seconds field can
+ * never be 60 (the "5:60/km" bug). Returns null for missing or
+ * impossible inputs so callers can show a clean placeholder.
+ *
+ * 359.7 s/km -> "6:00/km"    59 s -> "0:59"    60 s -> "1:00"    61 -> "1:01"
+ */
+function formatPacePerKm(distanceMeters, movingSeconds) {
+  const meters = Number(distanceMeters);
+  const seconds = Number(movingSeconds);
+
+  if (
+    !Number.isFinite(meters) ||
+    meters <= 0 ||
+    !Number.isFinite(seconds) ||
+    seconds <= 0
+  ) {
+    return null;
+  }
+
+  const totalSecondsPerKm = Math.round(seconds / (meters / 1000));
+
+  if (!Number.isFinite(totalSecondsPerKm) || totalSecondsPerKm <= 0) {
+    return null;
+  }
+
+  const minutes = Math.floor(totalSecondsPerKm / 60);
+  const secs = totalSecondsPerKm % 60;
+
+  return `${minutes}:${String(secs).padStart(2, "0")}/km`;
+}
+
+/*
+ * Formats a duration as "Xh Ym" or "Y min". Rounds to whole minutes
+ * FIRST, then splits, so the minutes field can never read 60
+ * (e.g. 3599 s must not render "60 min"). Returns "—" for invalid input.
+ */
+function formatDurationHM(seconds) {
+  const value = Number(seconds);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return "—";
+  }
+
+  const totalMinutes = Math.round(value / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes} min`;
+}
+
+/* Formats distance in km with one decimal, or "—" for invalid input. */
+function formatDistanceKm(meters) {
+  const value = Number(meters);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return "—";
+  }
+
+  return `${(value / 1000).toFixed(1)} km`;
+}
+
+/*
+ * Returns activities sorted newest-first by real start time, tolerating
+ * missing start_date by falling back to start_date_local then
+ * created_at. This guarantees "latest" is always the newest imported
+ * activity regardless of the order rows arrive in.
+ */
+function sortActivitiesByStartDesc(activities) {
+  const activityTime = activity => {
+    const raw =
+      activity?.start_date ||
+      activity?.start_date_local ||
+      activity?.created_at ||
+      null;
+
+    const time = raw ? new Date(raw).getTime() : NaN;
+
+    return Number.isFinite(time) ? time : -Infinity;
+  };
+
+  return [...(Array.isArray(activities) ? activities : [])].sort(
+    (a, b) => activityTime(b) - activityTime(a)
+  );
+}
+
 async function loadAthleteProfile() {
   const {
     data: { user },
@@ -38,9 +125,7 @@ function buildCoachingContext(
 ) {
   if (!profile) return null;
 
-  const safeActivities = Array.isArray(activities)
-    ? activities
-    : [];
+  const safeActivities = sortActivitiesByStartDesc(activities);
 
   const recentActivities = safeActivities
     .slice(0, 5)
@@ -61,26 +146,10 @@ function buildCoachingContext(
           ? Math.round(movingTimeSeconds / 60)
           : null;
 
-      let averagePacePerKilometer = null;
-
-      if (distanceMeters > 0 && movingTimeSeconds > 0) {
-        const secondsPerKilometer =
-          movingTimeSeconds / (distanceMeters / 1000);
-
-        const paceMinutes = Math.floor(
-          secondsPerKilometer / 60
-        );
-
-        const paceSeconds = Math.round(
-          secondsPerKilometer % 60
-        );
-
-        averagePacePerKilometer =
-          `${paceMinutes}:${String(paceSeconds).padStart(
-            2,
-            "0"
-          )}/km`;
-      }
+      const averagePacePerKilometer = formatPacePerKm(
+        distanceMeters,
+        movingTimeSeconds
+      );
 
       return {
         name:
@@ -713,32 +782,8 @@ function updateTodayActivityData(summary) {
     }
   };
 
-  const formatDistance = meters => {
-    const value = Number(meters);
-
-    if (!Number.isFinite(value) || value <= 0) {
-      return "—";
-    }
-
-    return `${(value / 1000).toFixed(1)} km`;
-  };
-
-  const formatDuration = seconds => {
-    const value = Number(seconds);
-
-    if (!Number.isFinite(value) || value <= 0) {
-      return "—";
-    }
-
-    const hours = Math.floor(value / 3600);
-    const minutes = Math.round((value % 3600) / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-
-    return `${minutes} min`;
-  };
+  const formatDistance = formatDistanceKm;
+  const formatDuration = formatDurationHM;
 
   const formatDate = value => {
     if (!value) {
@@ -861,50 +906,14 @@ function updateTrainActivityData(activities = [], summary = null) {
     }
   };
 
-  const formatDistance = meters => {
-    const value = Number(meters);
+  const formatDistance = formatDistanceKm;
+  const formatDuration = formatDurationHM;
 
-    if (!Number.isFinite(value) || value <= 0) {
-      return "—";
-    }
-
-    return `${(value / 1000).toFixed(1)} km`;
-  };
-
-  const formatDuration = seconds => {
-    const value = Number(seconds);
-
-    if (!Number.isFinite(value) || value <= 0) {
-      return "—";
-    }
-
-    const hours = Math.floor(value / 3600);
-    const minutes = Math.round((value % 3600) / 60);
-
-    return hours > 0
-      ? `${hours}h ${minutes}m`
-      : `${minutes} min`;
-  };
-
-  const formatPace = activity => {
-    const distance = Number(activity.distance_meters);
-    const movingTime = Number(activity.moving_time_seconds);
-
-    if (
-      !Number.isFinite(distance) ||
-      distance <= 0 ||
-      !Number.isFinite(movingTime) ||
-      movingTime <= 0
-    ) {
-      return "—";
-    }
-
-    const secondsPerKilometer = movingTime / (distance / 1000);
-    const minutes = Math.floor(secondsPerKilometer / 60);
-    const seconds = Math.round(secondsPerKilometer % 60);
-
-    return `${minutes}:${String(seconds).padStart(2, "0")}/km`;
-  };
+  const formatPace = activity =>
+    formatPacePerKm(
+      activity.distance_meters,
+      activity.moving_time_seconds
+    ) || "—";
 
   const formatDate = value => {
     if (!value) {
@@ -924,9 +933,7 @@ function updateTrainActivityData(activities = [], summary = null) {
     });
   };
 
-  const safeActivities = Array.isArray(activities)
-    ? activities
-    : [];
+  const safeActivities = sortActivitiesByStartDesc(activities);
 
   setText(
     "trainWeeklyDistance",
@@ -1370,7 +1377,8 @@ async function loadAthleteActivities(limit = 200) {
     user.id
   );
 
-  return activities || [];
+  // Guarantee newest-first regardless of how the rows arrived.
+  return sortActivitiesByStartDesc(activities || []);
 }
 
 function buildActivitySummary(activities = []) {

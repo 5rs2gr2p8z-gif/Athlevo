@@ -256,9 +256,14 @@ function calculateActivityContext(activities) {
   const fortyTwoDaysAgo =
     new Date(now.getTime() - 42 * 86400000);
 
-  const validActivities = activities.filter(
-    activity => getActivityDate(activity)
-  );
+  // Sort newest-first by real start time so "latest" and "recent" never
+  // depend on the order rows arrive in.
+  const validActivities = activities
+    .filter(activity => getActivityDate(activity))
+    .sort(
+      (a, b) =>
+        getActivityDate(b).getTime() - getActivityDate(a).getTime()
+    );
 
   const currentSevenDays =
     validActivities.filter(activity => {
