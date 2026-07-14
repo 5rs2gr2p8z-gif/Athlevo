@@ -427,7 +427,132 @@ async function handleApplyAction(response, user, body) {
   const affectedSessionIds = [];
   let originalSnapshot = null;
   let correctedValues = null;
-  let refreshed = {};
+
+  // Pre-loaded targets (reads + ownership checks) happen BEFORE any write
+  // so a 404/409 never leaves partial state.
+  let targetSession = null;
+  let targetActivity = null;
+
+  if (
+    action.type === "move_workout" ||
+    action.type === "modify_workout" ||
+    action.type === "replace_workout" ||
+    action.type === "skip_workout"
+  ) {
+    targetSession = await loadSessionForUser(
+      user.id,
+      action.target_session_id
+    );
+
+    if (!targetSession) {
+      return sendJson(response, 404, {
+        error: "That training session could not be found."
+      });
+    }
+
+    if (action.type === "move_workout") {
+      const clash = await loadSessionOnDate(user.id, action.to_date);
+      if (clash && String(clash.id) !== String(targetSession.id)) {
+        return sendJson(response, 409, {
+          error: "There is already a session on that date."
+        });
+      }
+    }
+
+    originalSnapshot = snapshotSession(targetSession);
+    affectedSessionIds.push(targetSession.id);
+  } else if (action.type === "create_activity_override") {
+    // Verify the imported activity belongs to THIS athlete.
+    targetActivity = await loadActivityForUser(
+      user.id,
+      action.target_activity_id
+    );
+
+    if (!targetActivity) {
+      return sendJson(response, 404, {
+        error: "That activity could not be found."
+      });
+    }
+
+    originalSnapshot = {
+      activity_id: targetActivity.id,
+      distance_meters: targetActivity.distance_meters,
+      moving_time_seconds: targetActivity.moving_time_seconds,
+      sport_type:
+        targetActivity.sport_type || targetActivity.activity_type || null
+    };
+    correctedValues = action.corrected_values;
+  }
+
+  // 1) Write the proposal FIRST. It is the audit row AND the foreign-key
+  //    anchor for an activity override, so it must exist before the
+  //    override references it. (This ordering was the correction-apply
+  //    bug: the override referenced a proposal row that didn't exist yet.)
+  const proposalRow = {
+    user_id: user.id,
+    source_conversation_id:
+      typeof proposal.source_conversation_id === "string"
+        ? proposal.source_conversation_id.slice(0, 200)
+        : null,
+    source_message_id:
+      typeof proposal.source_message_id === "string"
+        ? proposal.source_message_id.slice(0, 200)
+        : null,
+    action_type: action.type,
+    status: "applied",
+    affected_session_ids: affectedSessionIds,
+    proposed_changes: {
+      changes: action.changes,
+      to_date: action.to_date || null,
+      from_date: action.from_date || null,
+      availability_note: action.availability_note || null,
+      preference_note: action.preference_note || null
+    },
+    original_snapshot: originalSnapshot,
+    corrected_values: correctedValues,
+    reason: action.reason || null,
+    confirmed_at: nowIso,
+    applied_at: nowIso,
+    updated_at: nowIso
+  };
+
+  if (proposalId) {
+    proposalRow.id = proposalId;
+  }
+
+  let savedProposal;
+
+  try {
+    savedProposal = await supabaseRequest(
+      "coach_action_proposals?on_conflict=id",
+      {
+        method: "POST",
+        headers: {
+          Prefer: "resolution=merge-duplicates,return=representation"
+        },
+        body: proposalRow
+      }
+    );
+  } catch (proposalError) {
+    console.error(
+      "Coach action apply — could not record proposal:",
+      proposalError?.message || proposalError
+    );
+    return sendJson(response, 500, {
+      error: "That change could not be saved. Please try again."
+    });
+  }
+
+  const savedProposalRow = Array.isArray(savedProposal)
+    ? savedProposal[0] || null
+    : savedProposal;
+
+  const savedProposalId =
+    (savedProposalRow && savedProposalRow.id) || proposalId || null;
+
+  // 2) Perform the actual mutation. If it fails, roll the proposal back so
+  //    it is not falsely left "applied" and the athlete can retry.
+  const refreshed = {};
 
   try {
     if (
@@ -435,35 +560,11 @@ async function handleApplyAction(response, user, body) {
       action.type === "modify_workout" ||
       action.type === "replace_workout"
     ) {
-      const session = await loadSessionForUser(
-        user.id,
-        action.target_session_id
-      );
-
-      if (!session) {
-        return sendJson(response, 404, {
-          error: "That training session could not be found."
-        });
-      }
-
-      // Moving onto a day that already has a session would duplicate.
-      if (action.type === "move_workout") {
-        const clash = await loadSessionOnDate(user.id, action.to_date);
-        if (clash && String(clash.id) !== String(session.id)) {
-          return sendJson(response, 409, {
-            error: "There is already a session on that date."
-          });
-        }
-      }
-
-      originalSnapshot = snapshotSession(session);
-      affectedSessionIds.push(session.id);
-
-      const patch = buildSessionPatch(action, session);
+      const patch = buildSessionPatch(action, targetSession);
 
       const updated = await supabaseRequest(
         "training_sessions" +
-          `?id=eq.${encodeURIComponent(session.id)}` +
+          `?id=eq.${encodeURIComponent(targetSession.id)}` +
           `&user_id=eq.${encodeURIComponent(user.id)}`,
         {
           method: "PATCH",
@@ -472,32 +573,19 @@ async function handleApplyAction(response, user, body) {
         }
       );
 
-      refreshed.session = Array.isArray(updated) ? updated[0] || null : updated;
+      refreshed.session = Array.isArray(updated)
+        ? updated[0] || null
+        : updated;
     } else if (action.type === "skip_workout") {
-      const session = await loadSessionForUser(
-        user.id,
-        action.target_session_id
-      );
-
-      if (!session) {
-        return sendJson(response, 404, {
-          error: "That training session could not be found."
-        });
-      }
-
-      originalSnapshot = snapshotSession(session);
-      affectedSessionIds.push(session.id);
-
-      // Reuse the authoritative execution system to mark the skip.
       const { row } = buildExecutionRow({
         body: {
           status: "skipped",
-          training_session_id: session.id,
+          training_session_id: targetSession.id,
           skip_reason: "other",
           athlete_notes: action.reason || null
         },
         userId: user.id,
-        session
+        session: targetSession
       });
 
       const saved = await supabaseRequest(
@@ -514,30 +602,12 @@ async function handleApplyAction(response, user, body) {
 
       refreshed.execution = Array.isArray(saved) ? saved[0] || null : saved;
     } else if (action.type === "create_activity_override") {
-      const activity = await loadActivityForUser(
-        user.id,
-        action.target_activity_id
-      );
-
-      if (!activity) {
-        return sendJson(response, 404, {
-          error: "That activity could not be found."
-        });
-      }
-
-      originalSnapshot = {
-        activity_id: activity.id,
-        distance_meters: activity.distance_meters,
-        moving_time_seconds: activity.moving_time_seconds,
-        sport_type: activity.sport_type || activity.activity_type || null
-      };
-      correctedValues = action.corrected_values;
-
       const overrideRow = buildActivityOverrideRow({
         userId: user.id,
         action,
-        activityId: activity.id,
-        proposalId
+        activity: targetActivity,
+        activityId: targetActivity.id,
+        proposalId: savedProposalId
       });
 
       const savedOverride = await supabaseRequest(
@@ -566,8 +636,6 @@ async function handleApplyAction(response, user, body) {
         profilePatch.target_time = action.race_details.target_time;
       }
 
-      correctedValues = action.race_details;
-
       await supabaseRequest(
         `profiles?id=eq.${encodeURIComponent(user.id)}`,
         {
@@ -578,64 +646,38 @@ async function handleApplyAction(response, user, body) {
       );
     }
     // update_training_preference / update_temporary_availability /
-    // adjust_remaining_week: recorded as an applied proposal only. They
-    // are conservative signals read by next-week generation; we never
+    // adjust_remaining_week: the recorded proposal IS the applied change.
+    // They are conservative signals read by next-week generation; we never
     // auto-rewrite the current week (no shoving missed intensity forward).
-
-    // Record the applied proposal (source, snapshot, reason). This is the
-    // permanent, user-owned audit the rest of the app reads.
-    const proposalRow = {
-      user_id: user.id,
-      source_conversation_id:
-        typeof proposal.source_conversation_id === "string"
-          ? proposal.source_conversation_id.slice(0, 200)
-          : null,
-      source_message_id:
-        typeof proposal.source_message_id === "string"
-          ? proposal.source_message_id.slice(0, 200)
-          : null,
-      action_type: action.type,
-      status: "applied",
-      affected_session_ids: affectedSessionIds,
-      proposed_changes: {
-        changes: action.changes,
-        to_date: action.to_date || null,
-        from_date: action.from_date || null,
-        availability_note: action.availability_note || null,
-        preference_note: action.preference_note || null
-      },
-      original_snapshot: originalSnapshot,
-      corrected_values: correctedValues,
-      reason: action.reason || null,
-      confirmed_at: nowIso,
-      applied_at: nowIso,
-      updated_at: nowIso
-    };
-
-    if (proposalId) {
-      proposalRow.id = proposalId;
-    }
-
-    const savedProposal = await supabaseRequest(
-      "coach_action_proposals?on_conflict=id",
-      {
-        method: "POST",
-        headers: {
-          Prefer: "resolution=merge-duplicates,return=representation"
-        },
-        body: proposalRow
-      }
-    );
 
     return sendJson(response, 200, {
       success: true,
-      proposal: Array.isArray(savedProposal)
-        ? savedProposal[0] || null
-        : savedProposal,
+      proposal: savedProposalRow,
       refreshed
     });
-  } catch (applyError) {
-    console.error("Applying coach action failed:", applyError);
+  } catch (mutationError) {
+    console.error(
+      `Coach action apply — mutation failed for ${action.type}:`,
+      mutationError?.message || mutationError
+    );
+
+    // Roll back the proposal so it isn't falsely "applied" and can retry.
+    if (savedProposalId) {
+      try {
+        await supabaseRequest(
+          "coach_action_proposals" +
+            `?id=eq.${encodeURIComponent(savedProposalId)}` +
+            `&user_id=eq.${encodeURIComponent(user.id)}`,
+          { method: "DELETE", headers: { Prefer: "return=minimal" } }
+        );
+      } catch (rollbackError) {
+        console.error(
+          "Coach action apply — proposal rollback failed:",
+          rollbackError?.message || rollbackError
+        );
+      }
+    }
+
     return sendJson(response, 500, {
       error: "That change could not be applied. Please try again."
     });

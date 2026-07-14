@@ -1312,7 +1312,13 @@ async function refreshAthleteUI() {
     updateTodayDashboard(profile);
     updateAthleteProfileScreens(profile);
 
-    const activities = await loadAthleteActivities(200);
+    const rawActivities = await loadAthleteActivities(200);
+
+    // Athlete-confirmed corrections take priority over raw Strava on
+    // Today, recent activities, and Trends — the raw rows are untouched.
+    const overrides = await loadActivityOverrides();
+    const activities = mergeActivityOverrides(rawActivities, overrides);
+
     const activitySummary = buildActivitySummary(activities);
 
     // Exact total (not the 200-row query cap) for the Trends count.
@@ -1386,6 +1392,104 @@ async function syncStravaActivities() {
  * activities" figure reflects the true total rather than the 200-row
  * load cap. Returns null if the count can't be determined.
  */
+/*
+ * Loads the athlete's confirmed activity corrections. Best-effort: the
+ * table may not exist yet, so failure never breaks the UI.
+ */
+async function loadActivityOverrides() {
+  try {
+    const {
+      data: { user }
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) {
+      return [];
+    }
+
+    const { data, error } = await supabaseClient
+      .from("activity_data_overrides")
+      .select("*")
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Could not load activity overrides:", error);
+      return [];
+    }
+
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Activity overrides load failed:", error);
+    return [];
+  }
+}
+
+/*
+ * Overlays confirmed corrections on raw activities for display. Raw
+ * values are preserved on `imported`. A pace-only correction re-derives
+ * the effective distance from the untouched duration so pace displays
+ * (computed from distance/time) reflect the correction. Mirrors the
+ * server helper so client and server agree.
+ */
+function mergeActivityOverrides(activities, overrides) {
+  if (!Array.isArray(overrides) || overrides.length === 0) {
+    return Array.isArray(activities) ? activities : [];
+  }
+
+  const map = new Map(
+    overrides
+      .filter(o => o && o.activity_id)
+      .map(o => [String(o.activity_id), o])
+  );
+
+  return (Array.isArray(activities) ? activities : []).map(activity => {
+    const override = activity?.id ? map.get(String(activity.id)) : null;
+
+    if (!override) {
+      return activity;
+    }
+
+    const merged = {
+      ...activity,
+      has_correction: true,
+      imported: {
+        distance_meters: Number(activity.distance_meters) || null,
+        moving_time_seconds: Number(activity.moving_time_seconds) || null,
+        sport_type:
+          activity.sport_type || activity.activity_type || null
+      }
+    };
+
+    const km = Number(override.corrected_distance_km);
+    if (Number.isFinite(km) && km > 0) {
+      merged.distance_meters = Math.round(km * 1000);
+    }
+
+    const minutes = Number(override.corrected_duration_minutes);
+    if (Number.isFinite(minutes) && minutes > 0) {
+      merged.moving_time_seconds = Math.round(minutes * 60);
+    }
+
+    const secPerKm = Number(override.corrected_pace_seconds_per_km);
+    if (
+      Number.isFinite(secPerKm) &&
+      secPerKm > 0 &&
+      !(Number.isFinite(km) && km > 0)
+    ) {
+      const seconds = Number(merged.moving_time_seconds);
+      if (Number.isFinite(seconds) && seconds > 0) {
+        merged.distance_meters = Math.round((seconds / secPerKm) * 1000);
+      }
+    }
+
+    if (override.corrected_activity_type) {
+      merged.sport_type = override.corrected_activity_type;
+      merged.activity_type = override.corrected_activity_type;
+    }
+
+    return merged;
+  });
+}
+
 async function countAthleteActivities() {
   try {
     const {

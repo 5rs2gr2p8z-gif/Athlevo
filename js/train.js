@@ -297,23 +297,43 @@ function formatSessionType(value) {
         .join(" ");
 }
 
+/*
+ * The ONE canonical workout type for a session. Everything the card
+ * shows — title, badge, rest state, and which execution controls appear
+ * — derives from this. We deliberately read only session_type (the
+ * field a Coach action updates), never stale sport/intensity fields, so
+ * a run that replaced a rest day can never keep rest identity.
+ */
+const REST_TYPES = new Set(["rest", "rest_day", "restday", "off", "day_off"]);
+
+function normalizeSessionType(session) {
+    const raw = cleanText(session?.session_type)
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_");
+
+    return raw;
+}
+
+/*
+ * A session is REST only when its canonical type explicitly says so.
+ * Missing/invalid type is NOT silently treated as rest — it falls back
+ * to non-rest (so the athlete still gets Complete/Modify/Skip) and logs
+ * a non-sensitive diagnostic.
+ */
 function isRestSession(session) {
 
-    const type =
-        cleanText(session.session_type).toLowerCase();
+    const type = normalizeSessionType(session);
 
-    const sport =
-        cleanText(session.sport).toLowerCase();
+    if (!type) {
+        console.warn(
+            "Train: session has no canonical session_type; " +
+            "treating as non-rest.",
+            { id: session?.id || null, date: session?.session_date || null }
+        );
+        return false;
+    }
 
-    const intensity =
-        cleanText(session.intensity).toLowerCase();
-
-    return (
-        type === "rest" ||
-        type === "rest_day" ||
-        sport === "rest" ||
-        intensity === "rest"
-    );
+    return REST_TYPES.has(type);
 }
 
 function shortenText(text, maxLength = 96) {
