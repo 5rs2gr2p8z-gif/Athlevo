@@ -1338,6 +1338,13 @@ async function refreshAthleteUI() {
       window.renderReadinessCard();
     }
 
+    // Proactive coaching loop: recognise + analyse the latest performed
+    // workout and refresh the Today card in place. Fire-and-forget so a
+    // slow analysis never blocks the rest of the dashboard.
+    if (typeof window.renderLatestWorkoutAnalysis === "function") {
+      window.renderLatestWorkoutAnalysis();
+    }
+
     console.log("Athlete UI updated for:", profile.id);
 
     return {

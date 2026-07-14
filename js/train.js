@@ -32,6 +32,13 @@ async function loadWeeklyPlan() {
 
     loadWeeklyLoop(session.access_token);
 
+    // Proactive coaching loop: any time the plan reloads (including right
+    // after a workout is saved, modified, or auto-imported), refresh the
+    // Today "Latest Workout Analysis" card in place — no page reload.
+    if (typeof window.renderLatestWorkoutAnalysis === "function") {
+        window.renderLatestWorkoutAnalysis();
+    }
+
 }
 
 function renderNoPlan() {

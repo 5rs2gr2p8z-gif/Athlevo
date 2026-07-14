@@ -141,6 +141,30 @@ body{
 .rd-scale{flex-wrap:wrap}
 .rd-scale .ci-dot{width:30px;height:34px}
 
+/* ---------- latest workout analysis card ---------- */
+.lwa{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;overflow:hidden}
+.lwa-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lwa-eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.lwa-status{font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:100px}
+.lwa-status.excellent{background:#eef8f2;color:var(--good)}
+.lwa-status.harder{background:#fbf3e4;color:var(--warn)}
+.lwa-status.different,.lwa-status.missed{background:var(--red-soft);color:var(--red)}
+.lwa-status.unplanned{background:var(--card);color:var(--ink2)}
+.lwa-title{font-family:var(--serif);font-size:20px;font-weight:500;letter-spacing:-.01em;margin:10px 0 2px;line-height:1.2}
+.lwa-metrics{display:flex;flex-wrap:wrap;gap:14px 20px;margin:12px 0 2px}
+.lwa-metric{display:flex;flex-direction:column;gap:2px}
+.lwa-metric b{font-size:16px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--ink)}
+.lwa-metric small{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.lwa-section{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
+.lwa-section-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+.lwa-section p{font-size:14px;line-height:1.6;color:var(--ink);margin:0}
+.lwa-recovery{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.lwa-recovery li{position:relative;padding-left:18px;font-size:13.5px;line-height:1.5;color:var(--ink2)}
+.lwa-recovery li::before{content:"";position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.lwa-empty{margin:0 22px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
+.lwa-empty .lwa-eyebrow{display:block;margin-bottom:6px}
+.lwa-empty p{font-size:13.5px;line-height:1.55;color:var(--ink2);margin:0}
+
 /* decision card — the signature */
 .decision{margin:0 22px;background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:22px;overflow:hidden}
 .today-latest-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -1377,6 +1401,9 @@ body{
     <div id="readinessCta"></div>
   </div>
 </div>
+
+<!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching) ===== -->
+<div id="latestWorkoutAnalysis"></div>
 
 <!-- ===== DAILY COACH BRIEFING ===== -->
 <div class="decision" id="dailyBriefCard">
@@ -2625,6 +2652,7 @@ async function restoreSession() {
 <script src="js/train.js"></script>
 <script src="js/feedback.js"></script>
 <script src="js/readiness.js"></script>
+<script src="js/workoutAnalysis.js"></script>
 <script src="js/legal.js"></script>
 <script src="js/onboarding.js"></script>
 <script>
