@@ -32,6 +32,8 @@ import {
   indexRecordsBySession
 } from "../../lib/server/executionRecords.js";
 
+import { applyActivityOverrides } from "../../lib/server/coachActions.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -281,13 +283,24 @@ export default async function handler(request, response) {
     const executionSignals =
       extractExecutionSignals(executionRecords);
 
+    // Athlete-confirmed activity corrections override the raw Strava
+    // values for all downstream analysis. Raw rows are never changed.
+    const activityOverrides = await optionalRequest(
+      `activity_data_overrides?user_id=eq.${userId}&select=*`
+    ).then(rows => (Array.isArray(rows) ? rows : []));
+
+    const activities_ = applyActivityOverrides(
+      activities,
+      activityOverrides
+    );
+
     /* ── computation ─────────────────────────────────────────── */
 
-    const weekActivities = activities.filter(activity =>
+    const weekActivities = activities_.filter(activity =>
       activityInRange(activity, weekStartKey, weekEndKey)
     );
 
-    const baselineActivities = activities.filter(activity =>
+    const baselineActivities = activities_.filter(activity =>
       activityInRange(
         activity,
         formatDateKey(addDays(weekStart, -21)),
@@ -337,7 +350,7 @@ export default async function handler(request, response) {
       );
 
       const totals = summarizeActivityTotals(
-        activities.filter(activity =>
+        activities_.filter(activity =>
           activityInRange(activity, start, end)
         )
       );

@@ -14,6 +14,8 @@ import {
   summarizeExecutionRecord
 } from "../../lib/server/executionRecords.js";
 
+import { applyActivityOverrides } from "../../lib/server/coachActions.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -1629,9 +1631,22 @@ const weekEnd =
         weekStart
       );
 
+    // Athlete-confirmed activity corrections take priority over raw
+    // Strava values when planning the next week.
+    const activityOverrides = await optionalSupabaseRequest(
+      `activity_data_overrides?user_id=eq.${encodeURIComponent(
+        user.id
+      )}&select=*`
+    );
+
+    const effectiveActivities = applyActivityOverrides(
+      activities,
+      Array.isArray(activityOverrides) ? activityOverrides : []
+    );
+
     const activitySummary =
       summarizeActivities(
-        activities,
+        effectiveActivities,
         weekStart
       );
 

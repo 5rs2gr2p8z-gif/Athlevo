@@ -396,6 +396,149 @@ function renderCoachResponse(
       )
     );
   }
+
+  // Structured proposals (plan changes / activity corrections) render as
+  // confirmable cards beneath the reply. Nothing is applied until Apply.
+  if (Array.isArray(response.actions) && response.actions.length > 0) {
+    renderCoachActions(container, response.actions);
+  }
+}
+
+/* Label for each action type, athlete-facing. */
+function coachActionKindLabel(type) {
+  const labels = {
+    modify_workout: "Proposed workout change",
+    move_workout: "Proposed reschedule",
+    skip_workout: "Proposed skip",
+    replace_workout: "Proposed replacement",
+    adjust_remaining_week: "Proposed week adjustment",
+    update_temporary_availability: "Proposed availability update",
+    update_training_preference: "Proposed preference update",
+    create_activity_override: "Proposed data correction",
+    update_race_details: "Proposed race update"
+  };
+
+  return labels[type] || "Proposed change";
+}
+
+function appendCoachActionRow(parent, label, value) {
+  if (typeof value !== "string" || !value.trim()) {
+    return;
+  }
+
+  const row = document.createElement("div");
+  row.className = "ca-row";
+
+  const name = document.createElement("span");
+  name.className = "ca-row-label";
+  name.textContent = label;
+
+  const val = document.createElement("span");
+  val.className = "ca-row-value";
+  val.textContent = value.trim();
+
+  row.appendChild(name);
+  row.appendChild(val);
+  parent.appendChild(row);
+}
+
+function buildCoachActionCard(action) {
+  const card = document.createElement("div");
+  card.className = "coach-action";
+  card.dataset.status = "pending";
+
+  const isCorrection = action.type === "create_activity_override";
+
+  const head = document.createElement("div");
+  head.className = "ca-head";
+
+  const kind = document.createElement("span");
+  kind.className = "ca-kind";
+  kind.textContent = coachActionKindLabel(action.type);
+
+  const status = document.createElement("span");
+  status.className = "ca-status";
+  status.textContent = "Pending";
+
+  head.appendChild(kind);
+  head.appendChild(status);
+  card.appendChild(head);
+
+  const title = document.createElement("h4");
+  title.className = "ca-title";
+  title.textContent =
+    typeof action.title === "string" && action.title.trim()
+      ? action.title.trim()
+      : "Coaching change";
+  card.appendChild(title);
+
+  const body = document.createElement("div");
+  body.className = "ca-body";
+
+  const affectedDate = action.to_date || action.from_date || null;
+  appendCoachActionRow(body, "Affected date", affectedDate);
+
+  if (isCorrection) {
+    appendCoachActionRow(body, "Imported value", action.original_summary);
+    appendCoachActionRow(body, "Corrected value", action.proposed_summary);
+  } else {
+    appendCoachActionRow(body, "Now", action.original_summary);
+    appendCoachActionRow(body, "Proposed", action.proposed_summary);
+  }
+
+  appendCoachActionRow(body, "Why", action.reason);
+
+  card.appendChild(body);
+
+  const actions = document.createElement("div");
+  actions.className = "ca-actions";
+
+  const applyBtn = document.createElement("button");
+  applyBtn.type = "button";
+  applyBtn.className = "ca-apply";
+  applyBtn.textContent = "Apply changes";
+  applyBtn.addEventListener("click", () => {
+    if (typeof window.applyCoachAction === "function") {
+      window.applyCoachAction(action.id, card);
+    }
+  });
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "ca-cancel";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", () => {
+    if (typeof window.cancelCoachAction === "function") {
+      window.cancelCoachAction(action.id, card);
+    }
+  });
+
+  actions.appendChild(applyBtn);
+  actions.appendChild(cancelBtn);
+  card.appendChild(actions);
+
+  const message = document.createElement("p");
+  message.className = "ca-msg";
+  card.appendChild(message);
+
+  return card;
+}
+
+function renderCoachActions(container, actions) {
+  actions.forEach(action => {
+    if (!action || typeof action !== "object" || !action.id) {
+      return;
+    }
+
+    // Register the full proposal so the Apply handler can send it
+    // without stuffing raw JSON into DOM attributes.
+    if (typeof window !== "undefined") {
+      window.__coachProposals = window.__coachProposals || {};
+      window.__coachProposals[action.id] = action;
+    }
+
+    container.appendChild(buildCoachActionCard(action));
+  });
 }
 
 function renderSuggestedReplies(replies) {

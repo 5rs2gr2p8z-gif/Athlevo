@@ -1,4 +1,49 @@
+import { randomUUID } from "node:crypto";
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
+import {
+  ACTION_TYPES,
+  validateProposedActions
+} from "../lib/server/coachActions.js";
+
+// Guidance for when the coach should propose a structured change in
+// addition to answering. The change is only ever a PROPOSAL — it is
+// applied elsewhere, after the athlete confirms.
+const COACH_ACTIONS_INSTRUCTION = `
+PROPOSING STRUCTURED CHANGES
+
+When the athlete's message implies their stored plan or activity data
+should change, populate the "actions" array with one or more proposals in
+addition to your normal reply. Otherwise leave "actions" empty.
+
+Map intent to action type:
+- "I'm out of town tomorrow / can't run tomorrow" -> move_workout or skip_workout on that date.
+- "Move my long run to Sunday" -> move_workout.
+- "Remove tomorrow's intervals" / "my calf hurts, drop the session" -> skip_workout or modify_workout (conservative).
+- "Make it easier / shorter" -> modify_workout.
+- "Replace it with an easy run" -> replace_workout.
+- "I can only train three days this week" / "I'm traveling next week" -> adjust_remaining_week or update_temporary_availability.
+- "I prefer long runs on Sunday" -> update_training_preference.
+- "My treadmill pace was actually 6:00/km, not 3:00/km" / "that run was intervals, not easy" -> create_activity_override.
+- "My race date changed" -> update_race_details.
+
+Rules:
+- Use target_session_id / target_activity_id taken ONLY from the ids in
+  the supplied athlete context. Never invent ids.
+- Put the affected date in from_date/to_date (YYYY-MM-DD).
+- Fill original_summary (what it is now) and proposed_summary (what it
+  becomes) in plain language for the athlete.
+- Give a short coaching reason.
+- For pain or illness: be conservative, do not diagnose, do not shove the
+  missed intensity into the next day, and suggest professional assessment
+  when it sounds serious.
+- Your text reply stays decisive and short: state the decision, then tell
+  the athlete to review the proposal below. NEVER claim the change is
+  already done — it needs their confirmation.
+- If you lack the id or date needed, do not fabricate an action; instead
+  ask one precise clarifying question in your reply and leave actions empty.
+
+Supported action types: ${ACTION_TYPES.join(", ")}.
+`.trim();
 
 // Coach-chat-only voice & formatting rules. Layered on top of the shared
 // Athlevo Method prompt so the daily brief and plan generator are
@@ -117,7 +162,7 @@ export default async function handler(req, res) {
           input: [
             {
     role: "developer",
-    content: `${athlevoMethodPrompt}\n\n${COACH_CHAT_STYLE}`
+    content: `${athlevoMethodPrompt}\n\n${COACH_CHAT_STYLE}\n\n${COACH_ACTIONS_INSTRUCTION}`
 },
             {
               role: "user",
@@ -235,7 +280,96 @@ ${question}
   items: {
     type: "string"
   }
-}
+},
+        actions: {
+          type: "array",
+          maxItems: 3,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              type: { type: "string", enum: ACTION_TYPES },
+              title: { type: "string" },
+              target_session_id: { type: ["string", "null"] },
+              target_activity_id: { type: ["string", "null"] },
+              from_date: { type: ["string", "null"] },
+              to_date: { type: ["string", "null"] },
+              reason: { type: ["string", "null"] },
+              original_summary: { type: ["string", "null"] },
+              proposed_summary: { type: ["string", "null"] },
+              changes: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  duration_minutes: { type: ["integer", "null"] },
+                  distance_km: { type: ["number", "null"] },
+                  session_type: { type: ["string", "null"] },
+                  title: { type: ["string", "null"] },
+                  intensity: { type: ["string", "null"] },
+                  notes: { type: ["string", "null"] }
+                },
+                required: [
+                  "duration_minutes",
+                  "distance_km",
+                  "session_type",
+                  "title",
+                  "intensity",
+                  "notes"
+                ]
+              },
+              corrected_values: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  distance_km: { type: ["number", "null"] },
+                  duration_minutes: { type: ["integer", "null"] },
+                  average_pace: { type: ["string", "null"] },
+                  activity_type: { type: ["string", "null"] },
+                  workout_structure: { type: ["string", "null"] },
+                  perceived_effort: { type: ["integer", "null"] },
+                  notes: { type: ["string", "null"] }
+                },
+                required: [
+                  "distance_km",
+                  "duration_minutes",
+                  "average_pace",
+                  "activity_type",
+                  "workout_structure",
+                  "perceived_effort",
+                  "notes"
+                ]
+              },
+              race_details: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  target_race: { type: ["string", "null"] },
+                  race_date: { type: ["string", "null"] },
+                  target_time: { type: ["string", "null"] }
+                },
+                required: ["target_race", "race_date", "target_time"]
+              },
+              availability_note: { type: ["string", "null"] },
+              preference_note: { type: ["string", "null"] }
+            },
+            required: [
+              "type",
+              "title",
+              "target_session_id",
+              "target_activity_id",
+              "from_date",
+              "to_date",
+              "reason",
+              "original_summary",
+              "proposed_summary",
+              "changes",
+              "corrected_values",
+              "race_details",
+              "availability_note",
+              "preference_note"
+            ]
+          }
+        }
       },
 
       required: [
@@ -247,7 +381,8 @@ ${question}
   "mission",
   "confidence",
   "closing",
-  "suggested_replies"
+  "suggested_replies",
+  "actions"
 ]
     }
   }
@@ -294,9 +429,19 @@ try {
     mission: null,
     confidence: null,
     closing: null,
-    suggested_replies: []
+    suggested_replies: [],
+    actions: []
   };
 }
+
+// Never trust raw model actions. Re-validate the shape server-side,
+// strip unsupported fields, and attach a stable id so a later "Apply"
+// tap is idempotent. Deep validation (ownership, existence, dates,
+// duplicates, load) happens when the athlete confirms, in the training
+// endpoint. Only well-formed actions are exposed to the client.
+structuredAnswer.actions = validateProposedActions(
+  structuredAnswer.actions
+).map(action => ({ ...action, id: randomUUID() }));
 
 return res.status(200).json({
   answer: structuredAnswer

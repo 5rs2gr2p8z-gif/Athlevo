@@ -232,11 +232,25 @@ training_history
 personal_constraint
 coach_preference
 
+Classify before saving. Only PERSISTENT facts belong in memory:
+- persistent training preference ("I prefer long runs on Sunday") -> save (training_preference)
+- chronic/recurring injury ("my left achilles flares up") -> save (injury)
+- durable device caveat ("my treadmill usually overestimates pace") -> save (equipment)
+- diet/equipment/schedule that is ongoing -> save
+
+TEMPORARY constraints are NOT memory — return action "none" for them. They
+are handled by the coach's structured actions, not long-term memory:
+- "I can't train Wednesday this week" -> none (temporary availability)
+- "I'm traveling next week" -> none (temporary schedule)
+- "my calf hurts today" / "I'm sick this week" -> none (temporary health)
+- any statement scoped to today / this week / next week / a single date
+
 Do not save:
 
 greetings
 casual conversation
 temporary emotions
+temporary or single-week availability, schedule, or health constraints
 questions without a durable fact
 facts already available from imported workout data
 assistant statements

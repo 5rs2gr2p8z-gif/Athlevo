@@ -1,5 +1,6 @@
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { summarizeExecutionRecord } from "../lib/server/executionRecords.js";
+import { applyActivityOverrides } from "../lib/server/coachActions.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -123,6 +124,28 @@ async function loadActivities(userId) {
   );
 
   return Array.isArray(rows) ? rows : [];
+}
+
+// Athlete-confirmed activity corrections. Optional: the table may not
+// exist yet, so a failure must never block the brief.
+async function loadActivityOverrides(userId) {
+  try {
+    const rows = await supabaseRequest(
+      [
+        "activity_data_overrides",
+        `?user_id=eq.${encodeURIComponent(userId)}`,
+        "&select=*"
+      ].join("")
+    );
+
+    return Array.isArray(rows) ? rows : [];
+  } catch (error) {
+    console.error(
+      "Activity overrides unavailable for brief:",
+      error?.message
+    );
+    return [];
+  }
 }
 
 // Recent explicit workout feedback. Optional: the table may not exist
@@ -736,7 +759,7 @@ export default async function handler(req, res) {
     const [
       profile,
       memories,
-      activities,
+      rawActivities,
       executionRecords
     ] = await Promise.all([
       loadProfile(user.id),
@@ -751,6 +774,13 @@ export default async function handler(req, res) {
           "No athlete profile was found."
       });
     }
+
+    // Prefer athlete-confirmed activity corrections over raw Strava.
+    const activityOverrides = await loadActivityOverrides(user.id);
+    const activities = applyActivityOverrides(
+      rawActivities,
+      activityOverrides
+    );
 
     const feedbackContext =
       buildFeedbackContext(executionRecords);

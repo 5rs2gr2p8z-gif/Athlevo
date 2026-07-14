@@ -257,6 +257,9 @@ async function loadWeekExecutionForCoach() {
       const record = item.execution || null;
 
       const entry = {
+        // Exposed so the coach can target a specific session in an
+        // action proposal. Server re-verifies ownership before applying.
+        session_id: item.id || null,
         date: item.session_date || null,
         title: item.title || null,
         type: item.session_type || null,
@@ -515,9 +518,136 @@ function sendMsg() {
   askCoach(question);
 }
 
+/* ══════════════ structured coach actions ══════════════ */
+
+function setActionCardStatus(cardEl, label, cls) {
+  const status = cardEl.querySelector(".ca-status");
+
+  if (status) {
+    status.textContent = label;
+    status.className = "ca-status" + (cls ? " " + cls : "");
+  }
+}
+
+/*
+ * Applies a confirmed coach proposal through the authenticated training
+ * endpoint. The server re-validates ownership and every field before it
+ * changes anything. Idempotent: a repeated tap can't double-apply.
+ */
+async function applyCoachAction(proposalId, cardEl) {
+  if (!cardEl || cardEl.dataset.status === "applied") {
+    return;
+  }
+
+  const proposal =
+    (window.__coachProposals || {})[proposalId] || null;
+
+  const applyBtn = cardEl.querySelector(".ca-apply");
+  const cancelBtn = cardEl.querySelector(".ca-cancel");
+  const message = cardEl.querySelector(".ca-msg");
+
+  if (!proposal) {
+    if (message) {
+      message.textContent = "This proposal is no longer available.";
+    }
+    return;
+  }
+
+  if (applyBtn) {
+    applyBtn.disabled = true;
+    applyBtn.textContent = "Applying…";
+  }
+  if (cancelBtn) {
+    cancelBtn.disabled = true;
+  }
+  if (message) {
+    message.textContent = "";
+  }
+
+  try {
+    const {
+      data: { session }
+    } = await supabaseClient.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new Error("Please log in again to apply this change.");
+    }
+
+    const res = await fetch("/api/training/get-week", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        intent: "apply_coach_action",
+        proposal
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "That change could not be applied.");
+    }
+
+    cardEl.dataset.status = "applied";
+    setActionCardStatus(cardEl, "Applied", "applied");
+
+    if (applyBtn) applyBtn.remove();
+    if (cancelBtn) cancelBtn.remove();
+
+    if (typeof toast === "function") {
+      toast("Change applied");
+    }
+
+    // Refresh the surfaces the change affects.
+    if (window.AthlevoBrain?.refreshAthleteUI) {
+      await window.AthlevoBrain.refreshAthleteUI();
+    }
+    if (typeof window.loadWeeklyPlan === "function") {
+      await window.loadWeeklyPlan();
+    }
+  } catch (error) {
+    console.error("Apply coach action failed:", error);
+
+    if (message) {
+      message.textContent =
+        error.message || "Could not apply. Please try again.";
+    }
+    if (applyBtn) {
+      applyBtn.disabled = false;
+      applyBtn.textContent = "Apply changes";
+    }
+    if (cancelBtn) {
+      cancelBtn.disabled = false;
+    }
+  }
+}
+
+/* Cancel is client-only — it changes no stored data. */
+function cancelCoachAction(proposalId, cardEl) {
+  if (!cardEl || cardEl.dataset.status === "applied") {
+    return;
+  }
+
+  cardEl.dataset.status = "cancelled";
+  setActionCardStatus(cardEl, "Cancelled", "cancelled");
+
+  const applyBtn = cardEl.querySelector(".ca-apply");
+  const cancelBtn = cardEl.querySelector(".ca-cancel");
+  const message = cardEl.querySelector(".ca-msg");
+
+  if (applyBtn) applyBtn.remove();
+  if (cancelBtn) cancelBtn.remove();
+  if (message) message.textContent = "No changes were made.";
+}
+
 window.askCoach = askCoach;
 window.ask = ask;
 window.sendMsg = sendMsg;
 window.loadConversationHistory = loadConversationHistory;
 window.saveConversationMessage = saveConversationMessage;
 window.renderConversationHistory = renderConversationHistory;
+window.applyCoachAction = applyCoachAction;
+window.cancelCoachAction = cancelCoachAction;

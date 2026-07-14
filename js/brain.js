@@ -152,6 +152,10 @@ function buildCoachingContext(
       );
 
       return {
+        // Exposed so the coach can target this activity in a correction
+        // proposal. Server re-verifies ownership before applying.
+        id: activity.id || null,
+
         name:
           activity.name ||
           activity.sport_type ||

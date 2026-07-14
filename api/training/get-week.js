@@ -4,6 +4,13 @@ import {
   matchActivitiesToSessions
 } from "../../lib/server/executionRecords.js";
 
+import {
+  buildActivityOverrideRow,
+  buildSessionPatch,
+  snapshotSession,
+  validateActionForApply
+} from "../../lib/server/coachActions.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -255,6 +262,60 @@ async function loadSessionForUser(userId, sessionId) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
+async function loadActivityOverrides(userId) {
+  const rows = await optionalRequest(
+    [
+      "activity_data_overrides",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      "&select=*"
+    ].join("")
+  );
+
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function loadActivityForUser(userId, activityId) {
+  const rows = await optionalRequest(
+    [
+      "activities",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      `&id=eq.${encodeURIComponent(activityId)}`,
+      "&select=id,name,sport_type,activity_type,distance_meters,moving_time_seconds",
+      "&limit=1"
+    ].join("")
+  );
+
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function loadSessionOnDate(userId, sessionDate) {
+  const rows = await optionalRequest(
+    [
+      "training_sessions",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      `&session_date=eq.${encodeURIComponent(sessionDate)}`,
+      "&select=id,session_date",
+      "&limit=1"
+    ].join("")
+  );
+
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function loadProposalById(userId, proposalId) {
+  const rows = await optionalRequest(
+    [
+      "coach_action_proposals",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      `&id=eq.${encodeURIComponent(proposalId)}`,
+      "&select=*",
+      "&limit=1"
+    ].join("")
+  );
+
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
 /*
  * Merges the athlete's execution feedback and any same-day Strava match
  * onto each session so the Train tab can render status without a second
@@ -306,9 +367,10 @@ async function handleGet(request, response, user) {
     .map(session => session?.id)
     .filter(Boolean);
 
-  const [records, activities] = await Promise.all([
+  const [records, activities, activityOverrides] = await Promise.all([
     loadExecutionRecords(user.id, sessionIds),
-    loadWeekActivities(user.id, weekStartKey, weekEndKey)
+    loadWeekActivities(user.id, weekStartKey, weekEndKey),
+    loadActivityOverrides(user.id)
   ]);
 
   const enriched = enrichSessions(sessions, records, activities);
@@ -318,8 +380,266 @@ async function handleGet(request, response, user) {
     weekStart: weekStartKey,
     plan,
     sessions: enriched,
-    executionRecords: records
+    executionRecords: records,
+    activityOverrides
   });
+}
+
+/*
+ * Applies ONE athlete-confirmed coach action proposal. Everything is
+ * validated server-side against the database before any write — the
+ * model's output is never trusted. Idempotent by proposal id, so a
+ * repeated "Apply" tap cannot double-apply.
+ */
+async function handleApplyAction(response, user, body) {
+  const proposal = body.proposal;
+
+  if (!proposal || typeof proposal !== "object") {
+    return sendJson(response, 400, {
+      error: "A proposal is required to apply a change."
+    });
+  }
+
+  const proposalId =
+    typeof proposal.id === "string" && proposal.id.trim()
+      ? proposal.id.trim()
+      : null;
+
+  // Idempotency: if this proposal was already applied, return it.
+  if (proposalId) {
+    const existing = await loadProposalById(user.id, proposalId);
+    if (existing && existing.status === "applied") {
+      return sendJson(response, 200, {
+        success: true,
+        alreadyApplied: true,
+        proposal: existing
+      });
+    }
+  }
+
+  const { action, error } = validateActionForApply(proposal);
+
+  if (error) {
+    return sendJson(response, 400, { error });
+  }
+
+  const nowIso = new Date().toISOString();
+  const affectedSessionIds = [];
+  let originalSnapshot = null;
+  let correctedValues = null;
+  let refreshed = {};
+
+  try {
+    if (
+      action.type === "move_workout" ||
+      action.type === "modify_workout" ||
+      action.type === "replace_workout"
+    ) {
+      const session = await loadSessionForUser(
+        user.id,
+        action.target_session_id
+      );
+
+      if (!session) {
+        return sendJson(response, 404, {
+          error: "That training session could not be found."
+        });
+      }
+
+      // Moving onto a day that already has a session would duplicate.
+      if (action.type === "move_workout") {
+        const clash = await loadSessionOnDate(user.id, action.to_date);
+        if (clash && String(clash.id) !== String(session.id)) {
+          return sendJson(response, 409, {
+            error: "There is already a session on that date."
+          });
+        }
+      }
+
+      originalSnapshot = snapshotSession(session);
+      affectedSessionIds.push(session.id);
+
+      const patch = buildSessionPatch(action, session);
+
+      const updated = await supabaseRequest(
+        "training_sessions" +
+          `?id=eq.${encodeURIComponent(session.id)}` +
+          `&user_id=eq.${encodeURIComponent(user.id)}`,
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=representation" },
+          body: patch
+        }
+      );
+
+      refreshed.session = Array.isArray(updated) ? updated[0] || null : updated;
+    } else if (action.type === "skip_workout") {
+      const session = await loadSessionForUser(
+        user.id,
+        action.target_session_id
+      );
+
+      if (!session) {
+        return sendJson(response, 404, {
+          error: "That training session could not be found."
+        });
+      }
+
+      originalSnapshot = snapshotSession(session);
+      affectedSessionIds.push(session.id);
+
+      // Reuse the authoritative execution system to mark the skip.
+      const { row } = buildExecutionRow({
+        body: {
+          status: "skipped",
+          training_session_id: session.id,
+          skip_reason: "other",
+          athlete_notes: action.reason || null
+        },
+        userId: user.id,
+        session
+      });
+
+      const saved = await supabaseRequest(
+        "workout_execution_records" +
+          "?on_conflict=user_id,training_session_id",
+        {
+          method: "POST",
+          headers: {
+            Prefer: "resolution=merge-duplicates,return=representation"
+          },
+          body: row
+        }
+      );
+
+      refreshed.execution = Array.isArray(saved) ? saved[0] || null : saved;
+    } else if (action.type === "create_activity_override") {
+      const activity = await loadActivityForUser(
+        user.id,
+        action.target_activity_id
+      );
+
+      if (!activity) {
+        return sendJson(response, 404, {
+          error: "That activity could not be found."
+        });
+      }
+
+      originalSnapshot = {
+        activity_id: activity.id,
+        distance_meters: activity.distance_meters,
+        moving_time_seconds: activity.moving_time_seconds,
+        sport_type: activity.sport_type || activity.activity_type || null
+      };
+      correctedValues = action.corrected_values;
+
+      const overrideRow = buildActivityOverrideRow({
+        userId: user.id,
+        action,
+        activityId: activity.id,
+        proposalId
+      });
+
+      const savedOverride = await supabaseRequest(
+        "activity_data_overrides?on_conflict=user_id,activity_id",
+        {
+          method: "POST",
+          headers: {
+            Prefer: "resolution=merge-duplicates,return=representation"
+          },
+          body: overrideRow
+        }
+      );
+
+      refreshed.override = Array.isArray(savedOverride)
+        ? savedOverride[0] || null
+        : savedOverride;
+    } else if (action.type === "update_race_details") {
+      const profilePatch = { updated_at: nowIso };
+      if (action.race_details.target_race) {
+        profilePatch.target_race = action.race_details.target_race;
+      }
+      if (action.race_details.race_date) {
+        profilePatch.race_date = action.race_details.race_date;
+      }
+      if (action.race_details.target_time) {
+        profilePatch.target_time = action.race_details.target_time;
+      }
+
+      correctedValues = action.race_details;
+
+      await supabaseRequest(
+        `profiles?id=eq.${encodeURIComponent(user.id)}`,
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: profilePatch
+        }
+      );
+    }
+    // update_training_preference / update_temporary_availability /
+    // adjust_remaining_week: recorded as an applied proposal only. They
+    // are conservative signals read by next-week generation; we never
+    // auto-rewrite the current week (no shoving missed intensity forward).
+
+    // Record the applied proposal (source, snapshot, reason). This is the
+    // permanent, user-owned audit the rest of the app reads.
+    const proposalRow = {
+      user_id: user.id,
+      source_conversation_id:
+        typeof proposal.source_conversation_id === "string"
+          ? proposal.source_conversation_id.slice(0, 200)
+          : null,
+      source_message_id:
+        typeof proposal.source_message_id === "string"
+          ? proposal.source_message_id.slice(0, 200)
+          : null,
+      action_type: action.type,
+      status: "applied",
+      affected_session_ids: affectedSessionIds,
+      proposed_changes: {
+        changes: action.changes,
+        to_date: action.to_date || null,
+        from_date: action.from_date || null,
+        availability_note: action.availability_note || null,
+        preference_note: action.preference_note || null
+      },
+      original_snapshot: originalSnapshot,
+      corrected_values: correctedValues,
+      reason: action.reason || null,
+      confirmed_at: nowIso,
+      applied_at: nowIso,
+      updated_at: nowIso
+    };
+
+    if (proposalId) {
+      proposalRow.id = proposalId;
+    }
+
+    const savedProposal = await supabaseRequest(
+      "coach_action_proposals?on_conflict=id",
+      {
+        method: "POST",
+        headers: {
+          Prefer: "resolution=merge-duplicates,return=representation"
+        },
+        body: proposalRow
+      }
+    );
+
+    return sendJson(response, 200, {
+      success: true,
+      proposal: Array.isArray(savedProposal)
+        ? savedProposal[0] || null
+        : savedProposal,
+      refreshed
+    });
+  } catch (applyError) {
+    console.error("Applying coach action failed:", applyError);
+    return sendJson(response, 500, {
+      error: "That change could not be applied. Please try again."
+    });
+  }
 }
 
 async function handlePost(request, response, user) {
@@ -329,6 +649,11 @@ async function handlePost(request, response, user) {
       : typeof request.body === "string" && request.body
       ? JSON.parse(request.body)
       : {};
+
+  // Branch: apply a confirmed coach action proposal.
+  if (body.intent === "apply_coach_action") {
+    return await handleApplyAction(response, user, body);
+  }
 
   const sessionId =
     typeof body.training_session_id === "string"
