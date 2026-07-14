@@ -387,6 +387,56 @@ body{
 .ob-chip{background:var(--paper);border:1px solid var(--line);border-radius:100px;padding:10px 17px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:border-color .2s,transform .12s}
 .ob-chip:hover{border-color:var(--ink)}
 .ob-chip:active{transform:scale(.96)}
+
+/* ═══════════ premium onboarding wizard (v2) ═══════════ */
+#screen-onboard{padding-bottom:0}
+.ob2-top{display:flex;align-items:center;gap:14px;padding:16px 22px calc(16px + env(safe-area-inset-top));flex-shrink:0}
+.ob2-back{width:34px;height:34px;flex-shrink:0;border:none;background:var(--card);border-radius:50%;color:var(--ink);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .2s,background .2s,transform .12s}
+.ob2-back:active{transform:scale(.92)}
+.ob2-back[disabled]{opacity:0;pointer-events:none}
+.ob2-progress{flex:1;height:5px;background:var(--line);border-radius:100px;overflow:hidden}
+.ob2-progress-fill{height:100%;width:16.6%;background:var(--red);border-radius:100px;transition:width .55s cubic-bezier(.3,.7,.3,1)}
+.ob2-count{font-size:12px;font-weight:700;color:var(--ink3);font-variant-numeric:tabular-nums;flex-shrink:0;min-width:34px;text-align:right}
+
+.ob2-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 22px 24px;-webkit-overflow-scrolling:touch}
+@keyframes ob2In{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.ob2-step{animation:ob2In .34s cubic-bezier(.3,.7,.3,1)}
+.ob2-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--red)}
+.ob2-title{font-family:var(--serif);font-size:29px;font-weight:500;letter-spacing:-.02em;line-height:1.12;margin:10px 0 8px}
+.ob2-sub{font-size:14.5px;line-height:1.5;color:var(--ink2);margin-bottom:26px;max-width:34ch}
+
+.ob2-field{margin-bottom:22px}
+.ob2-field:last-child{margin-bottom:4px}
+.ob2-label{font-size:13px;font-weight:700;letter-spacing:.01em;color:var(--ink);display:block;margin-bottom:10px}
+.ob2-label .opt{font-weight:600;color:var(--ink3);letter-spacing:0}
+.ob2-input{width:100%;border:1.5px solid var(--line);background:var(--card2);border-radius:var(--r-md);padding:15px 17px;font-family:var(--sans);font-size:16px;color:var(--ink);outline:none;transition:border-color .2s,background .2s}
+.ob2-input::placeholder{color:var(--ink3)}
+.ob2-input:focus{border-color:var(--ink);background:var(--paper)}
+textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
+.ob2-affix{position:relative;display:flex;align-items:center}
+.ob2-affix .ob2-input{padding-right:52px}
+.ob2-affix .unit{position:absolute;right:17px;font-size:14px;font-weight:600;color:var(--ink3);pointer-events:none}
+.ob2-row{display:flex;gap:12px}
+.ob2-row .ob2-field{flex:1;margin-bottom:0}
+
+.ob2-chips{display:flex;flex-wrap:wrap;gap:9px}
+.ob2-chip{background:var(--paper);border:1.5px solid var(--line);border-radius:100px;padding:12px 18px;min-height:46px;display:inline-flex;align-items:center;font-family:var(--sans);font-size:14.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .18s,background .18s,color .18s,transform .1s}
+.ob2-chip:hover{border-color:var(--ink3)}
+.ob2-chip:active{transform:scale(.95)}
+.ob2-chip.sel{background:var(--ink);border-color:var(--ink);color:#fff}
+.ob2-chip.sel.red{background:var(--red);border-color:var(--red)}
+.ob2-days{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+.ob2-day{aspect-ratio:1;border:1.5px solid var(--line);background:var(--paper);border-radius:12px;font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--ink2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .18s,background .18s,color .18s,transform .1s}
+.ob2-day:active{transform:scale(.92)}
+.ob2-day.sel{background:var(--ink);border-color:var(--ink);color:#fff}
+
+.ob2-foot{flex-shrink:0;padding:12px 22px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--paper) 62%,rgba(255,255,255,0));border-top:1px solid var(--line)}
+.ob2-msg{font-size:13px;font-weight:600;color:var(--red);min-height:18px;margin-bottom:8px;text-align:center}
+.ob2-continue{width:100%;font-family:var(--sans);font-size:16px;font-weight:700;letter-spacing:.01em;padding:16px;border-radius:100px;border:none;background:var(--ink);color:#fff;cursor:pointer;transition:opacity .2s,transform .12s}
+.ob2-continue:active{transform:scale(.985)}
+.ob2-continue[disabled]{opacity:.5;pointer-events:none}
+.ob2-continue.done{background:var(--red)}
+
 .connect-card{margin-top:12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:16px;text-align:center}
 .connect-card .ilogo{margin:0 auto 10px}
 .connect-card b{font-size:14.5px}
@@ -1313,29 +1363,19 @@ body{
 <!-- ══════════════ ONBOARDING INTERVIEW ══════════════ -->
 <section class="screen" id="screen-onboard">
 
-    <div class="chat-head">
-        <div class="avatar serif">A</div>
-        <div>
-            <b>Athlevo Coach</b>
-            <small>Building your athlete profile</small>
+    <div class="ob2-top">
+        <button class="ob2-back" id="ob2Back" type="button" aria-label="Go back" disabled>‹</button>
+        <div class="ob2-progress">
+            <div class="ob2-progress-fill" id="ob2ProgressFill"></div>
         </div>
+        <span class="ob2-count" id="ob2Count">1&nbsp;/&nbsp;6</span>
     </div>
 
-    <div class="chatlog" id="obLog"></div>
+    <div class="ob2-body" id="ob2Body"></div>
 
-    <div class="composer">
-
-        <input
-            id="obInput"
-            type="text"
-            placeholder="Type your answer..."
-            autocomplete="off"
-        >
-
-        <button id="obSend">
-            Send
-        </button>
-
+    <div class="ob2-foot">
+        <p class="ob2-msg" id="ob2Msg" role="status" aria-live="polite"></p>
+        <button class="ob2-continue" id="ob2Continue" type="button">Continue</button>
     </div>
 
 </section>
