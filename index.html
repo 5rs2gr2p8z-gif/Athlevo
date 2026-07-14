@@ -4,8 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Athlevo — Endurance Operating System</title>
+
+<!-- Athlevo brand icon (final): favicon + Apple touch icon. -->
+<link rel="icon" type="image/png" href="assets/athlevo-icon.png">
+<link rel="apple-touch-icon" href="assets/athlevo-icon.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Fraunces (existing serif) + Space Grotesk (geometric sans wordmark). -->
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --paper:#ffffff;
@@ -336,8 +343,11 @@ body{
 .cm-btn.approve{background:var(--ink);border-color:var(--ink);color:#fff}
 /* ---------- welcome ---------- */
 .welcome{justify-content:space-between;padding:0!important}
-.w-top{padding:90px 30px 0}
-.w-mark{font-family:var(--serif);font-size:44px;font-weight:500;letter-spacing:-.02em}
+.w-top{padding:84px 30px 0}
+/* Icon + wordmark brand lockup */
+.w-lockup{display:flex;flex-direction:column;align-items:flex-start;gap:16px}
+.w-icon{width:56px;height:56px;object-fit:contain;display:block;flex-shrink:0}
+.w-mark{font-family:"Space Grotesk",var(--sans);font-size:40px;font-weight:700;letter-spacing:.01em;text-transform:uppercase;line-height:1}
 .w-mark i{font-style:normal;color:var(--red)}
 .w-tag{font-size:16px;color:var(--ink2);margin-top:14px;line-height:1.5;max-width:290px}
 .w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:10px}
@@ -1235,7 +1245,10 @@ body{
 <!-- ══════════════ WELCOME ══════════════ -->
 <section class="screen welcome active" id="screen-welcome">
   <div class="w-top">
-    <div class="w-mark serif">Athlevo<i>.</i></div>
+    <div class="w-lockup">
+      <img class="w-icon" src="assets/athlevo-icon.png" alt="" width="56" height="56" onerror="this.style.visibility='hidden'">
+      <div class="w-mark">ATHLEVO<i>.</i></div>
+    </div>
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
   </div>
   <div class="w-btns">
@@ -1284,7 +1297,7 @@ body{
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
   <div class="statusrow">
-  <img class="brand-icon" src="assets/athlevo-logo.png" alt="Athlevo">
+  <img class="brand-icon" src="assets/athlevo-icon.png" alt="Athlevo" width="32" height="32" onerror="this.style.visibility='hidden'">
 </div>
   <div class="greet">
   <h1 class="serif">
