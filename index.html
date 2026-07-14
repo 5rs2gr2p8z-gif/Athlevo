@@ -445,6 +445,30 @@ body{
   .auth-switch { margin:14px 0 0; font-size:13px; text-align:center; color:#555; }
   .auth-switch a { color:#C0272D; cursor:pointer; text-decoration:underline; }
   .auth-box > div > button:disabled { opacity:.45; cursor:not-allowed; }
+  /* subtle legal consent line under Create Account */
+  .auth-legal { margin:14px 0 0; font-size:11.5px; line-height:1.55; color:#9a9da3; text-align:center; }
+  .auth-legal a { color:#6d7075; text-decoration:underline; cursor:pointer; }
+  /* legal document pages */
+  .legal-head { display:flex; align-items:center; gap:10px; padding:18px 20px 6px;
+    position:sticky; top:0; background:rgba(255,255,255,.94); backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px); z-index:5; }
+  .legal-back { display:inline-flex; align-items:center; gap:6px; background:none; border:none;
+    font-family:var(--sans); font-size:15px; font-weight:600; color:var(--ink); cursor:pointer; padding:6px 4px; }
+  .legal-back svg { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2;
+    stroke-linecap:round; stroke-linejoin:round; }
+  .legal-wrap { padding:6px 22px 48px; max-width:680px; margin:0 auto; }
+  .legal-body h1 { font-family:var(--serif); font-size:28px; font-weight:500; letter-spacing:-.01em;
+    line-height:1.16; margin:8px 0 4px; color:var(--ink); }
+  .legal-body h2 { font-family:var(--sans); font-size:17px; font-weight:700; letter-spacing:-.01em;
+    margin:30px 0 8px; color:var(--ink); }
+  .legal-body h3 { font-size:13.5px; font-weight:700; letter-spacing:.02em; text-transform:uppercase;
+    color:var(--ink3); margin:20px 0 8px; }
+  .legal-body p { font-size:14.5px; line-height:1.72; color:var(--ink2); margin:0 0 12px; }
+  .legal-body p.legal-updated { font-size:12.5px; color:var(--ink3); margin:2px 0 20px; }
+  .legal-body ul { margin:0 0 14px; padding-left:20px; }
+  .legal-body li { font-size:14.5px; line-height:1.65; color:var(--ink2); margin:6px 0; }
+  .legal-body strong { color:var(--ink); font-weight:650; }
+  .legal-loading { font-size:14px; color:var(--ink3); padding:20px 0; }
   /* live password requirements */
   .pw-check { list-style:none; margin:2px 0 14px; padding:0;
     display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; }
@@ -1880,6 +1904,20 @@ body{
     <div><b>Feedback &amp; Suggestions</b><small>Report a bug, share an idea, or tell us what felt confusing.</small></div><span class="arr">→</span>
   </div>
   <div class="spacer-lg"></div>
+
+  <div class="pad"><div class="section-title serif">Legal</div></div>
+  <div class="rowlink" onclick="openLegal('privacy')">
+    <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
+  </div>
+  <div class="spacer-md" style="height:12px"></div>
+  <div class="rowlink" onclick="openLegal('terms')">
+    <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
+  </div>
+  <div class="spacer-md" style="height:12px"></div>
+  <div class="rowlink" onclick="openLegal('beta')">
+    <div><b>Private Beta</b><small>What to expect while Athlevo is in private beta.</small></div><span class="arr">→</span>
+  </div>
+  <div class="spacer-lg"></div>
 <div class="spacer-lg"></div>
 
 <button class="primary" onclick="doLogout()">
@@ -1964,6 +2002,37 @@ body{
 
 <!-- ══════════════ DAILY READINESS MODAL ══════════════ -->
 <div class="modal-back" id="readinessModal"></div>
+
+<!-- ══════════════ LEGAL PAGES ══════════════ -->
+<section class="screen" id="screen-privacy">
+  <div class="legal-head">
+    <button class="legal-back" type="button" onclick="closeLegal()">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+      Back
+    </button>
+  </div>
+  <div class="legal-wrap"><div class="legal-body" id="legalBodyPrivacy"></div></div>
+</section>
+
+<section class="screen" id="screen-terms">
+  <div class="legal-head">
+    <button class="legal-back" type="button" onclick="closeLegal()">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+      Back
+    </button>
+  </div>
+  <div class="legal-wrap"><div class="legal-body" id="legalBodyTerms"></div></div>
+</section>
+
+<section class="screen" id="screen-beta">
+  <div class="legal-head">
+    <button class="legal-back" type="button" onclick="closeLegal()">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+      Back
+    </button>
+  </div>
+  <div class="legal-wrap"><div class="legal-body" id="legalBodyBeta"></div></div>
+</section>
 
 <!-- ══════════════ TAB BAR ══════════════ -->
 <nav class="tabbar" id="tabbar" style="display:none">
@@ -2518,6 +2587,10 @@ async function restoreSession() {
       </ul>
       <button id="suBtn" onclick="doSignup()" disabled>Create Account</button>
       <p class="auth-msg" id="suMsg"></p>
+      <p class="auth-legal">By creating an account, you agree to our
+        <a onclick="openLegal('terms')">Terms of Service</a>,
+        <a onclick="openLegal('privacy')">Privacy Policy</a>, and
+        <a onclick="openLegal('beta')">Private Beta Disclaimer</a>.</p>
       <p class="auth-switch">Already have an account?
         <a onclick="showLoginForm()">Log in</a></p>
     </div>
@@ -2544,6 +2617,7 @@ async function restoreSession() {
 <script src="js/train.js"></script>
 <script src="js/feedback.js"></script>
 <script src="js/readiness.js"></script>
+<script src="js/legal.js"></script>
 <script src="js/onboarding.js"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
