@@ -126,6 +126,13 @@ body{
 .ring .center i{font-style:normal;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
 .readiness-copy h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
 .readiness-copy p{font-size:13.5px;color:var(--ink2);margin-top:4px}
+.readiness-btn{margin-top:12px;font-family:var(--sans);font-size:13.5px;font-weight:650;padding:10px 16px;border-radius:100px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;transition:all .16s}
+.readiness-btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.readiness-btn:active{transform:scale(.98)}
+/* daily readiness modal */
+.rd-why{font-size:13.5px;line-height:1.6;color:var(--ink2);margin-bottom:6px}
+.rd-scale{flex-wrap:wrap}
+.rd-scale .ci-dot{width:30px;height:34px}
 
 /* decision card — the signature */
 .decision{margin:0 22px;background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:22px;overflow:hidden}
@@ -1306,12 +1313,14 @@ body{
   </div>
 
   <div class="readiness-copy">
-    <h2 id="readinessTitle">Not enough data yet.</h2>
+    <h2 id="readinessTitle">Daily readiness</h2>
 
     <p id="readinessCopy">
-      Connect Strava or record a workout to begin your training history, then
-      complete a readiness check.
+      A 30-second check so Athlevo can coach today using how you actually
+      feel — not just your watch.
     </p>
+
+    <div id="readinessCta"></div>
   </div>
 </div>
 
@@ -1926,6 +1935,9 @@ body{
 <!-- ══════════════ BETA FEEDBACK & SUGGESTIONS MODAL ══════════════ -->
 <div class="modal-back" id="betaFeedbackModal"></div>
 
+<!-- ══════════════ DAILY READINESS MODAL ══════════════ -->
+<div class="modal-back" id="readinessModal"></div>
+
 <!-- ══════════════ TAB BAR ══════════════ -->
 <nav class="tabbar" id="tabbar" style="display:none">
   <button class="tab on" data-screen="screen-today" onclick="go(this)">
@@ -2340,6 +2352,7 @@ async function restoreSession() {
 <script src="js/coach.js"></script>
 <script src="js/train.js"></script>
 <script src="js/feedback.js"></script>
+<script src="js/readiness.js"></script>
 <script src="js/onboarding.js"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that

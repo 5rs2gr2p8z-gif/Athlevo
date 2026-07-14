@@ -15,6 +15,7 @@ import {
 } from "../../lib/server/executionRecords.js";
 
 import { applyActivityOverrides } from "../../lib/server/coachActions.js";
+import { summarizeReadiness } from "../../lib/server/readiness.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -886,6 +887,10 @@ d. If any session reports pain (pain_present), treat the affected area carefully
 e. If sessions were repeatedly reported as harder than expected or at RPE 8 or above while recovery is not strong, hold or ease intensity rather than progressing.
 f. If strong completion and modifications still landed the intended work with stable recovery, conservative progression is acceptable.
 g. Only when adjust_remaining_week signals the athlete asked for it should missed days trigger reshaping of the remaining week — and even then, never move missed intensity into the next day.
+
+DAILY READINESS HISTORY
+
+The athlete data may include recentReadiness: their own daily reports of sleep, energy, muscle soreness, mental stress, and pain over the last two weeks. Use the pattern (not a single day) to decide how aggressively to ramp: a run of poor sleep, low energy, high soreness/stress, or repeated pain means ramp conservatively and protect recovery; consistently strong readiness with good completion supports normal progression. Never invent readiness values, and never present a fabricated readiness or recovery score — reason only from the reported inputs.
             `.trim()
           },
 
@@ -954,7 +959,10 @@ g. Only when adjust_remaining_week signals the athlete asked for it should misse
 
                 sessionExecutionSignals:
                   adaptationContext?.executionSignals ||
-                  null
+                  null,
+
+                recentReadiness:
+                  recentReadiness.length ? recentReadiness : null
               },
               null,
               2
@@ -1643,6 +1651,19 @@ const weekEnd =
       activities,
       Array.isArray(activityOverrides) ? activityOverrides : []
     );
+
+    // Historical daily readiness (last ~14 days) informs how hard to
+    // ramp the next week — the athlete's own reports, never a score.
+    const readinessSinceKey = formatDateKey(addDays(weekStart, -14));
+    const readinessRows = await optionalSupabaseRequest(
+      `daily_readiness?user_id=eq.${encodeURIComponent(user.id)}` +
+        `&readiness_date=gte.${readinessSinceKey}` +
+        "&select=*&order=readiness_date.desc&limit=14"
+    );
+
+    const recentReadiness = (Array.isArray(readinessRows) ? readinessRows : [])
+      .map(summarizeReadiness)
+      .filter(Boolean);
 
     const activitySummary =
       summarizeActivities(

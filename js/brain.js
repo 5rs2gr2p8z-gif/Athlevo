@@ -1332,6 +1332,12 @@ async function refreshAthleteUI() {
       totalActivityCount
     );
 
+    // Daily readiness owns its card CTA/summary; render it after the
+    // generic copy so it reflects whether today's readiness is logged.
+    if (typeof window.renderReadinessCard === "function") {
+      window.renderReadinessCard();
+    }
+
     console.log("Athlete UI updated for:", profile.id);
 
     return {

@@ -1,6 +1,7 @@
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { summarizeExecutionRecord } from "../lib/server/executionRecords.js";
 import { applyActivityOverrides } from "../lib/server/coachActions.js";
+import { summarizeReadiness } from "../lib/server/readiness.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -124,6 +125,31 @@ async function loadActivities(userId) {
   );
 
   return Array.isArray(rows) ? rows : [];
+}
+
+// Today's readiness (Asia/Manila calendar day). Optional: the table may
+// not exist yet, so a failure must never block the brief.
+async function loadTodayReadiness(userId) {
+  try {
+    const today = getDateKey();
+    const rows = await supabaseRequest(
+      [
+        "daily_readiness",
+        `?user_id=eq.${encodeURIComponent(userId)}`,
+        `&readiness_date=eq.${today}`,
+        "&select=*",
+        "&limit=1"
+      ].join("")
+    );
+
+    return Array.isArray(rows) ? rows[0] || null : null;
+  } catch (error) {
+    console.error(
+      "Readiness unavailable for brief:",
+      error?.message
+    );
+    return null;
+  }
 }
 
 // Athlete-confirmed activity corrections. Optional: the table may not
@@ -490,6 +516,7 @@ async function generateBriefing({
   memories,
   activityContext,
   feedbackContext,
+  readinessContext,
   briefingDate
 }) {
   const methodPrompt =
@@ -548,6 +575,8 @@ Data limitations should explicitly name important missing inputs.
 If there are no imported activities, say that there is not enough recent activity data and do not create a workout recommendation.
 
 The athlete data may include sessionFeedback: the athlete's own reports of recently planned sessions (completed, skipped, or modified, with RPE, feeling, and pain). Use it as recorded fact. Never shame a skipped or modified session. If pain was reported, be cautious and conservative about intensity near the affected area, and do not diagnose. If a session was skipped for schedule reasons, treat it as a scheduling matter, not lost fitness. Do not invent feedback that is not present.
+
+The athlete data may include todayReadiness: the athlete's own report of today's sleep, energy, muscle soreness, mental stress, and pain. Treat it as real coaching input and let it shape the recommendation (protect quality when soreness/stress are high or sleep was poor; be cautious if pain is present, without diagnosing). Refer to their actual answers, never a fabricated readiness or recovery score. If todayReadiness is absent, say readiness has not been logged today rather than inventing it.
             `.trim()
           },
 
@@ -563,7 +592,8 @@ The athlete data may include sessionFeedback: the athlete's own reports of recen
                 sessionFeedback:
                   feedbackContext && feedbackContext.length
                     ? feedbackContext
-                    : null
+                    : null,
+                todayReadiness: readinessContext || null
               },
               null,
               2
@@ -785,10 +815,14 @@ export default async function handler(req, res) {
     const feedbackContext =
       buildFeedbackContext(executionRecords);
 
+    // Today's readiness — the athlete's own report — informs the brief.
+    const readinessRecord = await loadTodayReadiness(user.id);
+    const readinessContext = summarizeReadiness(readinessRecord);
+
     const briefingDate = getDateKey();
 
-    // Fold a light feedback signature into the fingerprint so newly
-    // recorded feedback regenerates today's brief.
+    // Fold feedback + readiness signatures into the fingerprint so newly
+    // recorded input regenerates today's brief.
     const feedbackFingerprint = executionRecords
       .map(
         record =>
@@ -797,10 +831,16 @@ export default async function handler(req, res) {
       )
       .join("|");
 
+    const readinessFingerprint = readinessRecord
+      ? `rd:${readinessRecord.updated_at || readinessRecord.id || ""}`
+      : "";
+
     const activityFingerprint =
       createActivityFingerprint(activities) +
       "##" +
-      feedbackFingerprint;
+      feedbackFingerprint +
+      "##" +
+      readinessFingerprint;
 
     const cachedBriefing =
       await loadCachedBriefing(
@@ -832,6 +872,7 @@ export default async function handler(req, res) {
         memories,
         activityContext,
         feedbackContext,
+        readinessContext,
         briefingDate
       });
 

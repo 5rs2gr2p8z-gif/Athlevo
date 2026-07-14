@@ -320,12 +320,68 @@ async function loadWeekExecutionForCoach() {
 }
 
 /*
+ * Loads today's readiness and shapes it (factual, no invented score) for
+ * the coach context. Returns null when none is logged.
+ */
+async function loadTodayReadinessForCoach() {
+  try {
+    if (typeof window.loadTodayReadiness !== "function") {
+      return null;
+    }
+
+    const record = await window.loadTodayReadiness();
+
+    if (!record) {
+      return null;
+    }
+
+    const sleepLabels = {
+      1: "Very poor",
+      2: "Poor",
+      3: "Fair",
+      4: "Good",
+      5: "Excellent"
+    };
+
+    const out = { date: record.readiness_date || null };
+
+    if (sleepLabels[record.sleep_quality]) {
+      out.sleepQuality = sleepLabels[record.sleep_quality];
+    }
+    if (Number(record.energy) > 0) out.energy1to10 = Number(record.energy);
+    if (Number(record.muscle_soreness) > 0) {
+      out.muscleSoreness1to10 = Number(record.muscle_soreness);
+    }
+    if (Number(record.mental_stress) > 0) {
+      out.mentalStress1to10 = Number(record.mental_stress);
+    }
+    if (record.pain_present === true) {
+      out.painPresent = true;
+      if (record.pain_location) out.painLocation = record.pain_location;
+      if (Number(record.pain_severity) > 0) {
+        out.painSeverity1to10 = Number(record.pain_severity);
+      }
+    }
+    if (record.notes) out.notes = record.notes;
+
+    return out;
+  } catch (error) {
+    console.error("Could not load today's readiness for coach:", error);
+    return null;
+  }
+}
+
+/*
  * Builds the compact "Coach Context" summary shown above a reply. Every
  * item reflects context that was actually assembled and sent — nothing
  * is invented. Items are omitted when the underlying data is absent.
  */
 function buildCoachContextSummary(context) {
   const items = [];
+
+  if (context?.todayReadiness) {
+    items.push("Reviewed today's readiness");
+  }
 
   const week = context?.currentWeekExecution || null;
   const sessions = Array.isArray(week?.sessions) ? week.sessions : [];
@@ -440,6 +496,10 @@ context.longTermMemory = athleteMemory.map(memory => ({
 // effort: coaching must still work if this is unavailable.
 context.currentWeekExecution =
   await loadWeekExecutionForCoach();
+
+// Today's readiness — the athlete's own report — is coaching input the
+// coach must receive alongside the objective training data.
+context.todayReadiness = await loadTodayReadinessForCoach();
     const response = await fetch("/api/coach", {
       method: "POST",
       headers: {

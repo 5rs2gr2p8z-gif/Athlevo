@@ -33,6 +33,10 @@ import {
 } from "../../lib/server/executionRecords.js";
 
 import { applyActivityOverrides } from "../../lib/server/coachActions.js";
+import {
+  assessReadinessSignal,
+  summarizeReadiness
+} from "../../lib/server/readiness.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -294,6 +298,26 @@ export default async function handler(request, response) {
       activityOverrides
     );
 
+    // The analysis week's daily readiness — the athlete's own reports.
+    const readinessRows = await optionalRequest(
+      `daily_readiness?user_id=eq.${userId}` +
+        `&readiness_date=gte.${weekStartKey}` +
+        `&readiness_date=lte.${weekEndKey}` +
+        "&select=*&order=readiness_date.asc"
+    ).then(rows => (Array.isArray(rows) ? rows : []));
+
+    const readinessSummaries = readinessRows
+      .map(summarizeReadiness)
+      .filter(Boolean);
+
+    const readinessPainDays = readinessRows.filter(
+      row => row?.pain_present === true
+    ).length;
+
+    const compromisedReadinessDays = readinessRows.filter(
+      row => assessReadinessSignal(row).status === "compromised"
+    ).length;
+
     /* ── computation ─────────────────────────────────────────── */
 
     const weekActivities = activities_.filter(activity =>
@@ -469,6 +493,19 @@ export default async function handler(request, response) {
       executionSignals
     });
 
+    // Daily readiness reported pain across the week is a first-class,
+    // athlete-sourced concern (deduped against execution pain wording).
+    if (
+      readinessPainDays > 0 &&
+      !keyConcerns.some(concern => /pain/i.test(concern))
+    ) {
+      keyConcerns.push(
+        readinessPainDays === 1
+          ? "Pain was reported in a daily readiness check this week."
+          : `Pain was reported in ${readinessPainDays} daily readiness checks this week.`
+      );
+    }
+
     const priorities = buildNextWeekPriorities({
       matching,
       recovery,
@@ -520,7 +557,11 @@ export default async function handler(request, response) {
         pain_reports: executionSignals.painReports,
         skips: executionSignals.skips,
         athlete_requested_week_adjustment:
-          executionSignals.adjustmentRequested
+          executionSignals.adjustmentRequested,
+        readiness: readinessSummaries,
+        readiness_days_logged: readinessRows.length,
+        readiness_pain_days: readinessPainDays,
+        readiness_compromised_days: compromisedReadinessDays
       },
 
       updated_at: new Date().toISOString()
