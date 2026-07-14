@@ -2000,47 +2000,171 @@ function showLoginForm() {
 }
 
 // ---- Signup ----
+// Guards against the two real failure modes we hit in private beta:
+//   1. Duplicate signUp calls (double-tap) sending multiple confirmation
+//      emails and burning the project email rate limit.
+//   2. Assuming a session always exists after signUp — with email
+//      confirmation ON, signUp returns NO session, so jumping straight
+//      into onboarding (which needs auth.getUser) would break.
+// It works whether or not "Confirm email" is enabled in Supabase.
+let signupInFlight = false;
+
+function friendlyAuthError(error, context) {
+  const m = String(error?.message || '').toLowerCase();
+  if (m.includes('rate limit')) {
+    return "We're getting a lot of signups right now. Please wait a minute and try again — or ask the Athlevo team to add you directly.";
+  }
+  if (m.includes('already registered') || m.includes('already exists')) {
+    return 'That email already has an account. Please log in instead.';
+  }
+  if (m.includes('email not confirmed')) {
+    return 'Please confirm your email from the link we sent, then log in.';
+  }
+  if (m.includes('invalid login')) {
+    return 'That email or password is incorrect.';
+  }
+  return error?.message || (context === 'login'
+    ? 'Could not log in. Please try again.'
+    : 'Could not create your account. Please try again.');
+}
+
 async function doSignup() {
+  if (signupInFlight) return; // block duplicate submits
+
   const name = document.getElementById('suName').value.trim();
   const email = document.getElementById('suEmail').value.trim();
   const password = document.getElementById('suPassword').value;
   const msg = document.getElementById('suMsg');
+  const btn = document.getElementById('suBtn');
+
+  if (!email || !password) {
+    msg.style.color = '#C0272D';
+    msg.textContent = 'Enter your email and a password.';
+    return;
+  }
+  if (password.length < 6) {
+    msg.style.color = '#C0272D';
+    msg.textContent = 'Password must be at least 6 characters.';
+    return;
+  }
+
+  signupInFlight = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account...'; }
+  msg.style.color = '#555';
   msg.textContent = 'Creating account...';
 
-  const { data, error } = await supabaseClient.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: name } }
-  });
+  try {
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name },
+        // Confirmation links (when enabled) return to this app origin.
+        emailRedirectTo: window.location.origin
+      }
+    });
 
-  if (error) { msg.textContent = error.message; return; }
+    if (error) {
+      msg.style.color = '#C0272D';
+      msg.textContent = friendlyAuthError(error, 'signup');
+      return;
+    }
 
-  msg.style.color = '#1a7f37';
-  msg.textContent = 'Account created! You can start now.';
-  closeAuth();
-  startOnboarding();   // continue into your existing flow
+    // Supabase returns a user with an EMPTY identities array when the
+    // email already exists (enumeration protection). Treat as "log in".
+    if (
+      data?.user &&
+      Array.isArray(data.user.identities) &&
+      data.user.identities.length === 0
+    ) {
+      msg.style.color = '#C0272D';
+      msg.textContent = 'That email already has an account. Please log in instead.';
+      showLoginForm();
+      return;
+    }
+
+    // "Confirm email" OFF: a session is returned immediately.
+    if (data?.session) {
+      msg.style.color = '#1a7f37';
+      msg.textContent = 'Account created!';
+      closeAuth();
+      startOnboarding();
+      return;
+    }
+
+    // No session → "Confirm email" is ON. Try an immediate sign-in in
+    // case the project permits it; otherwise ask them to confirm. Either
+    // way we never dump the user into onboarding without a session.
+    const { data: signIn } =
+      await supabaseClient.auth.signInWithPassword({ email, password });
+
+    if (signIn?.session) {
+      msg.style.color = '#1a7f37';
+      msg.textContent = 'Account created!';
+      closeAuth();
+      startOnboarding();
+      return;
+    }
+
+    msg.style.color = '#1a7f37';
+    msg.textContent = 'Account created. Check your email to confirm, then log in.';
+  } catch (e) {
+    console.error('Signup failed:', e);
+    msg.style.color = '#C0272D';
+    msg.textContent = 'Something went wrong. Please try again in a moment.';
+  } finally {
+    signupInFlight = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
+  }
 }
 
 // ---- Login ----
+let loginInFlight = false;
 async function doLogin() {
+  if (loginInFlight) return; // block duplicate submits
+
   const email = document.getElementById('liEmail').value.trim();
   const password = document.getElementById('liPassword').value;
   const msg = document.getElementById('liMsg');
+  const btn = document.getElementById('liBtn');
+
+  if (!email || !password) {
+    msg.style.color = '#C0272D';
+    msg.textContent = 'Enter your email and password.';
+    return;
+  }
+
+  loginInFlight = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Logging in...'; }
+  msg.style.color = '#555';
   msg.textContent = 'Logging in...';
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password
-  });
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password
+    });
 
-  if (error) { msg.textContent = error.message; return; }
+    if (error) {
+      msg.style.color = '#C0272D';
+      msg.textContent = friendlyAuthError(error, 'login');
+      return;
+    }
 
-  closeAuth();
+    closeAuth();
 
-  // Use the single authoritative post-auth routing flow so Today,
-  // activities, Daily Brief, weekly plan, Train/Trends data, profile,
-  // and Strava state all load immediately — no page refresh required.
-  await routeAfterAuth(data.user.id);
+    // Single authoritative post-auth routing flow so Today, activities,
+    // Daily Brief, weekly plan, Train/Trends, profile, and Strava state
+    // all load immediately — no page refresh required.
+    await routeAfterAuth(data.user.id);
+  } catch (e) {
+    console.error('Login failed:', e);
+    msg.style.color = '#C0272D';
+    msg.textContent = 'Something went wrong. Please try again in a moment.';
+  } finally {
+    loginInFlight = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Log In'; }
+  }
 }
 async function doLogout() {
   const { error } = await supabaseClient.auth.signOut();
@@ -2326,7 +2450,7 @@ async function restoreSession() {
       <input id="suName" type="text" placeholder="Full name" />
       <input id="suEmail" type="email" placeholder="Email" />
       <input id="suPassword" type="password" placeholder="Password (min 6 chars)" />
-      <button onclick="doSignup()">Create Account</button>
+      <button id="suBtn" onclick="doSignup()">Create Account</button>
       <p class="auth-msg" id="suMsg"></p>
       <p class="auth-switch">Already have an account?
         <a onclick="showLoginForm()">Log in</a></p>
@@ -2337,7 +2461,7 @@ async function restoreSession() {
       <h2>Log In</h2>
       <input id="liEmail" type="email" placeholder="Email" />
       <input id="liPassword" type="password" placeholder="Password" />
-      <button onclick="doLogin()">Log In</button>
+      <button id="liBtn" onclick="doLogin()">Log In</button>
       <p class="auth-msg" id="liMsg"></p>
       <p class="auth-switch">No account yet?
         <a onclick="showSignupForm()">Create one</a></p>
