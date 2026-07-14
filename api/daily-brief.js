@@ -1,7 +1,11 @@
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { summarizeExecutionRecord } from "../lib/server/executionRecords.js";
 import { applyActivityOverrides } from "../lib/server/coachActions.js";
-import { summarizeReadiness } from "../lib/server/readiness.js";
+import {
+  computeReadinessScore,
+  READINESS_STATUS,
+  summarizeReadiness
+} from "../lib/server/readiness.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -150,6 +154,98 @@ async function loadTodayReadiness(userId) {
     );
     return null;
   }
+}
+
+// Objective training signals for the readiness score, read from recent
+// execution records (real data only — nothing invented).
+function readinessTrainingSignals(executionRecords) {
+  const signals = {
+    yesterdayHard: false,
+    recentCompletionRate: null,
+    recentSkips: 0
+  };
+
+  const records = Array.isArray(executionRecords) ? executionRecords : [];
+  if (!records.length) {
+    return signals;
+  }
+
+  const yesterdayKey = getDateKey(new Date(Date.now() - 86400000));
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+
+  let completed = 0;
+  let planned = 0;
+
+  records.forEach(r => {
+    const snap =
+      r.original_session_snapshot &&
+      typeof r.original_session_snapshot === "object"
+        ? r.original_session_snapshot
+        : {};
+    const when = r.completed_at || r.updated_at;
+    const whenKey = when ? getDateKey(new Date(when)) : null;
+
+    if (snap.session_date === yesterdayKey || whenKey === yesterdayKey) {
+      const rpe = Number(r.actual_rpe);
+      const dur = Number(snap.duration_minutes);
+      const type = String(snap.session_type || "").toLowerCase();
+      if (
+        (r.status === "completed" || r.status === "modified") &&
+        (rpe >= 8 || dur >= 90 || /long|threshold|interval|tempo/.test(type))
+      ) {
+        signals.yesterdayHard = true;
+      }
+    }
+
+    const when2 = when ? new Date(when) : null;
+    if (when2 && !Number.isNaN(when2.getTime()) && when2 >= sevenDaysAgo) {
+      if (r.status === "completed" || r.status === "modified") {
+        completed += 1;
+        planned += 1;
+      } else if (r.status === "skipped") {
+        signals.recentSkips += 1;
+        planned += 1;
+      }
+    }
+  });
+
+  signals.recentCompletionRate = planned ? completed / planned : null;
+  return signals;
+}
+
+// Combines the raw readiness answers with the calculated score.
+function buildReadinessContext(readinessRecord, executionRecords) {
+  const summary = summarizeReadiness(readinessRecord);
+
+  if (!readinessRecord) {
+    return summary; // null — the prompt says "not logged", never invents.
+  }
+
+  const signals = readinessTrainingSignals(executionRecords);
+
+  const scored = computeReadinessScore({
+    sleep: readinessRecord.sleep_quality,
+    energy: readinessRecord.energy,
+    soreness: readinessRecord.muscle_soreness,
+    stress: readinessRecord.mental_stress,
+    painPresent: readinessRecord.pain_present === true,
+    painSeverity: readinessRecord.pain_severity,
+    yesterdayHard: signals.yesterdayHard,
+    recentCompletionRate: signals.recentCompletionRate,
+    recentSkips: signals.recentSkips
+  });
+
+  if (scored.sufficient) {
+    return {
+      ...(summary || {}),
+      readiness_score: scored.score,
+      readiness_status:
+        (READINESS_STATUS[scored.status] || {}).label || scored.status,
+      readiness_explanation: scored.explanation
+    };
+  }
+
+  return summary;
 }
 
 // Athlete-confirmed activity corrections. Optional: the table may not
@@ -576,7 +672,7 @@ If there are no imported activities, say that there is not enough recent activit
 
 The athlete data may include sessionFeedback: the athlete's own reports of recently planned sessions (completed, skipped, or modified, with RPE, feeling, and pain). Use it as recorded fact. Never shame a skipped or modified session. If pain was reported, be cautious and conservative about intensity near the affected area, and do not diagnose. If a session was skipped for schedule reasons, treat it as a scheduling matter, not lost fitness. Do not invent feedback that is not present.
 
-The athlete data may include todayReadiness: the athlete's own report of today's sleep, energy, muscle soreness, mental stress, and pain. Treat it as real coaching input and let it shape the recommendation (protect quality when soreness/stress are high or sleep was poor; be cautious if pain is present, without diagnosing). Refer to their actual answers, never a fabricated readiness or recovery score. If todayReadiness is absent, say readiness has not been logged today rather than inventing it.
+The athlete data may include todayReadiness: the athlete's own report of today's sleep, energy, muscle soreness, mental stress, and pain, plus a calculated readiness_score (0–100), readiness_status (Low/Moderate/Good/Optimal), and readiness_explanation. Treat it as real coaching input and let it shape the recommendation (protect quality when readiness is Low/Moderate, soreness/stress are high, or sleep was poor; be cautious if pain is present, without diagnosing). You may reference the score and their actual answers, but never fabricate an HRV, recovery, or readiness value that is not present. If todayReadiness is absent, say readiness has not been logged today rather than inventing it.
             `.trim()
           },
 
@@ -815,9 +911,13 @@ export default async function handler(req, res) {
     const feedbackContext =
       buildFeedbackContext(executionRecords);
 
-    // Today's readiness — the athlete's own report — informs the brief.
+    // Today's readiness — the athlete's own report — plus the calculated
+    // score (same engine the Today ring and coach use). No invented data.
     const readinessRecord = await loadTodayReadiness(user.id);
-    const readinessContext = summarizeReadiness(readinessRecord);
+    const readinessContext = buildReadinessContext(
+      readinessRecord,
+      executionRecords
+    );
 
     const briefingDate = getDateKey();
 

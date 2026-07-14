@@ -122,27 +122,316 @@ function readinessSummaryLine(record) {
   return bits.join(" · ");
 }
 
+/* ─── readiness score (client mirror of lib/server/readiness.js) ── */
+
+const READINESS_STATUS_META = {
+  low: { label: "Low", color: "#C0272D" },
+  moderate: { label: "Moderate", color: "#E07B1A" },
+  good: { label: "Good", color: "#E0B21A" },
+  optimal: { label: "Optimal", color: "#1F9D5B" }
+};
+
+function rdClamp(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(max, Math.max(min, n));
+}
+
+function readinessStatusFromScore(score) {
+  if (!Number.isFinite(Number(score))) return "insufficient";
+  const s = Number(score);
+  if (s < 40) return "low";
+  if (s < 60) return "moderate";
+  if (s < 80) return "good";
+  return "optimal";
+}
+
+/* Identical math to computeReadinessScore in lib/server/readiness.js. */
+function computeReadinessScore(inputs) {
+  const i = inputs || {};
+  const components = [];
+
+  const sleep = rdClamp(i.sleep, 1, 5);
+  if (sleep !== null) components.push({ key: "sleep", good: (sleep - 1) / 4, weight: 0.3 });
+
+  const energy = rdClamp(i.energy, 1, 10);
+  if (energy !== null) components.push({ key: "energy", good: (energy - 1) / 9, weight: 0.25 });
+
+  const soreness = rdClamp(i.soreness, 1, 10);
+  if (soreness !== null) components.push({ key: "soreness", good: (10 - soreness) / 9, weight: 0.25 });
+
+  const stress = rdClamp(i.stress, 1, 10);
+  if (stress !== null) components.push({ key: "stress", good: (10 - stress) / 9, weight: 0.2 });
+
+  if (components.length < 2) {
+    return {
+      sufficient: false,
+      score: null,
+      status: "insufficient",
+      color: null,
+      explanation:
+        "Complete today's morning check-in so Athlevo can calculate your readiness.",
+      drivers: { positive: [], negative: [] }
+    };
+  }
+
+  const totalWeight = components.reduce((a, c) => a + c.weight, 0);
+  const base = components.reduce((a, c) => a + c.good * c.weight, 0) / totalWeight;
+
+  const painPresent = i.painPresent === true;
+  let painPenalty = 0;
+  if (painPresent) {
+    const severity = rdClamp(i.painSeverity, 1, 10);
+    painPenalty = Math.min(0.35, 0.1 + (severity === null ? 5 : severity) * 0.025);
+  }
+
+  let adjustment = 0;
+  const negativeDrivers = [];
+  const positiveDrivers = [];
+
+  if (i.yesterdayHard === true) {
+    adjustment -= 0.08;
+    negativeDrivers.push("yesterday's hard session");
+  }
+  const completion = rdClamp(i.recentCompletionRate, 0, 1);
+  if (completion !== null && completion >= 0.85 && !painPresent) {
+    adjustment += 0.04;
+    positiveDrivers.push("consistent recent training");
+  }
+  const skips = rdClamp(i.recentSkips, 0, 100);
+  if (skips !== null && skips >= 2) {
+    adjustment -= 0.04;
+    negativeDrivers.push("missed sessions recently");
+  }
+  if (i.acuteSpike === true) {
+    adjustment -= 0.06;
+    negativeDrivers.push("a sharp jump in recent load");
+  }
+
+  const score = Math.round(
+    Math.min(1, Math.max(0, base - painPenalty + adjustment)) * 100
+  );
+
+  const label = {
+    sleep: { pos: "good sleep", neg: "poor sleep" },
+    energy: { pos: "strong energy", neg: "low energy" },
+    soreness: { pos: "low soreness", neg: "high soreness" },
+    stress: { pos: "low stress", neg: "high stress" }
+  };
+
+  components
+    .slice()
+    .sort((a, b) => b.good - a.good)
+    .forEach(c => {
+      if (c.good >= 0.7) positiveDrivers.unshift(label[c.key].pos);
+      else if (c.good <= 0.4) negativeDrivers.unshift(label[c.key].neg);
+    });
+
+  if (painPresent) negativeDrivers.unshift("reported pain (handled cautiously)");
+
+  const status = readinessStatusFromScore(score);
+  const pos = positiveDrivers.slice(0, 2);
+  const neg = negativeDrivers.slice(0, 2);
+  const cap = t => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+  const join = arr => (arr.length === 2 ? `${arr[0]} and ${arr[1]}` : arr[0]);
+
+  let explanation;
+  if (pos.length && neg.length) explanation = `${cap(join(pos))} help today; ${join(neg)} pull it down.`;
+  else if (pos.length) explanation = `${cap(join(pos))} carry today's readiness.`;
+  else if (neg.length) explanation = `${cap(join(neg))} weigh on today's readiness.`;
+  else {
+    explanation = {
+      optimal: "Your check-in points to a fresh, ready day.",
+      good: "Your check-in points to a solid day.",
+      moderate: "Your check-in shows a middling day — train, but stay honest.",
+      low: "Your check-in shows you're under-recovered today."
+    }[status];
+  }
+
+  return {
+    sufficient: true,
+    score,
+    status,
+    color: READINESS_STATUS_META[status].color,
+    drivers: { positive: pos, negative: neg },
+    explanation
+  };
+}
+
+/* ─── objective training signals (real data only) ─────────────── */
+
+function readinessDateKeyOffset(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return (
+    `${d.getFullYear()}-` +
+    `${String(d.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(d.getDate()).padStart(2, "0")}`
+  );
+}
+
+function localDateKey(value) {
+  const d = value ? new Date(value) : null;
+  if (!d || Number.isNaN(d.getTime())) return null;
+  return (
+    `${d.getFullYear()}-` +
+    `${String(d.getMonth() + 1).padStart(2, "0")}-` +
+    `${String(d.getDate()).padStart(2, "0")}`
+  );
+}
+
+async function gatherTrainingSignals() {
+  const signals = {
+    yesterdayHard: false,
+    recentCompletionRate: null,
+    recentSkips: 0
+  };
+
+  try {
+    const {
+      data: { user }
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) return signals;
+
+    const { data, error } = await supabaseClient
+      .from("workout_execution_records")
+      .select(
+        "status,actual_rpe,completed_at,updated_at,original_session_snapshot"
+      )
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(20);
+
+    if (error || !Array.isArray(data)) return signals;
+
+    const yesterdayKey = readinessDateKeyOffset(-1);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+
+    let completed = 0;
+    let planned = 0;
+
+    data.forEach(r => {
+      const snap = r.original_session_snapshot || {};
+      const when = r.completed_at || r.updated_at;
+      const whenKey = localDateKey(when);
+
+      if (snap.session_date === yesterdayKey || whenKey === yesterdayKey) {
+        const rpe = Number(r.actual_rpe);
+        const dur = Number(snap.duration_minutes);
+        const type = String(snap.session_type || "").toLowerCase();
+        if (
+          (r.status === "completed" || r.status === "modified") &&
+          (rpe >= 8 ||
+            dur >= 90 ||
+            /long|threshold|interval|tempo/.test(type))
+        ) {
+          signals.yesterdayHard = true;
+        }
+      }
+
+      const when2 = when ? new Date(when) : null;
+      if (when2 && when2 >= sevenDaysAgo) {
+        if (r.status === "completed" || r.status === "modified") {
+          completed += 1;
+          planned += 1;
+        } else if (r.status === "skipped") {
+          signals.recentSkips += 1;
+          planned += 1;
+        }
+      }
+    });
+
+    signals.recentCompletionRate = planned ? completed / planned : null;
+  } catch (error) {
+    console.error("Could not gather training signals:", error);
+  }
+
+  return signals;
+}
+
 /*
- * Renders the readiness entry point on the Today card: a Start button, or
- * the logged summary + an Edit button. Never shows a fabricated number.
+ * Computes today's readiness from the athlete's check-in + real training
+ * signals. Returns an "insufficient" result (no invented number) when the
+ * morning check-in has not been logged.
+ */
+async function computeTodayReadiness(record) {
+  if (!record) {
+    return computeReadinessScore({});
+  }
+
+  const signals = await gatherTrainingSignals();
+
+  return computeReadinessScore({
+    sleep: record.sleep_quality,
+    energy: record.energy,
+    soreness: record.muscle_soreness,
+    stress: record.mental_stress,
+    painPresent: record.pain_present === true,
+    painSeverity: record.pain_severity,
+    yesterdayHard: signals.yesterdayHard,
+    recentCompletionRate: signals.recentCompletionRate,
+    recentSkips: signals.recentSkips
+  });
+}
+
+/* Drives the Today ring: score, smooth animation, and colour by status. */
+function updateReadinessRing(scored) {
+  const root = document.getElementById("readinessEmptyState");
+  if (!root) return;
+
+  const fill = root.querySelector(".ring .fill");
+  const centerNum = root.querySelector(".ring .center b");
+  const centerLabel = root.querySelector(".ring .center i");
+
+  if (scored && scored.sufficient) {
+    if (fill) {
+      fill.dataset.value = String(scored.score);
+      fill.style.stroke = scored.color;
+    }
+    if (centerNum) centerNum.textContent = String(scored.score);
+    if (centerLabel) centerLabel.textContent = "Readiness";
+  } else {
+    if (fill) {
+      delete fill.dataset.value;
+      fill.style.stroke = "";
+      fill.style.strokeDashoffset = "326.7";
+    }
+    if (centerNum) centerNum.textContent = "—";
+    if (centerLabel) centerLabel.textContent = "Readiness";
+  }
+
+  if (typeof animateRing === "function") {
+    animateRing();
+  }
+}
+
+let todayReadinessScored = null;
+
+/*
+ * Renders the Today readiness card: the calculated ring, status,
+ * short explanation, and an Edit/Start button. Never a fabricated number.
  */
 async function renderReadinessCard() {
   const cta = document.getElementById("readinessCta");
-
-  if (!cta) {
-    return;
-  }
+  if (!cta) return;
 
   const record = await loadTodayReadiness();
+  const scored = await computeTodayReadiness(record);
+  todayReadinessScored = scored;
+
+  updateReadinessRing(scored);
 
   const title = document.getElementById("readinessTitle");
   const copy = document.getElementById("readinessCopy");
 
-  if (record) {
+  if (record && scored.sufficient) {
+    const meta = READINESS_STATUS_META[scored.status];
     if (title) title.textContent = "Today's readiness";
     if (copy) {
-      copy.textContent =
-        readinessSummaryLine(record) || "Logged for today.";
+      copy.innerHTML =
+        `<b class="rd-status" style="color:${meta.color}">${readinessEscape(meta.label)}</b>` +
+        ` — ${readinessEscape(scored.explanation)}`;
     }
     cta.innerHTML =
       '<button class="readiness-btn" type="button" onclick="openReadinessCheck()">Edit today’s readiness</button>';
@@ -155,6 +444,40 @@ async function renderReadinessCard() {
     cta.innerHTML =
       '<button class="readiness-btn primary" type="button" onclick="openReadinessCheck()">Start readiness check</button>';
   }
+}
+
+/*
+ * Today's readiness shaped for the coach: the athlete's answers plus the
+ * calculated score/status/explanation (or null when not logged). No
+ * fabricated HRV or recovery values.
+ */
+async function getReadinessForCoach() {
+  const record = await loadTodayReadiness();
+  if (!record) return null;
+
+  const scored = todayReadinessScored || (await computeTodayReadiness(record));
+
+  const sleepLabels = READINESS_SLEEP_LABELS;
+  const out = { date: record.readiness_date || null };
+
+  if (sleepLabels[record.sleep_quality]) out.sleepQuality = sleepLabels[record.sleep_quality];
+  if (Number(record.energy) > 0) out.energy1to10 = Number(record.energy);
+  if (Number(record.muscle_soreness) > 0) out.muscleSoreness1to10 = Number(record.muscle_soreness);
+  if (Number(record.mental_stress) > 0) out.mentalStress1to10 = Number(record.mental_stress);
+  if (record.pain_present === true) {
+    out.painPresent = true;
+    if (record.pain_location) out.painLocation = record.pain_location;
+    if (Number(record.pain_severity) > 0) out.painSeverity1to10 = Number(record.pain_severity);
+  }
+  if (record.notes) out.notes = record.notes;
+
+  if (scored.sufficient) {
+    out.readinessScore = scored.score;
+    out.readinessStatus = READINESS_STATUS_META[scored.status].label;
+    out.readinessExplanation = scored.explanation;
+  }
+
+  return out;
 }
 
 function openReadinessCheck() {
@@ -420,3 +743,4 @@ window.renderReadinessCard = renderReadinessCard;
 window.openReadinessCheck = openReadinessCheck;
 window.closeReadinessCheck = closeReadinessCheck;
 window.loadTodayReadiness = loadTodayReadiness;
+window.getReadinessForCoach = getReadinessForCoach;
