@@ -23,6 +23,88 @@ function createCoachElement(tag, className, text) {
   return element;
 }
 
+/*
+ * Appends inline text with **bold** support, built with DOM nodes (no
+ * innerHTML) so it stays injection-safe. Markdown heading hashes are
+ * stripped; everything else renders as plain text with emphasis.
+ */
+function appendInlineText(element, rawText) {
+  const text = String(rawText == null ? "" : rawText)
+    .replace(/^\s*#{1,6}\s*/gm, "");
+
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+
+  parts.forEach((part, index) => {
+    if (!part) {
+      return;
+    }
+
+    if (index % 2 === 1) {
+      const strong = document.createElement("strong");
+      strong.textContent = part;
+      element.appendChild(strong);
+    } else {
+      element.appendChild(document.createTextNode(part));
+    }
+  });
+}
+
+/*
+ * Renders a coaching text field as short, well-spaced blocks:
+ *   - blank-line-separated blocks become their own paragraphs
+ *   - a block whose lines are all "- " / "• " becomes a bullet list
+ *   - the first paragraph can carry a lead class (the decision line)
+ * This is what lets a reply breathe on a phone instead of being one wall.
+ */
+function appendCoachProse(container, rawText, leadClassName) {
+  const text = String(rawText == null ? "" : rawText).trim();
+
+  if (!text) {
+    return;
+  }
+
+  const blocks = text
+    .split(/\n\s*\n/)
+    .map(block => block.trim())
+    .filter(Boolean);
+
+  blocks.forEach((block, blockIndex) => {
+    const lines = block
+      .split(/\n/)
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    const isBulletBlock =
+      lines.length > 0 &&
+      lines.every(line => /^([-*•])\s+/.test(line));
+
+    if (isBulletBlock) {
+      const list = document.createElement("ul");
+      list.className = "coach-response-list";
+
+      lines.forEach(line => {
+        const item = document.createElement("li");
+        appendInlineText(item, line.replace(/^([-*•])\s+/, ""));
+        list.appendChild(item);
+      });
+
+      container.appendChild(list);
+      return;
+    }
+
+    const paragraph = document.createElement("p");
+
+    paragraph.className =
+      blockIndex === 0 && leadClassName
+        ? leadClassName
+        : "coach-response-direct";
+
+    // Join soft-wrapped lines within a paragraph with spaces.
+    appendInlineText(paragraph, lines.join(" "));
+    container.appendChild(paragraph);
+  });
+}
+
 function parseCoachResponse(response) {
   if (!response) return null;
 
@@ -115,13 +197,10 @@ function createCoachSection(section) {
   }
 
   if (section.body) {
-    wrapper.appendChild(
-      createCoachElement(
-        "p",
-        "coach-response-section-body",
-        section.body
-      )
-    );
+    const body = document.createElement("p");
+    body.className = "coach-response-section-body";
+    appendInlineText(body, section.body);
+    wrapper.appendChild(body);
   }
 
   if (
@@ -141,13 +220,9 @@ function createCoachSection(section) {
         return;
       }
 
-      list.appendChild(
-        createCoachElement(
-          "li",
-          "",
-          item
-        )
-      );
+      const listItem = document.createElement("li");
+      appendInlineText(listItem, item);
+      list.appendChild(listItem);
     });
 
     wrapper.appendChild(list);
@@ -251,12 +326,12 @@ function renderCoachResponse(
   }
 
   if (response.direct_answer) {
-    container.appendChild(
-      createCoachElement(
-        "p",
-        "coach-response-direct",
-        response.direct_answer
-      )
+    // The opening line is the coaching decision — render it prominently,
+    // then let the reasoning flow as short paragraphs beneath it.
+    appendCoachProse(
+      container,
+      response.direct_answer,
+      "coach-response-lead"
     );
   }
 
@@ -300,13 +375,10 @@ function renderCoachResponse(
       )
     );
 
-    mission.appendChild(
-      createCoachElement(
-        "p",
-        "coach-mission-text",
-        response.mission
-      )
-    );
+    const missionText = document.createElement("p");
+    missionText.className = "coach-mission-text";
+    appendInlineText(missionText, response.mission);
+    mission.appendChild(missionText);
 
     container.appendChild(mission);
   }
