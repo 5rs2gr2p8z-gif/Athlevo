@@ -6,7 +6,7 @@
 
 # Private Beta Disclaimer
 
-Last updated: [DATE]
+Last updated: July 14, 2026
 
 Athlevo is currently operating as a private beta.
 

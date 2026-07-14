@@ -49,25 +49,20 @@ async function saveConversationMessage(role, message) {
     return;
   }
 
-  console.log("Saving conversation for:", user.id, role, message);
+  // Do not log message content (private data).
+  const { error } = await supabaseClient
+    .from("coach_conversations")
+    .insert([
+      {
+        user_id: user.id,
+        role,
+        message
+      }
+    ]);
 
-const { data, error } = await supabaseClient
-  .from("coach_conversations")
-  .insert([
-    {
-      user_id: user.id,
-      role,
-      message
-    }
-  ])
-  .select();
-
-if (error) {
-  console.error("Could not save conversation message:", error);
-  return;
-}
-
-console.log("Conversation saved successfully:", data);
+  if (error) {
+    console.error("Could not save conversation message:", error.message);
+  }
 }
 
 async function loadConversationHistory() {
@@ -339,6 +334,53 @@ async function loadTodayReadinessForCoach() {
 }
 
 /*
+ * Loads a SHORT recent-conversation window (not the whole history) for
+ * continuity across turns. Assistant messages are compressed to their
+ * one-line answer so the model gets concise context, not a data dump.
+ */
+async function loadRecentConversationForCoach(limit = 8) {
+  try {
+    const {
+      data: { user }
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) return [];
+
+    const { data, error } = await supabaseClient
+      .from("coach_conversations")
+      .select("role, message, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error || !Array.isArray(data)) return [];
+
+    return data
+      .reverse()
+      .map(row => {
+        let text = row.message;
+
+        if (row.role === "assistant") {
+          try {
+            const parsed = JSON.parse(row.message);
+            text = parsed.direct_answer || parsed.headline || "(coaching reply)";
+          } catch (e) {
+            /* legacy plain-text assistant message */
+          }
+        }
+
+        return {
+          role: row.role === "assistant" ? "coach" : "athlete",
+          text: String(text || "").slice(0, 500)
+        };
+      });
+  } catch (error) {
+    console.error("Could not load recent conversation for coach:", error);
+    return [];
+  }
+}
+
+/*
  * Builds the compact "Coach Context" summary shown above a reply. Every
  * item reflects context that was actually assembled and sent — nothing
  * is invented. Items are omitted when the underlying data is absent.
@@ -402,10 +444,17 @@ function buildCoachContextSummary(context) {
   return items;
 }
 
+let coachRequestInFlight = false;
+
 async function askCoach(question) {
   const cleanQuestion = question?.trim();
 
   if (!cleanQuestion) return;
+
+  // Prevent duplicate submissions (double-tap / repeated Enter) from
+  // creating duplicate stored messages.
+  if (coachRequestInFlight) return;
+  coachRequestInFlight = true;
 
   addChatMessage("user", cleanQuestion);
   await saveConversationMessage("user", cleanQuestion);
@@ -450,13 +499,24 @@ if (!context) {
   );
 }
 
-context.longTermMemory = athleteMemory.map(memory => ({
-  id: memory.id,
-  category: memory.category,
-  content: memory.content,
-  importance: memory.importance,
-  updatedAt: memory.updated_at
-}));
+// Durable athlete memory — concise, active facts only. Internal fields
+// (id, confidence, importance) are NOT sent to the model. An unverified
+// flag lets the coach treat a fact as tentative.
+context.longTermMemory = athleteMemory
+  .filter(memory => memory.is_active !== false)
+  .slice(0, 40)
+  .map(memory => {
+    const fact = {
+      category: memory.category,
+      fact: memory.content,
+      lastConfirmed:
+        memory.last_confirmed_at || memory.updated_at || undefined
+    };
+    if (memory.verification_state === "unverified") {
+      fact.unverified = true;
+    }
+    return fact;
+  });
 
 // This week's prescribed sessions plus the athlete's own execution
 // feedback (completed / skipped / modified, with pain and RPE). Best
@@ -467,6 +527,14 @@ context.currentWeekExecution =
 // Today's readiness — the athlete's own report — is coaching input the
 // coach must receive alongside the objective training data.
 context.todayReadiness = await loadTodayReadinessForCoach();
+
+// A short recent-conversation window for continuity (not the full
+// history). Drop the just-sent question so it isn't duplicated.
+context.recentConversation = (await loadRecentConversationForCoach())
+  .filter(
+    (m, i, arr) =>
+      !(i === arr.length - 1 && m.role === "athlete" && m.text === cleanQuestion)
+  );
     const response = await fetch("/api/coach", {
       method: "POST",
       headers: {
@@ -514,15 +582,22 @@ renderSuggestedReplies(
   answer.suggested_replies
 );
 
-await saveConversationMessage(
-  "assistant",
-  JSON.stringify(answer)
-);
+// Only persist a genuine, successful reply. A missing data.answer means
+// the model call did not produce a real structured response, so we show
+// the fallback but do NOT store it as a successful coaching message.
+if (data.answer) {
+  await saveConversationMessage(
+    "assistant",
+    JSON.stringify(answer)
+  );
+}
   } catch (error) {
     console.error("Athlevo Coach error:", error);
 
     loadingMessage.querySelector(".change").textContent =
       "I couldn’t complete that request. Please try again.";
+  } finally {
+    coachRequestInFlight = false;
   }
 
   const chatlog = document.getElementById("chatlog");

@@ -6,7 +6,7 @@
 
 # Terms of Service
 
-Last updated: [DATE]
+Last updated: July 14, 2026
 
 ## 1. Acceptance
 

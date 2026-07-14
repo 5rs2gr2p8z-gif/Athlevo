@@ -6,7 +6,7 @@
 
 # Privacy Policy
 
-Last updated: [DATE]
+Last updated: July 14, 2026
 
 ## 1. Introduction
 

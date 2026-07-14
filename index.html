@@ -469,6 +469,9 @@ body{
   .legal-body li { font-size:14.5px; line-height:1.65; color:var(--ink2); margin:6px 0; }
   .legal-body strong { color:var(--ink); font-weight:650; }
   .legal-loading { font-size:14px; color:var(--ink3); padding:20px 0; }
+  /* subtle app version footer on the You page */
+  .app-version { text-align:center; margin:22px 0 0; font-size:11.5px;
+    line-height:1.5; color:var(--ink3); letter-spacing:.02em; }
   /* live password requirements */
   .pw-check { list-style:none; margin:2px 0 14px; padding:0;
     display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; }
@@ -1923,6 +1926,11 @@ body{
 <button class="primary" onclick="doLogout()">
     Log Out
 </button>
+
+<div class="app-version">
+  <div>Athlevo Private Beta</div>
+  <div>Version 0.6.0</div>
+</div>
 
 <div class="spacer-lg"></div>
 </section>

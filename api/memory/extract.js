@@ -277,6 +277,10 @@ Use action "upsert" for a new or updated durable fact.
 
 Use action "none" when nothing should be saved.
 
+Set unverified to true when a fact is plausible but the athlete did not clearly confirm it (an inference or an aside), and false when the athlete stated it clearly. Never invent a fact; if you are uncertain whether something is real, use action "none" rather than guessing.
+
+When the athlete corrects or contradicts an earlier fact, upsert the corrected value under the same memory_key (this supersedes the old value). If the corrected fact belongs under a different key, deactivate the old key and upsert the new one.
+
 Keep content concise, factual, and written in third person.
 
 Never include sensitive access credentials, passwords, tokens, payment details, or unrelated private information.
@@ -384,6 +388,10 @@ Never include sensitive access credentials, passwords, tokens, payment details, 
 
                         minimum: 1,
                         maximum: 10
+                      },
+
+                      unverified: {
+                        type: ["boolean", "null"]
                       }
                     },
 
@@ -392,7 +400,8 @@ Never include sensitive access credentials, passwords, tokens, payment details, 
                       "category",
                       "memory_key",
                       "content",
-                      "importance"
+                      "importance",
+                      "unverified"
                     ]
                   }
                 }
@@ -491,6 +500,19 @@ async function upsertMemory({
           "coach_conversation",
 
         is_active: true,
+
+        // Internal verification signal (never shown to athletes). An
+        // unverified inference is stored tentatively; a clearly stated
+        // fact is verified. first_observed_at is left to the column
+        // default so it is set once on insert and preserved on update.
+        verification_state:
+          memory.unverified === true ? "unverified" : "verified",
+
+        confidence:
+          memory.unverified === true ? 40 : 85,
+
+        superseded_by: null,
+        superseded_at: null,
 
         last_confirmed_at:
           new Date().toISOString(),
