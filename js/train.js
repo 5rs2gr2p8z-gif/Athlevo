@@ -481,6 +481,44 @@ function getStatusMeta(status) {
     }
 }
 
+/*
+ * Rest-aware execution state. Derived ONLY from the authoritative saved
+ * record's status (never from CSS or local flags). Rest days rename the
+ * generic labels so a logged rest reads "Rest completed" and a rest day
+ * the athlete trained on reads "Trained instead".
+ */
+function getExecutionState(record, rest) {
+    if (!record || !record.status) {
+        return null;
+    }
+
+    switch (record.status) {
+        case "completed":
+            return {
+                status: "completed",
+                cls: "done",
+                glyph: "✓",
+                label: rest ? "Rest completed" : "Completed"
+            };
+        case "modified":
+            return {
+                status: "modified",
+                cls: "mod",
+                glyph: "↺",
+                label: rest ? "Trained instead" : "Modified"
+            };
+        case "skipped":
+            return {
+                status: "skipped",
+                cls: "skip",
+                glyph: "⊘",
+                label: "Skipped"
+            };
+        default:
+            return null;
+    }
+}
+
 function renderSessions(sessions) {
 
     const container =
@@ -497,7 +535,7 @@ function renderSessions(sessions) {
         const description = cleanText(session.description);
         const record = session.execution || null;
         const statusMeta = record
-            ? getStatusMeta(record.status)
+            ? getExecutionState(record, rest)
             : null;
 
         const hasDetail =
@@ -659,43 +697,54 @@ const FEELING_OPTIONS = [
  */
 function buildSessionActions(session, rest, record) {
 
-    const hasRecord = Boolean(record);
+    const state = getExecutionState(record, rest);
 
-    const buttons = [];
+    // ── Already recorded ──────────────────────────────────────────
+    // The session has an authoritative saved execution record. Show a
+    // clear confirmation state and a SINGLE "Edit feedback" action —
+    // never the entry buttons (Complete / Modify / Skip / Rest
+    // completed / Trained instead), which would imply it is still
+    // unrecorded and invite duplicate/conflicting submissions.
+    if (state) {
+        const timestamp = buildRecordTimestamp(record);
+        const metrics = buildRecordMetrics(record);
 
-    if (rest) {
-        buttons.push(
-            `<button class="sc-act" type="button" data-action="rest_done">Rest completed</button>`,
-            `<button class="sc-act" type="button" data-action="rest_alt">Trained instead</button>`
-        );
-    } else {
-        buttons.push(
-            `<button class="sc-act primary" type="button" data-action="complete">Complete</button>`,
-            `<button class="sc-act" type="button" data-action="modify">Modify</button>`,
-            `<button class="sc-act" type="button" data-action="skip">Skip</button>`
-        );
+        return `
+            <div class="sc-actions recorded">
+                <div class="sc-recorded">
+                    <div class="sc-recorded-head">
+                        <span class="sc-recorded-badge ${state.cls}">${state.glyph} ${escapeHtml(state.label)}</span>
+                        ${
+                            timestamp
+                                ? `<span class="sc-recorded-time">${escapeHtml(timestamp)}</span>`
+                                : ""
+                        }
+                    </div>
+                    ${
+                        metrics
+                            ? `<p class="sc-recorded-metrics">${escapeHtml(metrics)}</p>`
+                            : ""
+                    }
+                    <button class="sc-act-edit-btn" type="button" data-action="edit">Edit feedback</button>
+                </div>
+            </div>
+        `;
     }
 
-    const timestamp = hasRecord
-        ? buildRecordTimestamp(record)
-        : "";
-
-    const editRow = hasRecord
-        ? `<div class="sc-act-note">
-               <span class="sc-act-summary">${escapeHtml(
-                   buildRecordSummary(record)
-               )}${
-                   timestamp
-                       ? ` <span class="sc-act-time">· ${escapeHtml(timestamp)}</span>`
-                       : ""
-               }</span>
-               <button class="sc-act-edit" type="button" data-action="edit">Edit</button>
-           </div>`
-        : "";
+    // ── Unrecorded ────────────────────────────────────────────────
+    const buttons = rest
+        ? [
+              `<button class="sc-act" type="button" data-action="rest_done">Rest completed</button>`,
+              `<button class="sc-act" type="button" data-action="rest_alt">Trained instead</button>`
+          ]
+        : [
+              `<button class="sc-act primary" type="button" data-action="complete">Complete</button>`,
+              `<button class="sc-act" type="button" data-action="modify">Modify</button>`,
+              `<button class="sc-act" type="button" data-action="skip">Skip</button>`
+          ];
 
     return `
         <div class="sc-actions">
-            ${editRow}
             <div class="sc-act-row">${buttons.join("")}</div>
         </div>
     `;
@@ -724,20 +773,34 @@ function buildRecordTimestamp(record) {
     });
 }
 
-/* A short, human summary of what was logged — never raw JSON. */
-function buildRecordSummary(record) {
+/* Maps the stored perceived-difficulty value to a human phrase. */
+function feelingLabel(value) {
+    switch (value) {
+        case "easier":
+            return "felt easier";
+        case "as_expected":
+            return "as expected";
+        case "harder":
+            return "felt harder";
+        default:
+            return "";
+    }
+}
+
+/*
+ * A metrics-only summary of the SAVED record (no status label — the
+ * status is shown separately as a badge). Surfaces the latest saved
+ * values: duration, distance, pace, HR, RPE, perceived difficulty,
+ * pain response, skip reason, and a notes indicator. Reads only from
+ * the authoritative record, never from local state.
+ */
+function buildRecordMetrics(record) {
 
     if (!record) {
         return "";
     }
 
     const parts = [];
-
-    const meta = getStatusMeta(record.status);
-
-    if (meta) {
-        parts.push(meta.label);
-    }
 
     const duration = Number(record.actual_duration_minutes);
 
@@ -769,6 +832,12 @@ function buildRecordSummary(record) {
         parts.push(`RPE ${rpe}`);
     }
 
+    const feeling = feelingLabel(record.overall_feeling);
+
+    if (feeling) {
+        parts.push(feeling);
+    }
+
     if (record.pain_present === true) {
         const location = cleanText(record.pain_location);
         parts.push(location ? `pain: ${location}` : "pain reported");
@@ -778,7 +847,11 @@ function buildRecordSummary(record) {
         parts.push(formatSessionType(record.skip_reason).toLowerCase());
     }
 
-    return parts.filter(Boolean).join(" · ") || "Feedback saved";
+    if (cleanText(record.athlete_notes)) {
+        parts.push("notes added");
+    }
+
+    return parts.filter(Boolean).join(" · ");
 }
 
 function wireSessionActions(card, session) {
@@ -797,13 +870,22 @@ function wireSessionActions(card, session) {
             }
 
             if (action === "edit") {
-                // Reopen the flow that matches the saved status.
-                const mode =
-                    record?.status === "skipped"
-                        ? "skip"
-                        : record?.status === "modified"
-                        ? (isRestSession(session) ? "rest_alt" : "modify")
-                        : "complete";
+                // Reopen the flow that matches the saved status, prefilled
+                // with the current record so editing replaces it cleanly.
+                let mode;
+
+                if (record?.status === "skipped") {
+                    mode = "skip";
+                } else if (isRestSession(session)) {
+                    // Rest completed OR trained-instead both edit through
+                    // the "Trained instead" sheet so the athlete can log
+                    // (or revise) what they actually did.
+                    mode = "rest_alt";
+                } else if (record?.status === "modified") {
+                    mode = "modify";
+                } else {
+                    mode = "complete";
+                }
 
                 openFeedbackSheet(session, mode, record);
                 return;
@@ -1833,7 +1915,7 @@ function openFeedbackSheet(session, mode, existingRecord) {
             <p class="ci-msg" id="fbMsg"></p>
 
             <button class="lesson-done" type="button" id="fbSubmit">
-                ${existingRecord ? "Update feedback" : "Save feedback"}
+                ${existingRecord ? "Replace saved feedback" : "Save feedback"}
             </button>
         </div>
     `;
@@ -2132,14 +2214,28 @@ async function submitFeedback() {
         closeFeedbackSheet();
 
         if (typeof toast === "function") {
-            toast("Session updated");
+            // Clear, state-aware confirmation so the athlete never has to
+            // guess whether the save landed.
+            const confirmation = existingRecord
+                ? "Feedback updated."
+                : body.status === "skipped"
+                ? "Workout skipped."
+                : body.status === "modified"
+                ? "Workout updated."
+                : "Workout recorded.";
+            toast(confirmation);
         }
 
+        // Refetch the authoritative week (rerenders the Train card from the
+        // saved record) and refresh the Latest Workout Analysis, which
+        // depends on this record. loadWeeklyPlan() triggers both.
         await loadWeeklyPlan();
 
     } catch (error) {
         console.error("Feedback submit failed:", error);
 
+        // Keep the sheet OPEN with the athlete's entered values intact,
+        // show the error, and re-enable the button. No false success.
         feedbackReplacePending = false;
 
         if (message) {
@@ -2150,7 +2246,7 @@ async function submitFeedback() {
         if (submit) {
             submit.disabled = false;
             submit.textContent = existingRecord
-                ? "Update feedback"
+                ? "Replace saved feedback"
                 : "Save feedback";
         }
     }
@@ -2191,7 +2287,7 @@ async function submitRestCompleted(session, existingRecord) {
         }
 
         if (typeof toast === "function") {
-            toast("Rest logged");
+            toast(existingRecord ? "Rest updated." : "Rest logged.");
         }
 
         await loadWeeklyPlan();
