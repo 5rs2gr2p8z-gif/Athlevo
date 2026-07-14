@@ -153,6 +153,10 @@ if (latestAssistantMessage) {
 }
 
   chatlog.scrollTop = chatlog.scrollHeight;
+
+  // Any proposal cards restored from history that were already applied
+  // must show Applied (and lose their buttons) so nothing re-applies.
+  markAppliedProposals();
 }
 async function extractAthleteMemoryFromMessage(message) {
   try {
@@ -529,6 +533,103 @@ function setActionCardStatus(cardEl, label, cls) {
   }
 }
 
+/* "today at 2:40 PM" or "Jul 13 at 2:40 PM" from an applied timestamp. */
+function formatAppliedTime(value) {
+  const date = value ? new Date(value) : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const time = date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit"
+  });
+
+  const isToday =
+    date.toDateString() === new Date().toDateString();
+
+  if (isToday) {
+    return `today at ${time}`;
+  }
+
+  const day = date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric"
+  });
+
+  return `${day} at ${time}`;
+}
+
+/*
+ * Locks a proposal card into its Applied state: status pill, an applied
+ * timestamp line, and no action buttons — so the same proposal can never
+ * be applied again (from this render or after a chat reload).
+ */
+function markCardApplied(cardEl, appliedAt) {
+  if (!cardEl) {
+    return;
+  }
+
+  cardEl.dataset.status = "applied";
+  setActionCardStatus(cardEl, "Applied", "applied");
+
+  const applyBtn = cardEl.querySelector(".ca-apply");
+  const cancelBtn = cardEl.querySelector(".ca-cancel");
+
+  if (applyBtn) applyBtn.remove();
+  if (cancelBtn) cancelBtn.remove();
+
+  const message = cardEl.querySelector(".ca-msg");
+
+  if (message) {
+    const when = formatAppliedTime(appliedAt);
+    message.className = "ca-msg ca-applied";
+    message.textContent = "✔ Applied" + (when ? ` · ${when}` : "");
+  }
+}
+
+/*
+ * On chat (re)load, reconcile rendered proposal cards with the stored
+ * applied proposals so already-applied changes show Applied and cannot
+ * be re-applied. Read-only; user-owned rows via RLS.
+ */
+async function markAppliedProposals() {
+  try {
+    const {
+      data: { user }
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) {
+      return;
+    }
+
+    const { data, error } = await supabaseClient
+      .from("coach_action_proposals")
+      .select("id, applied_at, status")
+      .eq("user_id", user.id)
+      .eq("status", "applied");
+
+    if (error || !Array.isArray(data)) {
+      return;
+    }
+
+    data.forEach(row => {
+      const card = document.querySelector(
+        `.coach-action[data-proposal-id="${row.id}"]`
+      );
+
+      if (card && card.dataset.status !== "applied") {
+        markCardApplied(card, row.applied_at);
+      }
+    });
+  } catch (error) {
+    console.error("Could not reconcile applied proposals:", error);
+  }
+}
+
+window.markAppliedProposals = markAppliedProposals;
+
 /*
  * Applies a confirmed coach proposal through the authenticated training
  * endpoint. The server re-validates ownership and every field before it
@@ -591,17 +692,15 @@ async function applyCoachAction(proposalId, cardEl) {
       throw new Error(data.error || "That change could not be applied.");
     }
 
-    cardEl.dataset.status = "applied";
-    setActionCardStatus(cardEl, "Applied", "applied");
-
-    if (applyBtn) applyBtn.remove();
-    if (cancelBtn) cancelBtn.remove();
+    // Lock the card into Applied (with timestamp) so it can't re-apply.
+    markCardApplied(cardEl, data?.proposal?.applied_at);
 
     if (typeof toast === "function") {
-      toast("Change applied");
+      toast("Workout updated");
     }
 
-    // Refresh the surfaces the change affects.
+    // Refresh the surfaces the change affects: Train, Today, and Coach's
+    // own view of the week (used on the next reply).
     if (window.AthlevoBrain?.refreshAthleteUI) {
       await window.AthlevoBrain.refreshAthleteUI();
     }

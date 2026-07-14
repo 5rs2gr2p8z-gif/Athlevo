@@ -27,6 +27,14 @@ Map intent to action type:
 - "My race date changed" -> update_race_details.
 
 Rules:
+- When you propose a workout change (modify_workout or replace_workout),
+  the "changes" object IS the new workout. Fill every field you are
+  changing so the plan and your proposal cannot diverge: title,
+  description, purpose, duration_minutes, distance_km, session_type,
+  intensity, target_rpe, warmup, main_set, cooldown, and notes. If a part
+  of the workout stays the same, you may leave that field null and it is
+  kept as-is. Your proposed_summary must match what "changes" actually
+  sets — never describe a session you did not put in "changes".
 - Use target_session_id / target_activity_id taken ONLY from the ids in
   the supplied athlete context. Never invent ids.
 - Put the affected date in from_date/to_date (YYYY-MM-DD).
@@ -305,16 +313,55 @@ ${question}
                   distance_km: { type: ["number", "null"] },
                   session_type: { type: ["string", "null"] },
                   title: { type: ["string", "null"] },
+                  description: { type: ["string", "null"] },
+                  purpose: { type: ["string", "null"] },
                   intensity: { type: ["string", "null"] },
-                  notes: { type: ["string", "null"] }
+                  target_rpe: { type: ["string", "null"] },
+                  pace_guidance: { type: ["string", "null"] },
+                  heart_rate_guidance: { type: ["string", "null"] },
+                  fueling_guidance: { type: ["string", "null"] },
+                  coach_reasoning: { type: ["string", "null"] },
+                  notes: { type: ["string", "null"] },
+                  warmup: {
+                    type: ["array", "null"],
+                    items: { type: "string" }
+                  },
+                  main_set: {
+                    type: ["array", "null"],
+                    items: { type: "string" }
+                  },
+                  cooldown: {
+                    type: ["array", "null"],
+                    items: { type: "string" }
+                  },
+                  instructions: {
+                    type: ["array", "null"],
+                    items: { type: "string" }
+                  },
+                  adjustment_rules: {
+                    type: ["array", "null"],
+                    items: { type: "string" }
+                  }
                 },
                 required: [
                   "duration_minutes",
                   "distance_km",
                   "session_type",
                   "title",
+                  "description",
+                  "purpose",
                   "intensity",
-                  "notes"
+                  "target_rpe",
+                  "pace_guidance",
+                  "heart_rate_guidance",
+                  "fueling_guidance",
+                  "coach_reasoning",
+                  "notes",
+                  "warmup",
+                  "main_set",
+                  "cooldown",
+                  "instructions",
+                  "adjustment_rules"
                 ]
               },
               corrected_values: {

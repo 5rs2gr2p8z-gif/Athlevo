@@ -446,6 +446,7 @@ function buildCoachActionCard(action) {
   const card = document.createElement("div");
   card.className = "coach-action";
   card.dataset.status = "pending";
+  card.dataset.proposalId = action.id;
 
   const isCorrection = action.type === "create_activity_override";
 
