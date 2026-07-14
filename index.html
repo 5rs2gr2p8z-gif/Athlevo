@@ -115,9 +115,9 @@ body{
 .hairline{height:1px;background:var(--line);border:none}
 
 /* ---------- home ---------- */
-.statusrow{display:flex;justify-content:center;align-items:center;padding:18px 22px 0;font-size:12px;font-weight:600;color:var(--ink2)}
-.brand-icon{height:32px;width:auto;max-width:140px;object-fit:contain;display:block}
-.greet{padding:26px 22px 6px}
+.statusrow{display:flex;justify-content:center;align-items:center;padding:24px 22px 0;font-size:12px;font-weight:600;color:var(--ink2)}
+.brand-icon{height:34px;width:34px;object-fit:contain;display:block}
+.greet{padding:34px 22px 6px}
 .greet h1{font-family:var(--serif);font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1.12}
 .greet p{color:var(--ink2);font-size:14px;margin-top:6px}
 .greet .wx{display:inline-flex;align-items:center;gap:6px}
@@ -343,13 +343,13 @@ body{
 .cm-btn.approve{background:var(--ink);border-color:var(--ink);color:#fff}
 /* ---------- welcome ---------- */
 .welcome{justify-content:space-between;padding:0!important}
-.w-top{padding:84px 30px 0}
-/* Icon + wordmark brand lockup */
-.w-lockup{display:flex;flex-direction:column;align-items:flex-start;gap:16px}
-.w-icon{width:56px;height:56px;object-fit:contain;display:block;flex-shrink:0}
-.w-mark{font-family:"Space Grotesk",var(--sans);font-size:40px;font-weight:700;letter-spacing:.01em;text-transform:uppercase;line-height:1}
+.w-top{padding:96px 30px 0;text-align:center}
+/* Icon + wordmark brand lockup — icon as the primary mark, centered */
+.w-lockup{display:flex;flex-direction:column;align-items:center;gap:24px}
+.w-icon{width:72px;height:72px;object-fit:contain;display:block;flex-shrink:0}
+.w-mark{font-family:"Space Grotesk",var(--sans);font-size:38px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .w-mark i{font-style:normal;color:var(--red)}
-.w-tag{font-size:16px;color:var(--ink2);margin-top:14px;line-height:1.5;max-width:290px}
+.w-tag{font-size:16px;color:var(--ink2);margin:18px auto 0;line-height:1.5;max-width:300px}
 .w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:10px}
 .w-btn{font-family:var(--sans);font-size:15px;font-weight:650;padding:16px;border-radius:100px;cursor:pointer;border:1px solid var(--line);background:var(--paper);transition:transform .12s}
 .w-btn:active{transform:scale(.98)}
@@ -1246,8 +1246,8 @@ body{
 <section class="screen welcome active" id="screen-welcome">
   <div class="w-top">
     <div class="w-lockup">
-      <img class="w-icon" src="assets/athlevo-icon.png" alt="" width="56" height="56" onerror="this.style.visibility='hidden'">
-      <div class="w-mark">ATHLEVO<i>.</i></div>
+      <img class="w-icon" src="assets/athlevo-icon.png" alt="" width="72" height="72">
+      <div class="w-mark">Athlevo<i>.</i></div>
     </div>
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
   </div>
@@ -1297,7 +1297,7 @@ body{
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
   <div class="statusrow">
-  <img class="brand-icon" src="assets/athlevo-icon.png" alt="Athlevo" width="32" height="32" onerror="this.style.visibility='hidden'">
+  <img class="brand-icon" src="assets/athlevo-icon.png" alt="Athlevo" width="34" height="34">
 </div>
   <div class="greet">
   <h1 class="serif">
