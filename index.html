@@ -2697,7 +2697,7 @@ function quizPick(btn,correct){
 async function routeAfterAuth(userId) {
   const { data: profile, error } = await supabaseClient
     .from("profiles")
-    .select("goal, device")
+    .select("onboarding_complete, goal, device")
     .eq("id", userId)
     .maybeSingle();
 
@@ -2707,7 +2707,18 @@ async function routeAfterAuth(userId) {
     return;
   }
 
-  if (!profile || profile.goal == null || profile.device == null) {
+  // Use the authoritative onboarding_complete flag (the same signal
+  // js/onboarding.js sets on finish and reads on resume). Fall back to the
+  // legacy goal/device heuristic only for older rows that predate the flag,
+  // so state is never contradictory between routing and onboarding.
+  const completed =
+    profile &&
+    (profile.onboarding_complete === true ||
+      (profile.onboarding_complete == null &&
+        profile.goal != null &&
+        profile.device != null));
+
+  if (!completed) {
     startOnboarding();
     return;
   }
@@ -2881,24 +2892,28 @@ async function restoreSession() {
 
       const result = await AthlevoBrain.syncStravaActivities();
 
-      console.log(
-        `Imported ${result.activitiesSaved ?? 0} Strava activities.`
-      );
+      const importedCount = Number(result?.activitiesSaved) || 0;
+      console.log(`Imported ${importedCount} Strava activities.`);
 
       // Only a genuine success advances the cooldown clock.
       setLastStravaSync(userId);
 
-      await AthlevoBrain.refreshAthleteUI();
+      // Re-run the (heavy) refresh pipeline only when there is genuinely
+      // new data to show, or when the athlete asked for it manually. On a
+      // routine open, routeAfterAuth has already rendered current state, so
+      // an auto-sync that imports nothing new must not refresh everything
+      // again — that was doubling every startup read.
+      if (manual || importedCount > 0) {
+        await AthlevoBrain.refreshAthleteUI();
 
-      // Reload the brief. Its per-activity fingerprint means this only
-      // regenerates when the sync actually imported something new, so
-      // there is no wasted model call when nothing changed.
-      await AthlevoDailyBrief.load();
+        // The brief's per-activity fingerprint means this only regenerates
+        // when the import actually changed something.
+        await AthlevoDailyBrief.load();
 
-      // Refresh the Train tab's weekly plan/analysis so its matching
-      // reflects the just-imported activities too.
-      if (typeof window.loadWeeklyPlan === "function") {
-        await window.loadWeeklyPlan();
+        // Keep the Train tab's plan/matching in sync with new activities.
+        if (typeof window.loadWeeklyPlan === "function") {
+          await window.loadWeeklyPlan();
+        }
       }
 
       return result;
@@ -2962,8 +2977,10 @@ async function restoreSession() {
   }
 
   async function initializeAthlevoApp() {
+    // restoreSession() -> routeAfterAuth() already loads the Daily Brief,
+    // weekly plan, and full UI for a signed-in athlete, so we do NOT reload
+    // the brief again here (that was a redundant call on every open).
     await restoreSession();
-    await AthlevoDailyBrief.load();
 
     const url = new URL(window.location.href);
     const stravaResult = url.searchParams.get("strava");
