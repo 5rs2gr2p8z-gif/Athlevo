@@ -357,13 +357,13 @@
       </div>`;
   }
 
-  // Public: recompute from raw inputs and repaint the card. Called by
-  // refreshAthleteUI and after a race is confirmed.
+  // Public: recompute the athlete's fitness from raw inputs and cache it.
+  // The Athlevo Score card itself is now owned by js/athlevoScore.js (v1);
+  // this only refreshes the shared fitness inputs (Current Running Level +
+  // paces) that the score model and plan generation both consume.
   async function refresh() {
     try {
-      const fitness = await computeAthleteFitness();
-      renderScoreCard(fitness);
-      return fitness;
+      return await computeAthleteFitness();
     } catch (error) {
       console.error("Athlete model refresh failed:", error);
       return null;
@@ -376,7 +376,4 @@
     computeAthleteFitness,
     renderScoreCard
   };
-
-  // Back-compat alias so refreshAthleteUI can call a stable name.
-  window.renderAthlevoScoreCard = refresh;
 })();

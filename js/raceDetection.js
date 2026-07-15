@@ -319,10 +319,16 @@
       const willUpdateFitness =
         raceType === "official" || raceType === "time_trial";
 
-      // Recompute fitness ONLY now that the athlete confirmed. The card
-      // clears and the Athlevo Score / paces refresh in place.
-      if (willUpdateFitness && window.AthleteModel) {
-        await window.AthleteModel.refresh();
+      // Recompute fitness ONLY now that the athlete confirmed, then refresh
+      // the Athlevo Score (v1) and Trends so the new race flows through.
+      if (willUpdateFitness) {
+        if (window.AthleteModel) await window.AthleteModel.refresh();
+        if (typeof window.renderAthlevoScoreCard === "function") {
+          await window.renderAthlevoScoreCard();
+        }
+        if (typeof window.refreshTrends === "function") {
+          window.refreshTrends();
+        }
       }
 
       if (typeof toast === "function") {

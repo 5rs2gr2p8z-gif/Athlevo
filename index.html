@@ -1366,6 +1366,72 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .asc-est{font-size:11.5px;color:var(--ink3);margin-top:12px;line-height:1.4}
 .asc-empty .asc-empty-copy{font-size:13.5px;color:var(--ink2);line-height:1.5;margin-top:8px}
 
+/* ---------- Athlevo Score v1 (Today card) ---------- */
+.asc-sub-eyebrow{display:block;font-size:11px;color:var(--ink3);margin-top:2px}
+.asc-badge{font-size:13px;font-weight:700;color:var(--ink2);background:var(--card);padding:6px 14px;border-radius:100px;white-space:nowrap}
+.asc-change{font-size:12.5px;font-weight:700;color:var(--good);margin:8px 0 0}
+.asc-explain{font-size:13.5px;line-height:1.5;color:var(--ink2);margin:10px 0 14px}
+.asc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.asc-updated{font-size:11px;color:var(--ink3)}
+.asc-details-btn{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--red);background:none;border:none;cursor:pointer;padding:4px 2px;margin-left:auto}
+
+/* readiness separation label (UI only) */
+.rd-eyebrow{display:block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+
+/* ---------- Score detail sheet ---------- */
+.scd{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:24px 22px calc(28px + env(safe-area-inset-bottom));animation:slideUp .4s cubic-bezier(.3,.7,.3,1)}
+.scd-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.scd-overall{font-family:var(--serif);font-size:42px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-top:4px}
+.scd-quality{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em}
+.scd-close{width:32px;height:32px;border:none;background:var(--card);border-radius:50%;color:var(--ink2);font-size:14px;cursor:pointer;flex-shrink:0}
+.scd-explain{font-size:14px;line-height:1.55;color:var(--ink);margin:14px 0}
+.scd-line{font-size:13px;line-height:1.5;color:var(--ink2);margin:6px 0}
+.scd-line b{color:var(--ink)}
+.scd-comps{margin:16px 0;display:flex;flex-direction:column;gap:16px}
+.scd-comp-top{display:flex;justify-content:space-between;align-items:baseline}
+.scd-comp-label{font-size:14px;font-weight:700;color:var(--ink)}
+.scd-comp-val{font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.scd-track{height:6px;background:var(--line);border-radius:100px;overflow:hidden;margin:7px 0}
+.scd-track i{display:block;height:100%;background:var(--ink);border-radius:100px}
+.scd-comp-meta{margin-bottom:4px}
+.scd-cov{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:100px}
+.scd-cov.strong{background:#eef8f2;color:var(--good)}
+.scd-cov.dev{background:#fbf3e4;color:var(--warn)}
+.scd-cov.lim{background:var(--card);color:var(--ink3)}
+.scd-comp-exp{font-size:12.5px;line-height:1.5;color:var(--ink2);margin-top:6px}
+.scd-need{margin:14px 0;font-size:13px;color:var(--ink2)}
+.scd-need ul{margin:8px 0 0;padding-left:18px}
+.scd-need li{margin:4px 0;line-height:1.45}
+.scd-paces{margin:14px 0;border-top:1px solid var(--line);padding-top:12px}
+.scd-paces summary{font-size:13px;font-weight:700;cursor:pointer;list-style:none}
+.scd-paces summary::-webkit-details-marker{display:none}
+.scd-pace-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:12px}
+.scd-pace{display:flex;justify-content:space-between;font-size:13px}
+.scd-pace span:last-child{font-weight:700;font-variant-numeric:tabular-nums}
+.scd-hist{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;font-size:13px}
+.scd-hist-row{display:flex;justify-content:space-between;padding:6px 0;color:var(--ink2)}
+.scd-hist-row span:last-child{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* ---------- calendar-week Trends ---------- */
+.trend-narrative{font-size:14px;line-height:1.55;color:var(--ink);margin-top:8px}
+.trend-metrics{display:flex;flex-direction:column;margin-top:6px}
+.tm-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.tm-row:first-child{border-top:none}
+.tm-left{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tm-label{font-size:12px;color:var(--ink3);font-weight:600}
+.tm-cur{font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.tm-diff{font-size:12.5px;font-weight:600;color:var(--ink2);text-align:right;flex-shrink:0}
+.tm-diff.muted{color:var(--ink3)}
+.trend-foot{font-size:11.5px;color:var(--ink3);margin-top:10px}
+.trend-sixweek{display:flex;align-items:flex-end;gap:6px;min-height:200px;padding-top:20px}
+.tw-col{flex:1;min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center}
+.tw-val{font-size:11px;color:var(--ink2);font-variant-numeric:tabular-nums;height:14px}
+.tw-track{height:120px;width:100%;display:flex;align-items:flex-end;margin:6px 0;border-radius:8px;overflow:hidden;background:rgba(0,0,0,.05)}
+.tw-bar{width:100%;background:var(--ink);opacity:.25;border-radius:8px 8px 0 0;transition:height .5s cubic-bezier(.3,.7,.3,1)}
+.tw-bar.progress{opacity:1;background:var(--red)}
+.tw-lab{font-size:10px;color:var(--ink3);margin-top:2px;line-height:1.2}
+.tw-sub{font-size:9px;color:var(--red);font-weight:700;min-height:11px}
+
 /* ---------- automatic race detection prompt ---------- */
 .rdc{margin:8px 22px 4px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
 .rdc-eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
@@ -1500,6 +1566,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   </div>
 
   <div class="readiness-copy">
+    <span class="rd-eyebrow">Athlete Readiness · today's ability to absorb training</span>
     <h2 id="readinessTitle">Daily readiness</h2>
 
     <p id="readinessCopy">
@@ -1854,73 +1921,40 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   </div>
 
   <div class="decision">
-
-    <span class="eyebrow">Performance trends</span>
-
-    <h3 id="trendPerformanceTitle">No imported training history yet.</h3>
-
-    <p id="trendPerformanceContext">
-      Athlevo will not calculate fitness, fatigue, race predictions, or training
-      trends until it has enough real workout data.
+    <span class="eyebrow" id="trendWeekLabel">This week</span>
+    <p id="trendNarrative" class="trend-narrative">
+      Your weekly progress will appear here as real activity history accumulates.
     </p>
-
   </div>
-
-  <div class="spacer-md"></div>
-
-  <div class="statgrid">
-
-  <div class="stat">
-    <span class="eyebrow">Current 7 days</span>
-    <b class="num" id="trendCurrentDistance">—</b>
-    <small>Imported activity distance</small>
-  </div>
-
-  <div class="stat">
-    <span class="eyebrow">Previous 7 days</span>
-    <b class="num" id="trendPreviousDistance">—</b>
-    <small>Imported activity distance</small>
-  </div>
-
-  <div class="stat">
-    <span class="eyebrow">Week-over-week</span>
-    <b class="num" id="trendWeeklyChange">—</b>
-    <small id="trendWeeklyChangeContext">
-      Waiting for enough activity history
-    </small>
-  </div>
-
-  <div class="stat">
-    <span class="eyebrow">Imported activities</span>
-    <b class="num" id="trendImportedActivities">0</b>
-    <small>Available for analysis</small>
-  </div>
-
-</div>
 
   <div class="spacer-md"></div>
 
   <div class="decision">
-  <span class="eyebrow">Six-week volume</span>
+    <span class="eyebrow">Calendar week · this week vs. same point last week</span>
+    <div id="trendMetrics" class="trend-metrics"></div>
+    <p class="trend-foot">Compared against the same weekday and time last week, not a full week.</p>
+  </div>
 
-  <h3 id="trendVolumeTitle">
-    Loading training history...
-  </h3>
+  <div class="spacer-md"></div>
 
-  <p id="trendVolumeContext">
-    Athlevo is calculating your real weekly volume from imported activities.
-  </p>
+  <div class="decision">
+  <span class="eyebrow">Six-week volume · Monday–Sunday</span>
 
-  <div
-    id="trendWeeklyVolumeChart"
-    style="
-      display:flex;
-      align-items:flex-end;
-      gap:8px;
-      min-height:180px;
-      padding-top:24px;
-    "
-  ></div>
+  <h3 id="trendVolumeTitle" class="sr-hidden" style="display:none">Six-week volume</h3>
+  <p id="trendVolumeContext" class="sr-hidden" style="display:none"></p>
+
+  <div id="trendWeeklyVolumeChart" class="trend-sixweek"></div>
+</div>
+
+<!-- retained (hidden) legacy nodes so nothing that references them breaks -->
+<div style="display:none">
+  <span id="trendPerformanceTitle"></span>
+  <span id="trendPerformanceContext"></span>
+  <span id="trendCurrentDistance"></span>
+  <span id="trendPreviousDistance"></span>
+  <span id="trendWeeklyChange"></span>
+  <span id="trendWeeklyChangeContext"></span>
+  <span id="trendImportedActivities"></span>
 </div>
 
 <div class="spacer-md"></div>
@@ -2146,6 +2180,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
 <!-- ══════════════ DAILY READINESS MODAL ══════════════ -->
 <div class="modal-back" id="readinessModal"></div>
+
+<!-- ══════════════ ATHLEVO SCORE DETAIL MODAL ══════════════ -->
+<div class="modal-back" id="scoreDetailModal"></div>
 
 <!-- ══════════════ LEGAL PAGES ══════════════ -->
 <section class="screen" id="screen-privacy">
@@ -2755,6 +2792,9 @@ async function restoreSession() {
 <script src="js/brain.js"></script>
 <script src="js/performance.js"></script>
 <script src="js/athleteModel.js"></script>
+<script src="js/calendarWeeks.js"></script>
+<script src="js/trends.js"></script>
+<script src="js/athlevoScore.js"></script>
 <script src="js/raceDetection.js"></script>
 <script src="js/memory.js"></script>
 <script src="js/dailyBrief.js"></script>

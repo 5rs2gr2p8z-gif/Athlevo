@@ -1326,11 +1326,9 @@ async function refreshAthleteUI() {
 
     updateTodayActivityData(activitySummary);
     updateTrainActivityData(activities, activitySummary);
-    updateTrendsActivityData(
-      activities,
-      activitySummary,
-      totalActivityCount
-    );
+    // Trends now use true calendar weeks (js/trends.js, called below via
+    // window.refreshTrends). The old rolling-7-day updateTrendsActivityData
+    // is retained in this file but no longer invoked.
 
     // Daily readiness owns its card CTA/summary; render it after the
     // generic copy so it reflects whether today's readiness is logged.
@@ -1345,12 +1343,15 @@ async function refreshAthleteUI() {
       window.renderLatestWorkoutAnalysis();
     }
 
-    // Performance foundation: recompute the Athlevo Score / Current
-    // Running Level / paces from raw inputs, and scan imported activities
-    // for anything that looks like a race. Both are fire-and-forget and
-    // read-only until the athlete confirms a detected race.
+    // Performance foundation: recompute the Athlevo Score (v1) and
+    // calendar-week Trends from raw inputs (reusing the override-applied
+    // activities + athlete timezone), and scan imported activities for a
+    // possible race. All fire-and-forget and read-only until confirmed.
     if (typeof window.renderAthlevoScoreCard === "function") {
-      window.renderAthlevoScoreCard();
+      window.renderAthlevoScoreCard(activities, profile);
+    }
+    if (typeof window.refreshTrends === "function") {
+      window.refreshTrends(activities, profile);
     }
     if (typeof window.runRaceDetection === "function") {
       window.runRaceDetection();
