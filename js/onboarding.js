@@ -140,8 +140,38 @@ const OB_STEPS = [
     ]
   },
   {
+    key: "performance",
+    eyebrow: "Step 5 · Recent performance",
+    title: "Your latest result",
+    sub: "A recent race sets your starting fitness. Skip it and Athlevo will estimate from your imported runs.",
+    fields: [
+      {
+        id: "recentDist", type: "chips", label: "Recent race distance", optional: true,
+        options: [
+          { label: "5K", value: 5000 },
+          { label: "10K", value: 10000 },
+          { label: "Half", value: 21097.5 },
+          { label: "Marathon", value: 42195 }
+        ]
+      },
+      { id: "recentDistKm", type: "number", label: "Other distance", unit: "km",
+        min: 0.4, max: 500, optional: true, placeholder: "e.g. 15", half: true },
+      { id: "recentTime", type: "text", label: "Finish time", optional: true,
+        placeholder: "e.g. 22:30 or 1:45:00", half: true },
+      { id: "recentDate", type: "date", label: "Date of race", optional: true },
+      {
+        id: "recentType", type: "chips", label: "Race type", optional: true,
+        options: [
+          { label: "Official race", value: "official" },
+          { label: "Time trial", value: "time_trial" },
+          { label: "Training effort", value: "training_effort" }
+        ]
+      }
+    ]
+  },
+  {
     key: "schedule",
-    eyebrow: "Step 5 · Training schedule",
+    eyebrow: "Step 6 · Training schedule",
     title: "How your week works",
     sub: "So your plan fits your real life, not the other way around.",
     fields: [
@@ -166,7 +196,7 @@ const OB_STEPS = [
   },
   {
     key: "setup",
-    eyebrow: "Step 6 · Your setup",
+    eyebrow: "Step 7 · Your setup",
     title: "Devices & fuelling",
     sub: "Last one — then your coach gets to work.",
     fields: [
@@ -646,9 +676,80 @@ function obBack() {
   obRenderStep();
 }
 
+/*
+ * Parse a finish time typed as "mm:ss", "h:mm:ss", or a plain number of
+ * minutes into total seconds. Returns null if it can't be understood.
+ */
+function obParseRaceTime(raw) {
+  const text = obClean(raw);
+  if (!text) return null;
+
+  if (text.includes(":")) {
+    const parts = text.split(":").map(p => Number(p.trim()));
+    if (parts.some(n => !Number.isFinite(n) || n < 0)) return null;
+    let seconds = 0;
+    if (parts.length === 3) seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+    else if (parts.length === 2) seconds = parts[0] * 60 + parts[1];
+    else return null;
+    return seconds > 0 ? Math.round(seconds) : null;
+  }
+
+  const minutes = Number(text);
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60) : null;
+}
+
+/*
+ * If the athlete gave a recent race in the (optional) performance step,
+ * write it as a race_results row (source = 'onboarding'). Stores ONLY raw
+ * inputs — VDOT and everything derived is recomputed on demand. Idempotent:
+ * replaces any prior onboarding race so re-running onboarding never
+ * duplicates. Never throws — a bad/missing entry simply writes nothing.
+ */
+async function obWriteOnboardingRace() {
+  try {
+    const d = obData;
+
+    const meters =
+      d.recentDistKm != null && d.recentDistKm !== ""
+        ? Number(d.recentDistKm) * 1000
+        : Number(d.recentDist);
+    const seconds = obParseRaceTime(d.recentTime);
+
+    // Need both a distance and a time to be a usable result.
+    if (!Number.isFinite(meters) || meters < 400 || !seconds) return;
+
+    const user = await obUser();
+
+    // Replace any previous onboarding race (keep a single one).
+    await supabaseClient
+      .from("race_results")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("source", "onboarding");
+
+    await supabaseClient.from("race_results").insert({
+      user_id: user.id,
+      source: "onboarding",
+      activity_id: null,
+      race_type: d.recentType || "training_effort",
+      distance_meters: Math.round(meters * 100) / 100,
+      duration_seconds: seconds,
+      race_date: obClean(d.recentDate) || null
+    });
+  } catch (error) {
+    // race_results table may not exist yet, or the entry was incomplete —
+    // never block onboarding completion on it.
+    console.warn("Onboarding race not saved:", error?.message || error);
+  }
+}
+
 async function obFinish() {
   const tabbar = document.getElementById("tabbar");
   if (tabbar) tabbar.style.display = "flex";
+
+  // Persist the optional recent race BEFORE refreshing, so the Athlevo
+  // Score card reflects it immediately.
+  await obWriteOnboardingRace();
 
   try {
     await AthlevoBrain.refreshAthleteUI();

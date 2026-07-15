@@ -16,6 +16,10 @@ import {
 
 import { applyActivityOverrides } from "../../lib/server/coachActions.js";
 import { summarizeReadiness } from "../../lib/server/readiness.js";
+import {
+  computeFitness,
+  vdotFromRace
+} from "../../lib/server/performance.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -163,6 +167,98 @@ async function optionalSupabaseRequest(path) {
     );
     return null;
   }
+}
+
+async function loadRaceResults(userId) {
+  const rows = await optionalSupabaseRequest(
+    [
+      "race_results",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      "&select=source,race_type,distance_meters,duration_seconds,race_date",
+      "&order=race_date.desc",
+      "&limit=50"
+    ].join("")
+  );
+
+  return Array.isArray(rows) ? rows : [];
+}
+
+const FITNESS_ELIGIBLE_RACE_TYPES = new Set([
+  "official",
+  "time_trial",
+  "training_effort"
+]);
+
+/*
+ * Derives the athlete's current fitness (Current Running Level + training
+ * paces) from RAW inputs — confirmed races first, otherwise a flagged
+ * estimate from a recent fast run — using the shared performance engine.
+ * Nothing derived is stored; the plan simply receives up-to-date paces so
+ * it adapts whenever fitness changes. Returns null when there is no
+ * signal at all (the model then prescribes by effort, as before).
+ */
+function buildPerformanceModel(profile, activities, raceResults) {
+  const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
+  const ageDays = d => {
+    const t = Date.parse(d);
+    return Number.isFinite(t) ? (Date.now() - t) / 86400000 : Infinity;
+  };
+  const isRun = a =>
+    /run|jog|tempo|interval|threshold|long/.test(
+      String(a?.activity_type || a?.sport_type || "").toLowerCase()
+    );
+
+  // Best confirmed race within ~12 months.
+  let best = null;
+  let estimated = false;
+  for (const r of raceResults || []) {
+    if (!FITNESS_ELIGIBLE_RACE_TYPES.has(r.race_type)) continue;
+    if (r.race_date && ageDays(r.race_date) > 400) continue;
+    const vdot = vdotFromRace(r.distance_meters, r.duration_seconds);
+    if (vdot == null) continue;
+    if (!best || vdot > best.vdot) {
+      best = { vdot, distanceKm: num(r.distance_meters) / 1000, raceDate: r.race_date };
+    }
+  }
+
+  // Otherwise estimate from the best recent run.
+  if (!best) {
+    for (const a of activities || []) {
+      if (!isRun(a) || ageDays(a.start_date) > 120) continue;
+      const meters = num(a.distance_meters);
+      const seconds = num(a.moving_time_seconds);
+      if (!meters || meters < 3000 || !seconds) continue;
+      const vdot = vdotFromRace(meters, seconds);
+      if (vdot == null) continue;
+      if (!best || vdot > best.vdot) {
+        best = { vdot, distanceKm: meters / 1000, raceDate: null };
+        estimated = true;
+      }
+    }
+  }
+
+  if (!best) return null;
+
+  const fitness = computeFitness({
+    vdot: best.vdot,
+    estimated,
+    raceDistanceKm: best.distanceKm,
+    weeklyDistanceKm: num(profile?.weekly_distance)
+  });
+
+  const paces = {};
+  if (fitness.paces) {
+    for (const key of Object.keys(fitness.paces)) {
+      if (fitness.paces[key].pace) paces[fitness.paces[key].label] = fitness.paces[key].pace;
+    }
+  }
+
+  return {
+    currentRunningLevel: fitness.runningLevel.level,
+    tier: fitness.runningLevel.tier,
+    estimated,
+    trainingPaces: paces
+  };
 }
 
 /*
@@ -759,6 +855,7 @@ async function generateWeeklyPlan({
   profile,
   memories,
   activitySummary,
+  performanceModel,
   targetRace,
   raceDate,
   weeksUntilRace,
@@ -852,7 +949,7 @@ Rules:
    Surge Hills
    Conversion Run
 9. Do not invent exact pace or heart-rate targets when the athlete's thresholds or HRmax are unknown.
-10. When pace data is uncertain, prescribe using effort, breathing, mechanics, and Athlevo zones.
+10. When pace data is uncertain, prescribe using effort, breathing, mechanics, and Athlevo zones. However, when performanceModel.trainingPaces is present, those paces ARE known — use the matching zone's pace for target_pace (e.g. the Threshold pace for a threshold session, Easy for easy running). If performanceModel.estimated is true, treat the paces as a starting guide and lean slightly conservative.
 11. Account for injury memories, work schedule, sleep patterns, preferred training time, diet, and other durable athlete constraints.
 12. Do not claim access to sleep, HRV, readiness, weather, soreness, or recovery information unless it appears in the supplied data.
 13. If preparation is compressed, state that clearly and prioritize safe completion and durability over aggressive race-specific loading.
@@ -907,6 +1004,13 @@ The athlete data may include recentReadiness: their own daily reports of sleep, 
 
                 recentTraining:
                   activitySummary,
+
+                // Athlete's current fitness derived from confirmed races
+                // (or a flagged estimate). When present, its trainingPaces
+                // are authoritative — prescribe from them instead of
+                // leaving pace fields empty.
+                performanceModel:
+                  performanceModel || null,
 
                 requiredPeriodization: {
                   targetRace,
@@ -1671,6 +1775,16 @@ const weekEnd =
         weekStart
       );
 
+    // Performance foundation: derive Current Running Level + training
+    // paces from raw race_results (or a recent-run estimate) so the plan
+    // adapts to the athlete's current fitness. Optional and non-blocking.
+    const raceResults = await loadRaceResults(user.id);
+    const performanceModel = buildPerformanceModel(
+      profile,
+      effectiveActivities,
+      raceResults
+    );
+
     const periodization =
       determinePeriodization({
         weeksUntilRace,
@@ -1697,6 +1811,7 @@ const weekEnd =
         profile,
         memories,
         activitySummary,
+        performanceModel,
         targetRace,
         raceDate,
         weeksUntilRace,

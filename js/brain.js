@@ -1345,6 +1345,17 @@ async function refreshAthleteUI() {
       window.renderLatestWorkoutAnalysis();
     }
 
+    // Performance foundation: recompute the Athlevo Score / Current
+    // Running Level / paces from raw inputs, and scan imported activities
+    // for anything that looks like a race. Both are fire-and-forget and
+    // read-only until the athlete confirms a detected race.
+    if (typeof window.renderAthlevoScoreCard === "function") {
+      window.renderAthlevoScoreCard();
+    }
+    if (typeof window.runRaceDetection === "function") {
+      window.runRaceDetection();
+    }
+
     console.log("Athlete UI updated for:", profile.id);
 
     return {
