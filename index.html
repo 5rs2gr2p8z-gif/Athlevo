@@ -3,11 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Athlevo — Endurance Operating System</title>
 
-<!-- Athlevo brand icon (final): favicon + Apple touch icon. -->
-<link rel="icon" type="image/png" href="assets/athlevo-icon.png">
-<link rel="apple-touch-icon" href="assets/athlevo-icon.png">
+<!-- ══════════════ SEO ══════════════ -->
+<title>Athlevo — Train with an AI Coach That Evolves With You</title>
+<meta name="description" content="Athlevo is an AI endurance coach that learns from every workout. Adaptive training, Coach Brain, Athlete Score, readiness and workout analysis for runners, triathletes and cyclists.">
+<link rel="canonical" href="https://athlevo.org/">
+<meta name="theme-color" content="#141416">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="index, follow">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Athlevo">
+<meta property="og:title" content="Train with an AI Coach That Evolves With You">
+<meta property="og:description" content="Every workout teaches Athlevo something new. Your training adapts, your coach gets smarter, your performance keeps moving forward.">
+<meta property="og:url" content="https://athlevo.org/">
+<meta property="og:image" content="https://athlevo.org/assets/pwa/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Train with an AI Coach That Evolves With You">
+<meta name="twitter:description" content="Adaptive endurance coaching that learns from every workout.">
+<meta name="twitter:image" content="https://athlevo.org/assets/pwa/og-image.png">
+
+<!-- Structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Athlevo",
+  "applicationCategory": "HealthApplication",
+  "operatingSystem": "iOS, Android, Web",
+  "url": "https://athlevo.org/",
+  "description": "An AI endurance coach that adapts to every workout — adaptive training, Coach Brain, Athlete Score and workout analysis.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- ══════════════ PWA ══════════════ -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Athlevo">
+<meta name="application-name" content="Athlevo">
+
+<!-- Athlevo brand icon: favicon + Apple touch icon (existing branding). -->
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/pwa/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/pwa/favicon-16.png">
+<link rel="icon" type="image/png" href="/assets/athlevo-icon.png">
+<link rel="apple-touch-icon" href="/assets/pwa/apple-touch-180.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1585,13 +1632,291 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 }
 .fb-check{display:flex;align-items:center;gap:10px;padding:14px 0 2px;font-size:13.5px;color:var(--ink);cursor:pointer}
 .fb-check input{width:18px;height:18px;accent-color:var(--ink);flex-shrink:0}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LANDING PAGE — premium marketing (athlevo.org entry)
+   Full-width when body.landing-active; reuses brand tokens.
+   ═══════════════════════════════════════════════════════════════════ */
+body.landing-active{background:var(--paper)}
+body.landing-active .device{max-width:none;border-radius:0;box-shadow:none;margin:0;min-height:100dvh;background:var(--paper)}
+body.landing-active #tabbar{display:none!important}
+#screen-landing{padding:0;background:var(--paper);color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+#screen-landing .lp-wrap{max-width:1120px;margin:0 auto;padding:0 clamp(20px,5vw,40px);width:100%;box-sizing:border-box}
+
+/* reveal motion */
+.lp-reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+.lp-reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.lp-reveal{opacity:1;transform:none;transition:none}}
+
+/* nav */
+.lp-nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.72);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid var(--line)}
+.lp-nav-in{display:flex;align-items:center;justify-content:space-between;height:60px}
+.lp-brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-family:var(--serif);font-size:20px;font-weight:600;letter-spacing:-.02em}
+.lp-brand img{border-radius:7px;display:block}
+.lp-brand i{color:var(--red);font-style:normal}
+.lp-nav-cta{display:flex;align-items:center;gap:14px}
+.lp-link{background:none;border:none;color:var(--ink);font-family:var(--sans);font-size:14.5px;font-weight:600;cursor:pointer;padding:8px 4px;letter-spacing:-.01em}
+.lp-link:hover{color:var(--red)}
+.lp-btn{font-family:var(--sans);font-weight:650;font-size:15.5px;letter-spacing:-.01em;border:none;border-radius:999px;padding:15px 30px;cursor:pointer;background:var(--ink);color:#fff;transition:transform .2s ease,background .2s ease,box-shadow .2s ease}
+.lp-btn:hover{transform:translateY(-1px);background:#000;box-shadow:0 10px 30px -12px rgba(0,0,0,.5)}
+.lp-btn.sm{padding:10px 20px;font-size:14px}
+.lp-btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.lp-btn.ghost:hover{background:var(--card);border-color:var(--ink);box-shadow:none}
+.lp-btn.light{background:#fff;color:var(--ink)}
+.lp-btn.light:hover{background:#fff;box-shadow:0 14px 40px -14px rgba(0,0,0,.6)}
+
+/* hero */
+.lp-hero{padding:clamp(64px,11vw,132px) 0 clamp(52px,8vw,88px);text-align:center;background:radial-gradient(120% 90% at 50% -10%,#fbfbfa 0%,var(--paper) 55%)}
+.lp-eyebrow{display:inline-block;font-family:var(--sans);font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--red);background:rgba(192,39,45,.07);border:1px solid rgba(192,39,45,.16);padding:7px 15px;border-radius:999px;margin-bottom:26px}
+.lp-h1{font-family:var(--serif);font-weight:500;font-size:clamp(38px,7vw,74px);line-height:1.02;letter-spacing:-.025em;margin:0 auto;max-width:16ch;color:var(--ink)}
+.lp-lead{font-family:var(--sans);font-size:clamp(16.5px,2.2vw,21px);line-height:1.5;color:var(--ink2);max-width:36ch;margin:26px auto 0;letter-spacing:-.01em}
+.lp-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:38px}
+.lp-note{font-family:var(--sans);font-size:13px;color:var(--ink3);margin-top:20px;letter-spacing:-.01em}
+
+/* generic section */
+.lp-section{padding:clamp(58px,9vw,104px) 0;border-top:1px solid var(--line)}
+.lp-section.lp-alt{background:var(--card)}
+.lp-kicker{display:block;text-align:center;font-family:var(--sans);font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin-bottom:16px}
+.lp-h2{font-family:var(--serif);font-weight:500;font-size:clamp(27px,4.4vw,44px);line-height:1.08;letter-spacing:-.02em;text-align:center;margin:0 auto;max-width:20ch;color:var(--ink)}
+.lp-h2.big{max-width:16ch}
+
+/* how it works flow */
+.lp-flow{display:flex;flex-direction:column;align-items:center;gap:8px;margin:44px auto 0;max-width:520px}
+.lp-flow-step{width:100%;background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:20px 24px;text-align:left;position:relative;display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 0 rgba(0,0,0,.02)}
+.lp-flow-step.accent{border-color:rgba(192,39,45,.35);background:linear-gradient(180deg,rgba(192,39,45,.05),var(--paper))}
+.lp-flow-n{position:absolute;top:16px;right:20px;font-family:var(--serif);font-size:14px;color:var(--ink3)}
+.lp-flow-step b{font-family:var(--sans);font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.lp-flow-step small{font-size:13.5px;color:var(--ink2);line-height:1.45}
+.lp-flow-arrow{color:var(--ink3);font-size:18px;line-height:1}
+
+/* why grid */
+.lp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px}
+.lp-card{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:26px 24px;text-align:left}
+.lp-alt .lp-card{background:var(--paper)}
+.lp-card h3{font-family:var(--sans);font-size:18px;font-weight:700;letter-spacing:-.015em;margin:0 0 9px;color:var(--ink)}
+.lp-card p{font-size:14.5px;line-height:1.55;color:var(--ink2);margin:0}
+
+/* coach insight mocks */
+.lp-mockrow{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:48px}
+.lp-mock{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 24px 60px -30px rgba(0,0,0,.28)}
+.lp-mock-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.lp-mock-top span{font-family:var(--sans);font-size:12.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)}
+.lp-mock-insight{background:var(--card);border-radius:16px;padding:18px}
+.lp-mock-tagrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.lp-mock-tag{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--red);background:rgba(192,39,45,.08);padding:4px 10px;border-radius:999px}
+.lp-mock-conf{font-size:11.5px;font-weight:600;color:var(--good)}
+.lp-mock-obs{font-family:var(--serif);font-size:19px;line-height:1.25;letter-spacing:-.01em;color:var(--ink);margin:0 0 12px}
+.lp-mock-line{font-size:13.5px;line-height:1.5;color:var(--ink2);margin:8px 0}
+.lp-mock-line b{color:var(--ink);font-weight:700;margin-right:5px}
+.lp-mock-score{background:var(--card);border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center}
+.lp-mock-ring{width:88px;height:88px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--red) 0 82%,var(--line) 82% 100%);margin-bottom:16px}
+.lp-mock-ring span{width:66px;height:66px;border-radius:50%;background:var(--card);display:grid;place-items:center;font-family:var(--serif);font-size:26px;color:var(--ink)}
+.lp-mock-bars{width:100%;display:flex;flex-direction:column;gap:9px}
+.lp-mock-bars>div{display:flex;flex-direction:column;gap:4px}
+.lp-mock-bars i{height:7px;border-radius:999px;background:var(--good);display:block}
+.lp-mock-bars small{font-size:11.5px;color:var(--ink2)}
+.lp-mock-delta{font-size:12.5px;color:var(--good);font-weight:600;margin:14px 0 0}
+
+/* sports */
+.lp-sports{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:44px}
+.lp-sports span{font-family:var(--sans);font-size:15.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:13px 24px}
+.lp-alt .lp-sports span{background:var(--paper)}
+
+/* roadmap */
+.lp-road{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:44px;max-width:760px;margin-left:auto;margin-right:auto}
+.lp-road-col{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:24px 26px}
+.lp-road-h{display:inline-block;font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;border-radius:999px;margin-bottom:16px}
+.lp-road-h.done{color:var(--good);background:rgba(31,157,91,.1)}
+.lp-road-h.soon{color:var(--ink3);background:var(--card)}
+.lp-road-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.lp-road-col li{display:flex;align-items:center;gap:11px;font-family:var(--sans);font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.lp-road-col li i{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:700;background:rgba(31,157,91,.12);color:var(--good);flex-shrink:0}
+.lp-road-col ul.soon li{color:var(--ink2)}
+.lp-road-col ul.soon li i{background:var(--card);color:var(--ink3)}
+
+/* final cta */
+.lp-final{background:var(--ink);color:#fff;padding:clamp(72px,11vw,124px) 0;text-align:center}
+.lp-final .lp-h2{color:#fff}
+.lp-final .lp-btn{margin-top:36px}
+
+/* footer */
+.lp-footer{background:var(--paper);border-top:1px solid var(--line);padding:38px 0}
+.lp-footer-in{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.lp-footer .lp-brand{font-size:17px}
+.lp-footer-links{display:flex;gap:22px}
+.lp-footer-links a{font-family:var(--sans);font-size:13.5px;color:var(--ink2);cursor:pointer;text-decoration:none}
+.lp-footer-links a:hover{color:var(--red)}
+.lp-footer-copy{font-family:var(--sans);font-size:12.5px;color:var(--ink3)}
+
+@media (max-width:820px){
+  .lp-grid{grid-template-columns:1fr 1fr}
+  .lp-mockrow{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .lp-grid{grid-template-columns:1fr}
+  .lp-road{grid-template-columns:1fr}
+  .lp-footer-in{flex-direction:column;text-align:center}
+  .lp-nav-cta .lp-link{display:none}
+}
 </style>
 </head>
-<body>
+<body class="landing-active">
 <div class="device">
 
+<!-- ══════════════ LANDING (premium marketing) ══════════════ -->
+<section class="screen lp active" id="screen-landing">
+
+  <nav class="lp-nav">
+    <div class="lp-wrap lp-nav-in">
+      <a class="lp-brand" href="#lp-top"><img src="/assets/athlevo-icon.png" alt="" width="30" height="30"><span>Athlevo<i>.</i></span></a>
+      <div class="lp-nav-cta">
+        <button class="lp-link" onclick="openLogin()">Sign In</button>
+        <button class="lp-btn sm" onclick="openSignup()">Start Free Beta</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="lp-hero" id="lp-top">
+    <div class="lp-wrap">
+      <span class="lp-eyebrow lp-reveal">AI Endurance Coaching · Private Beta</span>
+      <h1 class="lp-h1 lp-reveal">Train with an AI Coach<br>That Evolves With You.</h1>
+      <p class="lp-lead lp-reveal">Every workout teaches Athlevo something new. Your training adapts. Your coach becomes smarter. Your performance keeps moving forward.</p>
+      <div class="lp-cta lp-reveal">
+        <button class="lp-btn" onclick="openSignup()">Start Free Beta</button>
+        <button class="lp-btn ghost" onclick="openLogin()">Sign In</button>
+      </div>
+      <p class="lp-note lp-reveal">No credit card. Cancel anytime. Built for runners, triathletes and cyclists.</p>
+    </div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section class="lp-section">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">How it works</span>
+      <h2 class="lp-h2 lp-reveal">One intelligent loop, getting sharper every day.</h2>
+      <div class="lp-flow lp-reveal">
+        <div class="lp-flow-step"><span class="lp-flow-n">01</span><b>Workout</b><small>You run. Manual or synced from Strava.</small></div>
+        <span class="lp-flow-arrow">↓</span>
+        <div class="lp-flow-step"><span class="lp-flow-n">02</span><b>Analysis</b><small>Athlevo grades execution against the plan.</small></div>
+        <span class="lp-flow-arrow">↓</span>
+        <div class="lp-flow-step"><span class="lp-flow-n">03</span><b>Coach Brain</b><small>It reasons about why — and what to do next.</small></div>
+        <span class="lp-flow-arrow">↓</span>
+        <div class="lp-flow-step"><span class="lp-flow-n">04</span><b>Training Adapts</b><small>Tomorrow and the rest of your week update.</small></div>
+        <span class="lp-flow-arrow">↓</span>
+        <div class="lp-flow-step accent"><span class="lp-flow-n">05</span><b>You Improve</b><small>Fitness moves forward — safely, consistently.</small></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY ATHLEVO -->
+  <section class="lp-section lp-alt">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">Why Athlevo</span>
+      <h2 class="lp-h2 lp-reveal">A coach that understands you, not just your data.</h2>
+      <div class="lp-grid lp-reveal">
+        <div class="lp-card"><h3>Adaptive Training</h3><p>Your plan changes with your life — never a rigid PDF. Miss a session and the week reshapes itself safely.</p></div>
+        <div class="lp-card"><h3>Coach Brain</h3><p>Every recommendation comes with the reason behind it, so you always know why today's workout exists.</p></div>
+        <div class="lp-card"><h3>Athlete Score</h3><p>See your long-term development across aerobic base, durability, threshold, speed and consistency.</p></div>
+        <div class="lp-card"><h3>Training Intelligence</h3><p>Athlete-specific paces from your real running — not a generic calculator that pushes you too fast.</p></div>
+        <div class="lp-card"><h3>Readiness</h3><p>A 30-second daily check so your coach adjusts to how you actually feel, not just what your watch says.</p></div>
+        <div class="lp-card"><h3>Workout Analysis</h3><p>Instant, honest feedback after every run — what it means, and how it shapes what comes next.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COACH INSIGHTS (mock) -->
+  <section class="lp-section">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">Coach Insights</span>
+      <h2 class="lp-h2 lp-reveal">It explains every decision, like an elite coach would.</h2>
+      <div class="lp-mockrow lp-reveal">
+        <div class="lp-mock">
+          <div class="lp-mock-top"><span>Coach Insights</span></div>
+          <div class="lp-mock-insight">
+            <div class="lp-mock-tagrow"><span class="lp-mock-tag">Observation</span><span class="lp-mock-conf">High</span></div>
+            <p class="lp-mock-obs">Threshold pace improved 6 sec/km over three weeks.</p>
+            <p class="lp-mock-line"><b>Reasoning</b> Heart rate stayed stable while pace improved — aerobic efficiency is increasing.</p>
+            <p class="lp-mock-line"><b>Action</b> Add one interval to next week's threshold session.</p>
+          </div>
+        </div>
+        <div class="lp-mock">
+          <div class="lp-mock-top"><span>Athlevo Score</span></div>
+          <div class="lp-mock-score">
+            <div class="lp-mock-ring"><span>82</span></div>
+            <div class="lp-mock-bars">
+              <div><i style="width:80%"></i><small>Aerobic</small></div>
+              <div><i style="width:84%"></i><small>Durability</small></div>
+              <div><i style="width:61%;background:var(--warn)"></i><small>Threshold</small></div>
+              <div><i style="width:93%"></i><small>Consistency</small></div>
+            </div>
+            <p class="lp-mock-delta">+3 this month · aerobic durability improved</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUPPORTED SPORTS -->
+  <section class="lp-section lp-alt">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">Supported sports</span>
+      <h2 class="lp-h2 lp-reveal">Built for endurance, wherever you race.</h2>
+      <div class="lp-sports lp-reveal">
+        <span>Road Running</span><span>Marathon</span><span>Trail Running</span>
+        <span>Triathlon</span><span>Cycling</span><span>HYROX</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section class="lp-section">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">Roadmap</span>
+      <h2 class="lp-h2 lp-reveal">Shipping fast. Here's where we are.</h2>
+      <div class="lp-road lp-reveal">
+        <div class="lp-road-col">
+          <span class="lp-road-h done">Completed</span>
+          <ul>
+            <li><i>✓</i>Adaptive Training</li><li><i>✓</i>Coach Brain</li>
+            <li><i>✓</i>Athlete Score</li><li><i>✓</i>Workout Analysis</li>
+          </ul>
+        </div>
+        <div class="lp-road-col">
+          <span class="lp-road-h soon">Coming soon</span>
+          <ul class="soon">
+            <li><i>○</i>Garmin</li><li><i>○</i>Nutrition</li>
+            <li><i>○</i>Race Prediction</li><li><i>○</i>Voice Coach</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="lp-final">
+    <div class="lp-wrap lp-reveal">
+      <h2 class="lp-h2 big">The Future of Endurance<br>Coaching Starts Here.</h2>
+      <button class="lp-btn light" onclick="openSignup()">Start Free Beta</button>
+    </div>
+  </section>
+
+  <footer class="lp-footer">
+    <div class="lp-wrap lp-footer-in">
+      <div class="lp-brand"><img src="/assets/athlevo-icon.png" alt="" width="24" height="24"><span>Athlevo<i>.</i></span></div>
+      <div class="lp-footer-links">
+        <a onclick="openLegal('privacy')">Privacy</a>
+        <a onclick="openLegal('terms')">Terms</a>
+        <a onclick="openLegal('beta')">Beta Disclaimer</a>
+      </div>
+      <span class="lp-footer-copy">© Athlevo · athlevo.org</span>
+    </div>
+  </footer>
+
+</section>
+
 <!-- ══════════════ WELCOME ══════════════ -->
-<section class="screen welcome active" id="screen-welcome">
+<section class="screen welcome" id="screen-welcome">
   <div class="w-top">
     <div class="w-lockup">
       <img class="w-icon" src="assets/athlevo-icon.png" alt="" width="72" height="72">
@@ -2665,7 +2990,7 @@ async function doLogout() {
   AthlevoBrain.resetAthleteUI();
 
   document.getElementById('tabbar').style.display = 'none';
-  showScreen('screen-welcome');
+  showScreen('screen-landing');
 }
 window.doLogout = doLogout;
 
@@ -2847,6 +3172,10 @@ function decide(btn,msg){
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // Landing is the only full-width marketing screen; everything else runs
+  // inside the phone-framed app shell.
+  document.body.classList.toggle('landing-active', id==='screen-landing');
+  if(id!=='screen-landing') window.scrollTo(0,0);
 }
 /* Onboarding is handled by the single authoritative flow in
    js/onboarding.js (startAthlevoOnboarding). It asks real questions,
@@ -2928,12 +3257,12 @@ async function restoreSession() {
 
   if (error) {
     console.error("Session restore failed:", error);
-    showScreen("screen-welcome");
+    showScreen("screen-landing");
     return;
   }
 
   if (!session) {
-    showScreen("screen-welcome");
+    showScreen("screen-landing");
     return;
   }
 
@@ -2982,6 +3311,13 @@ async function restoreSession() {
         <a onclick="showSignupForm()">Create one</a></p>
     </div>
   </div>
+</div>
+
+<!-- PWA install affordances (shown on the landing screen only) -->
+<button id="pwaInstall" onclick="athlevoInstall()" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:120;font-family:var(--sans);font-weight:650;font-size:14.5px;letter-spacing:-.01em;border:none;border-radius:999px;padding:13px 26px;background:var(--ink);color:#fff;box-shadow:0 16px 44px -14px rgba(0,0,0,.55);cursor:pointer">Install Athlevo</button>
+<div id="iosInstallHint" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:120;max-width:320px;font-family:var(--sans);font-size:13px;line-height:1.5;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 16px 44px -14px rgba(0,0,0,.35);text-align:center">
+  Install Athlevo: tap <b>Share</b>, then <b>Add to Home Screen</b>.
+  <button onclick="this.parentElement.style.display='none'" style="display:block;margin:8px auto 0;background:none;border:none;color:#9a9da3;font-size:12px;cursor:pointer">Dismiss</button>
 </div>
 </body>
 <!-- Entry hardening for shared links / in-app browsers (Messenger, IG, …):
@@ -3216,5 +3552,82 @@ async function restoreSession() {
   }
 
   initializeAthlevoApp();
+</script>
+
+<!-- ══════════════ PWA: service worker · install · scroll-reveal ══════════════ -->
+<script>
+(function(){
+  // Register the offline app-shell service worker. It never caches API,
+  // Supabase, Strava, auth or OpenAI traffic, so coaching/auth are untouched.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('/service-worker.js').catch(function(e){
+        console.warn('Service worker registration failed:', e);
+      });
+    });
+  }
+
+  var standalone = window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  var deferredPrompt = null;
+
+  // Android / desktop Chromium: capture the install prompt for a custom button.
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!standalone && document.body.classList.contains('landing-active')) {
+      var b = document.getElementById('pwaInstall');
+      if (b) b.style.display = 'block';
+    }
+  });
+
+  window.athlevoInstall = async function(){
+    var b = document.getElementById('pwaInstall');
+    if (!deferredPrompt) { if (b) b.style.display = 'none'; return; }
+    deferredPrompt.prompt();
+    try { await deferredPrompt.userChoice; } catch(_) {}
+    deferredPrompt = null;
+    if (b) b.style.display = 'none';
+  };
+
+  window.addEventListener('appinstalled', function(){
+    var b = document.getElementById('pwaInstall');
+    if (b) b.style.display = 'none';
+    deferredPrompt = null;
+  });
+
+  // iOS Safari has no beforeinstallprompt — show a one-line Add-to-Home hint.
+  function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
+  function isSafari(){ return /^((?!chrome|crios|fxios|android).)*safari/i.test(navigator.userAgent); }
+  if (isIOS() && isSafari() && !standalone) {
+    window.addEventListener('load', function(){
+      setTimeout(function(){
+        if (document.body.classList.contains('landing-active')) {
+          var h = document.getElementById('iosInstallHint');
+          if (h) h.style.display = 'block';
+        }
+      }, 2400);
+    });
+  }
+
+  // Scroll-reveal for the landing page (.lp-reveal). Reduced-motion safe.
+  function initReveal(){
+    var els = document.querySelectorAll('.lp-reveal');
+    if (!els.length) return;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !('IntersectionObserver' in window)) {
+      els.forEach(function(el){ el.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+      });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+    els.forEach(function(el){ io.observe(el); });
+  }
+  if (document.readyState !== 'loading') initReveal();
+  else document.addEventListener('DOMContentLoaded', initReveal);
+})();
 </script>
 </html>

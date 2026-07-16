@@ -1,0 +1,45 @@
+{
+  "name": "Athlevo — AI Endurance Coach",
+  "short_name": "Athlevo",
+  "description": "Train with an AI coach that evolves with you. Adaptive training, Coach Brain, Athlete Score, and workout analysis for endurance athletes.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "theme_color": "#141416",
+  "background_color": "#eeeeec",
+  "categories": ["health", "fitness", "sports", "lifestyle"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/assets/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/pwa/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today",
+      "short_name": "Today",
+      "description": "Your readiness, paces and coach insights",
+      "url": "/?screen=today&source=shortcut",
+      "icons": [{ "src": "/assets/pwa/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Train",
+      "short_name": "Train",
+      "description": "This week's training plan",
+      "url": "/?screen=train&source=shortcut",
+      "icons": [{ "src": "/assets/pwa/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Coach",
+      "short_name": "Coach",
+      "description": "Ask your AI endurance coach",
+      "url": "/?screen=coach&source=shortcut",
+      "icons": [{ "src": "/assets/pwa/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
