@@ -2287,23 +2287,29 @@ function showLoginForm() {
 // It works whether or not "Confirm email" is enabled in Supabase.
 let signupInFlight = false;
 
+// Accurate Supabase → user-facing mapping (with safe internal codes) lives
+// in js/authSupport.js so it is reusable and unit-testable. This wrapper
+// returns just the message and logs the non-sensitive code for diagnostics.
 function friendlyAuthError(error, context) {
-  const m = String(error?.message || '').toLowerCase();
-  if (m.includes('rate limit')) {
-    return "We're getting a lot of signups right now. Please wait a minute and try again — or ask the Athlevo team to add you directly.";
-  }
-  if (m.includes('already registered') || m.includes('already exists')) {
-    return 'That email already has an account. Please log in instead.';
-  }
-  if (m.includes('email not confirmed')) {
-    return 'Please confirm your email from the link we sent, then log in.';
-  }
-  if (m.includes('invalid login')) {
-    return 'That email or password is incorrect.';
-  }
-  return error?.message || (context === 'login'
-    ? 'Could not log in. Please try again.'
-    : 'Could not create your account. Please try again.');
+  const mapped = (window.AthlevoAuthErrors && window.AthlevoAuthErrors.map)
+    ? window.AthlevoAuthErrors.map(error, context)
+    : { code: 'AUTH_UNKNOWN', message: context === 'login' ? 'Could not log in. Please try again.' : 'Could not create your account. Please try again.' };
+  console.warn('Auth error:', mapped.code); // code only — never email/password/message internals
+  return mapped.message;
+}
+
+// Rejects with a timeout error (flagged for the mapper) so slow networks in
+// in-app browsers never leave the button spinning forever.
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const e = new Error(label || 'Request timed out');
+      e.__timeout = true;
+      reject(e);
+    }, ms || 15000);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 // Live signup password validation. UI-only: updates the requirement
@@ -2338,14 +2344,25 @@ function validateSignupPassword() {
   return allPass;
 }
 
-async function doSignup() {
-  if (signupInFlight) return; // block duplicate submits
+async function doSignup(bypassEmbeddedWarning) {
+  if (signupInFlight) return; // block duplicate submits (double-tap safe)
+
+  const msg = document.getElementById('suMsg');
+  const btn = document.getElementById('suBtn');
+
+  // In-app browsers (Messenger/Instagram/…) partition storage, so a session
+  // created here often can't be saved. Warn and guide to Safari/Chrome
+  // first; allow "Continue here anyway" only if storage actually works.
+  if (!bypassEmbeddedWarning && window.AthlevoEnv && window.AthlevoEnv.guard('signup', {
+    allowContinue: true,
+    onContinue: () => doSignup(true)
+  })) {
+    return;
+  }
 
   const name = document.getElementById('suName').value.trim();
   const email = document.getElementById('suEmail').value.trim();
   const password = document.getElementById('suPassword').value;
-  const msg = document.getElementById('suMsg');
-  const btn = document.getElementById('suBtn');
 
   if (!email || !password) {
     msg.style.color = '#C0272D';
@@ -2364,15 +2381,15 @@ async function doSignup() {
   msg.textContent = 'Creating account...';
 
   try {
-    const { data, error } = await supabaseClient.auth.signUp({
+    const { data, error } = await withTimeout(supabaseClient.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: name },
-        // Confirmation links (when enabled) return to this app origin.
-        emailRedirectTo: window.location.origin
+        // Confirmation links (when enabled) return to the canonical app.
+        emailRedirectTo: (window.AthlevoEnv && window.AthlevoEnv.canonicalUrl()) || window.location.origin
       }
-    });
+    }), 15000, 'Signup timed out');
 
     if (error) {
       msg.style.color = '#C0272D';
@@ -2388,13 +2405,22 @@ async function doSignup() {
       data.user.identities.length === 0
     ) {
       msg.style.color = '#C0272D';
-      msg.textContent = 'That email already has an account. Please log in instead.';
+      msg.textContent = 'An account already exists for this email. Log in instead.';
       showLoginForm();
       return;
     }
 
-    // "Confirm email" OFF: a session is returned immediately.
+    // "Confirm email" OFF: a session is returned immediately. Confirm it is
+    // actually persisted before entering authenticated onboarding.
     if (data?.session) {
+      const user = window.AthlevoSession
+        ? await window.AthlevoSession.waitForValidUser(supabaseClient, { timeoutMs: 6000 })
+        : data.user;
+      if (!user) {
+        msg.style.color = '#C0272D';
+        msg.textContent = 'Your account was created but this browser couldn’t keep you signed in. Please open Athlevo in Safari or Chrome and log in.';
+        return;
+      }
       msg.style.color = '#1a7f37';
       msg.textContent = 'Account created!';
       closeAuth();
@@ -2402,26 +2428,33 @@ async function doSignup() {
       return;
     }
 
-    // No session → "Confirm email" is ON. Try an immediate sign-in in
-    // case the project permits it; otherwise ask them to confirm. Either
-    // way we never dump the user into onboarding without a session.
-    const { data: signIn } =
-      await supabaseClient.auth.signInWithPassword({ email, password });
+    // No session → "Confirm email" is ON. Try an immediate sign-in in case
+    // the project permits it; otherwise ask them to confirm. We never enter
+    // onboarding without a valid, persisted session.
+    const { data: signIn } = await withTimeout(
+      supabaseClient.auth.signInWithPassword({ email, password }),
+      15000, 'Sign-in timed out'
+    );
 
     if (signIn?.session) {
-      msg.style.color = '#1a7f37';
-      msg.textContent = 'Account created!';
-      closeAuth();
-      startOnboarding();
-      return;
+      const user = window.AthlevoSession
+        ? await window.AthlevoSession.waitForValidUser(supabaseClient, { timeoutMs: 6000 })
+        : signIn.user;
+      if (user) {
+        msg.style.color = '#1a7f37';
+        msg.textContent = 'Account created!';
+        closeAuth();
+        startOnboarding();
+        return;
+      }
     }
 
     msg.style.color = '#1a7f37';
-    msg.textContent = 'Account created. Check your email to confirm, then log in.';
+    msg.textContent = 'Check your email to confirm your account, then log in.';
   } catch (e) {
-    console.error('Signup failed:', e);
+    // e may be a timeout/network error — map it, never log the password.
     msg.style.color = '#C0272D';
-    msg.textContent = 'Something went wrong. Please try again in a moment.';
+    msg.textContent = friendlyAuthError(e, 'signup');
   } finally {
     signupInFlight = false;
     if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
@@ -2430,13 +2463,21 @@ async function doSignup() {
 
 // ---- Login ----
 let loginInFlight = false;
-async function doLogin() {
-  if (loginInFlight) return; // block duplicate submits
+async function doLogin(bypassEmbeddedWarning) {
+  if (loginInFlight) return; // block duplicate submits (double-tap safe)
+
+  const msg = document.getElementById('liMsg');
+  const btn = document.getElementById('liBtn');
+
+  if (!bypassEmbeddedWarning && window.AthlevoEnv && window.AthlevoEnv.guard('login', {
+    allowContinue: true,
+    onContinue: () => doLogin(true)
+  })) {
+    return;
+  }
 
   const email = document.getElementById('liEmail').value.trim();
   const password = document.getElementById('liPassword').value;
-  const msg = document.getElementById('liMsg');
-  const btn = document.getElementById('liBtn');
 
   if (!email || !password) {
     msg.style.color = '#C0272D';
@@ -2450,10 +2491,10 @@ async function doLogin() {
   msg.textContent = 'Logging in...';
 
   try {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password
-    });
+    const { data, error } = await withTimeout(
+      supabaseClient.auth.signInWithPassword({ email, password }),
+      15000, 'Sign-in timed out'
+    );
 
     if (error) {
       msg.style.color = '#C0272D';
@@ -2461,16 +2502,23 @@ async function doLogin() {
       return;
     }
 
+    // Confirm the session actually persisted before routing in.
+    const user = window.AthlevoSession
+      ? await window.AthlevoSession.waitForValidUser(supabaseClient, { timeoutMs: 6000 })
+      : data.user;
+    if (!user) {
+      msg.style.color = '#C0272D';
+      msg.textContent = 'This browser couldn’t keep you signed in. Please open Athlevo in Safari or Chrome.';
+      return;
+    }
+
     closeAuth();
 
-    // Single authoritative post-auth routing flow so Today, activities,
-    // Daily Brief, weekly plan, Train/Trends, profile, and Strava state
-    // all load immediately — no page refresh required.
-    await routeAfterAuth(data.user.id);
+    // Single authoritative post-auth routing flow (Today/Train/Trends/…).
+    await routeAfterAuth(user.id);
   } catch (e) {
-    console.error('Login failed:', e);
     msg.style.color = '#C0272D';
-    msg.textContent = 'Something went wrong. Please try again in a moment.';
+    msg.textContent = friendlyAuthError(e, 'login');
   } finally {
     loginInFlight = false;
     if (btn) { btn.disabled = false; btn.textContent = 'Log In'; }
@@ -2492,6 +2540,12 @@ async function doLogout() {
 window.doLogout = doLogout;
 
 async function connectStrava() {
+  // Strava's OAuth page does not render inside in-app browsers (it opens a
+  // blank strava.com page in Messenger/Instagram). Never begin OAuth there —
+  // show the "open in Safari/Chrome" notice instead. No "continue anyway".
+  if (window.AthlevoEnv && window.AthlevoEnv.guard('strava', { allowContinue: false })) {
+    return;
+  }
   try {
     const {
       data: { session },
@@ -2800,6 +2854,11 @@ async function restoreSession() {
   </div>
 </div>
 </body>
+<!-- Entry hardening for shared links / in-app browsers (Messenger, IG, …):
+     window.AthlevoEnv (embedded-browser + storage detection + notice),
+     window.AthlevoAuthErrors (Supabase → user-facing mapping),
+     window.AthlevoSession (bounded wait-for-session). No product features. -->
+<script src="js/authSupport.js"></script>
 <script src="js/brain.js"></script>
 <script src="js/performance.js"></script>
 <!-- Phase B Athlete Engine: defines window.AthleteEngine (calculations
@@ -2929,8 +2988,11 @@ async function restoreSession() {
         error?.message || error
       );
 
+      // The connection itself is saved server-side; a failed FIRST import
+      // must not look like a failed connection. Tell the athlete it will
+      // retry (the manual "Sync" button is the explicit Retry Sync).
       if (announce && typeof toast === "function") {
-        toast("Strava connected, but the first import didn't finish");
+        toast("Strava connected. Activity import will retry shortly.");
       }
 
       return null;
@@ -3002,9 +3064,10 @@ async function restoreSession() {
     }
 
     // Sync on open so the app never shows an out-of-date "latest"
-    // workout — honouring the cooldown. A fresh connection bypasses it.
+    // workout — honouring the cooldown. A fresh connection bypasses it and
+    // announces (so a failed first import shows "will retry", not silence).
     await syncStravaAndRefresh({
-      announce: false,
+      announce: justConnected,
       manual: justConnected
     });
   }

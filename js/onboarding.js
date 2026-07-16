@@ -244,13 +244,46 @@ function obMessage(text) {
   if (el) el.textContent = text || "";
 }
 
+function obSleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Permanent (do-not-retry) permission failures vs. transient hiccups.
+function obIsPermissionError(error) {
+  if (!error) return false;
+  const code = String(error.code || "");
+  const msg = String(error.message || "").toLowerCase();
+  return code === "42501" ||
+    msg.includes("row-level security") ||
+    msg.includes("permission denied") ||
+    msg.includes("not allowed");
+}
+function obIsDuplicateError(error) {
+  if (!error) return false;
+  const code = String(error.code || "");
+  const msg = String(error.message || "").toLowerCase();
+  return code === "23505" || msg.includes("duplicate key");
+}
+
+// Bounded wait for a valid authenticated user — never assumes the session
+// exists immediately after signup, and never hangs forever. Reuses the
+// shared session helper (getSession first, so it works even when the auth
+// network call is flaky inside an in-app browser).
 async function obUser() {
-  const {
-    data: { user },
-    error
-  } = await supabaseClient.auth.getUser();
-  if (error) throw error;
-  if (!user) throw new Error("You must be logged in to continue.");
+  let user = null;
+  if (window.AthlevoSession && window.AthlevoSession.waitForValidUser) {
+    user = await window.AthlevoSession.waitForValidUser(supabaseClient, { timeoutMs: 8000 });
+  } else {
+    try {
+      const { data } = await supabaseClient.auth.getUser();
+      user = (data && data.user) || null;
+    } catch (error) { /* handled below */ }
+  }
+  if (!user) {
+    const err = new Error("NO_SESSION");
+    err.code = "NO_SESSION";
+    throw err;
+  }
   return user;
 }
 
@@ -777,15 +810,38 @@ function obFirstIncompleteStep() {
 async function obLoadProfile() {
   const user = await obUser();
 
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Read the athlete's own row, retrying transient failures a few times.
+  // A permission (RLS) error is permanent and reported as such.
+  let lastReadError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  if (error) throw error;
-  if (data) return data;
+    if (!error) {
+      if (data) return data;
+      break; // No row yet → fall through to idempotent creation.
+    }
+    if (obIsPermissionError(error)) {
+      const e = new Error("PROFILE_RLS");
+      e.code = "PROFILE_RLS";
+      e.detail = error.message;
+      throw e;
+    }
+    lastReadError = error;
+    await obSleep(250 * (attempt + 1));
+  }
+  if (lastReadError) {
+    const e = new Error("PROFILE_READ");
+    e.code = "PROFILE_READ";
+    throw e;
+  }
 
+  // No row exists → create the minimum row ONCE. A plain insert (not upsert)
+  // so an existing profile is never overwritten; a duplicate-key race is
+  // resolved by re-reading the row that now exists (idempotent, no dupes).
   const { data: created, error: createError } = await supabaseClient
     .from("profiles")
     .insert({
@@ -798,8 +854,69 @@ async function obLoadProfile() {
     .select()
     .single();
 
-  if (createError) throw createError;
-  return created;
+  if (!createError) return created;
+
+  if (obIsDuplicateError(createError)) {
+    const { data: after } = await supabaseClient
+      .from("profiles").select("*").eq("id", user.id).maybeSingle();
+    if (after) return after;
+  }
+  if (obIsPermissionError(createError)) {
+    const e = new Error("PROFILE_RLS");
+    e.code = "PROFILE_RLS";
+    e.detail = createError.message;
+    throw e;
+  }
+  const e = new Error("PROFILE_CREATE");
+  e.code = "PROFILE_CREATE";
+  throw e;
+}
+
+/* Renders a clear, actionable error in place of the "Loading…" spinner —
+   never an indefinite spinner, and the Continue button can't bypass it. */
+function obProfileErrorReason(code, embedded) {
+  if (code === "NO_SESSION") {
+    return embedded
+      ? "Your sign-in didn't carry over in this in-app browser. Open Athlevo in Safari or Chrome, then log in."
+      : "We couldn't confirm your sign-in. Please log in again.";
+  }
+  if (code === "PROFILE_RLS") {
+    return "We couldn't access your athlete profile. Please log in again — if this keeps happening, contact the Athlevo team.";
+  }
+  return "We couldn't reach the server. Check your connection and try again.";
+}
+
+function obRenderProfileError(code) {
+  const body = document.getElementById("ob2Body");
+  if (!body) return;
+  const embedded = !!(window.AthlevoEnv && window.AthlevoEnv.shouldWarn && window.AthlevoEnv.shouldWarn());
+
+  body.innerHTML = `
+    <div class="ob2-step">
+      <span class="ob2-eyebrow">Athlete profile</span>
+      <h2 class="ob2-title">Couldn't load your profile</h2>
+      <p class="ob2-sub">${obEscape(obProfileErrorReason(code, embedded))}</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:22px">
+        ${embedded ? '<button class="ob2-continue done" id="obErrBrowser" type="button">Open in Safari or Chrome</button>' : ''}
+        <button class="ob2-continue" id="obErrRetry" type="button">Try again</button>
+        <button id="obErrLogin" type="button" style="background:none;border:none;color:var(--ink3);font-size:13px;font-weight:700;cursor:pointer;padding:10px">Log in again</button>
+      </div>
+    </div>`;
+
+  const retry = body.querySelector("#obErrRetry");
+  if (retry) retry.addEventListener("click", () => startAthlevoOnboarding());
+  const login = body.querySelector("#obErrLogin");
+  if (login) login.addEventListener("click", obLogInAgain);
+  const browser = body.querySelector("#obErrBrowser");
+  if (browser && window.AthlevoEnv) browser.addEventListener("click", () => window.AthlevoEnv.showNotice({ context: "signup" }));
+}
+
+async function obLogInAgain() {
+  try { await supabaseClient.auth.signOut(); } catch (error) { /* ignore */ }
+  const tabbar = document.getElementById("tabbar");
+  if (tabbar) tabbar.style.display = "none";
+  if (typeof showScreen === "function") showScreen("screen-welcome");
+  if (typeof window.openLogin === "function") window.openLogin();
 }
 
 async function startAthlevoOnboarding() {
@@ -827,8 +944,10 @@ async function startAthlevoOnboarding() {
     obStepIndex = obFirstIncompleteStep();
     obRenderStep();
   } catch (error) {
-    console.error("Could not start onboarding:", error);
-    obMessage("Couldn't load your profile. Please refresh and try again.");
+    // Log the safe internal code only — never tokens, email, or RLS details.
+    const code = (error && error.code) ? error.code : "PROFILE_READ";
+    console.warn("Onboarding profile load failed:", code);
+    obRenderProfileError(code);
   }
 }
 
