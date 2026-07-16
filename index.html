@@ -1737,7 +1737,13 @@ body.landing-active #tabbar{display:none!important}
 /* final cta */
 .lp-final{background:var(--ink);color:#fff;padding:clamp(72px,11vw,124px) 0;text-align:center}
 .lp-final .lp-h2{color:#fff}
-.lp-final .lp-btn{margin-top:36px}
+.lp-final .lp-cta{justify-content:center}
+.lp-btn.ghost-light{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.42)}
+.lp-btn.ghost-light:hover{background:rgba(255,255,255,.08);border-color:#fff;box-shadow:none}
+.lp-install-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;cursor:pointer;text-align:left}
+.lp-install-row b{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.lp-install-row small{display:block;font-size:12.5px;color:var(--ink3);margin-top:2px}
+.lp-install-row .arr{color:var(--ink3);font-size:16px}
 
 /* footer */
 .lp-footer{background:var(--paper);border-top:1px solid var(--line);padding:38px 0}
@@ -1770,6 +1776,8 @@ body.landing-active #tabbar{display:none!important}
     <div class="lp-wrap lp-nav-in">
       <a class="lp-brand" href="#lp-top"><img src="/assets/athlevo-icon.png" alt="" width="30" height="30"><span>Athlevo<i>.</i></span></a>
       <div class="lp-nav-cta">
+        <button class="lp-link" id="lpOpenApp" style="display:none" onclick="openAthlevoApp()">Open App</button>
+        <button class="lp-link" id="lpInstallNav" onclick="athlevoInstall()">Install</button>
         <button class="lp-link" onclick="openLogin()">Sign In</button>
         <button class="lp-btn sm" onclick="openSignup()">Start Free Beta</button>
       </div>
@@ -1783,6 +1791,7 @@ body.landing-active #tabbar{display:none!important}
       <h1 class="lp-h1 lp-reveal">Train with an AI Coach<br>That Evolves With You.</h1>
       <p class="lp-lead lp-reveal">Every workout teaches Athlevo something new. Your training adapts. Your coach becomes smarter. Your performance keeps moving forward.</p>
       <div class="lp-cta lp-reveal">
+        <button class="lp-btn" id="lpHeroOpenApp" style="display:none" onclick="openAthlevoApp()">Open App</button>
         <button class="lp-btn" onclick="openSignup()">Start Free Beta</button>
         <button class="lp-btn ghost" onclick="openLogin()">Sign In</button>
       </div>
@@ -1897,7 +1906,10 @@ body.landing-active #tabbar{display:none!important}
   <section class="lp-final">
     <div class="lp-wrap lp-reveal">
       <h2 class="lp-h2 big">The Future of Endurance<br>Coaching Starts Here.</h2>
-      <button class="lp-btn light" onclick="openSignup()">Start Free Beta</button>
+      <div class="lp-cta" style="margin-top:36px">
+        <button class="lp-btn light" onclick="openSignup()">Start Free Beta</button>
+        <button class="lp-btn ghost-light" data-install-cta onclick="athlevoInstall()">Install Athlevo</button>
+      </div>
     </div>
   </section>
 
@@ -2546,6 +2558,12 @@ body.landing-active #tabbar{display:none!important}
     <div><b>Private Beta</b><small>What to expect while Athlevo is in private beta.</small></div><span class="arr">→</span>
   </div>
   <div class="spacer-lg"></div>
+
+  <div class="lp-install-row" id="youInstallRow" onclick="athlevoInstall()">
+    <div><b>Install Athlevo</b><small id="youInstallSub">Add Athlevo to your home screen</small></div>
+    <span class="arr">→</span>
+  </div>
+
 <div class="spacer-lg"></div>
 
 <button class="primary" onclick="doLogout()">
@@ -3208,6 +3226,8 @@ function quizPick(btn,correct){
 
 // ---- Session restore on page load ----
 async function routeAfterAuth(userId) {
+  // Keep the "Open App" affordance in sync after interactive login/signup.
+  athlevoSessionUserId = userId;
   const { data: profile, error } = await supabaseClient
     .from("profiles")
     .select("onboarding_complete, goal, device")
@@ -3249,26 +3269,82 @@ async function routeAfterAuth(userId) {
     await window.loadWeeklyPlan();
   }
 }
-async function restoreSession() {
+// True when Athlevo is running as an installed PWA (standalone display).
+function isStandaloneMode() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    window.navigator.standalone === true ||
+    document.referrer.startsWith('android-app://');
+}
+
+// The athlete id of the currently-restored session (used by "Open App").
+let athlevoSessionUserId = null;
+
+// Reveal / hide the landing "Open App" affordances based on session presence.
+function updateOpenAppUI(hasSession) {
+  ['lpOpenApp', 'lpHeroOpenApp'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = hasSession ? '' : 'none';
+  });
+}
+
+// Enter the authenticated app from the landing page using the EXISTING
+// authenticated routing logic (onboarding-aware). Never bypasses onboarding.
+async function openAthlevoApp() {
+  if (!athlevoSessionUserId) { openLogin(); return; }
+  await routeAfterAuth(athlevoSessionUserId);
+  await syncStravaAndRefresh({ announce: false, manual: false });
+}
+window.openAthlevoApp = openAthlevoApp;
+
+/*
+ * Decides the entry surface. Returns true when the athlete was routed INTO
+ * the authenticated app (so the caller runs the post-auth Strava sync), and
+ * false when we are showing a public surface (landing / welcome) instead.
+ *
+ *   · Normal browser  → always show the marketing landing first. If a valid
+ *                       session exists, reveal "Open App" (never auto-force
+ *                       into Today). The Strava OAuth return (?strava=…) is
+ *                       the one exception: the athlete was mid-flow inside
+ *                       the app, so send them back into the app.
+ *   · Installed PWA   → no marketing page. Valid session → straight into the
+ *                       app; otherwise the original welcome (login/signup).
+ */
+async function restoreSession(opts) {
+  opts = opts || {};
   const {
     data: { session },
     error
   } = await supabaseClient.auth.getSession();
 
-  if (error) {
-    console.error("Session restore failed:", error);
-    showScreen("screen-landing");
-    return;
+  if (error) console.error("Session restore failed:", error);
+
+  athlevoSessionUserId = session ? session.user.id : null;
+  const standalone = isStandaloneMode();
+
+  if (standalone) {
+    if (session) {
+      console.log("Session restored (standalone):", session.user.email);
+      await routeAfterAuth(session.user.id);
+      return true;
+    }
+    // Installed app, no session → original login/signup entry.
+    document.getElementById('tabbar').style.display = 'none';
+    showScreen("screen-welcome");
+    return false;
   }
 
-  if (!session) {
-    showScreen("screen-landing");
-    return;
+  // Normal browser. Strava OAuth return with a live session → back into app.
+  if (opts.returningFromStrava && session) {
+    console.log("Session restored (Strava return):", session.user.email);
+    await routeAfterAuth(session.user.id);
+    return true;
   }
 
-  console.log("Session restored:", session.user.email);
-
-  await routeAfterAuth(session.user.id);
+  // Public landing. Reveal "Open App" when signed in; never force Today.
+  document.getElementById('tabbar').style.display = 'none';
+  showScreen("screen-landing");
+  updateOpenAppUI(!!session);
+  return false;
 }
 </script>
 <!-- Auth modals -->
@@ -3313,11 +3389,33 @@ async function restoreSession() {
   </div>
 </div>
 
-<!-- PWA install affordances (shown on the landing screen only) -->
-<button id="pwaInstall" onclick="athlevoInstall()" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:120;font-family:var(--sans);font-weight:650;font-size:14.5px;letter-spacing:-.01em;border:none;border-radius:999px;padding:13px 26px;background:var(--ink);color:#fff;box-shadow:0 16px 44px -14px rgba(0,0,0,.55);cursor:pointer">Install Athlevo</button>
-<div id="iosInstallHint" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:120;max-width:320px;font-family:var(--sans);font-size:13px;line-height:1.5;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 16px 44px -14px rgba(0,0,0,.35);text-align:center">
-  Install Athlevo: tap <b>Share</b>, then <b>Add to Home Screen</b>.
-  <button onclick="this.parentElement.style.display='none'" style="display:block;margin:8px auto 0;background:none;border:none;color:#9a9da3;font-size:12px;cursor:pointer">Dismiss</button>
+<!-- PWA install guide (platform-specific instructions; not a fake prompt) -->
+<style>
+  #pwaModal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
+  #pwaModal.show{display:flex}
+  #pwaModal .pwa-ov{position:absolute;inset:0;background:rgba(15,15,17,.55);backdrop-filter:blur(2px)}
+  #pwaModal .pwa-box{position:relative;width:100%;max-width:430px;background:var(--paper);border-radius:26px 26px 0 0;
+    padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px -20px rgba(0,0,0,.4);
+    animation:pwaUp .32s cubic-bezier(.16,1,.3,1)}
+  @media(min-width:480px){#pwaModal{align-items:center}#pwaModal .pwa-box{border-radius:24px;max-width:400px}}
+  @keyframes pwaUp{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+  #pwaModal .pwa-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:24px;line-height:1;color:var(--ink3);cursor:pointer}
+  #pwaModal h3{font-family:var(--serif);font-weight:500;font-size:23px;letter-spacing:-.02em;color:var(--ink);margin:2px 0 6px}
+  #pwaModal p.pwa-lead{font-size:14px;line-height:1.5;color:var(--ink2);margin:0 0 16px}
+  #pwaModal ol{list-style:none;counter-reset:s;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+  #pwaModal ol li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;font-size:14.5px;line-height:1.45;color:var(--ink)}
+  #pwaModal ol li::before{content:counter(s);flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;
+    font-family:var(--sans);font-size:13px;font-weight:700;display:grid;place-items:center}
+  #pwaModal .pwa-ico{display:inline-flex;vertical-align:-3px;margin:0 2px}
+  #pwaModal .pwa-done{width:100%;margin-top:20px;border:none;border-radius:999px;padding:14px;background:var(--ink);color:#fff;
+    font-family:var(--sans);font-weight:650;font-size:15px;cursor:pointer}
+</style>
+<div id="pwaModal" role="dialog" aria-modal="true" aria-labelledby="pwaModalTitle">
+  <div class="pwa-ov" onclick="closePwaModal()"></div>
+  <div class="pwa-box">
+    <button class="pwa-close" aria-label="Close" onclick="closePwaModal()">&times;</button>
+    <div id="pwaModalBody"></div>
+  </div>
 </div>
 </body>
 <!-- Entry hardening for shared links / in-app browsers (Messenger, IG, …):
@@ -3524,14 +3622,14 @@ async function restoreSession() {
   }
 
   async function initializeAthlevoApp() {
-    // restoreSession() -> routeAfterAuth() already loads the Daily Brief,
-    // weekly plan, and full UI for a signed-in athlete, so we do NOT reload
-    // the brief again here (that was a redundant call on every open).
-    await restoreSession();
-
     const url = new URL(window.location.href);
     const stravaResult = url.searchParams.get("strava");
     const justConnected = stravaResult === "connected";
+
+    // restoreSession() decides the entry surface (landing / welcome / app).
+    // It returns true only when the athlete was routed INTO the app, so the
+    // Strava sync below never runs while a public landing page is showing.
+    const enteredApp = await restoreSession({ returningFromStrava: !!stravaResult });
 
     // Report the OAuth result (success, cancellation, or failure) and
     // strip the parameter from the URL. The authenticated session is
@@ -3542,13 +3640,15 @@ async function restoreSession() {
       window.history.replaceState({}, "", url.pathname + url.search);
     }
 
-    // Sync on open so the app never shows an out-of-date "latest"
-    // workout — honouring the cooldown. A fresh connection bypasses it and
-    // announces (so a failed first import shows "will retry", not silence).
-    await syncStravaAndRefresh({
-      announce: justConnected,
-      manual: justConnected
-    });
+    // Sync on open ONLY when we actually entered the authenticated app, so
+    // the landing page never triggers authenticated data calls. Honours the
+    // cooldown; a fresh connection bypasses it and announces.
+    if (enteredApp) {
+      await syncStravaAndRefresh({
+        announce: justConnected,
+        manual: justConnected
+      });
+    }
   }
 
   initializeAthlevoApp();
@@ -3557,8 +3657,10 @@ async function restoreSession() {
 <!-- ══════════════ PWA: service worker · install · scroll-reveal ══════════════ -->
 <script>
 (function(){
-  // Register the offline app-shell service worker. It never caches API,
-  // Supabase, Strava, auth or OpenAI traffic, so coaching/auth are untouched.
+  /* ─── Service worker: offline app shell only ───────────────────────────
+   * Registered here; the worker itself (service-worker.js) NEVER caches API,
+   * Supabase, Coach, Strava, auth or OpenAI traffic, so no authenticated or
+   * private data is ever stored. Coaching/auth behaviour is untouched. */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function(){
       navigator.serviceWorker.register('/service-worker.js').catch(function(e){
@@ -3567,50 +3669,157 @@ async function restoreSession() {
     });
   }
 
-  var standalone = window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true;
-  var deferredPrompt = null;
+  /* ─── Platform + state detection ───────────────────────────────────────*/
+  function isStandalone(){
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true ||
+      document.referrer.startsWith('android-app://');
+  }
+  var ua = navigator.userAgent || '';
+  function isIOS(){ return (/iphone|ipad|ipod/i.test(ua) ||
+    // iPadOS 13+ reports as Mac; detect touch to disambiguate.
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) && !window.MSStream; }
+  function isAndroid(){ return /android/i.test(ua); }
+  // In-app browsers (Messenger, Instagram, Facebook, TikTok, Twitter, LINE…)
+  // cannot Add-to-Home-Screen — the user must reopen in the system browser.
+  function isInAppBrowser(){
+    return /FBAN|FBAV|FB_IAB|Instagram|Messenger|Line\/|Twitter|TikTok|Snapchat|Pinterest|MicroMessenger/i.test(ua);
+  }
+  function isIOSSafari(){
+    return isIOS() && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua) && !isInAppBrowser();
+  }
 
-  // Android / desktop Chromium: capture the install prompt for a custom button.
-  window.addEventListener('beforeinstallprompt', function(e){
-    e.preventDefault();
-    deferredPrompt = e;
-    if (!standalone && document.body.classList.contains('landing-active')) {
-      var b = document.getElementById('pwaInstall');
-      if (b) b.style.display = 'block';
+  var STORE = 'athlevo_pwa_prompt_dismissed';
+  function safeGet(k){ try { return localStorage.getItem(k); } catch(_) { return null; } }
+  function safeSet(k,v){ try { localStorage.setItem(k,v); } catch(_){} }
+
+  var deferredPrompt = null;      // captured beforeinstallprompt event
+  var installed = isStandalone(); // treat standalone as installed
+
+  /* ─── Install-affordance visibility ────────────────────────────────────
+   * Buttons live in the landing nav, hero, final CTA and the You screen.
+   * They are hidden only once the app is installed / running standalone —
+   * never left broken or permanently hidden otherwise. */
+  function refreshInstallUI(){
+    var hide = installed;
+    ['lpInstallNav'].forEach(function(id){
+      var el = document.getElementById(id); if (el) el.style.display = hide ? 'none' : '';
+    });
+    var row = document.getElementById('youInstallRow');
+    if (row){
+      if (hide){
+        row.style.pointerEvents = 'none';
+        var b = row.querySelector('b'); if (b) b.textContent = 'Athlevo installed';
+        var s = document.getElementById('youInstallSub'); if (s) s.textContent = 'Running as an installed app';
+        var a = row.querySelector('.arr'); if (a) a.textContent = '✓';
+      }
     }
-  });
-
-  window.athlevoInstall = async function(){
-    var b = document.getElementById('pwaInstall');
-    if (!deferredPrompt) { if (b) b.style.display = 'none'; return; }
-    deferredPrompt.prompt();
-    try { await deferredPrompt.userChoice; } catch(_) {}
-    deferredPrompt = null;
-    if (b) b.style.display = 'none';
-  };
-
-  window.addEventListener('appinstalled', function(){
-    var b = document.getElementById('pwaInstall');
-    if (b) b.style.display = 'none';
-    deferredPrompt = null;
-  });
-
-  // iOS Safari has no beforeinstallprompt — show a one-line Add-to-Home hint.
-  function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
-  function isSafari(){ return /^((?!chrome|crios|fxios|android).)*safari/i.test(navigator.userAgent); }
-  if (isIOS() && isSafari() && !standalone) {
-    window.addEventListener('load', function(){
-      setTimeout(function(){
-        if (document.body.classList.contains('landing-active')) {
-          var h = document.getElementById('iosInstallHint');
-          if (h) h.style.display = 'block';
-        }
-      }, 2400);
+    // Final-CTA + nav install buttons that only make sense before install.
+    document.querySelectorAll('[data-install-cta]').forEach(function(el){
+      el.style.display = hide ? 'none' : '';
     });
   }
 
-  // Scroll-reveal for the landing page (.lp-reveal). Reduced-motion safe.
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();          // suppress the mini-infobar; we drive install
+    deferredPrompt = e;          // store safely for a user gesture
+    refreshInstallUI();
+  });
+
+  window.addEventListener('appinstalled', function(){
+    installed = true;
+    deferredPrompt = null;
+    closePwaModal();
+    refreshInstallUI();
+    if (typeof toast === 'function') toast('Athlevo installed');
+  });
+
+  /* ─── Install guide modal ─────────────────────────────────────────────*/
+  var shareIcon = '<span class="pwa-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span>';
+  var plusIcon = '<span class="pwa-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg></span>';
+
+  function openPwaModal(html){
+    var body = document.getElementById('pwaModalBody');
+    if (body) body.innerHTML = html;
+    var m = document.getElementById('pwaModal');
+    if (m) m.classList.add('show');
+  }
+  window.closePwaModal = function(){
+    var m = document.getElementById('pwaModal'); if (m) m.classList.remove('show');
+  };
+
+  function iosGuide(){
+    return '<h3 id="pwaModalTitle">Install Athlevo</h3>'+
+      '<p class="pwa-lead">Add Athlevo to your Home Screen for a full-screen, app-like experience.</p>'+
+      '<ol>'+
+        '<li>Open <b>athlevo.org</b> in Safari (you’re here).</li>'+
+        '<li>Tap the <b>Share</b> icon '+shareIcon+' in the toolbar.</li>'+
+        '<li>Choose <b>Add to Home Screen</b> '+plusIcon+'.</li>'+
+        '<li>Tap <b>Add</b> — Athlevo appears on your Home Screen.</li>'+
+      '</ol>'+
+      '<button class="pwa-done" onclick="closePwaModal()">Got it</button>';
+  }
+  function safariRedirectGuide(){
+    return '<h3 id="pwaModalTitle">Open in Safari first</h3>'+
+      '<p class="pwa-lead">You’re viewing Athlevo inside another app’s browser, which can’t install to your Home Screen.</p>'+
+      '<ol>'+
+        '<li>Tap the <b>⋯</b> menu in this window.</li>'+
+        '<li>Choose <b>Open in Safari</b> (or copy the link).</li>'+
+        '<li>Go to <b>athlevo.org</b> in Safari, then use <b>Share → Add to Home Screen</b>.</li>'+
+      '</ol>'+
+      '<button class="pwa-done" onclick="closePwaModal()">Got it</button>';
+  }
+  function androidInAppGuide(){
+    return '<h3 id="pwaModalTitle">Open in Chrome first</h3>'+
+      '<p class="pwa-lead">You’re in another app’s browser. Open Athlevo in Chrome to install it.</p>'+
+      '<ol>'+
+        '<li>Tap the <b>⋮</b> menu in this window.</li>'+
+        '<li>Choose <b>Open in Chrome</b> (or your browser).</li>'+
+        '<li>In Chrome, open the <b>⋮</b> menu and tap <b>Install app</b> / <b>Add to Home screen</b>.</li>'+
+      '</ol>'+
+      '<button class="pwa-done" onclick="closePwaModal()">Got it</button>';
+  }
+  function genericGuide(){
+    return '<h3 id="pwaModalTitle">Install Athlevo</h3>'+
+      '<p class="pwa-lead">Install Athlevo from your browser menu for an app-like experience at <b>athlevo.org</b>.</p>'+
+      '<ol>'+
+        '<li>Open your browser’s menu (⋮ or ⋯).</li>'+
+        '<li>Look for <b>Install app</b>, <b>Install Athlevo</b>, or <b>Add to Home screen</b>.</li>'+
+        '<li>Confirm to add Athlevo to your device.</li>'+
+      '</ol>'+
+      '<button class="pwa-done" onclick="closePwaModal()">Got it</button>';
+  }
+
+  /* ─── The single entry point every Install button calls ────────────────*/
+  window.athlevoInstall = async function(){
+    // 1) Already installed / standalone → nothing to do.
+    if (installed || isStandalone()){
+      if (typeof toast === 'function') toast('Athlevo is already installed');
+      return;
+    }
+    // 2) Native prompt available (Android / desktop Chromium) → use it, never
+    //    a fake modal. Track the outcome; don’t nag again this session.
+    if (deferredPrompt){
+      try {
+        deferredPrompt.prompt();
+        var choice = await deferredPrompt.userChoice;
+        if (choice && choice.outcome === 'dismissed') safeSet(STORE, String(Date.now()));
+      } catch(_) {}
+      deferredPrompt = null;
+      refreshInstallUI();
+      return;
+    }
+    // 3) No native prompt: show the correct platform guide.
+    if (isInAppBrowser()) { openPwaModal(isAndroid() ? androidInAppGuide() : safariRedirectGuide()); return; }
+    if (isIOSSafari())    { openPwaModal(iosGuide()); return; }
+    if (isIOS())          { openPwaModal(safariRedirectGuide()); return; }
+    openPwaModal(genericGuide());   // other desktop/unsupported browsers
+  };
+
+  window.addEventListener('load', refreshInstallUI);
+  if (document.readyState !== 'loading') refreshInstallUI();
+
+  /* ─── Scroll-reveal for the landing page (.lp-reveal), reduced-motion safe */
   function initReveal(){
     var els = document.querySelectorAll('.lp-reveal');
     if (!els.length) return;
