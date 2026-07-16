@@ -125,19 +125,62 @@
     };
   }
 
+  const AEROBIC_ZONES = new Set(["recovery","easy","long"]);
+  const AEROBIC_SAFETY = {
+    recovery: "Run by effort first — slower than the range is completely fine.",
+    easy: "Run by effort first. The pace is a guide, not a test. Slow down if effort is high.",
+    long: "Ease into it — don't chase the fast end early. Slower is fine in heat, hills or fatigue."
+  };
+  function buildAerobicZone(key, rangeSec, aero, mod) {
+    const meta = ZONE_META[key];
+    const rpe = { min: meta.rpe[0], max: meta.rpe[1], text: `RPE ${meta.rpe[0]}\u2013${meta.rpe[1]}` };
+    const fmt = P().formatPace;
+    const fast = Math.round(rangeSec.minSec), slow = Math.round(rangeSec.maxSec);
+    const notes = [AEROBIC_SAFETY[key]].concat((mod && mod.notes) || []).slice(0, 2);
+    return { key, label: meta.label,
+      paceRange: { minSecPerKm: fast, maxSecPerKm: slow, text: `${fmt(fast).replace("/km","")}\u2013${fmt(slow)}` },
+      rpe, hr: null, explanation: meta.meaning,
+      source: { code: aero.source, label: aero.source === "pace-heart-rate relationship" ? "Pace-to-HR relationship" : "Recent aerobic history" },
+      confidence: aero.confidence, lastRecalculated: aero.lastRecalculated, reason: aero.reason,
+      effortFirst: !!(mod && mod.rpeFirst), removeIntensity: !!(mod && mod.removeIntensity), notes };
+  }
+
   function getTrainingPaces(fitness, options) {
     options = options || {};
     const resolved = resolvePaceSource(fitness, options.nowMs);
     const vdot = fitness && fitness.vdot != null ? Number(fitness.vdot) : null;
     const centres = (vdot != null && Number.isFinite(vdot)) ? P().trainingPaces(vdot) : null;
 
+    const A = window.AthlevoAerobic;
+    const aero = (options.activities && A) ? A.computeAerobicCalibration(options.activities, fitness, options.nowMs) : null;
+    const daily = options.daily || {};
+    const bias = Number.isFinite(Number(options.feedbackBiasSec)) ? Number(options.feedbackBiasSec) : 0;
+
     const zones = ZONE_ORDER.map(key => {
+      if (AEROBIC_ZONES.has(key) && aero && aero.valid && aero.ranges[key]) {
+        const base = { minSec: aero.ranges[key].minSec + bias, maxSec: aero.ranges[key].maxSec + bias };
+        const mod = A.applyDailyModifiers(base, daily);
+        return buildAerobicZone(key, mod.range, aero, mod);
+      }
       const centreSec = centres && centres[key] ? centres[key].secPerKm : null;
-      return buildZone(key, centreSec, { rpeOnly: resolved.rpeOnly, hr: options.hr });
+      const z = buildZone(key, centreSec, { rpeOnly: resolved.rpeOnly, hr: options.hr });
+      if (AEROBIC_ZONES.has(key)) {
+        z.source = { code: "profile_estimate", label: "Fitness estimate" };
+        z.confidence = resolved.rpeOnly ? "insufficient" : "developing";
+        z.reason = "Estimated from your current fitness. Follow effort first.";
+        z.notes = [AEROBIC_SAFETY[key]];
+      } else {
+        z.source = resolved.source; z.confidence = resolved.confidence.code; z.reason = resolved.updatedLine; z.notes = [];
+      }
+      z.lastRecalculated = z.lastRecalculated || null;
+      return z;
     });
 
     return Object.assign({}, resolved, {
       vdot,
+      aerobicCalibrated: !!(aero && aero.valid),
+      aerobicSource: aero && aero.valid ? aero.source : null,
+      aerobicReason: aero && aero.valid ? aero.reason : "Estimated from limited aerobic data. Follow effort first.",
       zones,
       zoneMap: zones.reduce((m, z) => { m[z.key] = z; return m; }, {})
     });

@@ -383,10 +383,33 @@
     if (!mount || !window.AthlevoPaceService) return;
     try {
       const fitness = await getFitness();
-      const paces = window.AthlevoPaceService.getTrainingPaces(fitness || {});
+
+      // Feed recent activities + today's readiness so Recovery/Easy/Long are
+      // calibrated from real aerobic history and adjusted conservatively for
+      // today's context (the SAME service Train and Coach use).
+      let activities = [];
+      try {
+        if (window.AthlevoBrain && window.AthlevoBrain.loadAthleteActivities) {
+          activities = await window.AthlevoBrain.loadAthleteActivities(200);
+        }
+      } catch (e) { activities = []; }
+
+      let readinessScore = null;
+      try {
+        if (typeof window.getReadinessForCoach === "function") {
+          const r = await window.getReadinessForCoach();
+          readinessScore = r && r.readinessScore != null ? r.readinessScore : null;
+        }
+      } catch (e) { readinessScore = null; }
+
+      const paces = window.AthlevoPaceService.getTrainingPaces(fitness || {}, {
+        activities,
+        daily: readinessScore != null ? { readinessScore } : {}
+      });
 
       const rows = paces.zones.map(z => {
         const pace = z.paceRange ? z.paceRange.text : "By effort";
+        const note = z.notes && z.notes.length ? z.notes[0] : z.explanation;
         return `
           <div class="tpc-zone">
             <div class="tpc-zone-head">
@@ -395,19 +418,22 @@
             </div>
             <div class="tpc-zone-sub">
               <span class="tpc-rpe">${escapeHtml(z.rpe.text)}</span>
-              <span class="tpc-mean">${escapeHtml(z.explanation)}</span>
+              <span class="tpc-mean">${escapeHtml(note)}</span>
             </div>
           </div>`;
       }).join("");
 
       const confClass = CONF_CLASS[paces.confidence.code] || "lim";
+      const aeroLine = paces.aerobicCalibrated
+        ? escapeHtml(paces.aerobicReason)
+        : escapeHtml(paces.updatedLine || paces.supporting);
 
       mount.innerHTML = `
         <div class="tpc">
           <div class="tpc-head">
             <div>
               <span class="tpc-eyebrow">${escapeHtml(paces.header)}</span>
-              <p class="tpc-support">${escapeHtml(paces.updatedLine || paces.supporting)}</p>
+              <p class="tpc-support">${aeroLine}</p>
             </div>
             <span class="tpc-conf ${confClass}">${escapeHtml(paces.confidence.label)}</span>
           </div>
