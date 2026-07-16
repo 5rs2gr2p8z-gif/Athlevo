@@ -1776,10 +1776,10 @@ body.landing-active #tabbar{display:none!important}
     <div class="lp-wrap lp-nav-in">
       <a class="lp-brand" href="#lp-top"><img src="/assets/athlevo-icon.png" alt="" width="30" height="30"><span>Athlevo<i>.</i></span></a>
       <div class="lp-nav-cta">
-        <button class="lp-link" id="lpOpenApp" style="display:none" onclick="openAthlevoApp()">Open App</button>
+        <button class="lp-link" id="lpOpenApp" onclick="landingOpenApp()">Open App</button>
         <button class="lp-link" id="lpInstallNav" onclick="athlevoInstall()">Install</button>
-        <button class="lp-link" onclick="openLogin()">Sign In</button>
-        <button class="lp-btn sm" onclick="openSignup()">Start Free Beta</button>
+        <button class="lp-link" onclick="landingSignIn()">Sign In</button>
+        <button class="lp-btn sm" onclick="landingStartBeta()">Start Free Beta</button>
       </div>
     </div>
   </nav>
@@ -1791,9 +1791,9 @@ body.landing-active #tabbar{display:none!important}
       <h1 class="lp-h1 lp-reveal">Train with an AI Coach<br>That Evolves With You.</h1>
       <p class="lp-lead lp-reveal">Every workout teaches Athlevo something new. Your training adapts. Your coach becomes smarter. Your performance keeps moving forward.</p>
       <div class="lp-cta lp-reveal">
-        <button class="lp-btn" id="lpHeroOpenApp" style="display:none" onclick="openAthlevoApp()">Open App</button>
-        <button class="lp-btn" onclick="openSignup()">Start Free Beta</button>
-        <button class="lp-btn ghost" onclick="openLogin()">Sign In</button>
+        <button class="lp-btn" id="lpHeroOpenApp" onclick="landingOpenApp()">Open App</button>
+        <button class="lp-btn" onclick="landingStartBeta()">Start Free Beta</button>
+        <button class="lp-btn ghost" onclick="landingSignIn()">Sign In</button>
       </div>
       <p class="lp-note lp-reveal">No credit card. Cancel anytime. Built for runners, triathletes and cyclists.</p>
     </div>
@@ -1907,7 +1907,7 @@ body.landing-active #tabbar{display:none!important}
     <div class="lp-wrap lp-reveal">
       <h2 class="lp-h2 big">The Future of Endurance<br>Coaching Starts Here.</h2>
       <div class="lp-cta" style="margin-top:36px">
-        <button class="lp-btn light" onclick="openSignup()">Start Free Beta</button>
+        <button class="lp-btn light" onclick="landingStartBeta()">Start Free Beta</button>
         <button class="lp-btn ghost-light" data-install-cta onclick="athlevoInstall()">Install Athlevo</button>
       </div>
     </div>
@@ -1983,6 +1983,27 @@ body.landing-active #tabbar{display:none!important}
     Your athlete profile is ready.
   </p>
 </div>
+
+  <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
+  <style>
+    .today-install{display:none;align-items:center;gap:12px;margin:2px 22px 16px;
+      background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px}
+    .today-install .ti-icon img{border-radius:9px;display:block}
+    .today-install .ti-copy{flex:1;min-width:0}
+    .today-install .ti-copy b{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+    .today-install .ti-copy small{display:block;font-size:12px;line-height:1.4;color:var(--ink3);margin-top:2px}
+    .today-install .ti-btn{flex-shrink:0;border:none;border-radius:999px;background:var(--ink);color:#fff;
+      font-family:var(--sans);font-weight:650;font-size:13.5px;padding:9px 18px;cursor:pointer}
+    .today-install .ti-btn:hover{background:#000}
+  </style>
+  <div class="today-install" id="todayInstallCard">
+    <div class="ti-icon"><img src="assets/athlevo-icon.png" alt="" width="34" height="34"></div>
+    <div class="ti-copy">
+      <b>Install Athlevo</b>
+      <small>Keep your coach one tap away and open Athlevo like a native app.</small>
+    </div>
+    <button class="ti-btn" onclick="athlevoInstall()">Install</button>
+  </div>
 
   <!-- ===== ATHLEVO SCORE (overall athletic capability) ===== -->
   <div id="athlevoScoreCard"></div>
@@ -2729,14 +2750,28 @@ const SUPABASE_ANON_KEY = 'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt';
 </script>
 
 <script>// ---- Auth modal controls ----
+// Push one history entry the first time the auth form is opened so browser
+// Back returns to the app entry screen (never straight to the landing page).
+let athlevoAuthPushed = false;
+function pushAuthState() {
+  if (!athlevoAuthPushed) {
+    try { history.pushState({ athlevoNav: 'auth' }, ''); } catch (_) {}
+    athlevoAuthPushed = true;
+  }
+}
 function openSignup() {
   document.getElementById('authModal').style.display = 'flex';
   showSignupForm();
+  pushAuthState();
 }
 function openLogin() {
   document.getElementById('authModal').style.display = 'flex';
   showLoginForm();
+  pushAuthState();
 }
+// Hide the modal only. History is intentionally NOT touched here so existing
+// flows that call closeAuth() mid-navigation (e.g. opening a legal page from
+// the signup sheet) are unaffected; browser Back is handled by popstate.
 function closeAuth() {
   document.getElementById('authModal').style.display = 'none';
 }
@@ -2749,6 +2784,60 @@ function showLoginForm() {
   document.getElementById('signupForm').style.display = 'none';
   document.getElementById('loginForm').style.display = 'block';
 }
+
+/* ══════════════ APP ENTRY (welcome) — landing CTA destination ══════════════
+ * The original app entry screen (#screen-welcome: logo, title, tagline,
+ * Create account, Log in, Continue with Apple/Google) is the destination for
+ * Open App and Start Free Beta. CTAs never jump straight into the expanded
+ * form or into Today. Reuses the existing auth functions — no new system. */
+function openAppEntry() {
+  var modal = document.getElementById('authModal');
+  if (modal) modal.style.display = 'none';
+  athlevoAuthPushed = false;
+  var tb = document.getElementById('tabbar');
+  if (tb) tb.style.display = 'none';
+  showScreen('screen-welcome');
+  try { history.pushState({ athlevoNav: 'entry' }, ''); } catch (_) {}
+}
+window.openAppEntry = openAppEntry;
+
+// Landing CTAs. Logged in → straight into the app (never asked to create a
+// second account). Logged out → the app entry screen.
+function landingOpenApp()   { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); } }
+function landingStartBeta() { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); } }
+function landingSignIn()    { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); openLogin(); } }
+window.landingOpenApp = landingOpenApp;
+window.landingStartBeta = landingStartBeta;
+window.landingSignIn = landingSignIn;
+
+// Browser Back across landing → entry → auth-form. Reconciles the visible
+// surface to the popped history state; the legal-page flow is untouched
+// because closeAuth() no longer manipulates history.
+function renderNavState(state) {
+  var nav = (state && state.athlevoNav) || 'landing';
+  var modal = document.getElementById('authModal');
+  var modalOpen = modal && modal.style.display === 'flex';
+  var tb = document.getElementById('tabbar');
+  // Backing out of an open auth form → return to the app entry screen.
+  if (modalOpen) {
+    modal.style.display = 'none';
+    athlevoAuthPushed = false;
+    if (tb) tb.style.display = 'none';
+    showScreen('screen-welcome');
+    return;
+  }
+  if (nav === 'entry') {
+    athlevoAuthPushed = false;
+    if (tb) tb.style.display = 'none';
+    showScreen('screen-welcome');
+  } else if (nav === 'landing') {
+    athlevoAuthPushed = false;
+    showScreen('screen-landing');
+    if (typeof updateOpenAppUI === 'function') updateOpenAppUI(!!athlevoSessionUserId);
+  }
+  // nav === 'auth' with the modal already closed: stale entry, ignore.
+}
+window.addEventListener('popstate', function (e) { renderNavState(e.state); });
 
 // ---- Signup ----
 // Guards against the two real failure modes we hit in private beta:
@@ -3279,11 +3368,13 @@ function isStandaloneMode() {
 // The athlete id of the currently-restored session (used by "Open App").
 let athlevoSessionUserId = null;
 
-// Reveal / hide the landing "Open App" affordances based on session presence.
+// "Open App" is always visible in the landing header/hero. Its behaviour is
+// session-aware (landingOpenApp): a live session opens Today, otherwise the
+// app entry screen. Kept as a hook in case emphasis needs to change later.
 function updateOpenAppUI(hasSession) {
   ['lpOpenApp', 'lpHeroOpenApp'].forEach(function (id) {
     var el = document.getElementById(id);
-    if (el) el.style.display = hasSession ? '' : 'none';
+    if (el) el.style.display = '';
   });
 }
 
@@ -3693,8 +3784,9 @@ async function restoreSession(opts) {
   function safeGet(k){ try { return localStorage.getItem(k); } catch(_) { return null; } }
   function safeSet(k,v){ try { localStorage.setItem(k,v); } catch(_){} }
 
-  var deferredPrompt = null;      // captured beforeinstallprompt event
-  var installed = isStandalone(); // treat standalone as installed
+  var deferredPrompt = null;         // captured beforeinstallprompt event
+  var installed = isStandalone();    // treat standalone as installed
+  var dismissedThisSession = false;  // native prompt dismissed → don't re-nag
 
   /* ─── Install-affordance visibility ────────────────────────────────────
    * Buttons live in the landing nav, hero, final CTA and the You screen.
@@ -3705,6 +3797,7 @@ async function restoreSession(opts) {
     ['lpInstallNav'].forEach(function(id){
       var el = document.getElementById(id); if (el) el.style.display = hide ? 'none' : '';
     });
+    // You / Settings row: "Install Athlevo" → "Athlevo installed" when installed.
     var row = document.getElementById('youInstallRow');
     if (row){
       if (hide){
@@ -3712,8 +3805,16 @@ async function restoreSession(opts) {
         var b = row.querySelector('b'); if (b) b.textContent = 'Athlevo installed';
         var s = document.getElementById('youInstallSub'); if (s) s.textContent = 'Running as an installed app';
         var a = row.querySelector('.arr'); if (a) a.textContent = '✓';
+      } else {
+        row.style.pointerEvents = '';
+        var b2 = row.querySelector('b'); if (b2) b2.textContent = 'Install Athlevo';
+        var s2 = document.getElementById('youInstallSub'); if (s2) s2.textContent = 'Add Athlevo to your home screen';
+        var a2 = row.querySelector('.arr'); if (a2) a2.textContent = '→';
       }
     }
+    // Today install card: only while not installed AND not dismissed this session.
+    var today = document.getElementById('todayInstallCard');
+    if (today){ today.style.display = (hide || dismissedThisSession) ? 'none' : 'flex'; }
     // Final-CTA + nav install buttons that only make sense before install.
     document.querySelectorAll('[data-install-cta]').forEach(function(el){
       el.style.display = hide ? 'none' : '';
@@ -3803,7 +3904,10 @@ async function restoreSession(opts) {
       try {
         deferredPrompt.prompt();
         var choice = await deferredPrompt.userChoice;
-        if (choice && choice.outcome === 'dismissed') safeSet(STORE, String(Date.now()));
+        if (choice && choice.outcome === 'dismissed') {
+          dismissedThisSession = true;             // don't re-nag this session
+          safeSet(STORE, String(Date.now()));
+        }
       } catch(_) {}
       deferredPrompt = null;
       refreshInstallUI();
