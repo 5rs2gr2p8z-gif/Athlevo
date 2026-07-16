@@ -1486,6 +1486,29 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   .tw-bar,.tbp-bar i{transition:none}
 }
 
+/* ---------- Coach Insights (Coach Brain V1) ---------- */
+.cic{margin:12px 22px 4px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
+.cic-head{margin-bottom:12px}
+.cic-eyebrow{font-size:13px;font-weight:700;letter-spacing:.01em;color:var(--ink)}
+.cic-empty{font-size:13px;line-height:1.5;color:var(--ink3);margin-top:6px}
+.cib{padding:14px 0;border-top:1px solid var(--line)}
+.cib:first-of-type{border-top:none;padding-top:2px}
+.cib-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.cib-tag{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.cib-tag.red{color:var(--red)}
+.cib-conf{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:100px}
+.cib-conf.strong{background:#eef8f2;color:var(--good)}
+.cib-conf.dev{background:#fbf3e4;color:var(--warn)}
+.cib-conf.lim{background:var(--card);color:var(--ink3)}
+.cib-obs{font-size:14.5px;font-weight:650;line-height:1.45;color:var(--ink);margin:0 0 8px}
+.cib-line{font-size:13px;line-height:1.5;color:var(--ink2);margin:4px 0}
+.cib-k{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-right:6px}
+.cib-adapt{background:var(--card2);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin-bottom:4px}
+.cib-flow{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin:6px 0}
+.cib-prev{font-size:12.5px;color:var(--ink3);text-decoration:line-through}
+.cib-arrow{color:var(--red);font-weight:800;font-size:12px}
+.cib-next{font-size:13.5px;font-weight:700;color:var(--ink)}
+
 /* ---------- automatic race detection prompt ---------- */
 .rdc{margin:8px 22px 4px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
 .rdc-eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
@@ -1637,6 +1660,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
 <!-- ===== YOUR CURRENT TRAINING PACES (moved from Athlevo Score) ===== -->
 <div id="trainingPacesCard"></div>
+
+<!-- ===== COACH INSIGHTS (Coach Brain V1 — structured reasoning) ===== -->
+<div id="coachInsightsCard"></div>
 
 <!-- ===== DAILY COACH BRIEFING ===== -->
 <div class="decision" id="dailyBriefCard">
@@ -2936,6 +2962,10 @@ async function restoreSession() {
 <script src="js/calendarWeeks.js"></script>
 <script src="js/trends.js"></script>
 <script src="js/athlevoScore.js"></script>
+<!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
+     existing engines; separates data collection, reasoning, and rendering. -->
+<script src="js/coachBrain.js"></script>
+<script src="js/coachBrainData.js"></script>
 <script src="js/raceDetection.js"></script>
 <script src="js/memory.js"></script>
 <script src="js/dailyBrief.js"></script>

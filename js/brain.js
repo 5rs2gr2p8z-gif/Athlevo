@@ -1355,6 +1355,11 @@ async function refreshAthleteUI() {
     if (typeof window.renderTrainingPacesCard === "function") {
       window.renderTrainingPacesCard();
     }
+    // Coach Brain V1: explain WHY — structured coaching insights on Today,
+    // assembled from the systems above (fire-and-forget).
+    if (typeof window.renderCoachInsights === "function") {
+      window.renderCoachInsights(profile);
+    }
     if (typeof window.refreshTrends === "function") {
       window.refreshTrends(activities, profile);
     }
