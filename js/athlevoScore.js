@@ -531,6 +531,10 @@
     if (!mount) return;
     const o = result.overall;
 
+    // Expose current component scores for the Development section (reuse —
+    // it compares these against persisted history, no recomputation).
+    try { window.__athlevoLastComponents = result.components; } catch (e) {}
+
     const delta = computeDelta(scoreHistory, o.status === "valid" ? o.score : null);
     const deltaClass =
       delta.text === "Stable" ? "stable" :

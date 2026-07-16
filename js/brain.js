@@ -1360,6 +1360,11 @@ async function refreshAthleteUI() {
     if (typeof window.renderCoachInsights === "function") {
       window.renderCoachInsights(profile);
     }
+    // Athlete Identity & Progression: "Your Development" — reuses the score
+    // components + history to show how the athlete is evolving.
+    if (typeof window.renderDevelopment === "function") {
+      window.renderDevelopment(profile);
+    }
     if (typeof window.refreshTrends === "function") {
       window.refreshTrends(activities, profile);
     }

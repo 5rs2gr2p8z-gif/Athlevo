@@ -1509,6 +1509,47 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .cib-arrow{color:var(--red);font-weight:800;font-size:12px}
 .cib-next{font-size:13.5px;font-weight:700;color:var(--ink)}
 
+/* ---------- Your Development (Athlete Identity & Progression) ---------- */
+.dev{margin:12px 22px 4px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
+.dev-head{margin-bottom:14px}
+.dev-eyebrow{font-size:13px;font-weight:700;color:var(--ink)}
+.dev-sub{display:block;font-size:12px;color:var(--ink3);margin-top:2px}
+.dev-empty{font-size:13px;color:var(--ink3);line-height:1.5}
+.dev-progs{display:flex;flex-direction:column;gap:16px}
+.dev-prog-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.dev-prog-label{font-size:13.5px;font-weight:700;color:var(--ink)}
+.dev-prog-pct{font-size:13.5px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.dev-bar{height:7px;background:var(--line);border-radius:100px;overflow:hidden;margin:7px 0}
+.dev-bar i{display:block;height:100%;border-radius:100px}
+.dev-bar i.up{background:var(--good)}
+.dev-bar i.flat{background:var(--warn)}
+.dev-bar i.down{background:var(--red)}
+.dev-bar i.build{background:var(--ink3)}
+.dev-prog-meta{display:flex;align-items:baseline;gap:8px}
+.dev-trend{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:100px;white-space:nowrap}
+.dev-trend.up{background:#eef8f2;color:var(--good)}
+.dev-trend.flat{background:#fbf3e4;color:var(--warn)}
+.dev-trend.down{background:var(--red-soft);color:var(--red)}
+.dev-trend.build{background:var(--card);color:var(--ink3)}
+.dev-reason{font-size:12px;color:var(--ink2);line-height:1.45}
+.dev-milestone{font-size:12px;color:var(--ink2);margin:6px 0 0;line-height:1.45}
+.dev-k{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-right:5px}
+.dev-section{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+.dev-section-h{display:block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px}
+.dev-ach{display:flex;flex-direction:column;gap:1px;padding:7px 0;border-top:1px solid var(--line)}
+.dev-ach:first-of-type{border-top:none}
+.dev-ach-title{font-size:13px;font-weight:700;color:var(--ink)}
+.dev-ach-reason{font-size:12px;color:var(--ink3)}
+.dev-tl{display:flex;flex-direction:column}
+.dev-tl-row{display:flex;gap:12px;align-items:flex-start;position:relative;padding:5px 0}
+.dev-tl-row::before{content:"";position:absolute;left:4px;top:14px;bottom:-5px;width:1.5px;background:var(--line)}
+.dev-tl-row:last-child::before{display:none}
+.dev-tl-dot{width:9px;height:9px;border-radius:50%;background:var(--ink3);margin-top:4px;flex-shrink:0;z-index:1}
+.dev-tl-row.now .dev-tl-dot{background:var(--red)}
+.dev-tl-body{display:flex;flex-direction:column}
+.dev-tl-label{font-size:13px;font-weight:650;color:var(--ink)}
+.dev-tl-date{font-size:11px;color:var(--ink3)}
+
 /* ---------- automatic race detection prompt ---------- */
 .rdc{margin:8px 22px 4px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
 .rdc-eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
@@ -1663,6 +1704,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
 <!-- ===== COACH INSIGHTS (Coach Brain V1 — structured reasoning) ===== -->
 <div id="coachInsightsCard"></div>
+
+<!-- ===== YOUR DEVELOPMENT (Athlete Identity & Progression) ===== -->
+<div id="developmentCard"></div>
 
 <!-- ===== DAILY COACH BRIEFING ===== -->
 <div class="decision" id="dailyBriefCard">
@@ -2966,6 +3010,10 @@ async function restoreSession() {
      existing engines; separates data collection, reasoning, and rendering. -->
 <script src="js/coachBrain.js"></script>
 <script src="js/coachBrainData.js"></script>
+<!-- Athlete Identity & Progression: pure development engine + data/render.
+     Reuses Athlevo Score components + history; data-driven, no hardcoding. -->
+<script src="js/developmentEngine.js"></script>
+<script src="js/developmentData.js"></script>
 <script src="js/raceDetection.js"></script>
 <script src="js/memory.js"></script>
 <script src="js/dailyBrief.js"></script>
