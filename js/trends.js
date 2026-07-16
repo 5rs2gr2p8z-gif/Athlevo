@@ -560,7 +560,7 @@
       const h = Math.max((km / maxKm) * 100, km > 0 ? 6 : 1.5);
 
       const col = document.createElement("div");
-      col.className = "tw-col";
+      col.className = "tw-col" + (w.inProgress ? " current" : "");
 
       const value = document.createElement("small");
       value.className = "tw-val";
@@ -595,16 +595,11 @@
 
       const lab = document.createElement("small");
       lab.className = "tw-lab";
-      lab.textContent = w.label;
-
-      const sub = document.createElement("small");
-      sub.className = "tw-sub";
-      sub.textContent = w.inProgress ? "In progress" : "";
+      lab.textContent = w.inProgress ? "This week" : w.label;
 
       col.appendChild(value);
       col.appendChild(track);
       col.appendChild(lab);
-      col.appendChild(sub);
       chart.appendChild(col);
     });
   }

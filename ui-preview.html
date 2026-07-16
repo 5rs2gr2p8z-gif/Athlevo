@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Athlevo UI Preview — Score · Trends · Prediction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#141416;--red:#C0272D;--paper:#ffffff;--card:#f6f6f4;--card2:#fbfbfa;
+  --ink2:#6d7075;--ink3:#9a9da3;--line:#ebebe8;--good:#1f9d5b;--warn:#c98a1e;--r-lg:22px;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --serif:"Fraunces",Georgia,serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#eeeeec;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+.wrap{max-width:430px;margin:0 auto;padding:20px 0 40px;background:var(--paper);min-height:100vh}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.pheader{padding:6px 22px 2px;font:600 12px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.serif{font-family:var(--serif)}
+.decision{margin:0 22px;background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:22px}
+.decision .eyebrow{color:rgba(255,255,255,.5)}
+.spacer{height:16px}
+
+/* ===== Athlevo Score (new) ===== */
+.asc{margin:12px 22px 4px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
+.asc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.asc-eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.asc-sub-eyebrow{display:block;font-size:11px;color:var(--ink3);margin-top:2px}
+.asc-head-l{display:flex;flex-direction:column}
+.asc-delta{display:inline-flex;align-items:center;font-size:12px;font-weight:800;letter-spacing:.01em;padding:6px 12px;border-radius:100px;white-space:nowrap;flex-shrink:0}
+.asc-delta.up{background:#eef8f2;color:var(--good)}
+.asc-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 14px}
+.asc-scorewrap{display:flex;align-items:baseline;gap:3px}
+.asc-score-num{font-family:var(--serif);font-size:64px;font-weight:500;letter-spacing:-.03em;line-height:.9;color:var(--ink);font-variant-numeric:tabular-nums}
+.asc-score-max{font-size:17px;font-weight:600;color:var(--ink3)}
+.asc-peak{font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--ink2);background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:100px;white-space:nowrap}
+.asc-peak.best{color:var(--red);background:rgba(192,39,45,.07);border-color:rgba(192,39,45,.18)}
+.asc-track{position:relative;height:14px;border-radius:100px;background:var(--card);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.asc-track-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,#e0575d 0%,var(--red) 55%,#9d1f24 100%)}
+.asc-track-mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);border-radius:2px;opacity:.55}
+.asc-scale{display:flex;justify-content:space-between;font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--ink3);margin:6px 2px 0}
+.asc-comps{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:18px 0 4px}
+.asc-comp{display:flex;align-items:center;gap:9px}
+.asc-comp-label{font-size:12px;font-weight:600;color:var(--ink2);width:74px;flex-shrink:0}
+.asc-comp-track{flex:1;height:6px;border-radius:100px;background:var(--card);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.asc-comp-track i{display:block;height:100%;border-radius:100px;background:var(--ink)}
+.asc-comp-val{font-size:12px;font-weight:700;color:var(--ink);width:20px;text-align:right;flex-shrink:0}
+.asc-explain{font-size:13.5px;line-height:1.5;color:var(--ink2);margin:16px 0 14px}
+.asc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.asc-updated{font-size:11px;color:var(--ink3)}
+.asc-details-btn{font:700 13px var(--sans);color:var(--red);background:none;border:none;cursor:pointer;margin-left:auto}
+
+/* ===== Readiness (existing, for contrast) ===== */
+.readiness{display:flex;align-items:center;gap:20px;padding:22px;margin:12px 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg)}
+.ring{position:relative;width:104px;height:104px;flex-shrink:0}
+.ring svg{transform:rotate(-90deg)}
+.ring .track{stroke:var(--line)}.ring .fill{stroke:var(--good);stroke-linecap:round}
+.ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .center b{font-size:30px;font-weight:700;letter-spacing:-.03em}
+.ring .center i{font-style:normal;font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.readiness-copy h2{font-size:16px;font-weight:650;margin:0}
+.readiness-copy p{font-size:13px;color:var(--ink2);margin:4px 0 0}
+
+/* ===== Trends ===== */
+#trends .decision{background:var(--paper);color:var(--ink);border:1px solid var(--line);padding:20px}
+#trends .decision .eyebrow{color:var(--ink3)}
+.trend-metrics{display:flex;flex-direction:column;margin-top:12px}
+.tm-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-top:1px solid var(--line)}
+.tm-row:first-child{border-top:none;padding-top:2px}
+.tm-left{display:flex;flex-direction:column;gap:3px}
+.tm-label{font-size:12px;color:var(--ink3);font-weight:600}
+.tm-cur{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.tm-diff{font-size:13px;font-weight:700;color:var(--good)}
+.tm-diff.muted{color:var(--ink3);font-weight:600}
+.tbp{margin-bottom:18px}
+.tbp-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.tbp-label{font-size:11px;font-weight:700;letter-spacing:.09em;color:var(--ink3);text-transform:uppercase}
+.tbp-val{font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.01em}
+.tbp-bar{height:10px;background:var(--card);border-radius:100px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.tbp-bar i{display:block;height:100%;background:linear-gradient(90deg,#e0575d,var(--red));border-radius:100px}
+.tbp-cmp{display:inline-block;margin-top:10px;font-size:12.5px;font-weight:700;color:var(--good)}
+.trend-sixweek{display:flex;align-items:flex-end;gap:10px;min-height:196px;padding-top:6px}
+.tw-col{flex:1;text-align:center;display:flex;flex-direction:column;align-items:center}
+.tw-val{font-size:11.5px;color:var(--ink3);font-weight:600;height:15px}
+.tw-track{height:132px;width:100%;display:flex;align-items:flex-end;margin:7px 0;border-bottom:1.5px solid var(--line)}
+.tw-bar{width:100%;border-radius:7px 7px 0 0}
+.tw-bar.past{background:#e6e6e2}
+.tw-bar.current{background:linear-gradient(180deg,#e0575d,var(--red))}
+.tw-lab{font-size:10.5px;color:var(--ink3);margin-top:6px}
+.tw-col.current .tw-val{color:var(--red);font-weight:800}
+.tw-col.current .tw-lab{color:var(--red);font-weight:800}
+
+/* ===== Prediction ===== */
+.predict{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
+.predict-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.predict-title{font-family:var(--serif);font-size:20px;font-weight:500;letter-spacing:-.01em;line-height:1.2;margin:6px 0 0;color:var(--ink)}
+.predict-badge{flex-shrink:0;font-size:11px;font-weight:700;color:var(--ink3);background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:100px;white-space:nowrap}
+.predict-lead{font-size:13.5px;line-height:1.55;color:var(--ink2);margin:12px 0 16px}
+.predict-checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.predict-checklist li{display:flex;gap:12px;align-items:flex-start}
+.pc-dot{flex-shrink:0;width:20px;height:20px;border-radius:50%;margin-top:1px;border:2px solid var(--line);background:var(--paper);position:relative}
+.pc-dot::after{content:"";position:absolute;inset:0;margin:auto;width:6px;height:6px;border-radius:50%;background:var(--line)}
+.predict-checklist b{display:block;font-size:14px;font-weight:700;color:var(--ink)}
+.predict-checklist small{display:block;font-size:12.5px;line-height:1.45;color:var(--ink3);margin-top:2px}
+.predict-foot{font-size:11.5px;color:var(--ink3);line-height:1.45;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+</style></head>
+<body><div class="wrap">
+
+<div class="pheader">Today · Athlevo Score</div>
+<div class="asc">
+  <div class="asc-head">
+    <div class="asc-head-l"><span class="asc-eyebrow">Athlevo Score</span><span class="asc-sub-eyebrow">Long-term development</span></div>
+    <span class="asc-delta up">▲ +3 this month</span>
+  </div>
+  <div class="asc-hero">
+    <div class="asc-scorewrap"><span class="asc-score-num">82</span><span class="asc-score-max">/100</span></div>
+    <span class="asc-peak best">✦ Highest ever</span>
+  </div>
+  <div class="asc-track"><div class="asc-track-fill" style="width:82%"></div></div>
+  <div class="asc-scale"><span>0</span><span>50</span><span>100</span></div>
+  <div class="asc-comps">
+    <div class="asc-comp"><span class="asc-comp-label">Aerobic</span><div class="asc-comp-track"><i style="width:80%"></i></div><span class="asc-comp-val">80</span></div>
+    <div class="asc-comp"><span class="asc-comp-label">Durability</span><div class="asc-comp-track"><i style="width:84%"></i></div><span class="asc-comp-val">84</span></div>
+    <div class="asc-comp"><span class="asc-comp-label">Threshold</span><div class="asc-comp-track"><i style="width:61%"></i></div><span class="asc-comp-val">61</span></div>
+    <div class="asc-comp"><span class="asc-comp-label">Speed</span><div class="asc-comp-track"><i style="width:54%"></i></div><span class="asc-comp-val">54</span></div>
+    <div class="asc-comp"><span class="asc-comp-label">Consistency</span><div class="asc-comp-track"><i style="width:93%"></i></div><span class="asc-comp-val">93</span></div>
+  </div>
+  <p class="asc-explain">Your aerobic durability is climbing steadily. Threshold is your biggest opportunity this block.</p>
+  <div class="asc-foot"><span class="asc-updated">Updated today</span><button class="asc-details-btn">View details</button></div>
+</div>
+
+<div class="readiness">
+  <div class="ring"><svg width="104" height="104" viewBox="0 0 104 104"><circle class="track" cx="52" cy="52" r="46" stroke-width="9" fill="none"/><circle class="fill" cx="52" cy="52" r="46" stroke-width="9" fill="none" stroke-dasharray="289" stroke-dashoffset="63"/></svg><div class="center"><b>78</b><i>Ready</i></div></div>
+  <div class="readiness-copy"><h2>Good to train</h2><p>Recovery is solid — today's session is a go.</p></div>
+</div>
+<div class="pheader" style="text-align:center;color:var(--ink3);font-size:10px">↑ Athlevo Score (development) vs. Readiness ring (today) — now unmistakably different</div>
+
+<div class="spacer"></div>
+<div id="trends">
+  <div class="pheader">Trends</div>
+  <div class="decision">
+    <span class="eyebrow">Calendar week · this week vs. same point last week</span>
+    <div class="trend-metrics">
+      <div class="tm-row"><div class="tm-left"><span class="tm-label">Total training time</span><span class="tm-cur">3h 42m · load 320</span></div><span class="tm-diff">+18m</span></div>
+      <div class="tm-row"><div class="tm-left"><span class="tm-label">Easy volume</span><span class="tm-cur">28.4 km</span></div><span class="tm-diff">+2.1 km</span></div>
+      <div class="tm-row"><div class="tm-left"><span class="tm-label">Threshold volume</span><span class="tm-cur">6.0 km</span></div><span class="tm-diff muted">No comparable day</span></div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="decision">
+    <span class="eyebrow">Six-week volume · Monday–Sunday</span>
+    <div style="margin-top:14px" class="tbp">
+      <div class="tbp-top"><span class="tbp-label">Current week</span><span class="tbp-val">33.7 / 75 km · 45%</span></div>
+      <div class="tbp-bar"><i style="width:45%"></i></div>
+      <span class="tbp-cmp">+4.2 km · +14% vs same day last week</span>
+    </div>
+    <div class="trend-sixweek">
+      <div class="tw-col"><small class="tw-val">52</small><div class="tw-track"><div class="tw-bar past" style="height:69%"></div></div><small class="tw-lab">Jun 9</small></div>
+      <div class="tw-col"><small class="tw-val">61</small><div class="tw-track"><div class="tw-bar past" style="height:81%"></div></div><small class="tw-lab">Jun 16</small></div>
+      <div class="tw-col"><small class="tw-val">48</small><div class="tw-track"><div class="tw-bar past" style="height:64%"></div></div><small class="tw-lab">Jun 23</small></div>
+      <div class="tw-col"><small class="tw-val">70</small><div class="tw-track"><div class="tw-bar past" style="height:93%"></div></div><small class="tw-lab">Jun 30</small></div>
+      <div class="tw-col"><small class="tw-val">63</small><div class="tw-track"><div class="tw-bar past" style="height:84%"></div></div><small class="tw-lab">Jul 7</small></div>
+      <div class="tw-col current"><small class="tw-val">34</small><div class="tw-track"><div class="tw-rem" style="height:55%"></div><div class="tw-bar current" style="height:45%"></div></div><small class="tw-lab">This week</small></div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="predict">
+    <div class="predict-head">
+      <div><span class="eyebrow">Race Prediction</span><h3 class="predict-title">Unlock your race predictions</h3></div>
+      <span class="predict-badge">Coming soon</span>
+    </div>
+    <p class="predict-lead">Athlevo predicts race times only when the data behind them is trustworthy. Here's what unlocks it:</p>
+    <ul class="predict-checklist">
+      <li><span class="pc-dot"></span><div><b>Log a race or time trial</b><small>Gives Athlevo a real performance anchor.</small></div></li>
+      <li><span class="pc-dot"></span><div><b>Complete a threshold session</b><small>Calibrates your current speed at effort.</small></div></li>
+      <li><span class="pc-dot"></span><div><b>Build consistency</b><small>A few steady weeks confirm the trend is real.</small></div></li>
+    </ul>
+    <p class="predict-foot">No estimate is shown until it's genuinely reliable — no guesses.</p>
+  </div>
+</div>
+</div></body></html>

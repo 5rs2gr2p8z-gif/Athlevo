@@ -551,22 +551,68 @@
     const updated = o.lastUpdated
       ? `<span class="asc-updated">Updated ${esc(o.lastUpdated)}</span>` : "";
 
+    const valid = o.status === "valid";
+    const cur = valid ? Number(o.score) : null;
+
+    // Highest-ever + peak marker, from real persisted history (+ current).
+    const hist = (scoreHistory || [])
+      .map(h => Number(h.overall_score)).filter(Number.isFinite);
+    const allVals = cur != null ? hist.concat(cur) : hist;
+    const peak = allVals.length ? Math.max(...allVals) : null;
+    let peakBadge = "", peakMark = "";
+    if (valid && peak != null) {
+      if (cur >= peak && (hist.length > 1 || delta.improved)) {
+        peakBadge = `<span class="asc-peak best">✦ Highest ever</span>`;
+      } else if (peak > cur) {
+        peakBadge = `<span class="asc-peak">Best ${peak}</span>`;
+        peakMark = `<span class="asc-track-mark" style="left:${peak}%"></span>`;
+      }
+    }
+
+    // Component contribution mini-bars (progression, not a ring).
+    const compBars = RING_SEGMENTS
+      .filter(s => s.key !== "level")
+      .map(s => {
+        const c = (result.components || {})[s.key] || {};
+        const ok = c.status === "valid" && Number.isFinite(Number(c.score));
+        const w = ok ? Math.max(3, Math.min(100, Number(c.score))) : 0;
+        return `
+          <div class="asc-comp">
+            <span class="asc-comp-label">${esc(s.label)}</span>
+            <div class="asc-comp-track"><i style="width:${w}%"></i></div>
+            <span class="asc-comp-val">${ok ? c.score : "–"}</span>
+          </div>`;
+      }).join("");
+
+    const fillW = valid ? Math.max(0, Math.min(100, cur)) : 0;
+    const arrow = deltaClass === "up" ? "▲ " : deltaClass === "down" ? "▼ " : "";
+
     mount.innerHTML = `
       <div class="asc">
         <div class="asc-head">
-          <div>
+          <div class="asc-head-l">
             <span class="asc-eyebrow">Athlevo Score</span>
             <span class="asc-sub-eyebrow">Long-term development</span>
           </div>
-          <span class="asc-delta ${deltaClass}">${esc(delta.text)}</span>
+          <span class="asc-delta ${deltaClass}">${arrow}${esc(delta.text)}</span>
         </div>
-        <div class="asc-ringwrap">
-          ${buildScoreRing(result.components || {}, animate)}
-          <div class="asc-ring-center">
-            <span class="asc-ring-num" id="ascRingNum">${o.status === "valid" ? o.score : "—"}</span>
-            <span class="asc-ring-cap">${o.status === "valid" ? "Score" : "Building"}</span>
+
+        <div class="asc-hero">
+          <div class="asc-scorewrap">
+            <span class="asc-score-num" id="ascRingNum">${valid ? o.score : "—"}</span>
+            <span class="asc-score-max">/100</span>
           </div>
+          ${peakBadge}
         </div>
+
+        <div class="asc-track">
+          <div class="asc-track-fill" data-target="${fillW}" style="width:${animate ? 0 : fillW}%"></div>
+          ${peakMark}
+        </div>
+        <div class="asc-scale"><span>0</span><span>50</span><span>100</span></div>
+
+        <div class="asc-comps">${compBars}</div>
+
         <p class="asc-explain">${esc(o.explanation)}</p>
         <div class="asc-foot">
           ${updated}
@@ -574,22 +620,18 @@
         </div>
       </div>`;
 
-    if (o.status === "valid") {
+    if (valid) {
       try { window.localStorage.setItem("athlevo_score_last", String(o.score)); } catch (e) {}
     }
 
     if (animate) runScoreCelebration(mount, lastShown, o.score);
   }
 
-  // Fill the ring + count the number up, all under one second.
+  // Grow the progress track + count the number up, all under one second.
   function runScoreCelebration(mount, from, to) {
-    const svg = mount.querySelector(".asc-ring.animate");
-    if (svg) {
-      requestAnimationFrame(() => {
-        svg.querySelectorAll(".asc-ring-val").forEach(p => {
-          p.style.strokeDashoffset = p.getAttribute("data-target");
-        });
-      });
+    const fill = mount.querySelector(".asc-track-fill");
+    if (fill) {
+      requestAnimationFrame(() => { fill.style.width = (fill.getAttribute("data-target") || 0) + "%"; });
     }
     const num = mount.querySelector("#ascRingNum");
     if (!num || !Number.isFinite(from)) return;
