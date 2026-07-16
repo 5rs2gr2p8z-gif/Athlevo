@@ -1,4 +1,8 @@
 import crypto from "node:crypto";
+import {
+  getStravaRedirectUri,
+  getAppReturnOrigin
+} from "../../lib/server/stravaConfig.js";
 
 function verifySignedState(state, secret) {
   if (!state || !secret) {
@@ -56,6 +60,10 @@ function verifySignedState(state, secret) {
 }
 
 async function exchangeAuthorizationCode(code) {
+  // Send the EXACT same canonical redirect_uri used in the authorization
+  // request so the two steps always agree.
+  const { uri: redirectUri } = getStravaRedirectUri();
+
   const response = await fetch("https://www.strava.com/oauth/token", {
     method: "POST",
     headers: {
@@ -65,7 +73,8 @@ async function exchangeAuthorizationCode(code) {
       client_id: process.env.STRAVA_CLIENT_ID,
       client_secret: process.env.STRAVA_CLIENT_SECRET,
       code,
-      grant_type: "authorization_code"
+      grant_type: "authorization_code",
+      redirect_uri: redirectUri
     })
   });
 
@@ -145,34 +154,52 @@ async function markProfileConnected(userId) {
   }
 }
 
-// Resolves the public app origin to redirect back to. Prefers the
-// configured PUBLIC_APP_URL env var, validates it is a real http(s)
-// origin, and falls back to the known production URL. This avoids
-// hardcoding a single origin while never redirecting somewhere unsafe.
-function resolveAppUrl() {
-  const fallback = "https://athlevo-ai.vercel.app";
-  const configured = process.env.PUBLIC_APP_URL;
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
-  if (typeof configured !== "string" || !configured.trim()) {
-    return fallback;
-  }
+/*
+ * A visible, self-contained Athlevo error page for hard OAuth failures
+ * (config errors, token-exchange failures, unexpected errors) so the
+ * athlete never sees raw JSON or a blank screen. It exposes no secrets or
+ * server internals — only a friendly message, an optional safe error code,
+ * and Try again / Return to Athlevo actions.
+ */
+function renderErrorPage(response, { appUrl, reason, code, status = 502 }) {
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strava connection failed — Athlevo</title>
+<style>
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#eeeeec;color:#141416;display:flex;min-height:100vh;align-items:center;justify-content:center}
+  .card{background:#fff;max-width:420px;width:calc(100% - 40px);margin:20px;border-radius:22px;padding:28px;box-shadow:0 24px 80px rgba(0,0,0,.10)}
+  h1{font-size:20px;margin:0 0 8px}
+  p{font-size:14px;line-height:1.55;color:#6d7075;margin:0 0 16px}
+  .code{font-size:12px;color:#9a9da3;margin-bottom:18px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  a{flex:1;text-align:center;text-decoration:none;font-size:14px;font-weight:600;padding:13px 16px;border-radius:100px}
+  .primary{background:#141416;color:#fff}
+  .ghost{background:#f6f6f4;color:#141416}
+</style></head>
+<body><div class="card">
+  <h1>Strava connection failed</h1>
+  <p>${escapeHtml(reason || "We couldn't complete the connection with Strava. Your Athlevo account is unaffected.")}</p>
+  ${code ? `<div class="code">Reference: ${escapeHtml(code)}</div>` : ""}
+  <div class="row">
+    <a class="primary" href="${escapeHtml(appUrl)}/?strava=retry">Try again</a>
+    <a class="ghost" href="${escapeHtml(appUrl)}/">Return to Athlevo</a>
+  </div>
+</div></body></html>`;
 
-  try {
-    const parsed = new URL(configured.trim());
-
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-      return fallback;
-    }
-
-    // Strip any trailing slash so query strings append cleanly.
-    return parsed.origin;
-  } catch {
-    return fallback;
-  }
+  response.status(status).setHeader("Content-Type", "text/html; charset=utf-8");
+  return response.send(html);
 }
 
 export default async function handler(request, response) {
-  const appUrl = resolveAppUrl();
+  // Canonical return origin (athlevo.org) — never the stale vercel.app URL.
+  const appUrl = getAppReturnOrigin();
 
   try {
     if (request.method !== "GET") {
@@ -231,11 +258,19 @@ export default async function handler(request, response) {
       `${appUrl}?strava=connected`
     );
   } catch (error) {
-    console.error("Strava callback failed:", error);
+    // Log a non-sensitive code only — never the code, tokens, or secrets.
+    console.error("Strava callback failed:", {
+      code: "STRAVA_CALLBACK_ERROR",
+      message: error?.message || "unknown"
+    });
 
-    return response.redirect(
-      302,
-      `${appUrl}?strava=error`
-    );
+    // A hard failure (token exchange / unexpected) renders a visible
+    // Athlevo error page instead of a blank screen or raw JSON.
+    return renderErrorPage(response, {
+      appUrl,
+      reason: "We couldn't finish connecting your Strava account. Please try again — your Athlevo account is unaffected.",
+      code: "STRAVA_CALLBACK_ERROR",
+      status: 502
+    });
   }
 }

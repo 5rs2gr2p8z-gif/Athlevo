@@ -1,4 +1,8 @@
 import crypto from "node:crypto";
+import {
+  getStravaRedirectUri,
+  isRedirectUriValid
+} from "../../lib/server/stravaConfig.js";
 
 function sendJson(response, statusCode, body) {
   response.status(statusCode).json(body);
@@ -76,12 +80,34 @@ export default async function handler(request, response) {
     }
 
     const clientId = process.env.STRAVA_CLIENT_ID;
-    const redirectUri = process.env.STRAVA_REDIRECT_URI;
     const stateSecret = process.env.OAUTH_STATE_SECRET;
 
-    if (!clientId || !redirectUri || !stateSecret) {
+    // One canonical redirect URI for the whole flow. Guaranteed to be a
+    // registered athlevo.org callback (stale/preview env values are ignored
+    // by the helper), so Strava can never reject it as invalid.
+    const { uri: redirectUri, source, host, path } = getStravaRedirectUri();
+
+    if (!clientId || !stateSecret) {
       throw new Error("Strava OAuth configuration is incomplete.");
     }
+
+    // Refuse to start OAuth with an unregistered callback rather than
+    // bouncing the athlete to Strava's raw "Bad Request" page.
+    if (!isRedirectUriValid()) {
+      console.error("Strava OAuth blocked: redirect URI not registered.", {
+        code: "STRAVA_REDIRECT_CONFIG",
+        host,
+        path
+      });
+      return sendJson(response, 500, {
+        error: "Strava connection is temporarily unavailable. Please try again later.",
+        code: "STRAVA_REDIRECT_CONFIG"
+      });
+    }
+
+    // Safe diagnostic: host + path + source only. Never the full URL,
+    // state, code, tokens, or secrets.
+    console.log("Strava OAuth start:", { host, path, redirectSource: source });
 
     const state = createSignedState(
       {
