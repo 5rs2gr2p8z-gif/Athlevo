@@ -1350,6 +1350,11 @@ async function refreshAthleteUI() {
     if (typeof window.renderAthlevoScoreCard === "function") {
       window.renderAthlevoScoreCard(activities, profile);
     }
+    // Training Engine V2: the "Your current training paces" card (moved out
+    // of the Athlevo Score detail) — reads the same shared pace service.
+    if (typeof window.renderTrainingPacesCard === "function") {
+      window.renderTrainingPacesCard();
+    }
     if (typeof window.refreshTrends === "function") {
       window.refreshTrends(activities, profile);
     }

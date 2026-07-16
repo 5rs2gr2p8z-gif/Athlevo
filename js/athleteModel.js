@@ -370,10 +370,61 @@
     }
   }
 
+  /* ═══════════ Today "Your current training paces" card (V2) ═══════════
+   *
+   * Predicted paces moved out of the Athlevo Score detail into a dedicated
+   * Today card, rendered from the SHARED pace service so Today and Train
+   * agree. Reuses getFitness() — no new pace maths here.
+   */
+  const CONF_CLASS = { high: "strong", moderate: "dev", developing: "dev", insufficient: "lim" };
+
+  async function renderTrainingPacesCard() {
+    const mount = document.getElementById("trainingPacesCard");
+    if (!mount || !window.AthlevoPaceService) return;
+    try {
+      const fitness = await getFitness();
+      const paces = window.AthlevoPaceService.getTrainingPaces(fitness || {});
+
+      const rows = paces.zones.map(z => {
+        const pace = z.paceRange ? z.paceRange.text : "By effort";
+        return `
+          <div class="tpc-zone">
+            <div class="tpc-zone-head">
+              <span class="tpc-zone-label">${escapeHtml(z.label)}</span>
+              <span class="tpc-zone-pace">${escapeHtml(pace)}</span>
+            </div>
+            <div class="tpc-zone-sub">
+              <span class="tpc-rpe">${escapeHtml(z.rpe.text)}</span>
+              <span class="tpc-mean">${escapeHtml(z.explanation)}</span>
+            </div>
+          </div>`;
+      }).join("");
+
+      const confClass = CONF_CLASS[paces.confidence.code] || "lim";
+
+      mount.innerHTML = `
+        <div class="tpc">
+          <div class="tpc-head">
+            <div>
+              <span class="tpc-eyebrow">${escapeHtml(paces.header)}</span>
+              <p class="tpc-support">${escapeHtml(paces.updatedLine || paces.supporting)}</p>
+            </div>
+            <span class="tpc-conf ${confClass}">${escapeHtml(paces.confidence.label)}</span>
+          </div>
+          <div class="tpc-zones">${rows}</div>
+        </div>`;
+    } catch (error) {
+      console.warn("Training paces card failed:", error && error.message);
+      mount.innerHTML = "";
+    }
+  }
+
   window.AthleteModel = {
     getFitness,
     refresh,
     computeAthleteFitness,
-    renderScoreCard
+    renderScoreCard,
+    renderTrainingPacesCard
   };
+  window.renderTrainingPacesCard = renderTrainingPacesCard;
 })();

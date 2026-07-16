@@ -513,7 +513,10 @@
 
     const history = renderHistory();
 
-    const paces = renderPaces();
+    // Predicted Training Paces moved OUT of the score detail (Training
+    // Engine V2). Paces now live in the dedicated Today "Your current
+    // training paces" card (#trainingPacesCard), rendered from the shared
+    // pace service. The underlying data/calculator is unchanged.
 
     modal.innerHTML = `
       <div class="scd">
@@ -529,23 +532,9 @@
         ${why}${strengths}${limiter}
         <div class="scd-comps">${order.map(k => componentRow(result.components[k])).join("")}</div>
         ${needed}
-        ${paces}
         ${history}
       </div>`;
     modal.classList.add("show");
-  }
-
-  function renderPaces() {
-    try {
-      const fit = lastFitness;
-      if (!fit || !fit.paces) return "";
-      const P = window.AthlevoPerformance;
-      const rows = P.ZONE_ORDER.map(z => {
-        const p = fit.paces[z];
-        return p && p.pace ? `<div class="scd-pace"><span>${esc(p.label)}</span><span>${esc(p.pace)}</span></div>` : "";
-      }).join("");
-      return `<details class="scd-paces"><summary>Predicted training paces</summary><div class="scd-pace-grid">${rows}</div></details>`;
-    } catch (e) { return ""; }
   }
 
   function renderHistory() {

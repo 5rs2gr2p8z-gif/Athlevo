@@ -1366,6 +1366,25 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .asc-est{font-size:11.5px;color:var(--ink3);margin-top:12px;line-height:1.4}
 .asc-empty .asc-empty-copy{font-size:13.5px;color:var(--ink2);line-height:1.5;margin-top:8px}
 
+/* ---------- Today "Your current training paces" card (V2) ---------- */
+.tpc{margin:12px 22px 4px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
+.tpc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.tpc-eyebrow{font-size:13px;font-weight:700;letter-spacing:.01em;color:var(--ink)}
+.tpc-support{font-size:12px;color:var(--ink3);margin-top:4px;line-height:1.4}
+.tpc-conf{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:100px;white-space:nowrap;flex-shrink:0}
+.tpc-conf.strong{background:#eef8f2;color:var(--good)}
+.tpc-conf.dev{background:#fbf3e4;color:var(--warn)}
+.tpc-conf.lim{background:var(--card);color:var(--ink3)}
+.tpc-zones{display:flex;flex-direction:column}
+.tpc-zone{padding:11px 0;border-top:1px solid var(--line)}
+.tpc-zone:first-child{border-top:none;padding-top:2px}
+.tpc-zone-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.tpc-zone-label{font-size:13.5px;font-weight:700;color:var(--ink)}
+.tpc-zone-pace{font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+.tpc-zone-sub{display:flex;align-items:baseline;gap:8px;margin-top:3px}
+.tpc-rpe{font-size:11px;font-weight:700;color:var(--ink3);white-space:nowrap}
+.tpc-mean{font-size:12px;color:var(--ink2);line-height:1.4}
+
 /* ---------- Athlevo Score v1 (Today card) ---------- */
 .asc-sub-eyebrow{display:block;font-size:11px;color:var(--ink3);margin-top:2px}
 .asc-badge{font-size:13px;font-weight:700;color:var(--ink2);background:var(--card);padding:6px 14px;border-radius:100px;white-space:nowrap}
@@ -1580,6 +1599,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
 <!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching) ===== -->
 <div id="latestWorkoutAnalysis"></div>
+
+<!-- ===== YOUR CURRENT TRAINING PACES (moved from Athlevo Score) ===== -->
+<div id="trainingPacesCard"></div>
 
 <!-- ===== DAILY COACH BRIEFING ===== -->
 <div class="decision" id="dailyBriefCard">
@@ -2861,6 +2883,10 @@ async function restoreSession() {
 <script src="js/authSupport.js"></script>
 <script src="js/brain.js"></script>
 <script src="js/performance.js"></script>
+<!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
+     confidence) + structured workout guidance. Reused by Today & Train. -->
+<script src="js/paceService.js"></script>
+<script src="js/workoutGuidance.js"></script>
 <!-- Phase B Athlete Engine: defines window.AthleteEngine (calculations
      only). Not wired into any screen yet — UI integration is next sprint. -->
 <script src="js/athleteEngine.js"></script>

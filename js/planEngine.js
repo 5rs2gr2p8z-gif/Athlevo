@@ -143,6 +143,27 @@
     return "completed_as_prescribed";
   }
 
+  // V2 (additive): richer detail (shortened/extended/race/time_trial).
+  function classifyExecutionDetail(session, todayKey) {
+    const state = classifyWorkoutState(session, todayKey);
+    const rec = session.execution || null;
+    let refined = state;
+    let magnitudePct = null;
+    const planDur = num(session.duration_minutes);
+    const actDur = rec
+      ? (num(rec.actual_duration_minutes) ?? num(session.matched_activity?.actual_duration_minutes))
+      : null;
+    if (planDur && actDur) {
+      magnitudePct = Math.round((actDur / planDur - 1) * 100);
+      if (state === "completed_easier" && actDur <= planDur * 0.75) refined = "shortened";
+      else if (state === "completed_harder" && actDur >= planDur * 1.25) refined = "extended";
+    }
+    const type = String(session.session_type || "").toLowerCase();
+    if (/time.?trial/.test(type)) refined = "time_trial";
+    else if (/\brace\b/.test(type)) refined = "race";
+    return { state, refined, magnitudePct };
+  }
+
   /* ═══════════════ 2 · adaptation rule set ═══════════════ */
   function confidenceFrom(o) {
     if (o.hasExecution && o.hasMetrics) return "high";
@@ -212,7 +233,7 @@
               sessionId: session.id, action: "move_quality",
               targetSessionId: sessions[target].id, targetDate: sessions[target].session_date,
               reason: `Recovery allows it, so the skipped ${labelType(session)} was moved to ${weekday(sessions[target].session_date)}.`,
-              confidence: conf
+              confidence: conf, needsConfirmation: true
             });
             return;
           }
@@ -234,7 +255,7 @@
             sessionId: session.id, action: "move_long_run",
             targetSessionId: sessions[target].id, targetDate: sessions[target].session_date,
             reason: `The long run was rescheduled to ${weekday(sessions[target].session_date)} so the week's endurance work still happens.`,
-            confidence: conf
+            confidence: conf, needsConfirmation: true
           });
         } else {
           changes.push({
@@ -462,8 +483,16 @@
     const tomorrow = buildTomorrowCard({ sessions: safe.sessions, changes: allChanges, todayKey });
     const explanation = buildCoachExplanation(allChanges, safe.notes);
 
+    // V2 (additive): pace targets from the shared service + confirmation flag.
+    let paceTargets = null;
+    if (input.fitness && window.AthlevoPaceService) {
+      try { paceTargets = window.AthlevoPaceService.getTrainingPaces(input.fitness).zones; }
+      catch (error) { paceTargets = null; }
+    }
+    const needsConfirmation = allChanges.some(c => c.needsConfirmation === true);
+
     return {
-      version: "plan-engine-v1",
+      version: "plan-engine-v2",
       todayKey,
       updatedWeek: safe.sessions,
       states,
@@ -474,7 +503,9 @@
       trainingLoad: weeklyProgress.plannedTrainingLoad,
       weeklyProgress,
       tomorrow,
-      explanation
+      explanation,
+      paceTargets,
+      needsConfirmation
     };
   }
 
@@ -482,6 +513,7 @@
     CONFIG,
     WORKOUT_STATES,
     classifyWorkoutState,
+    classifyExecutionDetail,
     computeAdaptations,
     assessExtraWorkouts,
     enforceSafety,
@@ -489,6 +521,6 @@
     buildTomorrowCard,
     buildWeeklyProgress,
     runPlanEngine,
-    PLAN_ENGINE_VERSION: "plan-engine-v1"
+    PLAN_ENGINE_VERSION: "plan-engine-v2"
   };
 })();
