@@ -1446,10 +1446,45 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .tw-col{flex:1;min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center}
 .tw-val{font-size:11px;color:var(--ink2);font-variant-numeric:tabular-nums;height:14px}
 .tw-track{height:120px;width:100%;display:flex;align-items:flex-end;margin:6px 0;border-radius:8px;overflow:hidden;background:rgba(0,0,0,.05)}
-.tw-bar{width:100%;background:var(--ink);opacity:.25;border-radius:8px 8px 0 0;transition:height .5s cubic-bezier(.3,.7,.3,1)}
-.tw-bar.progress{opacity:1;background:var(--red)}
+.tw-bar{width:100%;border-radius:8px 8px 0 0;transition:height .6s cubic-bezier(.3,.7,.3,1)}
+/* previous weeks: light gray · current: Athlevo red · future: outlined */
+.tw-bar.past{background:#d9d9d6}
+.tw-bar.current{background:var(--red)}
+.tw-rem{width:100%;border:1.5px dashed var(--red);border-bottom:none;border-radius:8px 8px 0 0;opacity:.45;box-sizing:border-box}
 .tw-lab{font-size:10px;color:var(--ink3);margin-top:2px;line-height:1.2}
+.tw-col:last-child .tw-lab{color:var(--ink);font-weight:700}
 .tw-sub{font-size:9px;color:var(--red);font-weight:700;min-height:11px}
+
+/* ---------- Trends: current-week block progress + comparison ---------- */
+.tbp{margin-bottom:16px}
+.tbp-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.tbp-label{font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--ink3);text-transform:uppercase}
+.tbp-val{font-size:16px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.tbp-bar{height:8px;background:var(--line);border-radius:100px;overflow:hidden}
+.tbp-bar i{display:block;height:100%;background:var(--red);border-radius:100px;transition:width .6s cubic-bezier(.3,.7,.3,1)}
+.tbp-cmp{display:inline-block;margin-top:8px;font-size:12.5px;font-weight:700}
+.tbp-cmp.up{color:var(--good)}
+.tbp-cmp.muted{color:var(--ink3);font-weight:600}
+
+/* ---------- Athlevo Score: segmented ring ---------- */
+.asc-delta{font-size:12px;font-weight:800;letter-spacing:.01em;padding:5px 11px;border-radius:100px;white-space:nowrap;flex-shrink:0}
+.asc-delta.up{background:#eef8f2;color:var(--good)}
+.asc-delta.down{background:var(--card);color:var(--ink3)}
+.asc-delta.stable{background:var(--card);color:var(--ink3)}
+.asc-delta.building{background:var(--card);color:var(--ink3)}
+.asc-ringwrap{position:relative;width:190px;height:190px;margin:14px auto 6px}
+.asc-ring{width:100%;height:100%;transform:rotate(0deg)}
+.asc-ring-track{fill:none;stroke:var(--line);stroke-width:11;stroke-linecap:round}
+.asc-ring-val{fill:none;stroke:var(--ink);stroke-width:11;stroke-linecap:round;stroke-dasharray:100}
+.asc-ring-val.strong{stroke:var(--red)}
+.asc-ring.animate .asc-ring-val{transition:stroke-dashoffset .8s cubic-bezier(.3,.7,.3,1)}
+.asc-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.asc-ring-num{font-family:var(--serif);font-size:52px;font-weight:500;letter-spacing:-.02em;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+.asc-ring-cap{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin-top:4px}
+@media (prefers-reduced-motion: reduce){
+  .asc-ring.animate .asc-ring-val{transition:none}
+  .tw-bar,.tbp-bar i{transition:none}
+}
 
 /* ---------- automatic race detection prompt ---------- */
 .rdc{margin:8px 22px 4px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
@@ -1964,6 +1999,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
   <h3 id="trendVolumeTitle" class="sr-hidden" style="display:none">Six-week volume</h3>
   <p id="trendVolumeContext" class="sr-hidden" style="display:none"></p>
+
+  <!-- Part 6/7: current-week block progress + week comparison -->
+  <div id="trendBlockProgress"></div>
 
   <div id="trendWeeklyVolumeChart" class="trend-sixweek"></div>
 </div>

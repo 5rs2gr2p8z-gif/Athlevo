@@ -475,7 +475,7 @@
     return unit ? `${n} ${unit}` : `${n}`;
   }
 
-  function renderTrends(trends) {
+  function renderTrends(trends, targetKm) {
     const narr = document.getElementById("trendNarrative");
     if (narr) narr.textContent = trends.narrative;
 
@@ -502,10 +502,43 @@
       }).join("");
     }
 
-    renderSixWeekChart(trends.series);
+    renderBlockProgress(trends, targetKm);
+    renderSixWeekChart(trends.series, targetKm);
   }
 
-  function renderSixWeekChart(series) {
+  // Part 6: "Current Week 33.7 / 75 km · 45%" + a horizontal bar, plus the
+  // Part 7 comparison vs. the same weekday last week (reusing the diff).
+  function renderBlockProgress(trends, targetKm) {
+    const host = document.getElementById("trendBlockProgress");
+    if (!host) return;
+    const cur = Number(trends.thisWeek.runDistanceKm) || 0;
+    const target = Number(targetKm) > 0 ? Number(targetKm) : null;
+    const pct = target ? Math.max(0, Math.min(100, Math.round((cur / target) * 100))) : null;
+
+    const dv = trends.diffs.runDistanceKm;
+    let cmp = "";
+    if (dv && dv.comparable && dv.absolute !== 0) {
+      const abs = `${dv.absolute > 0 ? "+" : "−"}${Math.abs(dv.absolute).toFixed(1)} km`;
+      const pctTxt = dv.percent != null && Math.abs(dv.percent) >= 1 ? ` · ${dv.percent > 0 ? "+" : ""}${dv.percent}%` : "";
+      cmp = `<span class="tbp-cmp up">${esc(abs)}${esc(pctTxt)} vs same day last week</span>`;
+    } else if (dv && !dv.comparable && cur > 0) {
+      cmp = `<span class="tbp-cmp muted">No comparable day last week yet</span>`;
+    } else if (dv && dv.absolute === 0) {
+      cmp = `<span class="tbp-cmp muted">Same as last week</span>`;
+    }
+
+    host.innerHTML = `
+      <div class="tbp">
+        <div class="tbp-top">
+          <span class="tbp-label">Current week</span>
+          <span class="tbp-val">${cur.toFixed(1)}${target ? ` / ${Math.round(target)}` : ""} km${pct != null ? ` · ${pct}%` : ""}</span>
+        </div>
+        <div class="tbp-bar"><i style="width:${pct != null ? pct : Math.min(100, cur > 0 ? 100 : 0)}%"></i></div>
+        ${cmp}
+      </div>`;
+  }
+
+  function renderSixWeekChart(series, targetKm) {
     const chart = document.getElementById("trendWeeklyVolumeChart");
     if (!chart) return;
     chart.innerHTML = "";
@@ -515,25 +548,50 @@
       chart.appendChild(p);
       return;
     }
-    const maxKm = Math.max(...series.map(w => w.distanceKm || 0), 1);
+    const reduce = (() => {
+      try { return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+      catch (e) { return false; }
+    })();
+    const target = Number(targetKm) > 0 ? Number(targetKm) : 0;
+    const maxKm = Math.max(...series.map(w => w.distanceKm || 0), target, 1);
 
     series.forEach(w => {
       const km = w.distanceKm || 0;
-      const h = Math.max((km / maxKm) * 100, km > 0 ? 8 : 2);
+      const h = Math.max((km / maxKm) * 100, km > 0 ? 6 : 1.5);
 
       const col = document.createElement("div");
       col.className = "tw-col";
 
       const value = document.createElement("small");
       value.className = "tw-val";
-      value.textContent = km > 0 ? km.toFixed(1) : "";
+      value.textContent = km > 0 ? km.toFixed(0) : "";
 
       const track = document.createElement("div");
       track.className = "tw-track";
-      const bar = document.createElement("div");
-      bar.className = "tw-bar" + (w.inProgress ? " progress" : "");
-      bar.style.height = `${h}%`;
-      track.appendChild(bar);
+
+      // Current week: red, and (when a target exists) an OUTLINED remainder
+      // up to the planned volume — the "future" portion of the week.
+      if (w.inProgress) {
+        if (target > 0 && target > km) {
+          const remH = Math.max(0, Math.min(100, (target / maxKm) * 100)) - h;
+          if (remH > 0) {
+            const rem = document.createElement("div");
+            rem.className = "tw-rem";
+            rem.style.height = `${remH}%`;
+            track.appendChild(rem);
+          }
+        }
+        const bar = document.createElement("div");
+        bar.className = "tw-bar current";
+        bar.style.height = reduce ? `${h}%` : "0%";
+        track.appendChild(bar);
+        if (!reduce) requestAnimationFrame(() => { bar.style.height = `${h}%`; });
+      } else {
+        const bar = document.createElement("div");
+        bar.className = "tw-bar past";
+        bar.style.height = `${h}%`;
+        track.appendChild(bar);
+      }
 
       const lab = document.createElement("small");
       lab.className = "tw-lab";
@@ -588,7 +646,11 @@
         timezone: profile && profile.timezone,
         now: new Date()
       });
-      renderTrends(trends);
+      // Planned weekly volume (athlete's reported target) drives the block
+      // progress denominator when available.
+      const targetKm = profile && Number(profile.weekly_distance) > 0
+        ? Number(profile.weekly_distance) : null;
+      renderTrends(trends, targetKm);
       return trends;
     } catch (error) {
       console.error("Trends refresh failed:", error);

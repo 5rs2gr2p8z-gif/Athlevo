@@ -439,9 +439,91 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  function changeLabel(change) {
-    if (!change) return "";
-    return `${change > 0 ? "+" : ""}${change} this month`;
+  /* ─── segmented score ring (SVG) ─── */
+
+  // Six outer segments from the EXISTING component scores (no new maths).
+  // "Recovery Balance" is not a computed score in the model, so the sixth
+  // segment reuses Current Running Level rather than fabricating one.
+  const RING_SEGMENTS = [
+    { key: "aerobic", label: "Aerobic" },
+    { key: "durability", label: "Durability" },
+    { key: "threshold", label: "Threshold" },
+    { key: "speed", label: "Speed" },
+    { key: "consistency", label: "Consistency" },
+    { key: "level", label: "Level" }
+  ];
+
+  function polar(cx, cy, r, ang) {
+    const a = (ang - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  }
+  function arcCW(cx, cy, r, start, end) {
+    const s = polar(cx, cy, r, start), e = polar(cx, cy, r, end);
+    const large = (((end - start) % 360) + 360) % 360 > 180 ? 1 : 0;
+    return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+  }
+
+  function buildScoreRing(components, animate) {
+    const cx = 100, cy = 100, r = 82, slot = 60, gap = 9;
+    // Strongest valid component gets the accent colour.
+    let strongest = null, best = -1;
+    RING_SEGMENTS.forEach(s => {
+      const c = components[s.key];
+      if (c && c.status === "valid" && Number(c.score) > best) { best = Number(c.score); strongest = s.key; }
+    });
+
+    let paths = "";
+    RING_SEGMENTS.forEach((s, i) => {
+      const c = components[s.key] || {};
+      const score = c.status === "valid" && Number.isFinite(Number(c.score)) ? Number(c.score) : null;
+      const start = i * slot + gap / 2;
+      const end = (i + 1) * slot - gap / 2;
+      const d = arcCW(cx, cy, r, start, end);
+      paths += `<path class="asc-ring-track" d="${d}" pathLength="100"></path>`;
+      const frac = score != null ? Math.max(0.02, Math.min(1, score / 100)) : 0;
+      const target = (100 * (1 - frac)).toFixed(1);
+      const initial = animate ? 100 : target;
+      paths += `<path class="asc-ring-val${s.key === strongest ? " strong" : ""}" d="${d}" pathLength="100" data-target="${target}" style="stroke-dashoffset:${initial}"></path>`;
+    });
+    return `<svg class="asc-ring${animate ? " animate" : ""}" viewBox="0 0 200 200" aria-hidden="true">${paths}</svg>`;
+  }
+
+  /* ─── deltas over real history (Part 2) ─── */
+
+  function prefersReducedMotion() {
+    try { return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+    catch (e) { return false; }
+  }
+
+  function computeDelta(history, current) {
+    if (current == null) return { text: "Building baseline", improved: false };
+    const valid = (history || []).filter(h => h.overall_score != null && h.score_date);
+    if (!valid.length) return { text: "Building baseline", improved: false };
+    const todayKey = valid[0].score_date;
+    const todayMs = Date.parse(todayKey);
+    const priorOnly = valid.filter(h => h.score_date !== todayKey);
+    if (!priorOnly.length) return { text: "Building baseline", improved: false };
+
+    // Most recent snapshot whose age falls inside a window, so a month-old
+    // baseline is never mislabelled "this week".
+    const inWindow = (minD, maxD) => {
+      for (const h of valid) {
+        const age = (todayMs - Date.parse(h.score_date)) / 86400000;
+        if (age >= minD && age <= maxD) return Number(h.overall_score);
+      }
+      return null;
+    };
+    const wk = inWindow(5, 13);
+    const mo = inWindow(20, 45);
+    if (wk != null && current - wk !== 0) {
+      const d = current - wk;
+      return { text: `${d > 0 ? "+" : ""}${d} this week`, improved: d > 0 };
+    }
+    if (mo != null && current - mo !== 0) {
+      const d = current - mo;
+      return { text: `${d > 0 ? "+" : ""}${d} this month`, improved: d > 0 };
+    }
+    return { text: "Stable", improved: false };
   }
 
   function renderScoreCard(result) {
@@ -449,33 +531,71 @@
     if (!mount) return;
     const o = result.overall;
 
-    const head = `
-      <div class="asc-head">
-        <div>
-          <span class="asc-eyebrow">Athlevo Score</span>
-          <span class="asc-sub-eyebrow">Long-term development</span>
-        </div>
-        ${o.status === "valid"
-          ? `<div class="asc-score"><span class="asc-score-num">${o.score}</span></div>`
-          : `<div class="asc-badge">Building</div>`}
-      </div>`;
+    const delta = computeDelta(scoreHistory, o.status === "valid" ? o.score : null);
+    const deltaClass =
+      delta.text === "Stable" ? "stable" :
+      delta.text === "Building baseline" ? "building" :
+      delta.improved ? "up" : "down";
 
-    const changeRow = o.status === "valid" && o.change
-      ? `<p class="asc-change">${esc(changeLabel(o.change))}</p>` : "";
+    // Celebrate ONLY a genuine improvement vs. the last value shown on this
+    // device — and never when reduced motion is requested.
+    let lastShown = null;
+    try { lastShown = Number(window.localStorage.getItem("athlevo_score_last")); } catch (e) {}
+    const genuineImprovement = o.status === "valid" && Number.isFinite(lastShown) && o.score > lastShown;
+    const animate = genuineImprovement && !prefersReducedMotion();
 
     const updated = o.lastUpdated
       ? `<span class="asc-updated">Updated ${esc(o.lastUpdated)}</span>` : "";
 
     mount.innerHTML = `
       <div class="asc">
-        ${head}
-        ${changeRow}
+        <div class="asc-head">
+          <div>
+            <span class="asc-eyebrow">Athlevo Score</span>
+            <span class="asc-sub-eyebrow">Long-term development</span>
+          </div>
+          <span class="asc-delta ${deltaClass}">${esc(delta.text)}</span>
+        </div>
+        <div class="asc-ringwrap">
+          ${buildScoreRing(result.components || {}, animate)}
+          <div class="asc-ring-center">
+            <span class="asc-ring-num" id="ascRingNum">${o.status === "valid" ? o.score : "—"}</span>
+            <span class="asc-ring-cap">${o.status === "valid" ? "Score" : "Building"}</span>
+          </div>
+        </div>
         <p class="asc-explain">${esc(o.explanation)}</p>
         <div class="asc-foot">
           ${updated}
           <button class="asc-details-btn" type="button" onclick="AthlevoScore.openDetails()">View details</button>
         </div>
       </div>`;
+
+    if (o.status === "valid") {
+      try { window.localStorage.setItem("athlevo_score_last", String(o.score)); } catch (e) {}
+    }
+
+    if (animate) runScoreCelebration(mount, lastShown, o.score);
+  }
+
+  // Fill the ring + count the number up, all under one second.
+  function runScoreCelebration(mount, from, to) {
+    const svg = mount.querySelector(".asc-ring.animate");
+    if (svg) {
+      requestAnimationFrame(() => {
+        svg.querySelectorAll(".asc-ring-val").forEach(p => {
+          p.style.strokeDashoffset = p.getAttribute("data-target");
+        });
+      });
+    }
+    const num = mount.querySelector("#ascRingNum");
+    if (!num || !Number.isFinite(from)) return;
+    const start = performance.now(), dur = 800;
+    const step = now => {
+      const t = Math.min(1, (now - start) / dur);
+      num.textContent = String(Math.round(from + (to - from) * t));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
 
   const COVERAGE_CLASS = { "Strong data": "strong", "Developing": "dev", "Limited data": "lim" };
@@ -680,6 +800,7 @@
     MODEL_VERSION,
     computeAthlevoScore,   // pure, exported for tests
     deriveStats,
+    computeDelta,          // pure, exported for tests (Part 2 deltas)
     refresh,
     openDetails,
     closeDetails,
