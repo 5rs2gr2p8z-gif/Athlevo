@@ -1,3 +1,5 @@
+import { mapStrava, toActivityRow } from "../../lib/server/wearable/normalizer.js";
+
 async function getAuthenticatedUser(accessToken) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -144,31 +146,20 @@ async function fetchStravaActivities(accessToken) {
   return activities;
 }
 
+// Strava now flows through the SHARED wearable normalization layer, exactly
+// like Terra and any future provider — one internal workout format. The
+// activity_type/sport_type and Strava-only columns are preserved so this is
+// fully backward compatible with the existing `activities` rows.
 function mapStravaActivity(userId, activity) {
-  return {
-    user_id: userId,
-    source: "strava",
-    external_activity_id: String(activity.id),
-    name: activity.name || null,
-    sport_type: activity.sport_type || null,
-    activity_type: activity.type || null,
-    distance_meters: activity.distance ?? null,
-    moving_time_seconds: activity.moving_time ?? null,
-    elapsed_time_seconds: activity.elapsed_time ?? null,
-    elevation_gain_meters: activity.total_elevation_gain ?? null,
-    average_speed_mps: activity.average_speed ?? null,
-    max_speed_mps: activity.max_speed ?? null,
-    average_heartrate: activity.average_heartrate ?? null,
-    max_heartrate: activity.max_heartrate ?? null,
-    average_cadence: activity.average_cadence ?? null,
-    start_date: activity.start_date || null,
-    timezone: activity.timezone || null,
-    trainer: Boolean(activity.trainer),
-    commute: Boolean(activity.commute),
-    private: Boolean(activity.private),
-    raw_data: activity,
-    updated_at: new Date().toISOString()
-  };
+  const row = toActivityRow(userId, mapStrava(activity), activity);
+  // Preserve Strava-specific columns previously written (coaching doesn't
+  // read them, but we keep column parity).
+  row.activity_type = activity.type || row.activity_type;
+  row.sport_type = activity.sport_type || row.sport_type;
+  row.max_speed_mps = activity.max_speed ?? null;
+  row.commute = Boolean(activity.commute);
+  row.private = Boolean(activity.private);
+  return row;
 }
 
 async function saveActivities(activities) {

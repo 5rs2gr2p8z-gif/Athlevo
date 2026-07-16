@@ -1,0 +1,12 @@
+-- Athlevo — terra_accounts (DEPRECATED / DO NOT RUN)
+--
+-- Terra is not used in production at Athlevo's private-beta stage, so this
+-- Terra-only table is NOT needed. Activity import reuses the existing
+-- `activities` table (keyed by source + external_activity_id); the provider
+-- abstraction and normalization work do not depend on this table.
+--
+-- This migration has been intentionally neutralized to a no-op. There is
+-- nothing to run. If Terra is ever enabled in the future, reintroduce a
+-- provider-neutral connection-status table deliberately at that time.
+--
+-- (No SQL statements below — safe to ignore.)
