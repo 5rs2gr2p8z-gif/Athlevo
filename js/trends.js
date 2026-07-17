@@ -607,7 +607,10 @@
 
       const lab = document.createElement("small");
       lab.className = "tw-lab";
-      lab.textContent = w.inProgress ? "This week" : w.label;
+      // Keep every column's label the same short width (date). The current
+      // week is highlighted by colour + the ".current" class, not by wider
+      // text, so all six columns stay perfectly aligned.
+      lab.textContent = w.label;
 
       col.appendChild(value);
       col.appendChild(track);

@@ -551,7 +551,8 @@
    * axes that actually have data, so it never collapses misleadingly to 0).
    */
   function buildRadar(components) {
-    const cx = 120, cy = 108, R = 74, N = RADAR_AXES.length;
+    // Wide viewBox + generous side margins so long axis labels never clip.
+    const cx = 160, cy = 104, R = 66, N = RADAR_AXES.length;
     const ang = i => (-90 + i * (360 / N)) * Math.PI / 180;
     const pt = (i, rad) => [cx + rad * Math.cos(ang(i)), cy + rad * Math.sin(ang(i))];
     const f = n => n.toFixed(1);
@@ -562,7 +563,16 @@
       grid += `<polygon class="asc-radar-grid" points="${pts}"></polygon>`;
     });
 
-    let spokes = "", labels = "", markers = "", dataPts = [];
+    // Neutral placeholder radius for missing axes = mean of known scores (or a
+    // mid value). This keeps the polygon a full, neutral pentagon instead of
+    // denting to 0 and falsely implying poor performance.
+    const known = RADAR_AXES
+      .map(a => (components || {})[a.key] || {})
+      .filter(c => radarState(c) !== "missing")
+      .map(c => Number(c.score));
+    const neutral = known.length ? Math.round(known.reduce((s, n) => s + n, 0) / known.length) : 50;
+
+    let spokes = "", labels = "", markers = "", poly = [];
     RADAR_AXES.forEach((ax, i) => {
       const c = (components || {})[ax.key] || {};
       const state = radarState(c);
@@ -570,27 +580,27 @@
       const [ex, ey] = pt(i, R);
       spokes += `<line class="asc-radar-spoke${missing ? " missing" : ""}" x1="${cx}" y1="${cy}" x2="${f(ex)}" y2="${f(ey)}"></line>`;
 
-      const [lx, ly] = pt(i, R + 15);
+      const [lx, ly] = pt(i, R + 14);
       const anchor = Math.abs(lx - cx) < 6 ? "middle" : (lx > cx ? "start" : "end");
       const dy = ly < cy - 4 ? "-0.15em" : (ly > cy + 4 ? "0.72em" : "0.32em");
       labels += `<text class="asc-radar-label${missing ? " missing" : ""}" x="${f(lx)}" y="${f(ly)}" text-anchor="${anchor}" dy="${dy}">${ax.label}</text>`;
-
-      if (!missing) {
-        const rad = Math.max(0.06, Math.min(1, Number(c.score) / 100)) * R;
-        const [px, py] = pt(i, rad);
-        dataPts.push([px, py]);
-        markers += `<circle class="asc-radar-dot ${state === "verified" ? "v" : "d"}" cx="${f(px)}" cy="${f(py)}" r="3.3"></circle>`;
+      if (missing) {
+        // A small "Needs data" note just outside the axis label.
+        const nd = ly < cy - 4 ? "1.15em" : (ly > cy + 4 ? "1.9em" : "1.5em");
+        labels += `<text class="asc-radar-need" x="${f(lx)}" y="${f(ly)}" text-anchor="${anchor}" dy="${nd}">Needs data</text>`;
       }
+
+      const val = missing ? neutral : Number(c.score);
+      const rad = Math.max(0.06, Math.min(1, val / 100)) * R;
+      const [px, py] = pt(i, rad);
+      poly.push([px, py]);
+      const cls = missing ? "m" : (state === "verified" ? "v" : "d");
+      markers += `<circle class="asc-radar-dot ${cls}" cx="${f(px)}" cy="${f(py)}" r="${missing ? 3 : 3.4}"></circle>`;
     });
 
-    let shape = "";
-    if (dataPts.length >= 3) {
-      shape = `<polygon class="asc-radar-area" points="${dataPts.map(p => p.map(f).join(",")).join(" ")}"></polygon>`;
-    } else if (dataPts.length === 2) {
-      shape = `<line class="asc-radar-area-line" x1="${f(dataPts[0][0])}" y1="${f(dataPts[0][1])}" x2="${f(dataPts[1][0])}" y2="${f(dataPts[1][1])}"></line>`;
-    }
+    const shape = `<polygon class="asc-radar-area" points="${poly.map(p => p.map(f).join(",")).join(" ")}"></polygon>`;
 
-    return `<svg class="asc-radar" viewBox="0 0 240 214" role="img" aria-label="Athlete profile radar across five abilities">
+    return `<svg class="asc-radar" viewBox="0 0 320 210" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Athlete profile radar across five abilities">
         <g class="asc-radar-frame">${grid}${spokes}</g>
         ${labels}
         <g class="asc-radar-data">${shape}${markers}</g>

@@ -16,7 +16,7 @@
 <script>
 (function(){
   try{
-    var pref = localStorage.getItem('athlevo_theme') || 'system';
+    var pref = localStorage.getItem('athlevo_theme') || 'light';
     var root = document.documentElement;
     root.setAttribute('data-theme', pref);
     function isDark(p){
@@ -38,7 +38,7 @@
       if (typeof window.syncThemeControl === 'function') window.syncThemeControl(p);
     };
     window.getAthlevoTheme = function(){
-      try { return localStorage.getItem('athlevo_theme') || 'system'; } catch(e){ return 'system'; }
+      try { return localStorage.getItem('athlevo_theme') || 'light'; } catch(e){ return 'light'; }
     };
     // Keep theme-color in sync when the OS theme changes in "System" mode.
     if (window.matchMedia){
@@ -155,7 +155,7 @@ html[data-theme="dark"]{
   color-scheme:dark;
 }
 @media (prefers-color-scheme: dark){
-  html:not([data-theme="light"]){
+  html[data-theme="system"]{
     --bg:#0c0d0f;
     --paper:#17181c;
     --card:#202228;
@@ -402,8 +402,11 @@ body{
 .chip{flex-shrink:0;background:var(--paper);border:1px solid var(--line);border-radius:100px;padding:8px 15px;font-family:var(--sans);font-size:13px;font-weight:550;color:var(--text);cursor:pointer;transition:border-color .2s,background .2s}
 .chip:hover{border-color:var(--ink3)}
 .composer{display:flex;gap:10px;padding:10px 18px 16px;flex-shrink:0}
-.composer input{flex:1;border:1px solid var(--line);background:var(--card2);border-radius:100px;padding:13px 18px;font-family:var(--sans);font-size:14.5px;outline:none;transition:border-color .2s}
+.composer input{flex:1;border:1px solid var(--line);background:var(--field);color:var(--text);border-radius:100px;padding:13px 18px;font-family:var(--sans);font-size:14.5px;outline:none;transition:border-color .2s}
 .composer input:focus{border-color:var(--ink3)}
+.composer input::placeholder,.ci-input::placeholder{color:var(--ink3);opacity:1}
+/* Form-control contrast safety in both themes. */
+input,textarea,select{color:var(--text)}
 .send{width:46px;height:46px;border-radius:50%;background:var(--red);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s}
 .send:active{transform:scale(.92)}
 .send svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -849,7 +852,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   font-weight: 600;
   line-height: 1.5;
   letter-spacing: -0.006em;
-  color: var(--ink);
+  color: var(--text);
 }
 
 .coach-response-direct {
@@ -861,7 +864,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
 .coach-response-section {
   padding-top: 14px;
-  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  border-top: 1px solid var(--line);
 }
 
 /* Softer than a shouty label — a section title should guide, not
@@ -871,7 +874,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: var(--ink);
+  color: var(--text);
 }
 
 .coach-response-section-body {
@@ -1038,7 +1041,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   text-transform: uppercase;
   padding-top: 3px;
 }
-.ca-row-value { color: var(--ink); flex: 1; min-width: 0; }
+.ca-row-value { color: var(--text); flex: 1; min-width: 0; }
 .ca-actions { display: flex; gap: 8px; margin-top: 15px; }
 .ca-apply {
   flex: 1;
@@ -1610,15 +1613,16 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .trend-foot{font-size:11.5px;color:var(--ink3);margin-top:14px;line-height:1.45}
 
 /* Six-week volume: bars are the hero, current week highlighted, past secondary */
-.trend-sixweek{display:flex;align-items:flex-end;gap:10px;min-height:196px;padding-top:6px}
-.tw-col{flex:1;min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center}
-.tw-val{font-size:11.5px;color:var(--ink3);font-weight:600;font-variant-numeric:tabular-nums;height:15px;letter-spacing:-.01em}
-.tw-track{height:132px;width:100%;display:flex;flex-direction:column;justify-content:flex-end;margin:7px 0;border-bottom:1.5px solid var(--line)}
+/* Deterministic 6-column grid — equal columns, shared baseline, no overflow. */
+.trend-sixweek{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end;padding-top:6px;width:100%;max-width:100%;box-sizing:border-box;overflow:hidden}
+.tw-col{min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center}
+.tw-val{font-size:11px;color:var(--ink3);font-weight:600;font-variant-numeric:tabular-nums;height:15px;letter-spacing:-.02em}
+.tw-track{height:132px;width:70%;max-width:34px;display:flex;flex-direction:column;justify-content:flex-end;margin:7px 0;border-bottom:1.5px solid var(--line)}
 .tw-bar{width:100%;border-radius:7px 7px 0 0;transition:height .6s cubic-bezier(.3,.7,.3,1)}
 .tw-bar.past{background:#e6e6e2}
 .tw-bar.current{background:linear-gradient(180deg,#e0575d 0%,var(--red) 100%)}
 .tw-rem{width:100%;border:1.5px dashed var(--red);border-bottom:none;border-radius:7px 7px 0 0;opacity:.4;box-sizing:border-box}
-.tw-lab{font-size:10.5px;color:var(--ink3);margin-top:6px;line-height:1.2;letter-spacing:.01em}
+.tw-lab{font-size:10px;color:var(--ink3);margin-top:6px;line-height:1.2;letter-spacing:-.01em;height:13px;overflow:hidden;white-space:nowrap;max-width:100%}
 .tw-col.current .tw-val{color:var(--red);font-weight:800}
 .tw-col.current .tw-lab{color:var(--red);font-weight:800}
 
@@ -1676,6 +1680,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .asc-radar-dot{stroke:var(--paper);stroke-width:1.5}
 .asc-radar-dot.v{fill:var(--red)}
 .asc-radar-dot.d{fill:var(--ink3)}
+.asc-radar-dot.m{fill:var(--paper);stroke:var(--ink3);stroke-width:1.4;stroke-dasharray:1.6 1.6}
+.asc-radar-need{font-family:var(--sans);font-size:7.5px;font-weight:600;fill:var(--ink3);letter-spacing:.02em}
 .asc-radar-data{transform-box:fill-box;transform-origin:center;opacity:1}
 .asc-radar-wrap.animate .asc-radar-data{animation:radarIn .45s cubic-bezier(.16,1,.3,1)}
 @keyframes radarIn{from{transform:scale(.05);opacity:0}to{transform:scale(1);opacity:1}}
