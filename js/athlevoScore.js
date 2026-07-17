@@ -892,8 +892,19 @@
       }
       const executions = window.AthlevoTrends
         ? await loadExecutions(user.id) : [];
+      // Pass athlete pace zones so structure-aware classification lights up
+      // the Threshold/Speed evidence (was previously "Needs data" because the
+      // text-only classifier never recognized imported quality sessions).
+      const zones = (function () {
+        try {
+          const f = lastFitness, P = window.AthlevoPerformance;
+          if (!f || f.vdot == null || !P || !P.trainingPaces) return null;
+          const tp = P.trainingPaces(Number(f.vdot)), s = z => (z && z.secPerKm != null ? Number(z.secPerKm) : null);
+          return { easySec: s(tp.easy), thresholdSec: s(tp.threshold), intervalSec: s(tp.vo2), repetitionSec: s(tp.repetition), maxHr: f.maxHr || f.hrMax || null };
+        } catch (e) { return null; }
+      })();
       const items = window.AthlevoTrends
-        ? window.AthlevoTrends.mergeTrainingItems(acts || [], executions) : [];
+        ? window.AthlevoTrends.mergeTrainingItems(acts || [], executions, zones) : [];
 
       const raceResults = await loadRaceResults(user.id);
       scoreHistory = await loadPriorScore(user.id);

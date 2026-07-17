@@ -79,13 +79,43 @@
    * how a corrected activity overrides the raw one.
    */
   // Public entry: merged + de-duplicated items (one row per real activity).
-  function mergeTrainingItems(activities, executions) {
-    return dedupeItems(mergeTrainingItemsRaw(activities, executions));
+  // `zones` (optional athlete pace zones) enables STRUCTURE-AWARE intensity
+  // classification via the workout recognition engine.
+  function mergeTrainingItems(activities, executions, zones) {
+    return dedupeItems(mergeTrainingItemsRaw(activities, executions, zones));
+  }
+
+  /*
+   * Structure-aware intensity for one run item, using the workout recognition
+   * engine (laps → plan → title → summary ensemble). Overwrites the text-only
+   * intensity/quality with the recognized values and adds a per-intensity km
+   * split so ONLY the quality portion of a mixed session counts as threshold/
+   * high volume. No-op when the engine or zones are unavailable (falls back to
+   * the original text classification → mileage totals never change).
+   */
+  function applyClassification(it, zones) {
+    if (!it || !it.isRun || !it.performed) return;
+    var W = (typeof window !== "undefined") ? window.AthlevoWorkoutClassifier : null;
+    if (!W || !zones) return;
+    var cls = W.classifyActivity({
+      distanceKm: it.distanceKm, movingSec: (it.durationMin || 0) * 60, elapsedSec: it.elapsedSec,
+      avgPaceSec: it.paceSec, avgHr: it.hr, maxHr: it.maxHr, maxSpeed: it.maxSpeed,
+      laps: it.laps, name: it.title || it.type, title: it.title || it.type
+    }, { zones: zones, planned: it.plannedSnapshot || null });
+    it.intensity = cls.intensity;
+    it.quality = cls.quality && it.performed;
+    // Only credit the Score/quality-count from confident recognitions.
+    it.knownIntensity = cls.confidence === "high" || cls.confidence === "moderate";
+    it.qualityKm = cls.qualityKm;
+    it.classification = {
+      primaryType: cls.primaryType, confidence: cls.confidence, confidenceLabel: cls.confidenceLabel,
+      secondary: cls.secondary, intervals: cls.intervals, estimated: cls.estimated
+    };
   }
 
   // Builds the raw item list (executions win over their linked import via the
   // `consumed` set), but does NOT de-duplicate cross-source — dedupeItems does.
-  function mergeTrainingItemsRaw(activities, executions) {
+  function mergeTrainingItemsRaw(activities, executions, zones) {
     const acts = Array.isArray(activities) ? activities : [];
     const execs = Array.isArray(executions) ? executions : [];
 
@@ -161,7 +191,14 @@
         providerId: linked && linked.external_activity_id != null ? String(linked.external_activity_id) : null,
         sport: (linked && (linked.sport_type || linked.activity_type)) || snap.session_type || null,
         sessionId: e.training_session_id != null ? String(e.training_session_id) : null,
-        elevation: linked ? num(linked.elevation_gain_meters) : null
+        elevation: linked ? num(linked.elevation_gain_meters) : null,
+        // Structure-aware classification inputs.
+        title: (linked && linked.name) || typeText,
+        maxHr: linked ? num(linked.max_heartrate) : num(e.actual_average_hr),
+        maxSpeed: linked ? num(linked.max_speed_mps) : null,
+        elapsedSec: linked ? num(linked.elapsed_time_seconds) : null,
+        laps: linked && linked.raw_data ? (linked.raw_data.laps || linked.raw_data.splits || null) : null,
+        plannedSnapshot: (snap && (snap.session_type || snap.main_set)) ? { session_type: snap.session_type, main_set: snap.main_set } : null
       });
     });
 
@@ -208,11 +245,21 @@
         providerId: a.external_activity_id != null ? String(a.external_activity_id) : null,
         sport: a.sport_type || a.activity_type || null,
         sessionId: null,
-        elevation: num(a.elevation_gain_meters)
+        elevation: num(a.elevation_gain_meters),
+        // Structure-aware classification inputs.
+        title: a.name || a.sport_type || a.activity_type || "",
+        maxHr: num(a.max_heartrate),
+        maxSpeed: num(a.max_speed_mps),
+        elapsedSec: num(a.elapsed_time_seconds),
+        laps: a.raw_data ? (a.raw_data.laps || a.raw_data.splits || null) : null,
+        plannedSnapshot: null
       });
     });
 
-    return items.filter(i => i.timestamp);
+    var kept = items.filter(i => i.timestamp);
+    // Structure-aware intensity (safe no-op without the engine/zones).
+    kept.forEach(it => applyClassification(it, zones));
+    return kept;
   }
 
   /* ───────────────────────── deduplication ──────────────────────────── */
@@ -384,9 +431,15 @@
 
     const longRuns = runs.filter(i => (i.durationMin >= 90) || (i.distanceKm >= longKm));
 
-    const easyVol = runs.filter(i => i.intensity === "easy").reduce((s, i) => s + (i.distanceKm || 0), 0);
-    const threshVol = runs.filter(i => i.intensity === "threshold").reduce((s, i) => s + (i.distanceKm || 0), 0);
-    const highVol = runs.filter(i => i.intensity === "high").reduce((s, i) => s + (i.distanceKm || 0), 0);
+    // Intensity volumes count only the QUALITY PORTION of a mixed session
+    // (from the recognition engine's per-intensity km split); when no split is
+    // present, fall back to the whole-run-by-bucket behaviour. Total run
+    // volume (runVolume/runDistanceKm) is unchanged either way.
+    const bucketKm = (i, bucket) =>
+      i.qualityKm ? (i.qualityKm[bucket] || 0) : (i.intensity === bucket ? (i.distanceKm || 0) : 0);
+    const easyVol = runs.reduce((s, i) => s + bucketKm(i, "easy"), 0);
+    const threshVol = runs.reduce((s, i) => s + bucketKm(i, "threshold"), 0);
+    const highVol = runs.reduce((s, i) => s + bucketKm(i, "high"), 0);
 
     // Session load (sRPE) is only valid when RPE is present; never invented.
     const withRpe = windowItems.filter(i => i.performed && num(i.rpe) != null && i.durationMin > 0);
@@ -526,7 +579,7 @@
     const tz = C.resolveTimezone(opts.timezone);
     const now = opts.now || new Date();
 
-    const items = mergeTrainingItems(activities, executions);
+    const items = mergeTrainingItems(activities, executions, opts.zones || null);
     const longKm = longThresholdKm(items);
 
     const wins = C.weekWindows(now, tz);
@@ -775,6 +828,25 @@
 
   /* ─────────────────── load + refresh (client glue) ─────────────────── */
 
+  // Athlete pace zones (sec/km) for the workout recognition engine.
+  async function loadAthleteZones() {
+    try {
+      const fitness = window.AthleteModel ? await window.AthleteModel.getFitness() : null;
+      const vdot = fitness && fitness.vdot != null ? Number(fitness.vdot) : null;
+      const P = window.AthlevoPerformance;
+      if (vdot == null || !P || !P.trainingPaces) return null;
+      const tp = P.trainingPaces(vdot);
+      const sec = z => (z && z.secPerKm != null ? Number(z.secPerKm) : null);
+      return {
+        easySec: sec(tp.easy),
+        thresholdSec: sec(tp.threshold),
+        intervalSec: sec(tp.vo2),
+        repetitionSec: sec(tp.repetition),
+        maxHr: (fitness && (fitness.maxHr || fitness.hrMax)) || null
+      };
+    } catch (e) { return null; }
+  }
+
   async function loadExecutionRecords(userId) {
     try {
       const { data } = await supabaseClient
@@ -806,9 +878,16 @@
       }
       const executions = await loadExecutionRecords(user.id);
 
+      // Athlete pace zones enable structure-aware workout recognition (which
+      // portion of a run was threshold / VO2, etc.). Best-effort; if the
+      // fitness/pace service isn't ready, classification falls back to
+      // title/plan/summary signals — never blocks the render.
+      const zones = await loadAthleteZones();
+
       const trends = buildTrends(acts || [], executions, {
         timezone: profile && profile.timezone,
-        now: new Date()
+        now: new Date(),
+        zones
       });
 
       // ONE source of truth: record the EXACT arrays + result the card is
