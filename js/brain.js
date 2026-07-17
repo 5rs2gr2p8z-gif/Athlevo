@@ -1355,6 +1355,11 @@ async function refreshAthleteUI() {
     if (typeof window.renderTrainingPacesCard === "function") {
       window.renderTrainingPacesCard();
     }
+    // Proactive discovery: show the "Build My Coach" CTA on Today whenever the
+    // athlete has no plan yet (covers existing users who never found Train).
+    if (window.AthlevoPlan && typeof window.AthlevoPlan.refreshTodayCta === "function") {
+      window.AthlevoPlan.refreshTodayCta();
+    }
     // Coach Brain V1: explain WHY — structured coaching insights on Today,
     // assembled from the systems above (fire-and-forget).
     if (typeof window.renderCoachInsights === "function") {

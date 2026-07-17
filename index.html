@@ -2151,6 +2151,74 @@ body.landing-active #tabbar{display:none!important}
      / hilly / September, "Dean") and were only reachable from the old
      scripted onboarding, which has been replaced by js/onboarding.js. -->
 
+<!-- ══════════════ PLAN SETUP (proactive "Build My Coach") ══════════════ -->
+<style>
+  #screen-plansetup{padding:0}
+  .ps-scroll{padding:calc(28px + env(safe-area-inset-top)) 22px 40px;max-width:520px;margin:0 auto}
+  .ps-hero{text-align:center;margin-bottom:22px}
+  .ps-badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--good);background:rgba(31,157,91,.1);border:1px solid rgba(31,157,91,.2);border-radius:100px;padding:7px 14px;margin-bottom:18px}
+  .ps-title{font-size:32px;font-weight:500;letter-spacing:-.02em;line-height:1.1;color:var(--text)}
+  .ps-lead{font-size:14.5px;line-height:1.55;color:var(--ink2);margin-top:10px}
+  .ps-strava{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:14px}
+  .ps-strava.ok{color:var(--good);font-size:13px;font-weight:600;justify-content:flex-start;gap:8px}
+  .ps-strava b{font-size:14px;font-weight:700;color:var(--text)}
+  .ps-strava small{display:block;font-size:12px;color:var(--ink3);margin-top:2px;line-height:1.4}
+  .ps-strava-btn{flex-shrink:0;border:1.5px solid var(--line);background:var(--paper);color:var(--text);font-family:var(--sans);font-weight:650;font-size:13.5px;border-radius:100px;padding:9px 18px;cursor:pointer}
+  .ps-review{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:6px 18px 10px;margin-bottom:20px}
+  .ps-review-eyebrow{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:14px 0 6px}
+  .ps-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+  .ps-row-label{font-size:13px;color:var(--ink2)}
+  .ps-row-val{font-size:14px;font-weight:700;color:var(--text);text-align:right}
+  .ps-build{width:100%;border:none;border-radius:100px;background:var(--ink);color:#fff;font-family:var(--sans);font-weight:700;font-size:16.5px;letter-spacing:-.01em;padding:17px;cursor:pointer;transition:transform .15s}
+  .ps-build:active{transform:scale(.99)}
+  .ps-note{text-align:center;font-size:12.5px;color:var(--ink3);margin-top:12px;line-height:1.45}
+  .ps-later{display:block;margin:14px auto 0;background:none;border:none;color:var(--ink3);font-family:var(--sans);font-size:13.5px;font-weight:600;cursor:pointer}
+
+  #screen-plangen{padding:0;display:none}
+  #screen-plangen.active{display:flex}
+  .pg-wrap{margin:auto;padding:40px 28px;max-width:420px;text-align:center;display:flex;flex-direction:column;align-items:center}
+  .pg-orb{width:88px;height:88px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;margin-bottom:22px;animation:pgPulse 1.8s ease-in-out infinite}
+  .pg-orb img{border-radius:12px}
+  @keyframes pgPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(192,39,45,.18)}50%{transform:scale(1.04);box-shadow:0 0 0 14px rgba(192,39,45,0)}}
+  .pg-title{font-size:24px;font-weight:500;letter-spacing:-.02em;color:var(--text)}
+  .pg-sub{font-size:14px;color:var(--ink2);margin-top:8px;line-height:1.5}
+  .pg-steps{list-style:none;margin:26px 0 0;padding:0;display:flex;flex-direction:column;gap:14px;text-align:left;width:100%;max-width:280px}
+  .pg-steps li{display:flex;align-items:center;gap:12px;font-size:14.5px;color:var(--ink3);opacity:.5;transition:opacity .3s,color .3s}
+  .pg-steps li.active{opacity:1;color:var(--text);font-weight:600}
+  .pg-steps li.done{opacity:1;color:var(--ink2)}
+  .pg-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex-shrink:0;position:relative;transition:border-color .3s,background .3s}
+  .pg-steps li.active .pg-dot{border-color:var(--red)}
+  .pg-steps li.done .pg-dot{border-color:var(--good);background:var(--good)}
+  .pg-steps li.done .pg-dot::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:800}
+  .pg-check{width:74px;height:74px;border-radius:50%;background:var(--good);color:#fff;display:grid;place-items:center;font-size:38px;font-weight:800;margin-bottom:20px;animation:pgPop .4s cubic-bezier(.2,1.3,.4,1)}
+  .pg-check.err{background:var(--warn)}
+  @keyframes pgPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+  .pg-wrap .ps-build{margin-top:26px}
+  @media (prefers-reduced-motion:reduce){.pg-orb,.pg-check{animation:none}}
+
+  /* Today "Build My Coach" CTA card */
+  #todayPlanCta .tpc-cta{margin:2px 22px 16px;background:linear-gradient(135deg,var(--ink),#26272d);color:#fff;border-radius:20px;padding:18px 20px}
+  #todayPlanCta .tpc-cta-copy b{display:block;font-family:var(--serif);font-weight:500;font-size:20px;letter-spacing:-.01em}
+  #todayPlanCta .tpc-cta-copy small{display:block;font-size:13px;color:rgba(255,255,255,.72);margin-top:4px;line-height:1.45}
+  #todayPlanCta .tpc-cta-btn{margin-top:14px;border:none;border-radius:100px;background:#fff;color:#141416;font-family:var(--sans);font-weight:700;font-size:14.5px;padding:12px 20px;cursor:pointer}
+  #todayPlanCta .tpc-cta-steps{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  #todayPlanCta .tpc-cta-btn.ghost{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.4)}
+
+  /* Train empty state */
+  .train-empty{margin:24px 22px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:40px 26px;text-align:center}
+  .train-empty-art{width:88px;height:88px;border-radius:24px;background:var(--paper);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 20px}
+  .train-empty-art img{border-radius:14px;opacity:.9}
+  .train-empty h3{font-family:var(--serif);font-weight:500;font-size:23px;letter-spacing:-.01em;color:var(--text)}
+  .train-empty p{font-size:14px;line-height:1.55;color:var(--ink2);margin:8px auto 22px;max-width:30ch}
+  .train-empty .primary-btn{width:100%;border:none;border-radius:100px;background:var(--ink);color:#fff;font-family:var(--sans);font-weight:700;font-size:16px;padding:16px;cursor:pointer}
+</style>
+<section class="screen" id="screen-plansetup">
+  <div class="ps-scroll" id="planSetupBody"></div>
+</section>
+<section class="screen" id="screen-plangen">
+  <div id="planGenBody"></div>
+</section>
+
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
   <div class="statusrow">
@@ -2165,6 +2233,9 @@ body.landing-active #tabbar{display:none!important}
     Your athlete profile is ready.
   </p>
 </div>
+
+  <!-- ===== BUILD MY COACH CTA (only while no plan exists) ===== -->
+  <div id="todayPlanCta" style="display:none"></div>
 
   <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
   <style>
@@ -3740,6 +3811,7 @@ async function restoreSession(opts) {
 <script src="js/coach.js"></script>
 <script src="js/features.js"></script>
 <script src="js/train.js"></script>
+<script src="js/planSetup.js"></script>
 <script src="js/feedback.js"></script>
 <script src="js/readiness.js"></script>
 <script src="js/workoutAnalysis.js"></script>

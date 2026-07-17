@@ -43,21 +43,15 @@ async function loadWeeklyPlan() {
 
 function renderNoPlan() {
 
+    // Premium empty state → routes into the guided "Build My Coach" flow
+    // (Athlevo sets itself up) rather than a bare "generate" button.
+    const build = "window.AthlevoPlan ? AthlevoPlan.start() : generateWeek()";
     document.getElementById("trainHeader").innerHTML = `
-        <div class="empty-card">
-            <h3>No training plan yet</h3>
-
-            <p>
-                Generate your first Athlevo week.
-            </p>
-
-            <button
-                class="primary-btn"
-                onclick="generateWeek()">
-
-                Generate My Week
-
-            </button>
+        <div class="train-empty">
+            <div class="train-empty-art"><img src="assets/athlevo-icon.png" alt="" width="56" height="56"></div>
+            <h3>No training plan yet.</h3>
+            <p>Let Athlevo turn your profile into a personalized, adapting plan.</p>
+            <button class="primary-btn" type="button" onclick="${build}">Build My Plan</button>
         </div>
     `;
 

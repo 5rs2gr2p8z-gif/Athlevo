@@ -789,6 +789,15 @@ async function obFinish() {
   } catch (error) {
     console.error("Could not refresh athlete UI after onboarding:", error);
   }
+
+  // Proactive coach setup: a brand-new athlete has no plan yet, so guide them
+  // straight into "Build My Coach" instead of dead-ending on an empty Today.
+  // If a plan somehow already exists, this just shows Today. Generation is
+  // never automatic — the athlete always taps to build.
+  if (window.AthlevoPlan && typeof window.AthlevoPlan.maybeLaunchAfterOnboarding === "function") {
+    try { await window.AthlevoPlan.maybeLaunchAfterOnboarding(); return; }
+    catch (e) { console.warn("Plan setup launch failed:", e); }
+  }
   showScreen("screen-today");
 }
 
