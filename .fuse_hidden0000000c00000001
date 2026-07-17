@@ -293,8 +293,8 @@ body{
 .lwa-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .lwa-eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
 .lwa-status{font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:100px}
-.lwa-status.excellent{background:var(--good-soft);color:var(--good)}
-.lwa-status.harder{background:var(--warn-soft);color:var(--warn)}
+.lwa-status.excellent{background:#eef8f2;color:var(--good)}
+.lwa-status.harder{background:#fbf3e4;color:var(--warn)}
 .lwa-status.different,.lwa-status.missed{background:var(--red-soft);color:var(--red)}
 .lwa-status.unplanned{background:var(--card);color:var(--ink2)}
 .lwa-title{font-family:var(--serif);font-size:20px;font-weight:500;letter-spacing:-.01em;margin:10px 0 2px;line-height:1.2}
@@ -653,7 +653,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .quiz .eyebrow{color:var(--ink3)}
 .quiz h5{font-size:15px;font-weight:650;margin:6px 0 12px;line-height:1.4}
 .qopt{display:block;width:100%;text-align:left;font-family:var(--sans);font-size:14px;font-weight:550;padding:13px 16px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--paper);cursor:pointer;margin-bottom:8px;transition:all .2s}
-.qopt.right{border-color:var(--good);background:var(--good-soft);color:var(--good);font-weight:700}
+.qopt.right{border-color:var(--good);background:#eef8f2;color:var(--good);font-weight:700}
 .qopt.wrong{border-color:var(--red);background:var(--red-soft);color:var(--red)}
 .lesson-done{width:100%;margin-top:14px;font-family:var(--sans);font-size:14.5px;font-weight:650;padding:14px;border-radius:100px;border:none;background:var(--ink);color:#fff;cursor:pointer}
 
@@ -1024,7 +1024,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   border-radius: 100px;
   background: var(--card);
 }
-.ca-status.applied { color: var(--good); background: var(--good-soft); }
+.ca-status.applied { color: var(--good); background: #eef8f2; }
 .ca-status.cancelled { color: var(--ink3); background: var(--card); }
 .ca-title {
   font-family: var(--serif);
@@ -1273,9 +1273,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
 .plan-header{
 
-    background:var(--paper);
-
-    border:1px solid var(--line);
+    background:white;
 
     border-radius:20px;
 
@@ -1291,13 +1289,13 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
     font-size:14px;
 
-    color:var(--ink3);
+    color:#999;
 
 }
 
 .plan-phase{
 
-    color:var(--red);
+    color:#d11a2a;
 
     font-weight:600;
 
@@ -1405,7 +1403,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .wp-bar-label b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
 .wp-line{display:flex;gap:10px;align-items:baseline;margin-top:12px;font-size:13.5px;line-height:1.5}
 .wp-line .wp-tag{flex-shrink:0;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:100px}
-.wp-tag.win{background:var(--good-soft);color:var(--good)}
+.wp-tag.win{background:#eef8f2;color:var(--good)}
 .wp-tag.concern{background:var(--red-soft);color:var(--red)}
 .wp-detail{max-height:0;overflow:hidden;transition:max-height .28s cubic-bezier(.3,.7,.3,1)}
 .wp-detail-inner{padding-top:14px}
@@ -1455,8 +1453,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.08em;
   text-transform:uppercase;padding:3px 9px;border-radius:100px;
 }
-.sc-status.done{background:var(--good-soft);color:var(--good)}
-.sc-status.mod{background:var(--warn-soft);color:var(--warn)}
+.sc-status.done{background:#eef8f2;color:var(--good)}
+.sc-status.mod{background:#fbf3e4;color:var(--warn)}
 .sc-status.skip{background:var(--red-soft);color:var(--red)}
 
 /* left accent bar reflecting the logged status */
@@ -1495,8 +1493,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
   padding:5px 11px;border-radius:100px;display:inline-flex;align-items:center;gap:5px;
 }
-.sc-recorded-badge.done{background:var(--good-soft);color:var(--good)}
-.sc-recorded-badge.mod{background:var(--warn-soft);color:var(--warn)}
+.sc-recorded-badge.done{background:#eef8f2;color:var(--good)}
+.sc-recorded-badge.mod{background:#fbf3e4;color:var(--warn)}
 .sc-recorded-badge.skip{background:var(--red-soft);color:var(--red)}
 .sc-recorded-time{font-size:11.5px;color:var(--ink3);font-weight:500}
 .sc-recorded-metrics{font-size:13px;color:var(--ink2);line-height:1.5;margin:0}
@@ -1541,8 +1539,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .tpc-eyebrow{font-size:13px;font-weight:700;letter-spacing:.01em;color:var(--text)}
 .tpc-support{font-size:12px;color:var(--ink3);margin-top:4px;line-height:1.4}
 .tpc-conf{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:100px;white-space:nowrap;flex-shrink:0}
-.tpc-conf.strong{background:var(--good-soft);color:var(--good)}
-.tpc-conf.dev{background:var(--warn-soft);color:var(--warn)}
+.tpc-conf.strong{background:#eef8f2;color:var(--good)}
+.tpc-conf.dev{background:#fbf3e4;color:var(--warn)}
 .tpc-conf.lim{background:var(--card);color:var(--ink3)}
 .tpc-zones{display:flex;flex-direction:column}
 .tpc-zone{padding:13px 0;border-top:1px solid var(--line)}
@@ -1581,8 +1579,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .scd-track i{display:block;height:100%;background:var(--ink);border-radius:100px}
 .scd-comp-meta{margin-bottom:4px}
 .scd-cov{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:100px}
-.scd-cov.strong{background:var(--good-soft);color:var(--good)}
-.scd-cov.dev{background:var(--warn-soft);color:var(--warn)}
+.scd-cov.strong{background:#eef8f2;color:var(--good)}
+.scd-cov.dev{background:#fbf3e4;color:var(--warn)}
 .scd-cov.lim{background:var(--card);color:var(--ink3)}
 .scd-comp-exp{font-size:12.5px;line-height:1.5;color:var(--ink2);margin-top:6px}
 .scd-need{margin:14px 0;font-size:13px;color:var(--ink2)}
@@ -1660,7 +1658,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 /* ---------- Athlevo Score: horizontal progression (distinct from Readiness) ---------- */
 .asc-head-l{display:flex;flex-direction:column}
 .asc-delta{display:inline-flex;align-items:center;font-size:12px;font-weight:800;letter-spacing:.01em;padding:6px 12px;border-radius:100px;white-space:nowrap;flex-shrink:0}
-.asc-delta.up{background:var(--good-soft);color:var(--good)}
+.asc-delta.up{background:#eef8f2;color:var(--good)}
 .asc-delta.down{background:var(--card);color:var(--ink3)}
 .asc-delta.stable{background:var(--card);color:var(--ink3)}
 .asc-delta.building{background:var(--card);color:var(--ink3)}
@@ -1725,8 +1723,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .cib-tag{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
 .cib-tag.red{color:var(--red)}
 .cib-conf{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:100px}
-.cib-conf.strong{background:var(--good-soft);color:var(--good)}
-.cib-conf.dev{background:var(--warn-soft);color:var(--warn)}
+.cib-conf.strong{background:#eef8f2;color:var(--good)}
+.cib-conf.dev{background:#fbf3e4;color:var(--warn)}
 .cib-conf.lim{background:var(--card);color:var(--ink3)}
 .cib-obs{font-size:14.5px;font-weight:650;line-height:1.45;color:var(--text);margin:0 0 8px}
 .cib-line{font-size:13px;line-height:1.5;color:var(--ink2);margin:4px 0}
@@ -1755,8 +1753,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .dev-bar i.build{background:var(--ink3)}
 .dev-prog-meta{display:flex;align-items:baseline;gap:8px}
 .dev-trend{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:100px;white-space:nowrap}
-.dev-trend.up{background:var(--good-soft);color:var(--good)}
-.dev-trend.flat{background:var(--warn-soft);color:var(--warn)}
+.dev-trend.up{background:#eef8f2;color:var(--good)}
+.dev-trend.flat{background:#fbf3e4;color:var(--warn)}
 .dev-trend.down{background:var(--red-soft);color:var(--red)}
 .dev-trend.build{background:var(--card);color:var(--ink3)}
 .dev-reason{font-size:12px;color:var(--ink2);line-height:1.45}
