@@ -20,11 +20,18 @@ async function loadWeeklyPlan() {
 
     const data = await res.json();
 
+    // PRIMARY Train experience: the date-first calendar. It owns the week
+    // strip + single selected-date panel. The old vertical per-session list
+    // (renderSessions) is no longer part of the production Train layout.
+    if (window.AthlevoTrainCalendar && typeof window.AthlevoTrainCalendar.open === "function") {
+        window.AthlevoTrainCalendar.open(data);
+    }
+
+    // SECONDARY (collapsible "Training context" section): phase/goal header.
     if (!data.hasPlan) {
         renderNoPlan();
     } else {
         renderWeekHeader(data.plan);
-        renderSessions(data.sessions);
     }
 
     currentPlanAdaptation =

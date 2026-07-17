@@ -2558,16 +2558,88 @@ body.landing-active #tabbar{display:none!important}
 <!-- ══════════════ TRAIN ══════════════ -->
 <section class="screen" id="screen-train">
 
-   <div class="greet">
+   <div class="greet tc-greet">
     <h1 class="serif">Training</h1>
-    <p>Your current training context and future plan.</p>
   </div>
+
+  <style>
+  /* ═══════════ DATE-FIRST TRAINING CALENDAR ═══════════ */
+  .tc-greet{padding:28px 22px 10px}
+  .tc-greet h1{font-size:30px}
+  .tc{margin:0 22px 12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 14px 12px;user-select:none;-webkit-user-select:none}
+  .tc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px 12px}
+  .tc-month{font-family:var(--serif);font-size:17px;font-weight:500;letter-spacing:-.01em;color:var(--text)}
+  .tc-nav{display:flex;align-items:center;gap:6px}
+  .tc-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:16px;line-height:1;cursor:pointer;display:grid;place-items:center;transition:background .15s}
+  .tc-btn:hover{background:var(--card2)}
+  .tc-btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+  .tc-today{font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--red);background:var(--red-soft);border:none;border-radius:100px;padding:8px 13px;cursor:pointer}
+  .tc-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .tc-day{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0 9px;border-radius:14px;cursor:pointer;border:1px solid transparent;background:none;font-family:var(--sans);min-height:60px;transition:background .15s,border-color .15s}
+  .tc-day:hover{background:var(--card)}
+  .tc-dow{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+  .tc-num{font-size:16px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
+  .tc-dot{width:6px;height:6px;border-radius:50%;background:transparent}
+  .tc-dot.planned{background:var(--ink3)}
+  .tc-dot.done{background:var(--good)}
+  .tc-dot.mod{background:var(--warn)}
+  .tc-dot.skip{background:var(--red)}
+  .tc-dot.rest{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
+  .tc-dot.activity{background:var(--red)}
+  .tc-day.today .tc-num{color:var(--red)}
+  .tc-day.today{border-color:var(--red-soft)}
+  .tc-day.sel{background:var(--ink)}
+  .tc-day.sel .tc-dow,.tc-day.sel .tc-num{color:#fff}
+  .tc-day.sel.today .tc-num{color:#fff}
+  .tc-day.sel .tc-dot.planned{background:rgba(255,255,255,.7)}
+  .tc-day.sel .tc-dot.rest{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5)}
+  .tc-day.other .tc-num{color:var(--ink3)}
+  .tc-panel{margin:0 22px 16px}
+  .tcp-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px;box-shadow:0 6px 20px rgba(0,0,0,.05)}
+  .tcp-date{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+  .tcp-status{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;letter-spacing:.04em;padding:5px 11px;border-radius:100px}
+  .tcp-status.planned{background:var(--card);color:var(--ink2)}
+  .tcp-status.done{background:var(--good-soft);color:var(--good)}
+  .tcp-status.mod{background:var(--warn-soft);color:var(--warn)}
+  .tcp-status.skip{background:var(--red-soft);color:var(--red)}
+  .tcp-status.rest{background:var(--card);color:var(--ink3)}
+  .tcp-status.activity{background:var(--red-soft);color:var(--red)}
+  .tcp-title{font-family:var(--serif);font-size:23px;font-weight:500;letter-spacing:-.01em;color:var(--text);margin-top:10px}
+  .tcp-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13.5px;color:var(--ink2)}
+  .tcp-meta b{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
+  .tcp-sec{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .tcp-sec-label{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+  .tcp-sec p{font-size:14px;line-height:1.55;color:var(--text);margin:0}
+  .tcp-sec ul{margin:0;padding-left:18px}
+  .tcp-sec li{font-size:14px;line-height:1.5;color:var(--text);margin:4px 0}
+  .tcp-exec{margin-top:16px;background:var(--good-soft);border-radius:var(--r-md);padding:13px 15px}
+  .tcp-exec .tcp-sec-label{color:var(--good)}
+  .tcp-empty{text-align:center;padding:26px 20px}
+  .tcp-empty .tcp-empty-icon{width:56px;height:56px;border-radius:16px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 14px}
+  .tcp-empty h3{font-family:var(--serif);font-weight:500;font-size:20px;color:var(--text)}
+  .tcp-empty p{font-size:13.5px;color:var(--ink2);margin:6px 0 16px}
+  .tcp-cta{border:none;border-radius:100px;background:var(--ink);color:#fff;font-family:var(--sans);font-weight:700;font-size:15px;padding:14px 26px;cursor:pointer}
+  .train-more{margin:0 22px}
+  .train-more>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);font-size:13.5px;font-weight:650;color:var(--text)}
+  .train-more>summary::-webkit-details-marker{display:none}
+  .train-more .tm-caret{color:var(--ink3);font-style:normal;font-size:18px;transition:transform .2s}
+  .train-more[open] .tm-caret{transform:rotate(90deg)}
+  .train-more-body{padding-top:14px}
+  </style>
+  <!-- ══════════ DATE-FIRST TRAINING CALENDAR (primary experience) ══════════ -->
+  <div id="trainCalendar" class="tc"></div>
+  <div id="trainDayPanel" class="tc-panel"></div>
+
+  <!-- ══════════ SECONDARY CONTEXT (collapsed by default) ══════════ -->
+  <details class="train-more">
+    <summary><span>Training context &amp; history</span><i class="tm-caret">›</i></summary>
+    <div class="train-more-body">
 
   <div id="trainHeader"></div>
 
   <div id="weeklyProgress"></div>
 
-<div id="weekSessions"></div>
+<div id="weekSessions" style="display:none"></div>
 
   <div class="decision">
   <span class="eyebrow">Recent training</span>
@@ -2648,6 +2720,11 @@ body.landing-active #tabbar{display:none!important}
       <small>Workouts</small>
     </div>
   </div>
+
+  <div class="spacer-lg"></div>
+
+    </div>
+  </details>
 
   <div class="spacer-lg"></div>
 
@@ -3818,6 +3895,7 @@ async function restoreSession(opts) {
 <script src="js/coach.js"></script>
 <script src="js/features.js"></script>
 <script src="js/train.js"></script>
+<script src="js/trainCalendar.js"></script>
 <script src="js/planSetup.js"></script>
 <script src="js/feedback.js"></script>
 <script src="js/readiness.js"></script>

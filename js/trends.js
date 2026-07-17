@@ -96,12 +96,26 @@
   function applyClassification(it, zones) {
     if (!it || !it.isRun || !it.performed) return;
     var W = (typeof window !== "undefined") ? window.AthlevoWorkoutClassifier : null;
-    if (!W || !zones) return;
+    // Run whenever the engine is loaded. `zones` (VDOT pace zones) SHARPEN the
+    // result but are NOT required: laps give true structure, and the planned
+    // session / title are reliable on their own. Gating on zones was the bug
+    // that discarded every recognition for athletes without a computed VDOT.
+    if (!W) return;
+    // A recognized manual correction always wins (set on the item upstream).
+    if (it.correctedIntensity) {
+      it.intensity = it.correctedIntensity;
+      it.quality = it.intensity !== "easy";
+      it.knownIntensity = true;
+      it.qualityKm = it.qualityKm || { easy: it.intensity === "easy" ? (it.distanceKm || 0) : 0,
+        threshold: it.intensity === "threshold" ? (it.distanceKm || 0) : 0,
+        high: it.intensity === "high" ? (it.distanceKm || 0) : 0 };
+      return;
+    }
     var cls = W.classifyActivity({
       distanceKm: it.distanceKm, movingSec: (it.durationMin || 0) * 60, elapsedSec: it.elapsedSec,
       avgPaceSec: it.paceSec, avgHr: it.hr, maxHr: it.maxHr, maxSpeed: it.maxSpeed,
       laps: it.laps, name: it.title || it.type, title: it.title || it.type
-    }, { zones: zones, planned: it.plannedSnapshot || null });
+    }, { zones: zones || null, planned: it.plannedSnapshot || null });
     it.intensity = cls.intensity;
     it.quality = cls.quality && it.performed;
     // Only credit the Score/quality-count from confident recognitions.
@@ -335,6 +349,57 @@
   function localDate(instant, tz) {
     try { return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date(instant)); }
     catch (e) { return String(instant || "").slice(0, 10); }
+  }
+
+  /*
+   * DEV-ONLY: privacy-safe per-activity CLASSIFICATION diagnostic over the
+   * athlete's REAL loaded activities. Run in the console:
+   *     await AthlevoTrends.diagnoseClassification()
+   * Prints, per run: id, date, title, distance, duration, avg pace, avg/max HR,
+   * laps yes/no, splits yes/no, planned-session yes/no, classifier type +
+   * confidence, threshold/high km detected, and the reason.
+   */
+  async function diagnoseClassification(activities, executions) {
+    const last = (window.AthlevoTrends && window.AthlevoTrends._last) || null;
+    if (activities === undefined && last) { activities = last.activities; executions = last.executions; }
+    if (activities === undefined) {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        activities = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteActivities(200) : [];
+        executions = user ? await loadExecutionRecords(user.id) : [];
+      } catch (e) { activities = activities || []; executions = executions || []; }
+    }
+    const zones = await loadAthleteZones();
+    const items = mergeTrainingItems(activities || [], executions || [], zones);
+    const fmtPace = s => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}/km` : "—");
+    const rows = items.filter(i => i.isRun && i.performed).map(i => {
+      const c = i.classification || {};
+      const reason = i.laps ? "laps → structure" :
+        (i.plannedSnapshot ? "planned session" :
+          (/threshold|tempo|interval|vo2|rep|hill|race|tt/i.test(i.title || "") ? "title keyword" :
+            (c.estimated ? "summary estimate" : "no quality signal → easy")));
+      return {
+        id: i.activityId || i.providerId, date: localDate(i.timestamp, "Asia/Manila"),
+        title: (i.title || "").slice(0, 24), km: i.distanceKm != null ? Math.round(i.distanceKm * 10) / 10 : null,
+        min: Math.round(i.durationMin || 0), avgPace: fmtPace(i.paceSec), avgHr: i.hr || "—", maxHr: i.maxHr || "—",
+        laps: i.laps ? "yes(" + i.laps.length + ")" : "no", splits: "no",
+        planned: i.plannedSnapshot ? (i.plannedSnapshot.session_type || "yes") : "no",
+        type: c.primaryType || i.intensity, conf: c.confidence || "-",
+        thresholdKm: i.qualityKm ? i.qualityKm.threshold : (i.intensity === "threshold" ? i.distanceKm : 0),
+        highKm: i.qualityKm ? i.qualityKm.high : (i.intensity === "high" ? i.distanceKm : 0),
+        reason
+      };
+    });
+    const withZones = !!zones;
+    const anyLaps = rows.some(r => r.laps !== "no");
+    /* eslint-disable no-console */
+    console.table(rows);
+    console.log("VDOT zones available:", withZones, "| any activity has laps:", anyLaps,
+      "| threshold sessions recognized:", rows.filter(r => r.thresholdKm > 0).length,
+      "| speed/high recognized:", rows.filter(r => r.highKm > 0).length);
+    if (!anyLaps) console.warn("No laps in stored history yet → re-sync Strava so lap structure is imported (recognition of untitled/unplanned runs depends on it).");
+    /* eslint-enable no-console */
+    return rows;
   }
 
   /*
@@ -940,8 +1005,9 @@
     buildTrends,
     buildNarrative,
     longThresholdKm,
-    // dev-only diagnostic (not shown to users)
+    // dev-only diagnostics (not shown to users)
     diagnoseCurrentWeek,
+    diagnoseClassification,
     // glue
     refresh,
     renderTrends
