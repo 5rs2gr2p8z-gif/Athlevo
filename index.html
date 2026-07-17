@@ -226,7 +226,7 @@ body{
 .why-toggle:hover{background:rgba(255,255,255,.16)}
 .why-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;transition:transform .3s}
 .decision.open .why-toggle svg{transform:rotate(180deg)}
-.ledger{max-height:0;overflow:hidden;transition:max-height .45s cubic-bezier(.3,.7,.3,1)}
+.ledger{max-height:0;overflow:hidden;transition:max-height .28s cubic-bezier(.3,.7,.3,1)}
 .decision.open .ledger{max-height:460px}
 .ledger-inner{padding-top:18px}
 .factor{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid rgba(255,255,255,.12);font-size:13px}
@@ -275,18 +275,27 @@ body{
 .chat-head b{font-size:15px;font-weight:650;display:block}
 .chat-head small{font-size:12px;color:var(--good);font-weight:600;display:flex;align-items:center;gap:5px}
 .chat-head small::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--good)}
-.chatlog{flex:1;padding:18px 18px 8px;display:flex;flex-direction:column;gap:12px}
-.msg{max-width:86%;font-size:14.5px;line-height:1.55;animation:msgIn .3s ease}
-@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.msg.user{align-self:flex-end;background:var(--ink);color:#fff;padding:11px 15px;border-radius:20px 20px 5px 20px}
-.msg.ai{align-self:flex-start;background:var(--card);padding:14px 16px;border-radius:20px 20px 20px 5px}
+.chatlog{flex:1;padding:18px 18px 8px;display:flex;flex-direction:column;gap:9px}
+.msg{max-width:82%;font-size:15px;line-height:1.5;animation:msgIn .26s cubic-bezier(.16,1,.3,1)}
+@keyframes msgIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.msg.user{align-self:flex-end;background:var(--ink);color:#fff;padding:10px 15px;border-radius:21px 21px 6px 21px}
+.msg.ai{align-self:flex-start;background:var(--card);padding:12px 15px;border-radius:21px 21px 21px 6px}
+/* iMessage feel: no per-bubble sender labels; alignment + colour carry it. */
+.msg .call{display:none}
 .msg.ai .call{font-weight:650}
+/* Coach "typing…" dots shown in the pending reply bubble. */
+.coach-typing{display:inline-flex;align-items:center;gap:5px;padding:2px 1px}
+.coach-typing i{width:7px;height:7px;border-radius:50%;background:var(--ink3);animation:coachType 1.1s infinite ease-in-out}
+.coach-typing i:nth-child(2){animation-delay:.15s}
+.coach-typing i:nth-child(3){animation-delay:.3s}
+@keyframes coachType{0%,72%,100%{opacity:.28;transform:translateY(0)}36%{opacity:1;transform:translateY(-2px)}}
+@media (prefers-reduced-motion:reduce){.coach-typing i{animation:none}}
 .msg.ai .whyblock{margin-top:10px;padding:11px 13px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);font-size:13.5px}
 .msg.ai .whyblock .eyebrow{color:var(--red);margin-bottom:5px}
 .msg.ai .whyblock ul{margin:4px 0 0 16px}
 .msg.ai .whyblock li{margin:3px 0;color:var(--ink2)}
 .msg.ai .whyblock li b{color:var(--ink)}
-.msg.ai .change{margin-top:10px;font-size:13.5px;color:var(--ink2)}
+.msg.ai .change{margin-top:0;font-size:14.5px;color:var(--ink2)}
 .msg.ai .change b{color:var(--ink)}
 .typing{align-self:flex-start;background:var(--card);border-radius:20px;padding:14px 18px;display:flex;gap:5px}
 .typing i{width:6px;height:6px;border-radius:50%;background:var(--ink3);animation:blink 1.2s infinite}
@@ -324,7 +333,7 @@ body{
 .workout h3{font-family:var(--serif);font-size:20px;font-weight:500;margin-top:12px;letter-spacing:-.01em}
 .workout .meta{display:flex;gap:16px;margin-top:8px;font-size:13px;color:var(--ink2)}
 .workout .meta b{color:var(--ink);font-weight:650}
-.session-detail{max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.3,.7,.3,1)}
+.session-detail{max-height:0;overflow:hidden;transition:max-height .28s cubic-bezier(.3,.7,.3,1)}
 .workout.open .session-detail{max-height:700px}
 .sd-inner{padding-top:18px}
 .chart-label{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
@@ -723,8 +732,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .coach-rich-response {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
+  animation: msgIn .24s cubic-bezier(.16,1,.3,1);
 }
 
 .coach-response-headline {
@@ -1233,7 +1243,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 }
 .sc-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .3s}
 .session-card.open .sc-toggle svg{transform:rotate(180deg)}
-.sc-detail{max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.3,.7,.3,1)}
+.sc-detail{max-height:0;overflow:hidden;transition:max-height .28s cubic-bezier(.3,.7,.3,1)}
 .sc-detail-inner{padding:0 20px 20px}
 .sc-lead{font-size:14px;line-height:1.6;color:var(--ink);padding-top:2px}
 .sc-section{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
@@ -1291,7 +1301,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .wp-line .wp-tag{flex-shrink:0;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:100px}
 .wp-tag.win{background:#eef8f2;color:var(--good)}
 .wp-tag.concern{background:var(--red-soft);color:var(--red)}
-.wp-detail{max-height:0;overflow:hidden;transition:max-height .45s cubic-bezier(.3,.7,.3,1)}
+.wp-detail{max-height:0;overflow:hidden;transition:max-height .28s cubic-bezier(.3,.7,.3,1)}
 .wp-detail-inner{padding-top:14px}
 .wp-detail .sc-section:first-child{margin-top:0;border-top:none;padding-top:0}
 .wp-toggle{
@@ -1429,14 +1439,12 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .tpc-conf.dev{background:#fbf3e4;color:var(--warn)}
 .tpc-conf.lim{background:var(--card);color:var(--ink3)}
 .tpc-zones{display:flex;flex-direction:column}
-.tpc-zone{padding:11px 0;border-top:1px solid var(--line)}
+.tpc-zone{padding:13px 0;border-top:1px solid var(--line)}
 .tpc-zone:first-child{border-top:none;padding-top:2px}
 .tpc-zone-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.tpc-zone-label{font-size:13.5px;font-weight:700;color:var(--ink)}
-.tpc-zone-pace{font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
-.tpc-zone-sub{display:flex;align-items:baseline;gap:8px;margin-top:3px}
-.tpc-rpe{font-size:11px;font-weight:700;color:var(--ink3);white-space:nowrap}
-.tpc-mean{font-size:12px;color:var(--ink2);line-height:1.4}
+.tpc-zone-label{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.tpc-zone-pace{font-size:14.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+.tpc-zone-note{font-size:12.5px;color:var(--ink2);line-height:1.45;margin:4px 0 0}
 
 /* ---------- Athlevo Score v1 (Today card) ---------- */
 .asc-sub-eyebrow{display:block;font-size:11px;color:var(--ink3);margin-top:2px}
@@ -1569,8 +1577,12 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .asc-comp-track i{display:block;height:100%;border-radius:100px;background:var(--ink);transition:width .6s cubic-bezier(.3,.7,.3,1)}
 .asc-comp-val{font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;width:20px;text-align:right;flex-shrink:0}
 
+/* Subtle card fade-in (Priority 4 micro-interactions), under 300ms. */
+@keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.asc,.tpc,.predict,#todayInstallCard{animation:cardIn .26s cubic-bezier(.16,1,.3,1)}
 @media (prefers-reduced-motion: reduce){
   .asc-track-fill,.asc-comp-track i,.tw-bar,.tbp-bar i{transition:none}
+  .asc,.tpc,.predict,#todayInstallCard,.coach-rich-response,.msg{animation:none}
 }
 
 /* ---------- Coach Insights (Coach Brain V1) ---------- */
