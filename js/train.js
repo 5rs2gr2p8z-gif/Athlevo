@@ -549,9 +549,14 @@ function renderSessions(sessions) {
                 ? "Rest"
                 : formatSessionType(session.session_type);
 
+        // ONE source of truth: the title derives from the canonical
+        // session_type (same field that drives the badge, rest state and the
+        // expanded detail). The free-text session.title is only a fallback for
+        // rows with no canonical type — otherwise a stale title (e.g. "Easy +
+        // Strides") could contradict an expanded "3 × 8 min Threshold".
         const title =
-            cleanText(session.title) ||
             typeLabel ||
+            cleanText(session.title) ||
             "Session";
 
         const durationMinutes =

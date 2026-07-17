@@ -223,10 +223,11 @@
     if (!user) throw new Error("Not signed in.");
 
     const a = candidate.activity;
+    const activityId = a.id != null ? String(a.id) : null;
     const row = {
       user_id: user.id,
       source: "strava",
-      activity_id: a.id != null ? String(a.id) : null,
+      activity_id: activityId,
       race_type: raceType,
       distance_meters: num(a.distance_meters),
       duration_seconds: num(a.moving_time_seconds),
@@ -235,9 +236,34 @@
       updated_at: new Date().toISOString()
     };
 
+    // The (user_id, activity_id) uniqueness is enforced by a PARTIAL index
+    // (WHERE activity_id IS NOT NULL). Postgres cannot infer a partial index
+    // for ON CONFLICT, so a plain upsert(onConflict:"user_id,activity_id")
+    // throws — which is why every Save button appeared to "do nothing".
+    // Do an explicit update-then-insert instead: idempotent, and it never
+    // relies on conflict inference.
+    if (activityId != null) {
+      const { data: existing, error: selErr } = await supabaseClient
+        .from("race_results")
+        .update({
+          source: row.source,
+          race_type: row.race_type,
+          distance_meters: row.distance_meters,
+          duration_seconds: row.duration_seconds,
+          race_date: row.race_date,
+          detection_confidence: row.detection_confidence,
+          updated_at: row.updated_at
+        })
+        .eq("user_id", user.id)
+        .eq("activity_id", activityId)
+        .select("id");
+      if (selErr) throw selErr;
+      if (existing && existing.length) return; // updated an existing row
+    }
+
     const { error } = await supabaseClient
       .from("race_results")
-      .upsert(row, { onConflict: "user_id,activity_id" });
+      .insert(row);
 
     if (error) throw error;
   }

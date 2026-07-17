@@ -611,7 +611,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .device {
   position: relative;
   height: 100vh;
+  height: 100dvh;          /* dynamic viewport: standalone iOS == browser */
   max-height: 100vh;
+  max-height: 100dvh;
   overflow: hidden;
 }
 
@@ -621,8 +623,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   overflow-y: auto;
   overflow-x: hidden;
 
-  /* Prevent the final content from hiding behind the navigation */
-  padding-bottom: 110px;
+  /* Clear the fixed nav in BOTH browser and standalone (adds the device
+     safe-area inset so the last content is never hidden behind the bar). */
+  padding-bottom: calc(var(--athlevo-tabbar-height, 74px) + env(safe-area-inset-bottom) + 18px);
 
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
@@ -645,9 +648,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 
   border-top: 1px solid rgba(0, 0, 0, 0.08);
 
-  padding-bottom: max(
-    10px,
-  );
+  /* Safe-area aware: extend the bar below the tabs by the device inset so the
+     iPhone home indicator (standalone PWA) never overlaps the navigation. */
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 /* ===== DAILY COACH BRIEFING ===== */
 
@@ -1076,7 +1079,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   top: 0;
   left: 0;
   right: 0;
-  bottom: var(--athlevo-tabbar-height);
+  bottom: calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom));
 
   height: auto;
   min-height: 0;
@@ -1141,13 +1144,16 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   flex: 0 0 auto;
 }
 
-/* Tab bar owns the reserved bottom area */
+/* Tab bar owns the reserved bottom area. Use min-height (not a fixed height)
+   so the safe-area padding EXTENDS the bar in standalone instead of squishing
+   the tabs — this is what made the installed PWA differ from the browser. */
 .tabbar {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: var(--athlevo-tabbar-height);
+  min-height: var(--athlevo-tabbar-height);
+  height: auto;
   z-index: 50;
 }
 
@@ -1502,7 +1508,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .trend-sixweek{display:flex;align-items:flex-end;gap:10px;min-height:196px;padding-top:6px}
 .tw-col{flex:1;min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center}
 .tw-val{font-size:11.5px;color:var(--ink3);font-weight:600;font-variant-numeric:tabular-nums;height:15px;letter-spacing:-.01em}
-.tw-track{height:132px;width:100%;display:flex;align-items:flex-end;margin:7px 0;border-bottom:1.5px solid var(--line)}
+.tw-track{height:132px;width:100%;display:flex;flex-direction:column;justify-content:flex-end;margin:7px 0;border-bottom:1.5px solid var(--line)}
 .tw-bar{width:100%;border-radius:7px 7px 0 0;transition:height .6s cubic-bezier(.3,.7,.3,1)}
 .tw-bar.past{background:#e6e6e2}
 .tw-bar.current{background:linear-gradient(180deg,#e0575d 0%,var(--red) 100%)}

@@ -121,8 +121,12 @@
       const durationMin = performed
         ? firstNum(e.actual_duration_minutes, linkedDurMin, snap.duration_minutes)
         : 0;
+      // VOLUME must reflect what was actually RUN, never the planned target.
+      // Use the reported actual distance or the linked import; do NOT fall
+      // back to the planned snapshot distance (snap.distance_km) — counting a
+      // plan target as completed volume is what inflated the weekly total.
       const distanceKm = performed
-        ? firstNum(e.actual_distance_km, linkedKm, snap.distance_km)
+        ? firstNum(e.actual_distance_km, linkedKm)
         : 0;
 
       const typeText = snap.session_type || (linked && (linked.sport_type || linked.activity_type)) || "";
@@ -153,8 +157,16 @@
     });
 
     // Raw / corrected imported activities not already consumed (priority 6).
+    // Guard against duplicate imports of the SAME activity id (a listed cause
+    // of the inflated weekly volume): each activity is counted at most once.
+    const seenActivityIds = new Set();
     acts.forEach(a => {
       if (a && a.id != null && consumed.has(String(a.id))) return;
+      if (a && a.id != null) {
+        const key = String(a.id);
+        if (seenActivityIds.has(key)) return;
+        seenActivityIds.add(key);
+      }
       const durationMin = num(a.moving_time_seconds) != null ? num(a.moving_time_seconds) / 60 : null;
       const distanceKm = num(a.distance_meters) != null ? num(a.distance_meters) / 1000 : null;
       const typeText = a.sport_type || a.activity_type || a.name || "";
