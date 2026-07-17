@@ -528,7 +528,16 @@ function renderSessions(sessions) {
 
     currentSessions = Array.isArray(sessions) ? sessions : [];
 
-    sessions.forEach(session => {
+    sessions.forEach(rawSession => {
+
+        // Canonical prescription: repair any label/main-set contradiction
+        // (e.g. a "Foundation Run" whose main set is "3 × 8 min threshold")
+        // BEFORE rendering, so the summary card and the expanded prescription
+        // always describe the same session. Existing contradictory saved
+        // plans are corrected here at render time (no DB write required).
+        const session = (window.AthlevoPrescription && typeof window.AthlevoPrescription.repair === "function")
+            ? window.AthlevoPrescription.repair(rawSession)
+            : rawSession;
 
         const rest = isRestSession(session);
         const sections = buildDetailSections(session);

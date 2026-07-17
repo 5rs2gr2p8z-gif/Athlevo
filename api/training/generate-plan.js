@@ -15,6 +15,7 @@ import {
 } from "../../lib/server/executionRecords.js";
 
 import { applyActivityOverrides } from "../../lib/server/coachActions.js";
+import { validatePrescription } from "../../lib/server/prescription.js";
 import { summarizeReadiness } from "../../lib/server/readiness.js";
 import {
   computeFitness,
@@ -1519,8 +1520,22 @@ async function saveTrainingSessions({
   weekFocus,
   weekStart
 }) {
+  // Canonical prescription gate: repair any label/main-set contradiction the
+  // generator may have produced (e.g. an "easy" session whose main set is a
+  // threshold block) BEFORE it is ever stored. Deterministic; logs only.
+  const validatedSessions = (Array.isArray(sessions) ? sessions : []).map(s => {
+    const v = validatePrescription(s);
+    if (v.changed) {
+      console.warn("generate-plan: repaired contradictory prescription", {
+        date: s && s.session_date, from: s && s.session_type,
+        to: v.session.session_type, issues: v.contradictions
+      });
+    }
+    return v.session;
+  });
+
   const rowsToSave =
-    sessions.map(session => ({
+    validatedSessions.map(session => ({
       user_id: userId,
 
       training_plan_id:

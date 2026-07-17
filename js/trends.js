@@ -78,7 +78,14 @@
    * assumed already corrected upstream (mergeActivityOverrides), which is
    * how a corrected activity overrides the raw one.
    */
+  // Public entry: merged + de-duplicated items (one row per real activity).
   function mergeTrainingItems(activities, executions) {
+    return dedupeItems(mergeTrainingItemsRaw(activities, executions));
+  }
+
+  // Builds the raw item list (executions win over their linked import via the
+  // `consumed` set), but does NOT de-duplicate cross-source — dedupeItems does.
+  function mergeTrainingItemsRaw(activities, executions) {
     const acts = Array.isArray(activities) ? activities : [];
     const execs = Array.isArray(executions) ? executions : [];
 
@@ -151,6 +158,8 @@
         painPresent: e.pain_present === true,
         skipReason: e.skip_reason || null,
         activityId: e.imported_activity_id != null ? String(e.imported_activity_id) : null,
+        providerId: linked && linked.external_activity_id != null ? String(linked.external_activity_id) : null,
+        sport: (linked && (linked.sport_type || linked.activity_type)) || snap.session_type || null,
         sessionId: e.training_session_id != null ? String(e.training_session_id) : null,
         elevation: linked ? num(linked.elevation_gain_meters) : null
       });
@@ -196,12 +205,114 @@
         painPresent: false,
         skipReason: null,
         activityId: a.id != null ? String(a.id) : null,
+        providerId: a.external_activity_id != null ? String(a.external_activity_id) : null,
+        sport: a.sport_type || a.activity_type || null,
         sessionId: null,
         elevation: num(a.elevation_gain_meters)
       });
     });
 
     return items.filter(i => i.timestamp);
+  }
+
+  /* ───────────────────────── deduplication ──────────────────────────── */
+
+  /*
+   * Deterministic identity for an activity/execution item. Priority:
+   *   1. provider activity id  (same Strava activity re-imported by repeated
+   *      syncs → one row)
+   *   2. canonical internal activity id
+   *   3. fingerprint: start-minute + sport + rounded distance + rounded
+   *      duration (catches a manual plan record + its matching import, and
+   *      duplicate rows with no shared id — WITHOUT merging two genuinely
+   *      separate runs, which differ in start time).
+   */
+  function dedupKey(it) {
+    if (it.providerId) return "p:" + it.providerId;
+    if (it.activityId) return "c:" + it.activityId;
+    const t = Date.parse(it.timestamp);
+    const minute = Number.isFinite(t) ? Math.round(t / 60000) : "na";
+    const sport = String(it.sport || (it.isRun ? "run" : "other")).toLowerCase();
+    const dist = it.distanceKm ? Math.round(it.distanceKm * 10) / 10 : 0;
+    const dur = it.durationMin ? Math.round(it.durationMin) : 0;
+    return `f:${minute}|${sport}|${dist}|${dur}`;
+  }
+
+  // Two items describe the SAME activity when they share a provider id or a
+  // canonical id, OR (cross-source: a manual plan record vs its import) when a
+  // fuzzy fingerprint matches — same start (±15 min), distance (±5%) and
+  // duration (±12%). Different start times keep two separate same-day runs apart.
+  function near(x, y, tol) {
+    x = Number(x); y = Number(y);
+    if (!(x > 0) || !(y > 0)) return false;
+    return Math.abs(x - y) / Math.max(x, y) <= tol;
+  }
+  function sameActivity(a, b) {
+    if (a.providerId && b.providerId && a.providerId === b.providerId) return true;
+    if (a.activityId && b.activityId && a.activityId === b.activityId) return true;
+    const ta = Date.parse(a.timestamp), tb = Date.parse(b.timestamp);
+    if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+    if (Math.abs(ta - tb) > 15 * 60000) return false;
+    if (!near(a.distanceKm, b.distanceKm, 0.05)) return false;
+    if (a.durationMin > 0 && b.durationMin > 0 && !near(a.durationMin, b.durationMin, 0.12)) return false;
+    return true;
+  }
+
+  // Keep the richest record per activity: a MEASURED import / matched execution
+  // is preferred over a manual plan record for the same run.
+  const KEEP_RANK = { matched_execution: 0, imported_activity: 1, manual_execution: 2 };
+  function dedupeItems(items) {
+    const order = items.slice().sort((x, y) => (KEEP_RANK[x.source] ?? 3) - (KEEP_RANK[y.source] ?? 3));
+    const kept = [];
+    order.forEach(it => { if (!kept.some(k => sameActivity(it, k))) kept.push(it); });
+    return kept;
+  }
+
+  /*
+   * DEV-ONLY diagnostic: reports exactly which activities are counted in the
+   * current local week and which are excluded (and why). Not shown to users;
+   * call window.AthlevoTrends.diagnoseCurrentWeek() from the console. The
+   * visible total is computed from this same included set.
+   */
+  function diagnoseCurrentWeek(activities, executions, opts) {
+    opts = opts || {};
+    const C = window.AthlevoCalendar;
+    const tz = C.resolveTimezone(opts.timezone);
+    const now = opts.now || new Date();
+    const win = C.weekWindows(now, tz).thisWeek;
+
+    const raw = mergeTrainingItemsRaw(activities, executions); // pre-dedupe
+    const keyOf = new Map();
+    const deduped = dedupeItems(raw.filter(i => i.timestamp));
+    const keptKeys = new Set(deduped.map(dedupKey));
+    const rows = [];
+    let includedKm = 0;
+    raw.forEach(it => {
+      const inWeek = C.inWindow(it.timestamp, win, tz);
+      const isRun = it.isRun && it.performed && !it.trainer;
+      const key = dedupKey(it);
+      const kept = deduped.includes(it);
+      let included = false, reason = "";
+      if (!it.performed) reason = "not performed / skipped";
+      else if (!it.isRun) reason = "non-running sport";
+      else if (it.trainer) reason = "indoor/treadmill (trainer)";
+      else if (!inWeek) reason = "outside local Mon–Sun week";
+      else if (!kept) reason = "duplicate of " + (keyOf.get(key) || "another record");
+      else { included = true; reason = "counted"; includedKm += (it.distanceKm || 0); }
+      if (kept) keyOf.set(key, it.activityId || it.providerId || "fingerprint");
+      rows.push({
+        activityId: it.activityId, providerId: it.providerId,
+        date: it.timestamp, sport: it.sport, distanceKm: it.distanceKm,
+        durationMin: Math.round(it.durationMin || 0), source: it.source,
+        dedupKey: key, included, reason
+      });
+    });
+    const includedRows = rows.filter(r => r.included);
+    const total = Math.round(includedKm * 10) / 10;
+    // eslint-disable-next-line no-console
+    console.table(rows);
+    console.log(`Current-week running volume: ${total} km from ${includedRows.length} activities`);
+    return { total, included: includedRows, all: rows, timezone: tz };
   }
 
   /* ─────────────────────── per-window metrics ──────────────────────── */
@@ -671,12 +782,17 @@
   window.AthlevoTrends = {
     // pure engine (exported for tests)
     mergeTrainingItems,
+    mergeTrainingItemsRaw,
+    dedupeItems,
+    dedupKey,
     windowMetrics,
     diff,
     comparableEasyRuns,
     buildTrends,
     buildNarrative,
     longThresholdKm,
+    // dev-only diagnostic (not shown to users)
+    diagnoseCurrentWeek,
     // glue
     refresh,
     renderTrends
