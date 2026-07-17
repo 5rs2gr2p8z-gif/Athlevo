@@ -252,10 +252,27 @@
     if (a.activityId && b.activityId && a.activityId === b.activityId) return true;
     const ta = Date.parse(a.timestamp), tb = Date.parse(b.timestamp);
     if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
-    if (Math.abs(ta - tb) > 15 * 60000) return false;
-    if (!near(a.distanceKm, b.distanceKm, 0.05)) return false;
-    if (a.durationMin > 0 && b.durationMin > 0 && !near(a.durationMin, b.durationMin, 0.12)) return false;
-    return true;
+    const distOk = near(a.distanceKm, b.distanceKm, 0.05);
+    const durOk = !(a.durationMin > 0 && b.durationMin > 0) || near(a.durationMin, b.durationMin, 0.12);
+
+    // Same imported run seen twice (repeat sync / device+phone upload):
+    // tight start-time match.
+    if (Math.abs(ta - tb) <= 15 * 60000 && distOk && durOk) return true;
+
+    // A MANUAL plan record vs its measured import. The manual record's
+    // timestamp is the COMPLETION time (often hours after the run, same day),
+    // not the run start — so a 15-minute window misses it and the run gets
+    // counted twice. Match on same-day + tight distance AND duration instead.
+    // (Two genuinely different same-day runs would differ in distance or
+    // duration, so they are NOT merged.)
+    const aM = a.source === "manual_execution", bM = b.source === "manual_execution";
+    if (aM !== bM && Math.abs(ta - tb) <= 20 * 3600000) {
+      const bothDur = a.durationMin > 0 && b.durationMin > 0;
+      if (near(a.distanceKm, b.distanceKm, 0.06) && (!bothDur || near(a.durationMin, b.durationMin, 0.12))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Keep the richest record per activity: a MEASURED import / matched execution
@@ -268,51 +285,77 @@
     return kept;
   }
 
+  function localDate(instant, tz) {
+    try { return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date(instant)); }
+    catch (e) { return String(instant || "").slice(0, 10); }
+  }
+
   /*
-   * DEV-ONLY diagnostic: reports exactly which activities are counted in the
-   * current local week and which are excluded (and why). Not shown to users;
-   * call window.AthlevoTrends.diagnoseCurrentWeek() from the console. The
-   * visible total is computed from this same included set.
+   * DEV-ONLY diagnostic. Reports exactly which activities the CURRENT WEEK
+   * total is built from. Called with NO arguments it reuses the SAME arrays
+   * and result the Trends card last rendered (window.AthlevoTrends._last), so
+   * its total is guaranteed identical to the visible card — never a separate
+   * calculation. Pass explicit (activities, executions, opts) to test other data.
    */
   function diagnoseCurrentWeek(activities, executions, opts) {
     opts = opts || {};
+    const last = (window.AthlevoTrends && window.AthlevoTrends._last) || null;
+    if (activities === undefined && last) { activities = last.activities; executions = last.executions; }
+    if (executions === undefined && last) { executions = last.executions; }
+    activities = activities || [];
+    executions = executions || [];
+
     const C = window.AthlevoCalendar;
-    const tz = C.resolveTimezone(opts.timezone);
+    const tz = C.resolveTimezone(opts.timezone || (last && last.timezone));
     const now = opts.now || new Date();
     const win = C.weekWindows(now, tz).thisWeek;
 
-    const raw = mergeTrainingItemsRaw(activities, executions); // pre-dedupe
-    const keyOf = new Map();
+    // Canonical total = the exact value the card renders (buildTrends).
+    const trends = buildTrends(activities, executions, { timezone: tz, now });
+    const canonicalTotal = trends.thisWeek.runDistanceKm;
+
+    const raw = mergeTrainingItemsRaw(activities, executions);
     const deduped = dedupeItems(raw.filter(i => i.timestamp));
-    const keptKeys = new Set(deduped.map(dedupKey));
-    const rows = [];
-    let includedKm = 0;
-    raw.forEach(it => {
+    let sumBefore = 0, sumWeek = 0, sumSport = 0, sumDedup = 0;
+    const rows = raw.map(it => {
+      const runish = it.isRun && it.performed && !it.trainer;
       const inWeek = C.inWindow(it.timestamp, win, tz);
-      const isRun = it.isRun && it.performed && !it.trainer;
-      const key = dedupKey(it);
-      const kept = deduped.includes(it);
+      const kept = deduped.indexOf(it) !== -1;
+      sumBefore += it.distanceKm || 0;
+      if (inWeek) sumWeek += it.distanceKm || 0;
+      if (inWeek && runish) sumSport += it.distanceKm || 0;
       let included = false, reason = "";
       if (!it.performed) reason = "not performed / skipped";
       else if (!it.isRun) reason = "non-running sport";
       else if (it.trainer) reason = "indoor/treadmill (trainer)";
       else if (!inWeek) reason = "outside local Mon–Sun week";
-      else if (!kept) reason = "duplicate of " + (keyOf.get(key) || "another record");
-      else { included = true; reason = "counted"; includedKm += (it.distanceKm || 0); }
-      if (kept) keyOf.set(key, it.activityId || it.providerId || "fingerprint");
-      rows.push({
+      else if (!kept) reason = "duplicate of an already-counted run (dedup)";
+      else { included = true; reason = "counted"; sumDedup += it.distanceKm || 0; }
+      return {
         activityId: it.activityId, providerId: it.providerId,
-        date: it.timestamp, sport: it.sport, distanceKm: it.distanceKm,
-        durationMin: Math.round(it.durationMin || 0), source: it.source,
-        dedupKey: key, included, reason
-      });
+        rawTimestamp: it.timestamp, localDate: localDate(it.timestamp, tz),
+        sport: it.sport, distanceKm: it.distanceKm, durationMin: Math.round(it.durationMin || 0),
+        source: it.source, dedupKey: dedupKey(it), included, reason
+      };
     });
-    const includedRows = rows.filter(r => r.included);
-    const total = Math.round(includedKm * 10) / 10;
-    // eslint-disable-next-line no-console
+    const w = C.weekWindows(now, tz);
+    const included = rows.filter(r => r.included);
+    /* eslint-disable no-console */
     console.table(rows);
-    console.log(`Current-week running volume: ${total} km from ${includedRows.length} activities`);
-    return { total, included: includedRows, all: rows, timezone: tz };
+    console.log("Timezone:", tz,
+      "| week start:", localDate(w.thisWeek.start, tz), "→ end:", localDate(w.nowPseudo, tz));
+    console.log("Staged sums →",
+      "before filter:", Math.round(sumBefore * 10) / 10,
+      "| after week:", Math.round(sumWeek * 10) / 10,
+      "| after sport:", Math.round(sumSport * 10) / 10,
+      "| after dedup:", Math.round(sumDedup * 10) / 10,
+      "| card value:", canonicalTotal);
+    console.log(`Current-week running volume: ${canonicalTotal} km from ${included.length} activities` +
+      (last ? "  (using the arrays the Trends card last rendered)" : "  (using arrays you passed)"));
+    /* eslint-enable no-console */
+    return { total: canonicalTotal, included, all: rows, timezone: tz,
+      stages: { before: sumBefore, afterWeek: sumWeek, afterSport: sumSport, afterDedup: sumDedup, card: canonicalTotal },
+      usingRenderInputs: !!(last && activities === last.activities) };
   }
 
   /* ─────────────────────── per-window metrics ──────────────────────── */
@@ -767,6 +810,33 @@
         timezone: profile && profile.timezone,
         now: new Date()
       });
+
+      // ONE source of truth: record the EXACT arrays + result the card is
+      // about to render, so window.AthlevoTrends.diagnoseCurrentWeek() (no
+      // args) reports the same value the DOM shows — never a separate calc.
+      window.AthlevoTrends._last = {
+        activities: acts || [], executions,
+        timezone: (window.AthlevoCalendar || {}).resolveTimezone
+          ? window.AthlevoCalendar.resolveTimezone(profile && profile.timezone) : (profile && profile.timezone) || null,
+        trends
+      };
+
+      // Dev-only trace of the exact value flowing into the DOM.
+      if (window.__ATHLEVO_DEBUG_TRENDS) {
+        try {
+          const items = mergeTrainingItems(acts || [], executions);
+          const bySource = items.reduce((m, i) => {
+            if (i.isRun && i.performed && !i.trainer) m[i.source] = (m[i.source] || 0) + (i.distanceKm || 0);
+            return m;
+          }, {});
+          console.log("%c[Trends] render source: buildTrends → renderTrends (js/trends.js)", "font-weight:bold");
+          console.log("[Trends] deduped run volume by source:", bySource);
+          console.log("[Trends] thisWeek.runDistanceKm (→ Current week + six-week bar):", trends.thisWeek.runDistanceKm);
+          console.log("[Trends] thisWeek.easyVolumeKm (→ Easy volume row):", trends.thisWeek.easyVolumeKm);
+          console.log("[Trends] value passed to DOM (#trendBlockProgress):", Number(trends.thisWeek.runDistanceKm).toFixed(1) + " km");
+        } catch (e) { /* logging must never break render */ }
+      }
+
       // Planned weekly volume (athlete's reported target) drives the block
       // progress denominator when available.
       const targetKm = profile && Number(profile.weekly_distance) > 0
