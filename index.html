@@ -2625,100 +2625,117 @@ body.landing-active #tabbar{display:none!important}
   .train-more .tm-caret{color:var(--ink3);font-style:normal;font-size:18px;transition:transform .2s}
   .train-more[open] .tm-caret{transform:rotate(90deg)}
   .train-more-body{padding-top:14px}
+
+  /* Weekly progress (selected week) */
+  .twp{margin:0 22px 12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
+  .twp-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .twp-eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+  .twp-pct{font-size:12.5px;font-weight:800;color:var(--good)}
+  .twp-pct.zero{color:var(--ink3)}
+  .twp-vol{font-size:24px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;margin-top:8px}
+  .twp-vol small{font-size:13px;font-weight:600;color:var(--ink3)}
+  .twp-bar{height:9px;border-radius:100px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden;margin:10px 0 12px}
+  .twp-bar i{display:block;height:100%;border-radius:100px;background:linear-gradient(90deg,#e0575d,var(--red));transition:width .5s cubic-bezier(.3,.7,.3,1)}
+  .twp-stats{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--ink2)}
+  .twp-stats b{color:var(--text);font-weight:700}
+  .twp-unavail{font-size:12px;color:var(--ink3);margin-top:4px}
+
+  /* Training context (date-aware phase) */
+  .tcx{margin:0 22px 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
+  .tcx-eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+  .tcx-phase{font-family:var(--serif);font-size:19px;font-weight:500;color:var(--text);margin-top:6px}
+  .tcx-phase .tcx-wk{font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--red);margin-left:8px}
+  .tcx-purpose{font-size:13.5px;line-height:1.5;color:var(--ink2);margin-top:6px}
+  .tcx-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12.5px;color:var(--ink2)}
+  .tcx-meta b{color:var(--text);font-weight:700}
+  .tcx-caution{margin-top:10px;font-size:12.5px;line-height:1.45;color:var(--warn)}
+  .tcx-none{font-size:13.5px;color:var(--ink3)}
+
+  /* clickable panel + multiple-activity list */
+  .tcp-card.clickable{cursor:pointer}
+  .tcp-more{margin-top:12px;font-size:12.5px;font-weight:700;color:var(--red)}
+  .tcp-actlist{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+  .tcp-actrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer;font-family:var(--sans)}
+  .tcp-actrow .tcp-actsport{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);background:var(--paper);border:1px solid var(--line);border-radius:100px;padding:4px 9px}
+  .tcp-actrow b{flex:1;font-size:14px;font-weight:650;color:var(--text)}
+  .tcp-actrow small{font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+
+  /* detail sheet */
+  .tw-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;justify-content:center}
+  .tw-modal.show{display:flex}
+  .tw-modal-ov{position:absolute;inset:0;background:rgba(8,9,11,.55);backdrop-filter:blur(2px)}
+  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--paper);color:var(--text);border-radius:26px 26px 0 0;padding:24px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px -20px rgba(0,0,0,.5);animation:slideUp .32s cubic-bezier(.16,1,.3,1)}
+  @media(min-width:480px){.tw-modal{align-items:center}.tw-modal-box{border-radius:24px;max-height:86vh}}
+  .tw-modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:24px;line-height:1;color:var(--ink3);cursor:pointer}
+  .twm-kicker{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red)}
+  .twm-title{font-family:var(--serif);font-size:24px;font-weight:500;letter-spacing:-.01em;color:var(--text);margin-top:4px}
+  .twm-block{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .twm-block:first-of-type{border-top:none;padding-top:6px}
+  .twm-block-h{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
+  .twm-row{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:5px 0;color:var(--ink2)}
+  .twm-row b{color:var(--text);font-weight:650;text-align:right}
+  .twm-p{font-size:14px;line-height:1.55;color:var(--text);margin:6px 0 0}
+  .twm-ul{margin:6px 0 0;padding-left:18px}
+  .twm-ul li{font-size:14px;line-height:1.5;color:var(--text);margin:4px 0}
+  .twm-conf{display:inline-block;font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:var(--card);color:var(--ink2)}
+  .twm-conf.high{background:var(--good-soft);color:var(--good)}
+  .twm-impact{margin-top:14px;background:var(--good-soft);border-radius:var(--r-md);padding:13px 15px;font-size:13.5px;line-height:1.5;color:var(--text)}
   </style>
   <!-- ══════════ DATE-FIRST TRAINING CALENDAR (primary experience) ══════════ -->
   <div id="trainCalendar" class="tc"></div>
   <div id="trainDayPanel" class="tc-panel"></div>
 
-  <!-- ══════════ SECONDARY CONTEXT (collapsed by default) ══════════ -->
+  <!-- ══════════ WEEKLY PROGRESS — selected week ══════════ -->
+  <div id="trainWeekProgress"></div>
+
+  <!-- ══════════ TRAINING CONTEXT — selected date's phase/plan ══════════ -->
+  <div id="trainContext"></div>
+
+  <!-- ══════════ SECONDARY PLAN DETAILS (collapsed by default) ══════════ -->
   <details class="train-more">
-    <summary><span>Training context &amp; history</span><i class="tm-caret">›</i></summary>
+    <summary><span>Training context</span><i class="tm-caret">›</i></summary>
     <div class="train-more-body">
 
   <div id="trainHeader"></div>
-
-  <div id="weeklyProgress"></div>
-
-<div id="weekSessions" style="display:none"></div>
-
-  <div class="decision">
-  <span class="eyebrow">Recent training</span>
-
-  <h3 id="trainSummaryTitle">
-    Loading your training history...
-  </h3>
-
-  <p id="trainSummaryContext">
-    Athlevo is reviewing your imported activities.
-  </p>
-</div>
 
   <div class="spacer-md"></div>
 
   <div class="statgrid">
 
     <div class="stat">
-      <span class="eyebrow">Current weekly distance</span>
-
+      <span class="eyebrow">Weekly distance target</span>
       <b class="num" id="trainWeeklyDistance">—</b>
-
       <small>Self-reported during onboarding</small>
     </div>
 
     <div class="stat">
-      <span class="eyebrow">Current weekly hours</span>
-
+      <span class="eyebrow">Weekly hours target</span>
       <b class="num" id="trainWeeklyHours">—</b>
-
       <small>Self-reported during onboarding</small>
     </div>
 
     <div class="stat">
       <span class="eyebrow">Training availability</span>
-
       <b class="num" id="trainAvailableDays">—</b>
-
       <small>Reliable days per week</small>
     </div>
 
     <div class="stat">
       <span class="eyebrow">Preferred training time</span>
-
       <b class="num" id="trainPreferredTime">—</b>
-
       <small>Based on your normal schedule</small>
     </div>
 
   </div>
 
-  <div class="spacer-md"></div>
-
-<div class="pad">
-  <div class="section-title serif">Recent activities</div>
-</div>
-
-<div id="trainRecentActivities">
-  <div class="decision">
-    <h3>No imported activities yet.</h3>
-    <p>Connect Strava to begin building your training history.</p>
-  </div>
-</div>
-
-  <div class="spacer-md"></div>
-
-  <div class="race">
-    <div>
-      <b>Workout history not connected</b>
-
-      <small>
-        Connect Strava or record workouts manually to build your training history.
-      </small>
-    </div>
-
-    <div class="days">
-      <b class="num">—</b>
-      <small>Workouts</small>
-    </div>
+  <!-- Retained (hidden) legacy nodes so existing writers never crash. History
+       listings are intentionally not shown — history lives in the calendar. -->
+  <div style="display:none" aria-hidden="true">
+    <div id="weeklyProgress"></div>
+    <div id="weekSessions"></div>
+    <span id="trainSummaryTitle"></span>
+    <span id="trainSummaryContext"></span>
+    <div id="trainRecentActivities"></div>
   </div>
 
   <div class="spacer-lg"></div>
@@ -2729,6 +2746,15 @@ body.landing-active #tabbar{display:none!important}
   <div class="spacer-lg"></div>
 
 </section>
+
+<!-- Workout / activity detail sheet (opened from the selected-date panel) -->
+<div id="trainWorkoutModal" class="tw-modal" style="display:none">
+  <div class="tw-modal-ov" onclick="AthlevoTrainCalendar.closeModal()"></div>
+  <div class="tw-modal-box">
+    <button class="tw-modal-close" aria-label="Close" onclick="AthlevoTrainCalendar.closeModal()">&times;</button>
+    <div id="trainWorkoutModalBody"></div>
+  </div>
+</div>
 
 <!-- ══════════════ TRENDS ══════════════ -->
 <section class="screen" id="screen-trends">
