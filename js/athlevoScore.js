@@ -526,6 +526,77 @@
     return { text: "Stable", improved: false };
   }
 
+  // The five long-term profile axes, in the order the radar draws them.
+  const RADAR_AXES = [
+    { key: "aerobic",     label: "Aerobic",     full: "Aerobic" },
+    { key: "threshold",   label: "Threshold",   full: "Threshold" },
+    { key: "speed",       label: "Speed",       full: "Speed / Top-End" },
+    { key: "durability",  label: "Durability",  full: "Durability" },
+    { key: "consistency", label: "Consistency", full: "Consistency" }
+  ];
+
+  // Classify a component for the chart WITHOUT touching score maths:
+  //   verified  → valid score with strong data
+  //   developing→ valid score, thinner data
+  //   missing   → no reliable score yet (NEVER drawn as zero)
+  function radarState(c) {
+    const ok = c && c.status === "valid" && Number.isFinite(Number(c.score));
+    if (!ok) return "missing";
+    return c.coverage === "Strong data" ? "verified" : "developing";
+  }
+
+  /*
+   * Builds the 5-axis athlete-profile radar as inline SVG. Missing axes are
+   * shown as dashed spokes with NO vertex (the polygon is drawn only through
+   * axes that actually have data, so it never collapses misleadingly to 0).
+   */
+  function buildRadar(components) {
+    const cx = 120, cy = 108, R = 74, N = RADAR_AXES.length;
+    const ang = i => (-90 + i * (360 / N)) * Math.PI / 180;
+    const pt = (i, rad) => [cx + rad * Math.cos(ang(i)), cy + rad * Math.sin(ang(i))];
+    const f = n => n.toFixed(1);
+
+    let grid = "";
+    [0.25, 0.5, 0.75, 1].forEach(lv => {
+      const pts = RADAR_AXES.map((_, i) => pt(i, R * lv).map(f).join(",")).join(" ");
+      grid += `<polygon class="asc-radar-grid" points="${pts}"></polygon>`;
+    });
+
+    let spokes = "", labels = "", markers = "", dataPts = [];
+    RADAR_AXES.forEach((ax, i) => {
+      const c = (components || {})[ax.key] || {};
+      const state = radarState(c);
+      const missing = state === "missing";
+      const [ex, ey] = pt(i, R);
+      spokes += `<line class="asc-radar-spoke${missing ? " missing" : ""}" x1="${cx}" y1="${cy}" x2="${f(ex)}" y2="${f(ey)}"></line>`;
+
+      const [lx, ly] = pt(i, R + 15);
+      const anchor = Math.abs(lx - cx) < 6 ? "middle" : (lx > cx ? "start" : "end");
+      const dy = ly < cy - 4 ? "-0.15em" : (ly > cy + 4 ? "0.72em" : "0.32em");
+      labels += `<text class="asc-radar-label${missing ? " missing" : ""}" x="${f(lx)}" y="${f(ly)}" text-anchor="${anchor}" dy="${dy}">${ax.label}</text>`;
+
+      if (!missing) {
+        const rad = Math.max(0.06, Math.min(1, Number(c.score) / 100)) * R;
+        const [px, py] = pt(i, rad);
+        dataPts.push([px, py]);
+        markers += `<circle class="asc-radar-dot ${state === "verified" ? "v" : "d"}" cx="${f(px)}" cy="${f(py)}" r="3.3"></circle>`;
+      }
+    });
+
+    let shape = "";
+    if (dataPts.length >= 3) {
+      shape = `<polygon class="asc-radar-area" points="${dataPts.map(p => p.map(f).join(",")).join(" ")}"></polygon>`;
+    } else if (dataPts.length === 2) {
+      shape = `<line class="asc-radar-area-line" x1="${f(dataPts[0][0])}" y1="${f(dataPts[0][1])}" x2="${f(dataPts[1][0])}" y2="${f(dataPts[1][1])}"></line>`;
+    }
+
+    return `<svg class="asc-radar" viewBox="0 0 240 214" role="img" aria-label="Athlete profile radar across five abilities">
+        <g class="asc-radar-frame">${grid}${spokes}</g>
+        ${labels}
+        <g class="asc-radar-data">${shape}${markers}</g>
+      </svg>`;
+  }
+
   function renderScoreCard(result) {
     const mount = document.getElementById("athlevoScoreCard");
     if (!mount) return;
@@ -585,22 +656,30 @@
       }
     }
 
-    // Component contribution mini-bars (progression, not a ring).
-    const compBars = RING_SEGMENTS
-      .filter(s => s.key !== "level")
-      .map(s => {
-        const c = (result.components || {})[s.key] || {};
-        const ok = c.status === "valid" && Number.isFinite(Number(c.score));
-        const w = ok ? Math.max(3, Math.min(100, Number(c.score))) : 0;
-        return `
-          <div class="asc-comp">
-            <span class="asc-comp-label">${esc(s.label)}</span>
-            <div class="asc-comp-track"><i style="width:${w}%"></i></div>
-            <span class="asc-comp-val">${ok ? c.score : "–"}</span>
-          </div>`;
-      }).join("");
+    // Component value list — label + number, "—" when data is insufficient
+    // (never 0). A coloured dot (not colour alone) marks verified/developing/
+    // missing so meaning survives colour-blindness and dark mode.
+    const components = result.components || {};
+    const compList = RADAR_AXES.map(ax => {
+      const c = components[ax.key] || {};
+      const state = radarState(c);
+      const val = state === "missing" ? "—" : c.score;
+      return `
+        <div class="asc-crow ${state}">
+          <span class="asc-cdot" aria-hidden="true"></span>
+          <span class="asc-cname">${esc(ax.full)}</span>
+          <span class="asc-cval">${val}</span>
+        </div>`;
+    }).join("");
 
-    const fillW = valid ? Math.max(0, Math.min(100, cur)) : 0;
+    // Which axes still need data, and how to unlock them (truthful, generic).
+    const missingLabels = RADAR_AXES
+      .filter(ax => radarState(components[ax.key] || {}) === "missing")
+      .map(ax => ax.full);
+    const needNote = missingLabels.length
+      ? `<p class="asc-need">More data needed for ${esc(missingLabels.join(", "))}. Log a race or a threshold session to complete your profile.</p>`
+      : "";
+
     const arrow = deltaClass === "up" ? "▲ " : deltaClass === "down" ? "▼ " : "";
 
     mount.innerHTML = `
@@ -621,13 +700,10 @@
           ${peakBadge}
         </div>
 
-        <div class="asc-track">
-          <div class="asc-track-fill" data-target="${fillW}" style="width:${animate ? 0 : fillW}%"></div>
-          ${peakMark}
-        </div>
-        <div class="asc-scale"><span>0</span><span>50</span><span>100</span></div>
+        <div class="asc-radar-wrap${animate ? " animate" : ""}">${buildRadar(components)}</div>
 
-        <div class="asc-comps">${compBars}</div>
+        <div class="asc-comp-list">${compList}</div>
+        ${needNote}
 
         <p class="asc-explain">${esc(o.explanation)}</p>
         <div class="asc-foot">
@@ -643,12 +719,8 @@
     if (animate) runScoreCelebration(mount, lastShown, o.score);
   }
 
-  // Grow the progress track + count the number up, all under one second.
+  // Count the score number up (the radar polygon animates in via CSS).
   function runScoreCelebration(mount, from, to) {
-    const fill = mount.querySelector(".asc-track-fill");
-    if (fill) {
-      requestAnimationFrame(() => { fill.style.width = (fill.getAttribute("data-target") || 0) + "%"; });
-    }
     const num = mount.querySelector("#ascRingNum");
     if (!num || !Number.isFinite(from)) return;
     const start = performance.now(), dur = 800;
