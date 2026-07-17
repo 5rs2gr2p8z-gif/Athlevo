@@ -407,19 +407,25 @@
         daily: readinessScore != null ? { readinessScore } : {}
       });
 
+      // One short coaching sentence per zone — pace range + a single line,
+      // never a paragraph (reduces the pace card's visual density).
+      const oneSentence = (text) => {
+        const s = String(text || "").trim();
+        if (!s) return "";
+        const first = (s.match(/^[^.!?]*[.!?]?/) || [s])[0].trim();
+        const out = first.length > 88 ? first.slice(0, 85).replace(/[,;:\s]+$/, "") + "…" : first;
+        return out.replace(/[.!?]*$/, ".");
+      };
       const rows = paces.zones.map(z => {
         const pace = z.paceRange ? z.paceRange.text : "By effort";
-        const note = z.notes && z.notes.length ? z.notes[0] : z.explanation;
+        const note = oneSentence(z.notes && z.notes.length ? z.notes[0] : z.explanation);
         return `
           <div class="tpc-zone">
             <div class="tpc-zone-head">
               <span class="tpc-zone-label">${escapeHtml(z.label)}</span>
               <span class="tpc-zone-pace">${escapeHtml(pace)}</span>
             </div>
-            <div class="tpc-zone-sub">
-              <span class="tpc-rpe">${escapeHtml(z.rpe.text)}</span>
-              <span class="tpc-mean">${escapeHtml(note)}</span>
-            </div>
+            ${note ? `<p class="tpc-zone-note">${escapeHtml(note)}</p>` : ""}
           </div>`;
       }).join("");
 

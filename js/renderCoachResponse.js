@@ -274,46 +274,10 @@ function renderCoachResponse(
     return;
   }
 
-  // Compact "Coach Context" summary — what the coach actually reviewed
-  // before answering. Only truthful items (assembled client-side from
-  // the real context) are shown; nothing is fabricated.
-  if (
-    Array.isArray(response.coach_context) &&
-    response.coach_context.length > 0
-  ) {
-    const contextBlock = createCoachElement(
-      "div",
-      "coach-context"
-    );
-
-    contextBlock.appendChild(
-      createCoachElement(
-        "span",
-        "coach-context-label",
-        "Coach Context"
-      )
-    );
-
-    const contextList = createCoachElement(
-      "ul",
-      "coach-context-list"
-    );
-
-    response.coach_context.forEach(item => {
-      if (typeof item !== "string" || !item.trim()) {
-        return;
-      }
-
-      contextList.appendChild(
-        createCoachElement("li", "", item)
-      );
-    });
-
-    if (contextList.childElementCount > 0) {
-      contextBlock.appendChild(contextList);
-      container.appendChild(contextBlock);
-    }
-  }
+  // Coach Context ("Reviewed today's readiness…") is intentionally NOT
+  // rendered. It made the chat feel like a report rather than texting a
+  // coach. The summary is still computed and saved with the conversation
+  // (response.coach_context), it simply no longer appears in the bubble.
 
   if (response.headline) {
     container.appendChild(

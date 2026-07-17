@@ -90,6 +90,29 @@ body{margin:0;background:#eeeeec;font-family:var(--sans);color:var(--ink);-webki
 .tw-col.current .tw-val{color:var(--red);font-weight:800}
 .tw-col.current .tw-lab{color:var(--red);font-weight:800}
 
+/* ===== Coach chat (P1) ===== */
+.chatlog{padding:8px 0 0;display:flex;flex-direction:column;gap:9px}
+.msg{max-width:82%;font-size:15px;line-height:1.5}
+.msg.user{align-self:flex-end;background:var(--ink);color:#fff;padding:10px 15px;border-radius:21px 21px 6px 21px}
+.msg.ai{align-self:flex-start;background:var(--card);padding:12px 15px;border-radius:21px 21px 21px 6px;color:var(--ink)}
+.coach-typing{display:inline-flex;align-items:center;gap:5px}
+.coach-typing i{width:7px;height:7px;border-radius:50%;background:var(--ink3);animation:ct 1.1s infinite ease-in-out}
+.coach-typing i:nth-child(2){animation-delay:.15s}.coach-typing i:nth-child(3){animation-delay:.3s}
+@keyframes ct{0%,72%,100%{opacity:.28;transform:translateY(0)}36%{opacity:1;transform:translateY(-2px)}}
+.chips2{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.chip{background:var(--paper);border:1px solid var(--line);border-radius:100px;padding:8px 15px;font-size:13px;font-weight:550;color:var(--ink)}
+
+/* ===== Pace card (P3) ===== */
+.tpc{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
+.tpc-eyebrow{font-size:13px;font-weight:700;color:var(--ink)}
+.tpc-zones{display:flex;flex-direction:column;margin-top:8px}
+.tpc-zone{padding:13px 0;border-top:1px solid var(--line)}
+.tpc-zone:first-child{border-top:none;padding-top:2px}
+.tpc-zone-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.tpc-zone-label{font-size:14px;font-weight:700;color:var(--ink)}
+.tpc-zone-pace{font-size:14.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.tpc-zone-note{font-size:12.5px;color:var(--ink2);line-height:1.45;margin:4px 0 0}
+
 /* ===== Prediction ===== */
 .predict{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
 .predict-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -114,7 +137,7 @@ body{margin:0;background:#eeeeec;font-family:var(--sans);color:var(--ink);-webki
   </div>
   <div class="asc-hero">
     <div class="asc-scorewrap"><span class="asc-score-num">82</span><span class="asc-score-max">/100</span></div>
-    <span class="asc-peak best">✦ Highest ever</span>
+    <span class="asc-peak best">Best in 30 days</span>
   </div>
   <div class="asc-track"><div class="asc-track-fill" style="width:82%"></div></div>
   <div class="asc-scale"><span>0</span><span>50</span><span>100</span></div>
@@ -163,6 +186,32 @@ body{margin:0;background:#eeeeec;font-family:var(--sans);color:var(--ink);-webki
       <div class="tw-col current"><small class="tw-val">34</small><div class="tw-track"><div class="tw-rem" style="height:55%"></div><div class="tw-bar current" style="height:45%"></div></div><small class="tw-lab">This week</small></div>
     </div>
   </div>
+  <div class="spacer"></div>
+  <div class="pheader">Coach — texting feel (P1)</div>
+  <div class="tpc" style="border:none;padding:16px 22px">
+    <div class="chatlog">
+      <div class="msg user">How did my threshold run look today?</div>
+      <div class="msg ai">Strong session — you held 4:05/km right at your threshold and your HR stayed controlled. That's a real step up from last week.</div>
+      <div class="msg user">Should I be worried about the last rep?</div>
+      <div class="msg ai"><span class="coach-typing"><i></i><i></i><i></i></span></div>
+    </div>
+    <div class="chips2">
+      <span class="chip">What's next?</span><span class="chip">Adjust my week</span><span class="chip">Log how I feel</span>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="pheader">Training paces — one line each (P3)</div>
+  <div class="tpc">
+    <span class="tpc-eyebrow">Your current training paces</span>
+    <div class="tpc-zones">
+      <div class="tpc-zone"><div class="tpc-zone-head"><span class="tpc-zone-label">Recovery</span><span class="tpc-zone-pace">6:10–6:40 /km</span></div><p class="tpc-zone-note">Easy enough to hold a full conversation.</p></div>
+      <div class="tpc-zone"><div class="tpc-zone-head"><span class="tpc-zone-label">Easy</span><span class="tpc-zone-pace">5:15–5:35 /km</span></div><p class="tpc-zone-note">Your everyday aerobic pace — relaxed and repeatable.</p></div>
+      <div class="tpc-zone"><div class="tpc-zone-head"><span class="tpc-zone-label">Long run</span><span class="tpc-zone-pace">5:25–5:50 /km</span></div><p class="tpc-zone-note">Start easy and drift a touch faster late.</p></div>
+      <div class="tpc-zone"><div class="tpc-zone-head"><span class="tpc-zone-label">Threshold</span><span class="tpc-zone-pace">4:00–4:10 /km</span></div><p class="tpc-zone-note">Comfortably hard — controlled, not racing.</p></div>
+    </div>
+  </div>
+
   <div class="spacer"></div>
   <div class="predict">
     <div class="predict-head">

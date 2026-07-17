@@ -554,15 +554,31 @@
     const valid = o.status === "valid";
     const cur = valid ? Number(o.score) : null;
 
-    // Highest-ever + peak marker, from real persisted history (+ current).
-    const hist = (scoreHistory || [])
-      .map(h => Number(h.overall_score)).filter(Number.isFinite);
+    // Trend badges from real persisted history (calculations untouched):
+    // all-time "Highest ever", else "Best in 30 days", else the peak marker.
+    const histRows = (scoreHistory || [])
+      .filter(h => Number.isFinite(Number(h.overall_score)));
+    const hist = histRows.map(h => Number(h.overall_score));
     const allVals = cur != null ? hist.concat(cur) : hist;
     const peak = allVals.length ? Math.max(...allVals) : null;
+
+    // Highest score seen in the last 30 days (prior snapshots only).
+    const DAY = 86400000, now = Date.now();
+    const recent30 = histRows
+      .filter(h => {
+        const t = Date.parse(h.score_date);
+        return Number.isFinite(t) && (now - t) <= 30 * DAY;
+      })
+      .map(h => Number(h.overall_score));
+    const peak30 = recent30.length ? Math.max(...recent30) : null;
+
     let peakBadge = "", peakMark = "";
     if (valid && peak != null) {
       if (cur >= peak && (hist.length > 1 || delta.improved)) {
         peakBadge = `<span class="asc-peak best">✦ Highest ever</span>`;
+      } else if (peak30 != null && cur >= peak30 && recent30.length > 1) {
+        peakBadge = `<span class="asc-peak best">Best in 30 days</span>`;
+        if (peak > cur) peakMark = `<span class="asc-track-mark" style="left:${peak}%"></span>`;
       } else if (peak > cur) {
         peakBadge = `<span class="asc-peak">Best ${peak}</span>`;
         peakMark = `<span class="asc-track-mark" style="left:${peak}%"></span>`;

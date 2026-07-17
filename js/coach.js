@@ -462,10 +462,17 @@ async function askCoach(question) {
   cleanQuestion
 );
 
-  const loadingMessage = addChatMessage(
-    "ai",
-    "Reviewing your athlete profile and training context..."
-  );
+  // A calm "coach is typing" indicator instead of a verbose status line —
+  // it reads like texting a real coach who's thinking, not a loading log.
+  const loadingMessage = addChatMessage("ai", "");
+  {
+    const changeEl = loadingMessage && loadingMessage.querySelector(".change");
+    if (changeEl) {
+      changeEl.innerHTML =
+        '<span class="coach-typing" role="status" aria-label="Coach is typing">' +
+        "<i></i><i></i><i></i></span>";
+    }
+  }
 
   try {
     const profile =
