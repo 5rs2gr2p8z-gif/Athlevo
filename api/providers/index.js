@@ -245,9 +245,28 @@ async function intervalsFetch(path, accessToken, meta) {
     meta.httpStatus = res.status;
     meta.contentType = res.headers.get("content-type") || null;
   }
-  if (res.status === 401 || res.status === 403) {
+  /*
+   * 401 and 403 mean DIFFERENT things and must not be conflated.
+   *
+   *   401 Unauthorized → the credential is bad, missing or revoked. The
+   *                      athlete must reconnect. This is a token problem.
+   *   403 Forbidden    → the credential is VALID but not permitted to touch
+   *                      this resource. On Intervals.icu that is normally a
+   *                      missing scope: Athlevo requests ACTIVITY:READ only,
+   *                      so athlete-settings endpoints legitimately return
+   *                      403 while activity endpoints return 200.
+   *
+   * Treating 403 as an expired token is what made a healthy connection look
+   * broken. Only 401 may flip an account to reconnect_required.
+   */
+  if (res.status === 401) {
     const err = new Error("unauthorized");
     err.authExpired = true;
+    throw err;
+  }
+  if (res.status === 403) {
+    const err = new Error("forbidden");
+    err.forbidden = true;   // insufficient scope — NOT a credential failure
     throw err;
   }
   if (res.status === 429) {
@@ -425,7 +444,21 @@ async function actionCallback(request, response, cid) {
     refresh_token: null,
     token_expires_at: null,
     scope: token.scope || INTERVALS_SCOPE,
+    /*
+     * Reconnect path. The upsert targets (user_id, provider), so an athlete
+     * re-authorising UPDATES their existing row in place — a second
+     * provider_accounts row is structurally impossible.
+     *
+     * These three fields must be reset explicitly, not just the token:
+     *   status           → back to connected, clearing reconnect_required
+     *   last_sync_status → a stale "failed" would keep the UI looking broken
+     *   sync_started_at  → a stale lock from the failed sync would otherwise
+     *                      reject the first sync after reconnecting with
+     *                      SYNC_IN_PROGRESS for up to five minutes
+     */
     status: "connected",
+    last_sync_status: null,
+    sync_started_at: null,
     connected_at: new Date().toISOString()
   });
 
@@ -659,7 +692,14 @@ async function actionSync(request, response, cid) {
       diagnostics: { returnedByApi, unparseableWindows, windows, windowReports }
     });
   } catch (error) {
-    // Always release the lock, then report a neutral, actionable message.
+    /*
+     * Always release the lock, then report a neutral, actionable message.
+     *
+     * ONLY a 401 flips the account to reconnect_required. A 403 means the
+     * credential is valid but the resource is out of scope — marking that as
+     * "reconnect" would send the athlete round an OAuth loop that cannot fix
+     * anything, and would make a working connection look broken.
+     */
     const authExpired = Boolean(error && error.authExpired);
     await patchProviderAccount(account.id, {
       sync_started_at: null,
@@ -731,13 +771,24 @@ async function actionDiagnose(request, response, cid) {
       }
     } catch (error) {
       meta.error = error && error.authExpired ? "AUTH_EXPIRED"
-        : (error && error.rateLimited ? "RATE_LIMITED" : "REQUEST_FAILED");
+        : (error && error.forbidden ? "FORBIDDEN_SCOPE"
+        : (error && error.rateLimited ? "RATE_LIMITED" : "REQUEST_FAILED"));
     }
     probes[name] = meta;
   };
 
-  // 1. Does the token work at all, and who does it resolve to?
-  await run("athleteProfile", "/athlete/0");
+  /*
+   * 1. Liveness probe, INSIDE our scope. A 1-day activities query is the
+   *    cheapest call ACTIVITY:READ can definitely make, so a failure here is
+   *    a real credential failure rather than a permissions quirk.
+   *
+   *    The previous liveness probe was /athlete/0 — the athlete SETTINGS
+   *    resource, which ACTIVITY:READ cannot read. Its 403 was expected
+   *    behaviour, but it was reported as AUTH_EXPIRED and short-circuited the
+   *    verdict into "token rejected", condemning a perfectly healthy
+   *    connection. That was the bug.
+   */
+  await run("tokenLiveness", activitiesPath("0", day(-1), day(0)));
   // 2. The exact window the real sync uses (180 days back).
   await run("syncWindow180d", activitiesPath("0", day(-FIRST_SYNC_DAYS), day(0)));
   // 3. Same window, explicit athlete id — isolates the "0" shorthand.
@@ -746,13 +797,23 @@ async function actionDiagnose(request, response, cid) {
   }
   // 4. Very wide window — separates "no recent activities" from "no activities".
   await run("wideWindow3y", activitiesPath("0", day(-1095), day(1)));
+  // 5. Scope probe, informational only. A 403 here is EXPECTED and healthy —
+  //    it confirms Athlevo holds activity-read access and nothing more.
+  await run("scopeCheck_athleteSettings", "/athlete/0");
 
   // A plain-language reading of the evidence, so the answer isn't left to
   // interpretation.
   const n = (k) => (probes[k] && typeof probes[k].count === "number") ? probes[k].count : null;
+  // Only an in-scope probe may be read as evidence about the credential.
+  const liveness = probes.tokenLiveness || {};
   let verdict;
-  if (probes.athleteProfile && probes.athleteProfile.error) {
-    verdict = `Token rejected by Intervals.icu (${probes.athleteProfile.error}). Reconnect the account.`;
+  if (liveness.error === "AUTH_EXPIRED") {
+    verdict = "Token rejected by Intervals.icu (401). Reconnect the account.";
+  } else if (liveness.error === "RATE_LIMITED") {
+    verdict = "Intervals.icu is rate-limiting requests. Try again in a few minutes.";
+  } else if (liveness.error === "FORBIDDEN_SCOPE") {
+    verdict = "Activity access was refused (403). The connection may have been " +
+      "authorised without ACTIVITY:READ — reconnect and accept activity access.";
   } else if (Object.values(probes).some(p => p.isArray === false && p.count === null && !p.error && p.path.includes("activities"))) {
     verdict = "Activities endpoint returned a non-array — response shape mismatch. See objectKeys.";
   } else if (n("syncWindow180d") === 0 && n("explicitAthleteId") > 0) {

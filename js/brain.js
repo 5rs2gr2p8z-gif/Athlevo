@@ -1710,12 +1710,45 @@ function setIntervalsUi(state, detail) {
     synced:      { text: "Sync complete", mark: "✓" },
     partial:     { text: "Synced — some activities were skipped", mark: "✓" },
     failed:      { text: "Sync failed — tap to retry", mark: "!" },
-    reconnect:   { text: "Reconnect required — tap to reconnect", mark: "!" }
+    reconnect:   { text: "Reconnect Intervals.icu", mark: "!" }
   };
   const s = STATES[state] || STATES.idle;
-  status.textContent = detail || s.text;
+  /*
+   * "Reconnect required" is not a detail message — it is an instruction, and
+   * it must win over any stale status text, otherwise the row keeps showing
+   * "Last synced …" while the connection is actually broken.
+   */
+  status.textContent = (state === "reconnect") ? s.text : (detail || s.text);
   mark.textContent = s.mark;
   if (row) row.dataset.state = state;
+
+  // Disconnect is offered only when there is something to disconnect.
+  const disconnectBtn = document.getElementById("intervalsDisconnect");
+  if (disconnectBtn) {
+    const connected = ["connected", "synced", "partial", "syncing", "failed", "reconnect"].includes(state);
+    disconnectBtn.style.display = connected ? "" : "none";
+  }
+}
+
+/*
+ * Disconnect. Clears the stored credentials but KEEPS every imported
+ * activity — the athlete's training history is theirs, and unlinking a data
+ * source must never delete their training record. Confirmed first, because
+ * it is not obvious from the label that history survives.
+ */
+async function disconnectIntervals() {
+  const ok = typeof confirm !== "function" || confirm(
+    "Disconnect Intervals.icu? Your imported activities stay in Athlevo — " +
+    "only the connection is removed."
+  );
+  if (!ok) return;
+  try {
+    await providerRequest("disconnect");
+    setIntervalsUi("idle");
+    if (typeof toast === "function") toast("Intervals.icu disconnected.");
+  } catch (error) {
+    if (typeof toast === "function") toast(error.message);
+  }
 }
 
 /*
@@ -1726,6 +1759,13 @@ async function onIntervalsRowTap() {
   const row = document.getElementById("intervalsConnectionRow");
   const state = row ? row.dataset.state : "idle";
   if (state === "syncing" || state === "connecting") return;
+  /*
+   * "reconnect" deliberately falls through to connectIntervals(), which
+   * restarts the SAME OAuth authorization flow used for a first connection.
+   * Intervals.icu issues a fresh token, and the callback upserts it onto the
+   * existing (user_id, provider) row — so reconnecting repairs the
+   * connection in place rather than creating a second one.
+   */
   if (state === "connected" || state === "synced" || state === "partial" || state === "failed") {
     return syncIntervals().catch(() => {});
   }
@@ -2005,6 +2045,7 @@ window.AthlevoBrain = {
   refreshIntervalsStatus,
   diagnoseIntervals,
   onIntervalsRowTap,
+  disconnectIntervals,
   hasTrainingDataConnected,
   buildActivitySummary,
   buildCoachingContext,
