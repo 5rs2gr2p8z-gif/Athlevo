@@ -46,16 +46,27 @@
     if (!user) return;
     const base = table => supabaseClient.from(table).select("*").eq("user_id", user.id);
 
-    const [sessRes, execRes, actRes] = await Promise.all([
+    // Scalability: bound every per-week read. Sessions and activities are date
+    // ranged; execution records are then fetched ONLY for this week's session
+    // ids (previously this pulled the athlete's entire execution history on
+    // every week swipe — unbounded and O(history) per navigation).
+    const [sessRes, actRes] = await Promise.all([
       base("training_sessions").gte("session_date", start).lte("session_date", end),
-      base("workout_execution_records"),
       base("activities").gte("start_date", start + "T00:00:00").lte("start_date", end + "T23:59:59.999")
     ].map(p => p.then(r => r).catch(() => ({ data: [] }))));
 
     const sessions = (sessRes && sessRes.data) || [];
-    const execs = (execRes && execRes.data) || [];
     const acts = (actRes && actRes.data) || [];
     if (sessions.length) hasAnyPlan = true;
+
+    let execs = [];
+    const sessionIds = sessions.map(s => s.id).filter(id => id != null);
+    if (sessionIds.length) {
+      try {
+        const r = await base("workout_execution_records").in("training_session_id", sessionIds);
+        execs = (r && r.data) || [];
+      } catch (e) { execs = []; }
+    }
 
     const execBySession = {};
     execs.forEach(e => { if (e.training_session_id != null) execBySession[String(e.training_session_id)] = e; });

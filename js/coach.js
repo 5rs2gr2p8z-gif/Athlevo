@@ -542,10 +542,18 @@ context.recentConversation = (await loadRecentConversationForCoach())
     (m, i, arr) =>
       !(i === arr.length - 1 && m.role === "athlete" && m.text === cleanQuestion)
   );
+    // The coach endpoint now requires a valid Athlevo session (it spends AI
+    // budget), so send the Supabase access token like every other endpoint.
+    const { data: { session: coachSession } } = await supabaseClient.auth.getSession();
+    if (!coachSession) {
+      throw new Error("Your session expired. Please sign in again.");
+    }
+
     const response = await fetch("/api/coach", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${coachSession.access_token}`
       },
       body: JSON.stringify({
         question: cleanQuestion,

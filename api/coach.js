@@ -1,5 +1,32 @@
 import { randomUUID } from "node:crypto";
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
+
+/*
+ * Authentication gate (same pattern as every other Athlevo endpoint).
+ * Without this the endpoint accepted anonymous POSTs and spent the OpenAI
+ * budget for anyone who found the URL — an unauthenticated cost/abuse path.
+ */
+function getBearerToken(req) {
+  const authorization = req.headers.authorization || req.headers.Authorization || "";
+  if (!authorization.startsWith("Bearer ")) return null;
+  return authorization.slice(7).trim();
+}
+
+async function getAuthenticatedUser(accessToken) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey || !accessToken) return null;
+  try {
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      method: "GET",
+      headers: { apikey: serviceRoleKey, Authorization: `Bearer ${accessToken}` }
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
 import {
   ACTION_TYPES,
   validateProposedActions
@@ -164,6 +191,15 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
       error: "Method not allowed"
+    });
+  }
+
+  // Require a valid Athlevo session before spending any AI budget.
+  const accessToken = getBearerToken(req);
+  const authenticatedUser = await getAuthenticatedUser(accessToken);
+  if (!authenticatedUser?.id) {
+    return res.status(401).json({
+      error: "Your Athlevo session is invalid or expired. Please sign in again."
     });
   }
 
