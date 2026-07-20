@@ -1651,6 +1651,27 @@ async function syncIntervals() {
   }
 }
 
+/*
+ * Read-only connection probe. Imports nothing and writes nothing — it exists
+ * to explain an unexpected sync result (typically "imported: 0") with
+ * evidence instead of guesswork. Prints a verdict plus the raw probes.
+ *
+ * Console:  await AthlevoBrain.diagnoseIntervals()
+ */
+async function diagnoseIntervals() {
+  const report = await providerRequest("diagnose");
+  console.log("%c" + report.verdict, "font-weight:bold");
+  console.table(Object.entries(report.probes).map(([name, p]) => ({
+    probe: name,
+    http: p.httpStatus ?? "—",
+    isArray: p.isArray ?? "—",
+    count: p.count ?? "—",
+    error: p.error || ""
+  })));
+  console.log("Full report:", report);
+  return report;
+}
+
 async function refreshIntervalsStatus(profile) {
   try {
     const s = await providerRequest("status");
@@ -1982,6 +2003,7 @@ window.AthlevoBrain = {
   connectIntervals,
   syncIntervals,
   refreshIntervalsStatus,
+  diagnoseIntervals,
   onIntervalsRowTap,
   hasTrainingDataConnected,
   buildActivitySummary,

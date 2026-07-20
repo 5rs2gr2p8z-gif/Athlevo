@@ -48,7 +48,9 @@ import {
 const LOG_SAFE = new Set([
   "event", "correlationId", "provider", "status", "code", "httpStatus",
   "imported", "skipped", "failed", "duplicatesMarked", "windows",
-  "durationMs", "reason", "hasLaps", "oldest", "newest"
+  "durationMs", "reason", "hasLaps", "oldest", "newest",
+  // Import diagnostics: counts and shape only — never activity values.
+  "returnedByApi", "unparseableWindows", "count"
 ]);
 
 function log(event, fields = {}) {
@@ -229,10 +231,20 @@ async function markSuperseded(rowId, existingRawData, supersededBy, reason) {
 
 /* ─────────────────────── Intervals.icu API calls ────────────────────── */
 
-async function intervalsFetch(path, accessToken) {
+/*
+ * Every Intervals.icu call goes through here. `meta` is an optional sink that
+ * records what actually happened on the wire (status, shape, count) so a
+ * "returned nothing" outcome can be told apart from a "returned something we
+ * failed to parse" outcome. Never records the token or any activity values.
+ */
+async function intervalsFetch(path, accessToken, meta) {
   const res = await fetch(`${INTERVALS_API_BASE}${path}`, {
     headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }
   });
+  if (meta) {
+    meta.httpStatus = res.status;
+    meta.contentType = res.headers.get("content-type") || null;
+  }
   if (res.status === 401 || res.status === 403) {
     const err = new Error("unauthorized");
     err.authExpired = true;
@@ -244,7 +256,29 @@ async function intervalsFetch(path, accessToken) {
     throw err;
   }
   if (!res.ok) throw new Error(`Intervals.icu request failed (${res.status}).`);
-  return res.json();
+
+  const body = await res.json();
+  if (meta) {
+    meta.isArray = Array.isArray(body);
+    meta.count = Array.isArray(body) ? body.length : null;
+    // Shape only — the KEYS of the response, never the values. Enough to spot
+    // a wrapped payload (e.g. {activities:[…]}) without leaking training data.
+    if (!Array.isArray(body) && body && typeof body === "object") {
+      meta.objectKeys = Object.keys(body).slice(0, 20);
+    }
+  }
+  return body;
+}
+
+/*
+ * Intervals.icu documents athlete id "0" as "the athlete this token belongs
+ * to". We prefer it, but fall back to the id captured at OAuth time if a
+ * probe with "0" comes back empty — cheap insurance against the shorthand
+ * behaving differently for third-party OAuth tokens than for personal keys.
+ */
+function activitiesPath(athleteId, oldest, newest) {
+  return `/athlete/${encodeURIComponent(athleteId)}/activities` +
+    `?oldest=${oldest}&newest=${newest}`;
 }
 
 const ymd = (d) => new Date(d).toISOString().slice(0, 10);
@@ -443,6 +477,9 @@ async function actionSync(request, response, cid) {
 
   let imported = 0, failed = 0, withLaps = 0, duplicatesMarked = 0, windows = 0;
   let newestSeen = null;
+  // Diagnostics: what the API actually returned, before any of our parsing.
+  let returnedByApi = 0, unparseableWindows = 0;
+  const windowReports = [];
 
   try {
     /*
@@ -473,11 +510,50 @@ async function actionSync(request, response, cid) {
 
     for (const range of ranges) {
       windows += 1;
-      const activities = await intervalsFetch(
-        `/athlete/0/activities?oldest=${range.oldest}&newest=${range.newest}`,
-        account.access_token
-      );
-      if (!Array.isArray(activities)) continue;
+
+      const meta = { oldest: range.oldest, newest: range.newest, athleteId: "0" };
+      let activities = await intervalsFetch(
+        activitiesPath("0", range.oldest, range.newest), account.access_token, meta);
+
+      /*
+       * Fallback: if the "0" shorthand yields nothing but we hold the real
+       * athlete id from the OAuth exchange, try that once before concluding
+       * the window is genuinely empty. Costs one request only in the failing
+       * case, and turns an ambiguous zero into a definite answer.
+       */
+      if ((!Array.isArray(activities) || activities.length === 0) && account.provider_athlete_id) {
+        const retry = { oldest: range.oldest, newest: range.newest, athleteId: "explicit" };
+        try {
+          const alt = await intervalsFetch(
+            activitiesPath(account.provider_athlete_id, range.oldest, range.newest),
+            account.access_token, retry);
+          if (Array.isArray(alt) && alt.length) {
+            activities = alt;
+            meta.usedExplicitAthleteId = true;
+            meta.count = alt.length;
+          } else {
+            meta.explicitIdAlsoEmpty = true;
+          }
+        } catch { meta.explicitIdFailed = true; }
+      }
+
+      windowReports.push(meta);
+
+      /*
+       * A non-array response is a CONTRACT MISMATCH, not an empty window.
+       * Previously this was skipped silently, which made "the API returned
+       * nothing" indistinguishable from "we couldn't read what it returned"
+       * — the exact ambiguity behind an imported:0/failed:0 result.
+       */
+      if (!Array.isArray(activities)) {
+        unparseableWindows += 1;
+        log("intervals_sync_shape_mismatch", {
+          correlationId: cid, provider: "intervals",
+          httpStatus: meta.httpStatus, oldest: meta.oldest, newest: meta.newest
+        });
+        continue;
+      }
+      returnedByApi += activities.length;
 
       for (const raw of activities) {
         /*
@@ -559,12 +635,28 @@ async function actionSync(request, response, cid) {
     });
 
     const event = failed > 0 ? "intervals_sync_partial" : "intervals_sync_success";
-    log(event, { correlationId: cid, provider: "intervals", imported, failed, duplicatesMarked, windows, durationMs: Date.now() - started });
+    log(event, {
+      correlationId: cid, provider: "intervals",
+      imported, failed, duplicatesMarked, windows,
+      returnedByApi, unparseableWindows,
+      durationMs: Date.now() - started
+    });
 
+    /*
+     * `returnedByApi` is the number Intervals.icu actually gave us, before any
+     * Athlevo parsing. Combined with `windows`, it makes imported:0 readable
+     * at a glance instead of a mystery:
+     *
+     *   returnedByApi 0, unparseableWindows 0 → the account has no activities
+     *                                           in the requested range
+     *   unparseableWindows > 0                → response shape mismatch
+     *   returnedByApi > 0 but imported 0      → our normalization dropped them
+     */
     return response.status(200).json({
       success: true, provider: "intervals",
       imported, failed, withLaps, duplicatesMarked,
-      status: failed > 0 ? "partial" : "success"
+      status: failed > 0 ? "partial" : "success",
+      diagnostics: { returnedByApi, unparseableWindows, windows, windowReports }
     });
   } catch (error) {
     // Always release the lock, then report a neutral, actionable message.
@@ -585,6 +677,114 @@ async function actionSync(request, response, cid) {
       imported
     });
   }
+}
+
+/* ═══════════════════════════ ACTION: diagnose ════════════════════════ */
+
+/*
+ * Read-only probe of the live Intervals.icu connection. Writes nothing,
+ * imports nothing, and touches no Athlevo data — safe to run repeatedly.
+ *
+ * It exists to make an `imported: 0` result unambiguous by separating the
+ * candidate causes with evidence rather than inference:
+ *
+ *   profile probe fails            → the token is bad (cause 3 / auth)
+ *   "0" empty but explicit id full → the athlete-id shorthand is the problem
+ *   narrow empty, wide has data    → the date window is the problem
+ *   both windows empty             → the account genuinely has no activities
+ *   non-array response             → the response shape is the problem
+ *   array full but sampleKeys odd  → our field mapping is the problem
+ *
+ * Privacy: reports HTTP status, counts, and the KEY NAMES of one sample
+ * activity — never the token, never activity values beyond the athlete's own
+ * id/type/date, which are shown only to that athlete in their own console.
+ */
+async function actionDiagnose(request, response, cid) {
+  const user = await requireUser(request);
+  if (!user?.id) return response.status(401).json({ error: "Authentication is required." });
+
+  const account = await readProviderAccount(user.id, "intervals");
+  if (!account || !account.access_token) {
+    return response.status(404).json({ error: "No Intervals.icu account is connected.", code: "NOT_CONNECTED" });
+  }
+
+  const token = account.access_token;
+  const day = (offsetDays) => ymd(new Date(Date.now() + offsetDays * 86400000));
+  const probes = {};
+
+  const run = async (name, path) => {
+    const meta = { path: path.replace(/^\//, "") };
+    try {
+      const body = await intervalsFetch(path, token, meta);
+      if (Array.isArray(body) && body.length) {
+        const s = body[0];
+        meta.sampleKeys = Object.keys(s).slice(0, 40);
+        // The athlete's own identifiers, so field-name guesses can be checked.
+        meta.sample = {
+          id: s.id ?? null, type: s.type ?? null,
+          start_date_local: s.start_date_local ?? null,
+          start_date: s.start_date ?? null,
+          hasDistance: s.distance != null || s.icu_distance != null,
+          hasMovingTime: s.moving_time != null || s.icu_moving_time != null,
+          source: s.source ?? null
+        };
+      }
+    } catch (error) {
+      meta.error = error && error.authExpired ? "AUTH_EXPIRED"
+        : (error && error.rateLimited ? "RATE_LIMITED" : "REQUEST_FAILED");
+    }
+    probes[name] = meta;
+  };
+
+  // 1. Does the token work at all, and who does it resolve to?
+  await run("athleteProfile", "/athlete/0");
+  // 2. The exact window the real sync uses (180 days back).
+  await run("syncWindow180d", activitiesPath("0", day(-FIRST_SYNC_DAYS), day(0)));
+  // 3. Same window, explicit athlete id — isolates the "0" shorthand.
+  if (account.provider_athlete_id) {
+    await run("explicitAthleteId", activitiesPath(account.provider_athlete_id, day(-FIRST_SYNC_DAYS), day(0)));
+  }
+  // 4. Very wide window — separates "no recent activities" from "no activities".
+  await run("wideWindow3y", activitiesPath("0", day(-1095), day(1)));
+
+  // A plain-language reading of the evidence, so the answer isn't left to
+  // interpretation.
+  const n = (k) => (probes[k] && typeof probes[k].count === "number") ? probes[k].count : null;
+  let verdict;
+  if (probes.athleteProfile && probes.athleteProfile.error) {
+    verdict = `Token rejected by Intervals.icu (${probes.athleteProfile.error}). Reconnect the account.`;
+  } else if (Object.values(probes).some(p => p.isArray === false && p.count === null && !p.error && p.path.includes("activities"))) {
+    verdict = "Activities endpoint returned a non-array — response shape mismatch. See objectKeys.";
+  } else if (n("syncWindow180d") === 0 && n("explicitAthleteId") > 0) {
+    verdict = "Athlete id '0' returns nothing but the explicit id works — the shorthand is the cause.";
+  } else if (n("syncWindow180d") === 0 && n("wideWindow3y") > 0) {
+    verdict = "No activities in the last 180 days, but older ones exist — the date window is the cause.";
+  } else if (n("syncWindow180d") === 0 && n("wideWindow3y") === 0) {
+    verdict = "Intervals.icu genuinely has zero activities for this account in any window. " +
+      "Connect Garmin/COROS/Strava inside Intervals.icu and let it backfill, then sync again.";
+  } else if (n("syncWindow180d") > 0) {
+    verdict = `Intervals.icu returns ${n("syncWindow180d")} activities in the sync window — ` +
+      "the API is fine, so a zero import points at normalization or the upsert.";
+  } else {
+    verdict = "Inconclusive — see the probe details.";
+  }
+
+  log("intervals_diagnose", {
+    correlationId: cid, provider: "intervals",
+    httpStatus: probes.syncWindow180d ? probes.syncWindow180d.httpStatus : null,
+    count: n("syncWindow180d")
+  });
+
+  return response.status(200).json({
+    provider: "intervals",
+    connectionStatus: account.status,
+    hasAthleteId: Boolean(account.provider_athlete_id),
+    scope: account.scope || null,
+    lastSyncAt: account.last_sync_at || null,
+    lastSyncStatus: account.last_sync_status || null,
+    verdict,
+    probes
+  });
 }
 
 /* ═════════════════════ ACTIONS: status / disconnect ══════════════════ */
@@ -664,6 +864,7 @@ export default async function handler(request, response) {
 
     if (action === "connect") return actionConnect(request, response, cid);
     if (action === "sync") return actionSync(request, response, cid);
+    if (action === "diagnose") return actionDiagnose(request, response, cid);
     if (action === "status") return actionStatus(request, response);
     if (action === "disconnect") return actionDisconnect(request, response, cid);
 
