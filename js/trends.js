@@ -58,12 +58,30 @@
   const THRESH_RE = /threshold|tempo|cruise/i;
   const EASY_RE = /easy|recovery|long|foundation|steady|base|jog|shakeout|stability/i;
 
-  // Canonical intensity bucket from a type string. Unnamed/plain runs are
-  // treated as easy for volume but NOT counted as quality/threshold/high —
-  // we never infer intensity from pace alone.
+  /*
+   * SEED intensity from a type string only. This is NOT a competing
+   * classifier: it delegates its keyword→type decision to the canonical
+   * engine (AthlevoWorkoutClassifier) so there is ONE keyword vocabulary,
+   * and every item is then overwritten by the full canonical classification
+   * in applyClassification() (laps → plan → title → metrics). Kept as a
+   * seed/fallback for callers that run before the engine is available.
+   */
   function classify(typeText) {
     const t = String(typeText || "").toLowerCase();
     if (!t) return { intensity: "easy", quality: false, known: false };
+
+    const W = (typeof window !== "undefined") ? window.AthlevoWorkoutClassifier : null;
+    if (W && typeof W.titleType === "function" && typeof W.intensityOf === "function") {
+      // Canonical keyword vocabulary + intensity mapping (single source).
+      const type = W.titleType(t);
+      if (type) {
+        const intensity = W.intensityOf(type);
+        return { intensity, quality: intensity !== "easy", known: true };
+      }
+      return { intensity: "easy", quality: false, known: false };
+    }
+
+    // Engine not loaded yet — minimal legacy seed (still overwritten later).
     if (HIGH_RE.test(t)) return { intensity: "high", quality: true, known: true };
     if (THRESH_RE.test(t)) return { intensity: "threshold", quality: true, known: true };
     if (EASY_RE.test(t)) return { intensity: "easy", quality: false, known: true };
@@ -211,7 +229,9 @@
         maxHr: linked ? num(linked.max_heartrate) : num(e.actual_average_hr),
         maxSpeed: linked ? num(linked.max_speed_mps) : null,
         elapsedSec: linked ? num(linked.elapsed_time_seconds) : null,
-        laps: linked && linked.raw_data ? (linked.raw_data.laps || linked.raw_data.splits || null) : null,
+        // Laps arrive either aliased (`laps:raw_data->laps` from the activity
+        // loader) or nested under raw_data — accept both shapes.
+        laps: linked ? (linked.laps || (linked.raw_data && (linked.raw_data.laps || linked.raw_data.splits)) || null) : null,
         plannedSnapshot: (snap && (snap.session_type || snap.main_set)) ? { session_type: snap.session_type, main_set: snap.main_set } : null
       });
     });
@@ -265,7 +285,7 @@
         maxHr: num(a.max_heartrate),
         maxSpeed: num(a.max_speed_mps),
         elapsedSec: num(a.elapsed_time_seconds),
-        laps: a.raw_data ? (a.raw_data.laps || a.raw_data.splits || null) : null,
+        laps: a.laps || (a.raw_data && (a.raw_data.laps || a.raw_data.splits)) || null,
         plannedSnapshot: null
       });
     });

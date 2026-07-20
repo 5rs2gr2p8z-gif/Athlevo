@@ -1655,11 +1655,13 @@ async function loadAthleteActivitiesUncached(limit = 200) {
         average_speed_mps,
         average_heartrate,
         max_heartrate,
+        max_speed_mps,
         average_cadence,
         start_date,
         timezone,
         trainer,
-        commute
+        commute,
+        laps:raw_data->laps
       `)
       .eq("user_id", user.id)
       .order("start_date", { ascending: false })

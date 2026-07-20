@@ -260,7 +260,17 @@
     };
   }
 
-  var api = { classifyActivity: classifyActivity, detectFromLaps: detectFromLaps, paceZone: paceZone, intensityOf: intensityOf, VERSION: "workout-classifier-v1" };
+  var api = {
+    classifyActivity: classifyActivity,
+    detectFromLaps: detectFromLaps,
+    paceZone: paceZone,
+    intensityOf: intensityOf,
+    // Exported so other modules (e.g. the Trends seed) use ONE keyword
+    // vocabulary instead of maintaining a competing regex set.
+    titleType: titleType,
+    plannedType: plannedType,
+    VERSION: "workout-classifier-v1"
+  };
   if (root) root.AthlevoWorkoutClassifier = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : (typeof globalThis !== "undefined" ? globalThis : this));
