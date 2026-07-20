@@ -1825,6 +1825,33 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
    LANDING PAGE — premium marketing (athlevo.org entry)
    Full-width when body.landing-active; reuses brand tokens.
    ═══════════════════════════════════════════════════════════════════ */
+/* ── Boot gate ──────────────────────────────────────────────────────────
+   A FIXED OVERLAY, not a screen in the normal flow. That distinction is what
+   removes layout shift: the destination surface (full-bleed landing or the
+   phone-framed app shell) is laid out underneath while the overlay is still
+   opaque, so the reveal is a fade, never a reflow.
+
+   The overlay is tied to body.booting rather than to .active, so it survives
+   until routing genuinely finishes — the athlete sees a populated Today, not
+   an empty one filling in.
+
+   The spinner is delayed ~450ms and fades in, so the normal fast restore
+   (session comes from localStorage) shows a still background and no spinner
+   at all — it reads as instant rather than as a flash of loading UI. */
+#boot-gate{position:fixed;inset:0;z-index:9998;background:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+  opacity:1;transition:opacity .18s ease}
+body:not(.booting) #boot-gate{opacity:0;pointer-events:none;visibility:hidden}
+body.booting #tabbar{display:none!important}
+.boot-spinner{width:26px;height:26px;border-radius:50%;
+  border:2px solid var(--line);border-top-color:var(--ink2);
+  opacity:0;animation:bootFade .25s ease .45s forwards, bootSpin .7s linear infinite}
+@keyframes bootSpin{to{transform:rotate(360deg)}}
+@keyframes bootFade{to{opacity:1}}
+@media (prefers-reduced-motion:reduce){
+  .boot-spinner{animation:bootFade .25s ease .45s forwards}
+  #boot-gate{transition:none}
+}
 body.landing-active{background:var(--paper)}
 body.landing-active .device{max-width:none;border-radius:0;box-shadow:none;margin:0;min-height:100dvh;background:var(--paper)}
 body.landing-active #tabbar{display:none!important}
@@ -1961,11 +1988,27 @@ body.landing-active #tabbar{display:none!important}
 }
 </style>
 </head>
-<body class="landing-active">
+<body class="booting">
+
+<!--
+  ══════════════ BOOT GATE ══════════════
+  A fixed, opaque overlay painted on the very first frame — before any script
+  runs. NO screen is marked active in static markup, so neither the marketing
+  landing nor the app shell can appear until session restoration resolves.
+  This is what stopped the landing page flashing inside the installed PWA.
+
+  Contentless by design: it inherits the theme background already applied by
+  the inline theme script in <head>, so it reads as "the app is opening"
+  rather than as a screen of its own.
+-->
+<div id="boot-gate" aria-hidden="true">
+  <div class="boot-spinner"></div>
+</div>
+
 <div class="device">
 
 <!-- ══════════════ LANDING (premium marketing) ══════════════ -->
-<section class="screen lp active" id="screen-landing">
+<section class="screen lp" id="screen-landing">
 
   <nav class="lp-nav">
     <div class="lp-wrap lp-nav-in">
@@ -3214,6 +3257,14 @@ window.landingSignIn = landingSignIn;
 // because closeAuth() no longer manipulates history.
 function renderNavState(state) {
   var nav = (state && state.athlevoNav) || 'landing';
+  /*
+   * Back must never drop a signed-in athlete onto marketing, and the
+   * installed app has no marketing surface at all. In both cases the
+   * signed-out entry screen is the correct floor.
+   */
+  if (nav === 'landing' && (athlevoSessionUserId || isStandaloneMode())) {
+    nav = 'entry';
+  }
   var modal = document.getElementById('authModal');
   var modalOpen = modal && modal.style.display === 'flex';
   var tb = document.getElementById('tabbar');
@@ -3501,8 +3552,16 @@ async function doLogout() {
     AthlevoBrain.invalidateActivityCache();
   }
 
+  athlevoSessionUserId = null;
+
   document.getElementById('tabbar').style.display = 'none';
-  showScreen('screen-landing');
+  /*
+   * Symmetric with boot: signing out of the installed app returns to the
+   * login/signup screen, not to marketing. In a browser the landing page is
+   * the correct signed-out home.
+   */
+  showScreen(isStandaloneMode() ? 'screen-welcome' : 'screen-landing');
+  if (!isStandaloneMode()) updateOpenAppUI(false);
 }
 window.doLogout = doLogout;
 
@@ -3684,6 +3743,12 @@ function decide(btn,msg){
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  /*
+   * Deliberately does NOT lift the boot gate. Screens are laid out underneath
+   * the opaque overlay so the reveal is a fade with no reflow — and so the
+   * authenticated path can finish loading data before Today becomes visible.
+   * endBootGate() owns the reveal.
+   */
   // Landing is the only full-width marketing screen; everything else runs
   // inside the phone-framed app shell.
   document.body.classList.toggle('landing-active', id==='screen-landing');
@@ -3793,55 +3858,102 @@ async function openAthlevoApp() {
 window.openAthlevoApp = openAthlevoApp;
 
 /*
- * Decides the entry surface. Returns true when the athlete was routed INTO
- * the authenticated app (so the caller runs the post-auth Strava sync), and
- * false when we are showing a public surface (landing / welcome) instead.
+ * ══════════════════════════════════════════════════════════════════════
+ *  The router. Nothing paints until this resolves.
+ * ══════════════════════════════════════════════════════════════════════
  *
- *   · Normal browser  → always show the marketing landing first. If a valid
- *                       session exists, reveal "Open App" (never auto-force
- *                       into Today). The Strava OAuth return (?strava=…) is
- *                       the one exception: the athlete was mid-flow inside
- *                       the app, so send them back into the app.
- *   · Installed PWA   → no marketing page. Valid session → straight into the
- *                       app; otherwise the original welcome (login/signup).
+ * Returns true when the athlete was routed INTO the authenticated app (so
+ * the caller runs the post-auth sync), false for a public surface.
+ *
+ *   authenticated (browser OR installed PWA) → the app
+ *   no session, normal browser               → marketing landing
+ *   no session, installed PWA                → welcome (login/signup)
+ *
+ * The marketing landing is now unreachable for a signed-in athlete. It was
+ * previously shown to EVERY browser visitor regardless of session — that was
+ * deliberate once ("never auto-force into Today"), and it is the behaviour
+ * being corrected here: a returning athlete should land in Today, not on a
+ * page selling them a product they already use.
  */
 async function restoreSession(opts) {
   opts = opts || {};
-  const {
-    data: { session },
-    error
-  } = await supabaseClient.auth.getSession();
 
-  if (error) console.error("Session restore failed:", error);
-
-  athlevoSessionUserId = session ? session.user.id : null;
-  const standalone = isStandaloneMode();
-
-  if (standalone) {
-    if (session) {
-      console.log("Session restored (standalone):", session.user.email);
-      await routeAfterAuth(session.user.id);
-      return true;
-    }
-    // Installed app, no session → original login/signup entry.
-    document.getElementById('tabbar').style.display = 'none';
-    showScreen("screen-welcome");
-    return false;
+  /*
+   * getSession() reads the persisted session from localStorage and, when the
+   * access token has expired, refreshes it over the network. The refresh is
+   * the only slow path — and the only reason a boot gate is needed at all.
+   *
+   * It is raced against a timeout so a dead network can never leave the
+   * athlete staring at the boot screen forever. On timeout we fall through
+   * to the unauthenticated surface, which is recoverable (they can sign in)
+   * rather than a hang, which is not.
+   */
+  let session = null;
+  try {
+    const result = await Promise.race([
+      supabaseClient.auth.getSession(),
+      new Promise(resolve =>
+        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 8000))
+    ]);
+    if (result.timedOut) console.warn("Session restore timed out — showing signed-out state.");
+    if (result.error) console.error("Session restore failed:", result.error);
+    session = result.data ? result.data.session : null;
+  } catch (error) {
+    console.error("Session restore threw:", error);
   }
 
-  // Normal browser. Strava OAuth return with a live session → back into app.
-  if (opts.returningFromStrava && session) {
-    console.log("Session restored (Strava return):", session.user.email);
+  athlevoSessionUserId = session ? session.user.id : null;
+
+  // Authenticated → into the app, in BOTH browser and installed PWA.
+  // routeAfterAuth is onboarding-aware, so a first-time athlete still gets
+  // onboarding rather than being dropped into an empty Today.
+  if (session) {
+    console.log("Session restored:", session.user.email);
     await routeAfterAuth(session.user.id);
     return true;
   }
 
-  // Public landing. Reveal "Open App" when signed in; never force Today.
+  // No session. The installed app must never show marketing — an athlete
+  // who opened their training app wants to sign in, not read a pitch.
   document.getElementById('tabbar').style.display = 'none';
-  showScreen("screen-landing");
-  updateOpenAppUI(!!session);
+  if (isStandaloneMode()) {
+    showScreen("screen-welcome");
+  } else {
+    showScreen("screen-landing");
+    updateOpenAppUI(false);
+  }
   return false;
 }
+
+/*
+ * Lifts the boot gate. Called from a finally block, so a thrown error
+ * anywhere in routing can never strand the athlete behind a blank overlay.
+ * If routing somehow selected no surface, fall back to a signed-out one
+ * rather than revealing nothing.
+ */
+function endBootGate() {
+  if (!document.body.classList.contains('booting')) return;   // idempotent
+  const anyVisible = document.querySelector('.screen.active');
+  if (!anyVisible) {
+    document.getElementById('tabbar').style.display = 'none';
+    showScreen(isStandaloneMode() ? "screen-welcome" : "screen-landing");
+  }
+  document.body.classList.remove('booting');
+}
+
+/*
+ * Safety valve. The gate normally lifts when routing completes, which
+ * includes the post-auth data load — that is deliberate, so Today reveals
+ * populated rather than empty. But a slow network must not hold a blank
+ * overlay indefinitely, so the gate lifts regardless after 6 seconds and the
+ * app fills in behind it as data arrives.
+ */
+setTimeout(function () {
+  if (document.body.classList.contains('booting')) {
+    console.warn("Boot gate released on timeout — the app will finish loading in place.");
+    endBootGate();
+  }
+}, 6000);
 </script>
 <!-- Auth modals -->
 <div id="authModal" style="display:none;">
@@ -4168,10 +4280,20 @@ async function restoreSession(opts) {
     const stravaResult = url.searchParams.get("strava");
     const justConnected = stravaResult === "connected";
 
-    // restoreSession() decides the entry surface (landing / welcome / app).
-    // It returns true only when the athlete was routed INTO the app, so the
-    // Strava sync below never runs while a public landing page is showing.
-    const enteredApp = await restoreSession({ returningFromStrava: !!stravaResult });
+    /*
+     * restoreSession() decides the entry surface (landing / welcome / app).
+     * It returns true only when the athlete was routed INTO the app, so the
+     * sync below never runs while a public landing page is showing.
+     *
+     * The boot gate is lifted in `finally` — whatever happens, including an
+     * unexpected throw, the athlete ends up on a real screen.
+     */
+    let enteredApp = false;
+    try {
+      enteredApp = await restoreSession({ returningFromStrava: !!stravaResult });
+    } finally {
+      endBootGate();
+    }
 
     // Report the OAuth result (success, cancellation, or failure) and
     // strip the parameter from the URL. The authenticated session is

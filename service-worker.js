@@ -16,7 +16,7 @@
  *  activate. No coaching logic, auth, or API behaviour is affected.
  */
 
-const CACHE_VERSION = "athlevo-shell-v15";
+const CACHE_VERSION = "athlevo-shell-v16";
 const SHELL = [
   "/",
   "/index.html",
@@ -71,10 +71,24 @@ self.addEventListener("fetch", event => {
   // Dynamic / private → straight to the network, no cache involvement.
   if (isNeverCache(url)) return;
 
-  // Navigations: network-first, fall back to the cached app shell offline.
+  /*
+   * Navigations: network-first, cached shell only as an offline fallback.
+   *
+   * This is what stops an outdated shell dictating routing. The shell decides
+   * landing-vs-app, so serving a stale one could resurrect the old boot
+   * markup (which painted the marketing page before auth resolved). A fresh
+   * shell is always preferred; the cache is refreshed on every successful
+   * navigation so the offline copy can't drift far behind.
+   */
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() =>
+      fetch(request).then(response => {
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_VERSION).then(cache => cache.put("/index.html", copy));
+        }
+        return response;
+      }).catch(() =>
         caches.match("/index.html").then(r => r || caches.match("/"))
       )
     );
