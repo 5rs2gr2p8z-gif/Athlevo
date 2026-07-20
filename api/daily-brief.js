@@ -1,4 +1,5 @@
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
+import { checkAiRateLimit } from "../lib/server/rateLimit.js";
 import { summarizeExecutionRecord } from "../lib/server/executionRecords.js";
 import { applyActivityOverrides } from "../lib/server/coachActions.js";
 import {
@@ -879,6 +880,19 @@ export default async function handler(req, res) {
       return sendJson(res, 401, {
         error:
           "The authenticated user could not be verified."
+      });
+    }
+
+    // Per-athlete AI rate limit (fails open if the limiter is unavailable).
+    const briefLimit = await checkAiRateLimit(user.id, "daily-brief");
+    if (!briefLimit.allowed) {
+      console.warn(JSON.stringify({
+        event: "ai_rate_limited", endpoint: "daily-brief",
+        retryAfterSeconds: briefLimit.retryAfterSeconds
+      }));
+      return sendJson(res, 429, {
+        error: "You've reached the limit for now. Please try again shortly.",
+        retryAfterSeconds: briefLimit.retryAfterSeconds
       });
     }
 

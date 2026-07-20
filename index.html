@@ -3469,6 +3469,12 @@ async function doLogout() {
   }
   AthlevoBrain.resetAthleteUI();
 
+  // Never let a signed-out athlete's cached activities survive into the next
+  // session (or another athlete on a shared device).
+  if (typeof AthlevoBrain.invalidateActivityCache === "function") {
+    AthlevoBrain.invalidateActivityCache();
+  }
+
   document.getElementById('tabbar').style.display = 'none';
   showScreen('screen-landing');
 }
@@ -4004,6 +4010,12 @@ async function restoreSession(opts) {
 
       const importedCount = Number(result?.activitiesSaved) || 0;
       console.log(`Imported ${importedCount} Strava activities.`);
+
+      // A successful sync may have changed the activity set — drop the cached
+      // activity list so Today/Trends/Train/Score/Coach never render stale data.
+      if (typeof AthlevoBrain.invalidateActivityCache === "function") {
+        AthlevoBrain.invalidateActivityCache();
+      }
 
       // Only a genuine success advances the cooldown clock.
       setLastStravaSync(userId);

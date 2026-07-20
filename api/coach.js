@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
+import { checkAiRateLimit, rateLimitResponse } from "../lib/server/rateLimit.js";
 
 /*
  * Authentication gate (same pattern as every other Athlevo endpoint).
@@ -198,9 +199,22 @@ export default async function handler(req, res) {
   const accessToken = getBearerToken(req);
   const authenticatedUser = await getAuthenticatedUser(accessToken);
   if (!authenticatedUser?.id) {
+    console.warn(JSON.stringify({
+      event: "ai_auth_failed", endpoint: "coach", correlationId: randomUUID()
+    }));
     return res.status(401).json({
       error: "Your Athlevo session is invalid or expired. Please sign in again."
     });
+  }
+
+  // Per-athlete rate limit (fails open if the limiter itself is unavailable).
+  const limit = await checkAiRateLimit(authenticatedUser.id, "coach");
+  if (!limit.allowed) {
+    console.warn(JSON.stringify({
+      event: "ai_rate_limited", endpoint: "coach", correlationId: randomUUID(),
+      retryAfterSeconds: limit.retryAfterSeconds
+    }));
+    return rateLimitResponse(res, limit);
   }
 
   try {

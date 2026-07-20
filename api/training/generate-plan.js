@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { buildAthlevoMethodPrompt } from "../../lib/server/athlevoMethod.js";
 
 import {
@@ -1743,6 +1744,43 @@ const weekStart =
 
 const weekEnd =
   addDays(weekStart, 6);
+
+    /*
+     * ── Idempotency guard ─────────────────────────────────────────────
+     * Double-clicks, retries, refreshes and two open tabs all POST here.
+     * If a plan already exists for the target week we return it instead of
+     * calling the model again — no duplicate AI spend, no rewritten week.
+     * An EXPLICIT rebuild (body/query `regenerate: true`) still regenerates,
+     * so legitimate regeneration and future plan updates are unaffected.
+     * (Row-level duplication is separately impossible: sessions upsert on
+     * conflict (user_id, session_date).)
+     */
+    const explicitRegenerate =
+      (request.body && (request.body.regenerate === true || request.body.regenerate === "true")) ||
+      (request.query && (request.query.regenerate === "true" || request.query.regenerate === true));
+
+    if (!explicitRegenerate) {
+      const existingWeek = await optionalSupabaseRequest(
+        `training_sessions?user_id=eq.${encodeURIComponent(user.id)}` +
+          `&plan_week_start=eq.${encodeURIComponent(formatDateKey(weekStart))}` +
+          `&select=id&limit=1`
+      );
+      if (Array.isArray(existingWeek) && existingWeek.length > 0) {
+        console.log(
+          JSON.stringify({
+            event: "plan_generation_duplicate_prevented",
+            correlationId: randomUUID(),
+            weekStart: formatDateKey(weekStart)
+          })
+        );
+        return response.status(200).json({
+          success: true,
+          alreadyExists: true,
+          weekStart: formatDateKey(weekStart),
+          message: "A training plan already exists for this week."
+        });
+      }
+    }
 
     const targetRace =
       getTargetRaceName(profile);

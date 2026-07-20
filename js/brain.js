@@ -1562,7 +1562,61 @@ async function countAthleteActivities() {
   }
 }
 
-async function loadAthleteActivities(limit = 200) {
+/*
+ * ── Activity load: request de-duplication + short-lived cache ──────────
+ *
+ * loadAthleteActivities is called from ~13 places; a single render used to
+ * fire that many identical 200-row Supabase queries. Concurrent callers for
+ * the SAME authenticated user + limit now share ONE in-flight promise, and a
+ * short TTL cache serves repeat calls within a render lifecycle.
+ *
+ * Safety: the cache key includes the authenticated user id, so one athlete's
+ * activities can never be returned to another. Invalidate explicitly after a
+ * successful sync / import / logout via invalidateActivityCache().
+ */
+const ACTIVITY_CACHE_TTL_MS = 30000;
+let __activityCache = { key: null, at: 0, data: null };
+let __activityInflight = null; // { key, promise }
+
+function invalidateActivityCache() {
+  __activityCache = { key: null, at: 0, data: null };
+  __activityInflight = null;
+}
+
+async function loadAthleteActivities(limit = 200, options) {
+  const forceRefresh = !!(options && options.forceRefresh);
+  let uid = null;
+  try { uid = (await supabaseClient.auth.getUser()).data?.user?.id || null; } catch (e) { uid = null; }
+  if (!uid) return [];
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 200);
+  const key = `${uid}:${safeLimit}`;
+
+  if (!forceRefresh) {
+    if (__activityCache.key === key && __activityCache.data &&
+        Date.now() - __activityCache.at < ACTIVITY_CACHE_TTL_MS) {
+      return __activityCache.data;
+    }
+    if (__activityInflight && __activityInflight.key === key) {
+      return __activityInflight.promise;   // share the in-flight request
+    }
+  }
+
+  const promise = loadAthleteActivitiesUncached(safeLimit)
+    .then(rows => {
+      __activityCache = { key, at: Date.now(), data: rows };
+      return rows;
+    })
+    .finally(() => {
+      if (__activityInflight && __activityInflight.key === key) __activityInflight = null;
+    });
+
+  __activityInflight = { key, promise };
+  return promise;
+}
+
+// The real query (unchanged behaviour) — always hits Supabase.
+async function loadAthleteActivitiesUncached(limit = 200) {
   const {
     data: { user },
     error: userError
@@ -1715,6 +1769,7 @@ function buildActivitySummary(activities = []) {
 window.AthlevoBrain = {
   loadAthleteProfile,
   loadAthleteActivities,
+  invalidateActivityCache,
   buildActivitySummary,
   buildCoachingContext,
   updateTodayDashboard,
