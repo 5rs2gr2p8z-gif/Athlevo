@@ -149,6 +149,153 @@ async function attachActivityLaps(activities, accessToken, cap) {
   return activities;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+ *  HISTORICAL LAP BACKFILL
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ *  The normal sync only enriches the ~20 most recent runs, so older
+ *  structured sessions (threshold / VO2 / repetitions) never received lap
+ *  data and the canonical classifier could not recognise them.
+ *
+ *  This walks EXISTING stored activities (never re-importing, never
+ *  inserting) and fills in `raw_data.laps` for one small batch at a time.
+ *
+ *  · Source        : GET /activities/{id}/laps — one request per activity,
+ *                    exactly the shape detectFromLaps() consumes.
+ *  · Duplicates    : rows are matched by their Strava id and PATCHed by row
+ *                    id. Nothing is inserted, so no activity can duplicate.
+ *  · Rate limits   : small batches, sequential, spaced; stops immediately on
+ *                    HTTP 429 and reports so the caller can wait.
+ *  · Resumable     : every processed row gets `raw_data.laps_checked = true`
+ *                    (plus `laps` when the activity really is structured), so
+ *                    the next run selects only rows that were never checked.
+ *                    Re-running is therefore idempotent and continues where
+ *                    it stopped.
+ *  · Priority      : runs first, longest-first within the batch window, since
+ *                    those are the ones that carry quality structure.
+ */
+
+const BACKFILL_DEFAULT_BATCH = 25;
+
+async function loadBackfillCandidates(userId, limit) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` };
+
+  // Only rows never checked before → this is what makes the job resumable.
+  const url =
+    `${supabaseUrl}/rest/v1/activities` +
+    `?user_id=eq.${encodeURIComponent(userId)}` +
+    `&source=eq.strava` +
+    `&raw_data->laps_checked=is.null` +
+    `&moving_time_seconds=gte.900` +
+    `&select=id,external_activity_id,sport_type,activity_type,moving_time_seconds,raw_data` +
+    `&order=start_date.desc` +
+    `&limit=${Number(limit) || BACKFILL_DEFAULT_BATCH}`;
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) return [];
+  const rows = await res.json();
+  // Classification only needs runs.
+  return (Array.isArray(rows) ? rows : []).filter(r =>
+    /run/i.test(r.sport_type || r.activity_type || "")
+  );
+}
+
+// PATCH only raw_data on ONE existing row (never an insert).
+async function patchActivityRawData(rowId, rawData) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/activities?id=eq.${encodeURIComponent(rowId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({ raw_data: rawData, updated_at: new Date().toISOString() })
+    }
+  );
+  return res.ok;
+}
+
+async function countRemainingBackfill(userId) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/activities` +
+      `?user_id=eq.${encodeURIComponent(userId)}` +
+      `&source=eq.strava&raw_data->laps_checked=is.null&moving_time_seconds=gte.900&select=id`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Prefer: "count=exact",
+        Range: "0-0"
+      }
+    }
+  );
+  const range = res.headers.get("content-range") || "";
+  const total = Number(String(range).split("/")[1]);
+  return Number.isFinite(total) ? total : null;
+}
+
+async function runLapBackfill(userId, accessToken, batchSize) {
+  const candidates = await loadBackfillCandidates(userId, batchSize);
+  let processed = 0, withLaps = 0, rateLimited = false;
+
+  for (const row of candidates) {
+    if (!row.external_activity_id) continue;
+
+    let laps = null;
+    try {
+      const res = await fetch(
+        `https://www.strava.com/api/v3/activities/${row.external_activity_id}/laps`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.status === 429) { rateLimited = true; break; }   // stop, don't hammer
+      if (res.ok) {
+        const body = await res.json();
+        if (Array.isArray(body)) laps = body;
+      }
+    } catch (error) {
+      laps = null;   // transient failure → leave unchecked, retried next run
+    }
+
+    // Mark as checked either way so the job always makes forward progress.
+    const rawData = (row.raw_data && typeof row.raw_data === "object") ? row.raw_data : {};
+    rawData.laps_checked = true;
+    if (laps && laps.length > 1) {
+      rawData.laps = laps.map(l => ({
+        distance: l.distance,
+        moving_time: l.moving_time,
+        elapsed_time: l.elapsed_time,
+        average_speed: l.average_speed,
+        average_heartrate: l.average_heartrate,
+        lap_index: l.lap_index
+      }));
+      withLaps += 1;
+    }
+
+    const ok = await patchActivityRawData(row.id, rawData);
+    if (ok) processed += 1;
+
+    await new Promise(r => setTimeout(r, 180));   // gentle, rate-limit friendly
+  }
+
+  const remaining = await countRemainingBackfill(userId);
+  return {
+    processed,
+    withLaps,
+    rateLimited,
+    remaining,
+    done: !rateLimited && (remaining === 0 || candidates.length === 0)
+  };
+}
+
 async function fetchStravaActivities(accessToken) {
   const activities = [];
   const pageSize = 100;
@@ -315,6 +462,32 @@ export default async function handler(request, response) {
     }
 
     const activeAccount = await refreshStravaToken(storedAccount);
+
+    /*
+     * Historical lap backfill mode. Updates EXISTING rows only — it never
+     * imports or inserts activities, so it cannot duplicate anything and it
+     * cannot change mileage totals. Call repeatedly until `done: true`.
+     */
+    const requestedMode = (request.body && request.body.mode) || (request.query && request.query.mode);
+    if (requestedMode === "backfill") {
+      const batchSize = Math.min(
+        Math.max(Number((request.body && request.body.batchSize) || BACKFILL_DEFAULT_BATCH), 1),
+        50
+      );
+      const result = await runLapBackfill(
+        authenticatedUser.id,
+        activeAccount.access_token,
+        batchSize
+      );
+      console.log(JSON.stringify({
+        event: "strava_lap_backfill_batch",
+        processed: result.processed,
+        withLaps: result.withLaps,
+        remaining: result.remaining,
+        rateLimited: result.rateLimited
+      }));
+      return response.status(200).json({ success: true, mode: "backfill", ...result });
+    }
 
     const stravaActivities = await fetchStravaActivities(
       activeAccount.access_token

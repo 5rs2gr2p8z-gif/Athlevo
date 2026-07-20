@@ -1583,6 +1583,59 @@ function invalidateActivityCache() {
   __activityInflight = null;
 }
 
+/*
+ * Historical Strava lap backfill (dev/manual). Repeatedly asks the server for
+ * one small batch until every historical run has been checked, then drops the
+ * activity cache so the canonical classifier re-runs over the enriched rows.
+ *
+ * Console:  await AthlevoBrain.backfillStravaLaps()
+ */
+async function backfillStravaLaps(options) {
+  const opts = options || {};
+  const batchSize = Number(opts.batchSize) || 25;
+  const maxBatches = Number(opts.maxBatches) || 40;   // safety stop
+  let totals = { processed: 0, withLaps: 0, batches: 0 };
+
+  for (let i = 0; i < maxBatches; i += 1) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { console.warn("Not signed in."); break; }
+
+    const res = await fetch("/api/strava/sync", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ mode: "backfill", batchSize })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { console.error("Backfill failed:", data.error || res.status); break; }
+
+    totals.processed += Number(data.processed) || 0;
+    totals.withLaps += Number(data.withLaps) || 0;
+    totals.batches += 1;
+    console.log(
+      `[lap backfill] batch ${totals.batches}: checked ${data.processed}, ` +
+      `laps found ${data.withLaps}, remaining ${data.remaining}`
+    );
+
+    if (data.rateLimited) {
+      console.warn("[lap backfill] Strava rate limit reached — wait ~15 min and run again.");
+      break;
+    }
+    if (data.done || (Number(data.processed) || 0) === 0) break;
+  }
+
+  // Fresh classification over the newly enriched rows.
+  invalidateActivityCache();
+  console.log(
+    `[lap backfill] finished — ${totals.processed} activities checked, ` +
+    `${totals.withLaps} now have lap structure.`
+  );
+  return totals;
+}
+
 async function loadAthleteActivities(limit = 200, options) {
   const forceRefresh = !!(options && options.forceRefresh);
   let uid = null;
@@ -1772,6 +1825,7 @@ window.AthlevoBrain = {
   loadAthleteProfile,
   loadAthleteActivities,
   invalidateActivityCache,
+  backfillStravaLaps,
   buildActivitySummary,
   buildCoachingContext,
   updateTodayDashboard,
