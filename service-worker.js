@@ -16,7 +16,7 @@
  *  activate. No coaching logic, auth, or API behaviour is affected.
  */
 
-const CACHE_VERSION = "athlevo-shell-v14";
+const CACHE_VERSION = "athlevo-shell-v15";
 const SHELL = [
   "/",
   "/index.html",
@@ -34,6 +34,7 @@ const NEVER_CACHE = [
   "supabase.co",
   "strava.com",
   "tryterra.co",
+  "intervals.icu",
   "/auth/",
   "openai.com"
 ];

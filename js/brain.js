@@ -659,6 +659,10 @@ function updateAthleteProfileScreens(profile) {
       : "Not connected";
   }
 
+  // Intervals.icu state lives server-side (tokens never reach the browser),
+  // so it is fetched rather than read from the profile row.
+  refreshIntervalsStatus(profile);
+
   if (garminMark) {
     garminMark.textContent = profile.garmin_connected ? "✓" : "—";
   }
@@ -1583,6 +1587,141 @@ function invalidateActivityCache() {
   __activityInflight = null;
 }
 
+/* ══════════════════ Intervals.icu (provider-agnostic) ══════════════════
+ *
+ * Intervals.icu is a peer of Strava, not a replacement: an athlete blocked by
+ * Strava's athlete limit can bring Garmin/COROS training in this way instead.
+ * Both write the same normalized `activities` rows, so everything downstream
+ * — classifier, Today, Train, Trends, Score, Coach — is unchanged.
+ */
+
+const INTERVALS_ENDPOINT = "/api/providers?provider=intervals";
+
+async function providerRequest(action, body) {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) throw new Error("Please sign in first.");
+  const res = await fetch(`${INTERVALS_ENDPOINT}&action=${action}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify(body || {})
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const error = new Error(data.error || "Something went wrong. Please try again.");
+    error.code = data.code;
+    throw error;
+  }
+  return data;
+}
+
+async function connectIntervals() {
+  try {
+    setIntervalsUi("connecting");
+    const { authorizationUrl } = await providerRequest("connect");
+    if (!authorizationUrl) throw new Error("Couldn't start the connection.");
+    window.location.href = authorizationUrl;
+  } catch (error) {
+    setIntervalsUi("failed", error.message);
+    if (typeof toast === "function") toast(error.message);
+  }
+}
+
+async function syncIntervals() {
+  try {
+    setIntervalsUi("syncing");
+    const result = await providerRequest("sync");
+    // New activities mean the cached set is stale — drop it so the canonical
+    // classifier re-runs and every screen picks the new training up.
+    invalidateActivityCache();
+    const note = result.imported
+      ? `Imported ${result.imported} activit${result.imported === 1 ? "y" : "ies"}`
+      : "Already up to date";
+    setIntervalsUi(result.status === "partial" ? "partial" : "synced", note);
+    if (typeof toast === "function") toast(note + ".");
+    return result;
+  } catch (error) {
+    // A failed sync never damages the connection or existing data.
+    const reconnect = error.code === "RECONNECT_REQUIRED";
+    setIntervalsUi(reconnect ? "reconnect" : "failed", error.message);
+    if (typeof toast === "function") toast(error.message);
+    throw error;
+  }
+}
+
+async function refreshIntervalsStatus(profile) {
+  try {
+    const s = await providerRequest("status");
+    /*
+     * Stamp the result onto the profile so activation gates (plan setup, the
+     * Today CTA) can read it synchronously alongside strava_connected. The
+     * flag is derived server-side; no token ever reaches the browser.
+     */
+    if (profile) profile.intervals_connected = Boolean(s && s.connected);
+    if (!s.available) { setIntervalsUi("unavailable"); return s; }
+    if (!s.connected) { setIntervalsUi("idle"); return s; }
+    setIntervalsUi(
+      s.status === "reconnect_required" ? "reconnect" : "connected",
+      s.lastSync ? `Last synced ${new Date(s.lastSync).toLocaleDateString()}` : null
+    );
+    return s;
+  } catch {
+    setIntervalsUi("idle");
+    return null;
+  }
+}
+
+// One place that owns every connection state the athlete can see.
+function setIntervalsUi(state, detail) {
+  const row = document.getElementById("intervalsConnectionRow");
+  const status = document.getElementById("intervalsConnectionStatus");
+  const mark = document.getElementById("intervalsConnectionMark");
+  if (!status || !mark) return;
+
+  const STATES = {
+    idle:        { text: "Not connected", mark: "—" },
+    unavailable: { text: "Coming soon", mark: "—" },
+    connecting:  { text: "Connecting…", mark: "…" },
+    connected:   { text: "Connected — tap to sync", mark: "✓" },
+    syncing:     { text: "Syncing…", mark: "…" },
+    synced:      { text: "Sync complete", mark: "✓" },
+    partial:     { text: "Synced — some activities were skipped", mark: "✓" },
+    failed:      { text: "Sync failed — tap to retry", mark: "!" },
+    reconnect:   { text: "Reconnect required — tap to reconnect", mark: "!" }
+  };
+  const s = STATES[state] || STATES.idle;
+  status.textContent = detail || s.text;
+  mark.textContent = s.mark;
+  if (row) row.dataset.state = state;
+}
+
+/*
+ * Tapping the row does the right thing for the current state: connect when
+ * not connected, sync when connected, reconnect when the token is stale.
+ */
+async function onIntervalsRowTap() {
+  const row = document.getElementById("intervalsConnectionRow");
+  const state = row ? row.dataset.state : "idle";
+  if (state === "syncing" || state === "connecting") return;
+  if (state === "connected" || state === "synced" || state === "partial" || state === "failed") {
+    return syncIntervals().catch(() => {});
+  }
+  return connectIntervals();
+}
+
+/*
+ * Provider-agnostic activation. "Training data connected" must NOT mean
+ * "Strava connected" — an Intervals.icu athlete is just as connected, and
+ * onboarding/plan generation gate on this rather than on any one provider.
+ */
+async function hasTrainingDataConnected(profile) {
+  if (profile && profile.strava_connected === true) return true;
+  const status = await providerRequest("status").catch(() => null);
+  return Boolean(status && status.connected);
+}
+
 /*
  * Historical Strava lap backfill (dev/manual). Repeatedly asks the server for
  * one small batch until every historical run has been checked, then drops the
@@ -1714,7 +1853,8 @@ async function loadAthleteActivitiesUncached(limit = 200) {
         timezone,
         trainer,
         commute,
-        laps:raw_data->laps
+        laps:raw_data->laps,
+        superseded:raw_data->superseded
       `)
       .eq("user_id", user.id)
       .order("start_date", { ascending: false })
@@ -1728,13 +1868,26 @@ async function loadAthleteActivitiesUncached(limit = 200) {
     return [];
   }
 
+  /*
+   * Cross-provider duplicate filter. When an athlete connects BOTH Strava and
+   * Intervals.icu, the same real workout can exist twice. The importer flags
+   * the non-canonical copy (never deletes it), and it is dropped here — once,
+   * at the single point where every screen gets its activities — so Today,
+   * Train, Trends, Athlevo Score and the Coach all agree automatically and
+   * nothing downstream needed to change.
+   */
+  const all = activities || [];
+  const visible = all.filter(a => a.superseded !== true);
+  const hidden = all.length - visible.length;
+
   console.log(
-    `Loaded ${activities?.length || 0} activities for athlete:`,
-    user.id
+    `Loaded ${visible.length} activities for athlete:`,
+    user.id,
+    hidden ? `(${hidden} cross-provider duplicate${hidden === 1 ? "" : "s"} hidden)` : ""
   );
 
   // Guarantee newest-first regardless of how the rows arrived.
-  return sortActivitiesByStartDesc(activities || []);
+  return sortActivitiesByStartDesc(visible);
 }
 
 function buildActivitySummary(activities = []) {
@@ -1826,6 +1979,11 @@ window.AthlevoBrain = {
   loadAthleteActivities,
   invalidateActivityCache,
   backfillStravaLaps,
+  connectIntervals,
+  syncIntervals,
+  refreshIntervalsStatus,
+  onIntervalsRowTap,
+  hasTrainingDataConnected,
   buildActivitySummary,
   buildCoachingContext,
   updateTodayDashboard,

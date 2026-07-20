@@ -484,6 +484,13 @@ input,textarea,select{color:var(--text)}
 .integ-row .in{flex:1}
 .integ-row b{font-size:14px;font-weight:650;display:block}
 .integ-row small{font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px}
+/* One-line explanation of what a gateway provider brings in. */
+.integ-row .integ-hint{font-size:11px;color:var(--ink3);margin-top:2px;line-height:1.35;display:block}
+.integ-row[data-state="connecting"],.integ-row[data-state="syncing"]{opacity:.65}
+.integ-row[data-state="failed"] #intervalsConnectionMark,
+.integ-row[data-state="reconnect"] #intervalsConnectionMark{color:var(--bad)}
+.integ-row[data-state="connected"] #intervalsConnectionMark,
+.integ-row[data-state="synced"] #intervalsConnectionMark{color:var(--good)}
 .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--good)}
 .sync-dot.pulse{animation:pulse 1.4s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
@@ -2880,6 +2887,25 @@ body.landing-active #tabbar{display:none!important}
     <span id="stravaConnectionMark">—</span>
   </div>
 
+  <div
+  class="integ-row"
+  id="intervalsConnectionRow"
+  data-state="idle"
+  onclick="AthlevoBrain.onIntervalsRowTap()"
+  role="button"
+  tabindex="0"
+>
+    <div class="ilogo">I</div>
+
+    <div class="in">
+      <b>Intervals.icu</b>
+      <small id="intervalsConnectionStatus">Not connected</small>
+      <small class="integ-hint">Import training from supported platforms such as Garmin and COROS.</small>
+    </div>
+
+    <span id="intervalsConnectionMark">—</span>
+  </div>
+
   <div class="integ-row">
     <div class="ilogo">G</div>
 
@@ -4080,6 +4106,42 @@ async function restoreSession(opts) {
   }
 
   window.syncStravaNow = syncStravaNow;
+
+  /*
+   * Intervals.icu OAuth return. Mirrors the Strava handler: a calm toast, no
+   * tokens or raw provider errors, and the ?intervals= param is stripped so a
+   * refresh doesn't replay the message. On success we kick off the first
+   * import immediately — connecting and then seeing nothing would feel broken.
+   */
+  function handleIntervalsResult(state, message) {
+    if (!state) return;
+    if (state === "connected") {
+      if (typeof toast === "function") toast("Intervals.icu connected — importing your training…");
+      if (window.AthlevoBrain && AthlevoBrain.syncIntervals) {
+        AthlevoBrain.syncIntervals().catch(() => {});
+      }
+    } else if (state === "cancelled") {
+      if (typeof toast === "function") toast("Intervals.icu connection was cancelled");
+    } else {
+      if (typeof toast === "function") toast(message || "Could not connect Intervals.icu — please try again");
+    }
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("intervals");
+      url.searchParams.delete("message");
+      window.history.replaceState({}, "", url.toString());
+    } catch {}
+  }
+
+  window.handleIntervalsResult = handleIntervalsResult;
+
+  (function checkIntervalsReturn() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const state = params.get("intervals");
+      if (state) handleIntervalsResult(state, params.get("message"));
+    } catch {}
+  })();
 
   // Surfaces the Strava OAuth outcome as a calm toast. Never exposes
   // tokens or raw error details.

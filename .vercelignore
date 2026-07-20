@@ -1,0 +1,14 @@
+# Athlevo — files excluded from the Vercel deployment.
+#
+# api/terra/ is the DORMANT Terra gateway. Its behaviour now lives in the
+# generic api/providers/index.js router (?provider=terra), so deploying the
+# old file would spend one of the 12 Hobby-plan serverless function slots on
+# a duplicate that nothing calls.
+#
+# Excluded rather than deleted so the original is still in the repo and the
+# change is trivially reversible: delete this line to bring it back.
+api/terra/
+
+# Not part of the deployed app.
+migrations/
+tests/

@@ -54,7 +54,12 @@
     const mount = document.getElementById("planSetupBody");
     if (!mount) return;
     const p = profile || {};
-    const connected = p.strava_connected === true;
+    /*
+     * Provider-agnostic activation. An athlete blocked by Strava's athlete
+     * limit can connect Intervals.icu instead and is just as "connected" —
+     * gating on Strava specifically would lock them out of plan generation.
+     */
+    const connected = p.strava_connected === true || p.intervals_connected === true;
 
     const goal = p.goal || p.goal_distance || p.target_distance || null;
     const race = p.target_race || p.race || null;
@@ -239,7 +244,9 @@
     const el = document.getElementById("todayPlanCta");
     if (!el) return;
     if (has !== false) { el.style.display = "none"; el.innerHTML = ""; return; }
-    const connected = profile && profile.strava_connected === true;
+    // Provider-agnostic: Strava OR Intervals.icu both count as connected.
+    const connected = Boolean(profile &&
+      (profile.strava_connected === true || profile.intervals_connected === true));
     el.style.display = "block";
     el.innerHTML = connected
       ? `<div class="tpc-cta">
