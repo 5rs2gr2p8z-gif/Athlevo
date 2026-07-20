@@ -39,12 +39,31 @@ speedLaps.push({ distance: 2000, moving_time: 700 });
 
 const ZONES = { easySec: 330, thresholdSec: 282, intervalSec: 255, repetitionSec: 235, maxHr: 190 };
 
+/*
+ * PRODUCTION SCHEMA CONTRACT. These are the ONLY columns activities has.
+ * Note the absence of created_at — assuming one is what broke the verifier
+ * in production with Postgres 42703. Import time lives in
+ * raw_data.normalized.importedAt, not in a row-creation column.
+ */
+const REAL_COLUMNS = new Set([
+  "id", "user_id", "source", "external_activity_id", "name", "sport_type",
+  "activity_type", "distance_meters", "moving_time_seconds",
+  "elapsed_time_seconds", "elevation_gain_meters", "average_speed_mps",
+  "max_speed_mps", "average_heartrate", "max_heartrate", "average_cadence",
+  "start_date", "timezone", "trainer", "commute", "private", "updated_at",
+  "raw_data"
+]);
+
 let ID = 0;
 const row = (o) => ({
-  id: "row-" + (++ID), name: "Run", sport_type: "run", activity_type: "Run",
-  distance_meters: 10000, moving_time_seconds: 3000, elapsed_time_seconds: 3100,
-  average_heartrate: 150, max_heartrate: 175, trainer: false,
-  created_at: iso(now), raw_data: {}, ...o
+  id: "row-" + (++ID), user_id: "u1", name: "Run", sport_type: "run",
+  activity_type: "Run", distance_meters: 10000, moving_time_seconds: 3000,
+  elapsed_time_seconds: 3100, elevation_gain_meters: 30,
+  average_speed_mps: 3.3, max_speed_mps: 4.1, average_heartrate: 150,
+  max_heartrate: 175, average_cadence: 170, timezone: "Asia/Manila",
+  trainer: false, commute: false,
+  updated_at: iso(now),
+  raw_data: { normalized: { importedAt: iso(now) } }, ...o
 });
 
 function buildDataset() {
@@ -126,10 +145,34 @@ const sandbox = {
   console,
   supabaseClient: {
     auth: { getUser: async () => ({ data: { user: { id: "u1" } } }) },
-    from: () => {
-      const q = { _from: 0, _to: 499 };
-      q.select = () => q; q.eq = () => q; q.order = () => q;
-      q.range = (a, b) => { q._from = a; q._to = b; return Promise.resolve({ data: DATA.slice(a, b + 1), error: null }); };
+    from: (table) => {
+      if (table !== "activities") {
+        throw new Error(`Verifier queried unexpected table "${table}"`);
+      }
+      const q = { _cols: [], _order: null };
+      q.select = (cols) => {
+        // Emulate PostgREST: unknown column -> 42703, same as production.
+        q._cols = String(cols).split(",").map(c => c.trim()).filter(Boolean);
+        const bad = q._cols.filter(c => !REAL_COLUMNS.has(c.split(":")[0]));
+        if (bad.length) {
+          const err = new Error(`column activities.${bad[0]} does not exist`);
+          err.code = "42703";
+          q._error = err;
+        }
+        return q;
+      };
+      q.eq = () => q;
+      q.order = (col) => {
+        if (!REAL_COLUMNS.has(col)) {
+          const err = new Error(`column activities.${col} does not exist`);
+          err.code = "42703";
+          q._error = err;
+        }
+        q._order = col; return q;
+      };
+      q.range = (a, b) => Promise.resolve(
+        q._error ? { data: null, error: q._error }
+                 : { data: DATA.slice(a, b + 1), error: null });
       return q;
     }
   },
@@ -225,6 +268,56 @@ t("detects that the 200-row cap hides canonical activities",
 t("cap is reported as 200", R.truncation.loaderCap === 200);
 t("superseded rows consume cap slots (counted before filtering)",
   R.truncation.canonicalAfterCap <= R.truncation.rowsLoaderSees);
+
+section("Production schema contract");
+{
+  const v = readFileSync("./js/productionVerify.js", "utf8");
+
+  // 1. Nothing selects or orders by a column that does not exist.
+  const cols = v.match(/const cols = `([\s\S]*?)`/)[1]
+    .replace(/\s+/g, "").split(",").filter(Boolean);
+  const bad = cols.filter(c => !REAL_COLUMNS.has(c.split(":")[0]));
+  t("every selected column exists in production", bad.length === 0, bad.join(","));
+
+  const orders = [...v.matchAll(/\.order\("([a-z_]+)"/g)].map(m => m[1]);
+  const badOrder = orders.filter(c => !REAL_COLUMNS.has(c));
+  t("every ordered column exists in production", badOrder.length === 0, badOrder.join(","));
+  t("chronology is ordered by start_date, not an import timestamp",
+    orders.includes("start_date"), orders.join(","));
+
+  // 2. The specific regression: created_at must never come back.
+  t("no created_at anywhere in executable code",
+    !/[^*/\s]\s*created_at/.test(v.replace(/\/\*[\s\S]*?\*\//g, "")),
+    "created_at still referenced outside comments");
+
+  // 3. Import time reads the normalizer stamp, not a row-creation column.
+  t("import time comes from raw_data.normalized.importedAt",
+    /n && n\.importedAt/.test(v));
+
+  // 4. Only the activities table is touched.
+  const tables = [...v.matchAll(/\.from\("([a-z_]+)"\)/g)].map(m => m[1]);
+  t("verifier reads only the activities table",
+    tables.every(x => x === "activities"), tables.join(","));
+}
+
+section("The old bug is now caught by the harness");
+{
+  // Prove the PostgREST double actually rejects a bad column, so a future
+  // schema assumption fails in tests instead of in production.
+  let caught = null;
+  const q = sandbox.supabaseClient.from("activities").select("id,created_at");
+  const r = await q.range(0, 10);
+  caught = r.error;
+  t("selecting a non-existent column returns Postgres 42703",
+    caught && caught.code === "42703", caught ? caught.message : "no error raised");
+  t("...with the same message production gave",
+    caught && /column activities\.created_at does not exist/.test(caught.message));
+
+  const o = sandbox.supabaseClient.from("activities").select("id").order("created_at");
+  const r2 = await o.range(0, 10);
+  t("ordering by a non-existent column also fails",
+    r2.error && r2.error.code === "42703");
+}
 
 section("Read-only guarantee");
 {

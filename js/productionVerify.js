@@ -39,10 +39,19 @@
   async function loadAllActivities() {
     const { data: { user } } = await sb().auth.getUser();
     if (!user) throw new Error("Not signed in.");
-    const cols = `id,source,external_activity_id,name,sport_type,activity_type,
-      distance_meters,moving_time_seconds,elapsed_time_seconds,average_speed_mps,
-      max_speed_mps,average_heartrate,max_heartrate,start_date,timezone,trainer,
-      created_at,raw_data`.replace(/\s+/g, "");
+    /*
+     * SCHEMA CONTRACT — every column here is one the production loader in
+     * js/brain.js already selects successfully, plus `updated_at` (written by
+     * toActivityRow on every import). The `activities` table has NO
+     * `created_at`; an earlier version of this file assumed one and failed
+     * with Postgres 42703. Activity chronology comes from `start_date`, and
+     * import time from raw_data.normalized.importedAt — never from a
+     * row-creation timestamp that does not exist.
+     */
+    const cols = `id,user_id,source,external_activity_id,name,sport_type,activity_type,
+      distance_meters,moving_time_seconds,elapsed_time_seconds,elevation_gain_meters,
+      average_speed_mps,max_speed_mps,average_heartrate,max_heartrate,average_cadence,
+      start_date,timezone,trainer,commute,updated_at,raw_data`.replace(/\s+/g, "");
 
     const all = [];
     const PAGE = 500;
@@ -62,6 +71,21 @@
   const isSuperseded = (r) => Boolean(r.raw_data && r.raw_data.superseded === true);
   const laps = (r) => (r.raw_data && Array.isArray(r.raw_data.laps)) ? r.raw_data.laps : null;
 
+  /*
+   * When was this row imported? The table has no row-creation column, so the
+   * authoritative source is the normalizer's own stamp, written into raw_data
+   * by toActivityRow for every provider. `updated_at` is only a fallback and
+   * a poor one — it is rewritten by the lap backfill and by duplicate
+   * marking, so it drifts away from true import time.
+   */
+  const importedAt = (r) => {
+    const n = r.raw_data && r.raw_data.normalized;
+    return (n && n.importedAt) || r.updated_at || null;
+  };
+
+  // Activity chronology is ALWAYS start_date — when the workout happened.
+  const startMs = (r) => Date.parse(r.start_date);
+
   /* ── duplicate detection (mirrors the server rules exactly) ──────── */
 
   function upstreamStravaId(r) {
@@ -80,7 +104,7 @@
     const sa = String(a.sport_type || "").toLowerCase();
     const sb_ = String(b.sport_type || "").toLowerCase();
     if (!sa || sa !== sb_) return false;
-    const ta = Date.parse(a.start_date), tb = Date.parse(b.start_date);
+    const ta = startMs(a), tb = startMs(b);
     if (!isFinite(ta) || !isFinite(tb) || Math.abs(ta - tb) > 5 * 60000) return false;
     const near = (x, y, tol) => {
       x = Number(x); y = Number(y);
@@ -128,7 +152,7 @@
 
   function sumKm(rows, sinceMs) {
     const m = rows
-      .filter(r => isRun(r) && (!sinceMs || Date.parse(r.start_date) >= sinceMs))
+      .filter(r => isRun(r) && (!sinceMs || startMs(r) >= sinceMs))
       .reduce((s, r) => s + (Number(r.distance_meters) || 0), 0);
     return Math.round(m / 100) / 10;
   }
@@ -199,8 +223,8 @@
     /* 2. the 53-vs-58 question — where do the Intervals rows actually sit? */
     const iv = rows.filter(r => r.source === "intervals");
     const now = Date.now();
-    const in180 = iv.filter(r => Date.parse(r.start_date) >= now - 180 * DAY);
-    const outside180 = iv.filter(r => Date.parse(r.start_date) < now - 180 * DAY);
+    const in180 = iv.filter(r => startMs(r) >= now - 180 * DAY);
+    const outside180 = iv.filter(r => startMs(r) < now - 180 * DAY);
     const ivDates = iv.map(r => r.start_date).filter(Boolean).sort();
     const ivSports = {};
     iv.forEach(r => { const s = r.sport_type || "?"; ivSports[s] = (ivSports[s] || 0) + 1; });
@@ -314,6 +338,7 @@
         externalId: row.external_activity_id,
         name: row.name,
         date: row.start_date,
+        importedAt: importedAt(row),
         distanceKm: km(row.distance_meters),
         movingTime: row.moving_time_seconds,
         lapCount: laps(row) ? laps(row).length : 0,
