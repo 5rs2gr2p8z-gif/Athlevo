@@ -275,7 +275,8 @@ section("Back-navigation floor");
 section("Service worker");
 {
   const sw = readFileSync("./service-worker.js", "utf8");
-  t("cache version bumped to v16", /athlevo-shell-v16/.test(sw));
+  const v = Number((sw.match(/athlevo-shell-v(\d+)/) || [])[1] || 0);
+  t("cache version is at or past the routing fix (v16+)", v >= 16, `v${v}`);
   t("navigations are network-first (stale shell can't dictate routing)",
     /request\.mode === "navigate"[\s\S]{0,200}fetch\(request\)\.then/.test(sw));
   t("successful navigation refreshes the cached shell",
