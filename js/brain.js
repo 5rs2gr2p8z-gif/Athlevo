@@ -1619,6 +1619,18 @@ async function providerRequest(action, body) {
   return data;
 }
 
+/*
+ * Completes an OAuth connection that the callback deliberately left pending.
+ *
+ * The provider redirect could not prove who is signed in, so nothing was
+ * saved. This call carries the CURRENT Supabase Bearer token; the server
+ * compares its user.id against the account that started the flow and refuses
+ * to save if they differ. The completion token is opaque and single-use.
+ */
+async function finalizeIntervals(completion) {
+  return providerRequest("finalize", { completion });
+}
+
 async function connectIntervals() {
   try {
     setIntervalsUi("connecting");
@@ -2128,6 +2140,7 @@ window.AthlevoBrain = {
   invalidateActivityCache,
   backfillStravaLaps,
   connectIntervals,
+  finalizeIntervals,
   syncIntervals,
   refreshIntervalsStatus,
   diagnoseIntervals,

@@ -183,6 +183,11 @@
           authProblem: /Token rejected|reconnect/i.test((report && report.verdict) || "")
         };
       } catch (error) {
+        /*
+         * A NOT_CONNECTED reply means there is no provider row at all — the
+         * opposite of "connected but empty". Saying "Athlevo is connected,
+         * but we can't see any workouts" in that case is simply false.
+         */
         return { ok: false, count: 0, reason: "error", error };
       }
     },

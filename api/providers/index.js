@@ -152,6 +152,7 @@ async function findOwnerByProviderAthlete(provider, athleteId) {
   }
 }
 
+
 async function upsertProviderAccount(row) {
   const url = process.env.SUPABASE_URL;
   const res = await fetch(
@@ -162,6 +163,16 @@ async function upsertProviderAccount(row) {
       body: JSON.stringify([{ ...row, updated_at: new Date().toISOString() }])
     }
   );
+  if (!res.ok) {
+    // Previously this returned a bare false, so a schema/constraint rejection
+    // was indistinguishable from a network failure.
+    let code = "";
+    try {
+      const body = await res.json();
+      code = String(body && body.code || "").slice(0, 12);   // e.g. "42P10", "42703"
+    } catch (e) {}
+    log("provider_write_failed", { provider: row.provider, httpStatus: res.status, code });
+  }
   return res.ok;
 }
 
@@ -173,6 +184,119 @@ async function patchProviderAccount(id, patch) {
     body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() })
   });
   return res.ok;
+}
+
+
+/* ═══════════════ pending connections (secure OAuth handoff) ══════════ */
+
+/*
+ * The provider callback cannot authenticate the browser — a redirect from
+ * Intervals.icu carries no Supabase Bearer token. So credentials are parked
+ * here, encrypted, and promoted to provider_accounts only by an authenticated
+ * finalize call whose user.id matches the account that started the flow.
+ */
+
+const PENDING_TTL_MS = 8 * 60 * 1000;   // 8 minutes: long enough to sign in again
+
+/*
+ * Derived from OAUTH_STATE_SECRET with a distinct info string, so encryption
+ * and state-signing never share key material and no new env var is required.
+ * PROVIDER_ENCRYPTION_KEY overrides it if operators prefer a separate key.
+ */
+function encryptionKey() {
+  const explicit = process.env.PROVIDER_ENCRYPTION_KEY;
+  if (explicit) return crypto.createHash("sha256").update(explicit).digest();
+  const base = process.env.OAUTH_STATE_SECRET;
+  if (!base) throw new Error("Server encryption secret is not configured.");
+  return crypto.hkdfSync("sha256", Buffer.from(base, "utf8"),
+    Buffer.alloc(0), Buffer.from("athlevo:provider:pending:v1", "utf8"), 32);
+}
+
+function encryptPayload(obj) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", Buffer.from(encryptionKey()), iv);
+  const ct = Buffer.concat([cipher.update(JSON.stringify(obj), "utf8"), cipher.final()]);
+  return [iv.toString("base64url"), cipher.getAuthTag().toString("base64url"),
+          ct.toString("base64url")].join(".");
+}
+
+/*
+ * Returns null on ANY tampering. GCM's auth tag makes a modified ciphertext
+ * throw rather than decrypt to attacker-chosen plaintext.
+ */
+function decryptPayload(packed) {
+  try {
+    const [ivB, tagB, ctB] = String(packed).split(".");
+    if (!ivB || !tagB || !ctB) return null;
+    const d = crypto.createDecipheriv("aes-256-gcm", Buffer.from(encryptionKey()),
+      Buffer.from(ivB, "base64url"));
+    d.setAuthTag(Buffer.from(tagB, "base64url"));
+    return JSON.parse(Buffer.concat([d.update(Buffer.from(ctB, "base64url")), d.final()]).toString("utf8"));
+  } catch { return null; }
+}
+
+// The DB stores only the hash; the raw token lives in the URL and nowhere else.
+const hashToken = (raw) => crypto.createHash("sha256").update(String(raw)).digest("hex");
+
+async function createPendingConnection({ userId, provider, athleteId, credentials }) {
+  const url = process.env.SUPABASE_URL;
+  const raw = crypto.randomBytes(32).toString("base64url");
+  const res = await fetch(`${url}/rest/v1/pending_provider_connections`, {
+    method: "POST",
+    headers: { ...sbHeaders(), Prefer: "return=minimal" },
+    body: JSON.stringify([{
+      token_hash: hashToken(raw),
+      user_id: userId,
+      provider,
+      provider_athlete_id: String(athleteId),
+      payload_encrypted: encryptPayload(credentials),
+      expires_at: new Date(Date.now() + PENDING_TTL_MS).toISOString()
+    }])
+  });
+  return res.ok ? raw : null;
+}
+
+/*
+ * ATOMIC single-use consume.
+ *
+ * The `consumed_at=is.null` filter is what makes this replay- and race-safe:
+ * Postgres serialises the two UPDATEs, so of N concurrent finalize calls
+ * exactly one matches an unconsumed row and the rest come back empty. The
+ * check is done BY THE DATABASE, not by a read-then-write in JS.
+ */
+async function consumePendingConnection(rawToken) {
+  const url = process.env.SUPABASE_URL;
+  const res = await fetch(
+    `${url}/rest/v1/pending_provider_connections` +
+    `?token_hash=eq.${encodeURIComponent(hashToken(rawToken))}&consumed_at=is.null`,
+    {
+      method: "PATCH",
+      headers: { ...sbHeaders(), Prefer: "return=representation" },
+      body: JSON.stringify({ consumed_at: new Date().toISOString() })
+    }
+  );
+  if (!res.ok) return { ok: false, code: "LOOKUP_FAILED" };
+  const rows = await res.json();
+  const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  // Absent, already consumed, or never existed — all indistinguishable by
+  // design, so a probe cannot tell a used token from a forged one.
+  if (!row) return { ok: false, code: "COMPLETION_INVALID" };
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    return { ok: false, code: "COMPLETION_EXPIRED" };
+  }
+  const credentials = decryptPayload(row.payload_encrypted);
+  if (!credentials) return { ok: false, code: "COMPLETION_INVALID" };
+  return { ok: true, row, credentials };
+}
+
+// Best-effort housekeeping; never blocks or fails a request.
+async function purgeExpiredPending() {
+  const url = process.env.SUPABASE_URL;
+  try {
+    await fetch(
+      `${url}/rest/v1/pending_provider_connections?expires_at=lt.${encodeURIComponent(new Date().toISOString())}`,
+      { method: "DELETE", headers: { ...sbHeaders(), Prefer: "return=minimal" } });
+  } catch (e) { /* housekeeping only */ }
 }
 
 /* ───────────────────────── activity persistence ─────────────────────── */
@@ -373,13 +497,15 @@ async function actionConnect(request, response, cid) {
 
 async function actionCallback(request, response, cid) {
   const origin = getAppReturnOrigin();
-  const backToApp = (status, message, reason) => {
+  const backToApp = (status, message, reason, completion) => {
     const target = new URL(`${origin}/index.html`);
     target.searchParams.set("intervals", status);
     if (message) target.searchParams.set("message", message);
     // A machine-readable reason so the app can react correctly rather than
     // inferring the cause from prose. Never contains athlete data.
     if (reason) target.searchParams.set("reason", reason);
+    // Opaque, single-use, short-lived. Never a provider credential.
+    if (completion) target.searchParams.set("completion", completion);
     response.setHeader("Location", target.toString());
     return response.status(302).end();
   };
@@ -456,42 +582,44 @@ async function actionCallback(request, response, cid) {
     );
   }
 
-  const saved = await upsertProviderAccount({
-    user_id: payload.userId,
+  /*
+   * DO NOT WRITE provider_accounts HERE.
+   *
+   * This request is a redirect from Intervals.icu. It has no Authorization
+   * header, so we cannot know which Athlevo account is signed into the browser
+   * right now — only which one STARTED the flow, minutes ago. Saving here
+   * trusted that assumption and silently wrote the row to the wrong user when
+   * the session had changed.
+   *
+   * Instead: park the credentials encrypted, hand the browser an opaque
+   * one-time token, and let the AUTHENTICATED finalize call decide.
+   */
+  const completion = await createPendingConnection({
+    userId: payload.userId,
     provider: "intervals",
-    provider_athlete_id: athleteId,
-    access_token: token.access_token,
-    // Documented: Intervals.icu issues long-lived access tokens and does NOT
-    // use refresh tokens. Storing nulls is honest rather than inventing a
-    // refresh cycle that the provider has no endpoint for.
-    refresh_token: null,
-    token_expires_at: null,
-    scope: token.scope || INTERVALS_SCOPE,
-    /*
-     * Reconnect path. The upsert targets (user_id, provider), so an athlete
-     * re-authorising UPDATES their existing row in place — a second
-     * provider_accounts row is structurally impossible.
-     *
-     * These three fields must be reset explicitly, not just the token:
-     *   status           → back to connected, clearing reconnect_required
-     *   last_sync_status → a stale "failed" would keep the UI looking broken
-     *   sync_started_at  → a stale lock from the failed sync would otherwise
-     *                      reject the first sync after reconnecting with
-     *                      SYNC_IN_PROGRESS for up to five minutes
-     */
-    status: "connected",
-    last_sync_status: null,
-    sync_started_at: null,
-    connected_at: new Date().toISOString()
+    athleteId,
+    credentials: {
+      access_token: token.access_token,
+      refresh_token: null,        // Intervals.icu issues no refresh tokens
+      token_expires_at: null,
+      scope: token.scope || INTERVALS_SCOPE
+    }
   });
 
-  if (!saved) {
-    log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "PERSIST" });
+  if (!completion) {
+    log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "PENDING_PERSIST" });
     return backToApp("failed", "We connected to Intervals.icu but couldn't save it. Please try again.");
   }
 
-  log("intervals_oauth_success", { correlationId: cid, provider: "intervals" });
-  return backToApp("connected");
+  purgeExpiredPending();   // fire-and-forget housekeeping
+
+  /*
+   * Only the opaque completion token travels in the URL. It is a random
+   * 32-byte value; the database holds only its SHA-256. No provider token,
+   * athlete id, or user id is exposed to the browser, history, or referrer.
+   */
+  log("intervals_oauth_pending", { correlationId: cid, provider: "intervals" });
+  return backToApp("pending", null, null, completion);
 }
 
 /* ═════════════════════════════ ACTION: sync ══════════════════════════ */
@@ -504,6 +632,116 @@ const MAX_WINDOWS = 3;         // hard ceiling per sync call
 const MAX_LAP_FETCHES = 30;    // per sync — one extra request per activity
 const SYNC_LOCK_MS = 5 * 60 * 1000;
 
+/* ═══════════════════════ ACTION: finalize ════════════════════════════ */
+
+/*
+ * The security boundary of the whole OAuth flow.
+ *
+ * The callback proved that Intervals.icu authorised SOMEONE. This endpoint
+ * proves WHO is asking — and refuses to save the connection unless that is
+ * the same Athlevo account that started it.
+ *
+ * Identity comes exclusively from requireUser(). No user id is ever accepted
+ * from the client, and no cookie participates.
+ */
+async function actionFinalize(request, response, cid) {
+  const user = await requireUser(request);
+  if (!user?.id) {
+    return response.status(401).json({ error: "Authentication is required.", code: "UNAUTHENTICATED" });
+  }
+
+  const completion = request.body && request.body.completion;
+  if (!completion || typeof completion !== "string") {
+    return response.status(400).json({ error: "Missing completion token.", code: "COMPLETION_MISSING" });
+  }
+
+  /*
+   * Consumed FIRST, atomically. Even a request that turns out to belong to the
+   * wrong account burns the token — a mismatch must invalidate the pending
+   * connection rather than leave it available for another attempt.
+   */
+  const pending = await consumePendingConnection(completion);
+  if (!pending.ok) {
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: pending.code });
+    return response.status(pending.code === "LOOKUP_FAILED" ? 503 : 400).json({
+      error: pending.code === "COMPLETION_EXPIRED"
+        ? "That connection took too long to complete. Please connect again."
+        : "That connection link is no longer valid. Please connect again.",
+      code: pending.code
+    });
+  }
+
+  const row = pending.row;
+
+  /*
+   * THE CHECK THIS ENTIRE REFACTOR EXISTS FOR.
+   *
+   * Never silently move, overwrite or relink an account between Athlevo users.
+   * The pending row is already consumed above, so a mismatch cannot be retried.
+   */
+  if (String(row.user_id) !== String(user.id)) {
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "SESSION_CHANGED" });
+    return response.status(409).json({
+      error: "Your Athlevo account changed while connecting your training data. " +
+             "For security, please restart the connection from the account you want to use.",
+      code: "SESSION_CHANGED"
+    });
+  }
+
+  // Re-checked here, not just in the callback: ownership can change in between.
+  const owner = await findOwnerByProviderAthlete("intervals", row.provider_athlete_id);
+  if (!owner.ok) {
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP" });
+    return response.status(503).json({
+      error: "We couldn't save the connection just now. Please try again in a moment.",
+      code: "OWNERSHIP_LOOKUP"
+    });
+  }
+  if (owner.userId && owner.userId !== String(user.id)) {
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED" });
+    return response.status(409).json({
+      error: "This Intervals.icu account is already connected to another Athlevo account.",
+      code: "ALREADY_LINKED"
+    });
+  }
+
+  const saved = await upsertProviderAccount({
+    user_id: user.id,                       // from requireUser(), never the client
+    provider: "intervals",
+    provider_athlete_id: row.provider_athlete_id,
+    access_token: pending.credentials.access_token,
+    refresh_token: pending.credentials.refresh_token,
+    token_expires_at: pending.credentials.token_expires_at,
+    scope: pending.credentials.scope,
+    /*
+     * Reconnect path. The upsert targets (user_id, provider), so re-authorising
+     * UPDATES the existing row — a second provider_accounts row is structurally
+     * impossible, which is also what makes concurrent finalize calls safe.
+     *
+     * These three must be reset explicitly, not just the token:
+     *   status           → clears reconnect_required
+     *   last_sync_status → a stale "failed" keeps the UI looking broken
+     *   sync_started_at  → a stale lock would reject the first sync with
+     *                      SYNC_IN_PROGRESS for up to five minutes
+     */
+    status: "connected",
+    last_sync_status: null,
+    sync_started_at: null,
+    connected_at: new Date().toISOString()
+  });
+
+  if (!saved) {
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "PERSIST" });
+    return response.status(503).json({
+      error: "We connected to Intervals.icu but couldn't save it. Please try again.",
+      code: "PERSIST"
+    });
+  }
+
+  log("intervals_finalize_success", { correlationId: cid, provider: "intervals" });
+  return response.status(200).json({ success: true, connected: true });
+}
+
 async function actionSync(request, response, cid) {
   const started = Date.now();
   const user = await requireUser(request);
@@ -511,7 +749,13 @@ async function actionSync(request, response, cid) {
 
   const account = await readProviderAccount(user.id, "intervals");
   if (!account) {
-    return response.status(404).json({ error: "No Intervals.icu account is connected.", code: "NOT_CONNECTED" });
+    /*
+     * 409, NOT 404. The route exists and the request is valid — the athlete
+     * simply has no provider connection yet. Returning 404 made a normal
+     * state indistinguishable from a missing endpoint, and sent debugging
+     * after a routing bug that did not exist.
+     */
+    return response.status(409).json({ error: "No Intervals.icu account is connected.", code: "NOT_CONNECTED" });
   }
   if (!account.access_token) {
     return response.status(409).json({ error: "Please reconnect your Intervals.icu account.", code: "RECONNECT_REQUIRED" });
@@ -783,7 +1027,13 @@ async function actionDiagnose(request, response, cid) {
 
   const account = await readProviderAccount(user.id, "intervals");
   if (!account || !account.access_token) {
-    return response.status(404).json({ error: "No Intervals.icu account is connected.", code: "NOT_CONNECTED" });
+    /*
+     * 409, NOT 404. The route exists and the request is valid — the athlete
+     * simply has no provider connection yet. Returning 404 made a normal
+     * state indistinguishable from a missing endpoint, and sent debugging
+     * after a routing bug that did not exist.
+     */
+    return response.status(409).json({ error: "No Intervals.icu account is connected.", code: "NOT_CONNECTED" });
   }
 
   const token = account.access_token;
@@ -977,6 +1227,7 @@ export default async function handler(request, response) {
     }
 
     if (action === "connect") return actionConnect(request, response, cid);
+    if (action === "finalize") return actionFinalize(request, response, cid);
     if (action === "sync") return actionSync(request, response, cid);
     if (action === "diagnose") return actionDiagnose(request, response, cid);
     if (action === "status") return actionStatus(request, response);

@@ -297,7 +297,61 @@
     state.failed = true;
     clearTimeout(state.detectTimer);
 
-    if (reason === "already_linked") {
+    /*
+     * The Athlevo session changed between starting the connection and
+     * returning from it. The server refused to save rather than move the
+     * connection between accounts. This is a security outcome, not a data
+     * outcome — the athlete must never see "no workouts found" here.
+     */
+    if (reason === "SESSION_CHANGED") {
+      show(`
+        <div class="cf-step">
+          <div class="cf-icon muted">!</div>
+          <h2 class="cf-title serif">Your account changed while connecting</h2>
+          <p class="cf-body">
+            Your Athlevo account changed while connecting your training data.
+            For security, please restart the connection from the account you
+            want to use.
+          </p>
+          <button class="cf-btn primary" onclick="AthlevoConnect.retryConnect()">
+            Restart connection
+          </button>
+          <button class="cf-link" onclick="AthlevoConnect.skipConnection()">
+            Continue without my history for now
+          </button>
+        </div>
+      `);
+      return;
+    }
+
+    /*
+     * The handoff expired or was already used. Both are ordinary and both are
+     * fixed the same way, so they share one calm screen.
+     */
+    if (reason === "COMPLETION_EXPIRED" || reason === "COMPLETION_INVALID" ||
+        reason === "COMPLETION_MISSING" || reason === "UNAUTHENTICATED") {
+      show(`
+        <div class="cf-step">
+          <div class="cf-icon muted">!</div>
+          <h2 class="cf-title serif">That connection didn't finish</h2>
+          <p class="cf-body">
+            ${reason === "COMPLETION_EXPIRED"
+              ? "The connection took a little too long to complete."
+              : "The connection link was already used or is no longer valid."}
+            Starting again takes a few seconds.
+          </p>
+          <button class="cf-btn primary" onclick="AthlevoConnect.retryConnect()">
+            Restart connection
+          </button>
+          <button class="cf-link" onclick="AthlevoConnect.skipConnection()">
+            Continue without my history for now
+          </button>
+        </div>
+      `);
+      return;
+    }
+
+    if (reason === "already_linked" || reason === "ALREADY_LINKED") {
       show(`
         <div class="cf-step">
           <div class="cf-icon muted">!</div>

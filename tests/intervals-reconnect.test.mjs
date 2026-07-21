@@ -28,6 +28,7 @@ const section = s => console.log(`\n──── ${s} ────`);
 /* ── world ──────────────────────────────────────────────────────────── */
 
 let DB, ACTIVITIES, LOGS, TOKEN, activityStatus, settingsStatus, upsertCalls;
+let PENDING = [];
 
 const RUN = {
   id: "i1", type: "Run", start_date_local: "2026-07-15T06:00:00",
@@ -70,6 +71,26 @@ globalThis.fetch = async (url, init = {}) => {
   }
   if (u.includes("intervals.icu") && u.endsWith("/intervals")) return J(404, {});
 
+  /*
+   * The callback can no longer write provider_accounts: a provider redirect
+   * carries no Bearer token, so it cannot prove which Athlevo account is
+   * signed in. Credentials wait here for an authenticated finalize.
+   */
+  if (u.includes("rest/v1/pending_provider_connections")) {
+    const pm = (init.method || "GET").toUpperCase();
+    if (pm === "POST") { PENDING.push(JSON.parse(init.body)[0]); return J(201, {}); }
+    if (pm === "DELETE") return J(204, {});
+    if (pm === "PATCH") {
+      const hash = decodeURIComponent((u.match(/token_hash=eq\.([^&]+)/) || [])[1] || "");
+      const row = PENDING.find(r => r.token_hash === hash &&
+        (!u.includes("consumed_at=is.null") || !r.consumed_at));
+      if (!row) return J(200, []);
+      Object.assign(row, JSON.parse(init.body));
+      return J(200, [row]);
+    }
+    return J(200, PENDING);
+  }
+
   if (u.includes("rest/v1/provider_accounts")) {
     if (m === "POST") {
       upsertCalls += 1;
@@ -101,9 +122,10 @@ globalThis.fetch = async (url, init = {}) => {
 
 const req = a => ({ query: { provider: "intervals", action: a }, method: "POST",
   headers: { authorization: "Bearer g" }, body: {} });
-const res = () => { const r = { b: null, s: null };
+const res = () => { const r = { b: null, s: null, headers: {} };
   r.status = c => (r.s = c, r); r.json = b => (r.b = b, r);
-  r.setHeader = () => {}; r.end = () => r; return r; };
+  // Captured, not discarded: the completion token rides on Location.
+  r.setHeader = (k, v) => { r.headers[k] = v; }; r.end = () => r; return r; };
 
 const signState = p => {
   const body = Buffer.from(JSON.stringify(p), "utf8").toString("base64url");
@@ -178,8 +200,19 @@ section("Reconnect via the SAME OAuth flow");
   r = res();
   await handler({ query: { provider: "intervals", action: "callback", code: "c1", state },
     method: "GET", headers: {} }, r);
-
   t("callback redirects back to the app", r.s === 302);
+  t("...having written nothing yet", DB.length === rowsBefore && PENDING.length === 1);
+
+  /*
+   * Step two: the AUTHENTICATED finalize. Reconnecting is exactly where the
+   * old flow was most dangerous — it overwrote a stored token from a request
+   * that could not prove who was asking.
+   */
+  const completion = new URL(String(r.headers.Location)).searchParams.get("completion");
+  const fin = res();
+  await handler({ query: { provider: "intervals", action: "finalize" }, method: "POST",
+    headers: { authorization: "Bearer u1" }, body: { completion } }, fin);
+  t("finalize completes the reconnect", fin.s === 200, `${fin.s} ${JSON.stringify(fin.b)}`);
   t("NO duplicate provider_accounts row", DB.length === rowsBefore, `${rowsBefore} → ${DB.length}`);
   t("same row id reused (updated in place)", account().id === "pa1");
   t("stored token REPLACED with the new one", account().access_token === "new-token");

@@ -4434,8 +4434,37 @@ setTimeout(function () {
    * refresh doesn't replay the message. On success we kick off the first
    * import immediately — connecting and then seeing nothing would feel broken.
    */
-  function handleIntervalsResult(state, message) {
+  async function handleIntervalsResult(state, message) {
     if (!state) return;
+
+    /*
+     * "pending" means Intervals authorised the connection but the server
+     * refused to save it without knowing who is signed in. Nothing exists in
+     * provider_accounts yet. We must finalize with a real Bearer token BEFORE
+     * any detection runs — otherwise the flow would search for workouts
+     * against a connection that does not exist and report "no workouts found".
+     */
+    if (state === "pending") {
+      const completion = (new URLSearchParams(window.location.search)).get("completion");
+      stripIntervalsParams();
+      let outcome = { ok: false, code: "COMPLETION_MISSING" };
+      if (completion && window.AthlevoBrain && AthlevoBrain.finalizeIntervals) {
+        try {
+          await AthlevoBrain.finalizeIntervals(completion);
+          outcome = { ok: true };
+        } catch (e) {
+          outcome = { ok: false, code: (e && e.code) || "PERSIST", message: e && e.message };
+        }
+      }
+      if (outcome.ok) return handleIntervalsResult("connected", null);
+      if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+        window.AthlevoConnect.showConnectFailure(outcome.code, outcome.message);
+      } else if (typeof toast === "function") {
+        toast(outcome.message || "Could not finish connecting — please try again");
+      }
+      return;
+    }
+
     if (state === "connected") {
       /*
        * If the athlete is mid-onboarding, hand straight back to the guided
@@ -4472,11 +4501,18 @@ setTimeout(function () {
         toast(message || "Could not connect Intervals.icu — please try again");
       }
     }
+    stripIntervalsParams();
+  }
+
+  /*
+   * The completion token must leave the address bar immediately: it is a
+   * credential-grade secret for its 8-minute life, and history/referrer are
+   * not places it belongs.
+   */
+  function stripIntervalsParams() {
     try {
       const url = new URL(window.location.href);
-      url.searchParams.delete("intervals");
-      url.searchParams.delete("message");
-      url.searchParams.delete("reason");
+      ["intervals", "message", "reason", "completion"].forEach(k => url.searchParams.delete(k));
       window.history.replaceState({}, "", url.toString());
     } catch {}
   }

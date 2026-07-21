@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 /* Regression: detection MUST work from the real Intervals response shape,
    and MUST NOT report count 0 for any failure mode. */
 process.env.SUPABASE_URL="https://db.test";process.env.SUPABASE_SERVICE_ROLE_KEY="svc";
@@ -81,6 +82,51 @@ console.log("\n── Athlete-id form (bare vs i-prefixed) is disambiguated ─�
 
   const sync=await call("sync");
   t("SYNC recovers via the alt form too", sync.body.imported===289, JSON.stringify(sync.body).slice(0,90));
+}
+
+/* ═══════ A 404 must mean "no such route", never "not connected" ═══════ */
+
+console.log("\n──── 404 is reserved for routing; NOT_CONNECTED is a state ────");
+{
+  const src = readFileSync("./api/providers/index.js", "utf8");
+
+  /*
+   * This cost two debugging rounds: diagnose returned 404 for an athlete with
+   * no provider row, which is indistinguishable from an unrouted endpoint.
+   */
+  t("NOT_CONNECTED is 409, not 404",
+    /status\(409\)[\s\S]{0,120}NOT_CONNECTED/.test(src) &&
+    !/status\(404\)[\s\S]{0,120}NOT_CONNECTED/.test(src));
+
+  const fourOhFours = src.match(/status\(404\)[^\n]*/g) || [];
+  t("every remaining 404 is a genuine unknown-route case",
+    fourOhFours.length > 0 && fourOhFours.every(l => /not available|Unknown provider/.test(l)),
+    fourOhFours.join(" | "));
+
+  t("diagnose IS implemented and routed",
+    /async function actionDiagnose/.test(src) &&
+    /if \(action === "diagnose"\) return actionDiagnose/.test(src));
+
+  // The client must agree with the method gate, or every call is a 405.
+  const brain = readFileSync("./js/brain.js", "utf8");
+  const pr = brain.slice(brain.indexOf("async function providerRequest"));
+  t("the client POSTs, matching the server's method gate",
+    /method: "POST"/.test(pr.slice(0, 400)));
+  t("...and asks for the action name the server implements",
+    /diagnoseIntervals[\s\S]{0,300}providerRequest\("diagnose"/.test(brain));
+
+  /*
+   * "Connected but empty" must never be shown when there is no connection.
+   * This is now guaranteed upstream: a connection that cannot be verified is
+   * rejected at finalize and never reaches detection at all. See
+   * tests/oauth-persistence.test.mjs sections 2 and 9/10.
+   */
+  const conn = readFileSync("./js/onboardingConnect.js", "utf8");
+  t("a failed connection routes to a real reason, not to 'no workouts'",
+    /reason === "SESSION_CHANGED"/.test(conn) && /COMPLETION_EXPIRED/.test(conn));
+  const html = readFileSync("./index.html", "utf8");
+  t("detection cannot run before finalization succeeds",
+    /if \(outcome\.ok\) return handleIntervalsResult\("connected"/.test(html));
 }
 
 console.log(`\n${p} passed, ${f} failed`);
