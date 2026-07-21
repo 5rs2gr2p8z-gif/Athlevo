@@ -424,10 +424,27 @@
     try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; }
   }
 
+  /*
+   * TEMPORARY STAGE TRAIL (js/onboardingConnect.js, js/activation.js,
+   * js/brain.js). Production shows repeated action=diagnose and NO
+   * action=connect, so the click path dies somewhere between the button and
+   * fetch(). Source inspection says every hop is wired correctly, so the
+   * trail records which hop is actually reached. Names and error messages
+   * only — never a token, secret or credential.
+   */
+  const stage = (s, d) => {
+    try { if (root.__athlevoOAuthStage) root.__athlevoOAuthStage(s, d); } catch (e) {}
+  };
+
   async function authorize() {
+    // If this line does not appear, the click never reached the handler.
+    stage("connect_button_clicked");
     try {
+      stage("authorize_entered", { hasDataSource: Boolean(DS()) });
       await DS().connect();   // navigates to the provider; callback returns
     } catch (error) {
+      // The swallowed error. This is what a problem screen was hiding.
+      stage("authorize_failed", { message: (error && error.message) || "unknown" });
       stepProblem(ACT().humanError(error));
     }
   }

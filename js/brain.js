@@ -1600,8 +1600,19 @@ function invalidateActivityCache() {
 const INTERVALS_ENDPOINT = "/api/providers?provider=intervals";
 
 async function providerRequest(action, body) {
+  // TEMPORARY: only the connect hop is traced; other actions are unaffected.
+  const stage = (s, d) => {
+    try {
+      if (action === "connect" && window.__athlevoOAuthStage) {
+        window.__athlevoOAuthStage(s, d);
+      }
+    } catch (e) {}
+  };
+  stage("providerRequest_connect_entered");
   const { data: { session } } = await supabaseClient.auth.getSession();
+  stage("connect_session_checked", { hasSession: Boolean(session) });
   if (!session) throw new Error("Please sign in first.");
+  stage("connect_fetch_sent");
   const res = await fetch(`${INTERVALS_ENDPOINT}&action=${action}`, {
     method: "POST",
     headers: {
@@ -1610,6 +1621,7 @@ async function providerRequest(action, body) {
     },
     body: JSON.stringify(body || {})
   });
+  stage("connect_fetch_response", { status: res.status });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const error = new Error(data.error || "Something went wrong. Please try again.");
@@ -1632,12 +1644,19 @@ async function finalizeIntervals(completion) {
 }
 
 async function connectIntervals() {
+  // TEMPORARY stage trail — see js/onboardingConnect.js authorize().
+  const stage = (s, d) => {
+    try { if (window.__athlevoOAuthStage) window.__athlevoOAuthStage(s, d); } catch (e) {}
+  };
+  stage("connectIntervals_entered");
   try {
     setIntervalsUi("connecting");
     const { authorizationUrl } = await providerRequest("connect");
+    stage("connect_url_received", { hasUrl: Boolean(authorizationUrl) });
     if (!authorizationUrl) throw new Error("Couldn't start the connection.");
     window.location.href = authorizationUrl;
   } catch (error) {
+    stage("connectIntervals_failed", { message: (error && error.message) || "unknown" });
     setIntervalsUi("failed", error.message);
     if (typeof toast === "function") toast(error.message);
   }
