@@ -385,7 +385,8 @@
     if (activities === undefined) {
       try {
         const { data: { user } } = await supabaseClient.auth.getUser();
-        activities = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteActivities(200) : [];
+        // Trends charts a 12-month view — needs the history window.
+        activities = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteActivities("history") : [];
         executions = user ? await loadExecutionRecords(user.id) : [];
       } catch (e) { activities = activities || []; executions = executions || []; }
     }
@@ -959,7 +960,8 @@
 
       let acts = activities;
       if (!Array.isArray(acts) && window.AthlevoBrain) {
-        acts = await window.AthlevoBrain.loadAthleteActivities(200);
+        // Diagnostics mirror the Trends render, so use the same window.
+        acts = await window.AthlevoBrain.loadAthleteActivities("history");
       }
       const executions = await loadExecutionRecords(user.id);
 

@@ -127,7 +127,7 @@
     const nowMs = Date.now();
 
     let activities = [];
-    try { if (window.AthlevoBrain) activities = await window.AthlevoBrain.loadAthleteActivities(200); } catch (e) {}
+    try { if (window.AthlevoBrain) activities = await window.AthlevoBrain.loadAthleteActivities("history"); } catch (e) {}
     const races = await loadRaces(user.id);
     const history = await loadScoreHistory(user.id);
     let fitness = null;

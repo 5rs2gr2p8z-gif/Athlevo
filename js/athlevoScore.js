@@ -888,7 +888,8 @@
 
       let acts = activities;
       if (!Array.isArray(acts) && window.AthlevoBrain) {
-        acts = await window.AthlevoBrain.loadAthleteActivities(200);
+        // Score components are measured over months of training.
+        acts = await window.AthlevoBrain.loadAthleteActivities("history");
       }
       const executions = window.AthlevoTrends
         ? await loadExecutions(user.id) : [];

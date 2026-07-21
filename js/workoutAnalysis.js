@@ -714,7 +714,8 @@
           window.AthlevoBrain &&
           typeof window.AthlevoBrain.loadAthleteActivities === "function"
         ) {
-          activities = await window.AthlevoBrain.loadAthleteActivities(30);
+          // Analyses the latest workout only — the recent window is ample.
+          activities = await window.AthlevoBrain.loadAthleteActivities("recent");
         }
       } catch (error) {
         activities = [];

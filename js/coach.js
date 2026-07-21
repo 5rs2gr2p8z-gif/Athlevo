@@ -485,7 +485,7 @@ if (!profile) {
 }
 
 const activities =
-  await AthlevoBrain.loadAthleteActivities(200);
+  await AthlevoBrain.loadAthleteActivities("history");
 
 const activitySummary =
   AthlevoBrain.buildActivitySummary(activities);

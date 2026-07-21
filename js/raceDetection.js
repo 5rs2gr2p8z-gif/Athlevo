@@ -394,7 +394,7 @@
       const [activities, excludeActivityIds] = await Promise.all([
         window.AthlevoBrain &&
         typeof window.AthlevoBrain.loadAthleteActivities === "function"
-          ? window.AthlevoBrain.loadAthleteActivities(200)
+          ? window.AthlevoBrain.loadAthleteActivities("full")
           : [],
         loadConfirmedActivityIds(user.id)
       ]);

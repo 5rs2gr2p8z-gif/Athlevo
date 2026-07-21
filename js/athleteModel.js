@@ -102,7 +102,7 @@
         window.AthlevoBrain &&
         typeof window.AthlevoBrain.loadAthleteActivities === "function"
       ) {
-        return await window.AthlevoBrain.loadAthleteActivities(200);
+        return await window.AthlevoBrain.loadAthleteActivities("history");
       }
     } catch (error) {
       /* fall through */
@@ -390,7 +390,7 @@
       let activities = [];
       try {
         if (window.AthlevoBrain && window.AthlevoBrain.loadAthleteActivities) {
-          activities = await window.AthlevoBrain.loadAthleteActivities(200);
+          activities = await window.AthlevoBrain.loadAthleteActivities("history");
         }
       } catch (e) { activities = []; }
 

@@ -1316,7 +1316,9 @@ async function refreshAthleteUI() {
     updateTodayDashboard(profile);
     updateAthleteProfileScreens(profile);
 
-    const rawActivities = await loadAthleteActivities(200);
+    // Today + the latest-workout card need recent training only; the
+    // heavier surfaces load their own history window.
+    const rawActivities = await loadAthleteActivities("recent");
 
     // Athlete-confirmed corrections take priority over raw Strava on
     // Today, recent activities, and Trends — the raw rows are untouched.
@@ -1836,14 +1838,55 @@ async function backfillStravaLaps(options) {
   return totals;
 }
 
-async function loadAthleteActivities(limit = 200, options) {
+/* ══════════════════ Activity windows (replaces the row cap) ═══════════
+ *
+ * The loader used to take "the newest 200 rows". That silently truncated
+ * training history the moment an athlete connected a second provider — at
+ * 274 canonical activities, 74 were invisible to Trends, Score and Coach.
+ *
+ * A bigger number would only move the cliff. The fix is to stop bounding by
+ * ROW COUNT (which has no relationship to what a calculation needs) and bound
+ * by TIME instead, then page through every row inside that window:
+ *
+ *   recent  — 120 days. Today, readiness, the latest-workout card. Short
+ *             surfaces stay cheap; they never download years of history.
+ *   history — 400 days. Trends, Athlevo Score, Coach context, development.
+ *             Comfortably covers a 12-month view plus the previous season
+ *             for year-over-year comparison.
+ *   full    — everything. All-time bests and race detection only.
+ *
+ * A window is a statement about what a calculation needs. A row count was an
+ * arbitrary guess about how much data an athlete has.
+ */
+const ACTIVITY_WINDOWS = {
+  recent:  { days: 120 },
+  history: { days: 400 },
+  full:    { days: null }
+};
+const ACTIVITY_PAGE_SIZE = 500;
+// Absolute backstop so a corrupt window can never page forever. Well beyond
+// any real athlete: 5000 activities is ~10 years of daily training.
+const ACTIVITY_MAX_ROWS = 5000;
+
+function resolveActivityWindow(arg) {
+  if (typeof arg === "string" && ACTIVITY_WINDOWS[arg]) return arg;
+  /*
+   * Legacy numeric argument (the old row limit). Callers that still pass a
+   * number get the history window rather than a truncated set — silently
+   * honouring "200" is what caused the data loss this replaced.
+   */
+  if (typeof arg === "number") return "history";
+  return "history";
+}
+
+async function loadAthleteActivities(windowName, options) {
   const forceRefresh = !!(options && options.forceRefresh);
   let uid = null;
   try { uid = (await supabaseClient.auth.getUser()).data?.user?.id || null; } catch (e) { uid = null; }
   if (!uid) return [];
 
-  const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 200);
-  const key = `${uid}:${safeLimit}`;
+  const win = resolveActivityWindow(windowName);
+  const key = `${uid}:${win}`;
 
   if (!forceRefresh) {
     if (__activityCache.key === key && __activityCache.data &&
@@ -1855,7 +1898,7 @@ async function loadAthleteActivities(limit = 200, options) {
     }
   }
 
-  const promise = loadAthleteActivitiesUncached(safeLimit)
+  const promise = loadAthleteActivitiesUncached(win)
     .then(rows => {
       __activityCache = { key, at: Date.now(), data: rows };
       return rows;
@@ -1868,8 +1911,18 @@ async function loadAthleteActivities(limit = 200, options) {
   return promise;
 }
 
-// The real query (unchanged behaviour) — always hits Supabase.
-async function loadAthleteActivitiesUncached(limit = 200) {
+/*
+ * The real query — pages through EVERY canonical activity inside the window.
+ *
+ * Two things make this safe at scale:
+ *   1. The superseded filter runs SERVER-SIDE. Duplicate rows are excluded by
+ *      Postgres before paging, so they can never consume the budget and push
+ *      real training out of range. (Previously the filter ran client-side,
+ *      after the cap, so every duplicate cost one real activity.)
+ *   2. Pages are bounded and the loop stops on the first short page, so a
+ *      window with 12 activities costs exactly one request.
+ */
+async function loadAthleteActivitiesUncached(windowName) {
   const {
     data: { user },
     error: userError
@@ -1885,15 +1938,12 @@ async function loadAthleteActivitiesUncached(limit = 200) {
     return [];
   }
 
-  const safeLimit = Math.min(
-    Math.max(Number(limit) || 200, 1),
-    200
-  );
+  const win = ACTIVITY_WINDOWS[windowName] || ACTIVITY_WINDOWS.history;
+  const since = win.days
+    ? new Date(Date.now() - win.days * 86400000).toISOString()
+    : null;
 
-  const { data: activities, error: activitiesError } =
-    await supabaseClient
-      .from("activities")
-      .select(`
+  const COLUMNS = `
         id,
         user_id,
         source,
@@ -1916,36 +1966,58 @@ async function loadAthleteActivitiesUncached(limit = 200) {
         commute,
         laps:raw_data->laps,
         superseded:raw_data->superseded
-      `)
-      .eq("user_id", user.id)
-      .order("start_date", { ascending: false })
-      .limit(safeLimit);
+      `;
 
-  if (activitiesError) {
-    console.error(
-      "Could not load athlete activities:",
-      activitiesError
-    );
-    return [];
+  const rows = [];
+  let pages = 0;
+
+  for (let from = 0; from < ACTIVITY_MAX_ROWS; from += ACTIVITY_PAGE_SIZE) {
+    /*
+     * Filters first, then ordering, then the page range. Applying a filter
+     * after .range() would be ambiguous about whether it narrows the page or
+     * the whole set — build the full predicate before slicing it.
+     */
+    let query = supabaseClient
+      .from("activities")
+      .select(COLUMNS)
+      .eq("user_id", user.id)
+      // Exclude superseded duplicates in the DATABASE. A row with no
+      // `superseded` key yields SQL NULL, so untouched rows all match.
+      .is("raw_data->superseded", null);
+
+    if (since) query = query.gte("start_date", since);
+
+    const { data, error } = await query
+      .order("start_date", { ascending: false })
+      .range(from, from + ACTIVITY_PAGE_SIZE - 1);
+
+    if (error) {
+      console.error("Could not load athlete activities:", error);
+      // Partial data beats no data: return whatever paged successfully.
+      break;
+    }
+
+    pages += 1;
+    rows.push(...(data || []));
+    if (!data || data.length < ACTIVITY_PAGE_SIZE) break;   // last page
   }
 
   /*
-   * Cross-provider duplicate filter. When an athlete connects BOTH Strava and
-   * Intervals.icu, the same real workout can exist twice. The importer flags
-   * the non-canonical copy (never deletes it), and it is dropped here — once,
-   * at the single point where every screen gets its activities — so Today,
-   * Train, Trends, Athlevo Score and the Coach all agree automatically and
-   * nothing downstream needed to change.
+   * Defence in depth. The server-side filter above is authoritative, but a
+   * row explicitly storing `superseded: false` (never written today) would
+   * pass it, so the client check stays as a second gate. It is now free —
+   * it can no longer cost an activity, because nothing was capped.
    */
-  const all = activities || [];
-  const visible = all.filter(a => a.superseded !== true);
-  const hidden = all.length - visible.length;
+  const visible = rows.filter(a => a.superseded !== true);
 
   console.log(
-    `Loaded ${visible.length} activities for athlete:`,
-    user.id,
-    hidden ? `(${hidden} cross-provider duplicate${hidden === 1 ? "" : "s"} hidden)` : ""
+    `Loaded ${visible.length} canonical activities (window: ${windowName}` +
+    `${win.days ? `, ${win.days}d` : ", all time"}, ${pages} page${pages === 1 ? "" : "s"})`
   );
+
+  if (rows.length >= ACTIVITY_MAX_ROWS) {
+    console.warn(`Activity paging hit the ${ACTIVITY_MAX_ROWS}-row safety limit.`);
+  }
 
   // Guarantee newest-first regardless of how the rows arrived.
   return sortActivitiesByStartDesc(visible);

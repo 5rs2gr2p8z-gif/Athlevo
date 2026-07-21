@@ -98,7 +98,8 @@
     let activities = [];
     try {
       if (window.AthlevoBrain && window.AthlevoBrain.loadAthleteActivities) {
-        activities = await window.AthlevoBrain.loadAthleteActivities(200);
+        // Coach reasoning compares recent load against the season.
+        activities = await window.AthlevoBrain.loadAthleteActivities("history");
       }
     } catch (e) { activities = []; }
     const executions = await loadExecutions(user.id);
