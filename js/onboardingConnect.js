@@ -1,3 +1,14 @@
+
+/*
+ * PRODUCTION BUILD MARKER — executes the instant this file is parsed.
+ *
+ * Runtime-cached JS is served stale-while-revalidate, so the first load after
+ * a deploy can still run the PREVIOUS copy of this file. Checking a behaviour
+ * (a stage log, a network call) cannot distinguish "code is stale" from "code
+ * ran and took a different branch". This marker can: if it is undefined in
+ * the console, the browser is executing an older onboardingConnect.js.
+ */
+try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TRACE_VERSION = "connect-trace-v1"; } catch (e) {}
 /*
  * ══════════════════════════════════════════════════════════════════════
  *  Athlevo — Guided training-data setup (onboarding steps 3–6)
@@ -468,13 +479,61 @@
     if (state.running || state.failed) return;
     state.running = true;
 
-    markActive(true);
     restoreWearable();
     if (typeof showScreen === "function") showScreen("screen-connect");
     const tabbar = document.getElementById("tabbar");
     if (tabbar) tabbar.style.display = "none";
+
+    /*
+     * ═══ THE GUARD ═══
+     *
+     * sessionStorage.athlevo_guided_setup was being treated as proof that
+     * OAuth had happened. It is not: it only records that guided setup was
+     * STARTED, and it survives every reload. routeAfterAuth() resumed on that
+     * flag alone, so a disconnected athlete was sent straight to
+     * "Looking for your workouts" and polled diagnose forever — never seeing
+     * the Connect button that would have fixed it. The loop was self-
+     * sustaining, because the flag is only cleared on a completed setup.
+     *
+     * The server is the only authority on whether a provider is connected.
+     * We ask it, every time, before any detection starts. This check lives
+     * HERE rather than in routeAfterAuth so that every caller — the OAuth
+     * return, session restore, and any future one — is covered by
+     * construction.
+     */
+    let status = null;
+    try {
+      status = await DS().status();
+    } catch (error) {
+      status = null;      // unreachable is NOT connected
+    }
+
+    if (!status || status.connected !== true) {
+      state.running = false;
+      return notConnectedYet(status ? "disconnected" : "unknown");
+    }
+
+    markActive(true);
     A().track("intervals_connected", { wearable: state.wearable || null });
     beginDetection();
+  }
+
+  /*
+   * No verified provider connection. Clear the stale guided-setup state so a
+   * reload cannot resurrect the detection loop, then put the athlete back on
+   * the step that can actually fix it — keeping the wearable they already
+   * chose so they do not repeat that choice.
+   */
+  function notConnectedYet(reason) {
+    A().track("no_activities", { reason: "not_connected_" + reason });
+
+    // Capture the wearable BEFORE clearing storage; markActive(false) drops it.
+    const wearable = state.wearable;
+    markActive(false);
+    state.wearable = wearable;
+
+    clearTimeout(state.detectTimer);
+    go(wearable ? "authorize" : "device");
   }
 
   function beginDetection() {

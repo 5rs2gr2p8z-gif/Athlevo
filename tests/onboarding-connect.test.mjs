@@ -89,11 +89,25 @@ function activities(n) {
 
 function pipeline(opts = {}) {
   const calls = { sync: 0, detect: 0, refresh: 0, connect: 0 };
+  // Starts disconnected unless a test says otherwise; becomes connected when
+  // OAuth completes.
+  let connected = opts.connected === true;
   return {
     calls,
-    connectIntervals: async () => { calls.connect += 1; },
-    refreshIntervalsStatus: async () => ({ connected: opts.connected || false }),
-    providerStatus: async () => ({ connected: opts.connected || false }),
+    /*
+     * STATEFUL, like production. resumeAfterConnect() now verifies with the
+     * server before detecting — a sessionStorage flag is no longer accepted as
+     * proof of a connection. So the double must become connected only once
+     * OAuth has actually completed, exactly as provider_accounts does.
+     * `connected: true` forces the already-connected case; `false` keeps it
+     * disconnected even after authorizing, for the failure scenarios.
+     */
+    connectIntervals: async () => {
+      calls.connect += 1;
+      if (opts.connected !== false) connected = true;
+    },
+    refreshIntervalsStatus: async () => ({ connected }),
+    providerStatus: async () => ({ connected }),
     diagnoseIntervalsQuiet: async () => {
       calls.detect += 1;
       if (opts.detectThrows && calls.detect <= (opts.detectThrows || 0)) throw new Error("network");
@@ -189,7 +203,7 @@ section("Happy path — account → device → auto-detect → auto-import → d
 section("Watch hasn't pushed history yet");
 {
   // Activities appear only on the 3rd probe — the flow must keep waiting.
-  const p = pipeline({ count: 53, foundAfter: 3 });
+  const p = pipeline({ connected: true, count: 53, foundAfter: 3 });
   const { api, dom, g } = makeWorld(p);
   await api.resumeAfterConnect();
   await wait(200);
@@ -203,7 +217,7 @@ section("Watch hasn't pushed history yet");
 
 section("No workouts found at all");
 {
-  const p = pipeline({ count: 0 });
+  const p = pipeline({ connected: true, count: 0 });
   const { api, dom, g } = makeWorld(p);
   await api.resumeAfterConnect();
   await wait(400);
@@ -234,7 +248,7 @@ section("Errors are human, never technical");
     { message: "403 forbidden", expect: /couldn't access your activities yet/i, action: /Reconnect/ }
   ];
   for (const c of cases) {
-    const p = pipeline({ count: 10, foundAfter: 1, syncError: { code: c.code, message: c.message || "x" } });
+    const p = pipeline({ connected: true, count: 10, foundAfter: 1, syncError: { code: c.code, message: c.message || "x" } });
     const { api, dom, g } = makeWorld(p);
     await api.resumeAfterConnect();
     await wait(150);
@@ -248,7 +262,7 @@ section("Errors are human, never technical");
 section("Transient failures retry automatically");
 {
   // First two detect calls throw; the retry helper must absorb them.
-  const p = pipeline({ count: 100, foundAfter: 3, detectThrows: 2 });
+  const p = pipeline({ connected: true, count: 100, foundAfter: 3, detectThrows: 2 });
   const { api, dom } = makeWorld(p);
   await api.resumeAfterConnect();
   await wait(400);
@@ -268,7 +282,7 @@ section("OAuth round-trip");
   t("chosen watch is remembered", g.sessionStorage.getItem("athlevo_guided_wearable") === "coros");
 
   // Simulate a full page load: fresh module instances, same sessionStorage.
-  const fresh = makeWorld(pipeline({ count: 5, foundAfter: 1 }));
+  const fresh = makeWorld(pipeline({ connected: true, count: 5, foundAfter: 1 }));
   fresh.g.sessionStorage.setItem("athlevo_guided_setup", "1");
   fresh.g.sessionStorage.setItem("athlevo_guided_wearable", "coros");
   t("after reload the app knows setup was in progress", fresh.api.isActive() === true);
@@ -286,7 +300,7 @@ section("OAuth return must not run the flow twice");
    * session restore. Both firing produced two detection loops and a second
    * sync that the server's lock rejects — a spurious error mid-import.
    */
-  const p = pipeline({ count: 274, foundAfter: 1 });
+  const p = pipeline({ connected: true, count: 274, foundAfter: 1 });
   const { api, dom } = makeWorld(p);
   api.resumeAfterConnect();          // ?intervals=connected handler
   await wait(5);
@@ -301,7 +315,7 @@ section("OAuth return must not run the flow twice");
 section("The guard does not block legitimate retries");
 {
   let failing = true;
-  const p = pipeline({ count: 10, foundAfter: 1 });
+  const p = pipeline({ connected: true, count: 10, foundAfter: 1 });
   const realSync = p.syncIntervals;
   p.syncIntervals = async () => {
     p.calls.sync += 1;
@@ -359,7 +373,7 @@ section("Swappable provider (future direct Garmin/COROS)");
 
 section("Analytics never blocks onboarding");
 {
-  const p = pipeline({ count: 9, foundAfter: 1 });
+  const p = pipeline({ connected: true, count: 9, foundAfter: 1 });
   const { api, dom, g } = makeWorld(p);
   // Make every DB write fail.
   g.supabaseClient.from = () => ({ insert: async () => { throw new Error("no table"); } });
@@ -382,10 +396,11 @@ section("No developer surface");
     const w = makeWorld(p);
     await w.api.start();                     screens.push(visible(w.dom.html));
     w.api.pickWearable("garmin");            screens.push(visible(w.dom.html));
+    await w.api.authorize();   // completes OAuth, so resume can verify it
     await w.api.resumeAfterConnect();
     await wait(120);                         screens.push(visible(w.dom.html));
 
-    const bad = makeWorld(pipeline({ count: 0 }));
+    const bad = makeWorld(pipeline({ connected: true, count: 0 }));
     await bad.api.resumeAfterConnect();
     await wait(200);                         screens.push(visible(bad.dom.html));
   };

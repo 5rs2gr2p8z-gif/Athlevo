@@ -31,7 +31,8 @@ const SECRET = "ZZtop-secret-access-tokenZZ";
 
 /* ── a minimal browser ───────────────────────────────────────────────── */
 
-function makeWorld({ hasSession = true, connectStatus = 200 } = {}) {
+function makeWorld({ hasSession = true, connectStatus = 200,
+                     providerConnected = false, statusFails = false } = {}) {
   const dom = { html: "", screen: null, tabbar: "none", navigatedTo: null };
   const net = [];          // every fetch, in order
   const trail = [];        // every stage the real code emits
@@ -73,6 +74,12 @@ function makeWorld({ hasSession = true, connectStatus = 200 } = {}) {
           json: async () => (connectStatus < 300
             ? { authorizationUrl: "https://intervals.icu/oauth/authorize?response_type=code&client_id=x&state=y" }
             : { error: "nope", code: "PROVIDER_NOT_CONFIGURED" }) };
+      }
+      if (u.includes("action=status")) {
+        if (statusFails) throw new Error("network down");
+        return { ok: true, status: 200,
+          json: async () => ({ provider: "intervals", connected: providerConnected,
+                               status: providerConnected ? "connected" : "not_connected" }) };
       }
       return { ok: true, status: 200, json: async () => ({}) };
     },
@@ -225,6 +232,170 @@ section("A server rejection surfaces its reason");
     w.trail.some(s => s.stage === "connect_fetch_response" && s.status === 503));
   t("the browser did not navigate", !w.dom.navigatedTo);
   t("the failure names itself", w.trail.some(s => s.stage === "connectIntervals_failed"));
+}
+
+/* ══════════ detection can be reached WITHOUT any OAuth ═════════════ */
+
+section("The stale-flag loop that caused the production incident is closed");
+{
+  /*
+   * THE ORIGINAL PRODUCTION SYMPTOM. sessionStorage.athlevo_guided_setup
+   * survives every reload, and routeAfterAuth() resumed guided setup on that
+   * flag alone — landing on "Looking for your workouts" and polling diagnose
+   * without authorize(), connectIntervals() or any OAuth request. Hence a
+   * detection screen with a completely empty connect trail.
+   *
+   * This asserts the loop can no longer form.
+   */
+  const w = makeWorld({ providerConnected: false });
+  w.g.sessionStorage.setItem("athlevo_guided_setup", "1");
+  w.g.sessionStorage.setItem("athlevo_guided_wearable", "garmin");
+
+  t("isActive() is still true from sessionStorage alone",
+    w.g.AthlevoConnect.isActive() === true);
+
+  await w.g.AthlevoConnect.resumeAfterConnect();
+  await wait(60);
+
+  t("but the flag NO LONGER implies a connection — detection is refused",
+    !/Looking for your workouts/.test(w.dom.html));
+  t("no connect request was made (none is expected here)",
+    w.net.filter(r => r.url.includes("action=connect")).length === 0);
+  t("no diagnose loop is started",
+    w.net.filter(r => r.url.includes("action=diagnose")).length === 0);
+  t("the flag is cleared, so the loop cannot re-form on reload",
+    w.g.sessionStorage.getItem("athlevo_guided_setup") === null);
+}
+
+section("Build markers execute at load, independent of any behaviour");
+{
+  const w = makeWorld();
+  const W = w.g.window;   // in a real page, window === the global object
+  t("onboardingConnect.js marker is set",
+    W.__ATHLEVO_CONNECT_TRACE_VERSION === "connect-trace-v1");
+  t("brain.js marker is set",
+    W.__ATHLEVO_BRAIN_TRACE_VERSION === "connect-trace-v1");
+  t("activation.js marker is set",
+    W.__ATHLEVO_ACTIVATION_TRACE_VERSION === "connect-trace-v1");
+  t("markers do not depend on a click, a session or a network call", true);
+}
+
+/* ══════ the stale-flag guard ═══════════════════════════════════════ */
+
+const visible = (h) => String(h).replace(/<[^>]+>/g, " ").replace(/&#39;/g, "'")
+  .replace(/\s+/g, " ").trim();
+
+section("1. guided_setup=1 + provider DISCONNECTED");
+{
+  const w = makeWorld({ providerConnected: false });
+  w.g.sessionStorage.setItem("athlevo_guided_setup", "1");
+  w.g.sessionStorage.setItem("athlevo_guided_wearable", "garmin");
+
+  await w.g.AthlevoConnect.resumeAfterConnect();
+  await wait(60);
+
+  t("NO diagnose request was made",
+    w.net.filter(r => r.url.includes("action=diagnose")).length === 0,
+    w.net.map(r => r.url.split("action=")[1]).join(","));
+  t("the stale guided-setup flag is CLEARED",
+    w.g.sessionStorage.getItem("athlevo_guided_setup") === null);
+  t("the detection screen is NOT shown", !/Looking for your workouts/.test(w.dom.html));
+  t("the athlete is returned to the connect step",
+    /Connect Garmin/.test(visible(w.dom.html)), visible(w.dom.html).slice(0, 70));
+  t("...with their chosen wearable preserved",
+    /I'?(ve)? connected Garmin/i.test(visible(w.dom.html)));
+  t("the server was actually consulted",
+    w.net.some(r => r.url.includes("action=status")));
+}
+
+section("2. guided_setup=1 + provider CONNECTED");
+{
+  const w = makeWorld({ providerConnected: true });
+  w.g.sessionStorage.setItem("athlevo_guided_setup", "1");
+  w.g.sessionStorage.setItem("athlevo_guided_wearable", "garmin");
+
+  const resumed = w.g.AthlevoConnect.resumeAfterConnect();
+  await wait(20);
+  t("detection DOES start for a real connection",
+    /Looking for your workouts/.test(w.dom.html), visible(w.dom.html).slice(0, 70));
+  await resumed; await wait(60);
+  t("...and diagnose polling runs", w.net.some(r => r.url.includes("action=diagnose")));
+  t("the guided-setup flag is retained while setup is live",
+    w.g.sessionStorage.getItem("athlevo_guided_setup") === "1");
+}
+
+section("3. providerStatus() FAILS");
+{
+  const w = makeWorld({ statusFails: true });
+  w.g.sessionStorage.setItem("athlevo_guided_setup", "1");
+  w.g.sessionStorage.setItem("athlevo_guided_wearable", "garmin");
+
+  await w.g.AthlevoConnect.resumeAfterConnect();
+  await wait(60);
+
+  t("an unreachable server is NOT treated as connected",
+    !/Looking for your workouts/.test(w.dom.html));
+  t("no detection polling started",
+    w.net.filter(r => r.url.includes("action=diagnose")).length === 0);
+  t("the athlete lands somewhere recoverable",
+    /Connect Garmin/.test(visible(w.dom.html)));
+  t("the stale flag is cleared so a reload cannot loop",
+    w.g.sessionStorage.getItem("athlevo_guided_setup") === null);
+}
+
+section("4/6. Reloads while disconnected cannot recreate the loop");
+{
+  // Each makeWorld() is a fresh page load; sessionStorage is carried across.
+  const carried = new Map([["athlevo_guided_setup", "1"], ["athlevo_guided_wearable", "garmin"]]);
+  let everDetected = false, totalDiagnose = 0, flagAfter = "1";
+
+  for (let reload = 0; reload < 3; reload++) {
+    const w = makeWorld({ providerConnected: false });
+    carried.forEach((v, k) => w.g.sessionStorage.setItem(k, v));
+    await w.g.AthlevoConnect.resumeAfterConnect();
+    await wait(40);
+    if (/Looking for your workouts/.test(w.dom.html)) everDetected = true;
+    totalDiagnose += w.net.filter(r => r.url.includes("action=diagnose")).length;
+    flagAfter = w.g.sessionStorage.getItem("athlevo_guided_setup");
+    carried.clear();
+    ["athlevo_guided_setup", "athlevo_guided_wearable"].forEach(k => {
+      const v = w.g.sessionStorage.getItem(k); if (v !== null) carried.set(k, v);
+    });
+  }
+
+  t("three reloads NEVER reach the detection screen", everDetected === false);
+  t("...and never emit a single diagnose", totalDiagnose === 0, String(totalDiagnose));
+  t("the flag stays cleared across reloads", flagAfter === null);
+}
+
+section("5. Reload after a GENUINE connection still resumes");
+{
+  const w = makeWorld({ providerConnected: true });
+  w.g.sessionStorage.setItem("athlevo_guided_setup", "1");
+  const resumed = w.g.AthlevoConnect.resumeAfterConnect();
+  await wait(20);
+  t("a real connection resumes detection after a reload",
+    /Looking for your workouts/.test(w.dom.html));
+  await resumed; await wait(60);
+  t("...and reaches the import pipeline", w.net.some(r => r.url.includes("action=diagnose")));
+}
+
+section("No automatic path infers connectivity from sessionStorage alone");
+{
+  const src = readFileSync("./js/onboardingConnect.js", "utf8");
+  const fn = src.slice(src.indexOf("async function resumeAfterConnect"),
+                       src.indexOf("function notConnectedYet"));
+  t("resumeAfterConnect asks the SERVER before detecting",
+    /await DS\(\)\.status\(\)/.test(fn));
+  t("...and that check precedes beginDetection()",
+    fn.indexOf("DS().status()") < fn.indexOf("beginDetection()"));
+  t("a non-true connected value never proceeds",
+    /status\.connected !== true/.test(fn));
+  t("a thrown status is treated as NOT connected", /status = null;/.test(fn));
+  t("the guard lives in resumeAfterConnect, covering every caller",
+    !/providerStatus/.test(readFileSync("./index.html", "utf8")
+      .slice(0, readFileSync("./index.html", "utf8").indexOf("resumeAfterConnect(); return;"))
+      .slice(-400)));
 }
 
 console.log(`\n${p} passed, ${f} failed`);
