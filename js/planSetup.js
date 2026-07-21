@@ -182,41 +182,99 @@
     const token = await authToken();
     const minAnim = runStepAnimation();
 
-    // Best-effort pre-generation analysis refresh (same as the Train button).
-    let apiOk = false;
+    /*
+     * The server returns { error, code, action } on failure. Previously only
+     * res.ok was read and the body discarded, so every failure — expired
+     * session, incomplete profile, provider outage — collapsed into the same
+     * "That didn't finish." The athlete had no idea what to do next.
+     */
+    let outcome = { ok: false };
     try {
-      if (token) {
+      if (!token) {
+        outcome = { ok: false, code: "AUTH_REQUIRED",
+          message: "Please sign in again to build your plan.", action: "signIn" };
+      } else {
+        // Best-effort pre-generation analysis refresh. Never blocks the build.
         try {
           await fetch("/api/training/weekly-analysis", { headers: { Authorization: `Bearer ${token}` } });
         } catch (e) { /* non-fatal */ }
-        const res = await fetch("/api/training/generate-plan", {
-          method: "POST", headers: { Authorization: `Bearer ${token}` }
-        });
-        apiOk = res.ok;
+
+        /*
+         * Generation can legitimately take a while. Bound it so a hung
+         * request can never leave the athlete on an endless spinner.
+         */
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), BUILD_TIMEOUT_MS);
+        try {
+          const res = await fetch("/api/training/generate-plan", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal
+          });
+          const data = await res.json().catch(() => ({}));
+          outcome = res.ok
+            ? { ok: true, alreadyExists: data.alreadyExists === true }
+            : { ok: false, code: data.code || "PLAN_FAILED",
+                message: data.error, action: data.action || "retry" };
+        } finally {
+          clearTimeout(timer);
+        }
       }
     } catch (e) {
-      apiOk = false;
+      outcome = (e && e.name === "AbortError")
+        ? { ok: false, code: "PLAN_TIMEOUT", action: "retry",
+            message: "This is taking longer than usual. Your plan may still be building — try again in a moment." }
+        : { ok: false, code: "PLAN_NETWORK", action: "retry",
+            message: "We couldn't reach Athlevo. Check your connection and try again." };
     }
 
     await minAnim;                                  // let the animation finish
     buildInFlight = false;
 
-    if (apiOk) {
+    if (outcome.ok) {
       lastHasPlan = true;
       showSuccess();
-    } else {
-      const mount = document.getElementById("planGenBody");
-      if (mount) {
-        mount.innerHTML = `
-          <div class="pg-wrap">
-            <div class="pg-check err">!</div>
-            <h2 class="pg-title serif">That didn't finish.</h2>
-            <p class="pg-sub">We couldn't build your plan just now. Please try again.</p>
-            <button class="ps-build" type="button" onclick="AthlevoPlan.build()">Try again</button>
-            <button class="ps-later" type="button" onclick="AthlevoPlan.notNow()">Back to Today</button>
-          </div>`;
-      }
+      return;
     }
+    showBuildProblem(outcome);
+  }
+
+  // How long to wait before telling the athlete something is wrong. Generous,
+  // because a real generation involves a reasoning model.
+  const BUILD_TIMEOUT_MS = 90000;
+
+  /*
+   * One failure screen, always with a way forward. The action determines the
+   * primary button, so "fix your profile" never shows a pointless "Try again".
+   */
+  function showBuildProblem(outcome) {
+    const mount = document.getElementById("planGenBody");
+    if (!mount) return;
+
+    const message = outcome.message ||
+      "We couldn't create your plan just now. Please try again.";
+
+    const ACTIONS = {
+      retry: { label: "Try again", onclick: "AthlevoPlan.build()" },
+      signIn: { label: "Sign in", onclick: "AthlevoPlan.notNow()" },
+      completeProfile: { label: "Complete my profile", onclick: "AthlevoPlan.start()" },
+      viewPlan: { label: "View my plan", onclick: "AthlevoPlan.enterTrain()" }
+    };
+    const primary = ACTIONS[outcome.action] || ACTIONS.retry;
+
+    mount.innerHTML = `
+      <div class="pg-wrap">
+        <div class="pg-check err">!</div>
+        <h2 class="pg-title serif">That didn't finish.</h2>
+        <p class="pg-sub">${escapeText(message)}</p>
+        <button class="ps-build" type="button" onclick="${primary.onclick}">${escapeText(primary.label)}</button>
+        <button class="ps-later" type="button" onclick="AthlevoPlan.notNow()">Back to Today</button>
+      </div>`;
+  }
+
+  function escapeText(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
   function enterTrain() {

@@ -865,7 +865,16 @@ async function generateWeeklyPlan({
   weekEnd,
   periodization,
   phaseGuidance,
-  adaptationContext
+  adaptationContext,
+  /*
+   * Computed in the handler from daily_readiness. It was previously READ
+   * here but never PASSED, so every call threw
+   * "ReferenceError: recentReadiness is not defined" while building the
+   * request body — plan generation failed 100% of the time. Defaulted to []
+   * so an omitted argument degrades to "no readiness data" instead of
+   * crashing the whole endpoint.
+   */
+  recentReadiness = []
 }) {
   const athlevoMethodPrompt =
     buildAthlevoMethodPrompt();
@@ -1068,7 +1077,9 @@ The athlete data may include recentReadiness: their own daily reports of sleep, 
                   null,
 
                 recentReadiness:
-                  recentReadiness.length ? recentReadiness : null
+                  (Array.isArray(recentReadiness) && recentReadiness.length)
+                    ? recentReadiness
+                    : null
               },
               null,
               2
@@ -1664,25 +1675,22 @@ export default async function handler(
     !SUPABASE_URL ||
     !SUPABASE_SERVICE_ROLE_KEY
   ) {
-    return sendJson(
-      response,
-      500,
-      {
-        error:
-          "Supabase server configuration is missing."
-      }
-    );
+    console.error("generate-plan: Supabase server configuration is missing.");
+    return sendJson(response, 503, {
+      error: "Athlevo is having trouble right now. Please try again shortly.",
+      code: "PLAN_UNAVAILABLE",
+      action: "retry"
+    });
   }
 
   if (!OPENAI_API_KEY) {
-    return sendJson(
-      response,
-      500,
-      {
-        error:
-          "OPENAI_API_KEY is not configured."
-      }
-    );
+    // Never name an environment variable to the athlete.
+    console.error("generate-plan: OPENAI_API_KEY is not configured.");
+    return sendJson(response, 503, {
+      error: "Your coach is unavailable right now. Please try again shortly.",
+      code: "PLAN_PROVIDER_UNAVAILABLE",
+      action: "retry"
+    });
   }
 
   try {
@@ -1690,14 +1698,11 @@ export default async function handler(
       getBearerToken(request);
 
     if (!accessToken) {
-      return sendJson(
-        response,
-        401,
-        {
-          error:
-            "Authentication required."
-        }
-      );
+      return sendJson(response, 401, {
+        error: "Please sign in again to build your plan.",
+        code: "AUTH_REQUIRED",
+        action: "signIn"
+      });
     }
 
     const user =
@@ -1706,14 +1711,11 @@ export default async function handler(
       );
 
     if (!user?.id) {
-      return sendJson(
-        response,
-        401,
-        {
-          error:
-            "The authenticated athlete could not be verified."
-        }
-      );
+      return sendJson(response, 401, {
+        error: "Please sign in again to build your plan.",
+        code: "AUTH_REQUIRED",
+        action: "signIn"
+      });
     }
 
     const [
@@ -1727,14 +1729,11 @@ export default async function handler(
     ]);
 
     if (!profile) {
-      return sendJson(
-        response,
-        404,
-        {
-          error:
-            "No athlete profile was found."
-        }
-      );
+      return sendJson(response, 404, {
+        error: "We need a few details about you before building your plan.",
+        code: "PROFILE_INCOMPLETE",
+        action: "completeProfile"
+      });
     }
 
     const today = new Date();
@@ -1872,7 +1871,8 @@ const weekEnd =
         weekEnd,
         periodization,
         phaseGuidance,
-        adaptationContext
+        adaptationContext,
+        recentReadiness
       });
 
     validateSessionDates(
@@ -1957,19 +1957,87 @@ const weekEnd =
       }
     );
   } catch (error) {
+    // Full detail to the server log ONLY.
     console.error(
       "Training plan generation failed:",
       error
     );
 
-    return sendJson(
-      response,
-      500,
-      {
-        error:
-          error?.message ||
-          "Could not generate the training plan."
-      }
-    );
+    const mapped = describePlanFailure(error);
+    return sendJson(response, mapped.status, {
+      error: mapped.message,
+      code: mapped.code,
+      action: mapped.action
+    });
   }
+}
+
+/*
+ * Turns any internal failure into something an athlete can read and act on.
+ *
+ * Previously the raw error was returned verbatim, so a real athlete could see
+ * "Supabase request failed: 500 insert failed" or an unhandled SyntaxError
+ * from JSON.parse. Those are useless to them and leak our internals. The
+ * detail still goes to the server log above; only the mapped message travels
+ * to the browser.
+ */
+function describePlanFailure(error) {
+  const raw = String((error && error.message) || "");
+  const lower = raw.toLowerCase();
+
+  // The model returned something that wasn't a usable plan.
+  if (
+    error instanceof SyntaxError ||
+    lower.includes("not valid json") ||
+    lower.includes("was empty") ||
+    lower.includes("correct seven dates")
+  ) {
+    return {
+      status: 502,
+      code: "PLAN_INVALID_OUTPUT",
+      message: "We couldn't build a complete week just now. Please try again.",
+      action: "retry"
+    };
+  }
+
+  // The AI provider itself failed or timed out.
+  if (
+    lower.includes("openai") ||
+    lower.includes("upstream") ||
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("rate limit") ||
+    lower.includes("econnreset") ||
+    lower.includes("fetch failed")
+  ) {
+    return {
+      status: 503,
+      code: "PLAN_PROVIDER_UNAVAILABLE",
+      message: "Your coach is busy right now. Please try again in a moment.",
+      action: "retry"
+    };
+  }
+
+  // Persistence failed — nothing was saved, so a retry is safe.
+  if (
+    lower.includes("supabase") ||
+    lower.includes("could not be saved") ||
+    lower.includes("insert") ||
+    lower.includes("duplicate key") ||
+    lower.includes("constraint")
+  ) {
+    return {
+      status: 500,
+      code: "PLAN_SAVE_FAILED",
+      message: "We built your plan but couldn't save it. Please try again.",
+      action: "retry"
+    };
+  }
+
+  return {
+    status: 500,
+    code: "PLAN_FAILED",
+    message: "We couldn't create your plan just now. Please try again.",
+    action: "retry"
+  };
 }

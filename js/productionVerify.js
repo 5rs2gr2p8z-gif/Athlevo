@@ -446,5 +446,76 @@
              after: { rows: after.rows.length, km: afterKm }, syncResult: result };
   }
 
-  root.AthlevoVerify = { run, checkIdempotency, loadAllActivities };
+  /*
+   * Plan-pipeline probe. READ-ONLY: it never generates, never writes, and
+   * never touches an existing plan. Use it to confirm the pipeline is healthy
+   * on a real account — including your own — without risking your plan.
+   *
+   * Console:  await AthlevoVerify.checkPlan()
+   */
+  async function checkPlan() {
+    const { data: { user } } = await sb().auth.getUser();
+    if (!user) { console.error("Not signed in."); return null; }
+
+    const out = { userId: user.id.slice(0, 8) + "…" };
+
+    // 1. Is the profile complete enough for the endpoint to proceed?
+    const { data: profile } = await sb()
+      .from("profiles")
+      .select("onboarding_complete,goal,device,training_days,weekly_distance," +
+              "long_run_day,experience_level,target_race,target_race_date")
+      .eq("id", user.id).maybeSingle();
+    out.profile = profile
+      ? {
+          onboardingComplete: profile.onboarding_complete === true,
+          hasGoal: !!profile.goal,
+          hasTrainingDays: profile.training_days != null,
+          hasWeeklyVolume: profile.weekly_distance != null,
+          hasLongRunDay: !!profile.long_run_day,
+          hasTargetRace: !!profile.target_race_date
+        }
+      : { missing: true };
+
+    // 2. Does a plan already exist? (Determines whether the button would
+    //    generate or return the existing week.)
+    const { data: plans } = await sb()
+      .from("training_plans")
+      .select("id,week_start,week_end,status")
+      .eq("user_id", user.id)
+      .order("week_start", { ascending: false })
+      .limit(3);
+    out.existingPlans = (plans || []).length;
+    out.latestPlan = (plans || [])[0] || null;
+
+    // 3. Are this week's sessions present and renderable?
+    const { data: sessions } = await sb()
+      .from("training_sessions")
+      .select("session_date,title,session_type,duration_minutes,distance_km")
+      .eq("user_id", user.id)
+      .order("session_date", { ascending: true })
+      .limit(14);
+    out.sessions = (sessions || []).length;
+    out.sessionDates = (sessions || []).map(s => s.session_date);
+    out.missingFields = (sessions || []).filter(s =>
+      !s.title || !s.session_type || s.session_date == null).length;
+
+    const ready = out.profile.onboardingComplete && !out.profile.missing;
+    console.log(ready
+      ? "%cProfile is complete — the plan button should work."
+      : "%cProfile is INCOMPLETE — the button would ask you to finish it first.",
+      "font-weight:bold");
+    console.log(out.existingPlans
+      ? `You already have ${out.existingPlans} plan(s). The button will OPEN the existing week, not regenerate.`
+      : "No plan yet. The button will generate one.");
+    console.table([{
+      onboardingComplete: out.profile.onboardingComplete,
+      existingPlans: out.existingPlans,
+      sessionsStored: out.sessions,
+      sessionsMissingFields: out.missingFields
+    }]);
+    console.log("Full report:", out);
+    return out;
+  }
+
+  root.AthlevoVerify = { run, checkIdempotency, loadAllActivities, checkPlan };
 })(typeof window !== "undefined" ? window : globalThis);
