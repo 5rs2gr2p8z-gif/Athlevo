@@ -62,6 +62,7 @@ let lapEndpointStatus, activityEndpointStatus, LOGS, patchedIds;
 
 function resetWorld() {
   DB = [];                       // provider_accounts
+  PENDING = [];                  // pending_provider_connections
   ACTIVITIES = [];               // activities
   patchedIds = [];
   TOKEN_RESPONSE = { ok: true, body: { access_token: "tok", scope: "ACTIVITY:READ", athlete: { id: "999" } } };
@@ -78,6 +79,8 @@ console.log = (...a) => {
   if (s.startsWith("{") && s.includes('"event"')) { LOGS.push(JSON.parse(s)); return; }
   origLog(...a);
 };
+
+let PENDING = [];
 
 globalThis.fetch = async (url, init = {}) => {
   const u = String(url);
@@ -115,6 +118,26 @@ globalThis.fetch = async (url, init = {}) => {
       const ts = Date.parse(a.start_date || a.start_date_local || "");
       return !Number.isFinite(ts) || (ts >= lo && ts <= hi);
     }));
+  }
+
+  /*
+   * pending_provider_connections — the OAuth handoff table. The callback can
+   * no longer write provider_accounts directly, because a provider redirect
+   * carries no Bearer token and so cannot prove which Athlevo account is
+   * signed in. Credentials are parked here until an authenticated finalize.
+   */
+  if (u.includes("rest/v1/pending_provider_connections")) {
+    if (method === "POST") { PENDING.push(JSON.parse(init.body)[0]); return J(201, {}); }
+    if (method === "DELETE") return J(204, {});
+    if (method === "PATCH") {
+      const hash = decodeURIComponent((u.match(/token_hash=eq\.([^&]+)/) || [])[1] || "");
+      const row = PENDING.find(r => r.token_hash === hash &&
+        (!u.includes("consumed_at=is.null") || !r.consumed_at));
+      if (!row) return J(200, []);
+      Object.assign(row, JSON.parse(init.body));
+      return J(200, [row]);
+    }
+    return J(200, PENDING);
   }
 
   // provider_accounts
@@ -212,6 +235,27 @@ const ZONES = { easySec: 330, thresholdSec: 282, intervalSec: 255, repetitionSec
 /* ══════════════════════ OAUTH (tests 1–6) ═══════════════════════════ */
 
 section("OAuth");
+/*
+ * The OAuth completion is now two steps: the unauthenticated provider
+ * callback parks encrypted credentials, then an AUTHENTICATED finalize call
+ * proves the returning session is the account that started the flow and only
+ * then writes provider_accounts. Tests drive both, as production does.
+ */
+async function completeConnection(state, code = "c1", asUser = "user-1") {
+  const cb = mkRes();
+  await handler({ query: { provider: "intervals", action: "callback", code, state },
+    method: "GET", headers: {} }, cb);
+  const afterCallback = { accounts: DB.length, pending: PENDING.length };
+  const loc = String(cb.headers.Location || "");
+  const completion = loc.includes("completion=")
+    ? new URL(loc).searchParams.get("completion") : null;
+  if (!completion) return { cb, fin: null, completion: null, afterCallback };
+  const fin = mkRes();
+  await handler({ query: { provider: "intervals", action: "finalize" }, method: "POST",
+    headers: { authorization: `Bearer ${asUser}` }, body: { completion } }, fin);
+  return { cb, fin, completion, afterCallback };
+}
+
 resetWorld();
 
 // 1. First Intervals OAuth connection
@@ -227,10 +271,15 @@ resetWorld();
 
   // Callback with the real signed state completes the connection.
   const state = url.searchParams.get("state");
-  const r2 = mkRes();
-  await handler({ query: { provider: "intervals", action: "callback", code: "c1", state }, method: "GET", headers: {} }, r2);
-  t("1f. callback stores the connection and redirects", r2.statusCode === 302 && DB.length === 1 && DB[0].access_token === "tok");
-  t("1g. success is logged, token is not", LOGS.some(l => l.event === "intervals_oauth_success") && !JSON.stringify(LOGS).includes("tok"));
+  const { cb, fin, afterCallback } = await completeConnection(state);
+  t("1f. callback parks the connection WITHOUT writing provider_accounts",
+    cb.statusCode === 302 && afterCallback.accounts === 0 && afterCallback.pending === 1);
+  t("1f2. only an authenticated finalize writes the connection",
+    fin.statusCode === 200 && DB.length === 1 && DB[0].access_token === "tok");
+  t("1g. success is logged, token is not",
+    LOGS.some(l => l.event === "intervals_finalize_success") && !JSON.stringify(LOGS).includes("tok"));
+  t("1g2. the parked credential was encrypted at rest",
+    !String(PENDING[0].payload_encrypted).includes("tok"));
 }
 
 // 2. Invalid state
@@ -266,18 +315,20 @@ resetWorld();
 {
   resetWorld();
   const state = signState({ userId: "user-1", issuedAt: Date.now() });
-  await handler({ query: { provider: "intervals", action: "callback", code: "c1", state }, method: "GET", headers: {} }, mkRes());
+  await completeConnection(state, "c1");
   TOKEN_RESPONSE.body.access_token = "tok2";
-  await handler({ query: { provider: "intervals", action: "callback", code: "c2", state }, method: "GET", headers: {} }, mkRes());
+  await completeConnection(state, "c2");
   t("5. reconnect updates in place — no duplicate connection row", DB.length === 1 && DB[0].access_token === "tok2");
 }
 
 // 6. Different Athlevo user tries the same Intervals account
 {
   const state = signState({ userId: "user-2", issuedAt: Date.now() });
+  const pendingBefore = PENDING.length;
   const res = mkRes();
   await handler({ query: { provider: "intervals", action: "callback", code: "c3", state }, method: "GET", headers: {} }, res);
   const loc = decodeURIComponent(String(res.headers.Location).replace(/\+/g, " "));
+  t("6c. nothing is even parked for the wrong account", PENDING.length === pendingBefore);
   t("6. second Athlevo user is blocked from an already-linked account", DB.length === 1 &&
     LOGS.some(l => l.code === "ALREADY_LINKED"));
   t("6b. ownership error is privacy-safe (no other account revealed)", loc.includes("already connected to another Athlevo account") &&
@@ -291,7 +342,7 @@ section("Sync");
 async function connectUser1() {
   resetWorld();
   const state = signState({ userId: "user-1", issuedAt: Date.now() });
-  await handler({ query: { provider: "intervals", action: "callback", code: "c", state }, method: "GET", headers: {} }, mkRes());
+  await completeConnection(state, "c");
 }
 
 // 7. First activity sync

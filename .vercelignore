@@ -12,3 +12,6 @@ api/terra/
 # Not part of the deployed app.
 migrations/
 tests/
+
+# scratch artefact — delete before committing
+*.dbg

@@ -337,7 +337,7 @@ section("OAuth persistence: a FAILED connect never masquerades as 'no workouts'"
   const api = readFileSync("./api/providers/index.js", "utf8");
 
   // The callback must report WHY, machine-readably.
-  t("the callback can return a reason", /backToApp = \(status, message, reason\)/.test(api));
+  t("the callback can return a reason", /backToApp = \(status, message, reason, completion\)/.test(api));
   t("the already-linked case sends reason=already_linked",
     /"already_linked"/.test(api));
   t("the ownership guard still refuses to move the link (security intact)",
@@ -351,7 +351,7 @@ section("OAuth persistence: a FAILED connect never masquerades as 'no workouts'"
   t("the return handler routes failures INTO the flow",
     /showConnectFailure\(reason, message\)/.test(html));
   t("the reason param is read", /\.get\("reason"\)/.test(html));
-  t("...and stripped so a refresh can't replay it", /delete\("reason"\)/.test(html));
+  t("...and stripped so a refresh can't replay it", /"reason", "completion"\]\.forEach\(k => url\.searchParams\.delete\(k\)\)/.test(html));
 
   // The flow shows the true reason.
   t("a dedicated connect-failure screen exists", /function stepConnectFailed/.test(connect));
