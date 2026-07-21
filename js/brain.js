@@ -1,3 +1,14 @@
+
+/*
+ * PRODUCTION BUILD MARKER — executes the instant this file is parsed.
+ *
+ * Runtime-cached JS is served stale-while-revalidate, so the first load after
+ * a deploy can still run the PREVIOUS copy of this file. Checking a behaviour
+ * (a stage log, a network call) cannot distinguish "code is stale" from "code
+ * ran and took a different branch". This marker can: if it is undefined in
+ * the console, the browser is executing an older brain.js.
+ */
+try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_BRAIN_TRACE_VERSION = "connect-trace-v1"; } catch (e) {}
 console.log("Athlevo Brain Loaded");
 
 /*

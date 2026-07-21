@@ -111,7 +111,7 @@ console.log("\n──── 404 is reserved for routing; NOT_CONNECTED is a stat
   const brain = readFileSync("./js/brain.js", "utf8");
   const pr = brain.slice(brain.indexOf("async function providerRequest"));
   t("the client POSTs, matching the server's method gate",
-    /method: "POST"/.test(pr.slice(0, 400)));
+    /method: "POST"/.test(pr.slice(0, pr.indexOf("headers:"))));
   t("...and asks for the action name the server implements",
     /diagnoseIntervals[\s\S]{0,300}providerRequest\("diagnose"/.test(brain));
 
