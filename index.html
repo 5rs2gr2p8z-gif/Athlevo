@@ -488,6 +488,9 @@ input,textarea,select{color:var(--text)}
 .integ-row .integ-hint{font-size:11px;color:var(--ink3);margin-top:2px;line-height:1.35;display:block}
 .integ-row[data-state="connecting"],.integ-row[data-state="syncing"]{opacity:.65}
 /* Secondary, low-emphasis action — present but never competing with the row. */
+/* Not-yet-available content: visibly inert, never pretends to open. */
+.edu-card.soon{opacity:.55;pointer-events:none}
+.rowlink.disabled{opacity:.5;pointer-events:none}
 .integ-unlink{background:none;border:1px solid var(--line);border-radius:999px;
   color:var(--ink2);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;
   font-family:inherit;white-space:nowrap}
@@ -1882,6 +1885,10 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .cf-pulse{width:44px;height:44px;border-radius:50%;background:var(--card);
   border:1px solid var(--line);animation:cfPulse 1.8s ease-in-out infinite}
 @keyframes cfPulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.12);opacity:1}}
+/* Import confirmation chip — proves the connection worked. */
+.cf-confirm{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;
+  background:var(--good-soft);color:var(--good);font-size:12px;font-weight:650;
+  padding:5px 11px;border-radius:999px;letter-spacing:.01em}
 .cf-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 4px}
 .cf-stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
 .cf-stat b{display:block;font-size:20px;font-weight:700;color:var(--text)}
@@ -2784,7 +2791,10 @@ body.landing-active #tabbar{display:none!important}
   .tcp-actrow small{font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
 
   /* detail sheet */
-  .tw-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;justify-content:center}
+  /* Hidden by default in CSS. It previously carried an inline
+   style="display:none", which outranks .tw-modal.show — so the workout
+   modal could never open and "Tap for full workout" did nothing. */
+.tw-modal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
   .tw-modal.show{display:flex}
   .tw-modal-ov{position:absolute;inset:0;background:rgba(8,9,11,.55);backdrop-filter:blur(2px)}
   .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--paper);color:var(--text);border-radius:26px 26px 0 0;padding:24px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px -20px rgba(0,0,0,.5);animation:slideUp .32s cubic-bezier(.16,1,.3,1)}
@@ -2871,7 +2881,7 @@ body.landing-active #tabbar{display:none!important}
 </section>
 
 <!-- Workout / activity detail sheet (opened from the selected-date panel) -->
-<div id="trainWorkoutModal" class="tw-modal" style="display:none">
+<div id="trainWorkoutModal" class="tw-modal">
   <div class="tw-modal-ov" onclick="AthlevoTrainCalendar.closeModal()"></div>
   <div class="tw-modal-box">
     <button class="tw-modal-close" aria-label="Close" onclick="AthlevoTrainCalendar.closeModal()">&times;</button>
@@ -3056,14 +3066,16 @@ body.landing-active #tabbar{display:none!important}
   <div class="pad"><div class="section-title serif">Learn the method</div></div>
   <div class="edu-scroll">
     <div class="edu-card" onclick="openLesson()"><span class="eyebrow">Zones</span><h4>Why Threshold works — and why more isn't better</h4><small>6 min · Norwegian model</small></div>
-    <div class="edu-card" onclick="toast('Opening: Total Cost Accounting')"><span class="eyebrow">Philosophy</span><h4>Total Cost Accounting: training is not your only load</h4><small>5 min · Athlevo Method</small></div>
-    <div class="edu-card" onclick="toast('Opening: Heat — The Invisible Interval')"><span class="eyebrow">Environment</span><h4>Heat is an invisible interval</h4><small>4 min · Tropical training</small></div>
-    <div class="edu-card" onclick="toast('Opening: LT1 vs LT2')"><span class="eyebrow">Science</span><h4>LT1 vs LT2 — the two doors of endurance</h4><small>7 min · Physiology</small></div>
+    <!-- Lessons that are not written yet are marked, not faked. A card that
+         opens a toast promising content we don't have is a dead end. -->
+    <div class="edu-card soon"><span class="eyebrow">Philosophy · Coming soon</span><h4>Total Cost Accounting: training is not your only load</h4><small>In writing</small></div>
+    <div class="edu-card soon"><span class="eyebrow">Environment · Coming soon</span><h4>Heat is an invisible interval</h4><small>In writing</small></div>
+    <div class="edu-card soon"><span class="eyebrow">Science · Coming soon</span><h4>LT1 vs LT2 — the two doors of endurance</h4><small>In writing</small></div>
   </div>
   <div class="spacer-lg"></div>
 
   <div class="pad"><div class="section-title serif">Community</div></div>
-  <div class="rowlink" onclick="toast('Community — coming in v1.1')">
+  <div class="rowlink disabled" aria-disabled="true">
     <div><b>Athlevo Athletes</b><small>Questions, discussion &amp; leaderboards</small></div><span class="arr">→</span>
   </div>
   <div class="spacer-md" style="height:12px"></div>

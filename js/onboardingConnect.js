@@ -96,65 +96,16 @@
   /* ═══════════════════════════ steps ═══════════════════════════════ */
 
   /*
-   * Step 3 — why we need training data.
+   * Step 1 — DEVICE FIRST.
    *
-   * This is the only screen that names the connection service, and it names
-   * it as a means, not a destination: the athlete is connecting their
-   * training to Athlevo, not signing up for something else.
+   * This used to open with a page explaining our connection service, then a
+   * page asking whether they had an account with it. Both asked the athlete
+   * to understand our plumbing before they had done anything. A runner knows
+   * exactly one thing here: what they run with. So that is the first question,
+   * and the "why" rides along in a single line beneath it.
    */
-  function stepExplain() {
+  function stepDevice() {
     A().track("connect_step_viewed");
-    show(`
-      <div class="cf-step">
-        <div class="cf-icon">📈</div>
-        <h2 class="cf-title serif">Let's bring in your training</h2>
-        <p class="cf-body">
-          Athlevo analyzes your previous workouts to build a coach that
-          understands how <em>you</em> train — your paces, your volume, your
-          recovery.
-        </p>
-        <p class="cf-note">
-          To import your history securely we use ${esc(DS().serviceName)} as our
-          connection service. It links your watch to Athlevo in a few taps.
-        </p>
-        <button class="cf-btn primary" onclick="AthlevoConnect.next('account')">Continue</button>
-      </div>
-    `);
-  }
-
-  /*
-   * Step 4 — do they already have an account with the connection service?
-   * Most runners will not, and assuming otherwise is where this flow would
-   * lose people. Both paths are equally weighted.
-   */
-  function stepAccount() {
-    show(`
-      <div class="cf-step">
-        <h2 class="cf-title serif">One quick account</h2>
-        <p class="cf-body">
-          ${esc(DS().serviceName)} is free and takes about a minute. It's the
-          bridge between your watch and Athlevo.
-        </p>
-        <div class="cf-choice-list">
-          <button class="cf-choice" onclick="AthlevoConnect.createAccount()">
-            <b>I need an account</b>
-            <small>Opens ${esc(DS().serviceName)} — come straight back when you're done</small>
-          </button>
-          <button class="cf-choice" onclick="AthlevoConnect.next('wearable')">
-            <b>I already have one</b>
-            <small>Continue to connect your watch</small>
-          </button>
-        </div>
-      </div>
-    `);
-  }
-
-  /*
-   * Step 5 — which watch. Framed as "pick the one you actually use", because
-   * the list is a menu, not a checklist. This list comes from the data-source
-   * adapter, so a future direct integration appears here automatically.
-   */
-  function stepWearable() {
     const items = DS().wearables.map(w => `
       <button class="cf-device" onclick="AthlevoConnect.pickWearable('${esc(w.key)}')">
         <span class="cf-device-name">${esc(w.label)}</span>
@@ -163,22 +114,26 @@
 
     show(`
       <div class="cf-step">
-        <h2 class="cf-title serif">Which do you use?</h2>
+        <h2 class="cf-title serif">What do you run with?</h2>
         <p class="cf-body">
-          Pick the one your runs already go to. You only need one — whichever
-          you actually use.
+          Athlevo reads your past workouts to learn your paces, your volume and
+          how you recover — that's what makes the coaching yours.
         </p>
         <div class="cf-device-grid">${items}</div>
-        <button class="cf-link" onclick="AthlevoConnect.next('authorize')">
-          Skip — I'll pick later
+        <button class="cf-link" onclick="AthlevoConnect.skipConnection()">
+          I don't have a watch yet
         </button>
       </div>
     `);
   }
 
   /*
-   * Step 5b — device-specific instruction, then authorize. Kept concrete and
-   * short: three steps, in the athlete's language.
+   * Step 2 — connect that device.
+   *
+   * The athlete should finish thinking "I connected my Garmin", not "I made
+   * an account somewhere". The connection service is named once, in a
+   * subordinate clause, as the mechanism — never as a destination or a
+   * product they must evaluate.
    */
   function stepAuthorize() {
     const w = DS().wearables.find(x => x.key === state.wearable);
@@ -186,16 +141,16 @@
     show(`
       <div class="cf-step">
         <h2 class="cf-title serif">Connect ${esc(name)}</h2>
-        <ol class="cf-steps">
-          <li>Open your ${esc(DS().serviceName)} settings</li>
-          <li>Choose <b>${esc(name)}</b> and sign in</li>
-          <li>Come back here — we'll take it from there</li>
-        </ol>
-        <button class="cf-btn secondary" onclick="AthlevoConnect.openConnections()">
-          Open connection settings
-        </button>
+        <p class="cf-body">
+          Athlevo links to ${esc(name)} through ${esc(DS().serviceName)}, a free
+          service that securely passes your workouts across. Two taps and
+          you're done.
+        </p>
         <button class="cf-btn primary" onclick="AthlevoConnect.authorize()">
-          Connect to Athlevo
+          Connect ${esc(name)}
+        </button>
+        <button class="cf-btn secondary" onclick="AthlevoConnect.createAccount()">
+          I need to set that up first
         </button>
         <p class="cf-note small">
           Athlevo only ever reads your workouts. We never post, edit or delete anything.
@@ -258,9 +213,16 @@
     const stat = (label, value) => value
       ? `<div class="cf-stat"><b>${esc(value)}</b><small>${esc(label)}</small></div>` : "";
 
+    /*
+     * Confirms the CONNECTION worked before the athlete reaches the
+     * dashboard, in their own numbers. Deliberately does NOT start plan
+     * generation — the athlete chooses that from Today, so a generation
+     * failure can never hijack a successful import.
+     */
     show(`
       <div class="cf-step">
         <div class="cf-icon">✓</div>
+        <span class="cf-confirm">Training history imported</span>
         <h2 class="cf-title serif">${esc(summary.headline)}</h2>
         <p class="cf-body">${esc(summary.subline)}</p>
         <div class="cf-stats">
@@ -269,7 +231,8 @@
           ${stat("Most recent", summary.latest)}
           ${stat("Training streak", summary.streak)}
         </div>
-        <button class="cf-btn primary" onclick="AthlevoConnect.finish()">Enter Dashboard</button>
+        <p class="cf-note">Next: create your training plan from the dashboard.</p>
+        <button class="cf-btn primary" onclick="AthlevoConnect.finish()">Continue</button>
       </div>
     `);
   }
@@ -295,13 +258,11 @@
 
   function render() {
     switch (state.step) {
-      case "explain":   return stepExplain();
-      case "account":   return stepAccount();
-      case "wearable":  return stepWearable();
+      case "device":    return stepDevice();
       case "authorize": return stepAuthorize();
       case "detecting": return stepDetecting();
       case "success":   return stepSuccess(state.result);
-      default:          return stepExplain();
+      default:          return stepDevice();
     }
   }
 
@@ -497,14 +458,15 @@
         if (status && status.connected) return resumeAfterConnect();
       } catch (e) { /* treat as not connected */ }
 
-      go("explain");
+      go("device");
     },
 
     next: (step) => go(step),
 
     createAccount() {
+      // Opens the connection service in a new tab. They come straight back to
+      // the same screen and tap Connect — no extra step in our flow.
       openExternal(DS().signupUrl);
-      go("wearable");
     },
 
     openConnections() {
@@ -518,6 +480,26 @@
 
     authorize,
     resumeAfterConnect,
+
+    /*
+     * No watch, or not now. Athlevo still works: the plan is built from the
+     * completed profile, and it improves the moment training data arrives.
+     * A dead end here would lose the athlete entirely.
+     */
+    async skipConnection() {
+      A().track("no_activities", { reason: "skipped" });
+      show(`
+        <div class="cf-step center">
+          <div class="cf-pulse"></div>
+          <h2 class="cf-title serif">No problem</h2>
+          <p class="cf-body">
+            We'll build your plan from your profile, and it'll get sharper as
+            soon as you connect a watch. You can do that any time from You.
+          </p>
+        </div>
+      `);
+      return api.finish();
+    },
 
     handle(action) {
       // A problem screen is terminal for this attempt — releasing the guard
@@ -537,12 +519,27 @@
       A().track("dashboard_opened");
       const tabbar = document.getElementById("tabbar");
       if (tabbar) tabbar.style.display = "flex";
-      if (typeof showScreen === "function") showScreen("screen-today");
+
       try {
         if (root.AthlevoBrain && root.AthlevoBrain.refreshAthleteUI) {
           await root.AthlevoBrain.refreshAthleteUI();
         }
       } catch (e) { /* dashboard renders its own empty states */ }
+
+      /*
+       * Hand off to the plan layer. It decides whether to generate
+       * automatically or land on the dashboard with the "Create My Training
+       * Plan" card visible — governed by ONE constant (AUTO_FIRST_PLAN in
+       * js/planSetup.js), currently OFF while the generation pipeline is
+       * verified with real production athletes.
+       *
+       * Onboarding does not need to know which mode is active.
+       */
+      if (root.AthlevoPlan && typeof root.AthlevoPlan.autoBuildFirstPlan === "function") {
+        try { await root.AthlevoPlan.autoBuildFirstPlan(); return; }
+        catch (e) { console.warn("Plan handoff failed:", e); }
+      }
+      if (typeof showScreen === "function") showScreen("screen-today");
     },
 
     isActive: wasActive,

@@ -113,12 +113,17 @@
 
   /* ───────────────────────── generation flow ─────────────────────────── */
 
+  /*
+   * What the athlete actually asked for was a training plan, so the copy
+   * names that outcome. The steps mirror the real pipeline order the server
+   * follows: profile → goals → history → week → coach.
+   */
   const GEN_STEPS = [
     "Reviewing your profile",
-    "Analyzing recent training",
     "Understanding your goals",
-    "Building your personalized plan",
-    "Coach ready"
+    "Analyzing your recent training",
+    "Designing your first training week",
+    "Preparing your coach"
   ];
 
   function renderGen() {
@@ -127,7 +132,7 @@
     mount.innerHTML = `
       <div class="pg-wrap">
         <div class="pg-orb"><img src="assets/athlevo-icon.png" alt="" width="46" height="46"></div>
-        <h2 class="pg-title serif" id="pgTitle">Athlevo is building your coach…</h2>
+        <h2 class="pg-title serif" id="pgTitle">Creating your personalized training plan</h2>
         <ul class="pg-steps" id="pgSteps">
           ${GEN_STEPS.map((s, i) => `<li data-i="${i}"><span class="pg-dot"></span><span>${esc(s)}</span></li>`).join("")}
         </ul>
@@ -166,8 +171,8 @@
     mount.innerHTML = `
       <div class="pg-wrap success">
         <div class="pg-check">✓</div>
-        <h2 class="pg-title serif">Your coach is ready.</h2>
-        <p class="pg-sub">Your first personalized week is set. Let's train.</p>
+        <h2 class="pg-title serif">Your training plan is ready.</h2>
+        <p class="pg-sub">Your first week is set. Let's train.</p>
         <button class="ps-build" type="button" onclick="AthlevoPlan.enterTrain()">Enter Training</button>
       </div>`;
     if (!reduceMotion()) setTimeout(() => { enterTrain(); }, 1600);
@@ -330,8 +335,61 @@
     renderTodayCta(profile, has);
   }
 
+  /*
+   * ── Automatic first plan — BUILT, DORMANT ──────────────────────────
+   *
+   * Flip this ONE constant to true to enable automatic generation after
+   * onboarding. Everything below is already wired and tested; nothing else
+   * needs to change.
+   *
+   * It is deliberately OFF. Plan generation was repaired very recently and
+   * has not yet been verified end to end with real production users. If it
+   * fails while automatic, every new beta athlete hits a broken onboarding
+   * with no action they chose — strictly worse than a visible button they
+   * tapped. Verify one real production flow first, then flip this.
+   */
+  const AUTO_FIRST_PLAN = false;
+
+  /*
+   * The single entry point onboarding calls. While AUTO_FIRST_PLAN is false
+   * this lands the athlete on the dashboard, where the "Create My Training
+   * Plan" card is waiting — the flow they control.
+   *
+   * SAFETY (already in force for when this is enabled): it refuses to run if
+   * a plan exists, opens that plan instead, and never sends `regenerate`.
+   */
+  async function autoBuildFirstPlan() {
+    if (!AUTO_FIRST_PLAN) {
+      // Manual for now. Show the dashboard with the plan CTA visible.
+      if (typeof showScreen === "function") showScreen("screen-today");
+      refreshTodayCta();
+      return { skipped: "auto_disabled" };
+    }
+
+    if (buildInFlight) return { skipped: "in_flight" };
+
+    const existing = await hasPlan();
+    if (existing === true) {
+      // Never regenerate. Open what they already have.
+      enterTrain();
+      return { skipped: "already_has_plan" };
+    }
+    if (existing === null) {
+      // Couldn't tell (offline, auth hiccup). Do NOT gamble on generating.
+      if (typeof showScreen === "function") showScreen("screen-today");
+      refreshTodayCta();
+      return { skipped: "unknown" };
+    }
+
+    await build();
+    return { generated: true };
+  }
+
+  // Exposed so the UX test can assert the flag's state without guessing.
+  function autoFirstPlanEnabled() { return AUTO_FIRST_PLAN; }
+
   window.AthlevoPlan = {
-    hasPlan, start, build, notNow, enterTrain,
+    hasPlan, start, build, autoBuildFirstPlan, autoFirstPlanEnabled, notNow, enterTrain,
     maybeLaunchAfterOnboarding, refreshTodayCta, renderTodayCta,
     VERSION: "plan-setup-v1"
   };

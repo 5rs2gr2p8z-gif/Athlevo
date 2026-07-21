@@ -84,8 +84,10 @@
     { key: "garmin", label: "Garmin", via: "intervals" },
     { key: "coros",  label: "COROS",  via: "intervals" },
     { key: "polar",  label: "Polar",  via: "intervals" },
+    { key: "apple",  label: "Apple Watch", via: "intervals" },
     { key: "suunto", label: "Suunto", via: "intervals" },
-    { key: "strava", label: "Strava", via: "intervals" }
+    { key: "strava", label: "Strava", via: "intervals" },
+    { key: "other",  label: "Something else", via: "intervals" }
   ];
 
   const INTERVALS_SIGNUP_URL = "https://intervals.icu/signup";

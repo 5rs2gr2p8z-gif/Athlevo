@@ -124,26 +124,24 @@ section("Happy path — account → device → auto-detect → auto-import → d
   const { api, dom, g } = makeWorld(p);
 
   await api.start();
-  t("starts on the education step", /bring in your training/i.test(dom.html));
-  t("explains WHY before asking for anything",
-    /analyzes your previous workouts/i.test(dom.html));
-  t("names the connection service exactly once, as a means",
-    (dom.html.match(/Intervals\.icu/g) || []).length === 1, dom.html.match(/Intervals\.icu/g));
+  t("opens by asking what they RUN WITH, not by explaining our plumbing",
+    /What do you run with/i.test(dom.html));
+  t("the connection service is NOT named on the first screen",
+    !/Intervals\.icu/.test(dom.html), "service named too early");
+  t("the why rides along in one line", /learn your paces/i.test(dom.html));
   t("routes to the setup screen", dom.screen === "screen-connect");
   t("hides the tab bar during setup", dom.tabbar === "none");
 
-  api.next("account");
-  t("offers BOTH 'I need an account' and 'I already have one'",
-    /I need an account/.test(dom.html) && /I already have one/.test(dom.html));
-
-  api.next("wearable");
-  ["Garmin", "COROS", "Polar", "Suunto", "Strava"].forEach(w =>
-    t(`offers ${w}`, dom.html.includes(w)));
-  t("tells them they only need the one they use", /only need one/i.test(dom.html));
+  ["Garmin", "COROS", "Polar", "Apple Watch", "Suunto", "Strava", "Something else"]
+    .forEach(w => t(`offers ${w}`, dom.html.includes(w)));
+  t("offers a no-watch escape", /don't have a watch yet/i.test(visible(dom.html)));
 
   api.pickWearable("garmin");
-  t("device step is specific to the chosen watch", /Connect Garmin/.test(dom.html));
-  t("gives concrete three-step instructions", (dom.html.match(/<li>/g) || []).length === 3);
+  t("connect step names the athlete's own device", /Connect Garmin/.test(dom.html));
+  t("the primary button is about their watch, not an account",
+    /Connect Garmin/.test(visible(dom.html)) && !/create.*account/i.test(visible(dom.html)));
+  t("the connection service is named exactly once, subordinate",
+    (dom.html.match(/Intervals\.icu/g) || []).length === 1);
   t("reassures about read-only access", /only ever reads/i.test(dom.html));
 
   await api.authorize();
@@ -315,7 +313,7 @@ section("Already-connected athlete skips the explanation");
   await api.start();
   await wait(150);
   t("goes straight to automatic detection/import",
-    p.calls.detect >= 1 && !/bring in your training/i.test(dom.html));
+    p.calls.detect >= 1 && !/What do you run with/i.test(dom.html));
 }
 
 /* ═════════════════ provider-agnostic architecture ═══════════════════ */
@@ -333,6 +331,9 @@ section("Swappable provider (future direct Garmin/COROS)");
     /DS\(\)\.wearables\.map/.test(src));
   t("service name is injected, never literal in UI copy",
     !/Intervals\.icu/.test(src.replace(/\/\*[\s\S]*?\*\//g, "")));
+  t("the flow is two screens, not four (device → connect)",
+    /case "device":/.test(src) && /case "authorize":/.test(src) &&
+    !/case "explain":/.test(src) && !/case "account":/.test(src));
 
   const act = readFileSync("./js/activation.js", "utf8");
   t("adapter declares all five platforms",
@@ -365,8 +366,6 @@ section("No developer surface");
     const p = pipeline({ count: 12, foundAfter: 1 });
     const w = makeWorld(p);
     await w.api.start();                     screens.push(visible(w.dom.html));
-    w.api.next("account");                   screens.push(visible(w.dom.html));
-    w.api.next("wearable");                  screens.push(visible(w.dom.html));
     w.api.pickWearable("garmin");            screens.push(visible(w.dom.html));
     await w.api.resumeAfterConnect();
     await wait(120);                         screens.push(visible(w.dom.html));
