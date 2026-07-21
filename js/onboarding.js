@@ -790,10 +790,20 @@ async function obFinish() {
     console.error("Could not refresh athlete UI after onboarding:", error);
   }
 
-  // Proactive coach setup: a brand-new athlete has no plan yet, so guide them
-  // straight into "Build My Coach" instead of dead-ending on an empty Today.
-  // If a plan somehow already exists, this just shows Today. Generation is
-  // never automatic — the athlete always taps to build.
+  if (window.AthlevoAnalytics) window.AthlevoAnalytics.track("profile_completed");
+
+  /*
+   * The athlete profile is done; now bring in their training. Athlevo cannot
+   * personalize coaching without real workouts, so the guided connect flow is
+   * the next step rather than an optional card — it educates, connects,
+   * detects and imports automatically.
+   */
+  if (window.AthlevoConnect && typeof window.AthlevoConnect.start === "function") {
+    try { await window.AthlevoConnect.start(); return; }
+    catch (e) { console.warn("Guided setup could not start:", e); }
+  }
+
+  // Fallbacks, unchanged, if the guided flow is unavailable for any reason.
   if (window.AthlevoPlan && typeof window.AthlevoPlan.maybeLaunchAfterOnboarding === "function") {
     try { await window.AthlevoPlan.maybeLaunchAfterOnboarding(); return; }
     catch (e) { console.warn("Plan setup launch failed:", e); }

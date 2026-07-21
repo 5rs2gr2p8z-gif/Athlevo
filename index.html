@@ -1832,6 +1832,64 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
    LANDING PAGE — premium marketing (athlevo.org entry)
    Full-width when body.landing-active; reuses brand tokens.
    ═══════════════════════════════════════════════════════════════════ */
+/* ── Guided training-data setup ─────────────────────────────────────────
+   Uses only existing tokens so it inherits light/dark automatically. */
+#screen-connect{background:var(--bg)}
+.cf-wrap{padding:28px 22px calc(40px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+.cf-step{display:flex;flex-direction:column;gap:14px}
+.cf-step.center{align-items:center;text-align:center}
+.cf-icon{width:52px;height:52px;border-radius:16px;background:var(--card);
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+  border:1px solid var(--line)}
+.cf-icon.muted{color:var(--warn)}
+.cf-title{font-size:24px;line-height:1.25;margin:2px 0 0;color:var(--text)}
+.cf-body{font-size:15px;line-height:1.55;color:var(--ink2);margin:0}
+.cf-note{font-size:13px;line-height:1.5;color:var(--ink3);margin:0}
+.cf-note.small{font-size:12px}
+.cf-btn{width:100%;padding:15px 18px;border-radius:14px;font-size:15px;
+  font-weight:650;font-family:inherit;cursor:pointer;border:1px solid var(--line);
+  background:var(--paper);color:var(--text);margin-top:2px}
+.cf-btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.cf-btn.secondary{background:var(--field);color:var(--text)}
+.cf-btn:active{transform:translateY(1px)}
+.cf-link{background:none;border:none;color:var(--ink3);font-size:13px;
+  font-family:inherit;text-decoration:underline;cursor:pointer;padding:8px}
+.cf-choice-list{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.cf-choice{text-align:left;padding:16px 18px;border-radius:14px;border:1px solid var(--line);
+  background:var(--paper);cursor:pointer;font-family:inherit;color:var(--text)}
+.cf-choice b{display:block;font-size:15px;font-weight:650;margin-bottom:3px}
+.cf-choice small{font-size:12.5px;color:var(--ink3);line-height:1.4}
+.cf-choice:active{background:var(--field)}
+.cf-device-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.cf-device{padding:18px 12px;border-radius:14px;border:1px solid var(--line);
+  background:var(--paper);cursor:pointer;font-family:inherit;color:var(--text)}
+.cf-device:active{background:var(--field)}
+.cf-device-name{font-size:14.5px;font-weight:600}
+.cf-steps{margin:4px 0 8px;padding-left:20px;color:var(--ink2);font-size:14.5px;line-height:1.9}
+.cf-steps b{color:var(--text)}
+/* Import progress — stages advance around real pipeline calls, not a timer. */
+.cf-stages{list-style:none;margin:8px 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.cf-stage{display:flex;align-items:center;gap:12px;padding:11px 0;font-size:14.5px;
+  color:var(--ink3);transition:color .3s ease}
+.cf-stage-mark{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+.cf-stage.done{color:var(--text)}
+.cf-stage.done .cf-stage-mark{background:var(--good);border-color:var(--good);color:#fff}
+.cf-stage.active{color:var(--text);font-weight:600}
+.cf-stage.active .cf-stage-mark{border-color:var(--ink);
+  border-top-color:transparent;animation:cfSpin .8s linear infinite}
+@keyframes cfSpin{to{transform:rotate(360deg)}}
+.cf-pulse{width:44px;height:44px;border-radius:50%;background:var(--card);
+  border:1px solid var(--line);animation:cfPulse 1.8s ease-in-out infinite}
+@keyframes cfPulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.12);opacity:1}}
+.cf-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 4px}
+.cf-stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.cf-stat b{display:block;font-size:20px;font-weight:700;color:var(--text)}
+.cf-stat small{font-size:11.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em}
+@media (prefers-reduced-motion:reduce){
+  .cf-pulse,.cf-stage.active .cf-stage-mark{animation:none}
+}
+
 /* ── Boot gate ──────────────────────────────────────────────────────────
    A FIXED OVERLAY, not a screen in the normal flow. That distinction is what
    removes layout shift: the destination surface (full-bleed landing or the
@@ -2013,6 +2071,14 @@ body.landing-active #tabbar{display:none!important}
 </div>
 
 <div class="device">
+
+<!-- ══════════════ GUIDED TRAINING-DATA SETUP (onboarding 3–6) ══════════════
+     Body is rendered by js/onboardingConnect.js. Athlevo guides the athlete
+     end to end: education → account → device → automatic detection →
+     automatic import → real numbers. No console, no manual refresh. -->
+<section class="screen" id="screen-connect">
+  <div class="cf-wrap"><div id="connectFlowBody"></div></div>
+</section>
 
 <!-- ══════════════ LANDING (premium marketing) ══════════════ -->
 <section class="screen lp" id="screen-landing">
@@ -3408,6 +3474,8 @@ async function doSignup(bypassEmbeddedWarning) {
   msg.textContent = 'Creating account...';
 
   try {
+    trackFunnel("signup_started");
+
     const { data, error } = await withTimeout(supabaseClient.auth.signUp({
       email,
       password,
@@ -3450,6 +3518,7 @@ async function doSignup(bypassEmbeddedWarning) {
       }
       msg.style.color = '#1a7f37';
       msg.textContent = 'Account created!';
+      trackFunnel("signup_completed");
       closeAuth();
       startOnboarding();
       return;
@@ -3470,6 +3539,7 @@ async function doSignup(bypassEmbeddedWarning) {
       if (user) {
         msg.style.color = '#1a7f37';
         msg.textContent = 'Account created!';
+        trackFunnel("signup_completed");
         closeAuth();
         startOnboarding();
         return;
@@ -3579,6 +3649,11 @@ async function doLogout() {
   if (!isStandaloneMode()) updateOpenAppUI(false);
 }
 window.doLogout = doLogout;
+
+function trackFunnel(name, meta) {
+  if (window.AthlevoAnalytics) window.AthlevoAnalytics.track(name, meta || null);
+}
+window.trackFunnel = trackFunnel;
 
 async function connectStrava() {
   // Strava's OAuth page does not render inside in-app browsers (it opens a
@@ -3830,6 +3905,16 @@ async function routeAfterAuth(userId) {
     return;
   }
 
+  /*
+   * Guided setup survives the OAuth round-trip. If it was in progress when
+   * the athlete left to authorize, resume it instead of dropping them on a
+   * dashboard with no data — they should never have to find their way back.
+   */
+  if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+    try { await window.AthlevoConnect.resumeAfterConnect(); return; }
+    catch (e) { console.warn("Could not resume guided setup:", e); }
+  }
+
   document.getElementById("tabbar").style.display = "flex";
   showScreen("screen-today");
 
@@ -4064,6 +4149,8 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js"></script>
 <script src="js/workoutClassifier.js"></script>
 <script src="js/trends.js"></script>
+<script src="js/activation.js"></script>
+<script src="js/onboardingConnect.js"></script>
 <script src="js/productionVerify.js"></script>
 <script src="js/athlevoScore.js"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
@@ -4244,9 +4331,19 @@ setTimeout(function () {
   function handleIntervalsResult(state, message) {
     if (!state) return;
     if (state === "connected") {
-      if (typeof toast === "function") toast("Intervals.icu connected — importing your training…");
-      if (window.AthlevoBrain && AthlevoBrain.syncIntervals) {
-        AthlevoBrain.syncIntervals().catch(() => {});
+      /*
+       * If the athlete is mid-onboarding, hand straight back to the guided
+       * flow: it detects activities and imports automatically, so they never
+       * refresh or run anything. Outside onboarding, keep the old
+       * fire-and-forget sync so an existing athlete's reconnect still works.
+       */
+      if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+        window.AthlevoConnect.resumeAfterConnect();
+      } else {
+        if (typeof toast === "function") toast("Connected — importing your training…");
+        if (window.AthlevoBrain && AthlevoBrain.syncIntervals) {
+          AthlevoBrain.syncIntervals().catch(() => {});
+        }
       }
     } else if (state === "cancelled") {
       if (typeof toast === "function") toast("Intervals.icu connection was cancelled");
@@ -4262,6 +4359,19 @@ setTimeout(function () {
   }
 
   window.handleIntervalsResult = handleIntervalsResult;
+
+  /*
+   * The OAuth round-trip leaves the app entirely, so "we were mid-onboarding"
+   * has to survive a full page load. One boolean in sessionStorage — cleared
+   * as soon as the athlete reaches the dashboard.
+   */
+  window.addEventListener("beforeunload", function () {
+    try {
+      if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+        sessionStorage.setItem("athlevo_guided_setup", "1");
+      }
+    } catch (e) {}
+  });
 
   (function checkIntervalsReturn() {
     try {

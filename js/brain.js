@@ -1660,6 +1660,21 @@ async function syncIntervals() {
  *
  * Console:  await AthlevoBrain.diagnoseIntervals()
  */
+/*
+ * Same probe, no console output. Onboarding calls this internally to decide
+ * whether a wearable has pushed workouts through yet — the athlete should
+ * never need to run a diagnostic themselves, so it must not print.
+ */
+async function diagnoseIntervalsQuiet() {
+  return providerRequest("diagnose");
+}
+
+// Connection status without touching the connections UI. Used by onboarding,
+// which renders its own progress rather than the You-screen row.
+async function providerStatus() {
+  return providerRequest("status");
+}
+
 async function diagnoseIntervals() {
   const report = await providerRequest("diagnose");
   console.log("%c" + report.verdict, "font-weight:bold");
@@ -2116,6 +2131,8 @@ window.AthlevoBrain = {
   syncIntervals,
   refreshIntervalsStatus,
   diagnoseIntervals,
+  diagnoseIntervalsQuiet,
+  providerStatus,
   onIntervalsRowTap,
   disconnectIntervals,
   hasTrainingDataConnected,
