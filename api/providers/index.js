@@ -274,7 +274,14 @@ async function intervalsFetch(path, accessToken, meta) {
     err.rateLimited = true;
     throw err;
   }
-  if (!res.ok) throw new Error(`Intervals.icu request failed (${res.status}).`);
+  if (!res.ok) {
+    // Capture a truncated body so a 4xx/5xx reason is visible instead of
+    // collapsing to a bare status code.
+    if (meta) {
+      try { meta.errorBody = (await res.text()).slice(0, 300); } catch (e) {}
+    }
+    throw new Error(`Intervals.icu request failed (${res.status}).`);
+  }
 
   const body = await res.json();
   if (meta) {
@@ -284,6 +291,15 @@ async function intervalsFetch(path, accessToken, meta) {
     // a wrapped payload (e.g. {activities:[…]}) without leaking training data.
     if (!Array.isArray(body) && body && typeof body === "object") {
       meta.objectKeys = Object.keys(body).slice(0, 20);
+    }
+    /*
+     * An EMPTY array and an unexpected 200 payload both produced count 0 and
+     * were indistinguishable. Record a short raw sample so "Intervals really
+     * returned []" can be told apart from "Intervals returned something we
+     * did not parse". Truncated; contains no tokens.
+     */
+    if (Array.isArray(body) && body.length === 0) {
+      meta.rawSample = JSON.stringify(body).slice(0, 120);
     }
   }
   return body;
@@ -573,6 +589,21 @@ async function actionSync(request, response, cid) {
             meta.count = alt.length;
           } else {
             meta.explicitIdAlsoEmpty = true;
+
+            // Last resort: the other athlete-id form (bare ↔ i-prefixed).
+            const rawId = String(account.provider_athlete_id);
+            const altId = rawId.startsWith("i") ? rawId.slice(1) : `i${rawId}`;
+            try {
+              const altMeta = { oldest: range.oldest, newest: range.newest, athleteId: "alt" };
+              const altRows = await intervalsFetch(
+                activitiesPath(altId, range.oldest, range.newest),
+                account.access_token, altMeta);
+              if (Array.isArray(altRows) && altRows.length) {
+                activities = altRows;
+                meta.usedAltAthleteIdForm = true;
+                meta.count = altRows.length;
+              }
+            } catch { meta.altIdFailed = true; }
           }
         } catch { meta.explicitIdFailed = true; }
       }
@@ -804,7 +835,19 @@ async function actionDiagnose(request, response, cid) {
   }
   // 4. Very wide window — separates "no recent activities" from "no activities".
   await run("wideWindow3y", activitiesPath("0", day(-1095), day(1)));
-  // 5. Scope probe, informational only. A 403 here is EXPECTED and healthy —
+  /*
+   * 5. Athlete-id FORM probe. Intervals ids appear both bare ("2049151")
+   *    and "i"-prefixed ("i2049151") in their API. The OAuth token exchange
+   *    returns one form; the activities path may require the other. Probing
+   *    both removes the guesswork entirely.
+   */
+  if (account.provider_athlete_id) {
+    const raw = String(account.provider_athlete_id);
+    const alt = raw.startsWith("i") ? raw.slice(1) : `i${raw}`;
+    await run("athleteIdAltForm", activitiesPath(alt, day(-FIRST_SYNC_DAYS), day(0)));
+  }
+
+  // 6. Scope probe, informational only. A 403 here is EXPECTED and healthy —
   //    it confirms Athlevo holds activity-read access and nothing more.
   await run("scopeCheck_athleteSettings", "/athlete/0");
 
@@ -847,6 +890,9 @@ async function actionDiagnose(request, response, cid) {
     provider: "intervals",
     connectionStatus: account.status,
     hasAthleteId: Boolean(account.provider_athlete_id),
+    athleteIdForm: account.provider_athlete_id
+      ? (String(account.provider_athlete_id).startsWith("i") ? "i-prefixed" : "bare-numeric")
+      : null,
     scope: account.scope || null,
     lastSyncAt: account.last_sync_at || null,
     lastSyncStatus: account.last_sync_status || null,

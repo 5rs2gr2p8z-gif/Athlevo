@@ -279,9 +279,15 @@ section("Production schema contract");
   const bad = cols.filter(c => !REAL_COLUMNS.has(c.split(":")[0]));
   t("every selected column exists in production", bad.length === 0, bad.join(","));
 
-  const orders = [...v.matchAll(/\.order\("([a-z_]+)"/g)].map(m => m[1]);
+  /*
+   * Scope the activities contract to loadAllActivities(). checkPlan() reads
+   * profiles/training_plans/training_sessions with their own columns.
+   */
+  const activityFn = v.slice(v.indexOf("async function loadAllActivities"),
+                             v.indexOf("const isSuperseded"));
+  const orders = [...activityFn.matchAll(/\.order\("([a-z_]+)"/g)].map(m => m[1]);
   const badOrder = orders.filter(c => !REAL_COLUMNS.has(c));
-  t("every ordered column exists in production", badOrder.length === 0, badOrder.join(","));
+  t("activity reads order only by real activity columns", badOrder.length === 0, badOrder.join(","));
   t("chronology is ordered by start_date, not an import timestamp",
     orders.includes("start_date"), orders.join(","));
 
@@ -296,8 +302,9 @@ section("Production schema contract");
 
   // 4. Only the activities table is touched.
   const tables = [...v.matchAll(/\.from\("([a-z_]+)"\)/g)].map(m => m[1]);
-  t("verifier reads only the activities table",
-    tables.every(x => x === "activities"), tables.join(","));
+  const ALLOWED = new Set(["activities", "profiles", "training_plans", "training_sessions"]);
+  t("verifier touches only known Athlevo tables",
+    tables.every(x => ALLOWED.has(x)), tables.join(","));
 }
 
 section("The old bug is now caught by the harness");
