@@ -77,8 +77,11 @@ function makeWorld({ session, standalone, routeThrows = false }) {
     tabbarDisplay: "none",
     routed: null,
     onboardingStarted: false,
+    signedOut: false,
     log: []
   };
+  const store = new Map();
+  state.store = store;
 
   const el = (id) => ({
     get classList() {
@@ -116,9 +119,14 @@ function makeWorld({ session, standalone, routeThrows = false }) {
     console: { log: (...a) => state.log.push(String(a[0])), warn: (...a) => state.log.push(String(a[0])), error: (...a) => state.log.push(String(a[0])) },
     setTimeout,
     isStandaloneMode: () => standalone,
+    sessionStorage: {
+      getItem: k => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: k => store.delete(k)
+    },
     supabaseClient: { auth: {
       getSession: async () => ({ data: { session }, error: null }),
-      signOut: async () => ({ error: null })
+      signOut: async () => { state.signedOut = true; return { error: null }; }
     } },
     athlevoSessionUserId: null,
     athlevoAuthPushed: false,
@@ -139,7 +147,8 @@ function makeWorld({ session, standalone, routeThrows = false }) {
     `${SOURCE}
      return {
        restoreSession, endBootGate, showScreen, doLogout, renderNavState,
-       getUid: () => athlevoSessionUserId
+       getUid: () => athlevoSessionUserId,
+       getAuthPushed: () => athlevoAuthPushed
      };`);
   return { api: fn(...Object.values(sandbox)), state };
 }
@@ -195,20 +204,62 @@ section("Routing scenarios");
     r.state.screens["screen-landing"].active === false);
 }
 {
+  /*
+   * An explicit logout goes to the AUTH screen, not marketing — in both the
+   * browser and the PWA. Someone who just pressed Logout wants to sign back
+   * in, not read a pitch and hunt for "Open App".
+   */
   const { api, state } = makeWorld({ session: SESSION, standalone: false });
   await api.restoreSession({}); api.endBootGate();
   await api.doLogout();
   const visible = Object.keys(state.screens).find(k => state.screens[k].active);
-  t("7. logout in browser → landing", visible === "screen-landing");
-  t("7b. session id cleared", api.getUid() === null);
-  t("7c. tab bar hidden", state.tabbarDisplay === "none");
+  t("7. logout in BROWSER → auth screen, not the landing page",
+    visible === "screen-welcome", visible);
+  t("7b. Supabase signOut was actually called", state.signedOut === true);
+  t("7c. session id cleared", api.getUid() === null);
+  t("7d. tab bar hidden", state.tabbarDisplay === "none");
+  t("7e. landing page is NOT shown", state.screens["screen-landing"].active === false);
 }
 {
   const { api, state } = makeWorld({ session: SESSION, standalone: true });
   await api.restoreSession({}); api.endBootGate();
   await api.doLogout();
   const visible = Object.keys(state.screens).find(k => state.screens[k].active);
-  t("8. logout in PWA → welcome, NOT landing", visible === "screen-welcome");
+  t("8. logout in PWA → auth screen", visible === "screen-welcome");
+  t("8b. same destination in both contexts (no branch on standalone)",
+    !/isStandaloneMode\(\) \? 'screen-welcome' : 'screen-landing'/.test(extract("doLogout")));
+}
+
+section("Logout clears state that must not outlive the session");
+{
+  const { api, state } = makeWorld({ session: SESSION, standalone: false });
+  await api.restoreSession({}); api.endBootGate();
+  // Simulate an athlete who logs out midway through guided setup.
+  state.store.set("athlevo_guided_setup", "1");
+  state.store.set("athlevo_guided_wearable", "garmin");
+  await api.doLogout();
+
+  t("guided-setup resume flag cleared", state.store.get("athlevo_guided_setup") === undefined);
+  t("remembered wearable cleared", state.store.get("athlevo_guided_wearable") === undefined);
+  t("auth history flag reset so Back behaves", api.getAuthPushed() === false);
+  t("activity cache invalidated (no data leaks to the next athlete)",
+    /invalidateActivityCache/.test(extract("doLogout")));
+  t("athlete UI reset", /resetAthleteUI/.test(extract("doLogout")));
+  t("logout does NOT start onboarding", !/startOnboarding/.test(extract("doLogout")));
+  t("logout does NOT trigger a training import",
+    !/syncIntervals|AthlevoConnect/.test(extract("doLogout")));
+  t("a failed signOut aborts before clearing UI state",
+    /if \(error\)[\s\S]{0,120}return;/.test(extract("doLogout")));
+}
+
+section("Public visitors still see marketing (unchanged)");
+{
+  const r = await boot({ session: null, standalone: false });
+  t("a visitor with no session still lands on marketing", r.visible === "screen-landing");
+  const r2 = await boot({ session: null, standalone: true });
+  t("PWA with no session still shows the auth screen", r2.visible === "screen-welcome");
+  t("boot logic still branches on standalone; only logout stopped doing so",
+    /isStandaloneMode\(\)/.test(extract("restoreSession")));
 }
 
 section("Landing CTAs (source-level)");
