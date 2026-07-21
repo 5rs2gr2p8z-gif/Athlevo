@@ -265,6 +265,49 @@ section("OAuth round-trip");
     fresh.g.sessionStorage.getItem("athlevo_guided_setup") === null);
 }
 
+section("OAuth return must not run the flow twice");
+{
+  /*
+   * index.html reaches resumeAfterConnect() from TWO places on the OAuth
+   * return: the ?intervals=connected handler AND routeAfterAuth() during
+   * session restore. Both firing produced two detection loops and a second
+   * sync that the server's lock rejects — a spurious error mid-import.
+   */
+  const p = pipeline({ count: 274, foundAfter: 1 });
+  const { api, dom } = makeWorld(p);
+  api.resumeAfterConnect();          // ?intervals=connected handler
+  await wait(5);
+  api.resumeAfterConnect();          // routeAfterAuth()
+  await wait(200);
+
+  t("detection runs exactly once", p.calls.detect === 1, `${p.calls.detect}`);
+  t("import runs exactly once", p.calls.sync === 1, `${p.calls.sync}`);
+  t("still reaches success normally", /We found 274 workouts/.test(dom.html));
+}
+
+section("The guard does not block legitimate retries");
+{
+  let failing = true;
+  const p = pipeline({ count: 10, foundAfter: 1 });
+  const realSync = p.syncIntervals;
+  p.syncIntervals = async () => {
+    p.calls.sync += 1;
+    if (failing) throw new Error("Failed to fetch");
+    return { imported: 10, withLaps: 2, failed: 0, status: "success" };
+  };
+  const { api, dom } = makeWorld(p);
+  await api.resumeAfterConnect();
+  await wait(150);
+  t("a hard failure shows the error screen",
+    /couldn't reach your training data/i.test(visible(dom.html)), visible(dom.html).slice(0, 80));
+
+  failing = false;
+  api.handle("retry");
+  await wait(200);
+  t("Try again restarts the flow after the guard released", p.calls.sync > 2, `${p.calls.sync}`);
+  t("...and recovers to success", /We found 10 workouts/.test(dom.html), visible(dom.html).slice(0, 80));
+}
+
 section("Already-connected athlete skips the explanation");
 {
   const p = pipeline({ connected: true, count: 42, foundAfter: 1 });

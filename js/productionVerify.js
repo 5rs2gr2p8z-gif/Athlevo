@@ -370,10 +370,16 @@
     console.log("   " + scoreGate.rule);
 
     /*
-     * 8. Loader truncation check. Everything downstream (Today, Train,
-     * Trends, Score, Coach) reads through loadAthleteActivities(200), which
-     * caps at 200 rows AND applies the superseded filter AFTER the cap — so
-     * duplicate rows consume slots that real training should occupy.
+     * 8. Loader truncation guard (regression check).
+     *
+     * The loader USED to take the newest 200 rows and filter superseded
+     * duplicates client-side afterwards, so duplicates consumed slots that
+     * real training should have occupied — 74 canonical activities were
+     * invisible to Today/Train/Trends/Score/Coach. It now bounds by TIME and
+     * pages, with the superseded filter applied server-side.
+     *
+     * This block stays as a guard: if a row cap is ever reintroduced, the
+     * number it would hide is reported here.
      */
     const loaderCap = 200;
     const visibleAfterCap = rows.slice(0, loaderCap).filter(r => !isSuperseded(r)).length;

@@ -40,7 +40,8 @@
     detectStartedAt: 0,
     detectTimer: null,
     result: null,
-    active: false
+    active: false,
+    running: false   // guards against double-entry on the OAuth return
   };
 
   const $ = (id) => document.getElementById(id);
@@ -275,6 +276,7 @@
 
   // Any dead end, in plain language, always with a way forward.
   function stepProblem(problem) {
+    state.running = false;   // this attempt is over; allow a retry
     show(`
       <div class="cf-step">
         <div class="cf-icon muted">!</div>
@@ -322,6 +324,17 @@
    * here everything is automatic: detect → import → summarize.
    */
   async function resumeAfterConnect() {
+    /*
+     * Re-entrancy guard. On the OAuth return index.html reaches this from TWO
+     * places: the ?intervals=connected handler, and routeAfterAuth() during
+     * session restore. Without this guard both fire, producing two detection
+     * loops competing for the screen and a second sync that the server's
+     * 5-minute lock rejects — surfacing a spurious "still working" error in
+     * the middle of a successful import.
+     */
+    if (state.running) return;
+    state.running = true;
+
     markActive(true);
     restoreWearable();
     if (typeof showScreen === "function") showScreen("screen-connect");
@@ -507,6 +520,9 @@
     resumeAfterConnect,
 
     handle(action) {
+      // A problem screen is terminal for this attempt — releasing the guard
+      // lets Try again / Reconnect actually restart the flow.
+      state.running = false;
       if (action === "retry") return beginDetection();
       if (action === "wait") return beginDetection();
       if (action === "reconnect") return authorize();
@@ -516,6 +532,7 @@
 
     async finish() {
       markActive(false);
+      state.running = false;
       clearTimeout(state.detectTimer);
       A().track("dashboard_opened");
       const tabbar = document.getElementById("tabbar");
