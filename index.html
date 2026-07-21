@@ -2250,8 +2250,8 @@ body.landing-active #tabbar{display:none!important}
   <div class="w-btns">
     <button class="w-btn primary" onclick="openSignup()">Create account</button>
     <button class="w-btn" onclick="openLogin()">Log in</button>
-    <button class="w-btn" onclick="startOnboarding()"> Continue with Apple</button>
-    <button class="w-btn" onclick="startOnboarding()">G&ensp;Continue with Google</button>
+    <button class="w-btn" id="authBtnApple" onclick="continueWithApple()"> Continue with Apple</button>
+    <button class="w-btn" id="authBtnGoogle" onclick="continueWithGoogle()">G&ensp;Continue with Google</button>
   </div>
 </section>
 
@@ -3639,14 +3639,35 @@ async function doLogout() {
 
   athlevoSessionUserId = null;
 
-  document.getElementById('tabbar').style.display = 'none';
   /*
-   * Symmetric with boot: signing out of the installed app returns to the
-   * login/signup screen, not to marketing. In a browser the landing page is
-   * the correct signed-out home.
+   * Clear in-app state that must not outlive the session.
+   *
+   * The guided-setup flags are the important ones: without this, signing out
+   * mid-onboarding and signing back in as someone else would resume the
+   * previous athlete's setup — starting a detection loop and an import
+   * against the wrong account.
    */
-  showScreen(isStandaloneMode() ? 'screen-welcome' : 'screen-landing');
-  if (!isStandaloneMode()) updateOpenAppUI(false);
+  try {
+    sessionStorage.removeItem('athlevo_guided_setup');
+    sessionStorage.removeItem('athlevo_guided_wearable');
+  } catch (e) { /* private mode — nothing persisted anyway */ }
+  athlevoAuthPushed = false;
+
+  document.getElementById('tabbar').style.display = 'none';
+
+  /*
+   * An explicit logout ALWAYS returns to the auth screen, in both the
+   * browser and the installed app.
+   *
+   * This deliberately differs from boot. At boot, a browser visitor with no
+   * session may genuinely be a first-time visitor, so marketing is right.
+   * Someone who just pressed Logout is not a prospect — they are a user who
+   * wants to sign back in or switch accounts. Sending them to the landing
+   * page made them hunt for "Open App" to get back to a login form they were
+   * one tap away from. (This routing was introduced by the earlier boot-gate
+   * sprint, which made logout symmetric with boot; that symmetry was wrong.)
+   */
+  showScreen('screen-welcome');
 }
 window.doLogout = doLogout;
 
@@ -4149,6 +4170,7 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js"></script>
 <script src="js/workoutClassifier.js"></script>
 <script src="js/trends.js"></script>
+<script src="js/socialAuth.js"></script>
 <script src="js/activation.js"></script>
 <script src="js/onboardingConnect.js"></script>
 <script src="js/productionVerify.js"></script>
@@ -4322,6 +4344,63 @@ setTimeout(function () {
 
   window.syncStravaNow = syncStravaNow;
 
+  /* ══════════════════ Social sign-in (Google) ══════════════════════
+   *
+   * These buttons previously called startOnboarding() directly — with no
+   * authentication at all — which is why "Continue with Google" failed
+   * instantly: onboarding demands a valid session and there was none.
+   * They now start a real Supabase OAuth flow.
+   */
+  async function continueWithGoogle() {
+    const btn = document.getElementById("authBtnGoogle");
+    if (btn) { btn.disabled = true; btn.textContent = "Opening Google…"; }
+    const result = await AthlevoSocialAuth.signInWithGoogle();
+    if (!result.ok) {
+      if (btn) { btn.disabled = false; btn.innerHTML = "G&ensp;Continue with Google"; }
+      // handled === true means a notice was already shown (in-app browser).
+      if (!result.handled && result.message && typeof toast === "function") toast(result.message);
+    }
+    // On success the browser navigates to Google; nothing else to do.
+  }
+
+  async function continueWithApple() {
+    const result = await AthlevoSocialAuth.signInWithApple();
+    if (!result.ok && result.message && typeof toast === "function") toast(result.message);
+  }
+
+  window.continueWithGoogle = continueWithGoogle;
+  window.continueWithApple = continueWithApple;
+
+  /*
+   * OAuth return. Supabase (detectSessionInUrl) consumes the auth params and
+   * establishes the session by itself, so success needs no handling here —
+   * the normal boot path routes correctly. We only surface FAILURES, so the
+   * athlete is never left on a blank screen wondering what happened.
+   */
+  let pendingAuthProblem = null;
+  (function checkAuthReturn() {
+    try {
+      if (!window.AthlevoSocialAuth) return;
+      pendingAuthProblem = AthlevoSocialAuth.readReturnError();
+      // Strip the parameters immediately so a refresh cannot replay the
+      // error, but hold the message until routing has settled.
+      if (pendingAuthProblem) AthlevoSocialAuth.clearAuthParams();
+    } catch (e) { /* never block boot on this */ }
+  })();
+
+  /*
+   * Reported AFTER session restore, not on a timer, so the message can never
+   * race routing or land on the boot screen. A failed sign-in always ends on
+   * a screen the athlete can retry from — never a blank page.
+   */
+  function reportAuthProblem() {
+    if (!pendingAuthProblem) return;
+    const problem = pendingAuthProblem;
+    pendingAuthProblem = null;
+    if (typeof toast === "function") toast(problem.message);
+    if (!athlevoSessionUserId && typeof openAppEntry === "function") openAppEntry();
+  }
+
   /*
    * Intervals.icu OAuth return. Mirrors the Strava handler: a calm toast, no
    * tokens or raw provider errors, and the ?intervals= param is stripped so a
@@ -4401,6 +4480,10 @@ setTimeout(function () {
     }
   }
 
+  // Only offer a provider that is actually configured. A button that fails
+  // the instant it is pressed is worse than no button at all.
+  if (window.AthlevoSocialAuth) AthlevoSocialAuth.applyProviderVisibility();
+
   async function initializeAthlevoApp() {
     const url = new URL(window.location.href);
     const stravaResult = url.searchParams.get("strava");
@@ -4419,6 +4502,8 @@ setTimeout(function () {
       enteredApp = await restoreSession({ returningFromStrava: !!stravaResult });
     } finally {
       endBootGate();
+      // Surface any OAuth failure now that a real screen is showing.
+      reportAuthProblem();
     }
 
     // Report the OAuth result (success, cancellation, or failure) and
