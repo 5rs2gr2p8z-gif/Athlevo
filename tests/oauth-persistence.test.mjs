@@ -111,6 +111,58 @@ async function startAndCallback(starter = "A") {
   return { cb, loc, completion: new URL(loc).searchParams.get("completion") };
 }
 
+/* ══════ 0. The authorize URL handed to the browser ══════════════════ */
+
+section("0. The authorization request Intervals.icu actually receives");
+{
+  /*
+   * The one hop no test covered. Every other test synthesised a signed state
+   * and called actionCallback directly, so a malformed authorize URL was
+   * invisible: Intervals rejected it on its own error page and never
+   * redirected back, meaning the callback, the pending row, the completion
+   * token and finalize ALL never happened — while the suite stayed green.
+   */
+  world({ meUser: "A" });
+  const r = await call({ provider: "intervals", action: "connect" }, { as: "A" });
+  t("connect returns an authorization URL", r.code === 200 && Boolean(r.body.authorizationUrl));
+
+  const url = new URL(r.body.authorizationUrl);
+  const q = url.searchParams;
+
+  t("it points at the Intervals.icu authorize endpoint",
+    url.origin + url.pathname === "https://intervals.icu/oauth/authorize");
+
+  // OAuth 2.0 §4.1.1 — required. Its absence was the root cause.
+  t("response_type=code is present", q.get("response_type") === "code",
+    `response_type=${q.get("response_type")}`);
+
+  t("client_id is present", Boolean(q.get("client_id")));
+  t("redirect_uri is present", Boolean(q.get("redirect_uri")));
+  t("scope is present", Boolean(q.get("scope")));
+  t("state is present", Boolean(q.get("state")));
+
+  // Every REQUIRED parameter, in one assertion, so adding a hop can't silently
+  // drop one again.
+  t("no required OAuth parameter is missing",
+    ["response_type", "client_id", "redirect_uri", "scope", "state"]
+      .every(k => Boolean(q.get(k))),
+    ["response_type", "client_id", "redirect_uri", "scope", "state"]
+      .filter(k => !q.get(k)).join(",") || "none missing");
+
+  t("redirect_uri targets our callback action",
+    q.get("redirect_uri").includes("action=callback"));
+  t("scope stays read-only", q.get("scope") === "ACTIVITY:READ");
+  t("state is the signed two-part form", (q.get("state") || "").split(".").length === 2);
+  t("the client secret never reaches the browser",
+    !r.body.authorizationUrl.includes("sec") && !JSON.stringify(r.body).includes("sec"));
+
+  // The round trip: the state we issue must be the one the callback accepts.
+  const cb = await call({ provider: "intervals", action: "callback",
+    code: "authcode", state: q.get("state") }, { as: null });
+  t("that exact state is accepted by the callback",
+    String(cb.hdrs.Location || "").includes("intervals=pending"));
+}
+
 /* ══════ 1. A starts, A returns → saved under A ══════════════════════ */
 
 section("1. Same account throughout");

@@ -484,6 +484,15 @@ async function actionConnect(request, response, cid) {
   );
 
   const authorizeUrl = new URL(INTERVALS_AUTHORIZE_URL);
+  /*
+   * REQUIRED by OAuth 2.0 §4.1.1. Without it the authorization server has no
+   * declared grant type, rejects the request on its own error page, and never
+   * redirects to redirect_uri — so our callback never runs, no connection is
+   * ever parked, and the client has nothing to finalize. Its absence looked
+   * like a client bug for four investigations. api/strava/connect.js has
+   * always set it; this endpoint never did.
+   */
+  authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", process.env.INTERVALS_CLIENT_ID);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("scope", INTERVALS_SCOPE);
