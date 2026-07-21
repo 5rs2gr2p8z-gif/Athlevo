@@ -50,7 +50,17 @@ const LOG_SAFE = new Set([
   "imported", "skipped", "failed", "duplicatesMarked", "windows",
   "durationMs", "reason", "hasLaps", "oldest", "newest",
   // Import diagnostics: counts and shape only — never activity values.
-  "returnedByApi", "unparseableWindows", "count"
+  "returnedByApi", "unparseableWindows", "count",
+  /*
+   * Post-consent callback diagnostics. Booleans, statuses and ORIGINS only.
+   * The authorization code, tokens, client secret, signed-state contents and
+   * completion token are deliberately absent and must stay absent.
+   */
+  "invoked", "method", "pathname", "action", "hasCode", "hasState", "hasError",
+  "stateValid", "tokenExchangeAttempted", "tokenHttpStatus",
+  "pendingWriteAttempted", "pendingWriteOk", "pendingHttpStatus",
+  "finalRedirectState", "returnOrigin", "redirectUriOrigin",
+  "redirectUriSource", "originsMatch"
 ]);
 
 function log(event, fields = {}) {
@@ -253,6 +263,16 @@ async function createPendingConnection({ userId, provider, athleteId, credential
       expires_at: new Date(Date.now() + PENDING_TTL_MS).toISOString()
     }])
   });
+  if (!res.ok) {
+    // A missing table, a schema mismatch and a network fault are all invisible
+    // behind a bare null. Machine code and status only — never the payload.
+    let code = "";
+    try { const b = await res.json(); code = String((b && b.code) || "").slice(0, 12); }
+    catch (e) {}
+    log("intervals_pending_write_failed", {
+      provider, pendingHttpStatus: res.status, code, pendingWriteOk: false
+    });
+  }
   return res.ok ? raw : null;
 }
 
@@ -506,7 +526,59 @@ async function actionConnect(request, response, cid) {
 
 async function actionCallback(request, response, cid) {
   const origin = getAppReturnOrigin();
+
+  /*
+   * TEMPORARY POST-CONSENT DIAGNOSTICS.
+   *
+   * Production reaches the Intervals consent screen, the athlete approves, and
+   * the browser comes back to Athlevo on the Today page with no connection and
+   * no client-side trail. That is consistent with this function never running
+   * AND with it running and bouncing the browser to a different origin — the
+   * two cannot be told apart from the client. So the server says which.
+   *
+   * ORIGIN DIVERGENCE is the specific thing worth watching: the OUTBOUND
+   * redirect_uri may come from INTERVALS_REDIRECT_URI, while the RETURN origin
+   * always comes from APP_URL (see lib/server/wearable/intervalsConfig.js).
+   * If those disagree, the callback executes correctly on the registered
+   * domain and then sends the athlete to a DIFFERENT origin — one with its own
+   * sessionStorage and no Supabase session. The athlete lands on Today,
+   * nothing is connected, and no trail exists on the domain they were on.
+   *
+   * Origins and booleans only. No code, token, secret, state body or
+   * completion token is ever recorded.
+   */
+  const q0 = request.query || {};
+  let redirectUriOrigin = null, redirectUriSource = null;
+  try {
+    const info = getIntervalsRedirectUri();
+    redirectUriSource = info.source;
+    redirectUriOrigin = info.uri ? new URL(info.uri).origin : null;
+  } catch (e) { /* diagnostics must never break the flow */ }
+
+  const returnOrigin = origin ? (() => {
+    try { return new URL(origin).origin; } catch (e) { return "unparseable"; }
+  })() : "unset";
+
+  log("intervals_callback_invoked", {
+    correlationId: cid, provider: "intervals", invoked: true,
+    method: request.method || null,
+    pathname: String(request.url || "").split("?")[0] || null,
+    action: q0.action || null,
+    hasCode: Boolean(q0.code),
+    hasState: Boolean(q0.state),
+    hasError: Boolean(q0.error),
+    returnOrigin,
+    redirectUriOrigin,
+    redirectUriSource,
+    // The decisive comparison.
+    originsMatch: Boolean(redirectUriOrigin) && redirectUriOrigin === returnOrigin
+  });
+
   const backToApp = (status, message, reason, completion) => {
+    log("intervals_callback_redirect", {
+      correlationId: cid, provider: "intervals",
+      finalRedirectState: status, returnOrigin
+    });
     const target = new URL(`${origin}/index.html`);
     target.searchParams.set("intervals", status);
     if (message) target.searchParams.set("message", message);
@@ -528,6 +600,9 @@ async function actionCallback(request, response, cid) {
   }
 
   const payload = verifyState(q.state, process.env.OAUTH_STATE_SECRET);
+  log("intervals_callback_state", { correlationId: cid, provider: "intervals",
+    stateValid: Boolean(payload) });
+
   if (!payload) {
     // Covers tampered, forged, replayed-after-expiry and missing state.
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "INVALID_STATE" });
@@ -552,6 +627,9 @@ async function actionCallback(request, response, cid) {
         redirect_uri: redirectUri
       })
     });
+    log("intervals_callback_token", { correlationId: cid, provider: "intervals",
+      tokenExchangeAttempted: true, tokenHttpStatus: res.status });
+
     if (!res.ok) {
       // Log the STATUS only — the body sits next to token material.
       log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "TOKEN_EXCHANGE", httpStatus: res.status });
@@ -603,6 +681,9 @@ async function actionCallback(request, response, cid) {
    * Instead: park the credentials encrypted, hand the browser an opaque
    * one-time token, and let the AUTHENTICATED finalize call decide.
    */
+  log("intervals_callback_pending", { correlationId: cid, provider: "intervals",
+    pendingWriteAttempted: true });
+
   const completion = await createPendingConnection({
     userId: payload.userId,
     provider: "intervals",
@@ -614,6 +695,9 @@ async function actionCallback(request, response, cid) {
       scope: token.scope || INTERVALS_SCOPE
     }
   });
+
+  log("intervals_callback_pending_result", { correlationId: cid, provider: "intervals",
+    pendingWriteOk: Boolean(completion) });
 
   if (!completion) {
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "PENDING_PERSIST" });

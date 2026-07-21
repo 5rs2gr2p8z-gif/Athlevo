@@ -524,6 +524,102 @@ section("13. A pending return issues exactly one finalize, before any diagnose")
     /hasCompletion: Boolean\(completion\)/.test(html));
 }
 
+/* ══════ post-consent server-side diagnostics ═══════════════════════ */
+
+section("14. The callback proves its own execution, without leaking anything");
+{
+  logs.length = 0;
+  const w = world({ meUser: "A" });
+  const { loc, completion } = await startAndCallback("A");
+  const ev = (name) => logs.map(l => JSON.parse(l)).filter(e => e.event === name);
+
+  t("invocation is recorded before anything else",
+    ev("intervals_callback_invoked").length === 1);
+  const inv = ev("intervals_callback_invoked")[0];
+  t("...with method, action and pathname", inv.invoked === true && inv.action === "callback");
+  t("...and presence of code / state / error",
+    inv.hasCode === true && inv.hasState === true && inv.hasError === false);
+  t("state verification result is recorded",
+    ev("intervals_callback_state")[0].stateValid === true);
+  t("token exchange attempt and status are recorded",
+    ev("intervals_callback_token")[0].tokenExchangeAttempted === true &&
+    ev("intervals_callback_token")[0].tokenHttpStatus === 200);
+  t("the pending write attempt is recorded",
+    ev("intervals_callback_pending")[0].pendingWriteAttempted === true);
+  t("...and its outcome", ev("intervals_callback_pending_result")[0].pendingWriteOk === true);
+  t("the final redirect state is recorded",
+    ev("intervals_callback_redirect").slice(-1)[0].finalRedirectState === "pending");
+
+  /*
+   * ORIGIN DIVERGENCE. The outbound redirect_uri may come from
+   * INTERVALS_REDIRECT_URI while the return origin always comes from APP_URL.
+   * When they disagree the callback runs correctly and then bounces the
+   * athlete to a different origin — different sessionStorage, no session.
+   */
+  t("both origins are recorded", Boolean(inv.returnOrigin) && Boolean(inv.redirectUriOrigin));
+  t("...and compared", typeof inv.originsMatch === "boolean");
+  t("they match in a correct configuration", inv.originsMatch === true,
+    `${inv.redirectUriOrigin} vs ${inv.returnOrigin}`);
+  t("the redirect_uri source is named", Boolean(inv.redirectUriSource));
+
+  const dump = logs.join("\n");
+  t("NO authorization code is logged", !dump.includes("authcode"));
+  t("NO access token is logged", !dump.includes(TOKEN));
+  t("NO client secret is logged", !dump.includes("sec\""));
+  t("NO completion token is logged", !dump.includes(completion));
+  t("NO signed state body is logged",
+    !dump.includes(new URL(loc).searchParams.get("intervals") === "pending" ? "eyJ" : "eyJ"));
+}
+
+section("14b. A divergent APP_URL is caught");
+{
+  const realAppUrl = process.env.APP_URL;
+  process.env.INTERVALS_REDIRECT_URI =
+    "https://athlevo.org/api/providers?provider=intervals&action=callback";
+  process.env.APP_URL = "https://some-preview.vercel.app";
+
+  logs.length = 0;
+  world({ meUser: "A" });
+  await startAndCallback("A");
+  const inv = logs.map(l => JSON.parse(l)).find(e => e.event === "intervals_callback_invoked");
+
+  t("the mismatch is detected", inv.originsMatch === false);
+  t("...naming the outbound origin", inv.redirectUriOrigin === "https://athlevo.org");
+  t("...and the divergent return origin", inv.returnOrigin === "https://some-preview.vercel.app");
+  t("...and which variable supplied the redirect_uri",
+    inv.redirectUriSource === "INTERVALS_REDIRECT_URI");
+
+  delete process.env.INTERVALS_REDIRECT_URI;
+  process.env.APP_URL = realAppUrl;
+}
+
+section("14c. A failed pending write reports why");
+{
+  logs.length = 0;
+  const w = world({ meUser: "A" });
+  // Emulate the table being absent: PostgREST answers 404 with a code.
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (u, i = {}) => {
+    if (String(u).includes("pending_provider_connections") &&
+        (i.method || "GET").toUpperCase() === "POST") {
+      return { ok: false, status: 404, headers: { get: () => null },
+        json: async () => ({ code: "42P01", message: "relation does not exist" }),
+        text: async () => "{}" };
+    }
+    return realFetch(u, i);
+  };
+  const { loc } = await startAndCallback("A");
+  globalThis.fetch = realFetch;
+
+  const fail = logs.map(l => JSON.parse(l)).find(e => e.event === "intervals_pending_write_failed");
+  t("a missing table is reported, not swallowed", Boolean(fail));
+  t("...with the HTTP status", fail && fail.pendingHttpStatus === 404);
+  t("...and the Postgres code", fail && fail.code === "42P01");
+  t("the athlete is redirected to a failure state, never left hanging",
+    loc.includes("intervals=failed"));
+  t("no row was written", w.db.accounts.length === 0);
+}
+
 console.log = real;
 console.log(`\n${p} passed, ${f} failed`);
 process.exit(f ? 1 : 0);
