@@ -357,10 +357,13 @@ async function actionConnect(request, response, cid) {
 
 async function actionCallback(request, response, cid) {
   const origin = getAppReturnOrigin();
-  const backToApp = (status, message) => {
+  const backToApp = (status, message, reason) => {
     const target = new URL(`${origin}/index.html`);
     target.searchParams.set("intervals", status);
     if (message) target.searchParams.set("message", message);
+    // A machine-readable reason so the app can react correctly rather than
+    // inferring the cause from prose. Never contains athlete data.
+    if (reason) target.searchParams.set("reason", reason);
     response.setHeader("Location", target.toString());
     return response.status(302).end();
   };
@@ -430,7 +433,11 @@ async function actionCallback(request, response, cid) {
   }
   if (owner.userId && owner.userId !== String(payload.userId)) {
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED" });
-    return backToApp("failed", "This Intervals.icu account is already connected to another Athlevo account.");
+    return backToApp(
+      "failed",
+      "This Intervals.icu account is already connected to another Athlevo account.",
+      "already_linked"
+    );
   }
 
   const saved = await upsertProviderAccount({

@@ -1886,6 +1886,15 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   border:1px solid var(--line);animation:cfPulse 1.8s ease-in-out infinite}
 @keyframes cfPulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.12);opacity:1}}
 /* Import confirmation chip — proves the connection worked. */
+/* Numbered setup guide — the athlete is walked through, not sent away. */
+.cf-guide{margin:2px 0 6px;padding-left:22px;color:var(--ink2);font-size:14.5px;line-height:1.85}
+.cf-guide li{padding-left:2px}
+.cf-guide b{color:var(--text);font-weight:650}
+/* Metric / Imperial switch */
+.ob2-units{display:inline-flex;background:var(--field);border-radius:999px;padding:3px;margin-bottom:14px}
+.ob2-unit{border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;
+  color:var(--ink2);padding:7px 16px;border-radius:999px;cursor:pointer}
+.ob2-unit.on{background:var(--paper);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .cf-confirm{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;
   background:var(--good-soft);color:var(--good);font-size:12px;font-weight:650;
   padding:5px 11px;border-radius:999px;letter-spacing:.01em}
@@ -3943,7 +3952,13 @@ async function routeAfterAuth(userId) {
    * the athlete left to authorize, resume it instead of dropping them on a
    * dashboard with no data — they should never have to find their way back.
    */
-  if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+  /*
+   * Resume guided setup — unless the connection attempt already failed, in
+   * which case checkIntervalsReturn() has shown the real reason and resuming
+   * would overwrite it with a misleading "no workouts" screen.
+   */
+  if (window.AthlevoConnect && window.AthlevoConnect.isActive() &&
+      !window.AthlevoConnect.hasFailed()) {
     try { await window.AthlevoConnect.resumeAfterConnect(); return; }
     catch (e) { console.warn("Could not resume guided setup:", e); }
   }
@@ -4438,13 +4453,30 @@ setTimeout(function () {
       }
     } else if (state === "cancelled") {
       if (typeof toast === "function") toast("Intervals.icu connection was cancelled");
+      if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+        window.AthlevoConnect.showConnectFailure("cancelled", message);
+      }
     } else {
-      if (typeof toast === "function") toast(message || "Could not connect Intervals.icu — please try again");
+      /*
+       * The connection FAILED and nothing was saved. Previously this only
+       * raised a toast, and routeAfterAuth then resumed the guided flow
+       * anyway — which searched for workouts against a connection that does
+       * not exist and told the athlete "we couldn't find any workouts".
+       * That is the wrong answer to the wrong question. Hand the real reason
+       * to the flow instead.
+       */
+      const reason = (new URLSearchParams(window.location.search)).get("reason") || "";
+      if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+        window.AthlevoConnect.showConnectFailure(reason, message);
+      } else if (typeof toast === "function") {
+        toast(message || "Could not connect Intervals.icu — please try again");
+      }
     }
     try {
       const url = new URL(window.location.href);
       url.searchParams.delete("intervals");
       url.searchParams.delete("message");
+      url.searchParams.delete("reason");
       window.history.replaceState({}, "", url.toString());
     } catch {}
   }

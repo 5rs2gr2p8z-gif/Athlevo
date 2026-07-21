@@ -41,7 +41,8 @@
     detectTimer: null,
     result: null,
     active: false,
-    running: false   // guards against double-entry on the OAuth return
+    running: false,  // guards against double-entry on the OAuth return
+    failed: false    // the connection attempt itself failed; do not resume
   };
 
   const $ = (id) => document.getElementById(id);
@@ -130,10 +131,15 @@
   /*
    * Step 2 — connect that device.
    *
-   * The athlete should finish thinking "I connected my Garmin", not "I made
-   * an account somewhere". The connection service is named once, in a
-   * subordinate clause, as the mechanism — never as a destination or a
-   * product they must evaluate.
+   * IMPORTANT: there are TWO separate links, and conflating them is what
+   * made real athletes land on "no workouts found":
+   *
+   *   A. Garmin  → Intervals   (the athlete does this inside Intervals)
+   *   B. Intervals → Athlevo   (our OAuth)
+   *
+   * Our OAuth only ever performs B. If A has never been done, the account we
+   * are authorised to read is genuinely empty. So the athlete is walked
+   * through A first, explicitly, before we ask for B.
    */
   function stepAuthorize() {
     const w = DS().wearables.find(x => x.key === state.wearable);
@@ -142,15 +148,22 @@
       <div class="cf-step">
         <h2 class="cf-title serif">Connect ${esc(name)}</h2>
         <p class="cf-body">
-          Athlevo links to ${esc(name)} through ${esc(DS().serviceName)}, a free
-          service that securely passes your workouts across. Two taps and
-          you're done.
+          ${esc(name)} sends your workouts to Athlevo through
+          ${esc(DS().serviceName)}, a free service that sits in between.
+          It's a two-minute setup, once.
         </p>
-        <button class="cf-btn primary" onclick="AthlevoConnect.authorize()">
-          Connect ${esc(name)}
+        <ol class="cf-guide">
+          <li><b>Create or sign in</b> to your ${esc(DS().serviceName)} account</li>
+          <li>Open <b>Settings</b>, then find <b>Connections</b></li>
+          <li>Choose <b>${esc(name)}</b> and sign in with your ${esc(name)} account</li>
+          <li><b>Wait for the sync</b> — your history can take a few minutes to appear</li>
+          <li>Come back here and continue</li>
+        </ol>
+        <button class="cf-btn secondary" onclick="AthlevoConnect.openConnections()">
+          Open ${esc(DS().serviceName)} connections
         </button>
-        <button class="cf-btn secondary" onclick="AthlevoConnect.createAccount()">
-          I need to set that up first
+        <button class="cf-btn primary" onclick="AthlevoConnect.authorize()">
+          I've connected ${esc(name)} — continue
         </button>
         <p class="cf-note small">
           Athlevo only ever reads your workouts. We never post, edit or delete anything.
@@ -237,6 +250,91 @@
     `);
   }
 
+  /*
+   * The most common real outcome of a first connection: the athlete
+   * authorised Athlevo, but has not yet linked their watch INSIDE the
+   * connection service — so there is genuinely nothing to read. That is not
+   * an error, it is a missing step, and it must be named as one.
+   */
+  function stepNoWorkoutsYet() {
+    const w = DS().wearables.find(x => x.key === state.wearable);
+    const name = w ? w.label : "your watch";
+    show(`
+      <div class="cf-step">
+        <div class="cf-icon muted">!</div>
+        <h2 class="cf-title serif">Almost there</h2>
+        <p class="cf-body">
+          Athlevo is connected, but we can't see any workouts yet. That
+          usually means ${esc(name)} isn't linked inside
+          ${esc(DS().serviceName)} — or it's still syncing.
+        </p>
+        <ol class="cf-guide">
+          <li>Open ${esc(DS().serviceName)} <b>Settings → Connections</b></li>
+          <li>Check that <b>${esc(name)}</b> is connected</li>
+          <li>Give it a few minutes to pull your history across</li>
+        </ol>
+        <button class="cf-btn secondary" onclick="AthlevoConnect.openConnections()">
+          Open ${esc(DS().serviceName)} connections
+        </button>
+        <button class="cf-btn primary" onclick="AthlevoConnect.handle('retry')">
+          Check again
+        </button>
+        <button class="cf-link" onclick="AthlevoConnect.skipConnection()">
+          Continue without my history for now
+        </button>
+      </div>
+    `);
+  }
+
+  /*
+   * The connection attempt itself failed, so nothing was saved. This is
+   * distinct from "connected but no workouts" — and conflating them is what
+   * made a real athlete see "we couldn't find any workouts" when the truth
+   * was that their Intervals account is already linked to a different
+   * Athlevo account and the connection was never persisted.
+   */
+  function stepConnectFailed(reason, message) {
+    state.failed = true;
+    clearTimeout(state.detectTimer);
+
+    if (reason === "already_linked") {
+      show(`
+        <div class="cf-step">
+          <div class="cf-icon muted">!</div>
+          <h2 class="cf-title serif">That account is already in use</h2>
+          <p class="cf-body">
+            This ${esc(DS().serviceName)} account is already connected to a
+            different Athlevo account. For your security we won't move it
+            automatically.
+          </p>
+          <ol class="cf-guide">
+            <li>Sign in to your <b>other Athlevo account</b> and disconnect it there, or</li>
+            <li>Use a <b>different ${esc(DS().serviceName)} account</b> for this one</li>
+          </ol>
+          <button class="cf-btn primary" onclick="AthlevoConnect.retryConnect()">
+            Try a different account
+          </button>
+          <button class="cf-link" onclick="AthlevoConnect.skipConnection()">
+            Continue without my history for now
+          </button>
+        </div>
+      `);
+      return;
+    }
+
+    show(`
+      <div class="cf-step">
+        <div class="cf-icon muted">!</div>
+        <h2 class="cf-title serif">We couldn&#39;t finish connecting</h2>
+        <p class="cf-body">${esc(message || "The connection didn't complete. Nothing was changed — please try again.")}</p>
+        <button class="cf-btn primary" onclick="AthlevoConnect.retryConnect()">Try again</button>
+        <button class="cf-link" onclick="AthlevoConnect.skipConnection()">
+          Continue without my history for now
+        </button>
+      </div>
+    `);
+  }
+
   // Any dead end, in plain language, always with a way forward.
   function stepProblem(problem) {
     state.running = false;   // this attempt is over; allow a retry
@@ -293,7 +391,10 @@
      * 5-minute lock rejects — surfacing a spurious "still working" error in
      * the middle of a successful import.
      */
-    if (state.running) return;
+    // A failed connect must never fall through into detection: there is no
+    // connection to detect against, and doing so replaced an accurate error
+    // with a misleading "no workouts found" screen.
+    if (state.running || state.failed) return;
     state.running = true;
 
     markActive(true);
@@ -333,7 +434,7 @@
     }
 
     A().track("no_activities");
-    stepProblem(ACT().noActivitiesMessage());
+    stepNoWorkoutsYet();
   }
 
   /*
@@ -446,6 +547,7 @@
     // Entry point, called once the athlete profile is complete.
     async start() {
       markActive(true);
+      state.failed = false;
       restoreWearable();
       if (typeof showScreen === "function") showScreen("screen-connect");
       const tabbar = document.getElementById("tabbar");
@@ -543,6 +645,29 @@
     },
 
     isActive: wasActive,
+
+    // True when the last connection attempt failed and nothing was saved.
+    // routeAfterAuth checks this so it never resumes into detection against
+    // a connection that does not exist.
+    hasFailed: () => state.failed,
+
+    // Called by the OAuth-return handler with the real reason.
+    showConnectFailure(reason, message) {
+      markActive(true);
+      state.running = false;
+      if (typeof showScreen === "function") showScreen("screen-connect");
+      const tabbar = document.getElementById("tabbar");
+      if (tabbar) tabbar.style.display = "none";
+      A().track("sync_failed", { reason: reason || "connect_failed" });
+      stepConnectFailed(reason, message);
+    },
+
+    // Start a fresh attempt after a failure.
+    retryConnect() {
+      state.failed = false;
+      state.running = false;
+      go("device");
+    },
     // Test-only: compress the detection wait. Untouched in production.
     _timing: timing,
     _state: state

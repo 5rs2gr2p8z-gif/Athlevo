@@ -138,10 +138,20 @@ section("Happy path — account → device → auto-detect → auto-import → d
 
   api.pickWearable("garmin");
   t("connect step names the athlete's own device", /Connect Garmin/.test(dom.html));
-  t("the primary button is about their watch, not an account",
-    /Connect Garmin/.test(visible(dom.html)) && !/create.*account/i.test(visible(dom.html)));
-  t("the connection service is named exactly once, subordinate",
-    (dom.html.match(/Intervals\.icu/g) || []).length === 1);
+  /*
+   * The connect screen now GUIDES rather than just linking, so the service is
+   * named several times inside the numbered steps — that is the point. What
+   * matters is that the athlete's own device leads, and that the primary
+   * button is about their watch.
+   */
+  t("the primary button is about their watch",
+    /I'?(ve)? connected Garmin/i.test(visible(dom.html)));
+  t("the heading leads with the device, not the service",
+    /Connect Garmin/.test(visible(dom.html)));
+  t("a numbered setup guide is present",
+    (dom.html.match(/<li>/g) || []).length >= 5);
+  t("the athlete is told to wait for the sync",
+    /wait for the sync/i.test(visible(dom.html)));
   t("reassures about read-only access", /only ever reads/i.test(dom.html));
 
   await api.authorize();
@@ -199,11 +209,16 @@ section("No workouts found at all");
   await wait(400);
 
   const seen = visible(dom.html);
-  t("explains the likely reason in plain language",
-    /couldn't find any workouts yet/i.test(seen) && /hasn't finished syncing/i.test(seen), seen.slice(0, 90));
+  t("names the ACTUAL likely cause, not a generic failure",
+    /can't see any workouts yet/i.test(seen) &&
+    /isn't linked inside|still syncing/i.test(seen), seen.slice(0, 110));
+  t("frames it as almost done, not broken", /Almost there/i.test(seen));
   t("never says 'no activities returned'", !/no activities returned/i.test(dom.html));
   t("offers a way forward", /Check again/.test(dom.html));
-  t("offers the connection settings shortcut", /Open connection settings/.test(dom.html));
+  t("offers a direct link to the connections page",
+    /Open Intervals\.icu connections/.test(visible(dom.html)));
+  t("offers a way onward without history",
+    /Continue without my history/i.test(visible(dom.html)));
   t("tracked no_activities", funnel(g).includes("no_activities"));
   t("did NOT run a pointless import", p.calls.sync === 0);
 }

@@ -65,15 +65,12 @@ const OB_STEPS = [
     eyebrow: "Step 2 · Body metrics",
     title: "Your body metrics",
     sub: "Used to personalise pacing, fuelling and load.",
+    unitToggle: true,
     fields: [
-      {
-        id: "height", type: "number", label: "Height", unit: "cm",
-        min: 100, max: 250, required: true, placeholder: "175", half: true
-      },
-      {
-        id: "weight", type: "number", label: "Weight", unit: "kg",
-        min: 25, max: 300, required: true, placeholder: "68", half: true
-      }
+      { id: "height", type: "number", label: "Height", unitKey: "height",
+        required: true, half: true },
+      { id: "weight", type: "number", label: "Weight", unitKey: "weight",
+        required: true, half: true }
     ]
   },
   {
@@ -129,9 +126,17 @@ const OB_STEPS = [
           { label: "Half marathon", value: "Half marathon" },
           { label: "Marathon", value: "Marathon" },
           { label: "Ultra", value: "Ultra" },
-          { label: "General fitness", value: "General fitness" }
+          { label: "General fitness", value: "General fitness" },
+          { label: "Other", value: "Other" }
         ]
       },
+      /*
+       * Shown only when "Other" is chosen. Plenty of real goals aren't on a
+       * six-item list — 1 mile, 10 mile, 15K, 50K, a local trail race — and
+       * forcing those athletes to pick a wrong answer corrupts their plan.
+       */
+      { id: "customDistance", type: "text", label: "Your distance", optional: true,
+        placeholder: "e.g. 10 miles, 15 km, 50 km", showWhen: { distance: "Other" } },
       { id: "race", type: "text", label: "Goal race or event", optional: true,
         placeholder: "e.g. Chicago Marathon" },
       { id: "date", type: "date", label: "Race date", optional: true },
@@ -297,8 +302,18 @@ function obPrefillFromProfile(profile) {
   if (profile.age != null) d.age = String(profile.age);
   if (profile.sex) d.sex = profile.sex;
   if (profile.location) d.location = profile.location;
-  if (profile.height != null) d.height = String(profile.height);
-  if (profile.weight != null) d.weight = String(profile.weight);
+  // Stored metric → displayed in whichever units the athlete prefers.
+  const imperialPrefill = obUnits() === "imperial";
+  if (profile.height != null) {
+    d.height = String(imperialPrefill
+      ? Math.round(OB_CONVERT.cmToIn(Number(profile.height)))
+      : profile.height);
+  }
+  if (profile.weight != null) {
+    d.weight = String(imperialPrefill
+      ? Math.round(OB_CONVERT.kgToLb(Number(profile.weight)))
+      : profile.weight);
+  }
   if (profile.experience_years != null) {
     const y = Number(profile.experience_years);
     d.experience = y >= 5 ? 8 : y >= 3 ? 4 : y >= 1 ? 1 : 0;
@@ -324,7 +339,13 @@ function obPrefillFromProfile(profile) {
   const distances = ["5K", "10K", "Half marathon", "Marathon", "Ultra", "General fitness"];
   if (profile.goal) {
     const g = distances.find(x => profile.goal.startsWith(x));
-    if (g) d.distance = g;
+    if (g) { d.distance = g; }
+    else {
+      // A custom goal was saved. Restore both the chip and the free text so
+      // resuming never silently drops what the athlete told us.
+      d.distance = "Other";
+      d.customDistance = profile.goal;
+    }
   }
   const notes = obClean(profile.coach_notes);
   if (notes) {
@@ -350,6 +371,57 @@ function obPrefillFromProfile(profile) {
 
 /* ─────────────────── translate answers → profile columns ────────────── */
 
+/*
+ * Tidies a free-text distance into a consistent label. Recognised forms are
+ * normalised ("10mi" → "10 miles"); anything unrecognised is returned as the
+ * athlete typed it, trimmed. We never guess a distance we weren't given.
+ */
+function obNormalizeDistance(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return null;
+
+  const m = text.match(/^(\d+(?:\.\d+)?)\s*(k|km|kms|kilometer|kilometre|kilometers|kilometres|mi|mile|miles|m)\b/i);
+  if (!m) return text;
+
+  const value = Number(m[1]);
+  const unit = m[2].toLowerCase();
+  if (!Number.isFinite(value) || value <= 0) return text;
+
+  if (/^(mi|mile|miles)$/.test(unit)) {
+    return `${value} ${value === 1 ? "mile" : "miles"}`;
+  }
+  if (unit === "m") return `${value} m`;
+  return `${value} km`;
+}
+
+/* ── Units (metric / imperial) ─────────────────────────────────────────
+ *
+ * The athlete enters whatever they think in; we ALWAYS store metric
+ * (height_cm, weight_kg), so nothing downstream — pacing, load, the coach —
+ * has to know which units were typed.
+ */
+const OB_UNITS_KEY = "athlevo_units";
+
+function obUnits() {
+  try { return localStorage.getItem(OB_UNITS_KEY) === "imperial" ? "imperial" : "metric"; }
+  catch (e) { return "metric"; }
+}
+
+function obSetUnits(value) {
+  try { localStorage.setItem(OB_UNITS_KEY, value === "imperial" ? "imperial" : "metric"); }
+  catch (e) {}
+  obRenderStep();   // re-render so labels and any typed values follow
+}
+
+const OB_CONVERT = {
+  cmToIn: cm => cm / 2.54,
+  inToCm: inches => inches * 2.54,
+  kgToLb: kg => kg * 2.2046226218,
+  lbToKg: lb => lb / 2.2046226218,
+  kmToMi: km => km * 0.621371,
+  miToKm: mi => mi / 0.621371
+};
+
 function obBuildUpdates() {
   const d = obData;
   const updates = {};
@@ -363,8 +435,20 @@ function obBuildUpdates() {
   if (d.sex) updates.sex = d.sex;
   updates.location = obClean(d.location) || null;
 
-  if (d.height != null && d.height !== "") updates.height = num(d.height);
-  if (d.weight != null && d.weight !== "") updates.weight = num(d.weight);
+  /*
+   * Always store metric, whatever the athlete typed. Everything downstream —
+   * pacing, fuelling, load — assumes cm and kg, so the conversion happens
+   * once, here, rather than being re-derived in a dozen places.
+   */
+  const imperial = obUnits() === "imperial";
+  if (d.height != null && d.height !== "") {
+    const h = num(d.height);
+    updates.height = h == null ? null : Math.round((imperial ? OB_CONVERT.inToCm(h) : h) * 10) / 10;
+  }
+  if (d.weight != null && d.weight !== "") {
+    const w = num(d.weight);
+    updates.weight = w == null ? null : Math.round((imperial ? OB_CONVERT.lbToKg(w) : w) * 10) / 10;
+  }
 
   if (d.experience != null) updates.experience_years = num(d.experience);
   if (d.mileage != null && d.mileage !== "") updates.weekly_distance = num(d.mileage);
@@ -395,6 +479,15 @@ function obBuildUpdates() {
   if (d.distance) {
     if (d.distance === "General fitness") {
       updates.goal = obClean(d.race) || "General endurance fitness";
+    } else if (d.distance === "Other") {
+      /*
+       * A custom distance is the athlete's own words. We normalise the label
+       * where we confidently can (so "10 miles" reads consistently) but never
+       * invent a distance we weren't given.
+       */
+      const custom = obNormalizeDistance(obClean(d.customDistance));
+      const base = custom || "Custom distance";
+      updates.goal = obClean(d.time) ? `${base} in ${obClean(d.time)}` : base;
     } else {
       updates.goal = obClean(d.time)
         ? `${d.distance} in ${obClean(d.time)}`
@@ -416,7 +509,30 @@ function obBuildUpdates() {
 
 /* ─────────────────────────── field rendering ────────────────────────── */
 
-function obRenderField(field) {
+/*
+ * Unit-aware field spec. The athlete types in their own units; the SAVE path
+ * converts back to metric, so storage never varies.
+ */
+const OB_UNIT_SPEC = {
+  height: {
+    metric:   { unit: "cm", min: 100, max: 250, placeholder: "175" },
+    imperial: { unit: "in", min: 39,  max: 98,  placeholder: "69" }
+  },
+  weight: {
+    metric:   { unit: "kg", min: 25,  max: 300, placeholder: "68" },
+    imperial: { unit: "lb", min: 55,  max: 660, placeholder: "150" }
+  }
+};
+
+function obApplyUnits(field) {
+  if (!field.unitKey) return field;
+  const spec = OB_UNIT_SPEC[field.unitKey];
+  if (!spec) return field;
+  return Object.assign({}, field, spec[obUnits()] || spec.metric);
+}
+
+function obRenderField(rawField) {
+  const field = obApplyUnits(rawField);
   const optTag = field.optional
     ? ` <span class="opt">· optional</span>`
     : "";
@@ -490,6 +606,30 @@ function obGroupFields(fields) {
   return out.join("");
 }
 
+/*
+ * Conditional fields. A field with `showWhen: { distance: "Other" }` only
+ * renders once that answer is chosen, so the form never shows an input that
+ * makes no sense yet.
+ */
+/* Metric / Imperial switch. Purely an input preference — storage is metric. */
+function obRenderUnitToggle() {
+  const u = obUnits();
+  return `
+    <div class="ob2-units" role="group" aria-label="Units">
+      <button type="button" class="ob2-unit${u === "metric" ? " on" : ""}"
+        onclick="AthlevoOnboarding.setUnits('metric')">Metric</button>
+      <button type="button" class="ob2-unit${u === "imperial" ? " on" : ""}"
+        onclick="AthlevoOnboarding.setUnits('imperial')">Imperial</button>
+    </div>`;
+}
+
+function obVisibleFields(fields) {
+  return (fields || []).filter(f => {
+    if (!f.showWhen) return true;
+    return Object.keys(f.showWhen).every(k => obData[k] === f.showWhen[k]);
+  });
+}
+
 function obRenderStep() {
   const step = OB_STEPS[obStepIndex];
   const body = document.getElementById("ob2Body");
@@ -500,7 +640,8 @@ function obRenderStep() {
       <span class="ob2-eyebrow">${obEscape(step.eyebrow)}</span>
       <h2 class="ob2-title">${obEscape(step.title)}</h2>
       <p class="ob2-sub">${obEscape(step.sub)}</p>
-      ${obGroupFields(step.fields)}
+      ${step.unitToggle ? obRenderUnitToggle() : ""}
+      ${obGroupFields(obVisibleFields(step.fields))}
     </div>
   `;
   body.scrollTop = 0;
@@ -981,6 +1122,8 @@ function setupOnboardingInterface() {
 
 window.startOnboarding = startAthlevoOnboarding;
 window.startAthlevoOnboarding = startAthlevoOnboarding;
+window.AthlevoOnboarding = { setUnits: obSetUnits, units: obUnits,
+  normalizeDistance: obNormalizeDistance, convert: OB_CONVERT };
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", setupOnboardingInterface);

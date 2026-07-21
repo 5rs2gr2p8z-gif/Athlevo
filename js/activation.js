@@ -162,12 +162,23 @@
       if (!b || !b.diagnoseIntervalsQuiet) return { ok: false, count: 0, reason: "unavailable" };
       try {
         const report = await withRetry(() => b.diagnoseIntervalsQuiet(), { label: "detect" });
-        const probe = (report && report.probes && report.probes.wideWindow3y) ||
-                      (report && report.probes && report.probes.syncWindow180d) || null;
+        const probes = (report && report.probes) || {};
+        const probe = probes.wideWindow3y || probes.syncWindow180d || null;
+
+        /*
+         * A probe that ERRORED is not the same as an account with zero
+         * activities. Previously both produced count 0, so a rate limit or a
+         * transient failure was reported to the athlete as "no workouts
+         * found" — sending them to fix a connection that was fine.
+         */
+        const probeFailed = Boolean(probe && probe.error);
         const count = probe && typeof probe.count === "number" ? probe.count : 0;
+
         return {
           ok: count > 0,
           count,
+          probeFailed,
+          probeError: probe ? probe.error : null,
           verdict: report ? report.verdict : null,
           authProblem: /Token rejected|reconnect/i.test((report && report.verdict) || "")
         };

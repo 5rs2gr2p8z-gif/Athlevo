@@ -264,5 +264,105 @@ section("P5. Empty states answer what/why/next");
     /Back to Today/.test(planSetup) && /ACTIONS\[outcome\.action\]/.test(planSetup));
 }
 
+
+/* ══════════════ P1/P2 — Garmin guidance & detection ═════════════════ */
+
+section("P2. Athletes are guided, not sent away");
+{
+  const fn = connect.slice(connect.indexOf("function stepAuthorize"),
+                           connect.indexOf("function stepDetecting"));
+  t("a numbered guide is shown", /<ol class="cf-guide">/.test(fn));
+  t("step: create or sign in", /Create or sign in/i.test(fn));
+  t("step: open Connections", /Connections/.test(fn));
+  t("step: choose the device", /Choose <b>\$\{esc\(name\)\}<\/b>/.test(fn));
+  t("step: wait for the sync", /Wait for the sync/i.test(fn));
+  t("step: come back", /Come back here/i.test(fn));
+  t("a direct link to connections is offered", /openConnections\(\)/.test(fn));
+  t("the primary button confirms THEY connected the watch",
+    /I&#39;ve connected|I've connected/.test(fn));
+  t("the two links are documented as distinct",
+    /Garmin\s+→ Intervals[\s\S]{0,120}Intervals → Athlevo/.test(connect));
+}
+
+section("P1. 'No workouts' is a guide, not an error");
+{
+  /*
+   * Bound to THIS function, comments stripped. The next function's comment
+   * block legitimately explains a "failed" connection; only what the ATHLETE
+   * reads is under test here.
+   */
+  const fn = connect
+    .slice(connect.indexOf("function stepNoWorkoutsYet"),
+           connect.indexOf("function stepConnectFailed"))
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  t("the no-workouts state exists", fn.length > 0);
+  t("it names the ACTUAL likely cause (watch not linked inside the service)",
+    /isn&#39;t linked inside|isn't linked inside/.test(fn));
+  t("it does not call the connection broken", !/error|failed/i.test(fn));
+  t("it gives numbered steps", /<ol class="cf-guide">/.test(fn));
+  t("it offers a direct link", /openConnections/.test(fn));
+  t("it offers Check again", /Check again/.test(fn));
+  t("it offers a way onward", /Continue without my history/.test(fn));
+  t("detection routes here, not to the generic error",
+    /stepNoWorkoutsYet\(\)/.test(connect));
+}
+
+section("P1. A failed probe is not reported as 'no workouts'");
+{
+  const activation = readFileSync("./js/activation.js", "utf8");
+  t("probe errors are surfaced separately", /probeFailed/.test(activation));
+  t("...and carry the reason", /probeError/.test(activation));
+  t("a count is only trusted when it is a number",
+    /typeof probe\.count === "number"/.test(activation));
+}
+
+section("P3/P4. Units and custom goals");
+{
+  const ob = readFileSync("./js/onboarding.js", "utf8");
+  t("a metric/imperial toggle exists", /obRenderUnitToggle/.test(ob));
+  t("storage is always metric", /Always store metric/.test(ob));
+  t("height converts on save", /OB_CONVERT\.inToCm/.test(ob));
+  t("weight converts on save", /OB_CONVERT\.lbToKg/.test(ob));
+  t("prefill converts back for display",
+    /OB_CONVERT\.cmToIn/.test(ob) && /OB_CONVERT\.kgToLb/.test(ob));
+  t("'Other' goal distance exists", /label: "Other", value: "Other"/.test(ob));
+  t("a custom distance field is conditional", /showWhen: \{ distance: "Other" \}/.test(ob));
+  t("custom distances are normalised", /obNormalizeDistance/.test(ob));
+  t("a custom goal survives resume", /d\.customDistance = profile\.goal/.test(ob));
+}
+
+
+section("OAuth persistence: a FAILED connect never masquerades as 'no workouts'");
+{
+  const api = readFileSync("./api/providers/index.js", "utf8");
+
+  // The callback must report WHY, machine-readably.
+  t("the callback can return a reason", /backToApp = \(status, message, reason\)/.test(api));
+  t("the already-linked case sends reason=already_linked",
+    /"already_linked"/.test(api));
+  t("the ownership guard still refuses to move the link (security intact)",
+    /owner\.userId !== String\(payload\.userId\)/.test(api));
+  t("nothing is written when ownership fails",
+    api.indexOf('"already_linked"') < api.indexOf("const saved = await upsertProviderAccount"));
+
+  // The client must not resume detection after a failed connect.
+  t("routeAfterAuth checks hasFailed() before resuming",
+    /isActive\(\) &&\s*!window\.AthlevoConnect\.hasFailed\(\)/.test(html));
+  t("the return handler routes failures INTO the flow",
+    /showConnectFailure\(reason, message\)/.test(html));
+  t("the reason param is read", /\.get\("reason"\)/.test(html));
+  t("...and stripped so a refresh can't replay it", /delete\("reason"\)/.test(html));
+
+  // The flow shows the true reason.
+  t("a dedicated connect-failure screen exists", /function stepConnectFailed/.test(connect));
+  t("already-linked is named honestly", /already connected to a\s*\n?\s*different Athlevo account/.test(connect));
+  t("...and offers real options", /disconnect it there/.test(connect) && /different .*account/i.test(connect));
+  t("resumeAfterConnect refuses to run after a failure",
+    /if \(state\.running \|\| state\.failed\) return;/.test(connect));
+  t("a retry clears the failure", /retryConnect\(\)[\s\S]{0,80}state\.failed = false/.test(connect));
+  t("starting fresh clears it too", /markActive\(true\);\s*state\.failed = false/.test(connect));
+  t("the athlete is never trapped", /Continue without my history/.test(connect));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
