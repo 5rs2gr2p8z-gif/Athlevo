@@ -3957,6 +3957,12 @@ async function routeAfterAuth(userId) {
    * which case checkIntervalsReturn() has shown the real reason and resuming
    * would overwrite it with a misleading "no workouts" screen.
    */
+  /*
+   * A pending finalize is still deciding whether a connection exists at all.
+   * Resuming here would run detection against nothing and show "no workouts".
+   */
+  if (window.athlevoFinalizeInFlight) { try { await window.athlevoFinalizeInFlight; } catch (e) {} }
+
   if (window.AthlevoConnect && window.AthlevoConnect.isActive() &&
       !window.AthlevoConnect.hasFailed()) {
     try { await window.AthlevoConnect.resumeAfterConnect(); return; }
@@ -4434,6 +4440,23 @@ setTimeout(function () {
    * refresh doesn't replay the message. On success we kick off the first
    * import immediately — connecting and then seeing nothing would feel broken.
    */
+  /*
+   * Resolves once Supabase has a session, or null if none appears. Polls
+   * rather than relying on onAuthStateChange alone, because on a warm reload
+   * the session may already be present and no event would ever fire.
+   */
+  async function waitForSession(timeoutMs = 8000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        const { data } = await supabaseClient.auth.getSession();
+        if (data && data.session) return data.session;
+      } catch (e) { /* transient during restore */ }
+      await new Promise(r => setTimeout(r, 150));
+    }
+    return null;
+  }
+
   async function handleIntervalsResult(state, message) {
     if (!state) return;
 
@@ -4447,8 +4470,22 @@ setTimeout(function () {
     if (state === "pending") {
       const completion = (new URLSearchParams(window.location.search)).get("completion");
       stripIntervalsParams();
+      // Keep it only long enough to retry within this page load.
+      try { if (completion) sessionStorage.setItem("athlevo_pending_completion", completion); } catch (e) {}
       let outcome = { ok: false, code: "COMPLETION_MISSING" };
-      if (completion && window.AthlevoBrain && AthlevoBrain.finalizeIntervals) {
+      /*
+       * WAIT FOR THE SESSION FIRST.
+       *
+       * checkIntervalsReturn() runs synchronously at parse time, but Supabase
+       * restores the session asynchronously (and detectSessionInUrl may still
+       * be working). finalize is the first authenticated call Athlevo has ever
+       * made at parse time: providerRequest() throws "Please sign in first."
+       * BEFORE issuing fetch(), so the request never reached the network at
+       * all — no finalize row in the Network log, and no connection saved.
+       */
+      const session = await waitForSession();
+      if (!session) outcome = { ok: false, code: "UNAUTHENTICATED" };
+      else if (completion && window.AthlevoBrain && AthlevoBrain.finalizeIntervals) {
         try {
           await AthlevoBrain.finalizeIntervals(completion);
           outcome = { ok: true };
@@ -4456,6 +4493,7 @@ setTimeout(function () {
           outcome = { ok: false, code: (e && e.code) || "PERSIST", message: e && e.message };
         }
       }
+      try { sessionStorage.removeItem("athlevo_pending_completion"); } catch (e) {}
       if (outcome.ok) return handleIntervalsResult("connected", null);
       if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
         window.AthlevoConnect.showConnectFailure(outcome.code, outcome.message);
@@ -4536,7 +4574,8 @@ setTimeout(function () {
     try {
       const params = new URLSearchParams(window.location.search);
       const state = params.get("intervals");
-      if (state) handleIntervalsResult(state, params.get("message"));
+      // Published so routeAfterAuth can await it rather than racing detection.
+      if (state) window.athlevoFinalizeInFlight = handleIntervalsResult(state, params.get("message"));
     } catch {}
   })();
 

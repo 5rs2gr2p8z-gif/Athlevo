@@ -355,6 +355,49 @@ section("Superseded diagnostics removed; safe logging retained");
     !/LOG_SAFE = new Set\(\[[\s\S]*?access_token[\s\S]*?\]\);/.test(api));
 }
 
+/* ═══ 13. The client actually reaches the network ═══════════════════ */
+
+section("13. finalize is not attempted before the session exists");
+{
+  const { readFileSync } = await import("node:fs");
+  const html = readFileSync("./index.html", "utf8");
+  const brain = readFileSync("./js/brain.js", "utf8");
+
+  /*
+   * The bug: checkIntervalsReturn() runs at parse time, but providerRequest()
+   * throws "Please sign in first." BEFORE fetch() when no session exists yet.
+   * The finalize request never reached the network — it was not a routing or
+   * server problem, it was a client-side ordering race.
+   */
+  const pr = brain.slice(brain.indexOf("async function providerRequest"));
+  t("providerRequest still throws before fetch when signed out",
+    pr.indexOf('if (!session) throw') < pr.indexOf("await fetch("));
+
+  const pending = html.slice(html.indexOf('if (state === "pending")'),
+                             html.indexOf('if (state === "connected")'));
+  t("the pending branch waits for a session first",
+    /const session = await waitForSession\(\);/.test(pending));
+  t("...BEFORE calling finalize",
+    pending.indexOf("waitForSession()") < pending.indexOf("finalizeIntervals(completion)"));
+  t("no session is reported honestly, not as a write failure",
+    /if \(!session\) outcome = \{ ok: false, code: "UNAUTHENTICATED" \}/.test(pending));
+
+  t("waitForSession polls rather than trusting one event",
+    /async function waitForSession/.test(html) &&
+    /getSession\(\)/.test(html.slice(html.indexOf("async function waitForSession"),
+                                     html.indexOf("async function handleIntervalsResult"))));
+  t("...and gives up rather than hanging forever",
+    /timeoutMs = 8000/.test(html));
+
+  t("routeAfterAuth awaits the in-flight finalize before detecting",
+    /await window\.athlevoFinalizeInFlight/.test(html) &&
+    html.indexOf("athlevoFinalizeInFlight") <
+      html.indexOf("window.AthlevoConnect.resumeAfterConnect(); return;"));
+  t("the completion token survives the wait", /athlevo_pending_completion/.test(html));
+  t("...and is cleared once used",
+    /removeItem\("athlevo_pending_completion"\)/.test(html));
+}
+
 console.log = real;
 console.log(`\n${p} passed, ${f} failed`);
 process.exit(f ? 1 : 0);
