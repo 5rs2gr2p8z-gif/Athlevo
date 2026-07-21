@@ -76,6 +76,29 @@
       state: window.__athlevoOAuthReturn.state,
       hasCompletion: Boolean(window.__athlevoOAuthReturn.completion)
     });
+  } else {
+    /*
+     * MISROUTED PROVIDER REDIRECT.
+     *
+     * Every exit from actionCallback — all ten, success and failure alike —
+     * sets ?intervals=<state>. So if the browser arrives from a provider with
+     * a raw OAuth `code` and `state` but NO `intervals`, our callback endpoint
+     * was never invoked: the provider redirected somewhere else, almost
+     * always the redirect URI registered in its own app settings rather than
+     * the one we passed.
+     *
+     * Records PRESENCE ONLY. The authorization code is a credential and is
+     * never read into the trail, and the path is recorded without any query.
+     */
+    try {
+      var q = new URLSearchParams(window.location.search);
+      if (q.get("code") && q.get("state")) {
+        window.__athlevoOAuthStage("provider_redirect_misrouted", {
+          hasCode: true, hasState: true,
+          landedOn: String(window.location.pathname || "/")
+        });
+      }
+    } catch (e) {}
   }
 })();
 </script>

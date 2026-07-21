@@ -398,5 +398,66 @@ section("No automatic path infers connectivity from sessionStorage alone");
       .slice(-400)));
 }
 
+/* ══════ post-consent: did our callback run at all? ═════════════════ */
+
+section("A misrouted provider redirect is detectable, and never silent");
+{
+  const html = readFileSync("./index.html", "utf8");
+  const api = readFileSync("./api/providers/index.js", "utf8");
+
+  /*
+   * The invariant this rests on: EVERY exit from actionCallback redirects with
+   * ?intervals=<state>. If the browser arrives without it, the callback did
+   * not run — regardless of whether consent succeeded.
+   */
+  const cb = api.slice(api.indexOf("async function actionCallback"),
+                       api.indexOf("async function actionFinalize"));
+  const exits = (cb.match(/return backToApp\(/g) || []).length;
+  t("actionCallback has multiple exits", exits >= 8, String(exits));
+  // Exclude backToApp's own body — its `return response.status(302).end()`
+  // IS the redirect, not an exit that bypasses one.
+  const body = cb.slice(cb.indexOf("const q = request.query"));
+  t("EVERY exit redirects through backToApp — none returns silently",
+    !/return response\.(status|json|end)/.test(body), (body.match(/return response\.[a-z]+/g) || []).join(","));
+  t("backToApp always sets the intervals parameter",
+    /target\.searchParams\.set\("intervals", status\)/.test(cb));
+
+  // Run the real capture block against a misrouted redirect.
+  const capture = html.slice(html.indexOf("(function captureOAuthReturn(){"),
+                             html.indexOf("})();\n</script>") + 5);
+  const CODE = "AUTHCODE-must-never-be-logged";
+  const run = (search) => {
+    const trail = [];
+    const store = new Map();
+    const win = { location: { search, pathname: "/index.html" },
+                  history: { replaceState() {} }, console: { log() {} } };
+    const ss = { getItem: k => (store.has(k) ? store.get(k) : null),
+                 setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
+    new Function("window", "sessionStorage", "URLSearchParams", "console", capture)(
+      win, ss, URLSearchParams, win.console);
+    const raw = ss.getItem("athlevo_oauth_trail");
+    return { trail: JSON.parse(raw || "[]"), raw: raw || "", win };
+  };
+
+  const mis = run(`?code=${CODE}&state=abc.def`);
+  t("a raw code+state with no intervals param is flagged",
+    mis.trail.some(s => s.stage === "provider_redirect_misrouted"),
+    mis.trail.map(s => s.stage).join(">") || "(empty)");
+  t("...recording presence, not the code",
+    !mis.raw.includes(CODE) && mis.trail.some(s => s.hasCode === true));
+  t("...and where the browser landed",
+    mis.trail.some(s => s.landedOn === "/index.html"));
+  t("no OAuth return snapshot is fabricated", !mis.win.__athlevoOAuthReturn);
+
+  const ok = run("?intervals=pending&completion=" + "z".repeat(43));
+  t("a REAL callback return is still detected normally",
+    ok.trail.some(s => s.stage === "oauth_return_detected"));
+  t("...and is NOT flagged as misrouted",
+    !ok.trail.some(s => s.stage === "provider_redirect_misrouted"));
+
+  const plain = run("");
+  t("an ordinary page load records nothing", plain.trail.length === 0);
+}
+
 console.log(`\n${p} passed, ${f} failed`);
 process.exit(f ? 1 : 0);

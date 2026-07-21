@@ -65,7 +65,7 @@ function resetWorld() {
   PENDING = [];                  // pending_provider_connections
   ACTIVITIES = [];               // activities
   patchedIds = [];
-  TOKEN_RESPONSE = { ok: true, body: { access_token: "tok", scope: "ACTIVITY:READ", athlete: { id: "999" } } };
+  TOKEN_RESPONSE = { ok: true, body: { access_token: "ZZsecret-access-tokenZZ", scope: "ACTIVITY:READ", athlete: { id: "999" } } };
   INTERVALS_ACTIVITIES = [];
   INTERVALS_LAPS = null;
   lapEndpointStatus = 200;
@@ -275,11 +275,11 @@ resetWorld();
   t("1f. callback parks the connection WITHOUT writing provider_accounts",
     cb.statusCode === 302 && afterCallback.accounts === 0 && afterCallback.pending === 1);
   t("1f2. only an authenticated finalize writes the connection",
-    fin.statusCode === 200 && DB.length === 1 && DB[0].access_token === "tok");
+    fin.statusCode === 200 && DB.length === 1 && DB[0].access_token === "ZZsecret-access-tokenZZ");
   t("1g. success is logged, token is not",
-    LOGS.some(l => l.event === "intervals_finalize_success") && !JSON.stringify(LOGS).includes("tok"));
+    LOGS.some(l => l.event === "intervals_finalize_success") && !JSON.stringify(LOGS).includes("ZZsecret-access-tokenZZ"));
   t("1g2. the parked credential was encrypted at rest",
-    !String(PENDING[0].payload_encrypted).includes("tok"));
+    !String(PENDING[0].payload_encrypted).includes("ZZsecret-access-tokenZZ"));
 }
 
 // 2. Invalid state
@@ -316,9 +316,9 @@ resetWorld();
   resetWorld();
   const state = signState({ userId: "user-1", issuedAt: Date.now() });
   await completeConnection(state, "c1");
-  TOKEN_RESPONSE.body.access_token = "tok2";
+  TOKEN_RESPONSE.body.access_token = "ZZsecret-access-token-2ZZ";
   await completeConnection(state, "c2");
-  t("5. reconnect updates in place — no duplicate connection row", DB.length === 1 && DB[0].access_token === "tok2");
+  t("5. reconnect updates in place — no duplicate connection row", DB.length === 1 && DB[0].access_token === "ZZsecret-access-token-2ZZ");
 }
 
 // 6. Different Athlevo user tries the same Intervals account
