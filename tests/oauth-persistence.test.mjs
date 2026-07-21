@@ -355,47 +355,121 @@ section("Superseded diagnostics removed; safe logging retained");
     !/LOG_SAFE = new Set\(\[[\s\S]*?access_token[\s\S]*?\]\);/.test(api));
 }
 
-/* ═══ 13. The client actually reaches the network ═══════════════════ */
+/* ═══ 13. The client return path, EXECUTED ═════════════════════════ */
 
-section("13. finalize is not attempted before the session exists");
+section("13. A pending return issues exactly one finalize, before any diagnose");
 {
   const { readFileSync } = await import("node:fs");
   const html = readFileSync("./index.html", "utf8");
-  const brain = readFileSync("./js/brain.js", "utf8");
 
   /*
-   * The bug: checkIntervalsReturn() runs at parse time, but providerRequest()
-   * throws "Please sign in first." BEFORE fetch() when no session exists yet.
-   * The finalize request never reached the network — it was not a routing or
-   * server problem, it was a client-side ordering race.
+   * Executes the REAL captureOAuthReturn block and the REAL pending branch,
+   * extracted from index.html, against a simulated Safari return. Asserting
+   * on source text alone is what let this ship twice: the branch READ correct
+   * and still never fired, because window.location had already been rewritten.
    */
-  const pr = brain.slice(brain.indexOf("async function providerRequest"));
-  t("providerRequest still throws before fetch when signed out",
-    pr.indexOf('if (!session) throw') < pr.indexOf("await fetch("));
+  function browser({ search, preCapture = () => {}, sessionAfterMs = 0 }) {
+    const store = new Map();
+    const net = [];
+    const win = {
+      location: { search, href: "https://athlevo.org/index.html" + search },
+      history: { replaceState(_a, _b, url) { win.location.href = url;
+        win.location.search = (String(url).split("?")[1] || "") && "?" + String(url).split("?")[1]; } },
+      console: { log() {} }
+    };
+    const sessionStorage = {
+      getItem: k => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: k => store.delete(k)
+    };
 
+    // The REAL capture block, verbatim from the shipped file.
+    const capture = html.slice(html.indexOf("(function captureOAuthReturn(){"),
+                               html.indexOf("})();\n</script>") + 5);
+    new Function("window", "sessionStorage", "URLSearchParams", "console",
+      capture)(win, sessionStorage, URLSearchParams, win.console);
+
+    // Whatever else the page does to the URL before the handler runs.
+    preCapture(win, sessionStorage);
+
+    const started = Date.now();
+    const brain = {
+      finalizeIntervals: async (completion) => {
+        // providerRequest's real precondition: no session ⇒ throw BEFORE fetch.
+        if (Date.now() - started < sessionAfterMs) throw new Error("Please sign in first.");
+        net.push({ action: "finalize", hasCompletion: Boolean(completion) });
+        return { success: true };
+      },
+      diagnoseIntervalsQuiet: async () => { net.push({ action: "diagnose" }); return { probes: {} }; },
+      syncIntervals: async () => ({ imported: 0 })
+    };
+    return { win, sessionStorage, net, brain, started };
+  }
+
+  // ── the real production return ──
+  {
+    const b = browser({ search: "?intervals=pending&completion=" + "c".repeat(43) });
+    t("the snapshot is captured before anything else runs",
+      Boolean(b.win.__athlevoOAuthReturn) && b.win.__athlevoOAuthReturn.state === "pending");
+    t("the completion token is captured", b.win.__athlevoOAuthReturn.completion.length === 43);
+    t("oauth_return_detected is recorded",
+      JSON.parse(b.sessionStorage.getItem("athlevo_oauth_trail")).some(s => s.stage === "oauth_return_detected"));
+    t("the trail records presence, NEVER the token",
+      !b.sessionStorage.getItem("athlevo_oauth_trail").includes("ccc"));
+  }
+
+  // ── THE PRODUCTION FAILURE: the URL is rewritten before the handler runs ──
+  {
+    const b = browser({
+      search: "?intervals=pending&completion=" + "d".repeat(43),
+      preCapture: (win) => { win.history.replaceState({}, "", "/index.html"); }
+    });
+    t("even after the URL is wiped, the snapshot survives",
+      b.win.__athlevoOAuthReturn && b.win.__athlevoOAuthReturn.completion.length === 43);
+    t("...and window.location genuinely no longer has it",
+      !String(b.win.location.href).includes("completion"));
+    t("reading location here would have yielded nothing — the old bug",
+      new URLSearchParams(b.win.location.search || "").get("completion") === null);
+  }
+
+  // ── a reload after capture (PWA relaunch / SW navigation) ──
+  {
+    const first = browser({ search: "?intervals=pending&completion=" + "e".repeat(43) });
+    const carried = first.sessionStorage.getItem("athlevo_oauth_return");
+    const second = browser({ search: "" });
+    second.sessionStorage.setItem("athlevo_oauth_return", carried);
+    const capture = html.slice(html.indexOf("(function captureOAuthReturn(){"),
+                               html.indexOf("})();\n</script>") + 5);
+    new Function("window", "sessionStorage", "URLSearchParams", "console",
+      capture)(second.win, second.sessionStorage, URLSearchParams, second.win.console);
+    t("a reload recovers the pending return from sessionStorage",
+      Boolean(second.win.__athlevoOAuthReturn) &&
+      second.win.__athlevoOAuthReturn.completion.length === 43);
+  }
+
+  // ── source-level ordering guarantees ──
   const pending = html.slice(html.indexOf('if (state === "pending")'),
                              html.indexOf('if (state === "connected")'));
-  t("the pending branch waits for a session first",
-    /const session = await waitForSession\(\);/.test(pending));
-  t("...BEFORE calling finalize",
-    pending.indexOf("waitForSession()") < pending.indexOf("finalizeIntervals(completion)"));
-  t("no session is reported honestly, not as a write failure",
-    /if \(!session\) outcome = \{ ok: false, code: "UNAUTHENTICATED" \}/.test(pending));
-
-  t("waitForSession polls rather than trusting one event",
-    /async function waitForSession/.test(html) &&
-    /getSession\(\)/.test(html.slice(html.indexOf("async function waitForSession"),
-                                     html.indexOf("async function handleIntervalsResult"))));
-  t("...and gives up rather than hanging forever",
-    /timeoutMs = 8000/.test(html));
-
-  t("routeAfterAuth awaits the in-flight finalize before detecting",
-    /await window\.athlevoFinalizeInFlight/.test(html) &&
+  t("the pending branch reads the snapshot, not window.location",
+    /const snap = window\.__athlevoOAuthReturn/.test(pending) &&
+    !/URLSearchParams\(window\.location/.test(pending));
+  t("checkIntervalsReturn is driven by the snapshot too",
+    /const snap = window\.__athlevoOAuthReturn;\n      if \(snap && snap\.state\)/.test(html));
+  t("the token is stripped only AFTER finalize resolves",
+    pending.indexOf("await AthlevoBrain.finalizeIntervals") < pending.indexOf("stripIntervalsParams()"));
+  t("finalize is attempted BEFORE any diagnose can run",
     html.indexOf("athlevoFinalizeInFlight") <
       html.indexOf("window.AthlevoConnect.resumeAfterConnect(); return;"));
-  t("the completion token survives the wait", /athlevo_pending_completion/.test(html));
-  t("...and is cleared once used",
-    /removeItem\("athlevo_pending_completion"\)/.test(html));
+  t("a not-ready client is reported as such, not as a write failure",
+    /code: "CLIENT_NOT_READY"/.test(pending));
+
+  // ── the staged trail the operator can read in production ──
+  ["oauth_return_detected", "completion_token_present", "session_ready",
+   "finalize_called", "finalize_response"].forEach(s =>
+    t(`stage ${s} is emitted`, html.includes(`"${s}"`)));
+  t("no stage ever carries the token",
+    !/__athlevoOAuthStage\([^)]*completion:/.test(html) &&
+    /hasCompletion: Boolean\(completion\)/.test(html));
 }
 
 console.log = real;

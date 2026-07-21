@@ -14,6 +14,72 @@
 <!-- Apply the saved theme BEFORE first paint so the installed PWA never
      flashes white on launch. Runs synchronously in <head>. -->
 <script>
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  OAuth return capture — MUST be the first script on the page.
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ *  The provider redirect carries ?intervals=<state>&completion=<opaque> and
+ *  those params are the ONLY record that a connection is waiting to be
+ *  finalized. Anything that runs first and touches the URL destroys them:
+ *  Supabase detectSessionInUrl, a navigation, a reload, a stray
+ *  history.replaceState. Reading them 1200 lines later, after the Supabase
+ *  client has been constructed, was a bet on ordering we do not control.
+ *
+ *  So the snapshot is taken here, synchronously, before ANY other script —
+ *  and mirrored into sessionStorage so it survives a reload. The finalize
+ *  handler reads THIS, never window.location.
+ */
+(function captureOAuthReturn(){
+  var KEY = "athlevo_oauth_return";
+  try {
+    var p = new URLSearchParams(window.location.search);
+    var state = p.get("intervals");
+    if (state) {
+      var snap = { state: state, completion: p.get("completion") || null,
+                   message: p.get("message") || null, reason: p.get("reason") || null,
+                   at: Date.now() };
+      window.__athlevoOAuthReturn = snap;
+      try { sessionStorage.setItem(KEY, JSON.stringify(snap)); } catch (e) {}
+    } else {
+      /*
+       * No params — but a previous load may have captured them and then been
+       * reloaded (PWA relaunch, service-worker navigation, Safari restoring
+       * the tab). Recover, but only briefly: a completion token is valid for
+       * 8 minutes server-side, so anything older is noise.
+       */
+      try {
+        var saved = JSON.parse(sessionStorage.getItem(KEY) || "null");
+        if (saved && saved.state && (Date.now() - saved.at) < 8 * 60 * 1000) {
+          window.__athlevoOAuthReturn = saved;
+        }
+      } catch (e) {}
+    }
+  } catch (e) {}
+
+  /*
+   * Stage trail. Records WHICH step the return reached, never the token
+   * itself — `hasCompletion` is a boolean. Readable in production via
+   * sessionStorage.athlevo_oauth_trail.
+   */
+  window.__athlevoOAuthStage = function (stage, detail) {
+    try {
+      var trail = JSON.parse(sessionStorage.getItem("athlevo_oauth_trail") || "[]");
+      trail.push(Object.assign({ stage: stage, t: Date.now() }, detail || {}));
+      sessionStorage.setItem("athlevo_oauth_trail", JSON.stringify(trail.slice(-20)));
+    } catch (e) {}
+    try { console.log("[athlevo:oauth]", stage, detail || ""); } catch (e) {}
+  };
+
+  if (window.__athlevoOAuthReturn) {
+    window.__athlevoOAuthStage("oauth_return_detected", {
+      state: window.__athlevoOAuthReturn.state,
+      hasCompletion: Boolean(window.__athlevoOAuthReturn.completion)
+    });
+  }
+})();
+</script>
+<script>
 (function(){
   try{
     var pref = localStorage.getItem('athlevo_theme') || 'light';
@@ -4445,6 +4511,8 @@ setTimeout(function () {
    * rather than relying on onAuthStateChange alone, because on a warm reload
    * the session may already be present and no event would ever fire.
    */
+  const stage = (s, d) => { try { window.__athlevoOAuthStage(s, d); } catch (e) {} };
+
   async function waitForSession(timeoutMs = 8000) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -4468,10 +4536,14 @@ setTimeout(function () {
      * against a connection that does not exist and report "no workouts found".
      */
     if (state === "pending") {
-      const completion = (new URLSearchParams(window.location.search)).get("completion");
-      stripIntervalsParams();
-      // Keep it only long enough to retry within this page load.
-      try { if (completion) sessionStorage.setItem("athlevo_pending_completion", completion); } catch (e) {}
+      /*
+       * From the snapshot taken by captureOAuthReturn() before any other
+       * script ran — NOT from window.location, which by now may have been
+       * rewritten by anything that loaded in between.
+       */
+      const snap = window.__athlevoOAuthReturn || {};
+      const completion = snap.completion || null;
+      stage("completion_token_present", { hasCompletion: Boolean(completion) });
       let outcome = { ok: false, code: "COMPLETION_MISSING" };
       /*
        * WAIT FOR THE SESSION FIRST.
@@ -4484,16 +4556,28 @@ setTimeout(function () {
        * all — no finalize row in the Network log, and no connection saved.
        */
       const session = await waitForSession();
+      stage("session_ready", { ok: Boolean(session) });
       if (!session) outcome = { ok: false, code: "UNAUTHENTICATED" };
-      else if (completion && window.AthlevoBrain && AthlevoBrain.finalizeIntervals) {
+      else if (!completion) outcome = { ok: false, code: "COMPLETION_MISSING" };
+      else if (!(window.AthlevoBrain && AthlevoBrain.finalizeIntervals)) {
+        outcome = { ok: false, code: "CLIENT_NOT_READY" };
+      } else {
+        stage("finalize_called");
         try {
           await AthlevoBrain.finalizeIntervals(completion);
           outcome = { ok: true };
         } catch (e) {
           outcome = { ok: false, code: (e && e.code) || "PERSIST", message: e && e.message };
         }
+        stage("finalize_response", { ok: outcome.ok, code: outcome.code || null });
       }
-      try { sessionStorage.removeItem("athlevo_pending_completion"); } catch (e) {}
+      /*
+       * Cleared only NOW. Stripping before the await meant a reload mid-flight
+       * lost the token permanently and the athlete could never finish.
+       */
+      stripIntervalsParams();
+      try { sessionStorage.removeItem("athlevo_oauth_return"); } catch (e) {}
+      delete window.__athlevoOAuthReturn;
       if (outcome.ok) return handleIntervalsResult("connected", null);
       if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
         window.AthlevoConnect.showConnectFailure(outcome.code, outcome.message);
@@ -4532,7 +4616,7 @@ setTimeout(function () {
        * That is the wrong answer to the wrong question. Hand the real reason
        * to the flow instead.
        */
-      const reason = (new URLSearchParams(window.location.search)).get("reason") || "";
+      const reason = (window.__athlevoOAuthReturn && window.__athlevoOAuthReturn.reason) || "";
       if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
         window.AthlevoConnect.showConnectFailure(reason, message);
       } else if (typeof toast === "function") {
@@ -4572,10 +4656,17 @@ setTimeout(function () {
 
   (function checkIntervalsReturn() {
     try {
-      const params = new URLSearchParams(window.location.search);
-      const state = params.get("intervals");
-      // Published so routeAfterAuth can await it rather than racing detection.
-      if (state) window.athlevoFinalizeInFlight = handleIntervalsResult(state, params.get("message"));
+      /*
+       * Driven by the snapshot captured before any other script ran. Reading
+       * window.location here was the bug: by this point the params could
+       * already be gone, so the pending branch was never entered and no
+       * finalize request was ever issued.
+       */
+      const snap = window.__athlevoOAuthReturn;
+      if (snap && snap.state) {
+        // Published so routeAfterAuth can await it rather than racing detection.
+        window.athlevoFinalizeInFlight = handleIntervalsResult(snap.state, snap.message);
+      }
     } catch {}
   })();
 
