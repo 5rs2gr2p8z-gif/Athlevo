@@ -160,7 +160,7 @@ section("6. Celebration stats are real, derived values");
 section("7. Activity detail renders recognition, not just distance/pace");
 {
   const cal = readFileSync("./js/trainCalendar.js", "utf8");
-  t("detail reads the STORED recognition", /AthlevoCoach\.readRecognition\(act\)/.test(cal));
+  t("detail reads the STORED recognition", /AthlevoCoach\.getStoredRecognition\(act\)/.test(cal));
   t("shows Detected Workout", /Detected Workout/.test(cal));
   t("shows Confidence", /Confidence/.test(cal));
   t("shows detected intervals", /Detected intervals/.test(cal));

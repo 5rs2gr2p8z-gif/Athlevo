@@ -26,13 +26,25 @@
 
   // The recognition record lives inside raw_data; accept a few shapes so this
   // works whether the caller passes the full row or a decorated activity.
-  function readRecognition(a) {
+  /*
+   * Canonical stored-recognition accessor. Checks every real shape the app
+   * uses so callers never guess a nested field the activity may not carry:
+   *   · activity.recognition            (selected as a top-level alias)
+   *   · activity.raw_data.recognition   (full row)
+   *   · activity.rawData.recognition    (camelCase variant)
+   *   · activity.raw_data.normalized.recognition (legacy nesting)
+   * Returns the record only when it is a real recognition (has workoutType).
+   */
+  function getStoredRecognition(a) {
     if (!a) return null;
     const r = a.recognition ||
       (a.raw_data && a.raw_data.recognition) ||
+      (a.rawData && a.rawData.recognition) ||
       (a.raw_data && a.raw_data.normalized && a.raw_data.normalized.recognition) || null;
     return r && r.workoutType ? r : null;
   }
+  // Back-compat alias.
+  function readRecognition(a) { return getStoredRecognition(a); }
 
   // A "Session" suffix for quality types reads better on a card; steady runs
   // keep their plain name.
@@ -299,7 +311,7 @@
   const api = {
     readRecognition, activityLabel, isAutoDetected, coachSummary, confidenceLabel,
     displayType, buildTimeline, syncCelebration, renderTimeline, renderCelebration,
-    hasCelebrated, runBackfill, VERSION: "coach-timeline-v2"
+    hasCelebrated, runBackfill, getStoredRecognition, VERSION: "coach-timeline-v3"
   };
   if (root) root.AthlevoCoach = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

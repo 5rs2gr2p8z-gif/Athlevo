@@ -217,11 +217,11 @@ section("The modal no longer double-renders the old live classifier");
 {
   const cal = readFileSync("./js/trainCalendar.js", "utf8");
   t("the legacy classifier block is gated behind 'no stored recognition'",
-    /if \(act && !storedRecognitionShown && window\.AthlevoWorkoutClassifier\)/.test(cal));
-  t("the stored-recognition block sets the guard",
-    /storedRecognitionShown = true/.test(cal));
+    /if \(act && !recognition && window\.AthlevoWorkoutClassifier\)/.test(cal));
+  t("recognition is read once via the canonical helper",
+    /const recognition = \(act && window\.AthlevoCoach && AthlevoCoach\.getStoredRecognition\)/.test(cal));
   // The '17 × 5:11'-style live line only exists inside the gated block now.
-  const gated = cal.slice(cal.indexOf("!storedRecognitionShown && window.AthlevoWorkoutClassifier"));
+  const gated = cal.slice(cal.indexOf("!recognition && window.AthlevoWorkoutClassifier"));
   t("the live 'Detected intervals' line is inside the gated fallback only",
     /cls\.intervals\.reps/.test(gated));
 }
@@ -323,6 +323,63 @@ section("End-to-end: v1 activity → reanalyze → client refetch → modal 4×6
   // 5. Idempotent second click changes nothing.
   const again = await callReanalyze("A");
   t("second run skips, no duplication", again.body.skipped === 1 && again.body.analyzed === 0);
+}
+
+/* ══════ MODAL DOM — exactly one analysis block when recognition exists ═══ */
+
+section("The modal renders ONE analysis block, gated by the canonical helper");
+{
+  const calSrc = readFileSync("./js/trainCalendar.js", "utf8");
+  const coachSrc = readFileSync("./js/coachTimeline.js", "utf8");
+  const coachMod = { exports: {} };
+  new Function("module", "window", coachSrc +
+    "\nmodule.exports = (typeof window!=='undefined'&&window.AthlevoCoach)||module.exports;")(coachMod, {});
+
+  t("a canonical getStoredRecognition helper exists",
+    /function getStoredRecognition\(a\)/.test(coachSrc));
+  t("it checks activity.recognition", /a\.recognition \|\|/.test(coachSrc));
+  t("...and raw_data.recognition", /a\.raw_data && a\.raw_data\.recognition/.test(coachSrc));
+  t("...and rawData.recognition", /a\.rawData && a\.rawData\.recognition/.test(coachSrc));
+
+  t("the modal reads recognition ONCE via the canonical helper",
+    /const recognition = \(act && window\.AthlevoCoach && AthlevoCoach\.getStoredRecognition\)/.test(calSrc));
+  t("the legacy block is gated by !recognition (not a nested field)",
+    /if \(act && !recognition && window\.AthlevoWorkoutClassifier\)/.test(calSrc));
+  t("the old storedRecognitionShown flag is gone", !/storedRecognitionShown/.test(calSrc));
+  t("the modal body is REPLACED, not appended", /body\.innerHTML = html/.test(calSrc) &&
+    !/body\.innerHTML \+=/.test(calSrc));
+
+  // ── The canonical helper, EXECUTED against every real activity shape. ──
+  const Coach = coachMod.exports;
+  const rec = { version: "recognition-v2", workoutType: "Threshold", segments: [{ kind: "work", duration: 360 }] };
+  t("finds recognition on activity.recognition", Coach.getStoredRecognition({ recognition: rec }) === rec);
+  t("finds it on raw_data.recognition", Coach.getStoredRecognition({ raw_data: { recognition: rec } }) === rec);
+  t("finds it on rawData.recognition", Coach.getStoredRecognition({ rawData: { recognition: rec } }) === rec);
+  t("returns null when absent (legacy fallback allowed)", Coach.getStoredRecognition({ raw_data: {} }) === null);
+  t("returns null for a record without workoutType (not real recognition)",
+    Coach.getStoredRecognition({ recognition: { version: "recognition-v2" } }) === null);
+
+  /*
+   * Gate proof by construction: the modal reads `recognition` ONCE from the
+   * canonical helper (asserted above) and the legacy block is `if (act &&
+   * !recognition ...)`. So for ANY activity where getStoredRecognition returns
+   * a record, the legacy block cannot run — they read the identical value.
+   */
+  t("the legacy Analysis block and the Detected Workout block share ONE recognition value",
+    /const recognition = \(act && window\.AthlevoCoach && AthlevoCoach\.getStoredRecognition\)/.test(calSrc) &&
+    /if \(act && recognition\)/.test(calSrc) &&
+    /if \(act && !recognition && window\.AthlevoWorkoutClassifier\)/.test(calSrc));
+
+  // The stale strings can only appear inside the gated (no-recognition) block.
+  const detectedBlock = calSrc.slice(calSrc.indexOf("if (act && recognition)"),
+                                     calSrc.indexOf("if (act && !recognition && window.AthlevoWorkoutClassifier)"));
+  t("the Detected Workout block never emits '17 × 5:11'-style live reps",
+    !/cls\.intervals\.reps/.test(detectedBlock) && !/Quality contribution/.test(detectedBlock) &&
+    !/Matched planned/.test(detectedBlock));
+
+  // Fallback: with NO recognition the legacy Analysis block is reachable.
+  t("no recognition → legacy Analysis block can still render (fallback intact)",
+    /if \(act && !recognition && window\.AthlevoWorkoutClassifier\)[\s\S]{0,900}twm-block-h">Analysis/.test(calSrc));
 }
 
 console.log(`\n${p} passed, ${f} failed`);

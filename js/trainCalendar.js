@@ -342,11 +342,17 @@
       // PART 5: the STORED recognition — the coach's persisted read of this
       // activity (workout type, confidence, segments, summary, signals). This
       // is the analysis generated ONCE at import, not recomputed here.
-      let storedRecognitionShown = false;
-      if (act && window.AthlevoCoach) {
-        const rec = AthlevoCoach.readRecognition(act);
-        if (rec) {
-          storedRecognitionShown = true;
+      /*
+       * ONE canonical read of the stored recognition, shared by BOTH blocks
+       * below, so they can never disagree. getStoredRecognition checks every
+       * real shape (act.recognition, raw_data.recognition, rawData.recognition,
+       * …). The legacy Analysis block renders ONLY when this is null.
+       */
+      const recognition = (act && window.AthlevoCoach && AthlevoCoach.getStoredRecognition)
+        ? AthlevoCoach.getStoredRecognition(act) : null;
+      if (act && recognition) {
+        {
+          const rec = recognition;
           html += `<div class="twm-block"><div class="twm-block-h">Detected Workout</div>`;
           html += `<div class="twm-row"><span>Workout</span><b>${esc(AthlevoCoach.displayType(rec.workoutType))}</b></div>`;
           html += `<div class="twm-row"><span>Confidence</span><span class="twm-conf ${rec.confidenceLabel === "High" ? "high" : ""}">${esc(rec.confidenceLabel || "")}</span></div>`;
@@ -391,7 +397,7 @@
        * This block renders ONLY as a fallback when there is no stored
        * recognition at all — never alongside it.
        */
-      if (act && !storedRecognitionShown && window.AthlevoWorkoutClassifier) {
+      if (act && !recognition && window.AthlevoWorkoutClassifier) {
         const laps = act.raw_data && (act.raw_data.laps || act.raw_data.splits);
         const cls = window.AthlevoWorkoutClassifier.classifyActivity({
           distanceKm: act.distance_meters ? act.distance_meters / 1000 : null,
