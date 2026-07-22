@@ -211,7 +211,7 @@ section("Each segment is an accessible, keyboard-operable button");
   t("blocks have a visible focus state", /\.wsv__segment:focus-visible\{[^}]*outline/.test(CSS));
   t("focus outline sits inside the clipped track (offset negative)", /\.wsv__segment:focus-visible\{[^}]*outline-offset:-2px/.test(CSS));
   t("active state uses no transform (no layout shift)", !/\.wsv__segment\.is-active\{[^}]*transform/.test(CSS));
-  t("active transition stays within 150–220ms", /\.wsv__segment\{[^}]*transition:[^}]*180ms/.test(CSS));
+  t("active transition uses the base motion token (≈200ms)", /\.wsv__segment\{[^}]*transition:[^}]*var\(--dur-base\)/.test(CSS));
 
   const dom = makeDom(html, threshold);
   const blocks = dom.root.querySelectorAll(".wsv__segment");

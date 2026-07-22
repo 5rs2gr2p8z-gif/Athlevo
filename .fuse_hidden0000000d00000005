@@ -2283,11 +2283,11 @@ body:not(.booting) #boot-gate{opacity:0;pointer-events:none;visibility:hidden}
 body.booting #tabbar{display:none!important}
 .boot-spinner{width:26px;height:26px;border-radius:50%;
   border:2px solid var(--line);border-top-color:var(--ink2);
-  opacity:0;animation:bootFade .25s ease .45s forwards, bootSpin .7s linear infinite}
+  opacity:0;animation:bootFade var(--dur-base) ease var(--dur-slow) forwards, bootSpin .7s linear infinite}
 @keyframes bootSpin{to{transform:rotate(360deg)}}
 @keyframes bootFade{to{opacity:1}}
 @media (prefers-reduced-motion:reduce){
-  .boot-spinner{animation:bootFade .25s ease .45s forwards}
+  .boot-spinner{animation:bootFade var(--dur-base) ease var(--dur-slow) forwards}
   #boot-gate{transition:none}
 }
 body.landing-active{background:var(--paper)}
