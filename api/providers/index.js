@@ -1315,6 +1315,83 @@ async function actionDisconnect(request, response, cid) {
   );
 }
 
+/* ═══════════════════════ ACTION: reanalyze ═══════════════════════════ */
+
+const REANALYZE_BATCH = 300;   // bounded: one call recognises at most this many
+
+/*
+ * Backfill / re-recognise the authenticated athlete's OWN activities.
+ *
+ * Regenerates recognition whenever it is MISSING or its version is not the
+ * current engine version — so a stored v1 record ("17 × 5:11") is treated as
+ * stale and replaced. Preserves a record only when it is already current.
+ * User-scoped, bounded, per-activity fault-tolerant. Returns safe diagnostic
+ * counts only — never activity data or credentials.
+ */
+async function actionReanalyze(request, response, cid) {
+  const user = await requireUser(request);
+  if (!user?.id) return response.status(401).json({ error: "Authentication is required.", code: "UNAUTHENTICATED" });
+
+  const force = Boolean(request.body && request.body.force);
+  const url = process.env.SUPABASE_URL;
+
+  let rows = [];
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/activities?user_id=eq.${encodeURIComponent(user.id)}` +
+      `&select=id,name,distance_meters,moving_time_seconds,elapsed_time_seconds,` +
+      `average_heartrate,max_heartrate,elevation_gain_meters,raw_data` +
+      `&order=start_date.desc&limit=${REANALYZE_BATCH}`,
+      { headers: sbHeaders() }
+    );
+    if (res.ok) rows = await res.json();
+  } catch (e) { /* reported as a service error below */ }
+  if (!Array.isArray(rows)) rows = [];
+
+  let scanned = 0, analyzed = 0, skipped = 0, failed = 0;
+  let missingRecognition = 0, staleRecognition = 0;
+  let rowsWithIntervals = 0, rowsWithoutIntervals = 0;
+
+  for (const row of rows) {
+    scanned += 1;
+    const raw = row && row.raw_data ? row.raw_data : {};
+    const laps = Array.isArray(raw.laps) ? raw.laps : null;
+    if (laps && laps.length) rowsWithIntervals += 1; else rowsWithoutIntervals += 1;
+
+    const existing = raw.recognition;
+    if (!existing) missingRecognition += 1;
+    else if (existing.version !== RECOGNITION_VERSION) staleRecognition += 1;
+
+    // Preserve ONLY a current-version record (unless force). Anything missing
+    // or stale is regenerated.
+    if (!force && existing && existing.version === RECOGNITION_VERSION && existing.workoutType) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      const recognition = buildRecognitionFromRow(row);
+      if (!recognition) { failed += 1; continue; }
+      const nextRaw = Object.assign({}, raw, { recognition });   // preserve laps/intervals
+      const patch = await fetch(
+        `${url}/rest/v1/activities?id=eq.${encodeURIComponent(row.id)}` +
+        `&user_id=eq.${encodeURIComponent(user.id)}`,
+        { method: "PATCH", headers: { ...sbHeaders(), Prefer: "return=minimal" },
+          body: JSON.stringify({ raw_data: nextRaw }) }
+      );
+      if (patch.ok) analyzed += 1; else failed += 1;
+    } catch (e) { failed += 1; }
+  }
+
+  log("intervals_reanalyze", { correlationId: cid, provider: "intervals",
+    scanned, analyzed, skipped, failed });
+  return response.status(200).json({
+    scanned, analyzed, skipped, failed,
+    currentVersion: RECOGNITION_VERSION,
+    missingRecognition, staleRecognition,
+    rowsWithIntervals, rowsWithoutIntervals
+  });
+}
+
 /* ═══════════════════════════════ router ══════════════════════════════ */
 
 export default async function handler(request, response) {

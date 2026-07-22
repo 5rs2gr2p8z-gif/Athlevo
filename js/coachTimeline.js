@@ -19,6 +19,9 @@
 (function (root) {
   "use strict";
 
+  // PART 9: visible build marker so production can confirm the new JS loaded.
+  try { if (root.console) root.console.log("[athlevo] coachTimeline build: coach-timeline-v2, recognition-v2"); } catch (e) {}
+
   function num(v) { const x = Number(v); return Number.isFinite(x) ? x : null; }
 
   // The recognition record lives inside raw_data; accept a few shapes so this
@@ -159,14 +162,21 @@
    * PART 3: MOUNT the timeline into #coachTimeline. Newest first, recognised
    * activities only, with a sensible empty state and a visible backfill action.
    */
+  var lastMountId = "coachTimeline";
+
   function renderTimeline(activities, mountId) {
-    const el = (root.document && root.document.getElementById) ? root.document.getElementById(mountId || "coachTimeline") : null;
+    lastMountId = mountId || "coachTimeline";
+    const el = (root.document && root.document.getElementById) ? root.document.getElementById(lastMountId) : null;
     if (!el) return;
     const items = buildTimeline(activities);
+    // The analyze control is ALWAYS present (a manual re-analysis must be
+    // allowed even when the automatic flag is set). It never navigates.
+    const analyzeBtn = `<button class="ct-backfill" type="button" id="ctAnalyzeBtn"
+        onclick="return AthlevoCoach.runBackfill(event);">Analyze existing workouts</button>`;
     if (!items.length) {
       el.innerHTML = `<h3 class="ct-h">Coach Timeline</h3>
-        <p class="ct-empty">Your analyzed workouts will appear here.
-        <button class="ct-backfill" type="button" onclick="AthlevoBrain.reanalyzeActivities().then(function(){location.reload();})">Analyze existing workouts</button></p>`;
+        <p class="ct-empty">Your analyzed workouts will appear here.</p>
+        <div id="ctBackfillStatus"></div>${analyzeBtn}`;
       return;
     }
     el.innerHTML = `<h3 class="ct-h">Coach Timeline</h3>` + items.map(x => `
@@ -177,7 +187,56 @@
           <p class="ct-detail">${esc(x.detail)}</p>
           <p class="ct-when">${esc(when(x.at))}</p>
         </div>
-      </div>`).join("");
+      </div>`).join("") + `<div id="ctBackfillStatus"></div>${analyzeBtn}`;
+  }
+
+  /*
+   * PART 1/2/8: the manual "Analyze existing workouts" handler.
+   *
+   * · Never navigates or reloads (the old inline onclick called
+   *   location.reload(), which booted the app back to Today).
+   * · Shows visible progress, then a truthful result.
+   * · On success, REFETCHES activities and re-renders the timeline in place —
+   *   no page refresh, so the athlete sees 17×5:11 become 4×6 min immediately.
+   */
+  async function runBackfill(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    const setStatus = (msg) => {
+      const s = root.document && root.document.getElementById("ctBackfillStatus");
+      if (s) s.textContent = msg;
+    };
+    const btn = root.document && root.document.getElementById("ctAnalyzeBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Analyzing workouts…"; }
+    setStatus("Analyzing workouts…");
+
+    let r = null;
+    try {
+      r = (root.AthlevoBrain && root.AthlevoBrain.reanalyzeActivities)
+        ? await root.AthlevoBrain.reanalyzeActivities({ force: false }) : null;
+    } catch (e) { r = { error: (e && e.message) || "failed" }; }
+
+    if (!r || r.error) {
+      setStatus("Analysis failed. Try again.");
+      if (btn) { btn.disabled = false; btn.textContent = "Analyze existing workouts"; }
+      return false;
+    }
+
+    const n = Number(r.analyzed) || 0;
+    setStatus(n > 0 ? `${n} workout${n === 1 ? "" : "s"} analyzed` : "Everything is already up to date");
+
+    // PART 8: refetch (cache already invalidated server-side when analyzed>0)
+    // and re-render the timeline + train view WITHOUT a reload.
+    try {
+      if (n > 0 && root.AthlevoBrain && root.AthlevoBrain.loadAthleteActivities) {
+        const acts = await root.AthlevoBrain.loadAthleteActivities();
+        renderTimeline(acts, lastMountId);
+        if (typeof root.loadWeeklyPlan === "function") root.loadWeeklyPlan();
+      } else if (btn) {
+        btn.disabled = false; btn.textContent = "Analyze existing workouts";
+      }
+    } catch (e) { /* the status message already told the athlete the outcome */ }
+    return false;
   }
 
   var CELEBRATE_KEY = "athlevo_analysis_celebrated_v1";
@@ -217,7 +276,7 @@
   const api = {
     readRecognition, activityLabel, isAutoDetected, coachSummary, confidenceLabel,
     displayType, buildTimeline, syncCelebration, renderTimeline, renderCelebration,
-    hasCelebrated, VERSION: "coach-timeline-v1"
+    hasCelebrated, runBackfill, VERSION: "coach-timeline-v2"
   };
   if (root) root.AthlevoCoach = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

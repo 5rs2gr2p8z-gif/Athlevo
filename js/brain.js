@@ -1669,14 +1669,20 @@ async function reanalyzeActivities(opts) {
   } catch (e) { return { scanned: 0, analyzed: 0, skipped: 0, failed: 0, error: e.message }; }
 }
 
-const REANALYZE_ONCE_KEY = "athlevo_recognition_backfilled_v2";
+const REANALYZE_ONCE_KEY = "athlevo_recognition_backfilled_v3";
 async function maybeBackfillRecognitionOnce() {
   try {
     if (localStorage.getItem(REANALYZE_ONCE_KEY)) return null;
     const status = await providerStatus().catch(() => null);
     if (!status || status.connected !== true) return null;   // nothing to backfill
     const r = await reanalyzeActivities();
-    try { localStorage.setItem(REANALYZE_ONCE_KEY, "1"); } catch (e) {}
+    /*
+     * PART 4: mark "done" ONLY when the request genuinely succeeded. A failure,
+     * a non-200, an unreached endpoint, or a bug that scanned zero rows must
+     * NOT burn the flag — otherwise the athlete never gets a second attempt.
+     */
+    const reached = r && !r.error && typeof r.scanned === "number";
+    if (reached) { try { localStorage.setItem(REANALYZE_ONCE_KEY, "1"); } catch (e) {} }
     return r;
   } catch (e) { return null; }
 }
@@ -2159,6 +2165,7 @@ async function loadAthleteActivitiesUncached(windowName) {
         trainer,
         commute,
         laps:raw_data->laps,
+        recognition:raw_data->recognition,
         superseded:raw_data->superseded
       `;
 

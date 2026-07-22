@@ -270,7 +270,7 @@ section("3. Disconnect is authenticated, scoped, and releases ownership");
   {
     const src = readFileSync("./api/providers/index.js", "utf8");
     const fn = src.slice(src.indexOf("async function actionDisconnect"),
-                         src.indexOf("/* ═══════════════════════════════ router"));
+                         src.indexOf("/* ═══════════════════════ ACTION: reanalyze"));
     t("disconnect never deletes the provider row", !/method: "DELETE"/.test(fn));
     t("...and never touches activities", !/activities/.test(fn));
     t("the athlete keeps their training history",
@@ -292,7 +292,7 @@ section("3. Disconnect is authenticated, scoped, and releases ownership");
    */
   const src = readFileSync("./api/providers/index.js", "utf8");
   const fn = src.slice(src.indexOf("async function actionDisconnect"),
-                       src.indexOf("/* ═══════════════════════════════ router"));
+                       src.indexOf("/* ═══════════════════════ ACTION: reanalyze"));
   t("no unsupported provider revocation call is invented",
     !/revoke/i.test(fn) && !/intervals\.icu/i.test(fn));
 }
