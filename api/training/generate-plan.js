@@ -16,7 +16,7 @@ import {
 } from "../../lib/server/executionRecords.js";
 
 import { applyActivityOverrides } from "../../lib/server/coachActions.js";
-import { validatePrescription } from "../../lib/server/prescription.js";
+import { validatePrescription, canonicalDurationMinutes } from "../../lib/server/prescription.js";
 import { summarizeReadiness } from "../../lib/server/readiness.js";
 import {
   computeFitness,
@@ -1537,6 +1537,57 @@ async function saveTrainingPlan({
     : rows;
 }
 
+/*
+ * Deterministic safety pass over ONE planned workout, run before storage.
+ *
+ * It does NOT invent training content — it only refuses to store values that
+ * are physically impossible or internally contradictory, normalizing them to
+ * the canonical prescription. Findings are logged as machine-readable codes
+ * (no pace text, no notes, no athlete identifiers).
+ */
+function validateWorkoutSafety(session) {
+  if (!session) return session;
+  const out = Object.assign({}, session);
+  const findings = [];
+  const isRestRow = /^(rest|rest_day|off|day_off)$/.test(
+    String(out.session_type || "").toLowerCase().replace(/[\s-]+/g, "_"));
+
+  // Duration: canonical, finite, positive. Rest days carry null.
+  const canon = canonicalDurationMinutes(out);
+  const dur = Number(out.duration_minutes);
+  if (isRestRow) {
+    if (out.duration_minutes != null) { out.duration_minutes = null; findings.push("REST_DURATION_CLEARED"); }
+  } else if (canon != null && (!Number.isFinite(dur) || dur <= 0 || Math.abs(dur - canon) > 1)) {
+    out.duration_minutes = canon; findings.push("DURATION_NORMALIZED");
+  } else if (!Number.isFinite(dur) || dur <= 0) {
+    out.duration_minutes = null; findings.push("DURATION_INVALID_CLEARED");
+  }
+
+  // Distance: finite and non-negative, else cleared. Never derived from duration.
+  const dist = Number(out.distance_km);
+  if (out.distance_km != null && (!Number.isFinite(dist) || dist < 0)) {
+    out.distance_km = null; findings.push("DISTANCE_INVALID_CLEARED");
+  }
+
+  // Coarse plausibility: a single run over 6 h or 80 km is not a first week.
+  if (Number(out.duration_minutes) > 360) { out.duration_minutes = null; findings.push("DURATION_IMPLAUSIBLE_CLEARED"); }
+  if (Number(out.distance_km) > 80) { out.distance_km = null; findings.push("DISTANCE_IMPLAUSIBLE_CLEARED"); }
+
+  // Implied pace sanity when BOTH are present (min/km). Outside 2–12 min/km is
+  // not a runnable prescription; drop the distance rather than ship a bad pace.
+  const d2 = Number(out.duration_minutes), k2 = Number(out.distance_km);
+  if (Number.isFinite(d2) && Number.isFinite(k2) && k2 > 0) {
+    const pace = d2 / k2;
+    if (pace < 2 || pace > 12) { out.distance_km = null; findings.push("IMPLIED_PACE_IMPLAUSIBLE"); }
+  }
+
+  if (findings.length) {
+    console.warn(JSON.stringify({ event: "plan_workout_normalized",
+      date: out.session_date || null, sessionType: out.session_type || null, findings }));
+  }
+  return out;
+}
+
 async function saveTrainingSessions({
   userId,
   trainingPlanId,
@@ -1556,7 +1607,9 @@ async function saveTrainingSessions({
         to: v.session.session_type, issues: v.contradictions
       });
     }
-    return v.session;
+    // Safety pass: clamp physically impossible values and log a machine-
+    // readable finding. Never exposes athlete data — dates, types, numbers only.
+    return validateWorkoutSafety(v.session);
   });
 
   const rowsToSave =

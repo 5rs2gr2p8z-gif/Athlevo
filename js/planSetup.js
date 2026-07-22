@@ -218,9 +218,24 @@
     list.querySelectorAll("li").forEach(li => { li.classList.remove("active"); li.classList.add("done"); });
   }
 
-  function showSuccess() {
+  function showSuccess(firstEver) {
     const mount = document.getElementById("planGenBody");
     if (!mount) return;
+    /*
+     * The FIRST successful plan gets an unmistakable one-time state, so a
+     * disappearing setup card is never the only signal that generation worked.
+     * Subsequent generations use the quieter confirmation.
+     */
+    if (firstEver) {
+      mount.innerHTML = `
+        <div class="pg-wrap success">
+          <div class="pg-check">✓</div>
+          <h2 class="pg-title serif">Your first training week is ready</h2>
+          <p class="pg-sub">Built using your athlete profile and recent training.</p>
+          <button class="ps-build" type="button" onclick="AthlevoPlan.enterTrain()">View Training Plan</button>
+        </div>`;
+      return;   // an intentional, un-timed milestone — the athlete taps through
+    }
     mount.innerHTML = `
       <div class="pg-wrap success">
         <div class="pg-check">✓</div>
@@ -292,7 +307,7 @@
       lastHasPlan = true;
       buildInFlight = false;
       completeFinalStep();
-      showSuccess();
+      showSuccess(outcome.alreadyExists !== true);   // first plan → milestone state
       return;
     }
 
@@ -314,7 +329,7 @@
         lastHasPlan = true;
         buildInFlight = false;
         completeFinalStep();
-        showSuccess();
+        showSuccess(true);
         return;
       }
     }

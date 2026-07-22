@@ -68,16 +68,45 @@
   }
 
   // Minutes referenced in a section (best-effort; e.g. "3 x 8 min" → 24, "15 min" → 15).
+  // A "… N minutes total" line is the WHOLE workout length, not a segment.
+  // Summing it with the warm-up and main set is what turned a correct 70-minute
+  // workout into 117 on render. Detect it separately. (Parity with server.)
+  var TOTAL_RE = /(?:until\s+)?([0-9]+)\s*min(?:ute)?s?\s+total\b/i;
+
+  function totalDirectiveMinutes(list) {
+    var found = null;
+    (Array.isArray(list) ? list : [list]).forEach(function (line) {
+      var m = txt(line).match(TOTAL_RE);
+      if (m) found = Number(m[1]);
+    });
+    return found;
+  }
+
   function sectionMinutes(list) {
     var total = 0;
     (Array.isArray(list) ? list : [list]).forEach(function (line) {
       var s = txt(line);
+      if (TOTAL_RE.test(s)) return;                 // a total directive, not a segment
       var reps = s.match(/([0-9]+)\s*[x×]\s*([0-9]+)\s*min/i);
       if (reps) { total += Number(reps[1]) * Number(reps[2]); return; }
-      var one = s.match(/([0-9]+)\s*min/i);
-      if (one) total += Number(one[1]);
+      var one = s.match(/([0-9]+)\s*min(?!\w)/i);
+      if (one && !/\bsec/i.test(s)) total += Number(one[1]);  // minutes only, never seconds
     });
     return total;
+  }
+
+  // ONE canonical planned duration: an explicit total directive wins; else the
+  // structural sum; else the model's own value. Distance/pace never contribute.
+  function canonicalDurationMinutes(session) {
+    if (!session || isRest(session)) return null;
+    var directive = totalDirectiveMinutes(session.cooldown);
+    if (directive == null) directive = totalDirectiveMinutes(session.main_set);
+    if (directive == null) directive = totalDirectiveMinutes(session.description);
+    if (directive != null && directive > 0) return Math.round(directive);
+    var structural = sectionMinutes(session.warmup) + sectionMinutes(session.main_set) + sectionMinutes(session.cooldown);
+    if (structural > 0) return Math.round(structural);
+    var dur = Number(session.duration_minutes);
+    return Number.isFinite(dur) && dur > 0 ? Math.round(dur) : null;
   }
 
   var REST = { rest: true };
@@ -130,15 +159,17 @@
       out.__repaired = true;
     }
 
-    // Duration sanity: sections must fit the stated total (+10% tolerance).
+    // ONE canonical duration. A total directive wins; else the structural sum.
+    // Never adds a "total" line on top of the segments (the old 70→117 bug).
     var dur = Number(session.duration_minutes);
-    if (Number.isFinite(dur) && dur > 0) {
-      var used = sectionMinutes(session.warmup) + sectionMinutes(session.main_set) + sectionMinutes(session.cooldown);
-      if (used > 0 && used > dur * 1.1) {
-        contradictions.push("Sections total ~" + used + " min but duration says " + dur + " min.");
-        out.duration_minutes = used;   // repair to the real prescribed time
-        out.__repaired = true;
+    var canon = canonicalDurationMinutes(session);
+    if (canon != null && canon > 0 &&
+        (!Number.isFinite(dur) || dur <= 0 || Math.abs(dur - canon) > 1)) {
+      if (Number.isFinite(dur) && dur > 0) {
+        contradictions.push("duration_minutes " + dur + " reconciled to canonical " + canon + " min.");
       }
+      out.duration_minutes = canon;
+      out.__repaired = out.__repaired || (Number.isFinite(dur) && dur !== canon);
     }
 
     return { session: out, changed: !!out.__repaired, contradictions: contradictions };
@@ -147,7 +178,7 @@
   // Convenience: return only the repaired session (used by the renderer).
   function repair(session) { return validate(session).session; }
 
-  var api = { validate: validate, repair: repair, detectStimulus: detectStimulus, typeToStimulus: typeToStimulus, sectionMinutes: sectionMinutes, VERSION: "prescription-v1" };
+  var api = { validate: validate, repair: repair, detectStimulus: detectStimulus, typeToStimulus: typeToStimulus, sectionMinutes: sectionMinutes, canonicalDurationMinutes: canonicalDurationMinutes, totalDirectiveMinutes: totalDirectiveMinutes, VERSION: "prescription-v1" };
   if (root) root.AthlevoPrescription = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof self !== "undefined" ? self : (typeof globalThis !== "undefined" ? globalThis : this));
