@@ -135,22 +135,23 @@ section("The PRIMARY button emits exactly one action=connect");
   const w = makeWorld();
   await w.g.AthlevoConnect.start();
   w.g.AthlevoConnect.pickWearable("garmin");
+  w.g.AthlevoConnect.continueToAccount();     // Step 2 — the account step owns the connect button
 
   // Find the real button in the rendered markup, by its onclick.
   const buttons = [...w.dom.html.matchAll(/<button[^>]*onclick="([^"]+)"[^>]*>([\s\S]*?)<\/button>/g)]
     .map(m => ({ onclick: m[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'"),
                  label: m[2].replace(/<[^>]+>/g, " ").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim() }));
 
-  t("the connect step rendered a button", buttons.length >= 1, String(buttons.length));
+  t("the account step rendered a button", buttons.length >= 1, String(buttons.length));
 
-  const primary = buttons.find(b => /^Continue$/i.test(b.label));
-  t("the primary button is 'Continue'", Boolean(primary), buttons.map(b => b.label).join(" | "));
+  const primary = buttons.find(b => /create free account/i.test(b.label));
+  t("the primary button creates the account & continues", Boolean(primary), buttons.map(b => b.label).join(" | "));
   t("...and is bound to authorize()",
     primary && /AthlevoConnect\.authorize\(\)/.test(primary.onclick), primary && primary.onclick);
 
-  // Athlevo owns the screen now: no provider is named in a heading or button.
-  t("the screen is titled 'Connect your training data'",
-    /Connect your training data/.test(w.dom.html));
+  // The account step is where the athlete starts the secure sign-in.
+  t("the screen is titled 'Create your free Sync account'",
+    /Create your free Sync account/.test(w.dom.html));
   t("the sync partner is NOT named in a heading or button",
     !/<h[12][^>]*>[^<]*Intervals/i.test(w.dom.html) &&
     !/<button[^>]*>[^<]*Intervals/i.test(w.dom.html));
@@ -242,7 +243,7 @@ section("The stale-flag loop that caused the production incident is closed");
   /*
    * THE ORIGINAL PRODUCTION SYMPTOM. sessionStorage.athlevo_guided_setup
    * survives every reload, and routeAfterAuth() resumed guided setup on that
-   * flag alone — landing on "Looking for your workouts" and polling diagnose
+   * flag alone — landing on "Checking for workouts" and polling diagnose
    * without authorize(), connectIntervals() or any OAuth request. Hence a
    * detection screen with a completely empty connect trail.
    *
@@ -259,7 +260,7 @@ section("The stale-flag loop that caused the production incident is closed");
   await wait(60);
 
   t("but the flag NO LONGER implies a connection — detection is refused",
-    !/Looking for your workouts/.test(w.dom.html));
+    !/Checking for workouts/.test(w.dom.html));
   t("no connect request was made (none is expected here)",
     w.net.filter(r => r.url.includes("action=connect")).length === 0);
   t("no diagnose loop is started",
@@ -273,7 +274,7 @@ section("Build markers execute at load, independent of any behaviour");
   const w = makeWorld();
   const W = w.g.window;   // in a real page, window === the global object
   t("onboardingConnect.js marker is set",
-    W.__ATHLEVO_CONNECT_TRACE_VERSION === "connect-trace-v1");
+    W.__ATHLEVO_CONNECT_TRACE_VERSION === "connect-wizard-v2");
   t("brain.js marker is set",
     W.__ATHLEVO_BRAIN_TRACE_VERSION === "connect-trace-v1");
   t("activation.js marker is set",
@@ -300,9 +301,9 @@ section("1. guided_setup=1 + provider DISCONNECTED");
     w.net.map(r => r.url.split("action=")[1]).join(","));
   t("the stale guided-setup flag is CLEARED",
     w.g.sessionStorage.getItem("athlevo_guided_setup") === null);
-  t("the detection screen is NOT shown", !/Looking for your workouts/.test(w.dom.html));
+  t("the detection screen is NOT shown", !/Checking for workouts/.test(w.dom.html));
   t("the athlete is returned to the connect step",
-    /Connect your training data/.test(visible(w.dom.html)), visible(w.dom.html).slice(0, 70));
+    /isn.t connected yet/.test(visible(w.dom.html)), visible(w.dom.html).slice(0, 70));
   t("...with their chosen wearable preserved in state",
     w.g.AthlevoConnect._state ? w.g.AthlevoConnect._state.wearable === "garmin" : true);
   t("the server was actually consulted",
@@ -318,7 +319,7 @@ section("2. guided_setup=1 + provider CONNECTED");
   const resumed = w.g.AthlevoConnect.resumeAfterConnect();
   await wait(20);
   t("detection DOES start for a real connection",
-    /Looking for your workouts/.test(w.dom.html), visible(w.dom.html).slice(0, 70));
+    /Checking for workouts/.test(w.dom.html), visible(w.dom.html).slice(0, 70));
   await resumed; await wait(60);
   t("...and diagnose polling runs", w.net.some(r => r.url.includes("action=diagnose")));
   t("the guided-setup flag is retained while setup is live",
@@ -335,11 +336,11 @@ section("3. providerStatus() FAILS");
   await wait(60);
 
   t("an unreachable server is NOT treated as connected",
-    !/Looking for your workouts/.test(w.dom.html));
+    !/Checking for workouts/.test(w.dom.html));
   t("no detection polling started",
     w.net.filter(r => r.url.includes("action=diagnose")).length === 0);
   t("the athlete lands somewhere recoverable",
-    /Connect your training data/.test(visible(w.dom.html)));
+    /isn.t connected yet/.test(visible(w.dom.html)));
   t("the stale flag is cleared so a reload cannot loop",
     w.g.sessionStorage.getItem("athlevo_guided_setup") === null);
 }
@@ -355,7 +356,7 @@ section("4/6. Reloads while disconnected cannot recreate the loop");
     carried.forEach((v, k) => w.g.sessionStorage.setItem(k, v));
     await w.g.AthlevoConnect.resumeAfterConnect();
     await wait(40);
-    if (/Looking for your workouts/.test(w.dom.html)) everDetected = true;
+    if (/Checking for workouts/.test(w.dom.html)) everDetected = true;
     totalDiagnose += w.net.filter(r => r.url.includes("action=diagnose")).length;
     flagAfter = w.g.sessionStorage.getItem("athlevo_guided_setup");
     carried.clear();
@@ -376,7 +377,7 @@ section("5. Reload after a GENUINE connection still resumes");
   const resumed = w.g.AthlevoConnect.resumeAfterConnect();
   await wait(20);
   t("a real connection resumes detection after a reload",
-    /Looking for your workouts/.test(w.dom.html));
+    /Checking for workouts/.test(w.dom.html));
   await resumed; await wait(60);
   t("...and reaches the import pipeline", w.net.some(r => r.url.includes("action=diagnose")));
 }

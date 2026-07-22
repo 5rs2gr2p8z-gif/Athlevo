@@ -57,35 +57,34 @@ function loadBrain(nodes, activities = []) {
 
 /* ══════════ PART 1 — the onboarding flow ═══════════════════════════ */
 
-section("1. The connect step is Athlevo-owned, three-step, partner-hidden");
+section("1. The account step explains WHY and starts the secure sign-in");
 {
-  const fn = connect.slice(connect.indexOf("function stepAuthorize"),
-                           connect.indexOf("function stepNoWorkoutsYet"));
-  t("title 'Connect your training data'", /Connect your training data/.test(fn));
-  t("subtitle names platforms", /Import your workouts automatically from Garmin, COROS/.test(fn));
-  t("three steps: Connect Athlevo / Authorize sync / Connect your watch",
-    /Connect Athlevo/.test(fn) && /Authorize sync/.test(fn) && /Connect your watch/.test(fn));
-  t("step 1 shows complete", /cf-stepline done/.test(fn));
-  t("step 2 is active", /cf-stepline active/.test(fn));
-  t("primary button 'Continue' launches OAuth", /onclick="AthlevoConnect\.authorize\(\)"/.test(fn));
+  const fn = connect.slice(connect.indexOf("function stepAccount"),
+                           connect.indexOf("function stepConnectGarmin"));
+  t("title 'Create your free Sync account'", /Create your free Sync account/.test(fn));
+  t("explains why in plain words", /receive your workouts from Garmin, COROS, Polar and others/.test(fn));
+  t("reassures it's normal and free", /free/.test(fn) && /most runners set it up once/.test(fn));
+  t("a progress indicator marks step 2 of 4", /progress\(2\)/.test(fn));
+  t("primary button launches OAuth via authorize()", /onclick="AthlevoConnect\.authorize\(\)"/.test(fn));
   t("no provider named in heading/button",
     !/<h[12][^>]*>[^<]*Intervals/.test(fn) && !/<button[^>]*>[^<]*Intervals/.test(fn));
-  t("partner disclosed once via serviceName", /our sync partner,\s*\$\{esc\(DS\(\)\.serviceName\)\}/.test(fn));
+  t("partner disclosed once via serviceName()", /\$\{esc\(serviceName\(\)\)\}/.test(fn));
+  t("promises read-only access", /only ever <b>reads<\/b>/.test(fn));
 }
 
 /* ══════════ PART 2 — return states ═════════════════════════════════ */
 
-section("2. State B — connected, zero workouts");
+section("2. State B — connected, zero workouts → explicit 'Connect Garmin' step");
 {
-  const fn = connect.slice(connect.indexOf("function stepNoWorkoutsYet"),
-                           connect.indexOf("function toggleHelp"));
+  const fn = connect.slice(connect.indexOf("function stepConnectGarmin"),
+                           connect.indexOf("function stepDetecting"));
   t("headline does NOT say Intervals", !/<h[12][^>]*>[^<]*Intervals/.test(fn));
-  t("headline 'Almost there'", /Almost there/.test(fn));
-  t("says Athlevo is connected", /Athlevo is now connected/.test(fn));
-  t("says no workouts received yet", /haven't received any workouts yet/.test(fn));
-  t("names the final step in prose only", /connect your .* inside our sync partner/i.test(fn));
+  t("titled 'Connect <device>'", /Connect \$\{esc\(name\)\}/.test(fn));
+  t("gives the three explicit how-to steps",
+    /Open the Sync Partner/.test(fn) && /Connect \$\{esc\(name\)\}/.test(fn) && /Return to Athlevo/.test(fn));
+  t("promises automatic detection on return", /automatically detect your workouts/.test(fn));
   t("primary 'Open Sync Partner'", /Open Sync Partner/.test(fn));
-  t("secondary 'I'll do it later'", /I&#39;ll do it later|I'll do it later/.test(fn));
+  t("secondary 'check now'", /check now/.test(fn));
 }
 
 section("2c. State C — connected with activities (card fields)");
@@ -143,12 +142,14 @@ section("3b. Card controls per state");
 
 section("4. Lightweight help, not a docs page");
 {
-  const fn = connect.slice(connect.indexOf("function stepNoWorkoutsYet"),
+  const fn = connect.slice(connect.indexOf("const FAQ"),
                            connect.indexOf("function toggleHelp") + 200);
   t("a 'Need help?' toggle exists", /Need help/.test(fn));
-  t("copy explains the one common fix",
-    /Most athletes simply need to connect .* inside our sync\s*partner/i.test(fn));
-  t("offers 'Open setup guide'", /Open setup guide/.test(fn));
+  t("answers the five common questions",
+    /Why do I need another account\?/.test(fn) && /Is it free\?/.test(fn) &&
+    /Where do I connect Garmin\?/.test(fn) && /Can I delete it later\?/.test(fn) &&
+    /Which watches are supported\?/.test(fn));
+  t("the answers are short and reassuring", /completely free/.test(fn) && /Anytime/.test(fn));
   t("toggleHelp just shows/hides — no navigation, no docs page",
     /function toggleHelp/.test(connect) && !/location\.href|window\.open.*help/.test(
       connect.slice(connect.indexOf("function toggleHelp"), connect.indexOf("function toggleHelp") + 200)));

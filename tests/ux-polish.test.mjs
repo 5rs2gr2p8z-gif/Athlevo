@@ -161,13 +161,13 @@ section("Import success confirms the connection before the dashboard");
 {
   const fn = connect.slice(connect.indexOf("function stepSuccess"),
                            connect.indexOf("function stepProblem"));
-  t("explicitly confirms the import worked", /Training history imported/.test(fn));
+  t("explicitly confirms the connection (device connected badge)", /cf-confirm/.test(fn) && /connected/.test(fn));
   t("shows the real activity count", /summary\.headline/.test(fn));
   t("shows real training stats", /This week/.test(fn) && /Longest run/.test(fn));
-  t("names what happens next", /create your training plan/i.test(fn));
+  t("names what happens next — the AI coach is ready", /Your AI coach is now ready/.test(fn));
   t("does NOT start generation from this screen",
     !/build\(\)|generate/i.test(fn));
-  t("the button simply continues", /AthlevoConnect\.finish\(\)/.test(fn));
+  t("the button continues to Athlevo", /AthlevoConnect\.finish\(\)/.test(fn) && /Continue to Athlevo/.test(fn));
 }
 
 /* ══════════════════ P2 — loading language ═══════════════════════════ */
@@ -192,13 +192,14 @@ section("P2. Loading names the outcome the athlete asked for");
 
 /* ══════════════════ P4 — device-first connection ════════════════════ */
 
-section("P4. Device first, provider never fronted");
+section("P4. Guided wizard, provider never fronted cold");
 {
-  t("the first screen asks what they run with", /What do you run with/.test(connect));
-  t("the explain-the-service screen is gone", !/function stepExplain/.test(connect));
-  t("the create-an-account screen is gone", !/function stepAccount/.test(connect));
-  t("the router has two steps before detection",
-    /case "device":/.test(connect) && /case "authorize":/.test(connect));
+  t("the first screen explains connecting training data", /Connect your training data/.test(connect));
+  t("the first screen names the Sync Partner, not the raw service", /Sync Partner/.test(connect));
+  t("the account step now EXISTS and explains why", /function stepAccount/.test(connect) &&
+    /Create your free Sync account/.test(connect));
+  t("the router has the guided steps before detection",
+    /case "intro":/.test(connect) && /case "account":/.test(connect) && /case "connectGarmin":/.test(connect));
 
   const activation = readFileSync("./js/activation.js", "utf8");
   ["garmin", "coros", "polar", "apple", "suunto", "strava", "other"]
@@ -269,20 +270,18 @@ section("P5. Empty states answer what/why/next");
 
 section("P2. Athletes are guided, not sent away");
 {
-  const fn = connect.slice(connect.indexOf("function stepAuthorize"),
-                           connect.indexOf("function stepNoWorkoutsYet"));
-  t("Athlevo owns the heading", /Connect your training data/.test(fn));
-  t("the subtitle names the platforms, not the plumbing",
-    /Import your workouts automatically from Garmin, COROS/.test(fn));
-  t("a three-step tracker is shown",
-    /Connect Athlevo/.test(fn) && /Authorize sync/.test(fn) && /Connect your watch/.test(fn));
-  t("the primary button is simply Continue",
-    /class="cf-btn primary"[\s\S]{0,60}Continue/.test(fn));
+  const fn = connect.slice(connect.indexOf("function stepAccount"),
+                           connect.indexOf("function stepConnectGarmin"));
+  t("Athlevo owns the heading", /Create your free Sync account/.test(fn));
+  t("the copy explains why, naming the platforms",
+    /receive your workouts from Garmin, COROS, Polar and others/.test(fn));
+  t("a progress indicator (step 2 of 4) is shown", /progress\(2\)/.test(fn));
+  t("the primary button starts the secure sign-in",
+    /class="cf-btn primary"[\s\S]{0,80}Create free account/.test(fn));
   t("no provider is named in a heading or button",
     !/<h[12][^>]*>[^<]*Intervals/.test(fn) && !/<button[^>]*>[^<]*Intervals/.test(fn));
-  t("the sync partner is disclosed via serviceName, once, in the fine print",
-    /our sync partner,\s*\$\{esc\(DS\(\)\.serviceName\)\}/.test(fn) &&
-    (fn.match(/serviceName/g) || []).length === 1);
+  t("the sync partner is disclosed via serviceName(), once, in the fine print",
+    /\$\{esc\(serviceName\(\)\)\}/.test(fn) && (fn.match(/serviceName\(\)/g) || []).length === 1);
 }
 
 section("P1. 'No workouts' is a guide, not an error");
@@ -293,18 +292,19 @@ section("P1. 'No workouts' is a guide, not an error");
    * reads is under test here.
    */
   const fn = connect
-    .slice(connect.indexOf("function stepNoWorkoutsYet"),
-           connect.indexOf("function stepConnectFailed"))
+    .slice(connect.indexOf("function stepConnectGarmin"),
+           connect.indexOf("function stepDetecting"))
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-  t("the no-workouts state exists", fn.length > 0);
-  t("it frames it as almost done", /Almost there/.test(fn));
-  t("it names the final step in prose", /connect your .* inside our sync partner/i.test(fn));
+  t("the connect-your-watch state exists", fn.length > 0);
+  t("it frames it as the explicit next step, not a failure", /Connect \$\{esc\(name\)\}/.test(fn));
+  t("it gives the three steps in prose", /Open the Sync Partner/.test(fn) && /Return to Athlevo/.test(fn));
   t("it does not call the connection broken", !/\berror\b|\bbroken\b/i.test(fn));
   t("primary CTA is Open Sync Partner", /Open Sync Partner/.test(fn));
-  t("it offers a way onward — I'll do it later", /I&#39;ll do it later|I'll do it later/.test(fn));
-  t("a lightweight help toggle is present", /Need help/.test(fn) && /toggleHelp/.test(fn));
+  t("it offers a 'check now' way onward", /check now/.test(fn));
+  t("a lightweight help toggle is attached", /helpBlock\(\)/.test(fn) &&
+    /Need help/.test(connect) && /toggleHelp/.test(connect));
   t("detection routes here, not to the generic error",
-    /stepNoWorkoutsYet\(\)/.test(connect));
+    /go\("connectGarmin"\)/.test(connect));
 }
 
 section("P1. A failed probe is not reported as 'no workouts'");

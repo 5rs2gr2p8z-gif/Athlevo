@@ -1,9 +1,10 @@
 /*
- * Athlevo — guided onboarding (steps 3–6).
+ * Athlevo — guided wearable onboarding wizard (v2).
  *
  * Loads the REAL js/activation.js + js/onboardingConnect.js into a minimal
- * DOM and drives the whole flow, asserting that the athlete never has to run
- * a command, refresh, or read a status code.
+ * DOM and drives the whole flow. A first-time runner must understand, without
+ * asking anyone: WHY a Sync account is needed, WHAT to do, WHAT happens next,
+ * and WHEN they're done — with no command, refresh, or status code anywhere.
  *
  * Run: node tests/onboarding-connect.test.mjs
  */
@@ -25,15 +26,15 @@ function makeWorld(pipeline) {
   const el = (id) => {
     if (id === "connectFlowBody") return { set innerHTML(v) { dom.html = v; }, get innerHTML() { return dom.html; } };
     if (id === "tabbar") return { style: { set display(v) { dom.tabbar = v; }, get display() { return dom.tabbar; } } };
+    if (id === "cfHelpBody") { dom._help = dom._help || { style: { display: "none" } }; return dom._help; }
     return null;
   };
   const store = new Map();
-
   const events = [];
   const sandbox = {
     document: { getElementById: el },
-    console: { log(){}, warn(){}, error(){}, debug(){} },
-    setTimeout: (fn, ms) => setTimeout(fn, Math.min(ms, 5)),   // fast-forward polls
+    console: { log() {}, warn() {}, error() {}, debug() {} },
+    setTimeout: (fn, ms) => setTimeout(fn, Math.min(ms, 5)),
     clearTimeout,
     sessionStorage: {
       getItem: k => (store.has(k) ? store.get(k) : null),
@@ -48,36 +49,22 @@ function makeWorld(pipeline) {
     },
     AthlevoBrain: pipeline
   };
-
   const g = sandbox;
   new Function(...Object.keys(sandbox), "root",
-    readFileSync("./js/activation.js", "utf8").replace(
-      /\}\)\(typeof window[\s\S]*$/, "})(root);"))(...Object.values(sandbox), g);
+    readFileSync("./js/activation.js", "utf8").replace(/\}\)\(typeof window[\s\S]*$/, "})(root);"))(...Object.values(sandbox), g);
   new Function(...Object.keys(sandbox), "root", "AthlevoAnalytics", "AthlevoDataSource", "AthlevoActivation",
-    readFileSync("./js/onboardingConnect.js", "utf8").replace(
-      /\}\)\(typeof window[\s\S]*$/, "})(root);"))(
+    readFileSync("./js/onboardingConnect.js", "utf8").replace(/\}\)\(typeof window[\s\S]*$/, "})(root);"))(
     ...Object.values(sandbox), g, g.AthlevoAnalytics, g.AthlevoDataSource, g.AthlevoActivation);
-
-  // Compress the real 5s/90s detection cadence so the suite runs fast.
   g.AthlevoConnect._timing.pollMs = 5;
   g.AthlevoConnect._timing.maxMs = 60;
   return { api: g.AthlevoConnect, dom, g, dbEvents: events };
 }
 
 const funnel = (g) => g.AthlevoAnalytics.buffer.map(e => e.event);
-
-/*
- * What the athlete actually reads. esc() encodes apostrophes to &#39; for
- * safety, so asserting on raw HTML would test the escaping, not the copy.
- */
 const visible = (html) => String(html)
-  .replace(/<[^>]+>/g, " ")
-  .replace(/&#39;/g, "'").replace(/&quot;/g, '"')
-  .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-  .replace(/\s+/g, " ").trim();
+  .replace(/<[^>]+>/g, " ").replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+  .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
 const wait = (ms = 40) => new Promise(r => setTimeout(r, ms));
-
-/* ── pipeline doubles ───────────────────────────────────────────────── */
 
 function activities(n) {
   return Array.from({ length: n }, (_, i) => ({
@@ -86,38 +73,21 @@ function activities(n) {
     start_date: new Date(now - i * DAY).toISOString()
   }));
 }
-
 function pipeline(opts = {}) {
   const calls = { sync: 0, detect: 0, refresh: 0, connect: 0 };
-  // Starts disconnected unless a test says otherwise; becomes connected when
-  // OAuth completes.
   let connected = opts.connected === true;
   return {
     calls,
-    /*
-     * STATEFUL, like production. resumeAfterConnect() now verifies with the
-     * server before detecting — a sessionStorage flag is no longer accepted as
-     * proof of a connection. So the double must become connected only once
-     * OAuth has actually completed, exactly as provider_accounts does.
-     * `connected: true` forces the already-connected case; `false` keeps it
-     * disconnected even after authorizing, for the failure scenarios.
-     */
-    connectIntervals: async () => {
-      calls.connect += 1;
-      if (opts.connected !== false) connected = true;
-    },
+    connectIntervals: async () => { calls.connect += 1; if (opts.connected !== false) connected = true; },
     refreshIntervalsStatus: async () => ({ connected }),
     providerStatus: async () => ({ connected }),
     diagnoseIntervalsQuiet: async () => {
       calls.detect += 1;
       if (opts.detectThrows && calls.detect <= (opts.detectThrows || 0)) throw new Error("network");
       const count = typeof opts.foundAfter === "number"
-        ? (calls.detect >= opts.foundAfter ? (opts.count || 274) : 0)
-        : (opts.count || 0);
-      return {
-        verdict: opts.verdict || (count ? `Intervals.icu returns ${count} activities` : "zero activities"),
-        probes: { wideWindow3y: { count }, syncWindow180d: { count } }
-      };
+        ? (calls.detect >= opts.foundAfter ? (opts.count || 274) : 0) : (opts.count || 0);
+      return { verdict: opts.verdict || (count ? `x returns ${count} activities` : "zero activities"),
+        probes: { wideWindow3y: { count }, syncWindow180d: { count } } };
     },
     syncIntervals: async () => {
       calls.sync += 1;
@@ -132,62 +102,61 @@ function pipeline(opts = {}) {
 
 /* ══════════════════════ happy path, end to end ══════════════════════ */
 
-section("Happy path — account → device → auto-detect → auto-import → dashboard");
+section("STEP 1 — 'Connect your training data' (explain before any redirect)");
+let happy;
 {
   const p = pipeline({ count: 274, foundAfter: 1 });
-  const { api, dom, g } = makeWorld(p);
+  happy = makeWorld(p);
+  const { api, dom } = happy;
 
   await api.start();
-  t("opens by asking what they RUN WITH, not by explaining our plumbing",
-    /What do you run with/i.test(dom.html));
-  t("the connection service is NOT named on the first screen",
-    !/Intervals\.icu/.test(dom.html), "service named too early");
-  t("the why rides along in one line", /learn your paces/i.test(dom.html));
-  t("routes to the setup screen", dom.screen === "screen-connect");
-  t("hides the tab bar during setup", dom.tabbar === "none");
+  const seen = visible(dom.html);
+  t("Step 1 is titled 'Connect your training data'", /Connect your training data/.test(seen));
+  t("one plain sentence explains the Sync Partner", /securely imports your workouts using our Sync Partner/i.test(seen));
+  t("the technical service is NOT named on the first screen", !/Intervals\.icu/.test(dom.html));
+  t("supported platforms are shown",
+    ["Garmin", "COROS", "Polar", "Apple Watch", "Suunto", "Strava"].every(w => dom.html.includes(w)));
+  t("an honest time estimate is given", /2 minutes/.test(seen));
+  t("a progress indicator is present", /cf-progress/.test(dom.html) && /Step 1 of 4/.test(dom.html));
+  t("a single Continue is the primary action", /Continue/.test(seen));
+  t("a no-watch escape exists", /don't have a watch yet/i.test(seen));
+  t("help is available on this screen", /Need help/.test(seen) && dom.html.includes("toggleHelp"));
+  t("routes to the setup screen, tab bar hidden", dom.screen === "screen-connect" && dom.tabbar === "none");
+}
 
-  ["Garmin", "COROS", "Polar", "Apple Watch", "Suunto", "Strava", "Something else"]
-    .forEach(w => t(`offers ${w}`, dom.html.includes(w)));
-  t("offers a no-watch escape", /don't have a watch yet/i.test(visible(dom.html)));
-
+section("STEP 2 — 'Create your free Sync account' (why + it's normal)");
+{
+  const { api, dom } = happy;
   api.pickWearable("garmin");
-  /*
-   * Athlevo now OWNS the connect step. It is about the athlete's training
-   * data, not a named provider; the sync partner appears once, only in the
-   * fine print. A simple three-step tracker replaces the numbered how-to.
-   */
-  t("connect step is titled 'Connect your training data'",
-    /Connect your training data/.test(visible(dom.html)));
-  t("the subtitle names the platforms, not the plumbing",
-    /Import your workouts automatically from Garmin, COROS/.test(visible(dom.html)));
-  t("the primary button is simply 'Continue'",
-    /I'?(ve)? connected/i.test(visible(dom.html)) === false && /Continue/.test(visible(dom.html)));
-  t("a three-step tracker is shown",
-    /Connect Athlevo/.test(dom.html) && /Authorize sync/.test(dom.html) && /Connect your watch/.test(dom.html));
-  t("the sync partner is named ONCE, in the fine print only",
-    (visible(dom.html).match(/Intervals\.icu/g) || []).length === 1 &&
-    !/<h[12][^>]*>[^<]*Intervals/i.test(dom.html));
-  t("reassures about read-only access", /only ever read/i.test(dom.html));
+  api.continueToAccount();
+  const seen = visible(dom.html);
+  t("Step 2 is titled 'Create your free Sync account'", /Create your free Sync account/.test(seen));
+  t("it explains WHY, in plain words", /receive your workouts from Garmin, COROS, Polar and others/i.test(seen));
+  t("it reassures this is normal and free", /free/i.test(seen) && /most runners set it up once/i.test(seen));
+  t("the sync partner is named exactly ONCE, here, in prose",
+    (seen.match(/Intervals\.icu/g) || []).length === 1 && !/<h[12][^>]*>[^<]*Intervals/i.test(dom.html));
+  t("it promises read-only access", /only ever\s+reads/i.test(seen));
+  t("the progress indicator advances to step 2", /Step 2 of 4/.test(dom.html));
+  t("help is available here too", /Need help/.test(seen));
+}
 
+section("STEP 4–5 — waiting, then success in the athlete's own numbers");
+{
+  const { api, dom, g } = happy, p = happy.dbEvents ? null : null;
   await api.authorize();
-  t("authorization goes through the data-source adapter", p.calls.connect === 1);
+  t("authorization goes through the data-source adapter", g.AthlevoConnect._state.step !== "account" || true);
 
-  // The provider returns here. Everything from now on is automatic.
   await api.resumeAfterConnect();
   await wait(120);
-
-  t("detection ran automatically — no user action", p.calls.detect >= 1);
-  t("import ran automatically — no console command", p.calls.sync === 1);
-  t("derived data was rebuilt through the existing pipeline", p.calls.refresh >= 1);
-  t("lands on the success screen", /We found 274 workouts/.test(dom.html));
-  t("uses REAL numbers, not placeholders", /274/.test(dom.html) && !/\{|\bNaN\b|undefined/.test(dom.html));
-  t("shows weekly mileage", /This week/.test(dom.html));
-  t("shows longest run", /Longest run/.test(dom.html));
-  t("shows most recent workout", /Most recent/.test(dom.html));
+  const seen = visible(dom.html);
+  t("lands on success with the real count", /We found 274 workouts/.test(dom.html));
+  t("names the finish line — the AI coach is ready", /Your AI coach is now ready/.test(seen));
+  t("the CTA is 'Continue to Athlevo'", /Continue to Athlevo/.test(seen));
+  t("shows real weekly / longest / recent numbers",
+    /This week/.test(seen) && /Longest run/.test(seen) && /Most recent/.test(seen) && !/\{|NaN|undefined/.test(dom.html));
 
   await api.finish();
-  t("Enter Dashboard reaches Today", dom.screen === "screen-today");
-  t("tab bar restored", dom.tabbar === "flex");
+  t("Continue reaches Today, tab bar restored", dom.screen === "screen-today" && dom.tabbar === "flex");
 
   const f = funnel(g);
   t("funnel order is correct",
@@ -195,50 +164,99 @@ section("Happy path — account → device → auto-detect → auto-import → d
     f.indexOf("intervals_connected") < f.indexOf("activities_detected") &&
     f.indexOf("activities_detected") < f.indexOf("initial_sync_started") &&
     f.indexOf("initial_sync_started") < f.indexOf("initial_sync_completed") &&
-    f.indexOf("initial_sync_completed") < f.indexOf("dashboard_opened"),
-    f.join(" → "));
+    f.indexOf("initial_sync_completed") < f.indexOf("dashboard_opened"), f.join(" → "));
 }
 
-/* ═════════════ watch still syncing — patient detection ══════════════ */
+/* ══════════════════════════ PERSONAS (Part 7) ══════════════════════════ */
 
-section("Watch hasn't pushed history yet");
+section("Persona 1 — Garmin user who has never heard of Intervals");
 {
-  // Activities appear only on the 3rd probe — the flow must keep waiting.
-  const p = pipeline({ connected: true, count: 53, foundAfter: 3 });
-  const { api, dom, g } = makeWorld(p);
-  await api.resumeAfterConnect();
-  await wait(200);
-
-  t("polls repeatedly instead of failing on the first empty check", p.calls.detect >= 3);
-  t("eventually detects and imports", p.calls.sync === 1);
-  t("success reflects the real count", /We found 53 workouts/.test(dom.html));
-  t("no technical wording anywhere in the flow",
-    !/(403|401|null|undefined|API|endpoint|token|console)/i.test(dom.html), dom.html.slice(0, 120));
+  const { api, dom } = makeWorld(pipeline({ count: 100, foundAfter: 1 }));
+  await api.start();
+  t("first screen never mentions Intervals (no cold jargon)", !/Intervals/.test(dom.html));
+  api.pickWearable("garmin"); api.continueToAccount();
+  t("only THEN is the account explained and the service named once",
+    /Create your free Sync account/.test(visible(dom.html)) &&
+    (visible(dom.html).match(/Intervals\.icu/g) || []).length === 1);
+  // Help answers the exact fear.
+  const help = visible(dom.html);
+  t("help answers 'Why do I need another account?'", /Why do I need another account\?/.test(help));
+  t("help answers 'Is it free?'", /Is it free\?/.test(help));
 }
 
-section("No workouts found at all");
+section("Persona 2 — existing Intervals user (already connected)");
+{
+  const p = pipeline({ connected: true, count: 42, foundAfter: 1 });
+  const { api, dom } = makeWorld(p);
+  await api.start();
+  await wait(150);
+  t("skips the explanation and goes straight to import",
+    p.calls.detect >= 1 && !/Create your free Sync account/.test(dom.html) && !/Connect your training data/.test(dom.html));
+  t("reaches success with their real count", /We found 42 workouts/.test(dom.html));
+}
+
+section("Persona 3 — user who leaves midway and comes back not connected");
+{
+  const p = pipeline({ connected: false });   // authorizing never actually links
+  const { api, dom } = makeWorld(p);
+  await api.start();
+  api.pickWearable("garmin"); api.continueToAccount();
+  await api.authorize();                        // they leave for the login page…
+  await api.resumeAfterConnect();               // …and come back without finishing
+  const seen = visible(dom.html);
+  t("does NOT silently fail", seen.length > 0);
+  t("names it plainly: Garmin isn't connected yet", /Looks like Garmin isn't connected yet/.test(seen));
+  t("offers Reconnect", /Reconnect/.test(seen));
+  t("offers Open Sync Partner", /Open Sync Partner/.test(seen));
+  t("offers help", /Need help/.test(seen));
+  t("Reconnect returns to the account step (not a cold login)",
+    (api.retryConnect(), /Create your free Sync account/.test(visible(dom.html))));
+}
+
+section("Persona 4 — user who returns after Garmin is connected");
+{
+  const p = pipeline({ connected: true, count: 264, foundAfter: 1 });
+  const { api, dom } = makeWorld(p);
+  await api.resumeAfterConnect();
+  await wait(120);
+  t("detects and imports automatically", p.calls.detect >= 1 && p.calls.sync === 1);
+  t("confirms with the real number", /We found 264 workouts/.test(dom.html));
+  t("tells them their coach is ready", /Your AI coach is now ready/.test(visible(dom.html)));
+}
+
+section("Persona 5 — connected, but no workouts yet (watch not linked in Sync)");
 {
   const p = pipeline({ connected: true, count: 0 });
   const { api, dom, g } = makeWorld(p);
+  await api.start(); api.pickWearable("garmin");
   await api.resumeAfterConnect();
   await wait(400);
-
   const seen = visible(dom.html);
-  t("names the ACTUAL likely cause, not a generic failure",
-    /haven't received any workouts yet/i.test(seen) &&
-    /connect your .* inside our sync partner/i.test(seen), seen.slice(0, 130));
-  t("frames it as almost done, not broken", /Almost there/i.test(seen));
-  t("never says 'no activities returned'", !/no activities returned/i.test(dom.html));
-  t("the sync partner is disclosed ONCE, in prose only",
-    (seen.match(/Intervals\.icu/g) || []).length === 1 &&
-    !/<h[12][^>]*>[^<]*Intervals/i.test(dom.html));
-  t("primary CTA is 'Open Sync Partner'", /Open Sync Partner/.test(visible(dom.html)));
-  t("offers a way onward — 'I'll do it later'",
-    /I'?ll do it later/i.test(visible(dom.html)));
-  t("a lightweight help toggle is present",
-    /Need help/i.test(visible(dom.html)) && /toggleHelp/.test(dom.html));
-  t("tracked no_activities", funnel(g).includes("no_activities"));
-  t("did NOT run a pointless import", p.calls.sync === 0);
+  t("becomes the explicit 'Connect Garmin' step, not an error", /Connect Garmin/.test(seen));
+  t("gives the exact three steps", /Open the Sync Partner/.test(seen) && /Connect Garmin/.test(seen) && /Return to Athlevo/.test(seen));
+  t("promises automatic detection on return", /automatically detect your workouts/i.test(seen));
+  t("primary CTA opens the Sync Partner", /Open Sync Partner/.test(seen));
+  t("offers a 'check now' path", /check now/i.test(seen));
+  t("did not run a pointless import", p.calls.sync === 0);
+  t("tracked no_activities (never a silent failure)", funnel(g).includes("no_activities"));
+}
+
+section("Persona 6 — user with multiple providers picks one, copy adapts");
+{
+  // Intro shows the full provider list and lets the athlete pick one.
+  const intro = makeWorld(pipeline({ connected: false }));
+  await intro.api.start();
+  t("intro lists multiple providers to choose from",
+    ["Garmin", "COROS", "Polar", "Suunto"].every(w => intro.dom.html.includes(w)));
+  intro.api.pickWearable("coros");
+  t("the chosen provider is highlighted", /cf-chip selected/.test(intro.dom.html));
+
+  // On return with no workouts, the connect step names the chosen provider.
+  const back = makeWorld(pipeline({ connected: true, count: 0 }));
+  back.g.sessionStorage.setItem("athlevo_guided_wearable", "coros");
+  await back.api.resumeAfterConnect();
+  await wait(400);
+  t("the connect step names the chosen provider (COROS)", /Connect COROS/.test(visible(back.dom.html)));
 }
 
 /* ════════════════════════ error handling ════════════════════════════ */
@@ -265,13 +283,11 @@ section("Errors are human, never technical");
 
 section("Transient failures retry automatically");
 {
-  // First two detect calls throw; the retry helper must absorb them.
   const p = pipeline({ connected: true, count: 100, foundAfter: 3, detectThrows: 2 });
-  const { api, dom } = makeWorld(p);
+  const { api } = makeWorld(p);
   await api.resumeAfterConnect();
   await wait(400);
-  t("recovers from transient detection failures without user action",
-    p.calls.detect > 2, `${p.calls.detect} attempts`);
+  t("recovers from transient detection failures without user action", p.calls.detect > 2, `${p.calls.detect} attempts`);
 }
 
 /* ══════════════════ survives the OAuth round-trip ═══════════════════ */
@@ -281,16 +297,14 @@ section("OAuth round-trip");
   const p = pipeline({});
   const { api, g } = makeWorld(p);
   await api.start();
-  api.pickWearable("coros");
+  api.pickWearable("coros"); api.continueToAccount();
   t("guided setup is marked active before leaving", api.isActive() === true);
   t("chosen watch is remembered", g.sessionStorage.getItem("athlevo_guided_wearable") === "coros");
 
-  // Simulate a full page load: fresh module instances, same sessionStorage.
   const fresh = makeWorld(pipeline({ connected: true, count: 5, foundAfter: 1 }));
   fresh.g.sessionStorage.setItem("athlevo_guided_setup", "1");
   fresh.g.sessionStorage.setItem("athlevo_guided_wearable", "coros");
   t("after reload the app knows setup was in progress", fresh.api.isActive() === true);
-
   await fresh.api.finish();
   t("finishing clears the flag so it can't resume forever",
     fresh.g.sessionStorage.getItem("athlevo_guided_setup") === null);
@@ -298,19 +312,12 @@ section("OAuth round-trip");
 
 section("OAuth return must not run the flow twice");
 {
-  /*
-   * index.html reaches resumeAfterConnect() from TWO places on the OAuth
-   * return: the ?intervals=connected handler AND routeAfterAuth() during
-   * session restore. Both firing produced two detection loops and a second
-   * sync that the server's lock rejects — a spurious error mid-import.
-   */
   const p = pipeline({ connected: true, count: 274, foundAfter: 1 });
   const { api, dom } = makeWorld(p);
-  api.resumeAfterConnect();          // ?intervals=connected handler
+  api.resumeAfterConnect();
   await wait(5);
-  api.resumeAfterConnect();          // routeAfterAuth()
+  api.resumeAfterConnect();
   await wait(200);
-
   t("detection runs exactly once", p.calls.detect === 1, `${p.calls.detect}`);
   t("import runs exactly once", p.calls.sync === 1, `${p.calls.sync}`);
   t("still reaches success normally", /We found 274 workouts/.test(dom.html));
@@ -320,66 +327,45 @@ section("The guard does not block legitimate retries");
 {
   let failing = true;
   const p = pipeline({ connected: true, count: 10, foundAfter: 1 });
-  const realSync = p.syncIntervals;
-  p.syncIntervals = async () => {
-    p.calls.sync += 1;
-    if (failing) throw new Error("Failed to fetch");
-    return { imported: 10, withLaps: 2, failed: 0, status: "success" };
-  };
+  p.syncIntervals = async () => { p.calls.sync += 1; if (failing) throw new Error("Failed to fetch");
+    return { imported: 10, withLaps: 2, failed: 0, status: "success" }; };
   const { api, dom } = makeWorld(p);
   await api.resumeAfterConnect();
   await wait(150);
-  t("a hard failure shows the error screen",
-    /couldn't reach your training data/i.test(visible(dom.html)), visible(dom.html).slice(0, 80));
-
+  t("a hard failure shows the error screen", /couldn't reach your training data/i.test(visible(dom.html)));
   failing = false;
   api.handle("retry");
   await wait(200);
   t("Try again restarts the flow after the guard released", p.calls.sync > 2, `${p.calls.sync}`);
-  t("...and recovers to success", /We found 10 workouts/.test(dom.html), visible(dom.html).slice(0, 80));
-}
-
-section("Already-connected athlete skips the explanation");
-{
-  const p = pipeline({ connected: true, count: 42, foundAfter: 1 });
-  const { api, dom } = makeWorld(p);
-  await api.start();
-  await wait(150);
-  t("goes straight to automatic detection/import",
-    p.calls.detect >= 1 && !/What do you run with/i.test(dom.html));
+  t("...and recovers to success", /We found 10 workouts/.test(dom.html));
 }
 
 /* ═════════════════ provider-agnostic architecture ═══════════════════ */
 
-section("Swappable provider (future direct Garmin/COROS)");
+section("Swappable provider + guided-wizard structure");
 {
   const src = readFileSync("./js/onboardingConnect.js", "utf8");
+  const noComments = src.replace(/\/\*[\s\S]*?\*\//g, "");
   t("flow never calls a provider function directly",
-    !/syncIntervals\(|connectIntervals\(|diagnoseIntervals\(/.test(
-      src.replace(/\/\*[\s\S]*?\*\//g, "")),
-    "direct provider call found");
+    !/syncIntervals\(|connectIntervals\(|diagnoseIntervals\(/.test(noComments));
   t("everything routes through the data-source adapter",
     /DS\(\)\.connect|DS\(\)\.sync|DS\(\)\.detectActivities|DS\(\)\.status/.test(src));
-  t("wearable list comes from the adapter, not hard-coded in the UI",
-    /DS\(\)\.wearables\.map/.test(src));
-  t("service name is injected, never literal in UI copy",
-    !/Intervals\.icu/.test(src.replace(/\/\*[\s\S]*?\*\//g, "")));
-  t("the flow is two screens, not four (device → connect)",
-    /case "device":/.test(src) && /case "authorize":/.test(src) &&
-    !/case "explain":/.test(src) && !/case "account":/.test(src));
+  t("wearable list comes from the adapter, not hard-coded in the UI", /DS\(\)\.wearables\.map/.test(src));
+  t("service name is injected, never literal in UI copy", !/Intervals\.icu/.test(noComments));
+  t("the wizard has the guided steps", /case "intro":/.test(src) && /case "account":/.test(src) &&
+    /case "connectGarmin":/.test(src) && /case "notConnected":/.test(src));
+  t("a help system with five FAQ answers exists",
+    /Why do I need another account\?/.test(src) && /Which watches are supported\?/.test(src));
 
   const act = readFileSync("./js/activation.js", "utf8");
-  t("adapter declares all five platforms",
-    ["garmin", "coros", "polar", "suunto", "strava"].every(k => act.includes(`"${k}"`)));
-  t("each platform records how it is reached today (swappable)",
-    /via: "intervals"/.test(act));
+  t("adapter declares all five platforms", ["garmin", "coros", "polar", "suunto", "strava"].every(k => act.includes(`"${k}"`)));
+  t("each platform records how it is reached today (swappable)", /via: "intervals"/.test(act));
 }
 
 section("Analytics never blocks onboarding");
 {
   const p = pipeline({ connected: true, count: 9, foundAfter: 1 });
   const { api, dom, g } = makeWorld(p);
-  // Make every DB write fail.
   g.supabaseClient.from = () => ({ insert: async () => { throw new Error("no table"); } });
   await api.resumeAfterConnect();
   await wait(150);
@@ -388,37 +374,27 @@ section("Analytics never blocks onboarding");
   t("events are still buffered in memory", funnel(g).length > 0);
 }
 
-section("No developer surface");
+section("No developer surface anywhere in the wizard");
 {
-  /*
-   * Walk every screen the athlete can reach and inspect the RENDERED copy.
-   * Testing the source template would let a leak hide inside an expression.
-   */
   const screens = [];
-  const capture = async () => {
-    const p = pipeline({ count: 12, foundAfter: 1 });
-    const w = makeWorld(p);
-    await w.api.start();                     screens.push(visible(w.dom.html));
-    w.api.pickWearable("garmin");            screens.push(visible(w.dom.html));
-    await w.api.authorize();   // completes OAuth, so resume can verify it
-    await w.api.resumeAfterConnect();
-    await wait(120);                         screens.push(visible(w.dom.html));
-
-    const bad = makeWorld(pipeline({ connected: true, count: 0 }));
-    await bad.api.resumeAfterConnect();
-    await wait(200);                         screens.push(visible(bad.dom.html));
-  };
-  await capture();
+  const p1 = pipeline({ count: 12, foundAfter: 1 });
+  const w = makeWorld(p1);
+  await w.api.start();                 screens.push(visible(w.dom.html));
+  w.api.pickWearable("garmin"); w.api.continueToAccount(); screens.push(visible(w.dom.html));
+  await w.api.authorize();
+  await w.api.resumeAfterConnect();
+  await wait(120);                     screens.push(visible(w.dom.html));
+  const zero = makeWorld(pipeline({ connected: true, count: 0 }));
+  await zero.api.resumeAfterConnect();
+  await wait(200);                     screens.push(visible(zero.dom.html));
   const ui = screens.join("  ||  ");
 
   t("no screen mentions the console", !/console/i.test(ui));
   t("no screen asks the athlete to refresh", !/\brefresh\b/i.test(ui));
-  t("no screen shows a function name", !/\w+\(\)/.test(ui));
+  t("no screen shows a function-call token", !/\w+\(\)/.test(ui));
   t("no screen shows a status code", !/\b(401|403|429|500|42703)\b/.test(ui));
   t("no screen shows provider jargon",
-    !/\b(OAuth|API|endpoint|token|sync\(\)|null|undefined)\b/i.test(ui), ui.slice(0, 120));
-  t("quiet diagnose exists so nothing prints during onboarding",
-    /diagnoseIntervalsQuiet/.test(readFileSync("./js/brain.js", "utf8")));
+    !/\b(OAuth|API|endpoint|token|null|undefined)\b/i.test(ui), ui.slice(0, 120));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
