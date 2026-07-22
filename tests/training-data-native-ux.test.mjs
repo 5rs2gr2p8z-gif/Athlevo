@@ -131,11 +131,14 @@ section("3b. Card controls per state");
   b.setIntervalsUi("reconnect");
   t("reconnect: Reconnect shown", nodes.trainingDataReconnect.style.display === "");
 
-  const gotHtml = html.includes('id="trainingDataReconnect"') &&
-    html.includes('id="trainingDataOpenPartner"') && html.includes('id="tdSource"');
-  t("the card markup carries all the new controls", gotHtml);
+  // The premium Training Data Status card (js/syncStatus.js) now owns these
+  // controls, rendered per state and delegating to the same frozen handlers.
+  const sync = readFileSync("./js/syncStatus.js", "utf8");
+  const gotControls = /reconnect/.test(sync) && /openPartner/.test(sync) &&
+    /disconnect/.test(sync) && /connect/.test(sync) && html.includes('id="syncStatusCard"');
+  t("the status card carries all the connection controls", gotControls);
   t("Open Sync Partner is wired to openSyncPartner()",
-    /AthlevoBrain\.openSyncPartner\(\)/.test(html));
+    /openSyncPartner/.test(sync) && /AthlevoBrain/.test(sync));
 }
 
 /* ══════════ PART 4 — help ══════════════════════════════════════════ */

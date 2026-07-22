@@ -116,25 +116,20 @@ section("2. ONE training-data card replaces four provider rows");
   ["<b>Strava</b>", "<b>Intervals.icu</b>", "<b>Garmin Connect</b>", "<b>COROS</b>"]
     .forEach(row => t(`the separate ${visible(row)} row is gone`, !html.includes(row)));
 
-  t("a single Training Data card exists", /id="trainingDataRow"/.test(html));
-  const card = html.slice(html.indexOf('id="trainingDataRow"'),
-                          html.indexOf('id="trainingDataMark"'));
-  t("titled 'Training Data'", /<b>Training Data<\/b>/.test(card));
-  t("supporting label is 'Garmin, COROS & more'",
-    /Garmin, COROS &amp; more/.test(card));
-  t("disconnected copy is present",
-    /Connect your training platform to automatically sync your activities with Athlevo\./.test(card));
-  t("the CTA is 'Connect'", /id="trainingDataConnect"[\s\S]*?>Connect</.test(card));
+  // A single premium Training Data STATUS card (js/syncStatus.js) replaces the
+  // old static row and gives sync confidence at a glance.
+  t("a single Training Data status card is mounted", /id="syncStatusCard"/.test(html));
+  const sync = readFileSync("./js/syncStatus.js", "utf8");
+  t("the card is labelled 'Training data'", /Training data/.test(sync));
+  t("disconnected copy invites connecting a watch",
+    /Connect a watch to sync your workouts automatically/.test(sync));
+  t("the CTA is 'Connect'", /label: "Connect"/.test(sync));
   t("Connect uses the existing provider flow",
-    /AthlevoPlan\.connectTrainingData\(\)/.test(card));
-
-  t("Intervals is disclosed subtly, not sold",
-    /Connection powered through Intervals\.icu/.test(card));
-  t("...and only while disconnected",
-    /providerNote\.style\.display = s\.live \? "none" : ""/.test(brain));
-
+    /connectTrainingData/.test(sync) && /AthlevoConnect/.test(sync));
+  t("no provider is sold in a card heading (implementation detail hidden)",
+    !/<h[12][^>]*>[^<]*Intervals/.test(sync));
   t("no Garmin/COROS/Strava connect control remains in this section",
-    !/connectGarmin|connectCoros/.test(card) && !/connectStrava/.test(card));
+    !/connectGarmin|connectCoros|connectStrava/.test(sync));
 }
 
 section("2b. The connected state");

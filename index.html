@@ -2087,6 +2087,63 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 .integ-row[data-state="partial"] .td-detail{display:flex}
 .cf-guide li{padding-left:2px}
 .cf-guide b{color:var(--text);font-weight:650}
+/* ── Training Data Status card (sync confidence) ────────────────────── */
+#syncStatusCard:empty{display:none}
+.ss-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;
+  display:flex;flex-direction:column;gap:12px}
+.ss-eyebrow{display:block;font-size:11px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)}
+.ss-conn{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:650;color:var(--text);margin-top:4px}
+.ss-dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--ink3)}
+.ss-dot-good{background:var(--good,#2f9e5f)}
+.ss-dot-bad{background:var(--bad,#c0272d)}
+.ss-dot-sync{background:var(--warn,#c98a1e);animation:ssPulse 1.2s ease-in-out infinite}
+.ss-dot-idle{background:var(--ink3)}
+@keyframes ssPulse{0%,100%{opacity:.4}50%{opacity:1}}
+.ss-rows{display:flex;flex-direction:column;gap:1px}
+.ss-row{display:flex;justify-content:space-between;gap:14px;font-size:13.5px;padding:5px 0;color:var(--ink2)}
+.ss-row b{color:var(--text);font-weight:640;font-variant-numeric:tabular-nums;text-align:right}
+.ss-providers{display:flex;flex-wrap:wrap;gap:8px}
+.ss-prov{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink2);
+  background:var(--field);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+.ss-status{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:var(--ink2)}
+.ss-status.ok{color:var(--good,#2f9e5f)}
+.ss-status.bad{color:var(--bad,#c0272d)}
+.ss-check{display:inline-flex;width:18px;height:18px;border-radius:50%;background:var(--good,#2f9e5f);color:#fff;
+  align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.ss-hint{font-size:12.5px;line-height:1.5;color:var(--ink3);margin:-4px 0 0}
+.ss-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:2px}
+.ss-btn{-webkit-appearance:none;appearance:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  border:1px solid var(--line);background:var(--paper);color:var(--text);border-radius:999px;padding:9px 15px}
+.ss-btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.ss-btn:active{transform:translateY(1px)}
+/* skeleton loader — never a blank area while status resolves */
+.ss-skeleton{gap:14px}
+.ss-sk{display:block;border-radius:8px;background:linear-gradient(90deg,var(--line) 25%,var(--field) 37%,var(--line) 63%);
+  background-size:400% 100%;animation:ssShimmer 1.4s ease infinite}
+.ss-sk-row{display:flex;align-items:center;gap:10px}
+.ss-sk-dot{width:12px;height:12px;border-radius:50%}
+.ss-sk-line{height:16px;width:52%}
+.ss-sk-block{height:13px;width:100%}
+.ss-sk-block.short{width:60%}
+@keyframes ssShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+@media(prefers-reduced-motion:reduce){.ss-sk,.ss-dot-sync{animation:none}}
+/* ── Import success banner (subtle, non-intrusive) ──────────────────── */
+.ss-banner-wrap{margin:0}
+.ss-banner-wrap:empty{display:none}
+.ss-banner{display:flex;align-items:center;gap:11px;background:var(--good-soft,#eef8f2);
+  border:1px solid var(--good,#2f9e5f);border-radius:14px;padding:12px 14px;margin:10px 0 2px;
+  animation:ssSlide .28s ease}
+.ss-banner-check{display:inline-flex;width:22px;height:22px;flex:none;border-radius:50%;background:var(--good,#2f9e5f);
+  color:#fff;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.ss-banner-body{flex:1;min-width:0}
+.ss-banner-body b{display:block;font-size:13.5px;font-weight:650;color:var(--text)}
+.ss-banner-body small{font-size:12px;color:var(--ink2)}
+.ss-banner-cta{-webkit-appearance:none;appearance:none;flex:none;font-family:inherit;font-size:12.5px;font-weight:650;
+  background:none;border:0;color:var(--good,#2f9e5f);cursor:pointer;padding:4px}
+.ss-banner-x{-webkit-appearance:none;appearance:none;flex:none;background:none;border:0;color:var(--ink3);
+  font-size:18px;line-height:1;cursor:pointer;padding:2px 4px}
+@keyframes ssSlide{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.ss-banner{animation:none}}
 /* Metric / Imperial switch */
 .ob2-units{display:inline-flex;background:var(--field);border-radius:999px;padding:3px;margin-bottom:14px}
 .ob2-unit{border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;
@@ -2566,6 +2623,8 @@ body.landing-active #tabbar{display:none!important}
   <div class="statusrow">
   <img class="brand-icon" src="assets/athlevo-icon.png" alt="Athlevo" width="34" height="34">
 </div>
+  <!-- Subtle import-success banner (js/syncStatus.js). Non-intrusive, auto-dismisses. -->
+  <div id="syncBanner" class="ss-banner-wrap"></div>
   <div class="greet">
   <h1 class="serif">
     Good morning,<br><span id="todayAthleteName">Athlete</span>.
@@ -3253,43 +3312,16 @@ body.landing-active #tabbar{display:none!important}
     The athlete connects "training data" once; which service carries it is an
     implementation detail, disclosed but not sold.
   -->
-  <div
-    class="integ-row"
-    id="trainingDataRow"
-    data-state="idle"
-    onclick="AthlevoBrain.onIntervalsRowTap()"
-    role="button"
-    tabindex="0"
-  >
-    <div class="ilogo">T</div>
-
-    <div class="in">
-      <b>Training Data</b>
-      <small id="trainingDataStatus">Garmin, COROS &amp; more</small>
-      <small class="integ-hint" id="trainingDataCopy">Connect your training platform to automatically sync your activities with Athlevo.</small>
-      <small class="integ-hint" id="trainingDataProvider" style="display:none">Connection powered through Intervals.icu</small>
-
-      <div class="td-detail" id="trainingDataDetail">
-        <div class="td-row"><span>Source</span><b id="tdSource">Sync Partner</b></div>
-        <div class="td-row"><span>Activities imported</span><b id="tdCount">—</b></div>
-        <div class="td-row"><span>Latest activity</span><b id="tdLatest">Waiting for your first workout.</b></div>
-        <div class="td-row"><span>Last sync</span><b id="tdLastSync">—</b></div>
-      </div>
-    </div>
-
-    <button type="button" id="trainingDataConnect" class="integ-unlink"
-      onclick="event.stopPropagation(); AthlevoPlan.connectTrainingData()">Connect</button>
-
-    <button type="button" id="trainingDataReconnect" class="integ-unlink" style="display:none"
-      onclick="event.stopPropagation(); AthlevoBrain.connectIntervals()">Reconnect</button>
-
-    <button type="button" id="trainingDataOpenPartner" class="integ-unlink" style="display:none"
-      onclick="event.stopPropagation(); AthlevoBrain.openSyncPartner()">Open Sync Partner</button>
-
-    <button type="button" id="trainingDataDisconnect" class="integ-unlink" style="display:none"
-      onclick="event.stopPropagation(); AthlevoBrain.disconnectIntervals()">Disconnect</button>
-
-    <span id="trainingDataMark">—</span>
+  <!--
+    Training Data Status (sync confidence). Rendered by js/syncStatus.js —
+    a read-only presentation layer that answers "is my watch connected?" and
+    "did my workout arrive?". All actions delegate to the existing frozen
+    handlers (connect / reconnect / disconnect / open partner). The legacy
+    hidden hooks below keep brain.js's status writes harmless no-ops.
+  -->
+  <div id="syncStatusCard"></div>
+  <div id="trainingDataRow" data-state="idle" hidden aria-hidden="true">
+    <span id="trainingDataStatus"></span><span id="trainingDataMark"></span>
   </div>
 </div>
 
@@ -4418,55 +4450,56 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/authSupport.js?v=56"></script>
-<script src="js/brain.js?v=56"></script>
-<script src="js/performance.js?v=56"></script>
+<script src="js/authSupport.js?v=57"></script>
+<script src="js/brain.js?v=57"></script>
+<script src="js/syncStatus.js?v=57"></script>
+<script src="js/performance.js?v=57"></script>
 <!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
      confidence) + structured workout guidance. Reused by Today & Train. -->
-<script src="js/aerobicCalibration.js?v=56"></script>
-<script src="js/paceService.js?v=56"></script>
-<script src="js/workoutGuidance.js?v=56"></script>
+<script src="js/aerobicCalibration.js?v=57"></script>
+<script src="js/paceService.js?v=57"></script>
+<script src="js/workoutGuidance.js?v=57"></script>
 <!-- Phase B Athlete Engine: defines window.AthleteEngine (calculations
      only). Not wired into any screen yet — UI integration is next sprint. -->
-<script src="js/athleteEngine.js?v=56"></script>
+<script src="js/athleteEngine.js?v=57"></script>
 <!-- Phase C Plan Engine: defines window.AthlevoPlanEngine (adaptive plan
      logic). Depends on AthleteEngine. Not wired into any screen yet. -->
-<script src="js/planEngine.js?v=56"></script>
-<script src="js/prescription.js?v=56"></script>
-<script src="js/athleteModel.js?v=56"></script>
-<script src="js/calendarWeeks.js?v=56"></script>
-<script src="js/workoutClassifier.js?v=56"></script>
-<script src="js/trends.js?v=56"></script>
-<script src="js/socialAuth.js?v=56"></script>
-<script src="js/activation.js?v=56"></script>
-<script src="js/onboardingConnect.js?v=56"></script>
-<script src="js/productionVerify.js?v=56"></script>
-<script src="js/athlevoScore.js?v=56"></script>
+<script src="js/planEngine.js?v=57"></script>
+<script src="js/prescription.js?v=57"></script>
+<script src="js/athleteModel.js?v=57"></script>
+<script src="js/calendarWeeks.js?v=57"></script>
+<script src="js/workoutClassifier.js?v=57"></script>
+<script src="js/trends.js?v=57"></script>
+<script src="js/socialAuth.js?v=57"></script>
+<script src="js/activation.js?v=57"></script>
+<script src="js/onboardingConnect.js?v=57"></script>
+<script src="js/productionVerify.js?v=57"></script>
+<script src="js/athlevoScore.js?v=57"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
-<script src="js/coachBrain.js?v=56"></script>
-<script src="js/coachBrainData.js?v=56"></script>
+<script src="js/coachBrain.js?v=57"></script>
+<script src="js/coachBrainData.js?v=57"></script>
 <!-- Athlete Identity & Progression: pure development engine + data/render.
      Reuses Athlevo Score components + history; data-driven, no hardcoding. -->
-<script src="js/developmentEngine.js?v=56"></script>
-<script src="js/developmentData.js?v=56"></script>
-<script src="js/raceDetection.js?v=56"></script>
-<script src="js/memory.js?v=56"></script>
-<script src="js/dailyBrief.js?v=56"></script>
-<script src="js/renderCoachResponse.js?v=56"></script>
-<script src="js/coach.js?v=56"></script>
-<script src="js/features.js?v=56"></script>
-<script src="js/train.js?v=56"></script>
-<script src="js/coachTimeline.js?v=56"></script>
-<script src="js/workoutStructure.js?v=56"></script>
-<script src="js/trainCalendar.js?v=56"></script>
-<script src="js/adaptivePlan.js?v=56"></script>
-<script src="js/planSetup.js?v=56"></script>
-<script src="js/feedback.js?v=56"></script>
-<script src="js/readiness.js?v=56"></script>
-<script src="js/workoutAnalysis.js?v=56"></script>
-<script src="js/legal.js?v=56"></script>
-<script src="js/onboarding.js?v=56"></script>
+<script src="js/developmentEngine.js?v=57"></script>
+<script src="js/developmentData.js?v=57"></script>
+<script src="js/raceDetection.js?v=57"></script>
+<script src="js/memory.js?v=57"></script>
+<script src="js/dailyBrief.js?v=57"></script>
+<script src="js/renderCoachResponse.js?v=57"></script>
+<script src="js/coach.js?v=57"></script>
+<script src="js/features.js?v=57"></script>
+<script src="js/train.js?v=57"></script>
+<script src="js/coachTimeline.js?v=57"></script>
+<script src="js/workoutStructure.js?v=57"></script>
+<script src="js/trainCalendar.js?v=57"></script>
+<script src="js/adaptivePlan.js?v=57"></script>
+<script src="js/planSetup.js?v=57"></script>
+<script src="js/feedback.js?v=57"></script>
+<script src="js/readiness.js?v=57"></script>
+<script src="js/workoutAnalysis.js?v=57"></script>
+<script src="js/legal.js?v=57"></script>
+<script src="js/onboarding.js?v=57"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

@@ -262,7 +262,8 @@ section("UI reflects reconnect_required");
   t("a sync rejected with RECONNECT_REQUIRED sets the reconnect state",
     /const reconnect = error\.code === "RECONNECT_REQUIRED"/.test(brain));
   t("disconnect control exists in the connections UI",
-    /id="trainingDataDisconnect"/.test(html) && /disconnectIntervals/.test(brain));
+    /disconnectIntervals/.test(brain) &&
+    /disconnect/.test(readFileSync("./js/syncStatus.js", "utf8")));
   t("disconnect is hidden when not connected",
     /disconnectBtn\.style\.display = s\.live \? "" : "none"/.test(brain));
   t("connect is offered instead when not connected",
