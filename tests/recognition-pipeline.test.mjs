@@ -146,7 +146,7 @@ section("7. Activity detail renders recognition, not just distance/pace");
   t("shows the Workout detail heading", /twm-block-h">Workout</.test(cal));
   t("shows Confidence", /Confidence/.test(cal));
   t("shows the coach summary", /twm-coachsum/.test(cal));
-  t("shows the workout structure (segments)", /Workout structure/.test(cal) && /twm-segs/.test(cal));
+  t("shows the workout structure visualization", /Workout structure/.test(cal) && /WorkoutStructureView\.render/.test(cal));
   t("metrics come after the workout block", cal.indexOf('twm-block-h">Metrics') > cal.indexOf('twm-block-h">Workout'));
 }
 

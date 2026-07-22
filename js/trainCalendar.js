@@ -345,17 +345,14 @@
           const brief = String(rec.coachSummary).split(/(?<=[.!?])\s+/).slice(0, 3).join(" ");
           html += `<p class="twm-coachsum">${esc(brief)}</p>`;
         }
-        // Workout structure — the reconstructed segments, ready for a future
-        // visual graph. One row per segment: label · duration · pace.
-        const segs = (rec.segments || []).filter(sg => sg.kind !== "steady" && sg.duration);
-        if (segs.length) {
-          const fmtDur = d => Math.floor(d / 60) + ":" + String(Math.round(d % 60)).padStart(2, "0");
-          const NAME = { warmup: "Warm-up", work: "Threshold", recovery: "Recovery", cooldown: "Cooldown" };
-          html += `<div class="twm-struct-h">Workout structure</div><div class="twm-segs">` + segs.map(sg => {
-            const nm = NAME[sg.kind] || sg.kind;
-            const pace = sg.avgPace ? `${Math.floor(sg.avgPace / 60)}:${String(sg.avgPace % 60).padStart(2, "0")}/km` : "";
-            return `<div class="twm-seg"><span>${esc(nm)}</span><b>${fmtDur(sg.duration)}</b><small>${esc(pace)}</small></div>`;
-          }).join("") + `</div>`;
+        // Workout Structure Visualization — the centerpiece. One proportional
+        // block per segment, rendered by the standalone WorkoutStructureView.
+        // Pace is intentionally NOT shown on the graph; it lives in the tap
+        // detail card. The component receives ONLY normalized segments.
+        _wsvSegments = normalizeSegments(rec, act);
+        if (window.WorkoutStructureView) {
+          html += `<div class="twm-struct-h">Workout structure</div>`;
+          html += WorkoutStructureView.render(_wsvSegments);
         }
         html += `</div>`;
       }
@@ -416,7 +413,10 @@
     }
 
     const body = document.getElementById("trainWorkoutModalBody");
-    if (body) body.innerHTML = html || `<p class="twm-p">No details available.</p>`;
+    if (body) {
+      body.innerHTML = html || `<p class="twm-p">No details available.</p>`;
+      if (window.WorkoutStructureView) WorkoutStructureView.mount(body, _wsvSegments);
+    }
     const m = document.getElementById("trainWorkoutModal");
     if (m) m.classList.add("show");
   }
@@ -424,6 +424,67 @@
   function planRow(label, value) { return (value == null || value === "") ? "" : `<div class="twm-row"><span>${esc(label)}</span><b>${esc(value)}</b></div>`; }
   function ul(label, arr) { const items = (Array.isArray(arr) ? arr : []).map(x => x == null ? "" : String(x)).filter(Boolean); return items.length ? `<div class="twm-block-h" style="margin-top:12px">${esc(label)}</div><ul class="twm-ul">${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""; }
   function fmtPace(s) { s = Math.round(s); return `${Math.floor(s / 60)}:${pad(s % 60)}/km`; }
+
+  /* ── Workout Structure Visualization: recognition → normalized segments ──
+   * The visual component knows nothing about recognition. Here we translate a
+   * stored recognition record into its neutral input: colour + label per kind,
+   * work colour driven by the detected type. No data is invented.            */
+  let _wsvSegments = [];
+  function workTone(type) {
+    type = String(type || "");
+    if (/tempo/i.test(type)) return "orange";
+    if (/threshold|interval|vo2|speed/i.test(type)) return "red";
+    if (/easy|long|recovery/i.test(type)) return "green";
+    return "red";
+  }
+  function segTone(kind, type) {
+    if (kind === "warmup") return "warm";
+    if (kind === "recovery") return "blue";
+    if (kind === "cooldown") return "gray";
+    return workTone(type);            // work + steady take the session colour
+  }
+  function segLabel(kind, type) {
+    if (kind === "warmup") return "Warm-up";
+    if (kind === "recovery") return "Recovery";
+    if (kind === "cooldown") return "Cooldown";
+    if (kind === "work") {
+      if (/tempo/i.test(type)) return "Tempo";
+      if (/vo2/i.test(type)) return "VO2";
+      if (/interval/i.test(type)) return "Interval";
+      if (/speed/i.test(type)) return "Speed";
+      return "Threshold";
+    }
+    return (window.AthlevoCoach && AthlevoCoach.displayType ? AthlevoCoach.displayType(type) : type) || "Run";
+  }
+  function normalizeSegments(rec, act) {
+    const raw = ((rec && rec.segments) || []).filter(s => s && s.duration > 0);
+    const structured = raw.filter(s => s.kind !== "steady");
+    if (structured.length) {
+      return structured.map(s => ({
+        kind: s.kind,
+        label: segLabel(s.kind, rec.workoutType),
+        duration: s.duration,
+        tone: segTone(s.kind, rec.workoutType),
+        pace: s.avgPace ? fmtPace(s.avgPace) : null,
+        distanceKm: s.distance ? s.distance / 1000 : null
+      }));
+    }
+    // Steady run (Easy / Long): a single proportional block across the session.
+    const totalSec = (act && act.moving_time_seconds) || (raw[0] && raw[0].duration) || null;
+    if (totalSec) {
+      const km = act && act.distance_meters ? act.distance_meters / 1000 : null;
+      const paceSec = (km && totalSec) ? totalSec / km : null;
+      return [{
+        kind: "steady",
+        label: segLabel("steady", rec.workoutType),
+        duration: totalSec,
+        tone: segTone("steady", rec.workoutType),
+        pace: paceSec ? fmtPace(paceSec) : null,
+        distanceKm: km
+      }];
+    }
+    return [];
+  }
 
   /* ── navigation ───────────────────────────────────────────────────── */
   function selectedDow() { const [y, m, d] = selected.split("-").map(Number); return (new Date(y, m - 1, d).getDay() + 6) % 7; }

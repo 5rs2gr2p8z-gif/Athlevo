@@ -586,12 +586,52 @@ input,textarea,select{color:var(--text)}
 .ac-row b{color:var(--ink);font-weight:640}
 .tcp-badge{display:inline-block;font-size:11px;font-weight:600;color:var(--good,#2f9e5f);background:rgba(47,158,95,.1);border-radius:100px;padding:2px 9px;margin:6px 0}
 .tcp-coachsum,.twm-coachsum{font-size:13px;line-height:1.5;color:var(--ink2);margin:8px 0 0}
-.twm-struct-h{font-size:12px;font-weight:650;color:var(--ink3);margin:10px 0 4px}
-.twm-segs{margin:4px 0}
-.twm-seg{display:flex;align-items:baseline;gap:10px;font-size:13px;padding:3px 0}
-.twm-seg span{flex:1;color:var(--ink2)}
-.twm-seg b{font-variant-numeric:tabular-nums}
-.twm-seg small{color:var(--ink3);min-width:64px;text-align:right}
+.twm-struct-h{font-size:12px;font-weight:650;color:var(--ink3);margin:14px 0 8px}
+/* ── WorkoutStructureView — one continuous proportional timeline ─────────── */
+.wsv{--wsv-warm:#c8ccd2;--wsv-blue:#3b82c4;--wsv-red:var(--red);--wsv-orange:var(--warn);--wsv-green:var(--good);--wsv-gray:#9aa0a8;--wsv-divider:var(--bg);margin:2px 0 4px}
+:root[data-theme="dark"] .wsv,html.dark .wsv{--wsv-warm:#4a4f57;--wsv-blue:#5b9bd8;--wsv-gray:#6a707a;--wsv-divider:#15161a}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .wsv{--wsv-warm:#4a4f57;--wsv-blue:#5b9bd8;--wsv-gray:#6a707a;--wsv-divider:#15161a}}
+.wsv-scroll{overflow-x:auto;overflow-y:hidden;max-width:100%;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+/* One shared track: a single rounded, clipped surface; the 2px gap shows the
+   track's divider colour, so segments read as connected, not floating cards. */
+.wsv-track{display:flex;gap:2px;align-items:stretch;min-height:54px;width:100%;
+  background:var(--wsv-divider);border-radius:var(--r-sm);overflow:hidden}
+.wsv-block{flex:1 1 0;min-width:42px;border:0;border-radius:0;padding:8px 6px;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:2px;text-align:left;color:#fff;
+  overflow:hidden;position:relative;opacity:0;
+  animation:wsvIn 180ms ease forwards;transition:filter 180ms ease,box-shadow 180ms ease}
+.wsv-block:hover{filter:brightness(1.05)}
+/* Active: subtle brightness + inset ring only — no scale, no layout shift. */
+.wsv-block.is-active{filter:brightness(1.1);box-shadow:inset 0 0 0 2px rgba(0,0,0,.32);z-index:2}
+.wsv-block:focus-visible{outline:2px solid var(--text);outline-offset:-2px;z-index:3}
+.wsv-lbl{font-size:11px;font-weight:650;line-height:1.1;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;opacity:.97}
+.wsv-dur{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;opacity:.85}
+.wsv-warm{background:var(--wsv-warm);color:#2a2b31}
+.wsv-blue{background:var(--wsv-blue)}
+.wsv-red{background:var(--wsv-red)}
+.wsv-orange{background:var(--wsv-orange);color:#2a2b31}
+.wsv-green{background:var(--wsv-green);color:#0c2a1a}
+.wsv-gray{background:var(--wsv-gray);color:#2a2b31}
+.wsv-detail{margin-top:10px}
+.wsv-detail-card{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;background:var(--card2);
+  border-left-width:3px;animation:wsvIn 160ms ease forwards}
+.wsv-detail-card.wsv-warm{border-left-color:var(--wsv-warm)}
+.wsv-detail-card.wsv-blue{border-left-color:var(--wsv-blue)}
+.wsv-detail-card.wsv-red{border-left-color:var(--wsv-red)}
+.wsv-detail-card.wsv-orange{border-left-color:var(--wsv-orange)}
+.wsv-detail-card.wsv-green{border-left-color:var(--wsv-green)}
+.wsv-detail-card.wsv-gray{border-left-color:var(--wsv-gray)}
+.wsv-detail-h{font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px}
+.wsv-detail-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:3px 0;color:var(--ink2)}
+.wsv-detail-row b{color:var(--text);font-variant-numeric:tabular-nums}
+.wsv-more{margin-top:6px;background:none;border:0;padding:2px 0;cursor:pointer;
+  font:inherit;font-size:12px;font-weight:600;color:var(--ink2)}
+.wsv-more:hover{color:var(--text)}
+.wsv-more:focus-visible{outline:2px solid var(--text);outline-offset:2px;border-radius:4px}
+.wsv-detail-more{margin-top:2px}
+.wsv-empty{font-size:13px;color:var(--ink3);margin:4px 0 2px}
+@keyframes wsvIn{to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.wsv-block,.wsv-detail-card{animation:none;opacity:1}}
 .twm-signals{font-size:11px;color:var(--ink3);margin:6px 0 0;font-family:ui-monospace,monospace}
 .integ-unlink{background:none;border:1px solid var(--line);border-radius:999px;
   color:var(--ink2);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;
@@ -4346,6 +4386,7 @@ setTimeout(function () {
 <script src="js/features.js"></script>
 <script src="js/train.js"></script>
 <script src="js/coachTimeline.js"></script>
+<script src="js/workoutStructure.js"></script>
 <script src="js/trainCalendar.js"></script>
 <script src="js/planSetup.js"></script>
 <script src="js/feedback.js"></script>
