@@ -227,12 +227,25 @@
      * Subsequent generations use the quieter confirmation.
      */
     if (firstEver) {
+      /*
+       * The coach-activation milestone. Shown ONCE, on the first successful
+       * plan. It reframes generation as "your AI coach analyzed you", which is
+       * what the athlete actually values. After it is dismissed the Today card
+       * is gone for good (a plan now exists), so this is never shown again.
+       */
       mount.innerHTML = `
         <div class="pg-wrap success">
           <div class="pg-check">✓</div>
-          <h2 class="pg-title serif">Your first training week is ready</h2>
-          <p class="pg-sub">Built using your athlete profile and recent training.</p>
-          <button class="ps-build" type="button" onclick="AthlevoPlan.enterTrain()">View Training Plan</button>
+          <h2 class="pg-title serif">Your AI coach is ready.</h2>
+          <p class="pg-sub">Athlevo has analyzed your athlete profile and recent
+            training to build your first personalized training week.</p>
+          <ul class="pg-activation">
+            <li><span class="pg-tick">✓</span> Athlete profile analyzed</li>
+            <li><span class="pg-tick">✓</span> Training history analyzed</li>
+            <li><span class="pg-tick">✓</span> Current fitness estimated</li>
+            <li><span class="pg-tick">✓</span> First training week created</li>
+          </ul>
+          <button class="ps-build" type="button" onclick="AthlevoPlan.enterTrain()">Open My Coach</button>
         </div>`;
       return;   // an intentional, un-timed milestone — the athlete taps through
     }

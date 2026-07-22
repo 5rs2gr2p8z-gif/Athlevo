@@ -33,9 +33,9 @@ section("Threshold: 20' warmup + 4 × 6' threshold + 2' jogs + cooldown");
   t("recognised as Threshold", r.workoutType === TYPES.THRESHOLD, r.workoutType);
   t("NOT a generic run", !/Run$/.test(r.workoutType) || r.workoutType === TYPES.THRESHOLD);
   t("high confidence from lap structure", r.confidence >= 0.75, String(r.confidence));
-  t("finds four work reps", r.segments.some(s => s.kind === "work" && s.reps === 4),
-    JSON.stringify(r.segments));
-  t("rep duration ≈ 6 min", r.segments.find(s => s.kind === "work").repDurationSec === 360);
+  t("finds four work reps (as four work blocks)",
+    r.segments.filter(s => s.kind === "work").length === 4, JSON.stringify(r.segments));
+  t("each work block ≈ 6 min", r.segments.filter(s => s.kind === "work").every(s => Math.abs(s.duration - 360) <= 5));
   t("has warmup and cooldown segments",
     r.segments.some(s => s.kind === "warmup") && r.segments.some(s => s.kind === "cooldown"));
   t("coach summary names the rep structure", /4 × 6-min threshold/.test(r.coachSummary));
@@ -53,8 +53,8 @@ section("VO2 / intervals: 5 × 3 min hard with recoveries");
   }, { zones: ZONES });
   t("a hard rep session is quality, not easy",
     [TYPES.VO2, TYPES.INTERVALS, TYPES.THRESHOLD, TYPES.SPEED].includes(r.workoutType), r.workoutType);
-  t("finds five work reps", r.segments.some(s => s.kind === "work" && s.reps === 5),
-    JSON.stringify(r.signals));
+  t("finds five work reps (five work blocks)",
+    r.segments.filter(s => s.kind === "work").length === 5, JSON.stringify(r.segments));
   t("confident from structure", r.confidence >= 0.7);
 }
 

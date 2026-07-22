@@ -1669,7 +1669,7 @@ async function reanalyzeActivities(opts) {
   } catch (e) { return { scanned: 0, analyzed: 0, skipped: 0, failed: 0, error: e.message }; }
 }
 
-const REANALYZE_ONCE_KEY = "athlevo_recognition_backfilled_v1";
+const REANALYZE_ONCE_KEY = "athlevo_recognition_backfilled_v2";
 async function maybeBackfillRecognitionOnce() {
   try {
     if (localStorage.getItem(REANALYZE_ONCE_KEY)) return null;

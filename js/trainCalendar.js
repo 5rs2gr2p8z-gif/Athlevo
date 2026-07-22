@@ -348,9 +348,23 @@
           html += `<div class="twm-block"><div class="twm-block-h">Detected Workout</div>`;
           html += `<div class="twm-row"><span>Workout</span><b>${esc(AthlevoCoach.displayType(rec.workoutType))}</b></div>`;
           html += `<div class="twm-row"><span>Confidence</span><span class="twm-conf ${rec.confidenceLabel === "High" ? "high" : ""}">${esc(rec.confidenceLabel || "")}</span></div>`;
-          const work = (rec.segments || []).find(sg => sg.kind === "work");
-          if (work && work.reps) {
-            html += `<div class="twm-row"><span>Detected intervals</span><b>${work.reps} × ${work.repDurationSec ? Math.round(work.repDurationSec / 60) + " min" : "reps"}</b></div>`;
+          // Per-block segments (warmup / work / recovery / cooldown), each with
+          // its real duration and pace — the reconstructed workout graph.
+          const segs = (rec.segments || []).filter(sg => sg.kind !== "steady");
+          const works = segs.filter(sg => sg.kind === "work");
+          if (works.length) {
+            const each = works[0].duration ? Math.round(works[0].duration / 60) : null;
+            html += `<div class="twm-row"><span>Detected intervals</span><b>${works.length} × ${each ? each + " min" : "reps"}</b></div>`;
+          }
+          if (segs.length && segs.some(sg => sg.duration)) {
+            const fmtDur = d => Math.floor(d / 60) + ":" + String(Math.round(d % 60)).padStart(2, "0");
+            const NAME = { warmup: "Warm-up", work: "Rep", recovery: "Recovery", cooldown: "Cooldown" };
+            let repN = 0;
+            html += `<div class="twm-segs">` + segs.map(sg => {
+              const nm = sg.kind === "work" ? `${NAME.work} ${++repN}` : (NAME[sg.kind] || sg.kind);
+              const pace = sg.avgPace ? `${Math.floor(sg.avgPace / 60)}:${String(sg.avgPace % 60).padStart(2, "0")}/km` : "";
+              return `<div class="twm-seg"><span>${esc(nm)}</span><b>${sg.duration ? fmtDur(sg.duration) : ""}</b><small>${esc(pace)}</small></div>`;
+            }).join("") + `</div>`;
           }
           if (rec.coachSummary) html += `<p class="twm-coachsum">${esc(rec.coachSummary)}</p>`;
           // Recognition signals — compact, why-it-decided.

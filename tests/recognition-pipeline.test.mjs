@@ -45,7 +45,7 @@ section("1. Every imported activity carries a stored recognition");
   t("...segments", Array.isArray(rec.segments) && rec.segments.length > 0);
   t("...a coach summary (the stored insight)", typeof rec.coachSummary === "string" && rec.coachSummary.length > 20);
   t("...an analyzedAt timestamp", typeof rec.analyzedAt === "string");
-  t("...and a version tag", rec.version === "recognition-v1");
+  t("...and a version tag", rec.version === "recognition-v2");
   t("a structured run is recognised as a quality session, not generic",
     ["Threshold", "Intervals", "VO2", "Speed"].includes(rec.workoutType), rec.workoutType);
 }
@@ -188,9 +188,10 @@ section("13. PART 4 — the exact 12.63 km / 4 × 6-min threshold fixture, end t
 
   t("workout type = Threshold-family quality (not a generic run)",
     ["Threshold", "Intervals", "VO2", "Speed"].includes(rec.workoutType), rec.workoutType);
-  const work = rec.segments.find(s => s.kind === "work");
-  t("four work intervals detected", work && work.reps === 4, JSON.stringify(rec.segments));
-  t("work duration ≈ 6 min each", work && Math.abs(work.repDurationSec - 360) <= 5, String(work && work.repDurationSec));
+  const workBlocks = rec.segments.filter(s => s.kind === "work");
+  t("four work intervals detected", workBlocks.length === 4, JSON.stringify(rec.segments));
+  t("work duration ≈ 6 min each", workBlocks.every(w => Math.abs(w.duration - 360) <= 5),
+    workBlocks.map(w => w.duration).join(","));
   t("confidence is appropriately high", rec.confidence >= 0.7, String(rec.confidence));
 
   // Train card label
@@ -198,7 +199,7 @@ section("13. PART 4 — the exact 12.63 km / 4 × 6-min threshold fixture, end t
   t("Train card says a Session, not '12.6 km'", /Session$/.test(label) && !/km/.test(label), label);
 
   // Activity detail: 4 × 6 min derivable from the stored segments
-  t("detail can show 4 × 6 min", work.reps === 4 && Math.round(work.repDurationSec / 60) === 6);
+  t("detail can show 4 × 6 min", workBlocks.length === 4 && Math.round(workBlocks[0].duration / 60) === 6);
 
   // Timeline entry created once
   const tl = Coach.buildTimeline([row]);
