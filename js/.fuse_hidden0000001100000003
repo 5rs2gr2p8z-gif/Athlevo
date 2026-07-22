@@ -25,6 +25,7 @@
   "use strict";
 
   var BUILD = "sync-status-v1";
+  try { if (root.console) root.console.log("[athlevo] sync status build: " + BUILD); } catch (e) {}
 
   var LASTSEEN_KEY = "athlevo_sync_lastseen";
   var state = { syncing: false, lastModel: null };

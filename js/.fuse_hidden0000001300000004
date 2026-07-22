@@ -19,6 +19,7 @@
   "use strict";
 
   // PART 9: visible build marker so production can confirm the new JS loaded.
+  try { if (root.console) root.console.log("[athlevo] recognition display build: coach-timeline-v4"); } catch (e) {}
 
   function num(v) { const x = Number(v); return Number.isFinite(x) ? x : null; }
 

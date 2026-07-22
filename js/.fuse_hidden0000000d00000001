@@ -8,7 +8,7 @@
  *  floating cards, never a vertical text list.
  *
  *  DOM contract (kept stable so the CSS in index.html can never drift):
- *    <div class="wsv" data-wsv>
+ *    <div class="wsv" data-wsv data-wsv-version="3">
  *      <div class="wsv__scroller">
  *        <div class="wsv__track">
  *          <button class="wsv__segment wsv__segment--red">…</button> …
@@ -41,6 +41,7 @@
 
   var VERSION = "workout-structure-v3";
   var BUILD = "wsv-v3";
+  try { if (root.console) root.console.log("[athlevo] workout structure build: " + BUILD); } catch (e) {}
 
   // tone → BEM modifier suffix. Colours live in index.html (theme-aware).
   var TONES = { warm: "warm", blue: "blue", recovery: "blue", red: "red",

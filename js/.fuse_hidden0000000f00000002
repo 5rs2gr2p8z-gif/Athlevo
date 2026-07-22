@@ -17,6 +17,7 @@
   "use strict";
 
   var BUILD = "adaptive-plan-client-v1";
+  try { if (root.console) root.console.log("[athlevo] adaptive plan build: " + BUILD); } catch (e) {}
 
   var state = { preview: null, busy: false };
 

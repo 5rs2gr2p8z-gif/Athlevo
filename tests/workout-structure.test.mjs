@@ -263,9 +263,9 @@ section("Production render: a real horizontal graph, not concatenated text");
   // 7. Selected detail appears BELOW the track in DOM order.
   t("detail panel comes after the scroller", html.indexOf("wsv__detail") > html.indexOf("wsv__scroller"));
 
-  // 8. Debug build marker + version tag are present (temporary, wsv-v3).
-  t("root carries data-wsv-version=3", /data-wsv-version="3"/.test(html));
-  t("visible build marker says wsv-v3", /Workout graph build: wsv-v3/.test(html));
+  // 8. The temporary debug build marker has been removed (PR5 cleanup).
+  t("no data-wsv-version debug attribute", !/data-wsv-version/.test(html));
+  t("no visible build marker", !/Workout graph build/.test(html));
 }
 
 /* ══════ Safari — explicit, non-fragile CSS assumptions ════════════════ */
