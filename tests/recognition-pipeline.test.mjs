@@ -99,7 +99,7 @@ section("3b. The train card markup surfaces the coach fields");
   const cal = readFileSync("./js/trainCalendar.js", "utf8");
   t("card uses AthlevoCoach.activityLabel", /AthlevoCoach\.activityLabel/.test(cal));
   t("card shows a 'Detected automatically' badge", /Detected automatically/.test(cal));
-  t("card shows 'Detected Workout'", /Detected Workout/.test(cal));
+  t("card shows the Workout detail heading", /twm-block-h">Workout</.test(cal));
   t("card shows the coach summary", /AthlevoCoach\.coachSummary/.test(cal));
   t("card offers 'View Analysis'", /View Analysis/.test(cal));
 }
@@ -116,24 +116,6 @@ section("4. The coach summary IS the persisted, once-generated insight");
     /recognition: reuseOrBuildRecognition\(w, opts\.existingRecognition/.test(readFileSync("./lib/server/wearable/normalizer.js", "utf8")));
 }
 
-/* ══════ PART 4 — the Coach Timeline ═══════════════════════════════ */
-
-section("5. The Coach Timeline builds newest-first from analyzed activities");
-{
-  const acts = [
-    importActivity({ id: "old", date: "2026-07-10T07:00:00", laps: thresholdLaps }),
-    importActivity({ id: "new", date: "2026-07-22T07:00:00", name: "Easy", distance: 9000, moving: 3000,
-      laps: [lap(3000, 990), lap(3000, 1005), lap(3000, 1000)] }),
-    { id: "unanalyzed", start_date: "2026-07-20T07:00:00" }   // no recognition → excluded
-  ];
-  const tl = Coach.buildTimeline(acts);
-  t("newest activity is first", tl[0] && tl[0].id === "new", tl.map(x => x.id).join(","));
-  t("only ANALYZED activities appear", tl.length === 2);
-  t("each entry has a coloured dot", tl.every(x => x.dot && x.dot.length >= 1));
-  t("each entry has a title with 'completed'", tl.every(x => /completed/.test(x.title)));
-  t("each entry carries the coach detail", tl.every(x => x.detail && x.detail.length > 10));
-  t("the unanalyzed activity was excluded", !tl.some(x => x.id === "unanalyzed"));
-}
 
 /* ══════ PART 6 — first-sync celebration aggregates ════════════════ */
 
@@ -161,11 +143,11 @@ section("7. Activity detail renders recognition, not just distance/pace");
 {
   const cal = readFileSync("./js/trainCalendar.js", "utf8");
   t("detail reads the STORED recognition", /AthlevoCoach\.getStoredRecognition\(act\)/.test(cal));
-  t("shows Detected Workout", /Detected Workout/.test(cal));
+  t("shows the Workout detail heading", /twm-block-h">Workout</.test(cal));
   t("shows Confidence", /Confidence/.test(cal));
-  t("shows detected intervals", /Detected intervals/.test(cal));
   t("shows the coach summary", /twm-coachsum/.test(cal));
-  t("shows recognition signals", /twm-signals/.test(cal));
+  t("shows the workout structure (segments)", /Workout structure/.test(cal) && /twm-segs/.test(cal));
+  t("metrics come after the workout block", cal.indexOf('twm-block-h">Metrics') > cal.indexOf('twm-block-h">Workout'));
 }
 
 
@@ -201,17 +183,11 @@ section("13. PART 4 — the exact 12.63 km / 4 × 6-min threshold fixture, end t
   // Activity detail: 4 × 6 min derivable from the stored segments
   t("detail can show 4 × 6 min", workBlocks.length === 4 && Math.round(workBlocks[0].duration / 60) === 6);
 
-  // Timeline entry created once
-  const tl = Coach.buildTimeline([row]);
-  t("exactly one timeline entry is created", tl.length === 1);
-  t("...and it is a coaching event, not a raw import", /completed/.test(tl[0].title));
-
   // Re-import does not duplicate or alter the analysis
   const rawObj = { id: "prod", name: "Morning Run", type: "Run", start_date_local: "2026-07-22T07:00:00", distance: 12630, moving_time: 4500 };
   const w2 = mapIntervals(rawObj); w2.laps = F;
   const reimport = toActivityRow("u1", w2, rawObj, { existingRecognition: rec });
   t("re-import preserves the SAME analysis object", JSON.stringify(reimport.raw_data.recognition) === JSON.stringify(rec));
-  t("...still exactly one timeline entry after re-import", Coach.buildTimeline([reimport]).length === 1);
 }
 
 console.log(`\n${p} passed, ${f} failed`);

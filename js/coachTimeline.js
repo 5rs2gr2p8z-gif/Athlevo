@@ -9,7 +9,6 @@
  *
  *    · readRecognition(activity)  → the stored recognition, or null
  *    · activityLabel(activity)    → "Threshold Session", not "12.6 km"
- *    · buildTimeline(activities)  → newest-first coaching events (Part 4)
  *    · syncCelebration(activities)→ first-sync aggregate stats (Part 6)
  *
  *  Pure + deterministic. No I/O, no recognition here — it only READS what the
@@ -20,7 +19,7 @@
   "use strict";
 
   // PART 9: visible build marker so production can confirm the new JS loaded.
-  try { if (root.console) root.console.log("[athlevo] coachTimeline build: coach-timeline-v2, recognition-v2, reanalyze-production-debug-v1"); } catch (e) {}
+  try { if (root.console) root.console.log("[athlevo] recognition display build: coach-timeline-v4"); } catch (e) {}
 
   function num(v) { const x = Number(v); return Number.isFinite(x) ? x : null; }
 
@@ -82,40 +81,11 @@
     return r ? (r.confidenceLabel || null) : null;
   }
 
-  /* ── Part 4: the Coach Timeline ─────────────────────────────────────── */
-
-  const DOT = {
-    Threshold: "🟢", VO2: "🟢", Intervals: "🟢", Speed: "🟢", Tempo: "🟢",
-    "Easy Run": "🔵", "Recovery Run": "🔵",
-    "Long Run": "🟠", "Progression Run": "🟠",
-    Race: "🔴", "Hill Repeats": "🟣", Fartlek: "🟢", Unknown: "⚪"
-  };
 
   function startMs(a) {
     const d = a && (a.start_date || (a.raw_data && a.raw_data.normalized && a.raw_data.normalized.startDate));
     const t = d ? Date.parse(d) : NaN;
     return Number.isFinite(t) ? t : 0;
-  }
-
-  /*
-   * One timeline entry per ANALYZED activity, newest first. An activity with
-   * no recognition yet is skipped — the timeline is a record of coaching
-   * events, not raw imports.
-   */
-  function buildTimeline(activities) {
-    const list = Array.isArray(activities) ? activities.slice() : [];
-    return list
-      .map(a => ({ a, r: readRecognition(a) }))
-      .filter(x => x.r)
-      .sort((x, y) => startMs(y.a) - startMs(x.a))
-      .map(x => ({
-        id: x.a.id || x.a.external_activity_id || null,
-        at: x.a.start_date || null,
-        dot: DOT[x.r.workoutType] || "⚪",
-        title: displayType(x.r.workoutType) + (x.r.workoutType === "Unknown" ? "" : " completed"),
-        detail: x.r.coachSummary || "Athlevo detected this session.",
-        confidence: x.r.confidenceLabel || null
-      }));
   }
 
   /* ── Part 6: first-sync celebration aggregates ──────────────────────── */
@@ -161,120 +131,8 @@
     return String(s == null ? "" : s).replace(/[&<>"']/g, m =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
   }
-  function when(iso) {
-    if (!iso) return "";
-    const d = new Date(iso); if (isNaN(d)) return "";
-    const now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
-    if (d.toDateString() === now.toDateString()) return "Today";
-    if (d.toDateString() === y.toDateString()) return "Yesterday";
-    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-  }
 
-  /*
-   * PART 3: MOUNT the timeline into #coachTimeline. Newest first, recognised
-   * activities only, with a sensible empty state and a visible backfill action.
-   */
-  var lastMountId = "coachTimeline";
-
-  function renderTimeline(activities, mountId) {
-    lastMountId = mountId || "coachTimeline";
-    const el = (root.document && root.document.getElementById) ? root.document.getElementById(lastMountId) : null;
-    if (!el) return;
-    const items = buildTimeline(activities);
-    // The analyze control is ALWAYS present (a manual re-analysis must be
-    // allowed even when the automatic flag is set). It never navigates.
-    const analyzeBtn = `<button class="ct-backfill" type="button" id="ctAnalyzeBtn"
-        onclick="return AthlevoCoach.runBackfill(event);">Analyze existing workouts</button>`;
-    if (!items.length) {
-      el.innerHTML = `<h3 class="ct-h">Coach Timeline</h3>
-        <p class="ct-empty">Your analyzed workouts will appear here.</p>
-        <div id="ctBackfillStatus"></div>${analyzeBtn}`;
-      return;
-    }
-    el.innerHTML = `<h3 class="ct-h">Coach Timeline</h3>` + items.map(x => `
-      <div class="ct-item">
-        <span class="ct-dot">${x.dot}</span>
-        <div class="ct-body">
-          <p class="ct-title">${esc(x.title)}</p>
-          <p class="ct-detail">${esc(x.detail)}</p>
-          <p class="ct-when">${esc(when(x.at))}</p>
-        </div>
-      </div>`).join("") + `<div id="ctBackfillStatus"></div>${analyzeBtn}`;
-  }
-
-  /*
-   * PART 1/2/8: the manual "Analyze existing workouts" handler.
-   *
-   * · Never navigates or reloads (the old inline onclick called
-   *   location.reload(), which booted the app back to Today).
-   * · Shows visible progress, then a truthful result.
-   * · On success, REFETCHES activities and re-renders the timeline in place —
-   *   no page refresh, so the athlete sees 17×5:11 become 4×6 min immediately.
-   */
-  async function runBackfill(ev) {
-    if (ev && ev.preventDefault) ev.preventDefault();
-    if (ev && ev.stopPropagation) ev.stopPropagation();
-    const setStatus = (msg) => {
-      const s = root.document && root.document.getElementById("ctBackfillStatus");
-      if (s) s.textContent = msg;
-    };
-    const btn = root.document && root.document.getElementById("ctAnalyzeBtn");
-    if (btn) { btn.disabled = true; btn.textContent = "Analyzing workouts…"; }
-    setStatus("Analyzing workouts…");
-
-    let r = null;
-    try {
-      r = (root.AthlevoBrain && root.AthlevoBrain.reanalyzeActivities)
-        ? await root.AthlevoBrain.reanalyzeActivities({ force: false }) : null;
-    } catch (e) { r = { error: (e && e.message) || "failed" }; }
-
-    if (!r || r.error) {
-      setStatus("Analysis failed. Try again.");
-      if (btn) { btn.disabled = false; btn.textContent = "Analyze existing workouts"; }
-      return false;
-    }
-
-    const n = Number(r.analyzed) || 0;
-    const headline = n > 0 ? `${n} workout${n === 1 ? "" : "s"} analyzed`
-      : (r.scanned === 0 ? "No activities found to analyze" : "Everything is already up to date");
-
-    /*
-     * PART 1/2: show the EXACT safe diagnostic response, not a generic message.
-     * This is the production evidence the athlete reads back to us.
-     */
-    const diag = root.document && root.document.getElementById("ctBackfillStatus");
-    if (diag) {
-      const rows = [
-        headline,
-        `Route reached: ${r.routeReached === true} · Build: ${r.build || "—"}`,
-        `Scanned ${r.scanned} · Analyzed ${r.analyzed} · Skipped ${r.skipped} · Failed ${r.failed}`,
-        `Missing ${r.missingRecognition} · Stale ${r.staleRecognition} · Version ${r.currentVersion}`,
-        `With intervals ${r.rowsWithIntervals} · Without ${r.rowsWithoutIntervals}`
-      ];
-      if (r.readback) rows.push(`Read-after-write: generated ${r.readback.generatedWorkSegments} / persisted ${r.readback.persistedWorkSegments} work segments (v ${r.readback.persistedRecognitionVersion})`);
-      if (r.matched && r.matched.found) rows.push(`Matched activity: v ${r.matched.recognitionVersion} · ${r.matched.lapCount} laps (${r.matched.typedLapCount} typed) · reconstructed ${r.matched.reconstructedWorkSegments} work reps`);
-      if (r.matched && r.matched.found === false) rows.push("Matched activity: not found");
-      diag.innerHTML = rows.map(x => `<div>${String(x).replace(/[<>&]/g, "")}</div>`).join("");
-    }
-
-    // PART 7: refetch and re-render the timeline + train view WITHOUT a reload.
-    try {
-      if (n > 0 && root.AthlevoBrain && root.AthlevoBrain.loadAthleteActivities) {
-        const acts = await root.AthlevoBrain.loadAthleteActivities();
-        const diagHtml = diag ? diag.innerHTML : "";
-        renderTimeline(acts, lastMountId);
-        // Re-apply the diagnostics after the re-render (renderTimeline replaces
-        // the status node), so the athlete keeps the exact counts on screen.
-        const diag2 = root.document && root.document.getElementById("ctBackfillStatus");
-        if (diag2 && diagHtml) diag2.innerHTML = diagHtml;
-        if (typeof root.loadWeeklyPlan === "function") root.loadWeeklyPlan();
-      }
-    } catch (e) { /* the diagnostics already told the athlete the outcome */ }
-    if (btn) { btn.disabled = false; btn.textContent = "Analyze existing workouts"; }
-    return false;
-  }
-
-  var CELEBRATE_KEY = "athlevo_analysis_celebrated_v1";
+    var CELEBRATE_KEY = "athlevo_analysis_celebrated_v1";
 
   function hasCelebrated() {
     try { return root.localStorage && root.localStorage.getItem(CELEBRATE_KEY) === "1"; } catch (e) { return false; }
@@ -310,8 +168,8 @@
 
   const api = {
     readRecognition, activityLabel, isAutoDetected, coachSummary, confidenceLabel,
-    displayType, buildTimeline, syncCelebration, renderTimeline, renderCelebration,
-    hasCelebrated, runBackfill, getStoredRecognition, VERSION: "coach-timeline-v3"
+    displayType, syncCelebration, renderCelebration,
+    hasCelebrated, getStoredRecognition, VERSION: "coach-timeline-v4"
   };
   if (root) root.AthlevoCoach = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

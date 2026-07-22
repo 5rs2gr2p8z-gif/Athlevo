@@ -323,66 +323,58 @@
       html += `<span class="twm-kicker">${esc(fmtDateLong(dISO))}</span><h2 class="twm-title">Rest day</h2><p class="twm-p">Recovery is part of the plan.</p>`;
     }
 
-    // Execution + Analysis (from the imported activity, read-only recognition).
+    // Completed workout. Order (premium coaching): type → confidence → coach
+    // summary → workout structure → raw metrics last.
     if (act || (ex && ex.status !== "skipped")) {
-      html += `<div class="twm-block"><div class="twm-block-h">Execution</div>`;
+      /*
+       * ONE canonical read of the stored recognition, shared with the legacy
+       * fallback below so they can never both render. getStoredRecognition
+       * checks every real shape (act.recognition, raw_data.recognition, …).
+       */
+      const recognition = (act && window.AthlevoCoach && AthlevoCoach.getStoredRecognition)
+        ? AthlevoCoach.getStoredRecognition(act) : null;
+
+      // 1–4. Detected Workout: type, confidence, concise summary, structure.
+      if (act && recognition) {
+        const rec = recognition;
+        html += `<div class="twm-block"><div class="twm-block-h">Workout</div>`;
+        html += `<div class="twm-row"><span>Type</span><b>${esc(AthlevoCoach.displayType(rec.workoutType))}</b></div>`;
+        html += `<div class="twm-row"><span>Confidence</span><span class="twm-conf ${rec.confidenceLabel === "High" ? "high" : ""}">${esc(rec.confidenceLabel || "")}</span></div>`;
+        // Coach summary — concise, at most three sentences.
+        if (rec.coachSummary) {
+          const brief = String(rec.coachSummary).split(/(?<=[.!?])\s+/).slice(0, 3).join(" ");
+          html += `<p class="twm-coachsum">${esc(brief)}</p>`;
+        }
+        // Workout structure — the reconstructed segments, ready for a future
+        // visual graph. One row per segment: label · duration · pace.
+        const segs = (rec.segments || []).filter(sg => sg.kind !== "steady" && sg.duration);
+        if (segs.length) {
+          const fmtDur = d => Math.floor(d / 60) + ":" + String(Math.round(d % 60)).padStart(2, "0");
+          const NAME = { warmup: "Warm-up", work: "Threshold", recovery: "Recovery", cooldown: "Cooldown" };
+          html += `<div class="twm-struct-h">Workout structure</div><div class="twm-segs">` + segs.map(sg => {
+            const nm = NAME[sg.kind] || sg.kind;
+            const pace = sg.avgPace ? `${Math.floor(sg.avgPace / 60)}:${String(sg.avgPace % 60).padStart(2, "0")}/km` : "";
+            return `<div class="twm-seg"><span>${esc(nm)}</span><b>${fmtDur(sg.duration)}</b><small>${esc(pace)}</small></div>`;
+          }).join("") + `</div>`;
+        }
+        html += `</div>`;
+      }
+
+      // 5. Raw metrics — near the bottom.
+      html += `<div class="twm-block"><div class="twm-block-h">Metrics</div>`;
       const km = act && act.distance_meters ? (act.distance_meters / 1000).toFixed(1) + " km" : (ex && ex.actual_distance_km ? ex.actual_distance_km + " km" : null);
       const min = act && act.moving_time_seconds ? Math.round(act.moving_time_seconds / 60) + " min" : (ex && ex.actual_duration_minutes ? Math.round(ex.actual_duration_minutes) + " min" : null);
       const avgHr = act && act.average_heartrate ? Math.round(act.average_heartrate) + " bpm" : (ex && ex.actual_average_hr ? ex.actual_average_hr + " bpm" : null);
       const maxHr = act && act.max_heartrate ? Math.round(act.max_heartrate) + " bpm" : null;
       const pace = ex && ex.actual_average_pace ? ex.actual_average_pace + "/km" : (act && act.distance_meters && act.moving_time_seconds ? fmtPace(act.moving_time_seconds / (act.distance_meters / 1000)) : null);
+      const cadence = act && act.average_cadence ? Math.round(act.average_cadence) + " spm" : null;
       const elev = act && act.elevation_gain_meters ? Math.round(act.elevation_gain_meters) + " m" : null;
       html += planRow("Status", ex ? (ex.status === "completed" ? "Completed" : ex.status === "modified" ? "Modified" : "Skipped") : "Imported");
       html += planRow("Distance", km) + planRow("Duration", min) + planRow("Average pace", pace) +
-        planRow("Average HR", avgHr) + planRow("Max HR", maxHr) + planRow("Elevation", elev) +
+        planRow("Average HR", avgHr) + planRow("Max HR", maxHr) + planRow("Cadence", cadence) + planRow("Elevation", elev) +
         planRow("Athlete RPE", ex && ex.actual_rpe ? String(ex.actual_rpe) : null) +
         planRow("Feeling", ex && ex.overall_feeling ? String(ex.overall_feeling) : null);
       html += `</div>`;
-
-      // PART 5: the STORED recognition — the coach's persisted read of this
-      // activity (workout type, confidence, segments, summary, signals). This
-      // is the analysis generated ONCE at import, not recomputed here.
-      /*
-       * ONE canonical read of the stored recognition, shared by BOTH blocks
-       * below, so they can never disagree. getStoredRecognition checks every
-       * real shape (act.recognition, raw_data.recognition, rawData.recognition,
-       * …). The legacy Analysis block renders ONLY when this is null.
-       */
-      const recognition = (act && window.AthlevoCoach && AthlevoCoach.getStoredRecognition)
-        ? AthlevoCoach.getStoredRecognition(act) : null;
-      if (act && recognition) {
-        {
-          const rec = recognition;
-          html += `<div class="twm-block"><div class="twm-block-h">Detected Workout</div>`;
-          html += `<div class="twm-row"><span>Workout</span><b>${esc(AthlevoCoach.displayType(rec.workoutType))}</b></div>`;
-          html += `<div class="twm-row"><span>Confidence</span><span class="twm-conf ${rec.confidenceLabel === "High" ? "high" : ""}">${esc(rec.confidenceLabel || "")}</span></div>`;
-          // Per-block segments (warmup / work / recovery / cooldown), each with
-          // its real duration and pace — the reconstructed workout graph.
-          const segs = (rec.segments || []).filter(sg => sg.kind !== "steady");
-          const works = segs.filter(sg => sg.kind === "work");
-          if (works.length) {
-            const each = works[0].duration ? Math.round(works[0].duration / 60) : null;
-            html += `<div class="twm-row"><span>Detected intervals</span><b>${works.length} × ${each ? each + " min" : "reps"}</b></div>`;
-          }
-          if (segs.length && segs.some(sg => sg.duration)) {
-            const fmtDur = d => Math.floor(d / 60) + ":" + String(Math.round(d % 60)).padStart(2, "0");
-            const NAME = { warmup: "Warm-up", work: "Rep", recovery: "Recovery", cooldown: "Cooldown" };
-            let repN = 0;
-            html += `<div class="twm-segs">` + segs.map(sg => {
-              const nm = sg.kind === "work" ? `${NAME.work} ${++repN}` : (NAME[sg.kind] || sg.kind);
-              const pace = sg.avgPace ? `${Math.floor(sg.avgPace / 60)}:${String(sg.avgPace % 60).padStart(2, "0")}/km` : "";
-              return `<div class="twm-seg"><span>${esc(nm)}</span><b>${sg.duration ? fmtDur(sg.duration) : ""}</b><small>${esc(pace)}</small></div>`;
-            }).join("") + `</div>`;
-          }
-          if (rec.coachSummary) html += `<p class="twm-coachsum">${esc(rec.coachSummary)}</p>`;
-          // Recognition signals — compact, why-it-decided.
-          if (rec.signals) {
-            const sig = Object.keys(rec.signals).map(k => `${k}: ${typeof rec.signals[k] === "object" ? JSON.stringify(rec.signals[k]) : rec.signals[k]}`).join(" · ");
-            if (sig) html += `<p class="twm-signals">${esc(sig)}</p>`;
-          }
-          html += `</div>`;
-        }
-      }
 
       /*
        * ROOT CAUSE of "still shows 17 × 5:11 after analyzing":

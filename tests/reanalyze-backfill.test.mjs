@@ -184,31 +184,23 @@ section("Diagnostics report the real stored shape (safely)");
     !JSON.stringify(r.body).includes("moving_time") && !JSON.stringify(r.body).includes("laps"));
 }
 
-/* ══════ PART 1/8 — client button + refresh, no navigation ═════════ */
+/* ══════ backfill still works via the automatic path (timeline removed) ══ */
 
-section("The client button never navigates and refreshes in place");
+section("Recognition backfill survives the timeline removal");
 {
-  const coach = readFileSync("./js/coachTimeline.js", "utf8");
   const brain = readFileSync("./js/brain.js", "utf8");
+  const coach = readFileSync("./js/coachTimeline.js", "utf8");
 
-  t("the button is type=button", /class="ct-backfill" type="button"/.test(coach));
-  t("...and calls a handler, NOT location.reload()",
-    /onclick="return AthlevoCoach\.runBackfill\(event\);"/.test(coach) &&
-    !/onclick="[^"]*location\.reload/.test(coach));
-  const fn = coach.slice(coach.indexOf("async function runBackfill"), coach.indexOf("var CELEBRATE_KEY"));
-  t("runBackfill preventDefaults", /ev\.preventDefault\(\)/.test(fn) && /ev\.stopPropagation\(\)/.test(fn));
-  t("shows 'Analyzing workouts…'", /Analyzing workouts…/.test(fn));
-  t("shows a truthful result", /workout.* analyzed/.test(fn) &&
-    /Everything is already up to date/.test(fn) && /Analysis failed/.test(fn));
-  t("refetches + re-renders WITHOUT reload",
-    /loadAthleteActivities\(\)/.test(fn) && /renderTimeline\(acts/.test(fn) && !/location\.reload/.test(fn));
-
-  t("the client selects recognition so the timeline can see it",
+  t("the client still selects recognition so cards/modal can read it",
     /recognition:raw_data->recognition/.test(brain));
+  t("the automatic backfill still runs once on load",
+    /maybeBackfillRecognitionOnce/.test(brain));
   t("the one-time flag is set ONLY on a reached, successful response",
     /const reached = r && !r\.error && typeof r\.scanned === "number"/.test(brain));
-  t("the flag key was re-versioned (broken v2 flags get another attempt)",
-    /athlevo_recognition_backfilled_v3/.test(brain));
+  // The Coach Timeline UI (and its manual button) is gone.
+  t("the timeline render function is removed", !/function renderTimeline/.test(coach));
+  t("the timeline builder is removed", !/function buildTimeline/.test(coach));
+  t("the manual backfill button/handler is removed", !/runBackfill/.test(coach) && !/ct-backfill/.test(coach));
 }
 
 /* ══════ PART 8 — the modal's stale second source is removed ═══════ */
