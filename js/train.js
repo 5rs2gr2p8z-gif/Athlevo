@@ -50,7 +50,7 @@ async function loadWeeklyPlan() {
 
 function renderNoPlan() {
 
-    // Premium empty state → routes into the guided "Build My Coach" flow
+    // Premium empty state → routes into the guided plan-setup flow
     // (Athlevo sets itself up) rather than a bare "generate" button.
     const build = "window.AthlevoPlan ? AthlevoPlan.start() : generateWeek()";
     document.getElementById("trainHeader").innerHTML = `

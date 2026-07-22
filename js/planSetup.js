@@ -4,7 +4,7 @@
  * ══════════════════════════════════════════════════════════════════════
  *
  *  Makes the coach set ITSELF up. After onboarding (or from a Today CTA) the
- *  athlete is guided straight into "Build My Coach" instead of having to find
+ *  athlete is guided straight into building their plan instead of having to find
  *  plan generation on the Train tab. Uses ONLY existing endpoints
  *  (/api/training/get-week, /api/training/generate-plan) and the profile the
  *  onboarding flow already saved — no coaching-engine or algorithm changes.
@@ -76,23 +76,25 @@
       summaryRow("Long run day", longRun) +
       summaryRow("Current volume", volume);
 
-    const stravaBlock = connected
-      ? `<div class="ps-strava ok"><span>✓</span> Strava connected — your coach will learn from every run.</div>`
+    // Provider-agnostic: connect training data once; the service is an
+    // implementation detail, never named here.
+    const connectBlock = connected
+      ? `<div class="ps-strava ok"><span>✓</span> Your training is connected — Athlevo will learn from every run.</div>`
       : `<div class="ps-strava">
-           <div><b>Connect Strava</b><small>Recommended — lets your coach adapt to your real training.</small></div>
-           <button class="ps-strava-btn" type="button" onclick="connectStrava()">Connect</button>
+           <div><b>Connect your training data</b><small>Recommended — lets your plan adapt to your real training.</small></div>
+           <button class="ps-strava-btn" type="button" onclick="AthlevoPlan.connectTrainingData()">Connect</button>
          </div>`;
 
     mount.innerHTML = `
       <div class="ps-hero">
         <div class="ps-badge">✓ Your athlete profile is ready</div>
-        <h1 class="ps-title serif">Let's build your coach.</h1>
+        <h1 class="ps-title serif">Build your training plan.</h1>
         <p class="ps-lead">Athlevo will turn everything you told us into a personalized, adapting training plan.</p>
       </div>
-      ${stravaBlock}
-      ${review ? `<div class="ps-review"><span class="ps-review-eyebrow">What your coach knows</span>${review}</div>` : ""}
-      <button class="ps-build" type="button" onclick="AthlevoPlan.build()">Build My Coach</button>
-      <p class="ps-note">Your AI coach is ready to start planning. You can adjust anything later.</p>
+      ${connectBlock}
+      ${review ? `<div class="ps-review"><span class="ps-review-eyebrow">What Athlevo knows</span>${review}</div>` : ""}
+      <button class="ps-build" type="button" onclick="AthlevoPlan.build()">Build Training Plan</button>
+      <p class="ps-note">Your plan is ready to generate. You can adjust anything later.</p>
       <button class="ps-later" type="button" onclick="AthlevoPlan.notNow()">Not right now</button>`;
   }
 
@@ -319,9 +321,15 @@
     const connected = connectedOverride === true || Boolean(profile &&
       (profile.strava_connected === true || profile.intervals_connected === true));
     el.style.display = "block";
+    /*
+     * Three states, one card:
+     *   A  no data, no plan  → connect, then build
+     *   B  data connected, no plan  → just build
+     *   C  data + plan  → handled above (card hidden)
+     */
     el.innerHTML = connected
       ? `<div class="tpc-cta">
-           <div class="tpc-cta-copy"><b>Build your training plan</b><small>Turn your profile into a personalized training plan.</small></div>
+           <div class="tpc-cta-copy"><b>Your training is connected</b><small>Your activity history is syncing with Athlevo. Next, build your personalized training plan.</small></div>
            <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Build Training Plan</button>
          </div>`
       : `<div class="tpc-cta">

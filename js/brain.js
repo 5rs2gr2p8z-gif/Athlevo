@@ -839,14 +839,14 @@ function updateTodayActivityData(summary) {
     "readinessCopy",
     hasAnyActivity
       ? "Complete today's readiness check or connect a supported recovery source when available. Athlevo will not estimate readiness, HRV, sleep, or recovery it has not been given."
-      : "Connect Strava or record a workout to begin your training history, then complete a readiness check."
+      : "Connect your training data or record a workout to begin your training history, then complete a readiness check."
   );
 
   if (!summary?.latestActivity) {
     setText("todayLatestActivityName", "No imported activity yet.");
     setText(
       "todayLatestActivitySummary",
-      "Connect Strava or record a workout to begin building your training history."
+      "Connect your training data or record a workout to begin building your training history."
     );
     setText("todayLatestDistance", "—");
     setText("todayLatestDuration", "—");
@@ -1003,7 +1003,7 @@ function updateTrainActivityData(activities = [], summary = null) {
         )} km and ${summary.sevenDayTrainingHours.toFixed(
           1
         )} hours imported from Strava.`
-      : "Connect Strava or record a workout to begin building your history."
+      : "Connect your training data or record a workout to begin building your history."
   );
 
   const container = document.getElementById(
@@ -1022,7 +1022,7 @@ function updateTrainActivityData(activities = [], summary = null) {
     container.innerHTML = `
       <div class="decision">
         <h3>No imported activities yet.</h3>
-        <p>Connect Strava to begin building your training history.</p>
+        <p>Connect your training data to begin building your training history.</p>
       </div>
     `;
 
@@ -1372,7 +1372,7 @@ async function refreshAthleteUI() {
     if (typeof window.renderTrainingPacesCard === "function") {
       window.renderTrainingPacesCard();
     }
-    // Proactive discovery: show the "Build My Coach" CTA on Today whenever the
+    // Proactive discovery: show the plan-setup CTA on Today whenever the
     // athlete has no plan yet (covers existing users who never found Train).
     if (window.AthlevoPlan && typeof window.AthlevoPlan.refreshTodayCta === "function") {
       window.AthlevoPlan.refreshTodayCta();
@@ -1798,6 +1798,9 @@ function setIntervalsUi(state, detail) {
   mark.textContent = s.mark;
   if (row) row.dataset.state = state;
   if (copy) copy.textContent = s.live ? CONNECTED_COPY : DISCONNECTED_COPY;
+  // Disconnected: the Connect button carries the state, so the "—" glyph is
+  // just noise. Show the ✓ / ! glyph only when it means something.
+  mark.style.display = s.live ? "" : "none";
   if (providerNote) providerNote.style.display = s.live ? "none" : "";
   if (connectBtn) connectBtn.style.display = s.live ? "none" : "";
   if (disconnectBtn) disconnectBtn.style.display = s.live ? "" : "none";
