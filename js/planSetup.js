@@ -303,26 +303,47 @@
   }
 
   // Persistent Today CTA so EXISTING users without a plan also discover it.
-  function renderTodayCta(profile, has) {
+  function renderTodayCta(profile, has, connectedOverride) {
     const el = document.getElementById("todayPlanCta");
     if (!el) return;
     if (has !== false) { el.style.display = "none"; el.innerHTML = ""; return; }
-    // Provider-agnostic: Strava OR Intervals.icu both count as connected.
-    const connected = Boolean(profile &&
+    /*
+     * ONE training-data connection. Athlevo aggregates through a provider, so
+     * "is Strava linked" is the wrong question — any working provider
+     * connection means the athlete's training data is connected. Passing the
+     * flag in explicitly (rather than reading profile.intervals_connected,
+     * which is only decorated onto the profile after refreshIntervalsStatus()
+     * happens to have run) means step 1 can no longer look unfinished to an
+     * athlete who is already connected.
+     */
+    const connected = connectedOverride === true || Boolean(profile &&
       (profile.strava_connected === true || profile.intervals_connected === true));
     el.style.display = "block";
     el.innerHTML = connected
       ? `<div class="tpc-cta">
-           <div class="tpc-cta-copy"><b>Build My Coach</b><small>Turn your profile into a personalized training plan.</small></div>
-           <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Create My Training Plan</button>
+           <div class="tpc-cta-copy"><b>Build your training plan</b><small>Turn your profile into a personalized training plan.</small></div>
+           <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Build Training Plan</button>
          </div>`
       : `<div class="tpc-cta">
-           <div class="tpc-cta-copy"><b>Set up your coach</b><small>Step 1 — connect Strava. Step 2 — build your plan.</small></div>
+           <div class="tpc-cta-copy"><b>Set up your training</b><small>Step 1 — connect your training data. Step 2 — build your training plan.</small></div>
            <div class="tpc-cta-steps">
-             <button class="tpc-cta-btn ghost" type="button" onclick="connectStrava()">Connect Strava</button>
-             <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Build My Coach</button>
+             <button class="tpc-cta-btn ghost" type="button" onclick="AthlevoPlan.connectTrainingData()">Connect Training Data</button>
+             <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Build Training Plan</button>
            </div>
          </div>`;
+  }
+
+  /*
+   * The single entry point for connecting training data. Routes into the
+   * EXISTING, working guided provider flow — no new OAuth path.
+   */
+  function connectTrainingData() {
+    if (window.AthlevoConnect && typeof window.AthlevoConnect.start === "function") {
+      return window.AthlevoConnect.start();
+    }
+    if (window.AthlevoBrain && window.AthlevoBrain.connectIntervals) {
+      return window.AthlevoBrain.connectIntervals();
+    }
   }
 
   // Refresh the Today CTA from current profile + plan status. Safe to call on
@@ -332,7 +353,16 @@
     try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
     let has = lastHasPlan;
     if (has == null) has = await hasPlan();
-    renderTodayCta(profile, has);
+
+    // Authoritative provider state — the same source the OAuth guard uses.
+    let connected;
+    try {
+      const s = window.AthlevoBrain && window.AthlevoBrain.providerStatus
+        ? await window.AthlevoBrain.providerStatus() : null;
+      if (s && s.connected === true) connected = true;
+    } catch (e) { /* fall back to the profile flags */ }
+
+    renderTodayCta(profile, has, connected);
   }
 
   /*
@@ -390,7 +420,7 @@
 
   window.AthlevoPlan = {
     hasPlan, start, build, autoBuildFirstPlan, autoFirstPlanEnabled, notNow, enterTrain,
-    maybeLaunchAfterOnboarding, refreshTodayCta, renderTodayCta,
+    maybeLaunchAfterOnboarding, refreshTodayCta, renderTodayCta, connectTrainingData,
     VERSION: "plan-setup-v1"
   };
 })();

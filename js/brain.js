@@ -1740,6 +1740,8 @@ async function refreshIntervalsStatus(profile) {
      * flag is derived server-side; no token ever reaches the browser.
      */
     if (profile) profile.intervals_connected = Boolean(s && s.connected);
+    // Decorate the card with the real imported count, best-effort.
+    setTrainingDataCount();
     if (!s.available) { setIntervalsUi("unavailable"); return s; }
     if (!s.connected) { setIntervalsUi("idle"); return s; }
     setIntervalsUi(
@@ -1755,39 +1757,71 @@ async function refreshIntervalsStatus(profile) {
 
 // One place that owns every connection state the athlete can see.
 function setIntervalsUi(state, detail) {
-  const row = document.getElementById("intervalsConnectionRow");
-  const status = document.getElementById("intervalsConnectionStatus");
-  const mark = document.getElementById("intervalsConnectionMark");
+  /*
+   * Drives the single Training Data card. The athlete is connecting their
+   * training data, not a named third party, so the copy leads with that and
+   * the provider is disclosed quietly underneath.
+   */
+  const row = document.getElementById("trainingDataRow");
+  const status = document.getElementById("trainingDataStatus");
+  const copy = document.getElementById("trainingDataCopy");
+  const mark = document.getElementById("trainingDataMark");
+  const providerNote = document.getElementById("trainingDataProvider");
+  const connectBtn = document.getElementById("trainingDataConnect");
+  const disconnectBtn = document.getElementById("trainingDataDisconnect");
   if (!status || !mark) return;
 
+  const DISCONNECTED_STATUS = "Garmin, COROS & more";
+  const DISCONNECTED_COPY =
+    "Connect your training platform to automatically sync your activities with Athlevo.";
+  const CONNECTED_COPY = "Your training activities are automatically synced with Athlevo.";
+
   const STATES = {
-    idle:        { text: "Not connected", mark: "—" },
-    unavailable: { text: "Coming soon", mark: "—" },
-    connecting:  { text: "Connecting…", mark: "…" },
-    connected:   { text: "Connected — tap to sync", mark: "✓" },
-    syncing:     { text: "Syncing…", mark: "…" },
-    synced:      { text: "Sync complete", mark: "✓" },
-    partial:     { text: "Synced — some activities were skipped", mark: "✓" },
-    failed:      { text: "Sync failed — tap to retry", mark: "!" },
-    reconnect:   { text: "Reconnect Intervals.icu", mark: "!" }
+    idle:        { text: DISCONNECTED_STATUS, mark: "—", live: false },
+    unavailable: { text: "Coming soon",       mark: "—", live: false },
+    connecting:  { text: "Connecting…",       mark: "…", live: false },
+    connected:   { text: "Connected",         mark: "✓", live: true  },
+    syncing:     { text: "Syncing…",          mark: "…", live: true  },
+    synced:      { text: "Connected",         mark: "✓", live: true  },
+    partial:     { text: "Connected — some activities were skipped", mark: "✓", live: true },
+    failed:      { text: "Sync failed — tap to retry", mark: "!", live: true },
+    reconnect:   { text: "Reconnect to keep syncing",  mark: "!", live: true }
   };
   const s = STATES[state] || STATES.idle;
+
   /*
-   * "Reconnect required" is not a detail message — it is an instruction, and
-   * it must win over any stale status text, otherwise the row keeps showing
-   * "Last synced …" while the connection is actually broken.
+   * "Reconnect required" is an instruction, not a detail, and must win over
+   * any stale status text — otherwise the card keeps showing "Connected"
+   * while the connection is actually broken.
    */
   status.textContent = (state === "reconnect") ? s.text : (detail || s.text);
   mark.textContent = s.mark;
   if (row) row.dataset.state = state;
-
-  // Disconnect is offered only when there is something to disconnect.
-  const disconnectBtn = document.getElementById("intervalsDisconnect");
-  if (disconnectBtn) {
-    const connected = ["connected", "synced", "partial", "syncing", "failed", "reconnect"].includes(state);
-    disconnectBtn.style.display = connected ? "" : "none";
-  }
+  if (copy) copy.textContent = s.live ? CONNECTED_COPY : DISCONNECTED_COPY;
+  if (providerNote) providerNote.style.display = s.live ? "none" : "";
+  if (connectBtn) connectBtn.style.display = s.live ? "none" : "";
+  if (disconnectBtn) disconnectBtn.style.display = s.live ? "" : "none";
 }
+
+/*
+ * "264 activities imported" — a real number, only when we actually have one.
+ * Reads the already-loaded activity cache; never issues an extra request and
+ * never blocks the card from rendering.
+ */
+async function setTrainingDataCount() {
+  const status = document.getElementById("trainingDataStatus");
+  const row = document.getElementById("trainingDataRow");
+  if (!status || !row) return;
+  const live = ["connected", "synced", "partial"].includes(row.dataset.state);
+  if (!live) return;
+  try {
+    const acts = await loadAthleteActivities();
+    if (Array.isArray(acts) && acts.length) {
+      status.textContent = `Connected · ${acts.length} activities imported`;
+    }
+  } catch (e) { /* the plain "Connected" state is already correct */ }
+}
+
 
 /*
  * Disconnect. Clears the stored credentials but KEEPS every imported
@@ -1797,14 +1831,24 @@ function setIntervalsUi(state, detail) {
  */
 async function disconnectIntervals() {
   const ok = typeof confirm !== "function" || confirm(
-    "Disconnect Intervals.icu? Your imported activities stay in Athlevo — " +
-    "only the connection is removed."
+    "Disconnect your training data? Your imported activities stay in " +
+    "Athlevo — only the connection is removed."
   );
   if (!ok) return;
   try {
     await providerRequest("disconnect");
     setIntervalsUi("idle");
-    if (typeof toast === "function") toast("Intervals.icu disconnected.");
+    /*
+     * The Today setup card derives step 1 from provider status, so it must be
+     * re-rendered here — otherwise it keeps claiming the athlete is connected
+     * until the next full load.
+     */
+    try {
+      if (window.AthlevoPlan && window.AthlevoPlan.refreshTodayCta) {
+        await window.AthlevoPlan.refreshTodayCta();
+      }
+    } catch (e) {}
+    if (typeof toast === "function") toast("Training data disconnected.");
   } catch (error) {
     if (typeof toast === "function") toast(error.message);
   }
@@ -1815,7 +1859,7 @@ async function disconnectIntervals() {
  * not connected, sync when connected, reconnect when the token is stale.
  */
 async function onIntervalsRowTap() {
-  const row = document.getElementById("intervalsConnectionRow");
+  const row = document.getElementById("trainingDataRow");
   const state = row ? row.dataset.state : "idle";
   if (state === "syncing" || state === "connecting") return;
   /*
@@ -2178,6 +2222,7 @@ window.AthlevoBrain = {
   providerStatus,
   onIntervalsRowTap,
   disconnectIntervals,
+  setTrainingDataCount,
   hasTrainingDataConnected,
   buildActivitySummary,
   buildCoachingContext,

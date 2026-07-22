@@ -1273,7 +1273,18 @@ async function actionDisconnect(request, response, cid) {
    * never delete their training record.
    */
   const ok = await patchProviderAccount(account.id, {
-    access_token: null, refresh_token: null, status: "disconnected"
+    access_token: null, refresh_token: null, status: "disconnected",
+    /*
+     * provider_athlete_id MUST be released too.
+     *
+     * findOwnerByProviderAthlete() matches on this column alone, so leaving it
+     * behind meant a disconnected athlete still "owned" the Intervals account
+     * forever: reconnecting from any other Athlevo account hit ALREADY_LINKED
+     * against a connection that no longer exists. Clearing it releases the
+     * claim without weakening the guard — a LIVE connection still blocks a
+     * second Athlevo user, which is the rule the guard exists to enforce.
+     */
+    provider_athlete_id: null
   });
   log("intervals_disconnect", { correlationId: cid, provider: "intervals", status: ok ? "ok" : "failed" });
   return response.status(ok ? 200 : 500).json(

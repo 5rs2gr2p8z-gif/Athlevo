@@ -252,8 +252,9 @@ section("UI reflects reconnect_required");
 
   t("status 'reconnect_required' maps to the reconnect UI state",
     /s\.status === "reconnect_required" \? "reconnect" : "connected"/.test(brain));
-  t("reconnect state shows 'Reconnect Intervals.icu'",
-    /reconnect:\s*\{ text: "Reconnect Intervals\.icu"/.test(brain));
+  // The card is now about the athlete's training data, not a named provider.
+  t("reconnect state tells the athlete what to do",
+    /reconnect:\s*\{ text: "Reconnect to keep syncing"/.test(brain));
   t("reconnect text is not overridden by a stale 'Last synced' detail",
     /state === "reconnect"\) \? s\.text : \(detail \|\| s\.text\)/.test(brain));
   t("tapping in reconnect state restarts OAuth (falls through to connect)",
@@ -261,12 +262,14 @@ section("UI reflects reconnect_required");
   t("a sync rejected with RECONNECT_REQUIRED sets the reconnect state",
     /const reconnect = error\.code === "RECONNECT_REQUIRED"/.test(brain));
   t("disconnect control exists in the connections UI",
-    /id="intervalsDisconnect"/.test(html) && /disconnectIntervals/.test(brain));
+    /id="trainingDataDisconnect"/.test(html) && /disconnectIntervals/.test(brain));
   t("disconnect is hidden when not connected",
-    /disconnectBtn\.style\.display = connected \? "" : "none"/.test(brain));
-  t("disconnect keeps imported activities", /imported activities stay in Athlevo/.test(brain));
+    /disconnectBtn\.style\.display = s\.live \? "" : "none"/.test(brain));
+  t("connect is offered instead when not connected",
+    /connectBtn\.style\.display = s\.live \? "none" : ""/.test(brain));
+  t("disconnect keeps imported activities", /imported activities stay in\s*" \+\s*"Athlevo/.test(brain));
   t("reconnect state is visually flagged",
-    /\[data-state="reconnect"\] #intervalsConnectionStatus\{color:var\(--bad\)/.test(html));
+    /\[data-state="reconnect"\] #trainingDataStatus\{color:var\(--bad\)/.test(html));
 }
 
 section("Strava untouched");

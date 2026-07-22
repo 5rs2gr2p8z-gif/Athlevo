@@ -585,11 +585,11 @@ input,textarea,select{color:var(--text)}
   font-family:inherit;white-space:nowrap}
 .integ-unlink:active{background:var(--field)}
 /* Reconnect is a problem state — make the row read as needing attention. */
-.integ-row[data-state="reconnect"] #intervalsConnectionStatus{color:var(--bad);font-weight:600}
-.integ-row[data-state="failed"] #intervalsConnectionMark,
-.integ-row[data-state="reconnect"] #intervalsConnectionMark{color:var(--bad)}
-.integ-row[data-state="connected"] #intervalsConnectionMark,
-.integ-row[data-state="synced"] #intervalsConnectionMark{color:var(--good)}
+.integ-row[data-state="reconnect"] #trainingDataStatus{color:var(--bad);font-weight:600}
+.integ-row[data-state="failed"] #trainingDataMark,
+.integ-row[data-state="reconnect"] #trainingDataMark{color:var(--bad)}
+.integ-row[data-state="connected"] #trainingDataMark,
+.integ-row[data-state="synced"] #trainingDataMark{color:var(--good)}
 .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--good)}
 .sync-dot.pulse{animation:pulse 1.4s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
@@ -3095,69 +3095,39 @@ body.landing-active #tabbar{display:none!important}
   <div class="spacer-lg"></div>
 
  <div class="integ">
+  <!--
+    ONE training-data connection.
+
+    Athlevo aggregates through a provider layer, so separate Strava /
+    Intervals.icu / Garmin / COROS rows described our plumbing rather than the
+    athlete's decision — and three of the four could not actually be connected.
+    The athlete connects "training data" once; which service carries it is an
+    implementation detail, disclosed but not sold.
+  -->
   <div
-  class="integ-row"
-  onclick="connectStrava()"
-  role="button"
-  tabindex="0"
->
-    <div class="ilogo">S</div>
+    class="integ-row"
+    id="trainingDataRow"
+    data-state="idle"
+    onclick="AthlevoBrain.onIntervalsRowTap()"
+    role="button"
+    tabindex="0"
+  >
+    <div class="ilogo">T</div>
 
     <div class="in">
-      <b>Strava</b>
-      <small id="stravaConnectionStatus">Not connected</small>
+      <b>Training Data</b>
+      <small id="trainingDataStatus">Garmin, COROS &amp; more</small>
+      <small class="integ-hint" id="trainingDataCopy">Connect your training platform to automatically sync your activities with Athlevo.</small>
+      <small class="integ-hint" id="trainingDataProvider" style="display:none">Connection powered through Intervals.icu</small>
     </div>
 
-    <span id="stravaConnectionMark">—</span>
-  </div>
+    <button type="button" id="trainingDataConnect" class="integ-unlink"
+      onclick="event.stopPropagation(); AthlevoPlan.connectTrainingData()">Connect</button>
 
-  <div
-  class="integ-row"
-  id="intervalsConnectionRow"
-  data-state="idle"
-  onclick="AthlevoBrain.onIntervalsRowTap()"
-  role="button"
-  tabindex="0"
->
-    <div class="ilogo">I</div>
+    <button type="button" id="trainingDataDisconnect" class="integ-unlink" style="display:none"
+      onclick="event.stopPropagation(); AthlevoBrain.disconnectIntervals()">Disconnect</button>
 
-    <div class="in">
-      <b>Intervals.icu</b>
-      <small id="intervalsConnectionStatus">Not connected</small>
-      <small class="integ-hint">Import training from supported platforms such as Garmin and COROS.</small>
-    </div>
-
-    <button
-      type="button"
-      id="intervalsDisconnect"
-      class="integ-unlink"
-      style="display:none"
-      onclick="event.stopPropagation(); AthlevoBrain.disconnectIntervals()"
-    >Disconnect</button>
-
-    <span id="intervalsConnectionMark">—</span>
-  </div>
-
-  <div class="integ-row">
-    <div class="ilogo">G</div>
-
-    <div class="in">
-      <b>Garmin Connect</b>
-      <small id="garminConnectionStatus">Not connected</small>
-    </div>
-
-    <span id="garminConnectionMark">—</span>
-  </div>
-
-  <div class="integ-row">
-    <div class="ilogo">C</div>
-
-    <div class="in">
-      <b>COROS</b>
-      <small>Not connected</small>
-    </div>
-
-    <span>—</span>
+    <span id="trainingDataMark">—</span>
   </div>
 </div>
 

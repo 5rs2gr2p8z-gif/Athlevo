@@ -110,9 +110,9 @@ section("P1. Automatic generation is BUILT but OFF");
     planSetup.indexOf('skipped: "auto_disabled"') < planSetup.indexOf("await build()"));
 }
 
-section("P1. The manual 'Create My Training Plan' action still works");
+section("P1. The manual 'Build Training Plan' action still works");
 {
-  t("the Today CTA still exists", /Create My Training Plan/.test(planSetup));
+  t("the Today CTA still exists", /Build Training Plan/.test(planSetup));
   t("it still calls the real build", /onclick="AthlevoPlan\.start\(\)"/.test(planSetup));
   t("build() is untouched and still posts to generate-plan",
     /\/api\/training\/generate-plan/.test(planSetup));
