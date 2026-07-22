@@ -50,17 +50,37 @@ async function loadWeeklyPlan() {
 
 function renderNoPlan() {
 
-    // Premium empty state → routes into the guided plan-setup flow
-    // (Athlevo sets itself up) rather than a bare "generate" button.
+    /*
+     * PART 5. Two distinct empty states:
+     *   · Never synced a workout → "Waiting for your first workout." The
+     *     athlete's next step is to complete a run, not to build a plan.
+     *   · Has training history but no plan yet → offer to build the plan.
+     * The count comes from the already-loaded activity cache; a plan can
+     * still be built from either state.
+     */
+    let hasActivities = false;
+    try {
+        const cached = window.AthlevoBrain && window.AthlevoBrain.peekActivityCount
+            ? window.AthlevoBrain.peekActivityCount() : null;
+        hasActivities = typeof cached === "number" ? cached > 0 : false;
+    } catch (e) {}
+
     const build = "window.AthlevoPlan ? AthlevoPlan.start() : generateWeek()";
-    document.getElementById("trainHeader").innerHTML = `
+    document.getElementById("trainHeader").innerHTML = hasActivities
+        ? `
         <div class="train-empty">
             <div class="train-empty-art"><img src="assets/athlevo-icon.png" alt="" width="56" height="56"></div>
             <h3>No training plan yet.</h3>
             <p>Let Athlevo turn your profile into a personalized, adapting plan.</p>
             <button class="primary-btn" type="button" onclick="${build}">Build My Plan</button>
-        </div>
-    `;
+        </div>`
+        : `
+        <div class="train-empty">
+            <div class="train-empty-art"><img src="assets/athlevo-icon.png" alt="" width="56" height="56"></div>
+            <h3>Waiting for your first workout.</h3>
+            <p>Complete a workout with your connected watch and Athlevo will automatically analyze it.</p>
+            <button class="primary-btn" type="button" onclick="${build}">Build My Plan</button>
+        </div>`;
 
     document.getElementById("weekSessions").innerHTML = "";
 

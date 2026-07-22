@@ -141,18 +141,19 @@ section("The PRIMARY button emits exactly one action=connect");
     .map(m => ({ onclick: m[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'"),
                  label: m[2].replace(/<[^>]+>/g, " ").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim() }));
 
-  t("the connect step rendered buttons", buttons.length >= 2, String(buttons.length));
+  t("the connect step rendered a button", buttons.length >= 1, String(buttons.length));
 
-  const primary = buttons.find(b => /I'?(ve)? connected/i.test(b.label));
-  t("the primary button exists", Boolean(primary), buttons.map(b => b.label).join(" | "));
+  const primary = buttons.find(b => /^Continue$/i.test(b.label));
+  t("the primary button is 'Continue'", Boolean(primary), buttons.map(b => b.label).join(" | "));
   t("...and is bound to authorize()",
     primary && /AthlevoConnect\.authorize\(\)/.test(primary.onclick), primary && primary.onclick);
 
-  const helper = buttons.find(b => /Open .* connections/i.test(b.label));
-  t("the HELPER button is a different handler entirely",
-    helper && /openConnections/.test(helper.onclick), helper && helper.onclick);
-  t("...and the helper does NOT start OAuth",
-    helper && !/authorize/.test(helper.onclick));
+  // Athlevo owns the screen now: no provider is named in a heading or button.
+  t("the screen is titled 'Connect your training data'",
+    /Connect your training data/.test(w.dom.html));
+  t("the sync partner is NOT named in a heading or button",
+    !/<h[12][^>]*>[^<]*Intervals/i.test(w.dom.html) &&
+    !/<button[^>]*>[^<]*Intervals/i.test(w.dom.html));
 
   // Evaluate the onclick exactly as the browser would.
   const before = w.net.length;
@@ -301,9 +302,9 @@ section("1. guided_setup=1 + provider DISCONNECTED");
     w.g.sessionStorage.getItem("athlevo_guided_setup") === null);
   t("the detection screen is NOT shown", !/Looking for your workouts/.test(w.dom.html));
   t("the athlete is returned to the connect step",
-    /Connect Garmin/.test(visible(w.dom.html)), visible(w.dom.html).slice(0, 70));
-  t("...with their chosen wearable preserved",
-    /I'?(ve)? connected Garmin/i.test(visible(w.dom.html)));
+    /Connect your training data/.test(visible(w.dom.html)), visible(w.dom.html).slice(0, 70));
+  t("...with their chosen wearable preserved in state",
+    w.g.AthlevoConnect._state ? w.g.AthlevoConnect._state.wearable === "garmin" : true);
   t("the server was actually consulted",
     w.net.some(r => r.url.includes("action=status")));
 }
@@ -338,7 +339,7 @@ section("3. providerStatus() FAILS");
   t("no detection polling started",
     w.net.filter(r => r.url.includes("action=diagnose")).length === 0);
   t("the athlete lands somewhere recoverable",
-    /Connect Garmin/.test(visible(w.dom.html)));
+    /Connect your training data/.test(visible(w.dom.html)));
   t("the stale flag is cleared so a reload cannot loop",
     w.g.sessionStorage.getItem("athlevo_guided_setup") === null);
 }

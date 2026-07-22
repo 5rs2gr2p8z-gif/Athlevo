@@ -1977,6 +1977,26 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
 /* Import confirmation chip — proves the connection worked. */
 /* Numbered setup guide — the athlete is walked through, not sent away. */
 .cf-guide{margin:2px 0 6px;padding-left:22px;color:var(--ink2);font-size:14.5px;line-height:1.85}
+.cf-steps{list-style:none;margin:6px 0 4px;padding:0;display:flex;flex-direction:column;gap:12px}
+.cf-stepline{display:flex;align-items:center;gap:13px}
+.cf-stepnum{width:26px;height:26px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:650;background:var(--field);color:var(--ink3);border:1px solid var(--line)}
+.cf-stepline.done .cf-stepnum{background:var(--good,#2f9e5f);color:#fff;border-color:transparent}
+.cf-stepline.active .cf-stepnum{background:var(--ink);color:var(--bg);border-color:transparent}
+.cf-stepline b{font-size:14.5px;font-weight:640;display:block}
+.cf-stepline small{font-size:12px;color:var(--ink3)}
+.cf-stepline:not(.done):not(.active) b{color:var(--ink2)}
+.cf-help{margin-top:6px}
+.cf-help-toggle{background:none;border:none;color:var(--accent,#3a6df0);font-size:13px;font-weight:600;
+  padding:4px 0;cursor:pointer;font-family:inherit}
+.cf-help-body{margin-top:6px;display:flex;flex-direction:column;gap:10px}
+/* Connected training-data detail rows in You */
+.td-detail{display:none;flex-direction:column;gap:2px;margin-top:6px}
+.td-detail .td-row{display:flex;justify-content:space-between;font-size:12px;color:var(--ink2)}
+.td-detail .td-row b{font-weight:640;color:var(--ink)}
+.integ-row[data-state="connected"] .td-detail,
+.integ-row[data-state="synced"] .td-detail,
+.integ-row[data-state="partial"] .td-detail{display:flex}
 .cf-guide li{padding-left:2px}
 .cf-guide b{color:var(--text);font-weight:650}
 /* Metric / Imperial switch */
@@ -3119,10 +3139,23 @@ body.landing-active #tabbar{display:none!important}
       <small id="trainingDataStatus">Garmin, COROS &amp; more</small>
       <small class="integ-hint" id="trainingDataCopy">Connect your training platform to automatically sync your activities with Athlevo.</small>
       <small class="integ-hint" id="trainingDataProvider" style="display:none">Connection powered through Intervals.icu</small>
+
+      <div class="td-detail" id="trainingDataDetail">
+        <div class="td-row"><span>Source</span><b id="tdSource">Sync Partner</b></div>
+        <div class="td-row"><span>Activities imported</span><b id="tdCount">—</b></div>
+        <div class="td-row"><span>Latest activity</span><b id="tdLatest">Waiting for your first workout.</b></div>
+        <div class="td-row"><span>Last sync</span><b id="tdLastSync">—</b></div>
+      </div>
     </div>
 
     <button type="button" id="trainingDataConnect" class="integ-unlink"
       onclick="event.stopPropagation(); AthlevoPlan.connectTrainingData()">Connect</button>
+
+    <button type="button" id="trainingDataReconnect" class="integ-unlink" style="display:none"
+      onclick="event.stopPropagation(); AthlevoBrain.connectIntervals()">Reconnect</button>
+
+    <button type="button" id="trainingDataOpenPartner" class="integ-unlink" style="display:none"
+      onclick="event.stopPropagation(); AthlevoBrain.openSyncPartner()">Open Sync Partner</button>
 
     <button type="button" id="trainingDataDisconnect" class="integ-unlink" style="display:none"
       onclick="event.stopPropagation(); AthlevoBrain.disconnectIntervals()">Disconnect</button>

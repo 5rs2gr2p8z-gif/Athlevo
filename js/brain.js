@@ -1804,6 +1804,14 @@ function setIntervalsUi(state, detail) {
   if (providerNote) providerNote.style.display = s.live ? "none" : "";
   if (connectBtn) connectBtn.style.display = s.live ? "none" : "";
   if (disconnectBtn) disconnectBtn.style.display = s.live ? "" : "none";
+
+  // PART 3: connected-state controls. Reconnect restarts OAuth; Open Sync
+  // Partner jumps to the platform where the athlete links their watch.
+  const reconnectBtn = document.getElementById("trainingDataReconnect");
+  const openPartnerBtn = document.getElementById("trainingDataOpenPartner");
+  const needsReconnect = state === "reconnect" || state === "failed";
+  if (reconnectBtn) reconnectBtn.style.display = needsReconnect ? "" : "none";
+  if (openPartnerBtn) openPartnerBtn.style.display = s.live ? "" : "none";
 }
 
 /*
@@ -1811,18 +1819,69 @@ function setIntervalsUi(state, detail) {
  * Reads the already-loaded activity cache; never issues an extra request and
  * never blocks the card from rendering.
  */
+function fmtSyncTime(d) {
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return null;
+    const today = new Date();
+    const sameDay = dt.toDateString() === today.toDateString();
+    const yest = new Date(today); yest.setDate(today.getDate() - 1);
+    const day = sameDay ? "Today" : (dt.toDateString() === yest.toDateString() ? "Yesterday"
+      : dt.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+    return `${day} ${dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+  } catch (e) { return null; }
+}
+
+/*
+ * PART 3: fills the connected Training Data card — Source, count, latest
+ * activity and last-sync — from data already loaded. Zero imports show
+ * "Waiting for your first workout." Reads the cache only; issues no request.
+ */
 async function setTrainingDataCount() {
-  const status = document.getElementById("trainingDataStatus");
   const row = document.getElementById("trainingDataRow");
+  const status = document.getElementById("trainingDataStatus");
   if (!status || !row) return;
   const live = ["connected", "synced", "partial"].includes(row.dataset.state);
   if (!live) return;
-  try {
-    const acts = await loadAthleteActivities();
-    if (Array.isArray(acts) && acts.length) {
-      status.textContent = `Connected · ${acts.length} activities imported`;
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = v; };
+  set("tdSource", "Sync Partner");
+
+  let acts = [];
+  try { acts = await loadAthleteActivities(); } catch (e) { acts = []; }
+  const n = Array.isArray(acts) ? acts.length : 0;
+
+  if (n > 0) {
+    status.textContent = `Connected · ${n} activities imported`;
+    set("tdCount", String(n));
+    // Newest activity — the loader returns newest-first, but sort defensively.
+    const newest = acts.slice().sort((a, b) =>
+      new Date(b.start_date || 0) - new Date(a.start_date || 0))[0];
+    if (newest) {
+      const km = newest.distance_meters ? (newest.distance_meters / 1000).toFixed(1) + " km" : null;
+      const type = newest.workout_type || newest.activity_type || newest.sport_type || "Activity";
+      const when = fmtSyncTime(newest.start_date);
+      set("tdLatest", [type, km, when].filter(Boolean).join(" · "));
     }
-  } catch (e) { /* the plain "Connected" state is already correct */ }
+    set("tdLastSync", fmtSyncTime(Date.now()) || "Today");
+  } else {
+    status.textContent = "Connected";
+    set("tdCount", "0");
+    set("tdLatest", "Waiting for your first workout.");
+    set("tdLastSync", "—");
+  }
+}
+
+/*
+ * PART 3/4: open the sync partner (where the athlete links Garmin/COROS).
+ * Reuses the existing connections URL — no new flow, no OAuth change.
+ */
+function openSyncPartner() {
+  try {
+    const url = (window.AthlevoDataSource && window.AthlevoDataSource.connectionsUrl) ||
+      "https://intervals.icu/settings";
+    window.open(url, "_blank", "noopener");
+  } catch (e) {}
 }
 
 
@@ -1981,6 +2040,10 @@ function resolveActivityWindow(arg) {
    */
   if (typeof arg === "number") return "history";
   return "history";
+}
+
+function peekActivityCount() {
+  return __activityCache && Array.isArray(__activityCache.data) ? __activityCache.data.length : null;
 }
 
 async function loadAthleteActivities(windowName, options) {
@@ -2226,6 +2289,8 @@ window.AthlevoBrain = {
   onIntervalsRowTap,
   disconnectIntervals,
   setTrainingDataCount,
+  openSyncPartner,
+  peekActivityCount,
   hasTrainingDataConnected,
   buildActivitySummary,
   buildCoachingContext,

@@ -151,22 +151,23 @@ section("Happy path — account → device → auto-detect → auto-import → d
   t("offers a no-watch escape", /don't have a watch yet/i.test(visible(dom.html)));
 
   api.pickWearable("garmin");
-  t("connect step names the athlete's own device", /Connect Garmin/.test(dom.html));
   /*
-   * The connect screen now GUIDES rather than just linking, so the service is
-   * named several times inside the numbered steps — that is the point. What
-   * matters is that the athlete's own device leads, and that the primary
-   * button is about their watch.
+   * Athlevo now OWNS the connect step. It is about the athlete's training
+   * data, not a named provider; the sync partner appears once, only in the
+   * fine print. A simple three-step tracker replaces the numbered how-to.
    */
-  t("the primary button is about their watch",
-    /I'?(ve)? connected Garmin/i.test(visible(dom.html)));
-  t("the heading leads with the device, not the service",
-    /Connect Garmin/.test(visible(dom.html)));
-  t("a numbered setup guide is present",
-    (dom.html.match(/<li>/g) || []).length >= 5);
-  t("the athlete is told to wait for the sync",
-    /wait for the sync/i.test(visible(dom.html)));
-  t("reassures about read-only access", /only ever reads/i.test(dom.html));
+  t("connect step is titled 'Connect your training data'",
+    /Connect your training data/.test(visible(dom.html)));
+  t("the subtitle names the platforms, not the plumbing",
+    /Import your workouts automatically from Garmin, COROS/.test(visible(dom.html)));
+  t("the primary button is simply 'Continue'",
+    /I'?(ve)? connected/i.test(visible(dom.html)) === false && /Continue/.test(visible(dom.html)));
+  t("a three-step tracker is shown",
+    /Connect Athlevo/.test(dom.html) && /Authorize sync/.test(dom.html) && /Connect your watch/.test(dom.html));
+  t("the sync partner is named ONCE, in the fine print only",
+    (visible(dom.html).match(/Intervals\.icu/g) || []).length === 1 &&
+    !/<h[12][^>]*>[^<]*Intervals/i.test(dom.html));
+  t("reassures about read-only access", /only ever read/i.test(dom.html));
 
   await api.authorize();
   t("authorization goes through the data-source adapter", p.calls.connect === 1);
@@ -224,15 +225,18 @@ section("No workouts found at all");
 
   const seen = visible(dom.html);
   t("names the ACTUAL likely cause, not a generic failure",
-    /can't see any workouts yet/i.test(seen) &&
-    /isn't linked inside|still syncing/i.test(seen), seen.slice(0, 110));
+    /haven't received any workouts yet/i.test(seen) &&
+    /connect your .* inside our sync partner/i.test(seen), seen.slice(0, 130));
   t("frames it as almost done, not broken", /Almost there/i.test(seen));
   t("never says 'no activities returned'", !/no activities returned/i.test(dom.html));
-  t("offers a way forward", /Check again/.test(dom.html));
-  t("offers a direct link to the connections page",
-    /Open Intervals\.icu connections/.test(visible(dom.html)));
-  t("offers a way onward without history",
-    /Continue without my history/i.test(visible(dom.html)));
+  t("the sync partner is disclosed ONCE, in prose only",
+    (seen.match(/Intervals\.icu/g) || []).length === 1 &&
+    !/<h[12][^>]*>[^<]*Intervals/i.test(dom.html));
+  t("primary CTA is 'Open Sync Partner'", /Open Sync Partner/.test(visible(dom.html)));
+  t("offers a way onward — 'I'll do it later'",
+    /I'?ll do it later/i.test(visible(dom.html)));
+  t("a lightweight help toggle is present",
+    /Need help/i.test(visible(dom.html)) && /toggleHelp/.test(dom.html));
   t("tracked no_activities", funnel(g).includes("no_activities"));
   t("did NOT run a pointless import", p.calls.sync === 0);
 }

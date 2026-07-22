@@ -270,18 +270,19 @@ section("P5. Empty states answer what/why/next");
 section("P2. Athletes are guided, not sent away");
 {
   const fn = connect.slice(connect.indexOf("function stepAuthorize"),
-                           connect.indexOf("function stepDetecting"));
-  t("a numbered guide is shown", /<ol class="cf-guide">/.test(fn));
-  t("step: create or sign in", /Create or sign in/i.test(fn));
-  t("step: open Connections", /Connections/.test(fn));
-  t("step: choose the device", /Choose <b>\$\{esc\(name\)\}<\/b>/.test(fn));
-  t("step: wait for the sync", /Wait for the sync/i.test(fn));
-  t("step: come back", /Come back here/i.test(fn));
-  t("a direct link to connections is offered", /openConnections\(\)/.test(fn));
-  t("the primary button confirms THEY connected the watch",
-    /I&#39;ve connected|I've connected/.test(fn));
-  t("the two links are documented as distinct",
-    /Garmin\s+→ Intervals[\s\S]{0,120}Intervals → Athlevo/.test(connect));
+                           connect.indexOf("function stepNoWorkoutsYet"));
+  t("Athlevo owns the heading", /Connect your training data/.test(fn));
+  t("the subtitle names the platforms, not the plumbing",
+    /Import your workouts automatically from Garmin, COROS/.test(fn));
+  t("a three-step tracker is shown",
+    /Connect Athlevo/.test(fn) && /Authorize sync/.test(fn) && /Connect your watch/.test(fn));
+  t("the primary button is simply Continue",
+    /class="cf-btn primary"[\s\S]{0,60}Continue/.test(fn));
+  t("no provider is named in a heading or button",
+    !/<h[12][^>]*>[^<]*Intervals/.test(fn) && !/<button[^>]*>[^<]*Intervals/.test(fn));
+  t("the sync partner is disclosed via serviceName, once, in the fine print",
+    /our sync partner,\s*\$\{esc\(DS\(\)\.serviceName\)\}/.test(fn) &&
+    (fn.match(/serviceName/g) || []).length === 1);
 }
 
 section("P1. 'No workouts' is a guide, not an error");
@@ -296,13 +297,12 @@ section("P1. 'No workouts' is a guide, not an error");
            connect.indexOf("function stepConnectFailed"))
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   t("the no-workouts state exists", fn.length > 0);
-  t("it names the ACTUAL likely cause (watch not linked inside the service)",
-    /isn&#39;t linked inside|isn't linked inside/.test(fn));
-  t("it does not call the connection broken", !/error|failed/i.test(fn));
-  t("it gives numbered steps", /<ol class="cf-guide">/.test(fn));
-  t("it offers a direct link", /openConnections/.test(fn));
-  t("it offers Check again", /Check again/.test(fn));
-  t("it offers a way onward", /Continue without my history/.test(fn));
+  t("it frames it as almost done", /Almost there/.test(fn));
+  t("it names the final step in prose", /connect your .* inside our sync partner/i.test(fn));
+  t("it does not call the connection broken", !/\berror\b|\bbroken\b/i.test(fn));
+  t("primary CTA is Open Sync Partner", /Open Sync Partner/.test(fn));
+  t("it offers a way onward — I'll do it later", /I&#39;ll do it later|I'll do it later/.test(fn));
+  t("a lightweight help toggle is present", /Need help/.test(fn) && /toggleHelp/.test(fn));
   t("detection routes here, not to the generic error",
     /stepNoWorkoutsYet\(\)/.test(connect));
 }

@@ -136,6 +136,9 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_ACTIVATION
     // have to name the connection service in copy.
     providerKey: "intervals",
     serviceName: "Intervals.icu",
+    // Athlete-facing name for the sync layer. "Intervals.icu" is disclosed
+    // ONCE, in an explanatory sentence; everywhere else it is the Sync Partner.
+    partnerName: "Sync Partner",
     wearables: WEARABLES,
     signupUrl: INTERVALS_SIGNUP_URL,
     connectionsUrl: INTERVALS_SETTINGS_URL,

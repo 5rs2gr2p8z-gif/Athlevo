@@ -152,32 +152,35 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
    * are authorised to read is genuinely empty. So the athlete is walked
    * through A first, explicitly, before we ask for B.
    */
+  /*
+   * Athlevo owns this screen. The athlete is connecting THEIR training data;
+   * the sync partner (Intervals.icu) is an invisible plumbing detail, disclosed
+   * once in the fine print and never in a heading. A simple three-step tracker
+   * makes the flow feel native rather than a redirect out of the app.
+   */
   function stepAuthorize() {
-    const w = DS().wearables.find(x => x.key === state.wearable);
-    const name = w ? w.label : "your watch";
     show(`
       <div class="cf-step">
-        <h2 class="cf-title serif">Connect ${esc(name)}</h2>
+        <h2 class="cf-title serif">Connect your training data</h2>
         <p class="cf-body">
-          ${esc(name)} sends your workouts to Athlevo through
-          ${esc(DS().serviceName)}, a free service that sits in between.
-          It's a two-minute setup, once.
+          Import your workouts automatically from Garmin, COROS and other
+          supported platforms.
         </p>
-        <ol class="cf-guide">
-          <li><b>Create or sign in</b> to your ${esc(DS().serviceName)} account</li>
-          <li>Open <b>Settings</b>, then find <b>Connections</b></li>
-          <li>Choose <b>${esc(name)}</b> and sign in with your ${esc(name)} account</li>
-          <li><b>Wait for the sync</b> — your history can take a few minutes to appear</li>
-          <li>Come back here and continue</li>
+        <ol class="cf-steps">
+          <li class="cf-stepline done"><span class="cf-stepnum">✓</span>
+            <span><b>Connect Athlevo</b><small>Complete</small></span></li>
+          <li class="cf-stepline active"><span class="cf-stepnum">2</span>
+            <span><b>Authorize sync</b><small>Now</small></span></li>
+          <li class="cf-stepline"><span class="cf-stepnum">3</span>
+            <span><b>Connect your watch</b><small>Next</small></span></li>
         </ol>
-        <button class="cf-btn secondary" onclick="AthlevoConnect.openConnections()">
-          Open ${esc(DS().serviceName)} connections
-        </button>
         <button class="cf-btn primary" onclick="AthlevoConnect.authorize()">
-          I've connected ${esc(name)} — continue
+          Continue
         </button>
         <p class="cf-note small">
-          Athlevo only ever reads your workouts. We never post, edit or delete anything.
+          Athlevo syncs your workouts automatically through our sync partner,
+          ${esc(DS().serviceName)}. We only ever read your workouts — never post,
+          edit or delete anything.
         </p>
       </div>
     `);
@@ -269,32 +272,46 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
    */
   function stepNoWorkoutsYet() {
     const w = DS().wearables.find(x => x.key === state.wearable);
-    const name = w ? w.label : "your watch";
+    const name = w ? w.label : "watch";
     show(`
       <div class="cf-step">
         <div class="cf-icon muted">!</div>
         <h2 class="cf-title serif">Almost there</h2>
         <p class="cf-body">
-          Athlevo is connected, but we can't see any workouts yet. That
-          usually means ${esc(name)} isn't linked inside
-          ${esc(DS().serviceName)} — or it's still syncing.
+          Athlevo is now connected. We haven't received any workouts yet.
         </p>
-        <ol class="cf-guide">
-          <li>Open ${esc(DS().serviceName)} <b>Settings → Connections</b></li>
-          <li>Check that <b>${esc(name)}</b> is connected</li>
-          <li>Give it a few minutes to pull your history across</li>
-        </ol>
-        <button class="cf-btn secondary" onclick="AthlevoConnect.openConnections()">
-          Open ${esc(DS().serviceName)} connections
+        <p class="cf-body">
+          Final step: connect your ${esc(name)} inside our sync partner,
+          ${esc(DS().serviceName)}. Your history will start importing
+          automatically within a few minutes.
+        </p>
+        <button class="cf-btn primary" onclick="AthlevoConnect.openConnections()">
+          Open Sync Partner
         </button>
-        <button class="cf-btn primary" onclick="AthlevoConnect.handle('retry')">
-          Check again
+        <button class="cf-link" onclick="AthlevoConnect.handle('wait')">
+          I'll do it later
         </button>
-        <button class="cf-link" onclick="AthlevoConnect.skipConnection()">
-          Continue without my history for now
-        </button>
+
+        <div class="cf-help">
+          <button class="cf-help-toggle" onclick="AthlevoConnect.toggleHelp()">Need help?</button>
+          <div id="cfHelpBody" class="cf-help-body" style="display:none">
+            <p class="cf-note small">
+              Most athletes simply need to connect ${esc(name)} inside our sync
+              partner before workouts begin syncing.
+            </p>
+            <button class="cf-btn secondary" onclick="AthlevoConnect.openConnections()">
+              Open setup guide
+            </button>
+          </div>
+        </div>
       </div>
     `);
+  }
+
+  // PART 4: lightweight inline help toggle — no documentation page.
+  function toggleHelp() {
+    const el = $("cfHelpBody");
+    if (el) el.style.display = (el.style.display === "none" ? "" : "none");
   }
 
   /*
@@ -712,6 +729,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
 
     authorize,
     resumeAfterConnect,
+    toggleHelp,
 
     /*
      * No watch, or not now. Athlevo still works: the plan is built from the
