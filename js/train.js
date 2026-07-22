@@ -46,6 +46,13 @@ async function loadWeeklyPlan() {
         window.renderLatestWorkoutAnalysis();
     }
 
+    // PART 3: mount the Coach Timeline from recognised activities (newest first).
+    if (window.AthlevoCoach && window.AthlevoBrain && window.AthlevoBrain.loadAthleteActivities) {
+        window.AthlevoBrain.loadAthleteActivities()
+            .then(function (acts) { window.AthlevoCoach.renderTimeline(acts, "coachTimeline"); })
+            .catch(function () {});
+    }
+
 }
 
 function renderNoPlan() {

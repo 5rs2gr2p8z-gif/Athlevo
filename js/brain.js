@@ -1654,6 +1654,33 @@ async function finalizeIntervals(completion) {
   return providerRequest("finalize", { completion });
 }
 
+/*
+ * PART 2: analyse existing activities that predate recognition. Runs at most
+ * once per browser (localStorage guard) after the athlete is set up, and can
+ * also be triggered by a visible "Analyze existing workouts" action.
+ */
+async function reanalyzeActivities(opts) {
+  try {
+    const r = await providerRequest("reanalyze", opts || {});
+    // Fresh recognition changed the data; drop the activity cache so the UI
+    // re-reads it.
+    if (r && r.analyzed > 0) invalidateActivityCache();
+    return r;
+  } catch (e) { return { scanned: 0, analyzed: 0, skipped: 0, failed: 0, error: e.message }; }
+}
+
+const REANALYZE_ONCE_KEY = "athlevo_recognition_backfilled_v1";
+async function maybeBackfillRecognitionOnce() {
+  try {
+    if (localStorage.getItem(REANALYZE_ONCE_KEY)) return null;
+    const status = await providerStatus().catch(() => null);
+    if (!status || status.connected !== true) return null;   // nothing to backfill
+    const r = await reanalyzeActivities();
+    try { localStorage.setItem(REANALYZE_ONCE_KEY, "1"); } catch (e) {}
+    return r;
+  } catch (e) { return null; }
+}
+
 async function connectIntervals() {
   // TEMPORARY stage trail — see js/onboardingConnect.js authorize().
   const stage = (s, d) => {
@@ -2288,6 +2315,8 @@ window.AthlevoBrain = {
   providerStatus,
   onIntervalsRowTap,
   disconnectIntervals,
+  reanalyzeActivities,
+  maybeBackfillRecognitionOnce,
   setTrainingDataCount,
   openSyncPartner,
   peekActivityCount,

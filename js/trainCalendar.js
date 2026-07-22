@@ -155,7 +155,19 @@
           <span class="tcp-status activity">${acts.length} activities</span>
           <div class="tcp-actlist" style="margin-top:12px">${acts.map((a, i) => actRow(a, i)).join("")}</div></div>`;
       } else {
-        el.innerHTML = singleCard(fmtDateLong(selected), "Unplanned activity", esc(acts[0].name || "Imported run"), actMeta(acts[0]), `AthlevoTrainCalendar.openModal('${selected}','${acts[0].id}')`);
+        // PART 2: show the DETECTED workout, not a generic name.
+        const a0 = acts[0];
+        const label = (window.AthlevoCoach && AthlevoCoach.activityLabel) ? AthlevoCoach.activityLabel(a0) : (a0.name || "Imported run");
+        const auto = window.AthlevoCoach && AthlevoCoach.isAutoDetected && AthlevoCoach.isAutoDetected(a0);
+        const summary = window.AthlevoCoach && AthlevoCoach.coachSummary ? AthlevoCoach.coachSummary(a0) : null;
+        el.innerHTML = `<div class="tcp-card clickable" onclick="AthlevoTrainCalendar.openModal('${selected}','${a0.id}')">
+          <span class="tcp-date">${esc(fmtDateLong(selected))}</span>
+          <span class="tcp-status activity">Detected Workout</span>
+          <h2 class="tcp-title">${esc(label)}</h2>
+          ${auto ? `<span class="tcp-badge">Detected automatically</span>` : ""}
+          <div class="tcp-meta">${actMeta(a0)}</div>
+          ${summary ? `<p class="tcp-coachsum">${esc(summary)}</p>` : ""}
+          <div class="tcp-more">View Analysis ›</div></div>`;
       }
       return;
     }
@@ -179,7 +191,11 @@
       ${extra}</div>`;
   }
   function actMeta(a) { const km = a.distance_meters ? (a.distance_meters / 1000).toFixed(1) + " km" : ""; const min = a.moving_time_seconds ? Math.round(a.moving_time_seconds / 60) + " min" : ""; return [km ? `<b>${km}</b>` : "", min ? `<b>${min}</b>` : ""].filter(Boolean).join('<span style="color:var(--ink3)">·</span>'); }
-  function actRow(a, i) { const km = a.distance_meters ? (a.distance_meters / 1000).toFixed(1) + " km" : ""; return `<button class="tcp-actrow" type="button" onclick="AthlevoTrainCalendar.openModal('${selected}','${a.id}')"><span class="tcp-actsport">${esc(sportLabel(a))}</span><b>${esc(a.name || "Activity")}</b><small>${esc(km)}</small></button>`; }
+  function actRow(a, i) {
+    const km = a.distance_meters ? (a.distance_meters / 1000).toFixed(1) + " km" : "";
+    const label = (window.AthlevoCoach && AthlevoCoach.activityLabel) ? AthlevoCoach.activityLabel(a) : (a.name || "Activity");
+    return `<button class="tcp-actrow" type="button" onclick="AthlevoTrainCalendar.openModal('${selected}','${a.id}')"><span class="tcp-actsport">${esc(sportLabel(a))}</span><b>${esc(label)}</b><small>${esc(km)}</small></button>`;
+  }
   function singleCard(date, status, title, meta, onclick) {
     return `<div class="tcp-card clickable" onclick="${onclick}"><span class="tcp-date">${esc(date)}</span>
       <span class="tcp-status activity">${esc(status)}</span><h2 class="tcp-title">${title}</h2>
@@ -322,6 +338,29 @@
         planRow("Athlete RPE", ex && ex.actual_rpe ? String(ex.actual_rpe) : null) +
         planRow("Feeling", ex && ex.overall_feeling ? String(ex.overall_feeling) : null);
       html += `</div>`;
+
+      // PART 5: the STORED recognition — the coach's persisted read of this
+      // activity (workout type, confidence, segments, summary, signals). This
+      // is the analysis generated ONCE at import, not recomputed here.
+      if (act && window.AthlevoCoach) {
+        const rec = AthlevoCoach.readRecognition(act);
+        if (rec) {
+          html += `<div class="twm-block"><div class="twm-block-h">Detected Workout</div>`;
+          html += `<div class="twm-row"><span>Workout</span><b>${esc(AthlevoCoach.displayType(rec.workoutType))}</b></div>`;
+          html += `<div class="twm-row"><span>Confidence</span><span class="twm-conf ${rec.confidenceLabel === "High" ? "high" : ""}">${esc(rec.confidenceLabel || "")}</span></div>`;
+          const work = (rec.segments || []).find(sg => sg.kind === "work");
+          if (work && work.reps) {
+            html += `<div class="twm-row"><span>Detected intervals</span><b>${work.reps} × ${work.repDurationSec ? Math.round(work.repDurationSec / 60) + " min" : "reps"}</b></div>`;
+          }
+          if (rec.coachSummary) html += `<p class="twm-coachsum">${esc(rec.coachSummary)}</p>`;
+          // Recognition signals — compact, why-it-decided.
+          if (rec.signals) {
+            const sig = Object.keys(rec.signals).map(k => `${k}: ${typeof rec.signals[k] === "object" ? JSON.stringify(rec.signals[k]) : rec.signals[k]}`).join(" · ");
+            if (sig) html += `<p class="twm-signals">${esc(sig)}</p>`;
+          }
+          html += `</div>`;
+        }
+      }
 
       // Analysis — READ the recognition engine (no classification change).
       if (act && window.AthlevoWorkoutClassifier) {

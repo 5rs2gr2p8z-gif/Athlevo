@@ -153,10 +153,10 @@ section("9. First successful generation shows a clear milestone");
 {
   const ps = readFileSync("./js/planSetup.js", "utf8");
   const fn = ps.slice(ps.indexOf("function showSuccess"), ps.indexOf("if (!reduceMotion()) setTimeout"));
-  t("title 'Your first training week is ready'", /Your first training week is ready/.test(fn));
-  t("copy names profile + recent training",
-    /Built using your athlete profile and recent training\./.test(fn));
-  t("CTA is 'View Training Plan'", /View Training Plan/.test(fn));
+  t("title 'Your AI coach is ready.'", /Your AI coach is ready\./.test(fn));
+  t("copy names profile + recent training analysis",
+    /analyzed your athlete profile and recent\s*training/.test(fn));
+  t("CTA is 'Open My Coach'", /Open My Coach/.test(fn));
   t("the first-plan state does NOT auto-dismiss", /return;\s*\/\/ an intentional/.test(fn));
   t("first vs repeat is driven by alreadyExists",
     /showSuccess\(outcome\.alreadyExists !== true\)/.test(ps));

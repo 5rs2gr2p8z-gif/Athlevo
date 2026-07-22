@@ -258,10 +258,19 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
           ${stat("Most recent", summary.latest)}
           ${stat("Training streak", summary.streak)}
         </div>
+        <div id="analysisCelebration"></div>
         <p class="cf-note">Next: create your training plan from the dashboard.</p>
         <button class="cf-btn primary" onclick="AthlevoConnect.finish()">Continue</button>
       </div>
     `);
+    // PART 6: one-time analysis celebration with real, recognised aggregates.
+    try {
+      if (root.AthlevoCoach && root.AthlevoBrain && root.AthlevoBrain.loadAthleteActivities) {
+        root.AthlevoBrain.loadAthleteActivities().then(function (acts) {
+          root.AthlevoCoach.renderCelebration(acts, "analysisCelebration");
+        }).catch(function () {});
+      }
+    } catch (e) {}
   }
 
   /*

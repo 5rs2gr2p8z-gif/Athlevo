@@ -25,7 +25,7 @@
  */
 
 import crypto from "node:crypto";
-import { mapIntervals, normalizeIntervalLaps, toActivityRow } from "../../lib/server/wearable/normalizer.js";
+import { mapIntervals, normalizeIntervalLaps, toActivityRow, buildRecognitionFromRow, RECOGNITION_VERSION } from "../../lib/server/wearable/normalizer.js";
 import { resolveDuplicates, mapProviderError, isIntervalsEnabled } from "../../lib/server/wearable/providers.js";
 import {
   INTERVALS_AUTHORIZE_URL,
@@ -50,7 +50,7 @@ const LOG_SAFE = new Set([
   "imported", "skipped", "failed", "duplicatesMarked", "windows",
   "durationMs", "reason", "hasLaps", "oldest", "newest",
   // Import diagnostics: counts and shape only — never activity values.
-  "returnedByApi", "unparseableWindows", "count",
+  "returnedByApi", "unparseableWindows", "count", "scanned", "analyzed",
   /*
    * Post-consent callback diagnostics. Booleans, statuses and ORIGINS only.
    * The authorization code, tokens, client secret, signed-state contents and
@@ -901,6 +901,26 @@ async function actionSync(request, response, cid) {
     let lapBudget = MAX_LAP_FETCHES;
     const allRows = [];
 
+    /*
+     * PART 1 idempotency: the recognition already stored for these activities.
+     * Keyed by external id, so toActivityRow can preserve an unchanged record
+     * (analyzedAt included) rather than re-running recognition on every sync.
+     */
+    const existingRecognition = new Map();
+    try {
+      if (ranges.length) {
+        const oldestIso = ranges[ranges.length - 1].oldest;
+        const newestIso = ranges[0].newest;
+        const prior = await loadNeighbourActivities(user.id, oldestIso, newestIso);
+        for (const row of prior) {
+          if (row && row.source === "intervals" && row.external_activity_id &&
+              row.raw_data && row.raw_data.recognition) {
+            existingRecognition.set(String(row.external_activity_id), row.raw_data.recognition);
+          }
+        }
+      }
+    } catch (e) { /* no prior recognition available — recompute, still correct */ }
+
     for (const range of ranges) {
       windows += 1;
 
@@ -982,7 +1002,9 @@ async function actionSync(request, response, cid) {
             if (laps && laps.length > 1) { workout.laps = laps; withLaps += 1; }
           }
 
-          const row = toActivityRow(user.id, workout, raw);
+          const row = toActivityRow(user.id, workout, raw, {
+            existingRecognition: existingRecognition.get(String(workout.externalId)) || null
+          });
           row.activity_type = workout.activityType || row.activity_type;
           allRows.push(row);
 
@@ -1334,6 +1356,7 @@ export default async function handler(request, response) {
     if (action === "finalize") return actionFinalize(request, response, cid);
     if (action === "sync") return actionSync(request, response, cid);
     if (action === "diagnose") return actionDiagnose(request, response, cid);
+    if (action === "reanalyze") return actionReanalyze(request, response, cid);
     if (action === "status") return actionStatus(request, response);
     if (action === "disconnect") return actionDisconnect(request, response, cid);
 
