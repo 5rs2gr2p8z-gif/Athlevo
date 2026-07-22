@@ -25,7 +25,7 @@
  */
 
 import crypto from "node:crypto";
-import { mapIntervals, normalizeIntervalLaps, toActivityRow, buildRecognitionFromRow, RECOGNITION_VERSION } from "../../lib/server/wearable/normalizer.js";
+import { mapIntervals, normalizeIntervalLaps, toActivityRow, buildRecognitionFromRow, RECOGNITION_VERSION, isCurrentRecognitionVersion } from "../../lib/server/wearable/normalizer.js";
 import { resolveDuplicates, mapProviderError, isIntervalsEnabled } from "../../lib/server/wearable/providers.js";
 import {
   INTERVALS_AUTHORIZE_URL,
@@ -1352,22 +1352,53 @@ async function actionReanalyze(request, response, cid) {
   let missingRecognition = 0, staleRecognition = 0;
   let rowsWithIntervals = 0, rowsWithoutIntervals = 0;
 
+  /*
+   * PART 3/6: safe per-row diagnostics for the athlete's specific activity
+   * (~12.6 km / ~75 min / avg HR ~157 / max HR ~181). No provider-identifying
+   * data — counts, version and lap structure only.
+   */
+  const probe = { readback: null, matched: null };
+  const nnum = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; };
+  const near = (a, b, tol) => a != null && Math.abs(a - b) <= tol;
+  const matchRow = (r) => near(nnum(r.distance_meters), 12600, 700) &&
+    near(nnum(r.moving_time_seconds), 4500, 400) &&
+    (near(nnum(r.average_heartrate), 157, 6) || near(nnum(r.max_heartrate), 181, 6));
+
   for (const row of rows) {
     scanned += 1;
     const raw = row && row.raw_data ? row.raw_data : {};
     const laps = Array.isArray(raw.laps) ? raw.laps : null;
     if (laps && laps.length) rowsWithIntervals += 1; else rowsWithoutIntervals += 1;
 
-    const existing = raw.recognition;
-    if (!existing) missingRecognition += 1;
-    else if (existing.version !== RECOGNITION_VERSION) staleRecognition += 1;
-
-    // Preserve ONLY a current-version record (unless force). Anything missing
-    // or stale is regenerated.
-    if (!force && existing && existing.version === RECOGNITION_VERSION && existing.workoutType) {
-      skipped += 1;
-      continue;
+    if (!probe.matched && matchRow(row)) {
+      const typed = laps ? laps.filter(l => l && l.type).length : 0;
+      const lapTypes = laps ? Array.from(new Set(laps.map(l => l && l.type).filter(Boolean))) : [];
+      const seg = laps && laps.length ? (() => {
+        try { const s2 = buildRecognitionFromRow(row); return s2 ? s2.segments : []; } catch (e) { return []; }
+      })() : [];
+      probe.matched = {
+        found: true,
+        recognitionVersion: raw.recognition ? raw.recognition.version : null,
+        recognitionIntervalCount: raw.recognition && raw.recognition.segments
+          ? raw.recognition.segments.filter(x => x.kind === "work").length : null,
+        lapCount: laps ? laps.length : 0,
+        typedLapCount: typed,
+        lapTypes,
+        durationValuesPresent: laps ? laps.every(l => Number(l.moving_time) > 0 || Number(l.moving_time_seconds) > 0) : false,
+        paceValuesPresent: laps ? laps.every(l => Number(l.distance) > 0 || Number(l.distance_meters) > 0) : false,
+        reconstructedWorkSegments: seg.filter(x => x.kind === "work").length,
+        reconstructedWorkDurations: seg.filter(x => x.kind === "work").map(x => x.duration)
+      };
     }
+
+    const existing = raw.recognition;
+    const current = isCurrentRecognitionVersion(existing);   // canonical, shape-tolerant
+    if (!existing) missingRecognition += 1;
+    else if (!current) staleRecognition += 1;
+
+    // Preserve ONLY a genuinely current record (unless force). Missing or
+    // stale (any version shape that isn't the current number) is regenerated.
+    if (!force && current) { skipped += 1; continue; }
     try {
       const recognition = buildRecognitionFromRow(row);
       if (!recognition) { failed += 1; continue; }
@@ -1375,20 +1406,40 @@ async function actionReanalyze(request, response, cid) {
       const patch = await fetch(
         `${url}/rest/v1/activities?id=eq.${encodeURIComponent(row.id)}` +
         `&user_id=eq.${encodeURIComponent(user.id)}`,
-        { method: "PATCH", headers: { ...sbHeaders(), Prefer: "return=minimal" },
+        { method: "PATCH", headers: { ...sbHeaders(), Prefer: "return=representation" },
           body: JSON.stringify({ raw_data: nextRaw }) }
       );
-      if (patch.ok) analyzed += 1; else failed += 1;
+      if (patch.ok) {
+        analyzed += 1;
+        // PART 5: read-after-write proof. Confirm the PERSISTED record, from a
+        // fresh row, actually carries the new work segments — a 200 alone is
+        // not enough evidence the DB updated.
+        try {
+          const body = await patch.json();
+          const persisted = Array.isArray(body) && body[0] && body[0].raw_data
+            ? body[0].raw_data.recognition : recognition;
+          const gw = (recognition.segments || []).filter(x => x.kind === "work").length;
+          const pw = (persisted && persisted.segments || []).filter(x => x.kind === "work").length;
+          if (probe) probe.readback = { generatedWorkSegments: gw, persistedWorkSegments: pw,
+            persistedRecognitionVersion: persisted && persisted.version };
+        } catch (e) {}
+      } else failed += 1;
     } catch (e) { failed += 1; }
   }
+
+  if (!probe.matched) probe.matched = { found: false };
 
   log("intervals_reanalyze", { correlationId: cid, provider: "intervals",
     scanned, analyzed, skipped, failed });
   return response.status(200).json({
+    routeReached: true,
+    build: "reanalyze-production-debug-v1",
     scanned, analyzed, skipped, failed,
     currentVersion: RECOGNITION_VERSION,
     missingRecognition, staleRecognition,
-    rowsWithIntervals, rowsWithoutIntervals
+    rowsWithIntervals, rowsWithoutIntervals,
+    readback: probe.readback || null,
+    matched: probe.matched || null
   });
 }
 

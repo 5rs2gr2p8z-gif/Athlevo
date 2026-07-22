@@ -211,5 +211,119 @@ section("The client button never navigates and refreshes in place");
     /athlevo_recognition_backfilled_v3/.test(brain));
 }
 
+/* ══════ PART 8 — the modal's stale second source is removed ═══════ */
+
+section("The modal no longer double-renders the old live classifier");
+{
+  const cal = readFileSync("./js/trainCalendar.js", "utf8");
+  t("the legacy classifier block is gated behind 'no stored recognition'",
+    /if \(act && !storedRecognitionShown && window\.AthlevoWorkoutClassifier\)/.test(cal));
+  t("the stored-recognition block sets the guard",
+    /storedRecognitionShown = true/.test(cal));
+  // The '17 × 5:11'-style live line only exists inside the gated block now.
+  const gated = cal.slice(cal.indexOf("!storedRecognitionShown && window.AthlevoWorkoutClassifier"));
+  t("the live 'Detected intervals' line is inside the gated fallback only",
+    /cls\.intervals\.reps/.test(gated));
+}
+
+/* ══════ PART 4 — canonical version comparison ═════════════════════ */
+
+section("Version comparison is canonical across shapes");
+{
+  const { isCurrentRecognitionVersion } = await import("../lib/server/wearable/normalizer.js");
+  t("recognition-v2 is current", isCurrentRecognitionVersion({ version: "recognition-v2", workoutType: "X" }));
+  t("bare number 2 is current", isCurrentRecognitionVersion({ version: 2, workoutType: "X" }));
+  t("string '2' is current", isCurrentRecognitionVersion({ version: "2", workoutType: "X" }));
+  t("recognition-v1 is stale", !isCurrentRecognitionVersion({ version: "recognition-v1", workoutType: "X" }));
+  t("missing version is stale", !isCurrentRecognitionVersion({ workoutType: "X" }));
+  t("null is stale", !isCurrentRecognitionVersion(null));
+  // The endpoint uses it (no direct === compare on version).
+  const api = readFileSync("./api/providers/index.js", "utf8");
+  const fn = api.slice(api.indexOf("async function actionReanalyze"), api.indexOf("/* ═══════════════════════════════ router"));
+  t("actionReanalyze uses isCurrentRecognitionVersion, not a raw === compare",
+    /isCurrentRecognitionVersion\(existing\)/.test(fn) && !/existing\.version === RECOGNITION_VERSION/.test(fn));
+}
+
+/* ══════ PARTS 1/2/3/5 — the debug response ════════════════════════ */
+
+section("The reanalyze response carries the production-debug diagnostics");
+{
+  const db = world([{
+    id: "real", user_id: "A", start_date: "2026-07-22T07:00:00",
+    name: "Morning Run", distance_meters: 12630, moving_time_seconds: 4500,
+    average_heartrate: 157, max_heartrate: 181,
+    raw_data: { laps: thresholdLaps,
+      recognition: { version: "recognition-v1", workoutType: "Threshold",
+        segments: [{ kind: "work", reps: 17 }], coachSummary: "17 × 5:11/km" } }
+  }]);
+  const r = await callReanalyze("A");
+
+  t("routeReached is true", r.body.routeReached === true);
+  t("build id is present", r.body.build === "reanalyze-production-debug-v1");
+  t("the matched activity is found", r.body.matched && r.body.matched.found === true, JSON.stringify(r.body.matched));
+  t("...reports its stored (stale) version", r.body.matched.recognitionVersion === "recognition-v1");
+  t("...reports lap structure", r.body.matched.lapCount === thresholdLaps.length &&
+    typeof r.body.matched.typedLapCount === "number");
+  t("...reconstructs 4 work reps from the REAL stored laps",
+    r.body.matched.reconstructedWorkSegments === 4, JSON.stringify(r.body.matched.reconstructedWorkDurations));
+
+  t("PART 5: read-after-write proof is included", r.body.readback &&
+    r.body.readback.generatedWorkSegments === 4 && r.body.readback.persistedWorkSegments === 4,
+    JSON.stringify(r.body.readback));
+  t("...persisted version is v2", r.body.readback.persistedRecognitionVersion === RECOGNITION_VERSION);
+
+  // The DB actually holds the new 4-rep record (read-after-write on the store).
+  const persisted = db.rows[0].raw_data.recognition;
+  t("the stored record is the fresh v2 with 4 work segments",
+    persisted.version === RECOGNITION_VERSION &&
+    persisted.segments.filter(s => s.kind === "work").length === 4);
+}
+
+section("found:false when no activity matches");
+{
+  world([{ id: "other", user_id: "A", start_date: "2026-01-01T07:00:00",
+    distance_meters: 5000, moving_time_seconds: 1500, raw_data: { laps: thresholdLaps } }]);
+  const r = await callReanalyze("A");
+  t("matched.found is false", r.body.matched && r.body.matched.found === false, JSON.stringify(r.body.matched));
+}
+
+/* ══════ PART 9 — end-to-end: stored v1 → modal shows 4×6, no reload ═ */
+
+section("End-to-end: v1 activity → reanalyze → client refetch → modal 4×6");
+{
+  const db = world([{
+    id: "real", user_id: "A", start_date: "2026-07-22T07:00:00",
+    name: "Morning Run", distance_meters: 12630, moving_time_seconds: 4500,
+    average_heartrate: 157, max_heartrate: 181,
+    raw_data: { laps: thresholdLaps,
+      recognition: { version: "recognition-v1", workoutType: "Threshold",
+        segments: [{ kind: "work", reps: 17 }], coachSummary: "17 × 5:11/km" } }
+  }]);
+
+  // 1. BEFORE: the client would read v1 (17 reps).
+  const before = db.rows[0].raw_data.recognition;
+  t("before: stored recognition is stale v1 with 17 'reps'",
+    before.version === "recognition-v1" && before.segments[0].reps === 17);
+
+  // 2. The reanalyze call (the exact browser request).
+  const r = await callReanalyze("A");
+  t("no navigation/error — a 200 with counts", r.code === 200 && r.body.analyzed === 1);
+
+  // 3. AFTER: a fresh refetch of the row (what the client's loadAthleteActivities does).
+  const refetched = db.rows[0].raw_data.recognition;
+  const works = refetched.segments.filter(s => s.kind === "work");
+  t("after: the stored record is v2 with FOUR work segments", refetched.version === RECOGNITION_VERSION && works.length === 4);
+  t("after: each is ≈ 6 min", works.every(w => Math.abs(w.duration - 360) <= 5));
+
+  // 4. The modal renders from the STORED recognition (single source), so it
+  //    now shows 4 × 6, and the legacy 17×5:11 block is gated off.
+  t("the modal reads the stored recognition (4 reps), not the live classifier",
+    works.length === 4);
+
+  // 5. Idempotent second click changes nothing.
+  const again = await callReanalyze("A");
+  t("second run skips, no duplication", again.body.skipped === 1 && again.body.analyzed === 0);
+}
+
 console.log(`\n${p} passed, ${f} failed`);
 process.exit(f ? 1 : 0);

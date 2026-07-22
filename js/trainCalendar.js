@@ -342,9 +342,11 @@
       // PART 5: the STORED recognition — the coach's persisted read of this
       // activity (workout type, confidence, segments, summary, signals). This
       // is the analysis generated ONCE at import, not recomputed here.
+      let storedRecognitionShown = false;
       if (act && window.AthlevoCoach) {
         const rec = AthlevoCoach.readRecognition(act);
         if (rec) {
+          storedRecognitionShown = true;
           html += `<div class="twm-block"><div class="twm-block-h">Detected Workout</div>`;
           html += `<div class="twm-row"><span>Workout</span><b>${esc(AthlevoCoach.displayType(rec.workoutType))}</b></div>`;
           html += `<div class="twm-row"><span>Confidence</span><span class="twm-conf ${rec.confidenceLabel === "High" ? "high" : ""}">${esc(rec.confidenceLabel || "")}</span></div>`;
@@ -376,8 +378,20 @@
         }
       }
 
-      // Analysis — READ the recognition engine (no classification change).
-      if (act && window.AthlevoWorkoutClassifier) {
+      /*
+       * ROOT CAUSE of "still shows 17 × 5:11 after analyzing":
+       *
+       * This legacy block re-classifies the activity LIVE on every render via
+       * AthlevoWorkoutClassifier, whose old lap-counting produces "17 × 5:11".
+       * It runs IN ADDITION to the stored-recognition block above, so even a
+       * perfectly backfilled recognition-v2 record was drowned out by this
+       * stale live re-computation.
+       *
+       * The persisted recognition (above) is now the single source of truth.
+       * This block renders ONLY as a fallback when there is no stored
+       * recognition at all — never alongside it.
+       */
+      if (act && !storedRecognitionShown && window.AthlevoWorkoutClassifier) {
         const laps = act.raw_data && (act.raw_data.laps || act.raw_data.splits);
         const cls = window.AthlevoWorkoutClassifier.classifyActivity({
           distanceKm: act.distance_meters ? act.distance_meters / 1000 : null,

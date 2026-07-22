@@ -20,7 +20,7 @@
   "use strict";
 
   // PART 9: visible build marker so production can confirm the new JS loaded.
-  try { if (root.console) root.console.log("[athlevo] coachTimeline build: coach-timeline-v2, recognition-v2"); } catch (e) {}
+  try { if (root.console) root.console.log("[athlevo] coachTimeline build: coach-timeline-v2, recognition-v2, reanalyze-production-debug-v1"); } catch (e) {}
 
   function num(v) { const x = Number(v); return Number.isFinite(x) ? x : null; }
 
@@ -223,19 +223,42 @@
     }
 
     const n = Number(r.analyzed) || 0;
-    setStatus(n > 0 ? `${n} workout${n === 1 ? "" : "s"} analyzed` : "Everything is already up to date");
+    const headline = n > 0 ? `${n} workout${n === 1 ? "" : "s"} analyzed`
+      : (r.scanned === 0 ? "No activities found to analyze" : "Everything is already up to date");
 
-    // PART 8: refetch (cache already invalidated server-side when analyzed>0)
-    // and re-render the timeline + train view WITHOUT a reload.
+    /*
+     * PART 1/2: show the EXACT safe diagnostic response, not a generic message.
+     * This is the production evidence the athlete reads back to us.
+     */
+    const diag = root.document && root.document.getElementById("ctBackfillStatus");
+    if (diag) {
+      const rows = [
+        headline,
+        `Route reached: ${r.routeReached === true} · Build: ${r.build || "—"}`,
+        `Scanned ${r.scanned} · Analyzed ${r.analyzed} · Skipped ${r.skipped} · Failed ${r.failed}`,
+        `Missing ${r.missingRecognition} · Stale ${r.staleRecognition} · Version ${r.currentVersion}`,
+        `With intervals ${r.rowsWithIntervals} · Without ${r.rowsWithoutIntervals}`
+      ];
+      if (r.readback) rows.push(`Read-after-write: generated ${r.readback.generatedWorkSegments} / persisted ${r.readback.persistedWorkSegments} work segments (v ${r.readback.persistedRecognitionVersion})`);
+      if (r.matched && r.matched.found) rows.push(`Matched activity: v ${r.matched.recognitionVersion} · ${r.matched.lapCount} laps (${r.matched.typedLapCount} typed) · reconstructed ${r.matched.reconstructedWorkSegments} work reps`);
+      if (r.matched && r.matched.found === false) rows.push("Matched activity: not found");
+      diag.innerHTML = rows.map(x => `<div>${String(x).replace(/[<>&]/g, "")}</div>`).join("");
+    }
+
+    // PART 7: refetch and re-render the timeline + train view WITHOUT a reload.
     try {
       if (n > 0 && root.AthlevoBrain && root.AthlevoBrain.loadAthleteActivities) {
         const acts = await root.AthlevoBrain.loadAthleteActivities();
+        const diagHtml = diag ? diag.innerHTML : "";
         renderTimeline(acts, lastMountId);
+        // Re-apply the diagnostics after the re-render (renderTimeline replaces
+        // the status node), so the athlete keeps the exact counts on screen.
+        const diag2 = root.document && root.document.getElementById("ctBackfillStatus");
+        if (diag2 && diagHtml) diag2.innerHTML = diagHtml;
         if (typeof root.loadWeeklyPlan === "function") root.loadWeeklyPlan();
-      } else if (btn) {
-        btn.disabled = false; btn.textContent = "Analyze existing workouts";
       }
-    } catch (e) { /* the status message already told the athlete the outcome */ }
+    } catch (e) { /* the diagnostics already told the athlete the outcome */ }
+    if (btn) { btn.disabled = false; btn.textContent = "Analyze existing workouts"; }
     return false;
   }
 
