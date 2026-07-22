@@ -1,12 +1,21 @@
 /*
  * ══════════════════════════════════════════════════════════════════════
- *  Athlevo — WorkoutStructureView
+ *  Athlevo — WorkoutStructureView   (BEM markup, wsv-v3)
  * ══════════════════════════════════════════════════════════════════════
  *
  *  One continuous horizontal timeline of a workout's SHAPE — Apple-Health /
- *  Strava style. Segments connect edge-to-edge on a shared track (rounded
- *  only on the outer ends, a hair-thin divider between them), never floating
- *  cards.
+ *  Strava style. Segments connect edge-to-edge on a shared track, never
+ *  floating cards, never a vertical text list.
+ *
+ *  DOM contract (kept stable so the CSS in index.html can never drift):
+ *    <div class="wsv" data-wsv data-wsv-version="3">
+ *      <div class="wsv__scroller">
+ *        <div class="wsv__track">
+ *          <button class="wsv__segment wsv__segment--red">…</button> …
+ *        </div>
+ *      </div>
+ *      <div class="wsv__detail">…</div>
+ *    </div>
  *
  *  Deliberately ignorant of Intervals, Strava, Supabase and the recognition
  *  engine. It receives ONLY normalized segments:
@@ -20,24 +29,21 @@
  *      pace, hr, cadence, elevation, power, distanceKm
  *    }
  *
- *  Output: an interactive visualisation. Each block is a real <button> with
- *  an accessible label, aria-pressed, and keyboard focus. Tapping expands ONE
- *  small detail card (duration · pace · HR first; distance/cadence/elevation/
- *  power tucked behind "Show more"). Only one card is ever open.
+ *  Inside a track segment we show ONLY the short label + duration. Pace lives
+ *  exclusively in the tap-detail card below the graph.
  *
- *  Pure where it can be: model()/detailModel()/toggleState() take data and
- *  return data (DOM-free, unit-testable). render() turns the model into an
- *  HTML string; select()/toggleMore()/mount() are the only DOM functions.
- *
- *  Exposed as window.WorkoutStructureView.
+ *  Pure where it can be: model()/detailModel()/toggleState() are DOM-free and
+ *  unit-testable. render() returns HTML; select()/toggleMore()/mount() are the
+ *  only DOM functions. Exposed as window.WorkoutStructureView.
  */
 (function (root) {
   "use strict";
 
-  var VERSION = "workout-structure-v2";
-  try { if (root.console) root.console.log("[athlevo] workout structure build: " + VERSION); } catch (e) {}
+  var VERSION = "workout-structure-v3";
+  var BUILD = "wsv-v3";
+  try { if (root.console) root.console.log("[athlevo] workout structure build: " + BUILD); } catch (e) {}
 
-  // tone → css modifier. Colours live in index.html so they follow the theme.
+  // tone → BEM modifier suffix. Colours live in index.html (theme-aware).
   var TONES = { warm: "warm", blue: "blue", recovery: "blue", red: "red",
     orange: "orange", green: "green", gray: "gray", grey: "gray" };
   var KIND_TONE = { warmup: "warm", recovery: "blue", work: "red",
@@ -57,7 +63,7 @@
     return m + ":" + (r < 10 ? "0" : "") + r;
   }
 
-  // Spoken duration for aria: "6 minutes 1 second", "20 minutes 3 seconds".
+  // Spoken duration for aria: "6 minutes 1 second", "20 minutes 2 seconds".
   function spokenDur(sec) {
     var s = Math.max(0, Math.round(num(sec) || 0));
     var m = Math.floor(s / 60), r = s % 60, parts = [];
@@ -66,14 +72,14 @@
     return parts.join(" ");
   }
 
-  function toneClass(seg) {
+  function toneOf(seg) {
     var t = seg && seg.tone && TONES[seg.tone];
     return t || KIND_TONE[seg && seg.kind] || "gray";
   }
 
-  // Compact label for a narrow block: Warm-up · T1/T2 · Rec · Cool · full name.
+  // Compact label for a narrow block: Warm · T1/T2 · Rec · Cool · full name.
   function shortLabel(kind, label, repNum, workTotal) {
-    if (kind === "warmup") return "Warm-up";
+    if (kind === "warmup") return "Warm";
     if (kind === "cooldown") return "Cool";
     if (kind === "recovery") return "Rec";
     if (kind === "work") {
@@ -105,7 +111,7 @@
       blocks.push({
         index: blocks.length,
         kind: s.kind || "steady",
-        tone: toneClass(s),
+        tone: toneOf(s),
         label: label,
         short: shortLabel(s.kind, label, repNum, workTotal),
         repLabel: repLabel,
@@ -130,7 +136,7 @@
 
   /*
    * detailModel(segments, idx) → { title, tone, primary[], secondary[] } | null
-   * primary  = duration, pace, HR (only when present)
+   * primary   = duration, pace, HR (only when present)
    * secondary = distance, cadence, elevation, power (only when present)
    * Nothing is fabricated; absent metrics never become empty rows.
    */
@@ -151,18 +157,18 @@
 
   function rowsHTML(rows) {
     return rows.map(function (r) {
-      return '<div class="wsv-detail-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>';
+      return '<div class="wsv__detail-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>';
     }).join("");
   }
 
   function detailHTML(d) {
     if (!d) return "";
-    var html = '<div class="wsv-detail-card wsv-' + d.tone + '">' +
-      '<div class="wsv-detail-h">' + esc(d.title) + '</div>' + rowsHTML(d.primary);
+    var html = '<div class="wsv__detail-card wsv__detail-card--' + d.tone + '">' +
+      '<div class="wsv__detail-h">' + esc(d.title) + '</div>' + rowsHTML(d.primary);
     if (d.secondary.length) {
-      html += '<button type="button" class="wsv-more" aria-expanded="false"' +
+      html += '<button type="button" class="wsv__more" aria-expanded="false"' +
         ' onclick="WorkoutStructureView.toggleMore(this)">Show more</button>' +
-        '<div class="wsv-detail-more" hidden>' + rowsHTML(d.secondary) + '</div>';
+        '<div class="wsv__detail-more" hidden>' + rowsHTML(d.secondary) + '</div>';
     }
     return html + '</div>';
   }
@@ -176,33 +182,35 @@
   function render(segments, opts) {
     var o = opts || {};
     var m = model(segments);
-    if (m.empty) return '<p class="wsv-empty">No workout structure available.</p>';
+    if (m.empty) return '<p class="wsv__empty">No workout structure available.</p>';
     var sel = (o.selected != null) ? o.selected : null;
 
     var track = m.blocks.map(function (b) {
       var active = (sel === b.index);
-      return '<button type="button" class="wsv-block wsv-' + b.tone + (active ? " is-active" : "") + '"' +
+      return '<button type="button" class="wsv__segment wsv__segment--' + b.tone + (active ? " is-active" : "") + '"' +
         ' style="flex-grow:' + b.grow + '"' +
         ' data-idx="' + b.index + '" aria-pressed="' + (active ? "true" : "false") + '"' +
         ' aria-label="' + esc(b.repLabel + ", " + b.durationSpoken) + '"' +
         ' onclick="WorkoutStructureView.select(this)">' +
-        '<span class="wsv-lbl">' + esc(b.short) + '</span>' +
-        '<span class="wsv-dur">' + esc(b.durationText) + '</span>' +
+        '<span class="wsv__label">' + esc(b.short) + '</span>' +
+        '<span class="wsv__dur">' + esc(b.durationText) + '</span>' +
         '</button>';
     }).join("");
 
-    // OVERLAY SLOT — future pace/HR/power lines and coach comments mount over
-    // .wsv-track without touching block layout.
-    return '<div class="wsv" data-wsv>' +
-      '<div class="wsv-scroll"><div class="wsv-track" role="group" aria-label="Workout structure">' +
+    // OVERLAY SLOT — future pace/HR/power lines + coach comments mount over
+    // .wsv__track without touching block layout.
+    return '<div class="wsv" data-wsv data-wsv-version="3">' +
+      '<div class="wsv__scroller"><div class="wsv__track" role="group" aria-label="Workout structure">' +
       track + '</div></div>' +
-      '<div class="wsv-detail" data-wsv-detail>' + detailHTML(detailModel(segments, sel)) + '</div>' +
+      '<div class="wsv__detail" data-wsv-detail>' + detailHTML(detailModel(segments, sel)) + '</div>' +
+      // Temporary debug marker (wsv-v3) — confirms the current JS + CSS shipped.
+      '<div class="wsv__build" aria-hidden="true">Workout graph build: ' + BUILD + '</div>' +
       '</div>';
   }
 
   /*
    * select(el) — DOM click/keyboard handler. Toggles the one open detail card
-   * and flips aria-pressed / is-active on exactly one block. Browser-only.
+   * and flips aria-pressed / is-active on exactly one segment. Browser-only.
    */
   function select(el) {
     if (!el || !el.closest) return;
@@ -212,11 +220,11 @@
     var next = toggleState(rootEl.__wsvSel != null ? rootEl.__wsvSel : null, idx);
     rootEl.__wsvSel = next;
 
-    var blocks = rootEl.querySelectorAll(".wsv-block");
-    for (var i = 0; i < blocks.length; i++) {
-      var on = parseInt(blocks[i].getAttribute("data-idx"), 10) === next;
-      blocks[i].classList.toggle("is-active", on);
-      blocks[i].setAttribute("aria-pressed", on ? "true" : "false");
+    var segs = rootEl.querySelectorAll(".wsv__segment");
+    for (var i = 0; i < segs.length; i++) {
+      var on = parseInt(segs[i].getAttribute("data-idx"), 10) === next;
+      segs[i].classList.toggle("is-active", on);
+      segs[i].setAttribute("aria-pressed", on ? "true" : "false");
     }
     var detail = rootEl.querySelector("[data-wsv-detail]");
     if (detail) detail.innerHTML = detailHTML(detailModel(rootEl.__wsvSegments || [], next));
@@ -244,7 +252,8 @@
   }
 
   var api = { render: render, mount: mount, select: select, toggleMore: toggleMore,
-    model: model, detailModel: detailModel, toggleState: toggleState, VERSION: VERSION };
+    model: model, detailModel: detailModel, toggleState: toggleState,
+    VERSION: VERSION, BUILD: BUILD };
   if (root) root.WorkoutStructureView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

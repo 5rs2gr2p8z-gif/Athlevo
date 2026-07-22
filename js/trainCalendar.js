@@ -350,9 +350,15 @@
         // Pace is intentionally NOT shown on the graph; it lives in the tap
         // detail card. The component receives ONLY normalized segments.
         _wsvSegments = normalizeSegments(rec, act);
-        if (window.WorkoutStructureView) {
-          html += `<div class="twm-struct-h">Workout structure</div>`;
-          html += WorkoutStructureView.render(_wsvSegments);
+        html += `<div class="twm-struct-h">Workout structure</div>`;
+        // The visual graph is the only representation. If the component is
+        // missing or throws, show a clean message — NEVER an unstyled text dump.
+        try {
+          html += (window.WorkoutStructureView && WorkoutStructureView.render)
+            ? WorkoutStructureView.render(_wsvSegments)
+            : `<p class="wsv__empty">Workout structure unavailable.</p>`;
+        } catch (e) {
+          html += `<p class="wsv__empty">Workout structure unavailable.</p>`;
         }
         html += `</div>`;
       }

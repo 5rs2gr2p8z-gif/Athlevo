@@ -587,51 +587,57 @@ input,textarea,select{color:var(--text)}
 .tcp-badge{display:inline-block;font-size:11px;font-weight:600;color:var(--good,#2f9e5f);background:rgba(47,158,95,.1);border-radius:100px;padding:2px 9px;margin:6px 0}
 .tcp-coachsum,.twm-coachsum{font-size:13px;line-height:1.5;color:var(--ink2);margin:8px 0 0}
 .twm-struct-h{font-size:12px;font-weight:650;color:var(--ink3);margin:14px 0 8px}
-/* ── WorkoutStructureView — one continuous proportional timeline ─────────── */
-.wsv{--wsv-warm:#c8ccd2;--wsv-blue:#3b82c4;--wsv-red:var(--red);--wsv-orange:var(--warn);--wsv-green:var(--good);--wsv-gray:#9aa0a8;--wsv-divider:var(--bg);margin:2px 0 4px}
+/* ── WorkoutStructureView (wsv-v3) — one continuous proportional timeline ──
+   BEM class names kept 1:1 with js/workoutStructure.js so CSS cannot drift.
+   Explicit Safari-safe resets: flex-direction:row, appearance:none,
+   box-sizing:border-box, white-space:nowrap, overflow-x:auto, min-width. */
+.wsv{--wsv-warm:#c8ccd2;--wsv-blue:#2f6fbf;--wsv-red:var(--red);--wsv-orange:var(--warn);--wsv-green:var(--good);--wsv-gray:#8b9199;--wsv-divider:var(--bg);box-sizing:border-box;margin:2px 0 4px}
+.wsv *{box-sizing:border-box}
 :root[data-theme="dark"] .wsv,html.dark .wsv{--wsv-warm:#4a4f57;--wsv-blue:#5b9bd8;--wsv-gray:#6a707a;--wsv-divider:#15161a}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .wsv{--wsv-warm:#4a4f57;--wsv-blue:#5b9bd8;--wsv-gray:#6a707a;--wsv-divider:#15161a}}
-.wsv-scroll{overflow-x:auto;overflow-y:hidden;max-width:100%;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.wsv__scroller{display:block;overflow-x:auto;overflow-y:hidden;max-width:100%;-webkit-overflow-scrolling:touch;padding-bottom:2px}
 /* One shared track: a single rounded, clipped surface; the 2px gap shows the
    track's divider colour, so segments read as connected, not floating cards. */
-.wsv-track{display:flex;gap:2px;align-items:stretch;min-height:54px;width:100%;
+.wsv__track{display:flex;flex-direction:row;flex-wrap:nowrap;gap:2px;align-items:stretch;min-height:56px;width:100%;
   background:var(--wsv-divider);border-radius:var(--r-sm);overflow:hidden}
-.wsv-block{flex:1 1 0;min-width:42px;border:0;border-radius:0;padding:8px 6px;cursor:pointer;
-  display:flex;flex-direction:column;justify-content:flex-end;gap:2px;text-align:left;color:#fff;
-  overflow:hidden;position:relative;opacity:0;
+.wsv__segment{-webkit-appearance:none;appearance:none;box-sizing:border-box;
+  flex:1 1 0;min-width:42px;border:0;border-radius:0;margin:0;padding:8px 6px;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:2px;text-align:left;
+  font-family:inherit;color:#fff;overflow:hidden;white-space:nowrap;position:relative;opacity:0;
   animation:wsvIn 180ms ease forwards;transition:filter 180ms ease,box-shadow 180ms ease}
-.wsv-block:hover{filter:brightness(1.05)}
+.wsv__segment:hover{filter:brightness(1.05)}
 /* Active: subtle brightness + inset ring only — no scale, no layout shift. */
-.wsv-block.is-active{filter:brightness(1.1);box-shadow:inset 0 0 0 2px rgba(0,0,0,.32);z-index:2}
-.wsv-block:focus-visible{outline:2px solid var(--text);outline-offset:-2px;z-index:3}
-.wsv-lbl{font-size:11px;font-weight:650;line-height:1.1;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;opacity:.97}
-.wsv-dur{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;opacity:.85}
-.wsv-warm{background:var(--wsv-warm);color:#2a2b31}
-.wsv-blue{background:var(--wsv-blue)}
-.wsv-red{background:var(--wsv-red)}
-.wsv-orange{background:var(--wsv-orange);color:#2a2b31}
-.wsv-green{background:var(--wsv-green);color:#0c2a1a}
-.wsv-gray{background:var(--wsv-gray);color:#2a2b31}
-.wsv-detail{margin-top:10px}
-.wsv-detail-card{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;background:var(--card2);
+.wsv__segment.is-active{filter:brightness(1.1);box-shadow:inset 0 0 0 2px rgba(0,0,0,.32);z-index:2}
+.wsv__segment:focus-visible{outline:2px solid var(--text);outline-offset:-2px;z-index:3}
+.wsv__label{display:block;font-size:11px;font-weight:650;line-height:1.15;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;opacity:.98}
+.wsv__dur{display:block;font-size:11px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap;opacity:.9}
+.wsv__segment--warm{background:var(--wsv-warm);color:#22242a}
+.wsv__segment--blue{background:var(--wsv-blue);color:#fff}
+.wsv__segment--red{background:var(--wsv-red);color:#fff}
+.wsv__segment--orange{background:var(--wsv-orange);color:#22242a}
+.wsv__segment--green{background:var(--wsv-green);color:#0c2a1a}
+.wsv__segment--gray{background:var(--wsv-gray);color:#fff}
+.wsv__detail{display:block;margin-top:10px}
+.wsv__detail-card{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;background:var(--card2);
   border-left-width:3px;animation:wsvIn 160ms ease forwards}
-.wsv-detail-card.wsv-warm{border-left-color:var(--wsv-warm)}
-.wsv-detail-card.wsv-blue{border-left-color:var(--wsv-blue)}
-.wsv-detail-card.wsv-red{border-left-color:var(--wsv-red)}
-.wsv-detail-card.wsv-orange{border-left-color:var(--wsv-orange)}
-.wsv-detail-card.wsv-green{border-left-color:var(--wsv-green)}
-.wsv-detail-card.wsv-gray{border-left-color:var(--wsv-gray)}
-.wsv-detail-h{font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px}
-.wsv-detail-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:3px 0;color:var(--ink2)}
-.wsv-detail-row b{color:var(--text);font-variant-numeric:tabular-nums}
-.wsv-more{margin-top:6px;background:none;border:0;padding:2px 0;cursor:pointer;
-  font:inherit;font-size:12px;font-weight:600;color:var(--ink2)}
-.wsv-more:hover{color:var(--text)}
-.wsv-more:focus-visible{outline:2px solid var(--text);outline-offset:2px;border-radius:4px}
-.wsv-detail-more{margin-top:2px}
-.wsv-empty{font-size:13px;color:var(--ink3);margin:4px 0 2px}
+.wsv__detail-card--warm{border-left-color:var(--wsv-warm)}
+.wsv__detail-card--blue{border-left-color:var(--wsv-blue)}
+.wsv__detail-card--red{border-left-color:var(--wsv-red)}
+.wsv__detail-card--orange{border-left-color:var(--wsv-orange)}
+.wsv__detail-card--green{border-left-color:var(--wsv-green)}
+.wsv__detail-card--gray{border-left-color:var(--wsv-gray)}
+.wsv__detail-h{font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px}
+.wsv__detail-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:3px 0;color:var(--ink2)}
+.wsv__detail-row b{color:var(--text);font-variant-numeric:tabular-nums}
+.wsv__more{-webkit-appearance:none;appearance:none;margin-top:6px;background:none;border:0;padding:2px 0;cursor:pointer;
+  font-family:inherit;font-size:12px;font-weight:600;color:var(--ink2)}
+.wsv__more:hover{color:var(--text)}
+.wsv__more:focus-visible{outline:2px solid var(--text);outline-offset:2px;border-radius:4px}
+.wsv__detail-more{margin-top:2px}
+.wsv__empty{font-size:13px;color:var(--ink3);margin:4px 0 2px}
+.wsv__build{font-size:10px;color:var(--ink3);opacity:.7;margin-top:6px;font-family:ui-monospace,monospace}
 @keyframes wsvIn{to{opacity:1}}
-@media(prefers-reduced-motion:reduce){.wsv-block,.wsv-detail-card{animation:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.wsv__segment,.wsv__detail-card{animation:none;opacity:1}}
 .twm-signals{font-size:11px;color:var(--ink3);margin:6px 0 0;font-family:ui-monospace,monospace}
 .integ-unlink{background:none;border:1px solid var(--line);border-radius:999px;
   color:var(--ink2);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;
@@ -4346,54 +4352,54 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/authSupport.js"></script>
-<script src="js/brain.js"></script>
-<script src="js/performance.js"></script>
+<script src="js/authSupport.js?v=54"></script>
+<script src="js/brain.js?v=54"></script>
+<script src="js/performance.js?v=54"></script>
 <!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
      confidence) + structured workout guidance. Reused by Today & Train. -->
-<script src="js/aerobicCalibration.js"></script>
-<script src="js/paceService.js"></script>
-<script src="js/workoutGuidance.js"></script>
+<script src="js/aerobicCalibration.js?v=54"></script>
+<script src="js/paceService.js?v=54"></script>
+<script src="js/workoutGuidance.js?v=54"></script>
 <!-- Phase B Athlete Engine: defines window.AthleteEngine (calculations
      only). Not wired into any screen yet — UI integration is next sprint. -->
-<script src="js/athleteEngine.js"></script>
+<script src="js/athleteEngine.js?v=54"></script>
 <!-- Phase C Plan Engine: defines window.AthlevoPlanEngine (adaptive plan
      logic). Depends on AthleteEngine. Not wired into any screen yet. -->
-<script src="js/planEngine.js"></script>
-<script src="js/prescription.js"></script>
-<script src="js/athleteModel.js"></script>
-<script src="js/calendarWeeks.js"></script>
-<script src="js/workoutClassifier.js"></script>
-<script src="js/trends.js"></script>
-<script src="js/socialAuth.js"></script>
-<script src="js/activation.js"></script>
-<script src="js/onboardingConnect.js"></script>
-<script src="js/productionVerify.js"></script>
-<script src="js/athlevoScore.js"></script>
+<script src="js/planEngine.js?v=54"></script>
+<script src="js/prescription.js?v=54"></script>
+<script src="js/athleteModel.js?v=54"></script>
+<script src="js/calendarWeeks.js?v=54"></script>
+<script src="js/workoutClassifier.js?v=54"></script>
+<script src="js/trends.js?v=54"></script>
+<script src="js/socialAuth.js?v=54"></script>
+<script src="js/activation.js?v=54"></script>
+<script src="js/onboardingConnect.js?v=54"></script>
+<script src="js/productionVerify.js?v=54"></script>
+<script src="js/athlevoScore.js?v=54"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
-<script src="js/coachBrain.js"></script>
-<script src="js/coachBrainData.js"></script>
+<script src="js/coachBrain.js?v=54"></script>
+<script src="js/coachBrainData.js?v=54"></script>
 <!-- Athlete Identity & Progression: pure development engine + data/render.
      Reuses Athlevo Score components + history; data-driven, no hardcoding. -->
-<script src="js/developmentEngine.js"></script>
-<script src="js/developmentData.js"></script>
-<script src="js/raceDetection.js"></script>
-<script src="js/memory.js"></script>
-<script src="js/dailyBrief.js"></script>
-<script src="js/renderCoachResponse.js"></script>
-<script src="js/coach.js"></script>
-<script src="js/features.js"></script>
-<script src="js/train.js"></script>
-<script src="js/coachTimeline.js"></script>
-<script src="js/workoutStructure.js"></script>
-<script src="js/trainCalendar.js"></script>
-<script src="js/planSetup.js"></script>
-<script src="js/feedback.js"></script>
-<script src="js/readiness.js"></script>
-<script src="js/workoutAnalysis.js"></script>
-<script src="js/legal.js"></script>
-<script src="js/onboarding.js"></script>
+<script src="js/developmentEngine.js?v=54"></script>
+<script src="js/developmentData.js?v=54"></script>
+<script src="js/raceDetection.js?v=54"></script>
+<script src="js/memory.js?v=54"></script>
+<script src="js/dailyBrief.js?v=54"></script>
+<script src="js/renderCoachResponse.js?v=54"></script>
+<script src="js/coach.js?v=54"></script>
+<script src="js/features.js?v=54"></script>
+<script src="js/train.js?v=54"></script>
+<script src="js/coachTimeline.js?v=54"></script>
+<script src="js/workoutStructure.js?v=54"></script>
+<script src="js/trainCalendar.js?v=54"></script>
+<script src="js/planSetup.js?v=54"></script>
+<script src="js/feedback.js?v=54"></script>
+<script src="js/readiness.js?v=54"></script>
+<script src="js/workoutAnalysis.js?v=54"></script>
+<script src="js/legal.js?v=54"></script>
+<script src="js/onboarding.js?v=54"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's
