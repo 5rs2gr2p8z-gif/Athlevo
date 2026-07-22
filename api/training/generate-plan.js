@@ -28,6 +28,19 @@ const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+/*
+ * ROOT CAUSE of "That didn't finish": with no vercel.json and no maxDuration,
+ * this function ran on the Hobby DEFAULT of 10 seconds. The gpt-5.5 call
+ * routinely takes longer, so Vercel killed the function mid-generation and
+ * returned a 504 with no body — long before the client's own 90s timeout
+ * could matter, and before any plan was written.
+ *
+ * 60s is the Hobby maximum. This does not paper over a slow operation: the
+ * generation + single upsert are healthy and simply need more than 10s of
+ * wall-clock. The client timeout is aligned to sit just beyond this.
+ */
+export const maxDuration = 60;
+
 function sendJson(response, statusCode, payload) {
   return response.status(statusCode).json(payload);
 }

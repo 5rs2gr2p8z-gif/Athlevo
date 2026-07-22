@@ -50,7 +50,7 @@
     return `<div class="ps-row"><span class="ps-row-label">${esc(label)}</span><span class="ps-row-val">${esc(value)}</span></div>`;
   }
 
-  function renderSetup(profile) {
+  function renderSetup(profile, connectedOverride) {
     const mount = document.getElementById("planSetupBody");
     if (!mount) return;
     const p = profile || {};
@@ -59,7 +59,16 @@
      * limit can connect Intervals.icu instead and is just as "connected" —
      * gating on Strava specifically would lock them out of plan generation.
      */
-    const connected = p.strava_connected === true || p.intervals_connected === true;
+    /*
+     * Authoritative: connectedOverride comes from providerStatus() in start().
+     * The profile flags are FALLBACK only — intervals_connected is decorated
+     * onto the profile by refreshIntervalsStatus() and is absent from a fresh
+     * loadAthleteProfile(), which is exactly why this screen used to say
+     * "Connect your training data" to an already-connected athlete while the
+     * Today card said "connected".
+     */
+    const connected = connectedOverride === true ||
+      p.strava_connected === true || p.intervals_connected === true;
 
     const goal = p.goal || p.goal_distance || p.target_distance || null;
     const race = p.target_race || p.race || null;
@@ -79,7 +88,9 @@
     // Provider-agnostic: connect training data once; the service is an
     // implementation detail, never named here.
     const connectBlock = connected
-      ? `<div class="ps-strava ok"><span>✓</span> Your training is connected — Athlevo will learn from every run.</div>`
+      ? `<div class="ps-strava ok">
+           <div><b>Training data connected</b><small>Your recent training will be used to personalize this plan.</small></div>
+         </div>`
       : `<div class="ps-strava">
            <div><b>Connect your training data</b><small>Recommended — lets your plan adapt to your real training.</small></div>
            <button class="ps-strava-btn" type="button" onclick="AthlevoPlan.connectTrainingData()">Connect</button>
@@ -101,8 +112,34 @@
   async function start() {
     let profile = null;
     try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
-    renderSetup(profile);
+
+    /*
+     * ONE authoritative connection source, shared with the Today card. Asking
+     * the server here is what keeps the two screens from disagreeing.
+     */
+    let connected;
+    try {
+      const st = window.AthlevoBrain && window.AthlevoBrain.providerStatus
+        ? await window.AthlevoBrain.providerStatus() : null;
+      if (st && st.connected === true) connected = true;
+    } catch (e) { /* fall back to profile flags inside renderSetup */ }
+
+    renderSetup(profile, connected);
     if (typeof showScreen === "function") showScreen("screen-plansetup");
+  }
+
+  /*
+   * Retrieve a plan that may have finished server-side after a client timeout.
+   * Never generates — so it cannot create a duplicate. Falls back to the
+   * problem screen only if no plan actually exists.
+   */
+  async function recheckPlan() {
+    if (buildInFlight) return;
+    let stored = null;
+    try { stored = await hasPlan(); } catch (e) {}
+    if (stored === true) { lastHasPlan = true; showSuccess(); return; }
+    showBuildProblem({ ok: false, code: "PLAN_FAILED", action: "retry",
+      message: "We couldn't find a finished plan yet. You can try building it again." });
   }
 
   // Let the athlete step back to Today, but keep the persistent CTA so they're
@@ -156,7 +193,13 @@
     return new Promise(resolve => {
       let i = 0;
       const tick = () => {
-        if (i > 0) items[i - 1].classList.add("done");
+        /*
+         * The LAST step is never auto-completed — it stays "active" (pulsing)
+         * until the real operation succeeds. Marking every step done before
+         * the plan is stored is exactly what made a failure feel like a bug:
+         * the athlete watched everything "complete", then saw an error.
+         */
+        if (i > 0 && i < items.length) items[i - 1].classList.add("done");
         if (i < items.length) {
           items[i].classList.add("active");
           i += 1;
@@ -165,6 +208,14 @@
       };
       tick();
     });
+  }
+
+  // Marks the final in-progress step complete — called only once the plan is
+  // genuinely stored.
+  function completeFinalStep() {
+    const list = document.getElementById("pgSteps");
+    if (!list) return;
+    list.querySelectorAll("li").forEach(li => { li.classList.remove("active"); li.classList.add("done"); });
   }
 
   function showSuccess() {
@@ -236,13 +287,39 @@
     }
 
     await minAnim;                                  // let the animation finish
-    buildInFlight = false;
 
     if (outcome.ok) {
       lastHasPlan = true;
+      buildInFlight = false;
+      completeFinalStep();
       showSuccess();
       return;
     }
+
+    /*
+     * RECOVERY. A client timeout does not mean generation failed — the server
+     * may have finished and stored the plan after we stopped waiting. Before
+     * showing any error, ask whether a plan now exists. If it does, the athlete
+     * gets their plan instead of a false failure.
+     *
+     * This is also what makes retry safe: the server upserts on
+     * (user_id, week_start), so a second request cannot create a duplicate —
+     * but we would rather not send one at all when the plan is already there.
+     */
+    if (outcome.code === "PLAN_TIMEOUT" || outcome.code === "PLAN_NETWORK" ||
+        outcome.code === "PLAN_FAILED") {
+      let stored = null;
+      try { stored = await hasPlan(); } catch (e) {}
+      if (stored === true) {
+        lastHasPlan = true;
+        buildInFlight = false;
+        completeFinalStep();
+        showSuccess();
+        return;
+      }
+    }
+
+    buildInFlight = false;
     showBuildProblem(outcome);
   }
 
@@ -263,10 +340,14 @@
 
     const ACTIONS = {
       retry: { label: "Try again", onclick: "AthlevoPlan.build()" },
+      checkAgain: { label: "Check for my plan", onclick: "AthlevoPlan.recheckPlan()" },
       signIn: { label: "Sign in", onclick: "AthlevoPlan.notNow()" },
       completeProfile: { label: "Complete my profile", onclick: "AthlevoPlan.start()" },
       viewPlan: { label: "View my plan", onclick: "AthlevoPlan.enterTrain()" }
     };
+    // A timeout may still be completing server-side; offer to look rather than
+    // to regenerate, so the athlete never races their own in-flight request.
+    if (outcome.code === "PLAN_TIMEOUT") outcome.action = "checkAgain";
     const primary = ACTIONS[outcome.action] || ACTIONS.retry;
 
     mount.innerHTML = `
@@ -428,7 +509,7 @@
 
   window.AthlevoPlan = {
     hasPlan, start, build, autoBuildFirstPlan, autoFirstPlanEnabled, notNow, enterTrain,
-    maybeLaunchAfterOnboarding, refreshTodayCta, renderTodayCta, connectTrainingData,
+    maybeLaunchAfterOnboarding, refreshTodayCta, renderTodayCta, connectTrainingData, recheckPlan,
     VERSION: "plan-setup-v1"
   };
 })();
