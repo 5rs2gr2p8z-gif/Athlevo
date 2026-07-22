@@ -380,7 +380,7 @@ body{
 .tab.on{color:var(--text)}
 .tab.on .dotmark{opacity:1}
 .dotmark{width:4px;height:4px;border-radius:50%;background:var(--red);opacity:0;transition:opacity .2s;margin-top:1px}
-.tab:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:8px}
+.tab:focus-visible{outline:2px solid var(--red);outline-offset:2px;border-radius:8px}
 
 /* ---------- cards ---------- */
 .card{background:var(--card);border-radius:var(--r-lg);padding:20px}
@@ -645,7 +645,7 @@ input,textarea,select{color:var(--text)}
 .wsv__segment:hover{filter:brightness(1.05)}
 /* Active: subtle brightness + inset ring only — no scale, no layout shift. */
 .wsv__segment.is-active{filter:brightness(1.1);box-shadow:inset 0 0 0 2px rgba(0,0,0,.32);z-index:2}
-.wsv__segment:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-2px;z-index:3}
+.wsv__segment:focus-visible{outline:2px solid var(--text);outline-offset:-2px;z-index:3}
 .wsv__label{display:block;font-size:11px;font-weight:650;line-height:1.15;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;opacity:.98}
 .wsv__dur{display:block;font-size:11px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap;opacity:.9}
 .wsv__segment--warm{background:var(--wsv-warm);color:#22242a}
@@ -669,7 +669,7 @@ input,textarea,select{color:var(--text)}
 .wsv__more{-webkit-appearance:none;appearance:none;margin-top:6px;background:none;border:0;padding:2px 0;cursor:pointer;
   font-family:inherit;font-size:12px;font-weight:600;color:var(--ink2)}
 .wsv__more:hover{color:var(--text)}
-.wsv__more:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:4px}
+.wsv__more:focus-visible{outline:2px solid var(--text);outline-offset:2px;border-radius:4px}
 .wsv__detail-more{margin-top:2px}
 .wsv__empty{font-size:13px;color:var(--ink3);margin:4px 0 2px}
 .wsv__build{font-size:10px;color:var(--ink3);opacity:.7;margin-top:6px;font-family:ui-monospace,monospace}
@@ -1531,7 +1531,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:1.5}
   padding:18px 20px;cursor:pointer;
 }
 .sc-head.static{cursor:default}
-.sc-head:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-2px;border-radius:var(--r-lg)}
+.sc-head:focus-visible{outline:2px solid var(--red);outline-offset:-2px;border-radius:var(--r-lg)}
 .sc-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .sc-date{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
 .sc-badge{
@@ -2333,7 +2333,7 @@ body.landing-active #tabbar{display:none!important}
 .seg{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px}
 .seg-btn{flex:1;min-height:44px;border:none;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:14px;font-weight:650;letter-spacing:-.01em;border-radius:11px;cursor:pointer;transition:background .2s,color .2s}
 .seg-btn.on{background:var(--paper);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.16)}
-.seg-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.seg-btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 .lp-install-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;cursor:pointer;text-align:left}
 .lp-install-row b{font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--text)}
 .lp-install-row small{display:block;font-size:12.5px;color:var(--ink3);margin-top:2px}
@@ -3004,7 +3004,7 @@ body.landing-active #tabbar{display:none!important}
   .tc-nav{display:flex;align-items:center;gap:6px}
   .tc-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:16px;line-height:1;cursor:pointer;display:grid;place-items:center;transition:background .15s}
   .tc-btn:hover{background:var(--card2)}
-  .tc-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+  .tc-btn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
   .tc-today{font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--red);background:var(--red-soft);border:none;border-radius:var(--r-pill);padding:8px 13px;cursor:pointer}
   .tc-week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
   .tc-day{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0 9px;border-radius:14px;cursor:pointer;border:1px solid transparent;background:none;font-family:var(--sans);min-height:60px;transition:background .15s,border-color .15s}
@@ -4487,56 +4487,56 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/authSupport.js?v=58"></script>
-<script src="js/brain.js?v=58"></script>
-<script src="js/syncStatus.js?v=58"></script>
-<script src="js/performance.js?v=58"></script>
+<script src="js/authSupport.js?v=57"></script>
+<script src="js/brain.js?v=57"></script>
+<script src="js/syncStatus.js?v=57"></script>
+<script src="js/performance.js?v=57"></script>
 <!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
      confidence) + structured workout guidance. Reused by Today & Train. -->
-<script src="js/aerobicCalibration.js?v=58"></script>
-<script src="js/paceService.js?v=58"></script>
-<script src="js/workoutGuidance.js?v=58"></script>
+<script src="js/aerobicCalibration.js?v=57"></script>
+<script src="js/paceService.js?v=57"></script>
+<script src="js/workoutGuidance.js?v=57"></script>
 <!-- Phase B Athlete Engine: defines window.AthleteEngine (calculations
      only). Not wired into any screen yet — UI integration is next sprint. -->
-<script src="js/athleteEngine.js?v=58"></script>
+<script src="js/athleteEngine.js?v=57"></script>
 <!-- Phase C Plan Engine: defines window.AthlevoPlanEngine (adaptive plan
      logic). Depends on AthleteEngine. Not wired into any screen yet. -->
-<script src="js/planEngine.js?v=58"></script>
-<script src="js/prescription.js?v=58"></script>
-<script src="js/athleteModel.js?v=58"></script>
-<script src="js/calendarWeeks.js?v=58"></script>
-<script src="js/workoutClassifier.js?v=58"></script>
-<script src="js/trends.js?v=58"></script>
-<script src="js/socialAuth.js?v=58"></script>
-<script src="js/activation.js?v=58"></script>
-<script src="js/onboardingConnect.js?v=58"></script>
-<script src="js/productionVerify.js?v=58"></script>
-<script src="js/athlevoScore.js?v=58"></script>
+<script src="js/planEngine.js?v=57"></script>
+<script src="js/prescription.js?v=57"></script>
+<script src="js/athleteModel.js?v=57"></script>
+<script src="js/calendarWeeks.js?v=57"></script>
+<script src="js/workoutClassifier.js?v=57"></script>
+<script src="js/trends.js?v=57"></script>
+<script src="js/socialAuth.js?v=57"></script>
+<script src="js/activation.js?v=57"></script>
+<script src="js/onboardingConnect.js?v=57"></script>
+<script src="js/productionVerify.js?v=57"></script>
+<script src="js/athlevoScore.js?v=57"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
-<script src="js/coachBrain.js?v=58"></script>
-<script src="js/coachBrainData.js?v=58"></script>
+<script src="js/coachBrain.js?v=57"></script>
+<script src="js/coachBrainData.js?v=57"></script>
 <!-- Athlete Identity & Progression: pure development engine + data/render.
      Reuses Athlevo Score components + history; data-driven, no hardcoding. -->
-<script src="js/developmentEngine.js?v=58"></script>
-<script src="js/developmentData.js?v=58"></script>
-<script src="js/raceDetection.js?v=58"></script>
-<script src="js/memory.js?v=58"></script>
-<script src="js/dailyBrief.js?v=58"></script>
-<script src="js/renderCoachResponse.js?v=58"></script>
-<script src="js/coach.js?v=58"></script>
-<script src="js/features.js?v=58"></script>
-<script src="js/train.js?v=58"></script>
-<script src="js/coachTimeline.js?v=58"></script>
-<script src="js/workoutStructure.js?v=58"></script>
-<script src="js/trainCalendar.js?v=58"></script>
-<script src="js/adaptivePlan.js?v=58"></script>
-<script src="js/planSetup.js?v=58"></script>
-<script src="js/feedback.js?v=58"></script>
-<script src="js/readiness.js?v=58"></script>
-<script src="js/workoutAnalysis.js?v=58"></script>
-<script src="js/legal.js?v=58"></script>
-<script src="js/onboarding.js?v=58"></script>
+<script src="js/developmentEngine.js?v=57"></script>
+<script src="js/developmentData.js?v=57"></script>
+<script src="js/raceDetection.js?v=57"></script>
+<script src="js/memory.js?v=57"></script>
+<script src="js/dailyBrief.js?v=57"></script>
+<script src="js/renderCoachResponse.js?v=57"></script>
+<script src="js/coach.js?v=57"></script>
+<script src="js/features.js?v=57"></script>
+<script src="js/train.js?v=57"></script>
+<script src="js/coachTimeline.js?v=57"></script>
+<script src="js/workoutStructure.js?v=57"></script>
+<script src="js/trainCalendar.js?v=57"></script>
+<script src="js/adaptivePlan.js?v=57"></script>
+<script src="js/planSetup.js?v=57"></script>
+<script src="js/feedback.js?v=57"></script>
+<script src="js/readiness.js?v=57"></script>
+<script src="js/workoutAnalysis.js?v=57"></script>
+<script src="js/legal.js?v=57"></script>
+<script src="js/onboarding.js?v=57"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's
