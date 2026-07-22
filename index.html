@@ -2993,10 +2993,50 @@ body.landing-active #tabbar{display:none!important}
   .twm-conf{display:inline-block;font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;background:var(--card);color:var(--ink2)}
   .twm-conf.high{background:var(--good-soft);color:var(--good)}
   .twm-impact{margin-top:14px;background:var(--good-soft);border-radius:var(--r-md);padding:13px 15px;font-size:13.5px;line-height:1.5;color:var(--text)}
+  /* ── Adaptive Smart Plan v2 — plan-update card, weekly review, review sheet ── */
+  #adaptivePlanCard:empty,#adaptiveWeeklyReview:empty{display:none}
+  .apl-card{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+    border-radius:var(--r-md);padding:14px 16px;margin:12px 0}
+  .apl-card-body{flex:1;min-width:0}
+  .apl-card-h{font-size:14px;font-weight:650;color:var(--text)}
+  .apl-card-p{font-size:12.5px;line-height:1.45;color:var(--ink2);margin:3px 0 0}
+  .apl-review-btn{-webkit-appearance:none;appearance:none;flex:none;font-family:inherit;font-size:13px;font-weight:600;
+    color:#fff;background:var(--good);border:0;border-radius:999px;padding:9px 15px;cursor:pointer}
+  .apl-review-btn:hover{filter:brightness(1.05)}
+  .apl-review-week{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px;margin:12px 0}
+  .apl-rw-h{font-size:12px;font-weight:650;color:var(--ink3);margin-bottom:8px}
+  .apl-rw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px}
+  .apl-rw-stat{display:flex;flex-direction:column;gap:2px}
+  .apl-rw-stat span{font-size:11px;color:var(--ink3)}
+  .apl-rw-stat b{font-size:14px;font-variant-numeric:tabular-nums;color:var(--text)}
+  .apl-rw-take{font-size:12.5px;line-height:1.5;color:var(--ink2);margin:10px 0 0}
+  .apl-modal{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;
+    background:rgba(0,0,0,.4)}
+  .apl-modal.show{display:flex}
+  .apl-sheet{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--paper);
+    border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+  .apl-sheet-h{font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px}
+  .apl-change{border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:8px}
+  .apl-change-top{display:flex;justify-content:flex-end}
+  .apl-change-date{font-size:11px;font-weight:600;color:var(--ink3)}
+  .apl-change-diff{font-size:14px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;margin:2px 0 4px}
+  .apl-change-reason{font-size:12.5px;line-height:1.45;color:var(--ink2)}
+  .apl-msg{font-size:12.5px;color:var(--ink2);min-height:16px;margin:4px 2px}
+  .apl-actions{display:flex;gap:10px;margin-top:8px}
+  .apl-keep,.apl-apply{-webkit-appearance:none;appearance:none;flex:1;font-family:inherit;font-size:14px;font-weight:600;
+    border-radius:999px;padding:12px;cursor:pointer;border:1px solid var(--line)}
+  .apl-keep{background:none;color:var(--ink2)}
+  .apl-apply{background:var(--good);color:#fff;border-color:var(--good)}
+  .apl-apply:hover,.apl-keep:hover{filter:brightness(1.05)}
   </style>
   <!-- ══════════ DATE-FIRST TRAINING CALENDAR (primary experience) ══════════ -->
   <div id="trainCalendar" class="tc"></div>
   <div id="trainDayPanel" class="tc-panel"></div>
+
+  <!-- ══════════ ADAPTIVE SMART PLAN v2 — plan-update card + weekly review ══════════ -->
+  <div id="adaptivePlanCard"></div>
+  <div id="adaptiveWeeklyReview"></div>
+  <div id="adaptivePlanModal" class="apl-modal"></div>
 
 
   <!-- ══════════ WEEKLY PROGRESS — selected week ══════════ -->
@@ -4352,54 +4392,55 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/authSupport.js?v=54"></script>
-<script src="js/brain.js?v=54"></script>
-<script src="js/performance.js?v=54"></script>
+<script src="js/authSupport.js?v=55"></script>
+<script src="js/brain.js?v=55"></script>
+<script src="js/performance.js?v=55"></script>
 <!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
      confidence) + structured workout guidance. Reused by Today & Train. -->
-<script src="js/aerobicCalibration.js?v=54"></script>
-<script src="js/paceService.js?v=54"></script>
-<script src="js/workoutGuidance.js?v=54"></script>
+<script src="js/aerobicCalibration.js?v=55"></script>
+<script src="js/paceService.js?v=55"></script>
+<script src="js/workoutGuidance.js?v=55"></script>
 <!-- Phase B Athlete Engine: defines window.AthleteEngine (calculations
      only). Not wired into any screen yet — UI integration is next sprint. -->
-<script src="js/athleteEngine.js?v=54"></script>
+<script src="js/athleteEngine.js?v=55"></script>
 <!-- Phase C Plan Engine: defines window.AthlevoPlanEngine (adaptive plan
      logic). Depends on AthleteEngine. Not wired into any screen yet. -->
-<script src="js/planEngine.js?v=54"></script>
-<script src="js/prescription.js?v=54"></script>
-<script src="js/athleteModel.js?v=54"></script>
-<script src="js/calendarWeeks.js?v=54"></script>
-<script src="js/workoutClassifier.js?v=54"></script>
-<script src="js/trends.js?v=54"></script>
-<script src="js/socialAuth.js?v=54"></script>
-<script src="js/activation.js?v=54"></script>
-<script src="js/onboardingConnect.js?v=54"></script>
-<script src="js/productionVerify.js?v=54"></script>
-<script src="js/athlevoScore.js?v=54"></script>
+<script src="js/planEngine.js?v=55"></script>
+<script src="js/prescription.js?v=55"></script>
+<script src="js/athleteModel.js?v=55"></script>
+<script src="js/calendarWeeks.js?v=55"></script>
+<script src="js/workoutClassifier.js?v=55"></script>
+<script src="js/trends.js?v=55"></script>
+<script src="js/socialAuth.js?v=55"></script>
+<script src="js/activation.js?v=55"></script>
+<script src="js/onboardingConnect.js?v=55"></script>
+<script src="js/productionVerify.js?v=55"></script>
+<script src="js/athlevoScore.js?v=55"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
-<script src="js/coachBrain.js?v=54"></script>
-<script src="js/coachBrainData.js?v=54"></script>
+<script src="js/coachBrain.js?v=55"></script>
+<script src="js/coachBrainData.js?v=55"></script>
 <!-- Athlete Identity & Progression: pure development engine + data/render.
      Reuses Athlevo Score components + history; data-driven, no hardcoding. -->
-<script src="js/developmentEngine.js?v=54"></script>
-<script src="js/developmentData.js?v=54"></script>
-<script src="js/raceDetection.js?v=54"></script>
-<script src="js/memory.js?v=54"></script>
-<script src="js/dailyBrief.js?v=54"></script>
-<script src="js/renderCoachResponse.js?v=54"></script>
-<script src="js/coach.js?v=54"></script>
-<script src="js/features.js?v=54"></script>
-<script src="js/train.js?v=54"></script>
-<script src="js/coachTimeline.js?v=54"></script>
-<script src="js/workoutStructure.js?v=54"></script>
-<script src="js/trainCalendar.js?v=54"></script>
-<script src="js/planSetup.js?v=54"></script>
-<script src="js/feedback.js?v=54"></script>
-<script src="js/readiness.js?v=54"></script>
-<script src="js/workoutAnalysis.js?v=54"></script>
-<script src="js/legal.js?v=54"></script>
-<script src="js/onboarding.js?v=54"></script>
+<script src="js/developmentEngine.js?v=55"></script>
+<script src="js/developmentData.js?v=55"></script>
+<script src="js/raceDetection.js?v=55"></script>
+<script src="js/memory.js?v=55"></script>
+<script src="js/dailyBrief.js?v=55"></script>
+<script src="js/renderCoachResponse.js?v=55"></script>
+<script src="js/coach.js?v=55"></script>
+<script src="js/features.js?v=55"></script>
+<script src="js/train.js?v=55"></script>
+<script src="js/coachTimeline.js?v=55"></script>
+<script src="js/workoutStructure.js?v=55"></script>
+<script src="js/trainCalendar.js?v=55"></script>
+<script src="js/adaptivePlan.js?v=55"></script>
+<script src="js/planSetup.js?v=55"></script>
+<script src="js/feedback.js?v=55"></script>
+<script src="js/readiness.js?v=55"></script>
+<script src="js/workoutAnalysis.js?v=55"></script>
+<script src="js/legal.js?v=55"></script>
+<script src="js/onboarding.js?v=55"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

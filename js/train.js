@@ -46,6 +46,11 @@ async function loadWeeklyPlan() {
         window.renderLatestWorkoutAnalysis();
     }
 
+    // Adaptive Smart Plan v2 — refresh the (opt-in) plan-update preview.
+    if (window.AthlevoAdaptivePlan && typeof window.AthlevoAdaptivePlan.refresh === "function") {
+        window.AthlevoAdaptivePlan.refresh();
+    }
+
 }
 
 function renderNoPlan() {

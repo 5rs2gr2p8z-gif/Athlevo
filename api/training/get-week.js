@@ -11,6 +11,8 @@ import {
   validateActionForApply
 } from "../../lib/server/coachActions.js";
 
+import { buildProposal } from "../../lib/server/adaptivePlanAdapter.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -165,6 +167,15 @@ function getMonday(date) {
 
 function toDateKey(date) {
   return date.toISOString().slice(0, 10);
+}
+
+// b - a in whole days: positive when `aKey` is in the past relative to `bKey`.
+function daysBetween(aKey, bKey) {
+  if (!aKey || !bKey) return null;
+  const a = Date.parse(String(aKey).slice(0, 10) + "T00:00:00Z");
+  const b = Date.parse(String(bKey).slice(0, 10) + "T00:00:00Z");
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.round((b - a) / 86400000);
 }
 
 async function loadCurrentPlan(
@@ -684,6 +695,294 @@ async function handleApplyAction(response, user, body) {
   }
 }
 
+/* ══════════════════════ Adaptive Smart Plan v2 wiring ═══════════════════
+ *
+ *  Preview / apply / dismiss for the pure planning engines. The DB I/O lives
+ *  here; the decision logic lives in the pure adapter + engines. Every path is
+ *  user-scoped (user_id=eq on every request) and never touches past or
+ *  completed workouts.
+ */
+
+const ADAPTIVE_HISTORY_DAYS = 35;
+
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+function todayKeyFrom(body) {
+  const t = body && typeof body.today === "string" ? body.today.slice(0, 10) : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : isoDate(new Date());
+}
+
+async function loadActivePlan(userId) {
+  const rows = await optionalRequest(
+    [
+      "training_plans",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      "&status=eq.active",
+      "&select=id,week_start,status,updated_at",
+      "&order=updated_at.desc",
+      "&limit=1"
+    ].join("")
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function loadRecentActivities(userId, sinceKey) {
+  const rows = await optionalRequest(
+    [
+      "activities",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      "&select=id,start_date,distance_meters,moving_time_seconds,",
+      "average_heartrate,sport_type,activity_type,recognition:raw_data->recognition",
+      `&start_date=gte.${sinceKey}T00:00:00`,
+      "&order=start_date.desc&limit=200"
+    ].join("")
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function loadAthleteProfile(userId) {
+  const rows = await optionalRequest(
+    [
+      "profiles",
+      `?id=eq.${encodeURIComponent(userId)}`,
+      "&select=race_date,target_race,target_time",
+      "&limit=1"
+    ].join("")
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+// Everything the adapter needs, loaded user-scoped. Pure logic stays elsewhere.
+async function loadAdaptiveInputs(userId, todayKey) {
+  const plan = await loadActivePlan(userId);
+  const sessions = plan ? await loadPlanSessions(userId, plan.id) : [];
+  const sinceKey = isoDate(new Date(Date.parse(todayKey + "T00:00:00Z") - ADAPTIVE_HISTORY_DAYS * 86400000));
+  const [activities, executions, profile] = await Promise.all([
+    loadRecentActivities(userId, sinceKey),
+    loadExecutionRecords(userId, sessions.map(s => s.id)),
+    loadAthleteProfile(userId)
+  ]);
+  return { plan, sessions, activities, executions, profile: profile || {}, now: todayKey };
+}
+
+// Look up a prior adaptive proposal row by fingerprint + status (dedup/dismissal).
+async function findAdaptiveRow(userId, fingerprint, status) {
+  const rows = await optionalRequest(
+    [
+      "coach_action_proposals",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      `&status=eq.${encodeURIComponent(status)}`,
+      `&proposed_changes->>fingerprint=eq.${encodeURIComponent(fingerprint)}`,
+      "&select=id,status,applied_at,proposed_changes",
+      "&order=updated_at.desc&limit=1"
+    ].join("")
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+// Safe diagnostics only: posture, counts, fingerprint. No PII, no workout
+// contents, no tokens, no provider payloads.
+function logAdaptive(stage, fields) {
+  try {
+    console.log(`[adaptive] ${stage}`, JSON.stringify(fields));
+  } catch (e) { /* never throw from a log */ }
+}
+
+async function handleAdaptivePreview(response, user, body) {
+  const todayKey = todayKeyFrom(body);
+  const raw = await loadAdaptiveInputs(user.id, todayKey);
+  if (!raw.plan) {
+    return sendJson(response, 200, { ok: true, hasPlan: false, stable: true, proposedChanges: [] });
+  }
+  const proposal = buildProposal(raw);
+
+  let suppressed = false, alreadyApplied = false;
+  if (!proposal.stable) {
+    const dismissed = await findAdaptiveRow(user.id, proposal.fingerprint, "cancelled");
+    const applied = await findAdaptiveRow(user.id, proposal.fingerprint, "applied");
+    suppressed = Boolean(dismissed);
+    alreadyApplied = Boolean(applied);
+  }
+
+  logAdaptive("preview", {
+    memoryBlock: proposal.memorySummary && proposal.memorySummary.block,
+    fatigue: proposal.memorySummary && proposal.memorySummary.fatigue && proposal.memorySummary.fatigue.level,
+    posture: proposal.posture, changes: proposal.proposedChanges.length,
+    fingerprint: proposal.fingerprint, suppressed, alreadyApplied,
+    taperHold: proposal.guards.taperRaceHold, injuryHold: proposal.guards.injuryHold
+  });
+
+  return sendJson(response, 200, {
+    ok: true, hasPlan: true,
+    posture: proposal.posture,
+    stable: proposal.stable,
+    suppressed, alreadyApplied,
+    memorySummary: proposal.memorySummary,
+    proposedChanges: proposal.proposedChanges.map(c => ({
+      workoutId: c.workoutId, date: c.date, before: c.before, after: c.after, reason: c.reason
+    })),
+    weeklyReview: proposal.weeklyReview,
+    guards: proposal.guards,
+    engineVersion: proposal.engineVersion,
+    fingerprint: proposal.fingerprint
+  });
+}
+
+async function handleAdaptiveApply(response, user, body) {
+  const fingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
+  if (!fingerprint) {
+    return sendJson(response, 400, { error: "A proposal fingerprint is required." });
+  }
+  const todayKey = todayKeyFrom(body);
+  const raw = await loadAdaptiveInputs(user.id, todayKey);
+  if (!raw.plan) return sendJson(response, 404, { error: "No active plan to adjust." });
+
+  // Recompute server-side — never trust client-provided change values.
+  const proposal = buildProposal(raw);
+  if (proposal.fingerprint !== fingerprint) {
+    logAdaptive("apply.stale", { got: fingerprint, now: proposal.fingerprint });
+    return sendJson(response, 409, {
+      error: "Your training data changed. Please review the updated recommendation.",
+      stale: true, fingerprint: proposal.fingerprint
+    });
+  }
+  if (proposal.stable || proposal.proposedChanges.length === 0) {
+    return sendJson(response, 200, { success: true, applied: 0, stable: true });
+  }
+
+  // Idempotency: identical proposal already applied → do nothing again.
+  const existing = await findAdaptiveRow(user.id, fingerprint, "applied");
+  if (existing) {
+    return sendJson(response, 200, { success: true, applied: proposal.proposedChanges.length, idempotent: true, proposalId: existing.id });
+  }
+
+  const nowIso = new Date().toISOString();
+
+  // Validate + snapshot every target BEFORE mutating anything.
+  const plans = [];
+  for (const c of proposal.proposedChanges) {
+    const session = await loadSessionForUser(user.id, c.workoutId);   // scoped to user
+    if (!session) return sendJson(response, 404, { error: "A workout in this proposal no longer exists." });
+    const age = daysBetween(session.session_date, todayKey);          // >0 → past
+    if (age == null || age >= 0) {                                     // today or past → refuse
+      return sendJson(response, 409, { error: "Only future workouts can be adjusted.", stale: true });
+    }
+    plans.push({
+      id: session.id,
+      before: { session_type: session.session_type, duration_minutes: session.duration_minutes, distance_km: session.distance_km },
+      patch: c.patch, change: c
+    });
+  }
+
+  const affectedSessionIds = plans.map(p => p.id);
+  const envelope = {
+    user_id: user.id,
+    action_type: "adjust_remaining_week",
+    status: "applied",
+    affected_session_ids: affectedSessionIds,
+    proposed_changes: {
+      kind: "adaptive", fingerprint, engineVersion: proposal.engineVersion,
+      posture: proposal.posture,
+      changes: plans.map(p => ({ workoutId: p.id, before: p.change.before, after: p.change.after, reason: p.change.reason }))
+    },
+    original_snapshot: { sessions: plans.map(p => ({ id: p.id, ...p.before })) },
+    reason: proposal.proposedChanges.map(c => c.reason).join(" · ").slice(0, 500),
+    confirmed_at: nowIso, applied_at: nowIso, updated_at: nowIso
+  };
+
+  // 1) Audit envelope first (so a mutation failure leaves a rollback anchor).
+  let envelopeId = null;
+  try {
+    const saved = await supabaseRequest("coach_action_proposals?on_conflict=id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: envelope
+    });
+    const row = Array.isArray(saved) ? saved[0] : saved;
+    envelopeId = row && row.id;
+  } catch (e) {
+    logAdaptive("apply.envelope_failed", { fingerprint });
+    return sendJson(response, 500, { error: "That change could not be saved. Please try again." });
+  }
+
+  // 2) Patch each future session; roll back ALL on any failure.
+  const applied = [];
+  try {
+    for (const p of plans) {
+      const updated = await supabaseRequest(
+        "training_sessions" +
+          `?id=eq.${encodeURIComponent(p.id)}` +
+          `&user_id=eq.${encodeURIComponent(user.id)}`,
+        { method: "PATCH", headers: { Prefer: "return=representation" },
+          body: { ...p.patch, updated_at: nowIso } }
+      );
+      if (!Array.isArray(updated) || !updated.length) throw new Error("session patch returned no row");
+      applied.push(p);
+    }
+  } catch (mutErr) {
+    logAdaptive("apply.rollback", { fingerprint, done: applied.length, of: plans.length });
+    // Revert the sessions we already patched, then remove the envelope.
+    for (const p of applied) {
+      try {
+        await supabaseRequest(
+          "training_sessions" +
+            `?id=eq.${encodeURIComponent(p.id)}` +
+            `&user_id=eq.${encodeURIComponent(user.id)}`,
+          { method: "PATCH", headers: { Prefer: "return=minimal" }, body: { ...p.before, updated_at: nowIso } }
+        );
+      } catch (revErr) { /* best-effort; envelope removal still runs */ }
+    }
+    if (envelopeId) {
+      try {
+        await supabaseRequest(
+          "coach_action_proposals" +
+            `?id=eq.${encodeURIComponent(envelopeId)}` +
+            `&user_id=eq.${encodeURIComponent(user.id)}`,
+          { method: "DELETE", headers: { Prefer: "return=minimal" } }
+        );
+      } catch (delErr) { /* best-effort */ }
+    }
+    return sendJson(response, 500, { error: "That change could not be applied. Nothing was changed.", rolledBack: true });
+  }
+
+  logAdaptive("apply.success", { fingerprint, applied: applied.length, proposalId: envelopeId });
+  return sendJson(response, 200, {
+    success: true, applied: applied.length, proposalId: envelopeId, affectedSessionIds
+  });
+}
+
+async function handleAdaptiveDismiss(response, user, body) {
+  const fingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
+  if (!fingerprint) {
+    return sendJson(response, 400, { error: "A proposal fingerprint is required." });
+  }
+  const nowIso = new Date().toISOString();
+
+  // Don't create duplicate dismissals for the same fingerprint.
+  const existing = await findAdaptiveRow(user.id, fingerprint, "cancelled");
+  if (existing) return sendJson(response, 200, { success: true, dismissed: true, idempotent: true });
+
+  try {
+    await supabaseRequest("coach_action_proposals", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: {
+        user_id: user.id,
+        action_type: "adjust_remaining_week",
+        status: "cancelled",
+        affected_session_ids: [],
+        proposed_changes: { kind: "adaptive_dismissal", fingerprint },
+        reason: "Athlete kept current plan.",
+        cancelled_at: nowIso, updated_at: nowIso
+      }
+    });
+  } catch (e) {
+    logAdaptive("dismiss.failed", { fingerprint });
+    return sendJson(response, 500, { error: "That could not be saved. Please try again." });
+  }
+  logAdaptive("dismiss.success", { fingerprint });
+  return sendJson(response, 200, { success: true, dismissed: true });
+}
+
 async function handlePost(request, response, user) {
   const body =
     request.body && typeof request.body === "object"
@@ -691,6 +990,11 @@ async function handlePost(request, response, user) {
       : typeof request.body === "string" && request.body
       ? JSON.parse(request.body)
       : {};
+
+  // Adaptive Smart Plan v2 — preview / apply / dismiss.
+  if (body.intent === "adaptive_preview") return await handleAdaptivePreview(response, user, body);
+  if (body.intent === "adaptive_apply") return await handleAdaptiveApply(response, user, body);
+  if (body.intent === "adaptive_dismiss") return await handleAdaptiveDismiss(response, user, body);
 
   // Branch: apply a confirmed coach action proposal.
   if (body.intent === "apply_coach_action") {
