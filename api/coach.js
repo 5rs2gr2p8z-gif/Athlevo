@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { checkAiRateLimit, rateLimitResponse } from "../lib/server/rateLimit.js";
+import { userCanUse } from "../lib/server/subscriptions.js";
 
 /*
  * Authentication gate (same pattern as every other Athlevo endpoint).
@@ -205,6 +206,61 @@ export default async function handler(req, res) {
     return res.status(401).json({
       error: "Your Athlevo session is invalid or expired. Please sign in again."
     });
+  }
+
+  /*
+   * Subscription gate: the Coach AI endpoint costs real money (OpenAI budget),
+   * so free-tier athletes are limited to one sample interaction, then locked.
+   * The "coach_chat" feature requires at least the Essentials plan. Free users
+   * get one exchange to experience the coach, tracked via coach_conversations.
+   *
+   * Fails open: if the subscription check itself errors (Supabase down),
+   * the athlete is not locked out — the rate limiter below is a second line.
+   */
+  const SUPABASE_URL_COACH = process.env.SUPABASE_URL;
+  const SERVICE_KEY_COACH = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  async function loadSubscriptionForCoach(userId) {
+    if (!SUPABASE_URL_COACH || !SERVICE_KEY_COACH) return null;
+    const r = await fetch(
+      `${SUPABASE_URL_COACH}/rest/v1/subscriptions?user_id=eq.${userId}&select=*`,
+      { headers: { apikey: SERVICE_KEY_COACH, Authorization: `Bearer ${SERVICE_KEY_COACH}` } }
+    );
+    if (!r.ok) return null;
+    const rows = await r.json();
+    return rows && rows.length > 0 ? rows[0] : null;
+  }
+
+  try {
+    const canUseCoach = await userCanUse(
+      authenticatedUser.id, "coach_chat", loadSubscriptionForCoach
+    );
+    if (!canUseCoach) {
+      // Free user — check if they've already used their one sample interaction.
+      let usedSample = false;
+      try {
+        const countRes = await fetch(
+          `${SUPABASE_URL_COACH}/rest/v1/coach_conversations?user_id=eq.${authenticatedUser.id}&role=eq.user&select=id&limit=2`,
+          { headers: { apikey: SERVICE_KEY_COACH, Authorization: `Bearer ${SERVICE_KEY_COACH}` } }
+        );
+        if (countRes.ok) {
+          const rows = await countRes.json();
+          usedSample = rows && rows.length >= 1;
+        }
+      } catch (e) { /* fail open — allow the interaction */ }
+
+      if (usedSample) {
+        return res.status(402).json({
+          error: "Upgrade to Athlevo Performance for unlimited AI coaching.",
+          code: "SUBSCRIPTION_REQUIRED",
+          feature: "coach_chat"
+        });
+      }
+      // First interaction — let it through as a sample.
+    }
+  } catch (e) {
+    // Fail open — subscription check failure should never block coaching.
+    console.warn("Coach subscription check failed (allowing):", e?.message);
   }
 
   // Per-athlete rate limit (fails open if the limiter itself is unavailable).

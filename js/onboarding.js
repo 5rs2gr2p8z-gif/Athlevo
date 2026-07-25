@@ -934,17 +934,15 @@ async function obFinish() {
   if (window.AthlevoAnalytics) window.AthlevoAnalytics.track("profile_completed");
 
   /*
-   * The athlete profile is done; now bring in their training. Athlevo cannot
-   * personalize coaching without real workouts, so the guided connect flow is
-   * the next step rather than an optional card — it educates, connects,
-   * detects and imports automatically.
+   * The athlete profile is done. For free users the next step is the
+   * personalized preview + paywall — NOT wearable connection. Connecting
+   * training data happens AFTER the trial starts (from plan setup), so the
+   * athlete never hits a friction wall before seeing what Athlevo offers.
+   *
+   * Flow: onboarding → paywall/preview → trial checkout → plan setup → connect
+   *
+   * Paid/trial users skip the paywall and land directly in plan setup.
    */
-  if (window.AthlevoConnect && typeof window.AthlevoConnect.start === "function") {
-    try { await window.AthlevoConnect.start(); return; }
-    catch (e) { console.warn("Guided setup could not start:", e); }
-  }
-
-  // Fallbacks, unchanged, if the guided flow is unavailable for any reason.
   if (window.AthlevoPlan && typeof window.AthlevoPlan.maybeLaunchAfterOnboarding === "function") {
     try { await window.AthlevoPlan.maybeLaunchAfterOnboarding(); return; }
     catch (e) { console.warn("Plan setup launch failed:", e); }

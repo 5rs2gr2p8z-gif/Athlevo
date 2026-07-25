@@ -23,11 +23,16 @@
   /* ─────────────── configuration ──────────────────────────────────── */
 
   /*
-   * The Whop checkout link for Athlevo Performance. Update this to your
-   * actual Whop checkout URL. The link should point to the Performance
-   * plan with a 3-day free trial configured on the Whop side.
+   * Whop checkout link for Athlevo Performance. This is the direct plan
+   * purchase URL — it takes the athlete straight to payment for the
+   * specific plan (Performance, 3-day trial), no login wall or marketplace
+   * browse required. Email is appended as a query param for Whop matching.
+   *
+   * To update: replace with your actual Whop plan's checkout/purchase URL.
+   * Format: https://whop.com/checkout/<plan-id>/  or
+   *         https://whop.com/<company>/checkout/<plan-pass-id>/
    */
-  const WHOP_CHECKOUT_URL = "https://whop.com/athlevo-performance/checkout/";
+  const WHOP_CHECKOUT_URL = "https://whop.com/athlevo-performance/checkout/plan_XXXXXXX/";
 
   /*
    * How long to poll for entitlement after checkout return, and how
@@ -328,13 +333,25 @@
 
   function checkout() {
     let url = WHOP_CHECKOUT_URL;
+    const params = [];
+
     // Best-effort email prefill for Whop matching.
     const btn = document.getElementById("pw-checkout-btn");
     const email = btn && btn.dataset.email;
-    if (email) {
+    if (email) params.push("email=" + encodeURIComponent(email));
+
+    // Redirect back to the app after checkout so polling can start.
+    try {
+      const returnUrl = new URL(window.location.pathname, window.location.origin);
+      returnUrl.searchParams.set("checkout_return", "1");
+      params.push("redirect_url=" + encodeURIComponent(returnUrl.toString()));
+    } catch (e) {}
+
+    if (params.length) {
       const sep = url.includes("?") ? "&" : "?";
-      url += sep + "email=" + encodeURIComponent(email);
+      url += sep + params.join("&");
     }
+
     try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("paywall_checkout_tapped"); } catch (e) {}
     window.open(url, "_blank");
   }
@@ -423,6 +440,10 @@
     active = false;
     const tabbar = document.getElementById("tabbar");
     if (tabbar) tabbar.style.display = "flex";
+    // Remove any locked tab overlays now that the user has access.
+    if (window.AthlevoAccessGuard && typeof window.AthlevoAccessGuard.unlockAll === "function") {
+      window.AthlevoAccessGuard.unlockAll();
+    }
     // Hand back to the plan setup flow.
     if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function") {
       window.AthlevoPlan.start();
