@@ -607,6 +607,31 @@
       </svg>`;
   }
 
+  /*
+   * One plain-language interpretation of the score, so the number reads as
+   * supporting EVIDENCE rather than a headline (Feel Coached). Derived purely
+   * from fields the model already computed (change, strengths, limiter) — no
+   * new maths, no new data.
+   */
+  function interpretationLine(result) {
+    const o = result.overall;
+    if (!o || o.status !== "valid") {
+      return "We're still building your baseline from recent training.";
+    }
+    const strong = result.strengths && result.strengths.length ? result.strengths[0] : null;
+    if (o.change > 0) {
+      return strong
+        ? `Your ${strong.toLowerCase()} is trending up this week.`
+        : "Your development is trending up this week.";
+    }
+    if (o.change < 0 && result.limiter) {
+      return `${result.limiter} is holding your score back right now.`;
+    }
+    return strong
+      ? `Your ${strong.toLowerCase()} is your strongest quality right now.`
+      : "Your development is holding steady.";
+  }
+
   function renderScoreCard(result) {
     const mount = document.getElementById("athlevoScoreCard");
     if (!mount) return;
@@ -701,6 +726,8 @@
           </div>
           <span class="asc-delta ${deltaClass}">${arrow}${esc(delta.text)}</span>
         </div>
+
+        <p class="asc-interp">${esc(interpretationLine(result))}</p>
 
         <div class="asc-hero">
           <div class="asc-scorewrap">

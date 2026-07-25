@@ -378,6 +378,62 @@
    */
   const CONF_CLASS = { high: "strong", moderate: "dev", developing: "dev", insufficient: "lim" };
 
+  /*
+   * FEEL COACHED — the pace card should lead with the pace(s) relevant to
+   * TODAY'S workout, with the full zone table one tap away. This is a
+   * presentation concern only: it reads the already-stored plan session for
+   * today (a bounded, read-only query — no plan generation, no pace maths)
+   * and maps its type to the pace-service zone keys. Quality days also keep
+   * Easy visible, since warmup/cooldown/recovery run at easy pace.
+   */
+  function todayKeyLocal() {
+    try {
+      if (window.AthlevoCalendar) {
+        const c = window.AthlevoCalendar.localCivil(
+          new Date(),
+          window.AthlevoCalendar.resolveTimezone(null)
+        );
+        return `${c.y}-${String(c.m).padStart(2, "0")}-${String(c.d).padStart(2, "0")}`;
+      }
+    } catch (e) {}
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  async function getTodaySessionType() {
+    try {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (!user) return null;
+      const day = todayKeyLocal();
+      const { data } = await supabaseClient
+        .from("training_sessions")
+        .select("session_type,title,session_date")
+        .eq("user_id", user.id)
+        .eq("session_date", day)
+        .limit(1);
+      const s = Array.isArray(data) && data.length ? data[0] : null;
+      return s ? String(s.session_type || s.title || "") : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Map a plan session type to the pace-service zone key(s) that matter today.
+  // Returns null when the type is unknown or a rest day, so the card safely
+  // falls back to showing every zone.
+  function zonesForToday(type) {
+    const t = String(type || "").toLowerCase();
+    if (!t || /rest/.test(t)) return null;
+    if (/recovery|shakeout/.test(t))       return ["recovery"];
+    if (/long/.test(t))                    return ["long", "easy"];
+    if (/marathon|goal.?pace/.test(t))     return ["marathon", "easy"];
+    if (/threshold|tempo|control|fartlek|progress/.test(t)) return ["threshold", "easy"];
+    if (/vo2|interval/.test(t))            return ["vo2", "easy"];
+    if (/rep|speed|stride|hill/.test(t))   return ["repetition", "easy"];
+    if (/race|time.?trial/.test(t))        return ["threshold", "easy"];
+    if (/easy|foundation|base|steady/.test(t)) return ["easy"];
+    return null;
+  }
+
   async function renderTrainingPacesCard() {
     const mount = document.getElementById("trainingPacesCard");
     if (!mount || !window.AthlevoPaceService) return;
@@ -416,7 +472,7 @@
         const out = first.length > 88 ? first.slice(0, 85).replace(/[,;:\s]+$/, "") + "…" : first;
         return out.replace(/[.!?]*$/, ".");
       };
-      const rows = paces.zones.map(z => {
+      const zoneRow = z => {
         const pace = z.paceRange ? z.paceRange.text : "By effort";
         const note = oneSentence(z.notes && z.notes.length ? z.notes[0] : z.explanation);
         return `
@@ -427,7 +483,34 @@
             </div>
             ${note ? `<p class="tpc-zone-note">${escapeHtml(note)}</p>` : ""}
           </div>`;
-      }).join("");
+      };
+
+      // Default to today's relevant zone(s); the full table opens on demand.
+      const todayType = await getTodaySessionType();
+      const primaryKeys = zonesForToday(todayType);
+      const primary = primaryKeys
+        ? paces.zones.filter(z => primaryKeys.includes(z.key))
+        : [];
+
+      let zonesHtml;
+      if (primary.length) {
+        const rest = paces.zones.filter(z => !primaryKeys.includes(z.key));
+        const restHtml = rest.map(zoneRow).join("");
+        zonesHtml = `
+          <div class="tpc-zones">${primary.map(zoneRow).join("")}</div>
+          ${rest.length ? `
+            <details class="tpc-more">
+              <summary>Show all training zones</summary>
+              <div class="tpc-zones">${restHtml}</div>
+            </details>` : ""}`;
+      } else {
+        // Unknown / rest day → show the complete table (safe fallback).
+        zonesHtml = `<div class="tpc-zones">${paces.zones.map(zoneRow).join("")}</div>`;
+      }
+
+      const focusLine = primary.length
+        ? `<p class="tpc-focus">Today's focus: ${escapeHtml(primary.map(z => z.label).join(" + "))}</p>`
+        : "";
 
       const confClass = CONF_CLASS[paces.confidence.code] || "lim";
       const aeroLine = paces.aerobicCalibrated
@@ -443,7 +526,8 @@
             </div>
             <span class="tpc-conf ${confClass}">${escapeHtml(paces.confidence.label)}</span>
           </div>
-          <div class="tpc-zones">${rows}</div>
+          ${focusLine}
+          ${zonesHtml}
         </div>`;
     } catch (error) {
       console.warn("Training paces card failed:", error && error.message);

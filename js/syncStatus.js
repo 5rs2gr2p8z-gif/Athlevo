@@ -209,10 +209,24 @@
 
   /* ── DOM: render + data loading (read-only) ─────────────────────────── */
 
+  // FEEL COACHED — sync is healthy in these states, so the Today "Latest
+  // activity" card should NOT surface a manual Sync control. Infrastructure is
+  // only exposed when something actually needs the athlete's attention.
+  function syncHealthy(key) {
+    return key === "connected" || key === "syncing" ||
+           key === "waiting"   || key === "loading";
+  }
+  function reflectManualSync(key) {
+    var btn = $("todaySyncBtn");
+    if (!btn) return;
+    btn.style.display = syncHealthy(key) ? "none" : "";
+  }
+
   function paintCard(model, now) {
     state.lastModel = model;
     var el = $("syncStatusCard");
     if (el) el.innerHTML = renderCardHTML(model, now);
+    reflectManualSync(model && model.key);
   }
 
   async function loadInputs() {

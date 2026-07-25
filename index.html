@@ -546,6 +546,13 @@ body{
 .dir-down{color:#f2a6a6}.dir-up{color:#9fd8b4}.dir-flat{color:rgba(255,255,255,.45)}
 .ledger-verdict{margin-top:14px;padding:13px 15px;background:rgba(192,39,45,.22);border:1px solid rgba(192,39,45,.45);border-radius:var(--r-md);font-size:var(--fs-body-sm);line-height:var(--lh-body);color:#fff}
 .ledger-verdict b{color:#ffb3b6}
+/* FEEL COACHED — the Daily Coach Briefing is the hero of Today: more air,
+   stronger elevation and an accent spine so it reads as today's conversation
+   with the coach, not one card among many. Presentation only. */
+.decision--hero{padding:26px 24px;box-shadow:var(--elev-3);position:relative}
+.decision--hero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--red);border-radius:var(--r-lg) 0 0 var(--r-lg)}
+.decision--hero .eyebrow{color:#f2a6a6;opacity:.95}
+.decision--hero h3{font-size:var(--fs-h1)}
 
 /* ---------- recent activities list polish ---------- */
 /* Stacked cards were touching (only horizontal margin). Give the list
@@ -1841,12 +1848,22 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .tpc-zone-label{font-size:var(--fs-body);font-weight:700;color:var(--text);letter-spacing:-.01em}
 .tpc-zone-pace{font-size:var(--fs-body);font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
 .tpc-zone-note{font-size:var(--fs-caption);color:var(--ink2);line-height:var(--lh-body);margin:4px 0 0}
+/* FEEL COACHED — lead with today's zone; the full table opens on demand. */
+.tpc-focus{font-size:var(--fs-caption);font-weight:700;color:var(--red);letter-spacing:.01em;margin:0 0 6px}
+.tpc-more{margin-top:6px;border-top:1px solid var(--line)}
+.tpc-more summary{list-style:none;cursor:pointer;padding:12px 0 2px;font-size:var(--fs-body-sm);font-weight:650;color:var(--ink2);display:flex;align-items:center;gap:6px}
+.tpc-more summary::-webkit-details-marker{display:none}
+.tpc-more summary::after{content:"⌄";font-size:var(--fs-body);line-height:1;color:var(--ink3);transition:transform var(--dur-fast)}
+.tpc-more[open] summary::after{transform:rotate(180deg)}
 
 /* ---------- Athlevo Score v1 (Today card) ---------- */
 .asc-sub-eyebrow{display:block;font-size:var(--fs-micro);color:var(--ink3);margin-top:2px}
 .asc-badge{font-size:var(--fs-body-sm);font-weight:700;color:var(--ink2);background:var(--card);padding:6px 14px;border-radius:var(--r-pill);white-space:nowrap}
 .asc-change{font-size:var(--fs-caption);font-weight:700;color:var(--good);margin:8px 0 0}
 .asc-explain{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:10px 0 14px}
+/* FEEL COACHED — plain interpretation above the number, so the score reads as
+   supporting evidence rather than the headline. */
+.asc-interp{font-family:var(--serif);font-size:var(--fs-h3);line-height:var(--lh-heading);color:var(--text);margin:12px 0 4px;letter-spacing:-.01em}
 .asc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .asc-updated{font-size:var(--fs-micro);color:var(--ink3)}
 .asc-details-btn{font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;color:var(--red);background:none;border:none;cursor:pointer;padding:4px 2px;margin-left:auto}
@@ -2018,8 +2035,12 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .cib-conf.strong{background:var(--good-soft);color:var(--good)}
 .cib-conf.dev{background:var(--warn-soft);color:var(--warn)}
 .cib-conf.lim{background:var(--card);color:var(--ink3)}
-.cib-obs{font-size:var(--fs-body);font-weight:650;line-height:var(--lh-body);color:var(--text);margin:0 0 8px}
+.cib-obs{font-size:var(--fs-body);font-weight:650;line-height:var(--lh-body);color:var(--text);margin:0 0 6px}
 .cib-line{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:4px 0}
+/* FEEL COACHED — reasoning is quiet support; the action is the takeaway. */
+.cib-why{font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink3);margin:0 0 10px}
+.cib-action{font-size:var(--fs-body-sm);font-weight:600;line-height:var(--lh-body);color:var(--text);margin:0;background:var(--red-soft);border-radius:var(--r-sm);padding:10px 12px}
+.cib-action-k{display:block;font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin-bottom:3px}
 .cib-k{font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-right:6px}
 .cib-adapt{background:var(--card2);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin-bottom:4px}
 .cib-flow{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin:6px 0}
@@ -2811,13 +2832,72 @@ body.landing-active #tabbar{display:none!important}
     <button class="ti-btn" onclick="athlevoInstall()">Install</button>
   </div>
 
-  <!-- ===== ATHLEVO SCORE (overall athletic capability) ===== -->
-  <div id="athlevoScoreCard"></div>
+  <!-- ═══════════════════════════════════════════════════════════════════
+       FEEL COACHED narrative order (presentation only):
+       greeting → hero coaching brief → today's workout → why → recent
+       workout → supporting evidence (Score/radar/readiness) → development.
+       Renderers target these IDs, so container order is a safe UI change.
+       ═══════════════════════════════════════════════════════════════════ -->
 
-  <!-- ===== AUTOMATIC RACE DETECTION PROMPT ===== -->
+  <!-- ===== AUTOMATIC RACE DETECTION PROMPT (actionable, stays near top) ===== -->
   <div id="raceDetectCard"></div>
 
-  <div class="readiness" id="readinessEmptyState">
+  <!-- ═══════════ HERO — TODAY'S COACHING RECOMMENDATION ═══════════ -->
+  <div class="decision decision--hero" id="dailyBriefCard">
+  <span class="eyebrow">Daily coach briefing</span>
+
+  <h3 id="dailyBriefHeadline">
+    Preparing your coaching brief...
+  </h3>
+
+  <p id="dailyBriefTrainingSummary">
+    Athlevo is reviewing your athlete profile and imported training.
+  </p>
+
+  <div class="daily-brief-section">
+    <span class="f-name">Coach observation</span>
+    <p id="dailyBriefObservation">
+      No observation available yet.
+    </p>
+  </div>
+
+  <div class="daily-brief-section">
+    <span class="f-name">Recommendation</span>
+    <p id="dailyBriefRecommendation">
+      No recommendation available yet.
+    </p>
+  </div>
+
+  <details class="daily-brief-details">
+    <summary>Why this recommendation</summary>
+
+    <p id="dailyBriefReasoning">
+      Athlevo will explain the evidence behind the decision here.
+    </p>
+
+    <div id="dailyBriefLimitations"></div>
+  </details>
+
+  <p
+    id="dailyBriefStatus"
+    class="daily-brief-status"
+    aria-live="polite"
+  ></p>
+</div>
+
+<!-- ═══════════ TODAY'S WORKOUT (paces relevant to today) ═══════════ -->
+<div id="trainingPacesCard"></div>
+
+<!-- ═══════════ WHY THIS RECOMMENDATION (Coach Brain reasoning) ═══════════ -->
+<div id="coachInsightsCard"></div>
+
+<!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching on recent work) ===== -->
+<div id="latestWorkoutAnalysis"></div>
+
+<!-- ═══════════ SUPPORTING EVIDENCE — Athlevo Score, radar, readiness ═══════════ -->
+<div id="athlevoScoreCard"></div>
+
+<div class="readiness" id="readinessEmptyState">
   <div class="ring">
     <svg width="118" height="118" viewBox="0 0 118 118">
       <circle
@@ -2860,60 +2940,8 @@ body.landing-active #tabbar{display:none!important}
   </div>
 </div>
 
-<!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching) ===== -->
-<div id="latestWorkoutAnalysis"></div>
-
-<!-- ===== YOUR CURRENT TRAINING PACES (moved from Athlevo Score) ===== -->
-<div id="trainingPacesCard"></div>
-
-<!-- ===== COACH INSIGHTS (Coach Brain V1 — structured reasoning) ===== -->
-<div id="coachInsightsCard"></div>
-
 <!-- ===== YOUR DEVELOPMENT (Athlete Identity & Progression) ===== -->
 <div id="developmentCard"></div>
-
-<!-- ===== DAILY COACH BRIEFING ===== -->
-<div class="decision" id="dailyBriefCard">
-  <span class="eyebrow">Daily coach briefing</span>
-
-  <h3 id="dailyBriefHeadline">
-    Preparing your coaching brief...
-  </h3>
-
-  <p id="dailyBriefTrainingSummary">
-    Athlevo is reviewing your athlete profile and imported training.
-  </p>
-
-  <div class="daily-brief-section">
-    <span class="f-name">Coach observation</span>
-    <p id="dailyBriefObservation">
-      No observation available yet.
-    </p>
-  </div>
-
-  <div class="daily-brief-section">
-    <span class="f-name">Recommendation</span>
-    <p id="dailyBriefRecommendation">
-      No recommendation available yet.
-    </p>
-  </div>
-
-  <details class="daily-brief-details">
-    <summary>Why this recommendation</summary>
-
-    <p id="dailyBriefReasoning">
-      Athlevo will explain the evidence behind the decision here.
-    </p>
-
-    <div id="dailyBriefLimitations"></div>
-  </details>
-
-  <p
-    id="dailyBriefStatus"
-    class="daily-brief-status"
-    aria-live="polite"
-  ></p>
-</div>
 
 <div class="spacer-md"></div>
 
@@ -2921,9 +2949,14 @@ body.landing-active #tabbar{display:none!important}
  <div class="decision" id="decisionCard">
   <div class="today-latest-head">
     <span class="eyebrow">Latest activity</span>
+    <!-- FEEL COACHED — infrastructure only when it needs attention: this manual
+         Sync control stays hidden while sync is healthy; js/syncStatus.js
+         reveals it when the connection is lost or a sync failed. -->
     <button
+      id="todaySyncBtn"
       class="sync-now"
       type="button"
+      style="display:none"
       onclick="syncStravaNow(this)"
     >Sync</button>
   </div>
@@ -4614,58 +4647,58 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/authSupport.js?v=66"></script>
-<script src="js/brain.js?v=66"></script>
-<script src="js/syncStatus.js?v=66"></script>
-<script src="js/performance.js?v=66"></script>
+<script src="js/authSupport.js?v=67"></script>
+<script src="js/brain.js?v=67"></script>
+<script src="js/syncStatus.js?v=67"></script>
+<script src="js/performance.js?v=67"></script>
 <!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
      confidence) + structured workout guidance. Reused by Today & Train. -->
-<script src="js/aerobicCalibration.js?v=66"></script>
-<script src="js/paceService.js?v=66"></script>
-<script src="js/workoutGuidance.js?v=66"></script>
+<script src="js/aerobicCalibration.js?v=67"></script>
+<script src="js/paceService.js?v=67"></script>
+<script src="js/workoutGuidance.js?v=67"></script>
 <!-- Phase B Athlete Engine: defines window.AthleteEngine (calculations
      only). Not wired into any screen yet — UI integration is next sprint. -->
-<script src="js/athleteEngine.js?v=66"></script>
+<script src="js/athleteEngine.js?v=67"></script>
 <!-- Phase C Plan Engine: defines window.AthlevoPlanEngine (adaptive plan
      logic). Depends on AthleteEngine. Not wired into any screen yet. -->
-<script src="js/planEngine.js?v=66"></script>
-<script src="js/prescription.js?v=66"></script>
-<script src="js/athleteModel.js?v=66"></script>
-<script src="js/calendarWeeks.js?v=66"></script>
-<script src="js/workoutClassifier.js?v=66"></script>
-<script src="js/trends.js?v=66"></script>
-<script src="js/socialAuth.js?v=66"></script>
-<script src="js/analyticsRegistry.js?v=66"></script>
-<script src="js/betaDashboard.js?v=66"></script>
-<script src="js/activation.js?v=66"></script>
-<script src="js/onboardingConnect.js?v=66"></script>
-<script src="js/productionVerify.js?v=66"></script>
-<script src="js/athlevoScore.js?v=66"></script>
+<script src="js/planEngine.js?v=67"></script>
+<script src="js/prescription.js?v=67"></script>
+<script src="js/athleteModel.js?v=67"></script>
+<script src="js/calendarWeeks.js?v=67"></script>
+<script src="js/workoutClassifier.js?v=67"></script>
+<script src="js/trends.js?v=67"></script>
+<script src="js/socialAuth.js?v=67"></script>
+<script src="js/analyticsRegistry.js?v=67"></script>
+<script src="js/betaDashboard.js?v=67"></script>
+<script src="js/activation.js?v=67"></script>
+<script src="js/onboardingConnect.js?v=67"></script>
+<script src="js/productionVerify.js?v=67"></script>
+<script src="js/athlevoScore.js?v=67"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
-<script src="js/coachBrain.js?v=66"></script>
-<script src="js/coachBrainData.js?v=66"></script>
+<script src="js/coachBrain.js?v=67"></script>
+<script src="js/coachBrainData.js?v=67"></script>
 <!-- Athlete Identity & Progression: pure development engine + data/render.
      Reuses Athlevo Score components + history; data-driven, no hardcoding. -->
-<script src="js/developmentEngine.js?v=66"></script>
-<script src="js/developmentData.js?v=66"></script>
-<script src="js/raceDetection.js?v=66"></script>
-<script src="js/memory.js?v=66"></script>
-<script src="js/dailyBrief.js?v=66"></script>
-<script src="js/renderCoachResponse.js?v=66"></script>
-<script src="js/coach.js?v=66"></script>
-<script src="js/features.js?v=66"></script>
-<script src="js/train.js?v=66"></script>
-<script src="js/coachTimeline.js?v=66"></script>
-<script src="js/workoutStructure.js?v=66"></script>
-<script src="js/trainCalendar.js?v=66"></script>
-<script src="js/adaptivePlan.js?v=66"></script>
-<script src="js/planSetup.js?v=66"></script>
-<script src="js/feedback.js?v=66"></script>
-<script src="js/readiness.js?v=66"></script>
-<script src="js/workoutAnalysis.js?v=66"></script>
-<script src="js/legal.js?v=66"></script>
-<script src="js/onboarding.js?v=66"></script>
+<script src="js/developmentEngine.js?v=67"></script>
+<script src="js/developmentData.js?v=67"></script>
+<script src="js/raceDetection.js?v=67"></script>
+<script src="js/memory.js?v=67"></script>
+<script src="js/dailyBrief.js?v=67"></script>
+<script src="js/renderCoachResponse.js?v=67"></script>
+<script src="js/coach.js?v=67"></script>
+<script src="js/features.js?v=67"></script>
+<script src="js/train.js?v=67"></script>
+<script src="js/coachTimeline.js?v=67"></script>
+<script src="js/workoutStructure.js?v=67"></script>
+<script src="js/trainCalendar.js?v=67"></script>
+<script src="js/adaptivePlan.js?v=67"></script>
+<script src="js/planSetup.js?v=67"></script>
+<script src="js/feedback.js?v=67"></script>
+<script src="js/readiness.js?v=67"></script>
+<script src="js/workoutAnalysis.js?v=67"></script>
+<script src="js/legal.js?v=67"></script>
+<script src="js/onboarding.js?v=67"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

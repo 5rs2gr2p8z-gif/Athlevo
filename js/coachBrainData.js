@@ -168,6 +168,10 @@
   const CONF_LABEL = { high: "High confidence", medium: "Medium confidence", low: "Low confidence" };
   const CONF_CLASS = { high: "strong", medium: "dev", low: "lim" };
 
+  // FEEL COACHED — presentation only. Lead with the observation, keep the
+  // reasoning as a light supporting line, and give the action its own
+  // emphasised takeaway so the athlete always leaves with one clear next step.
+  // The AI-generated text (observation / reasoning / action) is unchanged.
   function insightBlock(i) {
     return `
       <div class="cib">
@@ -176,8 +180,8 @@
           <span class="cib-conf ${CONF_CLASS[i.confidence] || "lim"}">${esc(CONF_LABEL[i.confidence] || "")}</span>
         </div>
         <p class="cib-obs">${esc(i.observation)}</p>
-        <p class="cib-line"><span class="cib-k">Reasoning</span> ${esc(i.reasoning)}</p>
-        <p class="cib-line"><span class="cib-k">Action</span> ${esc(i.action)}</p>
+        <p class="cib-why">${esc(i.reasoning)}</p>
+        <p class="cib-action"><span class="cib-action-k">Do this</span>${esc(i.action)}</p>
       </div>`;
   }
 
@@ -191,7 +195,7 @@
           <span class="cib-arrow">↓</span>
           <span class="cib-next">${esc(a.next)}</span>
         </div>
-        <p class="cib-line"><span class="cib-k">Why</span> ${esc(a.why)}</p>
+        <p class="cib-why">${esc(a.why)}</p>
       </div>`;
   }
 
