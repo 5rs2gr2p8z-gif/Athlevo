@@ -62,7 +62,9 @@ function load({ origin = "https://athlevo.org", search = "", hash = "",
 
 section("Root cause: buttons must actually authenticate");
 {
-  const btnBlock = html.match(/<div class="w-btns">[\s\S]*?<\/div>/)[0];
+  // Capture the whole welcome button block (it now contains an "or" divider
+  // and a reassurance line), up to the end of the section.
+  const btnBlock = html.match(/<div class="w-btns">[\s\S]*?<\/section>/)[0];
 
   t("Google button no longer calls startOnboarding() directly",
     !/onclick="startOnboarding\(\)"[^>]*>[^<]*Google/i.test(btnBlock) &&

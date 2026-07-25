@@ -201,9 +201,9 @@ section("Part 2 — after a plan exists, the setup card is gone for good");
   const cta = ps.slice(ps.indexOf("function renderTodayCta"), ps.indexOf("function connectTrainingData"));
   t("the Today CTA hides itself when a plan exists",
     /if \(has !== false\) \{ el\.style\.display = "none"; el\.innerHTML = ""; return; \}/.test(cta));
-  t("...so 'Connect Training Data' cannot reappear once a plan exists",
+  t("...so the connect CTA cannot reappear once a plan exists",
     /if \(has !== false\)[\s\S]{0,80}return;/.test(cta) &&
-    cta.indexOf("Connect Training Data") > cta.indexOf("has !== false"));
+    cta.indexOf("connect training data") > cta.indexOf("has !== false"));
 }
 
 console.log(`\n${p} passed, ${f} failed`);

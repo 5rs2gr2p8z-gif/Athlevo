@@ -444,16 +444,19 @@
      *   B  data connected, no plan  → just build
      *   C  data + plan  → handled above (card hidden)
      */
+    // Answers "is it working / what now?" on the first-run Today screen:
+    // when connected we confirm the import is running and name the ONE next
+    // step; when not, we lay out the two steps in order.
     el.innerHTML = connected
       ? `<div class="tpc-cta">
-           <div class="tpc-cta-copy"><b>Your training is connected</b><small>Your activity history is syncing with Athlevo. Next, build your personalized training plan.</small></div>
-           <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Build Training Plan</button>
+           <div class="tpc-cta-copy"><b>✓ Training data connected</b><small>We're importing your recent workouts in the background — this can take a minute. You don't need to wait. Next: build your personalized plan.</small></div>
+           <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Build my training plan</button>
          </div>`
       : `<div class="tpc-cta">
-           <div class="tpc-cta-copy"><b>Set up your training</b><small>Step 1 — connect your training data. Step 2 — build your training plan.</small></div>
+           <div class="tpc-cta-copy"><b>Two steps to your plan</b><small>Step 1 — connect your training data so Athlevo learns your paces. Step 2 — build your plan. Takes about 2 minutes.</small></div>
            <div class="tpc-cta-steps">
-             <button class="tpc-cta-btn ghost" type="button" onclick="AthlevoPlan.connectTrainingData()">Connect Training Data</button>
-             <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Build Training Plan</button>
+             <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.connectTrainingData()">Start — connect training data</button>
+             <button class="tpc-cta-btn ghost" type="button" onclick="AthlevoPlan.start()">Skip, build from profile</button>
            </div>
          </div>`;
   }

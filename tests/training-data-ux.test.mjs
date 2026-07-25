@@ -44,11 +44,11 @@ section("1. The Today setup card talks about training, not Strava");
   const fn = planSetup.slice(planSetup.indexOf("function renderTodayCta"),
                              planSetup.indexOf("function connectTrainingData"));
 
-  t("title is 'Set up your training'", /Set up your training/.test(fn));
+  t("title frames the two steps", /Two steps to your plan/.test(fn));
   t("copy names the two steps generically",
-    /Step 1 — connect your training data\. Step 2 — build your training plan\./.test(fn));
-  t("the connection CTA is 'Connect Training Data'", /Connect Training Data/.test(fn));
-  t("the plan CTA is 'Build Training Plan'", /Build Training Plan/.test(fn));
+    /Step 1 — connect your training data so Athlevo learns your paces\. Step 2 — build your plan\./.test(fn));
+  t("the connection CTA leads with 'connect training data'", /Start — connect training data/.test(fn));
+  t("the plan CTA is 'Build my training plan'", /Build my training plan/.test(fn));
 
   t("NOTHING in the card says 'Connect Strava'", !/Connect Strava/.test(fn));
   t("...nor 'Build My Coach' — the athlete builds a plan, not a coach",
@@ -63,8 +63,8 @@ section("1. The Today setup card talks about training, not Strava");
   t("no new provider OAuth flow was invented",
     !/garmin.*oauth|coros.*oauth/i.test(planSetup));
 
-  t("Build Training Plan still invokes the existing plan action",
-    /onclick="AthlevoPlan\.start\(\)">Build Training Plan/.test(fn));
+  t("the plan CTA still invokes the existing plan action",
+    /onclick="AthlevoPlan\.start\(\)">Build my training plan/.test(fn));
 }
 
 section("1b. Step 1 is satisfied by ANY provider connection");
@@ -93,20 +93,20 @@ section("1b. Step 1 is satisfied by ANY provider connection");
   };
 
   const off = run({ strava_connected: false, intervals_connected: false }, undefined);
-  t("a disconnected athlete sees ONE connection CTA", /Connect Training Data/.test(off));
+  t("a disconnected athlete sees a connection CTA", /connect training data/i.test(off));
   t("...and is NOT asked for Strava", !/Strava/.test(off), off.slice(0, 90));
 
   const viaProvider = run({ strava_connected: false, intervals_connected: true }, undefined);
   t("a provider-connected athlete is treated as connected",
-    /Build Training Plan/.test(viaProvider) && !/Connect Training Data/.test(viaProvider));
+    /Build my training plan/.test(viaProvider) && !/Start — connect training data/.test(viaProvider));
   t("...and never sees 'Connect Strava' again", !/Connect Strava/.test(viaProvider));
 
   const viaServer = run({ strava_connected: false, intervals_connected: false }, true);
-  t("the server's verdict alone is enough", /Build Training Plan/.test(viaServer));
+  t("the server's verdict alone is enough", /Build my training plan/.test(viaServer));
 
   const viaStrava = run({ strava_connected: true, intervals_connected: false }, undefined);
   t("an existing Strava athlete is still connected — no regression",
-    /Build Training Plan/.test(viaStrava));
+    /Build my training plan/.test(viaStrava));
 }
 
 /* ══════════ 2. The You / connections section ══════════════════════ */
@@ -338,10 +338,11 @@ section("3. Disconnect is authenticated, scoped, and releases ownership");
   {
     const out = runCta({ strava_connected: false, intervals_connected: false }, false, false);
     const v = vis(out);
-    t("title 'Set up your training'", /Set up your training/.test(v));
-    t("two-step generic copy", /Step 1 — connect your training data\. Step 2 — build your training plan\./.test(v));
-    t("shows Connect Training Data", /Connect Training Data/.test(v));
-    t("shows Build Training Plan", /Build Training Plan/.test(v));
+    t("title frames the two steps", /Two steps to your plan/.test(v));
+    t("two-step copy explains why connecting helps",
+      /Step 1 — connect your training data so Athlevo learns your paces\. Step 2 — build your plan\./.test(v));
+    t("shows a connect-training-data CTA", /connect training data/i.test(v));
+    t("shows a build-plan CTA", /Build my training plan|build from profile/i.test(v));
     t("connect uses the existing provider flow",
       /AthlevoPlan\.connectTrainingData\(\)/.test(out));
     t("no Strava CTA", !/Strava/.test(v));
@@ -351,11 +352,11 @@ section("3. Disconnect is authenticated, scoped, and releases ownership");
   {
     const out = runCta({ intervals_connected: true }, false, true);
     const v = vis(out);
-    t("title 'Your training is connected'", /Your training is connected/.test(v));
-    t("copy points to building the plan next",
-      /Your activity history is syncing with Athlevo\. Next, build your personalized training plan\./.test(v));
-    t("shows Build Training Plan", /Build Training Plan/.test(v));
-    t("does NOT show a redundant Connect button", !/Connect Training Data/.test(v));
+    t("confirms the data is connected", /Training data connected/.test(v));
+    t("reassures the import is happening + names the next step",
+      /importing your recent workouts/.test(v) && /build your personalized plan/.test(v));
+    t("shows the build-plan CTA", /Build my training plan/.test(v));
+    t("does NOT show a redundant Connect button", !/Start — connect training data/.test(v));
     t("no Strava CTA", !/Strava/.test(v));
   }
 
