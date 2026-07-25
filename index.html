@@ -2857,21 +2857,39 @@ body.landing-active #tabbar{display:none!important}
       border-radius:var(--r-lg);padding:18px 20px 16px;box-shadow:var(--elev-1);position:relative}
     .rec-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
       background:var(--red);border-radius:var(--r-lg) 0 0 var(--r-lg)}
-    .rec-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);margin-bottom:6px}
+    .rec-head{display:flex;align-items:center;gap:var(--s-3);margin-bottom:4px}
     .rec-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.12em;
       text-transform:uppercase;color:var(--red)}
+    /* Body pairs the copy on the left with a compact readiness ring on the
+       right. The copy uses CSS line-clamp so a long headline or caption
+       coming from the model is visually capped to 2 lines — the full text
+       still lives in the DOM and inside "Read full briefing". */
+    .rec-body{display:flex;align-items:center;gap:var(--s-4);margin-top:6px}
+    .rec-body-text{flex:1;min-width:0}
     .rec-headline{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;
-      line-height:var(--lh-heading);letter-spacing:-.01em;color:var(--text);margin:4px 0 6px}
-    .rec-sentence{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0}
-    .rec-status{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;
-      border-radius:var(--r-pill);background:var(--paper);border:1px solid var(--line);
-      font-size:var(--fs-caption);font-weight:650;color:var(--text);white-space:nowrap;flex-shrink:0}
-    .rec-status[hidden]{display:none}
-    .rec-dot{width:8px;height:8px;border-radius:50%;background:var(--ink3);flex-shrink:0}
-    .rec-status[data-status="optimal"] .rec-dot,
-    .rec-status[data-status="good"] .rec-dot{background:var(--good)}
-    .rec-status[data-status="moderate"] .rec-dot{background:var(--warn)}
-    .rec-status[data-status="low"] .rec-dot{background:var(--red)}
+      line-height:var(--lh-heading);letter-spacing:-.01em;color:var(--text);margin:0 0 4px;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .rec-sentence{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    /* Compact readiness ring — mirrors the score and status that
+       js/readiness.js already renders into #readinessEmptyState. When no
+       reading exists it stays in a neutral "Check readiness" state. */
+    .rec-ring{width:88px;height:88px;position:relative;flex-shrink:0}
+    .rec-ring svg{transform:rotate(-90deg);display:block;width:100%;height:100%}
+    .rec-ring .rc-track{stroke:var(--line);fill:none}
+    .rec-ring .rc-fill{stroke:var(--ink3);fill:none;stroke-linecap:round;
+      transition:stroke-dashoffset var(--dur-slow) var(--ease-standard),stroke var(--dur-base) var(--ease-standard)}
+    .rec-ring[data-status="optimal"] .rc-fill,
+    .rec-ring[data-status="good"] .rc-fill{stroke:var(--good)}
+    .rec-ring[data-status="moderate"] .rc-fill{stroke:var(--warn)}
+    .rec-ring[data-status="low"] .rc-fill{stroke:var(--red)}
+    .rec-ring .rc-center{position:absolute;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;text-align:center;padding:0 6px}
+    .rec-ring .rc-score{font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;
+      letter-spacing:-.01em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
+    .rec-ring .rc-label{font-size:9px;font-weight:650;color:var(--ink3);
+      line-height:1.15;margin-top:3px;letter-spacing:.02em;text-transform:uppercase;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .rec-actions{display:flex;align-items:center;gap:var(--s-2);margin-top:14px;
       flex-wrap:wrap;justify-content:space-between}
     .rec-cta{font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;
@@ -2899,28 +2917,37 @@ body.landing-active #tabbar{display:none!important}
     .rec-full .daily-brief-details summary{cursor:pointer;color:var(--ink2);font-weight:600;padding:6px 0}
     .rec-full .daily-brief-details p{margin-top:8px;color:var(--ink2);line-height:var(--lh-body)}
     .rec-full .daily-brief-status{margin-top:10px;font-size:var(--fs-caption);color:var(--ink3)}
+    @media (max-width:360px){
+      .rec-ring{width:76px;height:76px}
+      .rec-ring .rc-score{font-size:var(--fs-body)}
+    }
 
-    /* ═══════════ AT A GLANCE — compact stat strip ═══════════
-       One row, up to four metrics, real values only. Replaces the old
-       sparkline statgrid so no fabricated bars remain. IDs match the
-       existing renderers in js/brain.js, so no data path changes. */
-    .glance{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:14px 22px 0;
-      background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);
-      padding:12px 6px}
-    .glance-cell{display:flex;flex-direction:column;align-items:center;gap:3px;
-      padding:4px 6px;text-align:center;position:relative;min-width:0}
-    .glance-cell + .glance-cell::before{content:"";position:absolute;left:0;top:10px;
-      bottom:10px;width:1px;background:var(--line)}
-    .glance-value{font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;
-      letter-spacing:-.01em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.15;
+    /* ═══════════ AT A GLANCE — 4 semantic tiles ═══════════
+       Icon + value + label per tile. Real values only, no fake sparklines.
+       Semantic accent per category:
+         blue = distance, orange = load, green = HR, purple = readiness.
+       IDs still match the renderers in js/brain.js; only the readiness
+       tile is populated by a small DOM projection (see initTodayCompactWatchers). */
+    .glance{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s-2);margin:14px 22px 0}
+    .glance-tile{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);
+      padding:10px 10px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+      min-width:0;position:relative;overflow:hidden}
+    .glance-tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--tile-accent,var(--line))}
+    .glance-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+      color:var(--tile-accent,var(--ink3));margin-bottom:2px}
+    .glance-icon svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+      stroke-linecap:round;stroke-linejoin:round;display:block}
+    .glance-value{font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:-.01em;
+      color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-    .glance-value.accent-good{color:var(--good)}
-    .glance-value.accent-warn{color:var(--warn)}
     .glance-label{font-size:var(--fs-micro);font-weight:650;letter-spacing:.06em;
       text-transform:uppercase;color:var(--ink3);line-height:1.2}
+    .glance-tile--distance{--tile-accent:#3a6df0}
+    .glance-tile--load{--tile-accent:var(--warn)}
+    .glance-tile--hr{--tile-accent:var(--good)}
+    .glance-tile--readiness{--tile-accent:#8b5cf6}
     @media (max-width:360px){
-      .glance{grid-template-columns:repeat(2,1fr);row-gap:var(--s-3);padding:14px 8px}
-      .glance-cell:nth-child(2n) + .glance-cell::before{display:none}
+      .glance{grid-template-columns:repeat(2,1fr);row-gap:var(--s-2)}
     }
   </style>
   <div class="today-install" id="todayInstallCard">
@@ -2943,27 +2970,52 @@ body.landing-active #tabbar{display:none!important}
   <div id="raceDetectCard"></div>
 
   <!-- ═══════════ COMPACT TODAY'S RECOMMENDATION ═══════════
-       First-viewport hero: eyebrow, one headline, one supporting sentence,
-       a primary CTA and a compact readiness status pill. The full existing
-       briefing (observation / recommendation / reasoning / limitations /
-       status) is preserved behind "Read full briefing" — every
-       #dailyBrief* ID that js/dailyBrief.js writes into is kept intact. -->
+       Above-the-fold surface: eyebrow, short title, one short caption,
+       primary CTA and a compact readiness ring on the right. All long
+       text (training summary, observation, recommendation, reasoning,
+       limitations, status) lives inside "Read full briefing" below, so
+       every #dailyBrief* ID that js/dailyBrief.js writes into is
+       preserved and no data path changes.
+
+       Two elements are populated by tiny presentation-only projections
+       (see initTodayCompactWatchers in the script block near the bottom):
+         • #dailyBriefShortLine — first sentence of the training summary,
+           visually clamped so a long field never breaks the layout.
+         • #dailyBriefReadinessRing — reads the readiness renderer's
+           score + status and mirrors them into the ring here. -->
   <div class="rec-card" id="dailyBriefCard">
     <div class="rec-head">
       <span class="rec-eyebrow">Today's recommendation</span>
-      <span class="rec-status" id="dailyBriefStatusPill" hidden aria-live="polite">
-        <span class="rec-dot"></span>
-        <span class="rec-status-text">—</span>
-      </span>
     </div>
 
-    <h3 class="rec-headline" id="dailyBriefHeadline">
-      Preparing your coaching brief...
-    </h3>
+    <div class="rec-body">
+      <div class="rec-body-text">
+        <h3 class="rec-headline" id="dailyBriefHeadline">
+          Preparing your coaching brief...
+        </h3>
+        <p class="rec-sentence" id="dailyBriefShortLine">
+          Reviewing your recent training so today's plan lands right.
+        </p>
+      </div>
 
-    <p class="rec-sentence" id="dailyBriefTrainingSummary">
-      Athlevo is reviewing your athlete profile and imported training.
-    </p>
+      <div
+        class="rec-ring"
+        id="dailyBriefReadinessRing"
+        data-status=""
+        role="img"
+        aria-label="Compact readiness indicator"
+      >
+        <svg viewBox="0 0 88 88" aria-hidden="true">
+          <circle class="rc-track" cx="44" cy="44" r="36" stroke-width="8"/>
+          <circle class="rc-fill"  cx="44" cy="44" r="36" stroke-width="8"
+                  stroke-dasharray="226.19" stroke-dashoffset="226.19"/>
+        </svg>
+        <div class="rc-center">
+          <b class="rc-score">—</b>
+          <span class="rc-label">Check readiness</span>
+        </div>
+      </div>
+    </div>
 
     <div class="rec-actions">
       <button
@@ -2985,6 +3037,16 @@ body.landing-active #tabbar{display:none!important}
     </div>
 
     <div class="rec-full" id="dailyBriefFull" hidden>
+      <!-- Training summary lives inside the disclosure. It used to sit
+           above the fold as the "supporting sentence"; now the compact
+           card shows only its first sentence via #dailyBriefShortLine. -->
+      <div class="daily-brief-section">
+        <span class="f-name">Training summary</span>
+        <p id="dailyBriefTrainingSummary">
+          Athlevo is reviewing your athlete profile and imported training.
+        </p>
+      </div>
+
       <div class="daily-brief-section">
         <span class="f-name">Coach observation</span>
         <p id="dailyBriefObservation">
@@ -3016,25 +3078,38 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </div>
 
-  <!-- ═══════════ AT A GLANCE — 4 compact metrics, existing values only ═══════════
-       IDs are unchanged from the old sparkline statgrid, so js/brain.js
-       populates them exactly as before. No fabricated bars. -->
+  <!-- ═══════════ AT A GLANCE — 4 semantic tiles, existing values only ═══════════
+       Icon + value + label per tile. IDs for distance/load/HR are unchanged
+       from js/brain.js. The readiness tile is populated by a small
+       presentation-only DOM projection so no data path changes. -->
   <div class="glance" aria-label="At a glance">
-    <div class="glance-cell">
+    <div class="glance-tile glance-tile--distance">
+      <span class="glance-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M3 17c3-8 6-2 9-6s4 6 9 2"/></svg>
+      </span>
       <span class="glance-value num" id="todaySevenDayDistance">—</span>
       <span class="glance-label">7-day km</span>
     </div>
-    <div class="glance-cell">
+    <div class="glance-tile glance-tile--load">
+      <span class="glance-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M13 3c1 4-3 5-3 9a4 4 0 0 0 8 0c0-2-1-3-2-4 1 4-2 6-3 4-1-3 3-5 0-9zM8 13a4 4 0 0 0 4 8"/></svg>
+      </span>
       <span class="glance-value num" id="todaySevenDayHours">—</span>
       <span class="glance-label">Load</span>
     </div>
-    <div class="glance-cell">
+    <div class="glance-tile glance-tile--hr">
+      <span class="glance-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>
+      </span>
       <span class="glance-value num" id="todaySevenDayHeartRate">—</span>
       <span class="glance-label">Avg HR</span>
     </div>
-    <div class="glance-cell">
-      <span class="glance-value num" id="todaySevenDayActivities">—</span>
-      <span class="glance-label">Sessions</span>
+    <div class="glance-tile glance-tile--readiness">
+      <span class="glance-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </span>
+      <span class="glance-value num" id="todayReadinessTile">—</span>
+      <span class="glance-label">Readiness</span>
     </div>
   </div>
 
@@ -4470,40 +4545,103 @@ function toggleDailyBrief(btn){
   else { full.removeAttribute("hidden"); }
 }
 
-/* Mirror the readiness status label + colour into the compact status
-   pill inside the rec card. Read-only DOM projection: js/readiness.js
-   is unchanged and remains the single source of truth. */
-function syncCompactReadinessPill(){
-  var src = document.querySelector("#readinessCopy .rd-status");
-  var pill = document.getElementById("dailyBriefStatusPill");
-  if (!pill) return;
-  if (!src) { pill.setAttribute("hidden", ""); return; }
-  var label = (src.textContent || "").trim();
-  if (!label) { pill.setAttribute("hidden", ""); return; }
-  var lc = label.toLowerCase();
-  var status = "";
-  if (lc.indexOf("optimal") >= 0) status = "optimal";
-  else if (lc.indexOf("good") >= 0) status = "good";
-  else if (lc.indexOf("moderate") >= 0) status = "moderate";
-  else if (lc.indexOf("low") >= 0) status = "low";
-  pill.dataset.status = status;
-  var text = pill.querySelector(".rec-status-text");
-  if (text) text.textContent = label;
-  pill.removeAttribute("hidden");
+/* Short-line projection. Reads the training summary that dailyBrief.js
+   writes into #dailyBriefTrainingSummary (now living inside "Read full
+   briefing") and shows just its first sentence in the compact caption.
+   No AI or data change — the source paragraph is untouched. */
+function syncCompactShortLine(){
+  var src = document.getElementById("dailyBriefTrainingSummary");
+  var out = document.getElementById("dailyBriefShortLine");
+  if (!src || !out) return;
+  var text = (src.textContent || "").trim();
+  if (!text) {
+    out.textContent = "Tap “Read full briefing” for today's coaching.";
+    return;
+  }
+  var firstSentence = text.split(/(?<=[.!?])\s+/)[0] || text;
+  out.textContent = firstSentence;
 }
 
-/* One MutationObserver on #readinessCopy is enough — every time the
-   readiness renderer swaps that element's HTML we re-project the pill. */
+/* Compact readiness ring projection. Reads the score + status the
+   existing readiness renderer paints into #readinessEmptyState and
+   #readinessCopy, then mirrors them into the small ring in the rec
+   card and the readiness tile in the At-a-glance strip. When no
+   reading exists it shows a neutral "Check readiness" state — never
+   an invented score. */
+var COMPACT_READINESS_LABELS = {
+  optimal:  "Good to go",
+  good:     "Good to go",
+  moderate: "Proceed with care",
+  low:      "Recover today"
+};
+function syncCompactReadinessRing(){
+  var scoreEl  = document.querySelector("#readinessEmptyState .ring .center b");
+  var statusEl = document.querySelector("#readinessCopy .rd-status");
+  var ring     = document.getElementById("dailyBriefReadinessRing");
+  var tile     = document.getElementById("todayReadinessTile");
+
+  var score = null;
+  if (scoreEl) {
+    var parsed = parseInt((scoreEl.textContent || "").trim(), 10);
+    if (Number.isFinite(parsed)) score = parsed;
+  }
+  var statusLabel = statusEl ? (statusEl.textContent || "").trim() : "";
+  var lc = statusLabel.toLowerCase();
+  var status = "";
+  if      (lc.indexOf("optimal")  >= 0) status = "optimal";
+  else if (lc.indexOf("good")     >= 0) status = "good";
+  else if (lc.indexOf("moderate") >= 0) status = "moderate";
+  else if (lc.indexOf("low")      >= 0) status = "low";
+
+  if (ring) {
+    var scoreDisplay = ring.querySelector(".rc-score");
+    var labelDisplay = ring.querySelector(".rc-label");
+    var fill = ring.querySelector(".rc-fill");
+    var C = 226.19; // 2π × r(36)
+    if (score === null || !status) {
+      ring.dataset.status = "";
+      if (scoreDisplay) scoreDisplay.textContent = "—";
+      if (labelDisplay) labelDisplay.textContent = "Check readiness";
+      if (fill) fill.style.strokeDashoffset = String(C);
+    } else {
+      ring.dataset.status = status;
+      if (scoreDisplay) scoreDisplay.textContent = String(score) + "%";
+      if (labelDisplay) labelDisplay.textContent =
+        COMPACT_READINESS_LABELS[status] || statusLabel;
+      var pct = Math.max(0, Math.min(100, score));
+      if (fill) fill.style.strokeDashoffset = String(C * (1 - pct / 100));
+    }
+  }
+
+  if (tile) {
+    tile.textContent = (score === null || !status)
+      ? "—"
+      : String(score) + "%";
+  }
+}
+
+/* Observe the two source elements the readiness renderer writes into,
+   plus the training summary paragraph. Every time any of them changes
+   we re-project into the compact card and glance strip. */
 (function initTodayCompactWatchers(){
-  function attach(){
-    var target = document.getElementById("readinessCopy");
-    if (!target || target.dataset.pillObserved === "true") return;
-    target.dataset.pillObserved = "true";
+  function observe(target, handler, key){
+    if (!target || target.dataset[key] === "true") return;
+    target.dataset[key] = "true";
     try {
-      new MutationObserver(syncCompactReadinessPill)
-        .observe(target, { childList: true, subtree: true, characterData: true });
+      new MutationObserver(handler).observe(target, {
+        childList: true, subtree: true, characterData: true
+      });
     } catch (e) {}
-    syncCompactReadinessPill();
+  }
+  function attach(){
+    observe(document.getElementById("readinessCopy"),
+      syncCompactReadinessRing, "compactObserved");
+    observe(document.querySelector("#readinessEmptyState .ring .center b"),
+      syncCompactReadinessRing, "compactObserved");
+    observe(document.getElementById("dailyBriefTrainingSummary"),
+      syncCompactShortLine, "compactObserved");
+    syncCompactReadinessRing();
+    syncCompactShortLine();
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", attach);
