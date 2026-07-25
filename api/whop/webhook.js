@@ -131,9 +131,9 @@ export default async function handler(req, res) {
   let raw;
   try { raw = await readRawBody(req); } catch (e) { return send(res, 400, { error: "Bad body." }); }
 
-  // 2. Verify the signature. Never trust an unverified payload.
-  const sig = req.headers["x-whop-signature"] || req.headers["whop-signature"] || req.headers["x-whop-signature-256"];
-  if (!verifyWhopSignature(raw, sig, WHOP_WEBHOOK_SECRET)) {
+  // 2. Verify the signature (Standard Webhooks spec).
+  //    Headers: webhook-id, webhook-timestamp, webhook-signature.
+  if (!verifyWhopSignature(raw, req.headers, WHOP_WEBHOOK_SECRET)) {
     return send(res, 401, { error: "Invalid signature." });
   }
 
@@ -156,9 +156,10 @@ export default async function handler(req, res) {
     const mapped = mapWhopEvent(authoritative, { planMap: PLAN_MAP, fallbackPlan: FALLBACK_PLAN });
     if (mapped.effect === "ignore") return send(res, 200, { ok: true, ignored: true });
 
-    // The provider event id (stable per Whop delivery) — computed up front so
-    // it can appear in the unmatched-user log as well as the idempotency key.
-    const providerEventId = event.id || `${mapped.membershipId}:${mapped.event_type}:${mapped.patch.current_period_end || ""}`;
+    // The provider event id (stable per Whop delivery). The Standard Webhooks
+    // `webhook-id` header is the authoritative dedup key (unchanged across
+    // retries). Fall back to event.id or a compound key.
+    const providerEventId = req.headers["webhook-id"] || event.id || `${mapped.membershipId}:${mapped.event_type}:${mapped.patch.current_period_end || ""}`;
 
     // 5. Find the athlete by checkout email.
     const userId = await findUserIdByEmail(mapped.email);
