@@ -59,7 +59,7 @@ section("Connected & healthy card shows the reassuring detail");
   t("shows last sync as relative time", /2 minutes ago/.test(html));
   t("shows the imported count", /Activities imported<\/span><b>146/.test(html));
   t("shows the latest workout one-liner", /Easy Run • 8\.2 km • Today/.test(html));
-  t("confirms everything is working", /Everything is working normally/.test(html) && /ss-status ok/.test(html));
+  t("confirms with the real imported count", /146 activities imported/.test(html) && /ss-status ok/.test(html));
   t("offers Check now + Disconnect", /Check now/.test(html) && /Disconnect/.test(html));
 }
 
@@ -70,8 +70,8 @@ section("Each state explains exactly what to do next");
   t("no wearable → Connect", /No wearable connected/.test(none) && /AthlevoSyncStatus\.action\('connect'\)/.test(none));
 
   const waiting = card({ connected: true, count: 0 });
-  t("waiting → Open Sync Partner + guidance", /Waiting for your first workout/.test(waiting) &&
-    /Open Sync Partner/.test(waiting) && /Finish linking your watch/.test(waiting));
+  t("waiting → Open Sync Partner + guidance", /No training activities found yet/.test(waiting) &&
+    /Open Sync Partner/.test(waiting) && /Athlevo can only import/.test(waiting));
 
   const lost = card({ connected: true, status: "reconnect_required", count: 3 });
   t("connection lost → Reconnect, red dot", /Connection lost/.test(lost) && /Reconnect/.test(lost) && /ss-dot-bad/.test(lost));
@@ -142,7 +142,7 @@ section("Personas");
 {
   // 1. First sync — freshly connected, workouts have landed.
   const first = S.renderCardHTML(S.deriveState({ connected: true, count: 146, latest: run(), lastSyncTs: NOW - 60000 }), NOW);
-  t("first sync: shows the count and healthy status", /146/.test(first) && /Everything is working normally/.test(first));
+  t("first sync: shows the count and healthy status", /146 activities imported/.test(first) && /ss-status ok/.test(first));
 
   // 2. Repeat sync — returning user, recent sync.
   const repeat = S.renderCardHTML(S.deriveState({ connected: true, count: 152, latest: run({ start_date: "2026-07-22T07:30:00" }), lastSyncTs: NOW - 90000 }), NOW);
@@ -153,7 +153,7 @@ section("Personas");
 
   // 4. No workouts yet.
   t("no workouts yet: waiting state, not an error",
-    /Waiting for your first workout/.test(S.renderCardHTML(S.deriveState({ connected: true, count: 0 }), NOW)));
+    /No training activities found yet/.test(S.renderCardHTML(S.deriveState({ connected: true, count: 0 }), NOW)));
 
   // 5. Multiple connected providers.
   const multi = S.renderCardHTML(S.deriveState({ connected: true, count: 200,

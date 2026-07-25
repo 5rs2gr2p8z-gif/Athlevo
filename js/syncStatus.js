@@ -97,10 +97,10 @@
   // Copy + affordances per state — one clear next action, never a guess.
   var COPY = {
     loading:     {},
-    connected:   { dot: "good", title: "Connected", status: "Everything is working normally", statusOk: true },
+    connected:   { dot: "good", title: "Connected", statusOk: true },
     syncing:     { dot: "sync", title: "Syncing…", status: "Checking for new workouts" },
-    waiting:     { dot: "good", title: "Connected", status: "Waiting for your first workout",
-                   hint: "Finish linking your watch in the Sync Partner and your history imports automatically." },
+    waiting:     { dot: "good", title: "Connected", status: "No training activities found yet",
+                   hint: "Athlevo can only import workouts that already appear inside the Sync Partner." },
     lost:        { dot: "bad", title: "Connection lost", status: "Reconnect to keep your workouts syncing" },
     failed:      { dot: "bad", title: "Sync failed", status: "We couldn't sync just now — your data is safe" },
     none:        { dot: "idle", title: "No wearable connected", status: "Connect a watch to sync your workouts automatically" },
@@ -116,7 +116,8 @@
                 { label: "Open Sync Partner", act: "openPartner" }];
       case "waiting":
         return [{ label: "Open Sync Partner", act: "openPartner", primary: true },
-                { label: "Check now", act: "check" }];
+                { label: "I’ve added my activities — check again", act: "check" },
+                { label: "Continue without training data", act: "dismiss" }];
       case "connected":
         return [{ label: "Check now", act: "check" },
                 { label: "Disconnect", act: "disconnect" }];
@@ -165,11 +166,23 @@
       }).join("") + '</div>';
     }
 
-    // Status line (the reassurance).
-    var statusCls = c.statusOk ? " ok" : (c.dot === "bad" ? " bad" : "");
+    // Status line — truthful and data-driven, never based on OAuth alone.
+    var statusText = c.status || "";
+    if (model.key === "connected") {
+      // Only claim things are working when we actually have evidence (activities).
+      statusText = (model.count || 0) > 0
+        ? (model.count + " activit" + (model.count === 1 ? "y" : "ies") + " imported")
+        : "Sync partner connected, but no activities are available yet";
+    }
+    var statusCls = (c.statusOk && (model.count || 0) > 0) ? " ok" : (c.dot === "bad" ? " bad" : "");
     html += '<div class="ss-status' + statusCls + '">' +
-      (c.statusOk ? '<span class="ss-check">✓</span> ' : "") + esc(c.status) + '</div>';
+      (c.statusOk && (model.count || 0) > 0 ? '<span class="ss-check">✓</span> ' : "") + esc(statusText) + '</div>';
     if (c.hint) html += '<p class="ss-hint">' + esc(c.hint) + '</p>';
+
+    // After "Check now", show exactly one truthful result line.
+    if (state.lastCheckResult && (model.key === "connected" || model.key === "waiting")) {
+      html += '<div class="ss-check-result">' + esc(state.lastCheckResult) + '</div>';
+    }
 
     // Actions — one clear next step.
     var acts = actionsFor(model.key);
@@ -294,13 +307,39 @@
     if (kind === "disconnect") return B.disconnectIntervals && B.disconnectIntervals();
     if (kind === "openPartner") return B.openSyncPartner && B.openSyncPartner();
     if (kind === "check") return checkNow();
+    if (kind === "dismiss") { state.lastCheckResult = null; return refresh(); }
   }
 
   async function checkNow() {
     state.syncing = true;
     paintCard(deriveState(Object.assign(await peekConnected(), { syncing: true })), Date.now());
-    // A brief, honest "checking" state, then the real result.
-    setTimeout(async function () { state.syncing = false; await refresh(); }, 900);
+    /*
+     * Actually sync — the old version faked a 900ms "checking" animation and
+     * re-read cached state. Now we call the real sync, then show the truthful
+     * result: imported count, "no new activities", or "sync failed".
+     */
+    try {
+      var B = root.AthlevoBrain || {};
+      if (B.syncIntervals) {
+        var result = await B.syncIntervals();
+        var imported = (result && result.imported) || 0;
+        state.syncing = false;
+        state.lastCheckResult = imported > 0
+          ? "Imported " + imported + " new activit" + (imported === 1 ? "y" : "ies")
+          : "No new activities found in the Sync Partner";
+      } else {
+        state.syncing = false;
+        state.lastCheckResult = null;
+      }
+    } catch (err) {
+      state.syncing = false;
+      var reconnect = err && err.code === "RECONNECT_REQUIRED";
+      state.lastCheckResult = reconnect
+        ? "Sync partner connected, but needs re-authorization"
+        : "Sync failed — try again";
+      try { root.console.log("[sync-status] check_now failed:", err && err.code, err && err.message); } catch (e) {}
+    }
+    await refresh();
   }
   async function peekConnected() {
     // Lightweight inputs for the transient syncing paint (reuses last model).

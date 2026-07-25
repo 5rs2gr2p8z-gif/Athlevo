@@ -5496,15 +5496,36 @@ setTimeout(function () {
       /*
        * If the athlete is mid-onboarding, hand straight back to the guided
        * flow: it detects activities and imports automatically, so they never
-       * refresh or run anything. Outside onboarding, keep the old
-       * fire-and-forget sync so an existing athlete's reconnect still works.
+       * refresh or run anything. Outside onboarding, perform a visible,
+       * truthful sync that always resolves to a clear result.
        */
       if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
         window.AthlevoConnect.resumeAfterConnect();
       } else {
-        if (typeof toast === "function") toast("Connected — importing your training…");
+        /*
+         * VISIBLE POST-CALLBACK SYNC.
+         *
+         * The old fire-and-forget sync swallowed errors and showed nothing.
+         * Now: persistent toast while checking, then a truthful result —
+         * one of: imported N activities, no activities found, or sync failed.
+         */
+        if (typeof toast === "function") toast("Checking your training data…");
         if (window.AthlevoBrain && AthlevoBrain.syncIntervals) {
-          AthlevoBrain.syncIntervals().catch(() => {});
+          try {
+            const result = await AthlevoBrain.syncIntervals();
+            const imported = (result && result.imported) || 0;
+            if (imported > 0) {
+              if (typeof toast === "function") toast(`${imported} activit${imported === 1 ? "y" : "ies"} imported. Your training data is ready.`);
+            } else {
+              if (typeof toast === "function") toast("Sync partner connected, but no training activities were found yet.");
+            }
+            // Refresh the sync status card with the real result.
+            if (window.AthlevoSyncStatus && AthlevoSyncStatus.refresh) AthlevoSyncStatus.refresh();
+          } catch (syncErr) {
+            console.warn("Post-callback sync failed:", syncErr && syncErr.message);
+            if (typeof toast === "function") toast("Connected, but sync didn’t finish — try “Check now” from your profile.");
+            if (window.AthlevoSyncStatus && AthlevoSyncStatus.refresh) AthlevoSyncStatus.refresh();
+          }
         }
       }
     } else if (state === "cancelled") {
