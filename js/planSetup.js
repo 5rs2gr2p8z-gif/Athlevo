@@ -19,6 +19,18 @@
   let lastHasPlan = null;         // cache of the most recent get-week result
   let dismissedThisSession = false;
 
+  /*
+   * Returns true when the athlete has no paid entitlement and should see the
+   * paywall before plan generation. Uses the same subscription system the rest
+   * of the app trusts — never a URL parameter or localStorage flag.
+   */
+  async function shouldShowPaywall() {
+    if (window.AthlevoPaywall && typeof window.AthlevoPaywall.isPaid === "function") {
+      return !(await window.AthlevoPaywall.isPaid());
+    }
+    return false;   // paywall module not loaded → skip safely
+  }
+
   function esc(v) {
     return String(v == null ? "" : v)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -112,6 +124,11 @@
   async function start() {
     let profile = null;
     try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
+
+    // Entitlement gate: free users see the paywall, not the plan builder.
+    if (await shouldShowPaywall()) {
+      if (window.AthlevoPaywall) { await window.AthlevoPaywall.show(profile); return; }
+    }
 
     /*
      * ONE authoritative connection source, shared with the Today card. Asking
@@ -414,9 +431,19 @@
 
   // Called by onboarding when it finishes. New athlete + no plan → guide them
   // straight into setup. Anything else → Today.
+  // If the user is free (no paid subscription), show the personalized preview
+  // and paywall before allowing plan generation.
   async function maybeLaunchAfterOnboarding() {
     const has = await hasPlan();
-    if (has === false) { await start(); return true; }
+    if (has === false) {
+      // Check entitlement: free users see the paywall first.
+      if (await shouldShowPaywall()) {
+        let profile = null;
+        try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
+        if (window.AthlevoPaywall) { await window.AthlevoPaywall.show(profile); return true; }
+      }
+      await start(); return true;
+    }
     if (typeof showScreen === "function") showScreen("screen-today");
     return false;
   }
@@ -517,6 +544,13 @@
    * a plan exists, opens that plan instead, and never sends `regenerate`.
    */
   async function autoBuildFirstPlan() {
+    // Check entitlement: free users see the paywall first.
+    if (await shouldShowPaywall()) {
+      let profile = null;
+      try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
+      if (window.AthlevoPaywall) { await window.AthlevoPaywall.show(profile); return { skipped: "paywall" }; }
+    }
+
     if (!AUTO_FIRST_PLAN) {
       // Manual for now. Show the dashboard with the plan CTA visible.
       if (typeof showScreen === "function") showScreen("screen-today");
@@ -546,9 +580,12 @@
   // Exposed so the UX test can assert the flag's state without guessing.
   function autoFirstPlanEnabled() { return AUTO_FIRST_PLAN; }
 
-  window.AthlevoPlan = {
+  // Merge plan-setup methods INTO the existing AthlevoPlan object (set by
+  // features.js) rather than replacing it, so entitlement methods (.load,
+  // .canUse, .entitlement) remain available alongside plan-building methods.
+  Object.assign(window.AthlevoPlan || (window.AthlevoPlan = {}), {
     hasPlan, start, build, autoBuildFirstPlan, autoFirstPlanEnabled, notNow, enterTrain,
     maybeLaunchAfterOnboarding, refreshTodayCta, renderTodayCta, connectTrainingData, recheckPlan,
     VERSION: "plan-setup-v1"
-  };
+  });
 })();
