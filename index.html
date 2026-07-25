@@ -2848,6 +2848,80 @@ body.landing-active #tabbar{display:none!important}
     .today-install .ti-btn{flex-shrink:0;border:none;border-radius:var(--r-pill);background:var(--ink);color:#fff;
       font-family:var(--sans);font-weight:650;font-size:var(--fs-body-sm);padding:9px 18px;cursor:pointer}
     .today-install .ti-btn:hover{background:#000}
+
+    /* ═══════════ COMPACT TODAY'S RECOMMENDATION ═══════════
+       Above-the-fold, single-glance summary that replaces the long hero
+       briefing. All existing #dailyBrief* IDs are preserved — the full
+       briefing is simply moved behind a "Read full briefing" disclosure. */
+    .rec-card{margin:0 22px;background:var(--card);border:1px solid var(--line);
+      border-radius:var(--r-lg);padding:18px 20px 16px;box-shadow:var(--elev-1);position:relative}
+    .rec-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+      background:var(--red);border-radius:var(--r-lg) 0 0 var(--r-lg)}
+    .rec-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);margin-bottom:6px}
+    .rec-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.12em;
+      text-transform:uppercase;color:var(--red)}
+    .rec-headline{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;
+      line-height:var(--lh-heading);letter-spacing:-.01em;color:var(--text);margin:4px 0 6px}
+    .rec-sentence{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0}
+    .rec-status{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;
+      border-radius:var(--r-pill);background:var(--paper);border:1px solid var(--line);
+      font-size:var(--fs-caption);font-weight:650;color:var(--text);white-space:nowrap;flex-shrink:0}
+    .rec-status[hidden]{display:none}
+    .rec-dot{width:8px;height:8px;border-radius:50%;background:var(--ink3);flex-shrink:0}
+    .rec-status[data-status="optimal"] .rec-dot,
+    .rec-status[data-status="good"] .rec-dot{background:var(--good)}
+    .rec-status[data-status="moderate"] .rec-dot{background:var(--warn)}
+    .rec-status[data-status="low"] .rec-dot{background:var(--red)}
+    .rec-actions{display:flex;align-items:center;gap:var(--s-2);margin-top:14px;
+      flex-wrap:wrap;justify-content:space-between}
+    .rec-cta{font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;
+      padding:11px 18px;border-radius:var(--r-pill);border:none;background:var(--red);
+      color:#fff;cursor:pointer;
+      transition:transform var(--dur-fast) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard)}
+    .rec-cta:active{transform:scale(.97)}
+    .rec-cta:disabled{opacity:.55;cursor:default}
+    .rec-expand{display:inline-flex;align-items:center;gap:6px;background:none;border:none;
+      font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:600;color:var(--ink2);
+      cursor:pointer;padding:6px 4px;
+      transition:color var(--dur-fast) var(--ease-standard)}
+    .rec-expand:hover{color:var(--text)}
+    .rec-expand svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;
+      stroke-linecap:round;transition:transform var(--dur-base) var(--ease-standard)}
+    .rec-expand[aria-expanded="true"] svg{transform:rotate(180deg)}
+    .rec-full{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+    .rec-full[hidden]{display:none}
+    .rec-full .daily-brief-section{margin-top:12px}
+    .rec-full .daily-brief-section:first-child{margin-top:0}
+    .rec-full .daily-brief-section .f-name{display:block;font-size:var(--fs-micro);
+      font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
+    .rec-full .daily-brief-section p{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
+    .rec-full .daily-brief-details{margin-top:14px;font-size:var(--fs-body-sm)}
+    .rec-full .daily-brief-details summary{cursor:pointer;color:var(--ink2);font-weight:600;padding:6px 0}
+    .rec-full .daily-brief-details p{margin-top:8px;color:var(--ink2);line-height:var(--lh-body)}
+    .rec-full .daily-brief-status{margin-top:10px;font-size:var(--fs-caption);color:var(--ink3)}
+
+    /* ═══════════ AT A GLANCE — compact stat strip ═══════════
+       One row, up to four metrics, real values only. Replaces the old
+       sparkline statgrid so no fabricated bars remain. IDs match the
+       existing renderers in js/brain.js, so no data path changes. */
+    .glance{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:14px 22px 0;
+      background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);
+      padding:12px 6px}
+    .glance-cell{display:flex;flex-direction:column;align-items:center;gap:3px;
+      padding:4px 6px;text-align:center;position:relative;min-width:0}
+    .glance-cell + .glance-cell::before{content:"";position:absolute;left:0;top:10px;
+      bottom:10px;width:1px;background:var(--line)}
+    .glance-value{font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;
+      letter-spacing:-.01em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.15;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+    .glance-value.accent-good{color:var(--good)}
+    .glance-value.accent-warn{color:var(--warn)}
+    .glance-label{font-size:var(--fs-micro);font-weight:650;letter-spacing:.06em;
+      text-transform:uppercase;color:var(--ink3);line-height:1.2}
+    @media (max-width:360px){
+      .glance{grid-template-columns:repeat(2,1fr);row-gap:var(--s-3);padding:14px 8px}
+      .glance-cell:nth-child(2n) + .glance-cell::before{display:none}
+    }
   </style>
   <div class="today-install" id="todayInstallCard">
     <div class="ti-icon"><img src="assets/athlevo-icon.png" alt="" width="34" height="34"></div>
@@ -2868,60 +2942,114 @@ body.landing-active #tabbar{display:none!important}
   <!-- ===== AUTOMATIC RACE DETECTION PROMPT (actionable, stays near top) ===== -->
   <div id="raceDetectCard"></div>
 
-  <!-- ═══════════ HERO — TODAY'S COACHING RECOMMENDATION ═══════════ -->
-  <div class="decision decision--hero" id="dailyBriefCard">
-  <span class="eyebrow">Daily coach briefing</span>
+  <!-- ═══════════ COMPACT TODAY'S RECOMMENDATION ═══════════
+       First-viewport hero: eyebrow, one headline, one supporting sentence,
+       a primary CTA and a compact readiness status pill. The full existing
+       briefing (observation / recommendation / reasoning / limitations /
+       status) is preserved behind "Read full briefing" — every
+       #dailyBrief* ID that js/dailyBrief.js writes into is kept intact. -->
+  <div class="rec-card" id="dailyBriefCard">
+    <div class="rec-head">
+      <span class="rec-eyebrow">Today's recommendation</span>
+      <span class="rec-status" id="dailyBriefStatusPill" hidden aria-live="polite">
+        <span class="rec-dot"></span>
+        <span class="rec-status-text">—</span>
+      </span>
+    </div>
 
-  <h3 id="dailyBriefHeadline">
-    Preparing your coaching brief...
-  </h3>
+    <h3 class="rec-headline" id="dailyBriefHeadline">
+      Preparing your coaching brief...
+    </h3>
 
-  <p id="dailyBriefTrainingSummary">
-    Athlevo is reviewing your athlete profile and imported training.
-  </p>
-
-  <div class="daily-brief-section">
-    <span class="f-name">Coach observation</span>
-    <p id="dailyBriefObservation">
-      No observation available yet.
+    <p class="rec-sentence" id="dailyBriefTrainingSummary">
+      Athlevo is reviewing your athlete profile and imported training.
     </p>
+
+    <div class="rec-actions">
+      <button
+        type="button"
+        class="rec-cta"
+        onclick="todayGoToTrain()"
+      >Open today's workout</button>
+
+      <button
+        type="button"
+        class="rec-expand"
+        aria-expanded="false"
+        aria-controls="dailyBriefFull"
+        onclick="toggleDailyBrief(this)"
+      >
+        <span class="rec-expand-label">Read full briefing</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+    </div>
+
+    <div class="rec-full" id="dailyBriefFull" hidden>
+      <div class="daily-brief-section">
+        <span class="f-name">Coach observation</span>
+        <p id="dailyBriefObservation">
+          No observation available yet.
+        </p>
+      </div>
+
+      <div class="daily-brief-section">
+        <span class="f-name">Recommendation</span>
+        <p id="dailyBriefRecommendation">
+          No recommendation available yet.
+        </p>
+      </div>
+
+      <details class="daily-brief-details">
+        <summary>Why this recommendation</summary>
+
+        <p id="dailyBriefReasoning">
+          Athlevo will explain the evidence behind the decision here.
+        </p>
+
+        <div id="dailyBriefLimitations"></div>
+      </details>
+
+      <p
+        id="dailyBriefStatus"
+        class="daily-brief-status"
+      ></p>
+    </div>
   </div>
 
-  <div class="daily-brief-section">
-    <span class="f-name">Recommendation</span>
-    <p id="dailyBriefRecommendation">
-      No recommendation available yet.
-    </p>
+  <!-- ═══════════ AT A GLANCE — 4 compact metrics, existing values only ═══════════
+       IDs are unchanged from the old sparkline statgrid, so js/brain.js
+       populates them exactly as before. No fabricated bars. -->
+  <div class="glance" aria-label="At a glance">
+    <div class="glance-cell">
+      <span class="glance-value num" id="todaySevenDayDistance">—</span>
+      <span class="glance-label">7-day km</span>
+    </div>
+    <div class="glance-cell">
+      <span class="glance-value num" id="todaySevenDayHours">—</span>
+      <span class="glance-label">Load</span>
+    </div>
+    <div class="glance-cell">
+      <span class="glance-value num" id="todaySevenDayHeartRate">—</span>
+      <span class="glance-label">Avg HR</span>
+    </div>
+    <div class="glance-cell">
+      <span class="glance-value num" id="todaySevenDayActivities">—</span>
+      <span class="glance-label">Sessions</span>
+    </div>
   </div>
 
-  <details class="daily-brief-details">
-    <summary>Why this recommendation</summary>
+  <!-- ═══════════ ATHLEVO SCORE / RADAR — moved up so the visual summary
+       appears on the first viewport instead of below a wall of text. -->
+  <div id="athlevoScoreCard"></div>
 
-    <p id="dailyBriefReasoning">
-      Athlevo will explain the evidence behind the decision here.
-    </p>
+  <!-- ═══════════ TRAINING PACES (kept below the visual summary) ═══════════ -->
+  <div id="trainingPacesCard"></div>
 
-    <div id="dailyBriefLimitations"></div>
-  </details>
+  <!-- ═══════════ COACH INSIGHTS (kept below the visual summary) ═══════════ -->
+  <div id="coachInsightsCard"></div>
 
-  <p
-    id="dailyBriefStatus"
-    class="daily-brief-status"
-    aria-live="polite"
-  ></p>
-</div>
-
-<!-- ═══════════ TODAY'S WORKOUT (paces relevant to today) ═══════════ -->
-<div id="trainingPacesCard"></div>
-
-<!-- ═══════════ WHY THIS RECOMMENDATION (Coach Brain reasoning) ═══════════ -->
-<div id="coachInsightsCard"></div>
-
-<!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching on recent work) ===== -->
-<div id="latestWorkoutAnalysis"></div>
-
-<!-- ═══════════ SUPPORTING EVIDENCE — Athlevo Score, radar, readiness ═══════════ -->
-<div id="athlevoScoreCard"></div>
+  <!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching on recent work) ===== -->
+  <div id="latestWorkoutAnalysis"></div>
 
 <div class="readiness" id="readinessEmptyState">
   <div class="ring">
@@ -3041,55 +3169,10 @@ body.landing-active #tabbar{display:none!important}
   </div>
 </div>
 
- <div class="statgrid">
-
-  <div class="stat">
-    <span class="eyebrow">7-day distance</span>
-    <b class="num" id="todaySevenDayDistance">—</b>
-    <small>From imported activities</small>
-
-    <div class="spark">
-      <i></i><i></i><i></i><i></i>
-      <i></i><i></i><i></i>
-    </div>
-  </div>
-
-  <div class="stat">
-    <span class="eyebrow">Training time</span>
-    <b class="num" id="todaySevenDayHours">—</b>
-    <small>Moving time in the last 7 days</small>
-
-    <div class="spark">
-      <i></i><i></i><i></i><i></i>
-      <i></i><i></i><i></i>
-    </div>
-  </div>
-
-  <div class="stat">
-    <span class="eyebrow">Activities</span>
-    <b class="num" id="todaySevenDayActivities">—</b>
-    <small>Completed in the last 7 days</small>
-
-    <div class="spark">
-      <i></i><i></i><i></i><i></i>
-      <i></i><i></i><i></i>
-    </div>
-  </div>
-
-  <div class="stat">
-    <span class="eyebrow">Average HR</span>
-    <b class="num" id="todaySevenDayHeartRate">—</b>
-    <small id="todayHeartRateContext">
-      Heart-rate permission or compatible data required
-    </small>
-
-    <div class="spark">
-      <i></i><i></i><i></i><i></i>
-      <i></i><i></i><i></i>
-    </div>
-  </div>
-
-</div>
+  <!-- Note: the sparkline stat grid that used to live here has been folded
+       into the "At a glance" strip above the Athlevo Score, so no metric
+       is duplicated. The strip uses the exact same #todaySevenDay* IDs
+       that js/brain.js writes into. -->
 
   <div class="race">
   <div>
@@ -4362,6 +4445,70 @@ function showScreen(id){
     }
   } catch(e){}
 }
+
+/* ─── Compact Today recommendation — tiny presentation helpers ───
+   These support the above-the-fold rec card. Nothing here talks to
+   data; they only project existing DOM state into the compact UI. */
+
+/* CTA on the compact rec card. Clicks the Train tab so the tabbar's
+   own active state stays in sync — no duplicated routing logic. */
+function todayGoToTrain(){
+  var t = document.querySelector('.tab[data-screen="screen-train"]');
+  if (t && typeof t.click === "function") { t.click(); }
+}
+
+/* "Read full briefing" disclosure. Swaps the button label + chevron
+   direction and toggles the hidden attribute on the full block. */
+function toggleDailyBrief(btn){
+  var full = document.getElementById("dailyBriefFull");
+  if (!full || !btn) return;
+  var expanded = btn.getAttribute("aria-expanded") === "true";
+  btn.setAttribute("aria-expanded", expanded ? "false" : "true");
+  var label = btn.querySelector(".rec-expand-label");
+  if (label) label.textContent = expanded ? "Read full briefing" : "Hide full briefing";
+  if (expanded) { full.setAttribute("hidden", ""); }
+  else { full.removeAttribute("hidden"); }
+}
+
+/* Mirror the readiness status label + colour into the compact status
+   pill inside the rec card. Read-only DOM projection: js/readiness.js
+   is unchanged and remains the single source of truth. */
+function syncCompactReadinessPill(){
+  var src = document.querySelector("#readinessCopy .rd-status");
+  var pill = document.getElementById("dailyBriefStatusPill");
+  if (!pill) return;
+  if (!src) { pill.setAttribute("hidden", ""); return; }
+  var label = (src.textContent || "").trim();
+  if (!label) { pill.setAttribute("hidden", ""); return; }
+  var lc = label.toLowerCase();
+  var status = "";
+  if (lc.indexOf("optimal") >= 0) status = "optimal";
+  else if (lc.indexOf("good") >= 0) status = "good";
+  else if (lc.indexOf("moderate") >= 0) status = "moderate";
+  else if (lc.indexOf("low") >= 0) status = "low";
+  pill.dataset.status = status;
+  var text = pill.querySelector(".rec-status-text");
+  if (text) text.textContent = label;
+  pill.removeAttribute("hidden");
+}
+
+/* One MutationObserver on #readinessCopy is enough — every time the
+   readiness renderer swaps that element's HTML we re-project the pill. */
+(function initTodayCompactWatchers(){
+  function attach(){
+    var target = document.getElementById("readinessCopy");
+    if (!target || target.dataset.pillObserved === "true") return;
+    target.dataset.pillObserved = "true";
+    try {
+      new MutationObserver(syncCompactReadinessPill)
+        .observe(target, { childList: true, subtree: true, characterData: true });
+    } catch (e) {}
+    syncCompactReadinessPill();
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", attach);
+  } else { attach(); }
+})();
 /* Onboarding is handled by the single authoritative flow in
    js/onboarding.js (startAthlevoOnboarding). It asks real questions,
    echoes the athlete's actual answers, validates input, awaits each
