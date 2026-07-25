@@ -2264,6 +2264,21 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   font-size:var(--fs-h3);line-height:1;cursor:pointer;padding:2px 4px}
 @keyframes ssSlide{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.ss-banner{animation:none}}
+/* ── Internal beta analytics overlay (founder-only, server-authorized) ─── */
+#adminDash{display:none;position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.5);overflow-y:auto;padding:var(--s-4)}
+.ad-sheet{max-width:560px;margin:var(--s-6) auto;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5);box-shadow:var(--elev-3)}
+.ad-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s-4)}
+.ad-head b{font-family:var(--font-display);font-size:var(--fs-h2)}
+.ad-x{-webkit-appearance:none;appearance:none;background:none;border:0;font-size:var(--fs-h2);color:var(--ink3);cursor:pointer}
+.ad-h{font-size:var(--fs-micro);font-weight:var(--fw-semibold);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink3);margin:var(--s-4) 0 var(--s-2)}
+.ad-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-2)}
+.ad-stat{display:flex;justify-content:space-between;gap:var(--s-3);font-size:var(--fs-body-sm);color:var(--ink2);padding:var(--s-1) 0}
+.ad-stat b{color:var(--text);font-variant-numeric:tabular-nums}
+.ad-funnel{display:flex;flex-direction:column;gap:2px}
+.ad-fn-row{display:grid;grid-template-columns:1fr auto auto;gap:var(--s-3);align-items:baseline;font-size:var(--fs-body-sm);padding:var(--s-1) 0;border-bottom:1px solid var(--line)}
+.ad-fn-row b{font-variant-numeric:tabular-nums;color:var(--text)}
+.ad-fn-row small{color:var(--ink3);font-size:var(--fs-caption);white-space:nowrap}
+.ad-loading{font-size:var(--fs-body-sm);color:var(--ink2);padding:var(--s-4) 0}
 /* Metric / Imperial switch */
 .ob2-units{display:inline-flex;background:var(--field);border-radius:var(--r-pill);padding:3px;margin-bottom:14px}
 .ob2-unit{border:none;background:none;font-family:inherit;font-size:var(--fs-body-sm);font-weight:600;
@@ -4258,6 +4273,18 @@ function showScreen(id){
   // inside the phone-framed app shell.
   document.body.classList.toggle('landing-active', id==='screen-landing');
   if(id!=='screen-landing') window.scrollTo(0,0);
+  // Analytics (best-effort): a primary-tab view + a once-per-load app session.
+  try {
+    if (window.AthlevoAnalytics) {
+      var TAB = { 'screen-today':'today','screen-train':'train','screen-trends':'trends',
+        'screen-you':'you','screen-coachai':'coach' };
+      if (TAB[id]) {
+        AthlevoAnalytics.session('pwa');
+        AthlevoAnalytics.track('primary_tab_viewed', { screen_name: TAB[id] });
+        if (id === 'screen-coachai') AthlevoAnalytics.track('coach_opened', { screen_name: 'coach' });
+      }
+    }
+  } catch(e){}
 }
 /* Onboarding is handled by the single authoritative flow in
    js/onboarding.js (startAthlevoOnboarding). It asks real questions,
@@ -4570,56 +4597,58 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/authSupport.js?v=62"></script>
-<script src="js/brain.js?v=62"></script>
-<script src="js/syncStatus.js?v=62"></script>
-<script src="js/performance.js?v=62"></script>
+<script src="js/authSupport.js?v=64"></script>
+<script src="js/brain.js?v=64"></script>
+<script src="js/syncStatus.js?v=64"></script>
+<script src="js/performance.js?v=64"></script>
 <!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
      confidence) + structured workout guidance. Reused by Today & Train. -->
-<script src="js/aerobicCalibration.js?v=62"></script>
-<script src="js/paceService.js?v=62"></script>
-<script src="js/workoutGuidance.js?v=62"></script>
+<script src="js/aerobicCalibration.js?v=64"></script>
+<script src="js/paceService.js?v=64"></script>
+<script src="js/workoutGuidance.js?v=64"></script>
 <!-- Phase B Athlete Engine: defines window.AthleteEngine (calculations
      only). Not wired into any screen yet — UI integration is next sprint. -->
-<script src="js/athleteEngine.js?v=62"></script>
+<script src="js/athleteEngine.js?v=64"></script>
 <!-- Phase C Plan Engine: defines window.AthlevoPlanEngine (adaptive plan
      logic). Depends on AthleteEngine. Not wired into any screen yet. -->
-<script src="js/planEngine.js?v=62"></script>
-<script src="js/prescription.js?v=62"></script>
-<script src="js/athleteModel.js?v=62"></script>
-<script src="js/calendarWeeks.js?v=62"></script>
-<script src="js/workoutClassifier.js?v=62"></script>
-<script src="js/trends.js?v=62"></script>
-<script src="js/socialAuth.js?v=62"></script>
-<script src="js/activation.js?v=62"></script>
-<script src="js/onboardingConnect.js?v=62"></script>
-<script src="js/productionVerify.js?v=62"></script>
-<script src="js/athlevoScore.js?v=62"></script>
+<script src="js/planEngine.js?v=64"></script>
+<script src="js/prescription.js?v=64"></script>
+<script src="js/athleteModel.js?v=64"></script>
+<script src="js/calendarWeeks.js?v=64"></script>
+<script src="js/workoutClassifier.js?v=64"></script>
+<script src="js/trends.js?v=64"></script>
+<script src="js/socialAuth.js?v=64"></script>
+<script src="js/analyticsRegistry.js?v=64"></script>
+<script src="js/betaDashboard.js?v=64"></script>
+<script src="js/activation.js?v=64"></script>
+<script src="js/onboardingConnect.js?v=64"></script>
+<script src="js/productionVerify.js?v=64"></script>
+<script src="js/athlevoScore.js?v=64"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
-<script src="js/coachBrain.js?v=62"></script>
-<script src="js/coachBrainData.js?v=62"></script>
+<script src="js/coachBrain.js?v=64"></script>
+<script src="js/coachBrainData.js?v=64"></script>
 <!-- Athlete Identity & Progression: pure development engine + data/render.
      Reuses Athlevo Score components + history; data-driven, no hardcoding. -->
-<script src="js/developmentEngine.js?v=62"></script>
-<script src="js/developmentData.js?v=62"></script>
-<script src="js/raceDetection.js?v=62"></script>
-<script src="js/memory.js?v=62"></script>
-<script src="js/dailyBrief.js?v=62"></script>
-<script src="js/renderCoachResponse.js?v=62"></script>
-<script src="js/coach.js?v=62"></script>
-<script src="js/features.js?v=62"></script>
-<script src="js/train.js?v=62"></script>
-<script src="js/coachTimeline.js?v=62"></script>
-<script src="js/workoutStructure.js?v=62"></script>
-<script src="js/trainCalendar.js?v=62"></script>
-<script src="js/adaptivePlan.js?v=62"></script>
-<script src="js/planSetup.js?v=62"></script>
-<script src="js/feedback.js?v=62"></script>
-<script src="js/readiness.js?v=62"></script>
-<script src="js/workoutAnalysis.js?v=62"></script>
-<script src="js/legal.js?v=62"></script>
-<script src="js/onboarding.js?v=62"></script>
+<script src="js/developmentEngine.js?v=64"></script>
+<script src="js/developmentData.js?v=64"></script>
+<script src="js/raceDetection.js?v=64"></script>
+<script src="js/memory.js?v=64"></script>
+<script src="js/dailyBrief.js?v=64"></script>
+<script src="js/renderCoachResponse.js?v=64"></script>
+<script src="js/coach.js?v=64"></script>
+<script src="js/features.js?v=64"></script>
+<script src="js/train.js?v=64"></script>
+<script src="js/coachTimeline.js?v=64"></script>
+<script src="js/workoutStructure.js?v=64"></script>
+<script src="js/trainCalendar.js?v=64"></script>
+<script src="js/adaptivePlan.js?v=64"></script>
+<script src="js/planSetup.js?v=64"></script>
+<script src="js/feedback.js?v=64"></script>
+<script src="js/readiness.js?v=64"></script>
+<script src="js/workoutAnalysis.js?v=64"></script>
+<script src="js/legal.js?v=64"></script>
+<script src="js/onboarding.js?v=64"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

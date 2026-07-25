@@ -9,6 +9,13 @@
 # change is trivially reversible: delete this line to bring it back.
 api/terra/
 
+# api/admin/ — the beta-analytics endpoint was FOLDED into the generic
+# gateway (api/providers/index.js?action=admin_analytics) so that adding the
+# Whop webhook (api/whop/webhook.js) keeps the deployed function count at 12
+# (the Hobby cap). The old standalone file is superseded and excluded rather
+# than deleted, so the change is reversible.
+api/admin/
+
 # Not part of the deployed app.
 migrations/
 tests/

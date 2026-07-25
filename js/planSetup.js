@@ -289,6 +289,7 @@
          * Generation can legitimately take a while. Bound it so a hung
          * request can never leave the athlete on an endless spinner.
          */
+        try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("plan_generation_started"); } catch (e) {}
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), BUILD_TIMEOUT_MS);
         try {
@@ -319,10 +320,17 @@
     if (outcome.ok) {
       lastHasPlan = true;
       buildInFlight = false;
+      try {
+        if (window.AthlevoAnalytics && outcome.alreadyExists !== true) AthlevoAnalytics.track("first_plan_generated");
+      } catch (e) {}
       completeFinalStep();
       showSuccess(outcome.alreadyExists !== true);   // first plan → milestone state
       return;
     }
+    try {
+      if (window.AthlevoAnalytics) AthlevoAnalytics.track("plan_generation_failed",
+        { failure_category: (outcome && outcome.code) || "unknown" });
+    } catch (e) {}
 
     /*
      * RECOVERY. A client timeout does not mean generation failed — the server

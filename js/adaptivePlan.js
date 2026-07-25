@@ -117,6 +117,7 @@
     var pv = state.preview;
     var m = $("adaptivePlanModal");
     if (!pv || !m) return;
+    try { if (root.AthlevoAnalytics) root.AthlevoAnalytics.track("adaptive_plan_reviewed"); } catch (e) {}
     var rows = pv.proposedChanges.map(function (c) {
       return '<div class="apl-change">' +
         '<div class="apl-change-top"><span class="apl-change-date">' + esc(niceDate(c.date)) + '</span></div>' +
@@ -145,6 +146,13 @@
     var out = await post({ intent: "adaptive_apply", fingerprint: state.preview.fingerprint, today: todayKey() });
     state.busy = false;
     if (out && out.status === 200 && out.data && out.data.success) {
+      try {
+        if (root.AthlevoAnalytics) {
+          var n = out.data.applied || 0;
+          root.AthlevoAnalytics.track("adaptive_plan_applied",
+            { change_count_bucket: n <= 1 ? "1" : (n <= 3 ? "2-3" : "4+") });
+        }
+      } catch (e) {}
       closeReview();
       state.preview = null;
       renderCard(); renderWeeklyReview();

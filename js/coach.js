@@ -456,6 +456,10 @@ async function askCoach(question) {
   if (coachRequestInFlight) return;
   coachRequestInFlight = true;
 
+  // Analytics (best-effort): first_coach_message_sent is a once-only milestone;
+  // the registry dedupes it. The message text itself is NEVER recorded.
+  try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("first_coach_message_sent"); } catch (e) {}
+
   addChatMessage("user", cleanQuestion);
   await saveConversationMessage("user", cleanQuestion);
   await extractAthleteMemoryFromMessage(

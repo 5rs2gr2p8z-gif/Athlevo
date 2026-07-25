@@ -25,6 +25,12 @@
  */
 
 import crypto from "node:crypto";
+// Beta analytics aggregation (admin_analytics action). Folded into this
+// gateway so the founder dashboard does not consume a separate Vercel
+// serverless slot — keeping the Whop webhook within the Hobby 12-fn limit.
+import {
+  buildFunnel, computeRetention, activeUsers, classifySegments, topline, recentFailures
+} from "../../lib/server/analyticsAggregation.js";
 import { mapIntervals, normalizeIntervalLaps, toActivityRow, buildRecognitionFromRow, RECOGNITION_VERSION, isCurrentRecognitionVersion } from "../../lib/server/wearable/normalizer.js";
 import { resolveDuplicates, mapProviderError, isIntervalsEnabled } from "../../lib/server/wearable/providers.js";
 import {
@@ -1445,12 +1451,51 @@ async function actionReanalyze(request, response, cid) {
 
 /* ═══════════════════════════════ router ══════════════════════════════ */
 
+/* ─────────────────── admin: beta analytics (GET) ─────────────────────
+ *
+ * Founder-only aggregate view, authorized SERVER-SIDE against the
+ * ADMIN_USER_IDS allowlist. A normal athlete's token → 403. The service role
+ * reads activation_events across users; only counts/rates are returned — no
+ * individual workout, chat, token, email or name. Lives here (not a separate
+ * function) purely to respect the Vercel Hobby 12-function budget. */
+async function actionAdminAnalytics(request, response) {
+  const ADMIN_USER_IDS = String(process.env.ADMIN_USER_IDS || "")
+    .split(",").map(s => s.trim()).filter(Boolean);
+  const user = await requireUser(request);
+  if (!user || !user.id) return response.status(401).json({ error: "Authentication required." });
+  if (ADMIN_USER_IDS.length === 0 || !ADMIN_USER_IDS.includes(user.id)) {
+    return response.status(403).json({ error: "Not authorized." });
+  }
+  const url = process.env.SUPABASE_URL;
+  const r = await fetch(
+    `${url}/rest/v1/activation_events?select=user_id,event_name,occurred_at,metadata&order=occurred_at.desc&limit=100000`,
+    { headers: sbHeaders() });
+  const rows = r.ok ? await r.json() : [];
+  const list = Array.isArray(rows) ? rows : [];
+  const now = Date.now();
+  const segments = classifySegments(list, now);
+  const segmentCounts = {};
+  Object.keys(segments).forEach(k => (segmentCounts[k] = segments[k].count));   // counts only
+  return response.status(200).json({
+    ok: true, generatedAt: new Date(now).toISOString(),
+    topline: topline(list), active: activeUsers(list, now),
+    funnel: buildFunnel(list), retention: computeRetention(list, now),
+    failures: recentFailures(list, now), segments: segmentCounts
+  });
+}
+
 export default async function handler(request, response) {
   const cid = newCorrelationId();
   const provider = String((request.query && request.query.provider) || "").toLowerCase();
   const action = String((request.query && request.query.action) || "").toLowerCase();
 
   try {
+    // Provider-independent admin route (folded in to save a serverless slot).
+    if (action === "admin_analytics") {
+      if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionAdminAnalytics(request, response);
+    }
+
     /*
      * Terra remains DORMANT and flag-gated exactly as before — this file
      * absorbs the old api/terra endpoint without changing its behaviour.

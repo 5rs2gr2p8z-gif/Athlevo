@@ -41,47 +41,91 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_ACTIVATION
 
   /* ═══════════════════════════ analytics ═══════════════════════════ */
 
+  // Back-compat export. The canonical taxonomy now lives in the registry
+  // (window.AthlevoAnalyticsRegistry); this list is kept only so older callers
+  // that read AthlevoAnalytics.FUNNEL_EVENTS still resolve.
   const FUNNEL_EVENTS = [
-    "signup_started", "signup_completed", "profile_completed",
-    "connect_step_viewed", "intervals_connected", "activities_detected",
-    "initial_sync_started", "initial_sync_completed", "dashboard_opened",
-    "sync_failed", "no_activities"
+    "account_created", "email_verified", "athlete_onboarding_started",
+    "athlete_onboarding_completed", "wearable_setup_started", "wearable_connection_succeeded",
+    "first_sync_started", "first_activity_imported", "first_plan_generated",
+    "first_workout_analysis_viewed", "first_coach_message_sent", "app_session_started"
   ];
 
-  // Kept in memory so the funnel is inspectable even before the migration
-  // has been run, and so tests can assert ordering without a database.
+  // Kept in memory so the funnel is inspectable even before the migration has
+  // run, and so tests can assert ordering without a database.
   const buffer = [];
+  const firedMilestones = new Set();            // once-only guard (mirrors the DB unique index)
+  const A_STATE = { userId: null, sessionStarted: false, sessionCount: 0, pending: [] };
 
-  async function track(eventName, metadata) {
-    const entry = { event: eventName, at: new Date().toISOString(), metadata: metadata || null };
+  function registry() { return root.AthlevoAnalyticsRegistry || null; }
+
+  // Best-effort persistence. A missing table/migration, RLS, or a network blip
+  // all fail silently — the product never breaks because telemetry did.
+  async function persistEvent(userId, canonical, kind, safeProps) {
+    try {
+      if (typeof supabaseClient === "undefined") return;
+      await supabaseClient.from("activation_events").insert({
+        user_id: userId, event_name: canonical, event_kind: kind, metadata: safeProps || null
+      });
+    } catch (error) { /* silent: telemetry, not product */ }
+  }
+
+  /*
+   * track(eventName, props) — validate against the registry, strip everything
+   * but the event's allowed categorical props, dedupe one-time milestones, and
+   * queue pre-auth events until identifySafe() supplies a user.
+   */
+  async function track(eventName, props) {
+    const entry = { event: eventName, at: new Date().toISOString(), metadata: props || null };
     buffer.push(entry);
     if (buffer.length > 200) buffer.shift();
 
-    if (!FUNNEL_EVENTS.includes(eventName)) {
-      console.warn("[activation] unknown event:", eventName);
+    const R = registry();
+    let canonical = eventName, kind = "behavioural", safe = props || null;
+    if (R) {
+      if (!R.isKnown(eventName)) {                 // reject unknown names (loud in dev, never persisted)
+        try { console.warn("[analytics] unknown event rejected:", eventName); } catch (e) {}
+        return entry;
+      }
+      canonical = R.canonicalName(eventName);
+      kind = R.kindOf(eventName);
+      safe = R.sanitizeProps(eventName, props);
+      if (R.isMilestone(eventName)) {
+        if (firedMilestones.has(canonical)) return entry;   // one-time milestone → fire once
+        firedMilestones.add(canonical);
+      }
     }
 
-    /*
-     * Best-effort persistence. A missing table, a missing migration, RLS, or
-     * a network blip all fail silently — onboarding continues regardless.
-     * Metadata is small and non-sensitive by construction (counts, states);
-     * never tokens, never health data.
-     */
-    try {
-      if (typeof supabaseClient === "undefined") return entry;
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) return entry;
-      await supabaseClient.from("activation_events").insert({
-        user_id: user.id,
-        event_name: eventName,
-        event_kind: "behavioural",
-        metadata: metadata || null
-      });
-    } catch (error) {
-      // Deliberately silent at warn level: this is telemetry, not product.
-      console.debug("[activation] event not persisted:", eventName);
+    let userId = A_STATE.userId;
+    if (!userId) {
+      try {
+        if (typeof supabaseClient !== "undefined") {
+          const { data: { user } } = await supabaseClient.auth.getUser();
+          if (user) { userId = user.id; A_STATE.userId = user.id; }
+        }
+      } catch (e) { /* pre-auth */ }
     }
+    if (!userId) { A_STATE.pending.push({ canonical, kind, safe }); return entry; }
+    await persistEvent(userId, canonical, kind, safe);
     return entry;
+  }
+
+  // Attach a real user id and flush any anonymous, pre-auth events safely.
+  function identifySafe(userId) {
+    if (!userId || typeof userId !== "string") return;
+    A_STATE.userId = userId;
+    const queued = A_STATE.pending.splice(0);
+    queued.forEach(e => persistEvent(userId, e.canonical, e.kind, e.safe));
+  }
+
+  // Start (once) an app session. Survives the anonymous → authenticated jump.
+  function session(source) {
+    if (!A_STATE.sessionStarted) {
+      A_STATE.sessionStarted = true;
+      A_STATE.sessionCount += 1;
+      track("app_session_started", source ? { source: source } : null);
+    }
+    return { sessionCount: A_STATE.sessionCount, userId: A_STATE.userId };
   }
 
   /* ═════════════════ provider-agnostic data source ═════════════════ */
@@ -286,7 +330,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_ACTIVATION
     };
   }
 
-  root.AthlevoAnalytics = { track, buffer, FUNNEL_EVENTS };
+  root.AthlevoAnalytics = { track, identifySafe, session, buffer, FUNNEL_EVENTS, _state: A_STATE };
   root.AthlevoDataSource = DataSource;
   root.AthlevoActivation = { humanError, noActivitiesMessage, withRetry, WEARABLES };
 })(typeof window !== "undefined" ? window : globalThis);
