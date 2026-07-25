@@ -1378,9 +1378,21 @@ async function refreshAthleteUI() {
       window.AthlevoPlan.refreshTodayCta();
     }
     // Coach Brain V1: explain WHY — structured coaching insights on Today,
-    // assembled from the systems above (fire-and-forget).
+    // assembled from the systems above (fire-and-forget). The Today
+    // page no longer mounts #coachInsightsCard; the renderer detects
+    // that and early-returns without side effects.
     if (typeof window.renderCoachInsights === "function") {
       window.renderCoachInsights(profile);
+    }
+    // Today's recommendation is sourced from the planned session in
+    // training_sessions (not from the daily-brief AI output), and the
+    // compact status block classifies passive signals only. Both are
+    // presentation helpers defined in index.html.
+    if (typeof window.renderTodayRecommendation === "function") {
+      window.renderTodayRecommendation();
+    }
+    if (typeof window.renderTodayPassiveStatus === "function") {
+      window.renderTodayPassiveStatus(profile);
     }
     // Athlete Identity & Progression: "Your Development" — reuses the score
     // components + history to show how the athlete is evolving.

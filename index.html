@@ -2871,25 +2871,26 @@ body.landing-active #tabbar{display:none!important}
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .rec-sentence{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    /* Compact readiness ring — mirrors the score and status that
-       js/readiness.js already renders into #readinessEmptyState. When no
-       reading exists it stays in a neutral "Check readiness" state. */
-    .rec-ring{width:88px;height:88px;position:relative;flex-shrink:0}
-    .rec-ring svg{transform:rotate(-90deg);display:block;width:100%;height:100%}
-    .rec-ring .rc-track{stroke:var(--line);fill:none}
-    .rec-ring .rc-fill{stroke:var(--ink3);fill:none;stroke-linecap:round;
-      transition:stroke-dashoffset var(--dur-slow) var(--ease-standard),stroke var(--dur-base) var(--ease-standard)}
-    .rec-ring[data-status="optimal"] .rc-fill,
-    .rec-ring[data-status="good"] .rc-fill{stroke:var(--good)}
-    .rec-ring[data-status="moderate"] .rc-fill{stroke:var(--warn)}
-    .rec-ring[data-status="low"] .rc-fill{stroke:var(--red)}
-    .rec-ring .rc-center{position:absolute;inset:0;display:flex;flex-direction:column;
-      align-items:center;justify-content:center;text-align:center;padding:0 6px}
-    .rec-ring .rc-score{font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;
-      letter-spacing:-.01em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
-    .rec-ring .rc-label{font-size:9px;font-weight:650;color:var(--ink3);
-      line-height:1.15;margin-top:3px;letter-spacing:.02em;text-transform:uppercase;
+    /* Passive readiness/status block — no manual questionnaire, no
+       invented numeric score. States: good-to-go / proceed-with-care /
+       recovery / not-enough-data. Fed by renderTodayPassiveStatus below,
+       which classifies signals CoachBrainData already collects. */
+    .rec-status-block{display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:6px;padding:12px 10px;min-width:96px;flex-shrink:0;
+      background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);text-align:center}
+    .rec-status-dot{width:14px;height:14px;border-radius:50%;background:var(--ink3);flex-shrink:0;
+      transition:background var(--dur-base) var(--ease-standard)}
+    .rec-status-label{font-size:var(--fs-caption);font-weight:700;color:var(--text);
+      line-height:1.2;letter-spacing:.01em;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .rec-status-block[data-status="good"] .rec-status-dot{background:var(--good)}
+    .rec-status-block[data-status="good"]{border-color:var(--good-soft);background:var(--good-soft)}
+    .rec-status-block[data-status="care"] .rec-status-dot{background:var(--warn)}
+    .rec-status-block[data-status="care"]{border-color:var(--warn-soft);background:var(--warn-soft)}
+    .rec-status-block[data-status="recover"] .rec-status-dot{background:var(--red)}
+    .rec-status-block[data-status="recover"]{border-color:var(--red-soft);background:var(--red-soft)}
+    .rec-status-block[data-status=""] .rec-status-dot,
+    .rec-status-block[data-status="unknown"] .rec-status-dot{background:var(--ink3)}
     .rec-actions{display:flex;align-items:center;gap:var(--s-2);margin-top:14px;
       flex-wrap:wrap;justify-content:space-between}
     .rec-cta{font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;
@@ -2928,7 +2929,7 @@ body.landing-active #tabbar{display:none!important}
          blue = distance, orange = load, green = HR, purple = readiness.
        IDs still match the renderers in js/brain.js; only the readiness
        tile is populated by a small DOM projection (see initTodayCompactWatchers). */
-    .glance{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s-2);margin:14px 22px 0}
+    .glance{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s-2);margin:14px 22px 0}
     .glance-tile{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);
       padding:10px 10px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
       min-width:0;position:relative;overflow:hidden}
@@ -2949,6 +2950,39 @@ body.landing-active #tabbar{display:none!important}
     @media (max-width:360px){
       .glance{grid-template-columns:repeat(2,1fr);row-gap:var(--s-2)}
     }
+
+    /* ═══════════ HIDE VISIBLE CONFIDENCE LABELS ═══════════
+       Any rendered confidence pill anywhere on Today (or elsewhere) is
+       hidden from view. The underlying confidence VALUES that drive
+       ranking, pace calibration and coach reasoning are untouched — only
+       the visual badges disappear. */
+    .tpc-conf,
+    .cib-conf{display:none!important}
+
+    /* ═══════════ COMPACT LATEST WORKOUT ANALYSIS ═══════════
+       The default card shows: eyebrow, result badge, title, distance /
+       duration / pace / avg-HR metrics and one short coach takeaway.
+       Full coach insight, recovery focus and training impact live behind
+       "View full analysis" — a native <details> so the disclosure works
+       without JS and inherits the app's reduced-motion behaviour. */
+    .lwa-full{margin-top:14px}
+    .lwa-full > summary{list-style:none;cursor:pointer;
+      display:inline-flex;align-items:center;gap:6px;
+      background:none;border:none;padding:8px 4px;
+      font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:600;color:var(--ink2);
+      transition:color var(--dur-fast) var(--ease-standard)}
+    .lwa-full > summary::-webkit-details-marker{display:none}
+    .lwa-full > summary:hover{color:var(--text)}
+    .lwa-full > summary::after{content:"";width:12px;height:12px;
+      border-right:2px solid currentColor;border-bottom:2px solid currentColor;
+      transform:rotate(45deg);margin-left:2px;margin-bottom:3px;
+      transition:transform var(--dur-base) var(--ease-standard)}
+    .lwa-full[open] > summary::after{transform:rotate(-135deg);margin-bottom:-1px}
+    .lwa-full .lwa-section:first-of-type{margin-top:6px}
+    .lwa-takeaway{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
+      font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
+    .lwa-takeaway-label{display:block;font-size:var(--fs-micro);font-weight:700;
+      letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
   </style>
   <div class="today-install" id="todayInstallCard">
     <div class="ti-icon"><img src="assets/athlevo-icon.png" alt="" width="34" height="34"></div>
@@ -2969,20 +3003,24 @@ body.landing-active #tabbar{display:none!important}
   <!-- ===== AUTOMATIC RACE DETECTION PROMPT (actionable, stays near top) ===== -->
   <div id="raceDetectCard"></div>
 
-  <!-- ═══════════ COMPACT TODAY'S RECOMMENDATION ═══════════
-       Above-the-fold surface: eyebrow, short title, one short caption,
-       primary CTA and a compact readiness ring on the right. All long
-       text (training summary, observation, recommendation, reasoning,
-       limitations, status) lives inside "Read full briefing" below, so
-       every #dailyBrief* ID that js/dailyBrief.js writes into is
-       preserved and no data path changes.
+  <!-- ═══════════ TODAY'S RECOMMENDATION (from today's planned session) ═══════════
+       The compact card headline + short reason are derived from the
+       athlete's planned training_sessions row for today (see
+       renderTodayRecommendation() in the script block near the bottom).
+       If no session is scheduled the card shows a truthful fallback —
+       never an invented workout.
 
-       Two elements are populated by tiny presentation-only projections
-       (see initTodayCompactWatchers in the script block near the bottom):
-         • #dailyBriefShortLine — first sentence of the training summary,
-           visually clamped so a long field never breaks the layout.
-         • #dailyBriefReadinessRing — reads the readiness renderer's
-           score + status and mirrors them into the ring here. -->
+       A compact passive-status block sits on the right. Its state
+       ("Good to go" / "Proceed with care" / "Recovery recommended" /
+       "Not enough data") is classified in renderTodayPassiveStatus()
+       from signals CoachBrainData already collects (recent load,
+       execution feedback, pain flag, imported activities). No manual
+       readiness questionnaire is surfaced anywhere on Today.
+
+       The full Daily Coach Briefing (its own headline, training
+       summary, observation, recommendation, reasoning and limitations)
+       is preserved verbatim inside "Read full briefing" — every
+       #dailyBrief* ID that js/dailyBrief.js writes into is untouched. -->
   <div class="rec-card" id="dailyBriefCard">
     <div class="rec-head">
       <span class="rec-eyebrow">Today's recommendation</span>
@@ -2990,30 +3028,23 @@ body.landing-active #tabbar{display:none!important}
 
     <div class="rec-body">
       <div class="rec-body-text">
-        <h3 class="rec-headline" id="dailyBriefHeadline">
-          Preparing your coaching brief...
+        <h3 class="rec-headline" id="todayRecommendationHeadline">
+          Loading today's session…
         </h3>
-        <p class="rec-sentence" id="dailyBriefShortLine">
-          Reviewing your recent training so today's plan lands right.
+        <p class="rec-sentence" id="todayRecommendationReason">
+          Checking your training plan for today.
         </p>
       </div>
 
       <div
-        class="rec-ring"
-        id="dailyBriefReadinessRing"
+        class="rec-status-block"
+        id="todayPassiveStatusBlock"
         data-status=""
         role="img"
-        aria-label="Compact readiness indicator"
+        aria-label="Passive readiness indicator"
       >
-        <svg viewBox="0 0 88 88" aria-hidden="true">
-          <circle class="rc-track" cx="44" cy="44" r="36" stroke-width="8"/>
-          <circle class="rc-fill"  cx="44" cy="44" r="36" stroke-width="8"
-                  stroke-dasharray="226.19" stroke-dashoffset="226.19"/>
-        </svg>
-        <div class="rc-center">
-          <b class="rc-score">—</b>
-          <span class="rc-label">Check readiness</span>
-        </div>
+        <span class="rec-status-dot" aria-hidden="true"></span>
+        <span class="rec-status-label" id="todayPassiveStatusLabel">Not enough data</span>
       </div>
     </div>
 
@@ -3037,9 +3068,16 @@ body.landing-active #tabbar{display:none!important}
     </div>
 
     <div class="rec-full" id="dailyBriefFull" hidden>
-      <!-- Training summary lives inside the disclosure. It used to sit
-           above the fold as the "supporting sentence"; now the compact
-           card shows only its first sentence via #dailyBriefShortLine. -->
+      <!-- The full Daily Coach Briefing lives here — its own headline,
+           training summary, observation, recommendation, reasoning and
+           limitations. dailyBrief.js writes into these IDs unchanged. -->
+      <div class="daily-brief-section">
+        <span class="f-name">Coach briefing</span>
+        <p id="dailyBriefHeadline">
+          Preparing your coaching brief...
+        </p>
+      </div>
+
       <div class="daily-brief-section">
         <span class="f-name">Training summary</span>
         <p id="dailyBriefTrainingSummary">
@@ -3104,13 +3142,9 @@ body.landing-active #tabbar{display:none!important}
       <span class="glance-value num" id="todaySevenDayHeartRate">—</span>
       <span class="glance-label">Avg HR</span>
     </div>
-    <div class="glance-tile glance-tile--readiness">
-      <span class="glance-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-      </span>
-      <span class="glance-value num" id="todayReadinessTile">—</span>
-      <span class="glance-label">Readiness</span>
-    </div>
+    <!-- The 4th readiness tile was removed: passive readiness now lives
+         in the rec-card status block. Keeping a numeric tile here would
+         duplicate that status without providing a distinct metric. -->
   </div>
 
   <!-- ═══════════ ATHLEVO SCORE / RADAR — moved up so the visual summary
@@ -3120,129 +3154,36 @@ body.landing-active #tabbar{display:none!important}
   <!-- ═══════════ TRAINING PACES (kept below the visual summary) ═══════════ -->
   <div id="trainingPacesCard"></div>
 
-  <!-- ═══════════ COACH INSIGHTS (kept below the visual summary) ═══════════ -->
-  <div id="coachInsightsCard"></div>
+  <!-- Coach Insights card was removed from Today: the full briefing
+       already contains the coach's analysis and recommendation, and
+       the standalone card was a duplicate surface. The underlying
+       renderer (window.renderCoachInsights in coachBrainData.js)
+       and its data collection are untouched — with no #coachInsightsCard
+       mount present it early-returns. -->
 
   <!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching on recent work) ===== -->
   <div id="latestWorkoutAnalysis"></div>
 
-<div class="readiness" id="readinessEmptyState">
-  <div class="ring">
-    <svg width="118" height="118" viewBox="0 0 118 118">
-      <circle
-        class="track"
-        cx="59"
-        cy="59"
-        r="52"
-        stroke-width="9"
-        fill="none"
-      />
-
-      <circle
-        class="fill"
-        cx="59"
-        cy="59"
-        r="52"
-        stroke-width="9"
-        fill="none"
-        stroke-dasharray="326.7"
-        stroke-dashoffset="326.7"
-      />
-    </svg>
-
-    <div class="center">
-      <b class="num">—</b>
-      <i>Readiness</i>
-    </div>
-  </div>
-
-  <div class="readiness-copy">
-    <span class="rd-eyebrow">Athlete Readiness · today's ability to absorb training</span>
-    <h2 id="readinessTitle">Daily readiness</h2>
-
-    <p id="readinessCopy">
-      A 30-second check so Athlevo can coach today using how you actually
-      feel — not just your watch.
-    </p>
-
-    <div id="readinessCta"></div>
-  </div>
-</div>
+<!-- The standalone Daily Readiness card and its manual "Start readiness
+     check" CTA were removed from Today. The renderer (renderReadinessCard
+     in js/readiness.js) is unchanged — with no #readinessEmptyState mount
+     present it early-returns. Any readiness records already stored are
+     still read passively by CoachBrainData.collectSignals() and shown as
+     the status block on the recommendation card. -->
 
 <!-- ===== YOUR DEVELOPMENT (Athlete Identity & Progression) ===== -->
 <div id="developmentCard"></div>
 
 <div class="spacer-md"></div>
 
-  <!-- signature: the decision card -->
- <div class="decision" id="decisionCard">
-  <div class="today-latest-head">
-    <span class="eyebrow">Latest activity</span>
-    <!-- FEEL COACHED — infrastructure only when it needs attention: this manual
-         Sync control stays hidden while sync is healthy; js/syncStatus.js
-         reveals it when the connection is lost or a sync failed. -->
-    <button
-      id="todaySyncBtn"
-      class="sync-now"
-      type="button"
-      style="display:none"
-      onclick="syncStravaNow(this)"
-    >Sync</button>
-  </div>
-
-  <h3 id="todayLatestActivityName">
-    No imported activity yet.
-  </h3>
-
-  <p id="todayLatestActivitySummary">
-    Connect your training data or record a workout to begin building your training history.
-  </p>
-
-  <button
-    class="why-toggle"
-    onclick="toggleDecision()"
-    aria-expanded="false"
-  >
-    Activity details
-    <svg viewBox="0 0 24 24">
-      <path d="M6 9l6 6 6-6"></path>
-    </svg>
-  </button>
-
-  <div class="ledger">
-    <div class="ledger-inner">
-
-      <div class="factor">
-        <span class="f-name">Distance</span>
-        <span>
-          <span class="f-val num" id="todayLatestDistance">—</span>
-        </span>
-      </div>
-
-      <div class="factor">
-        <span class="f-name">Moving time</span>
-        <span>
-          <span class="f-val num" id="todayLatestDuration">—</span>
-        </span>
-      </div>
-
-      <div class="factor">
-        <span class="f-name">Average heart rate</span>
-        <span>
-          <span class="f-val num" id="todayLatestHeartRate">—</span>
-        </span>
-      </div>
-
-      <div class="factor">
-        <span class="f-name">Completed</span>
-        <span>
-          <span class="f-val" id="todayLatestDate">—</span>
-        </span>
-      </div>
-
-    </div>
-  </div>
-</div>
+<!-- The dark "Latest activity" card was removed from Today: the
+     Latest Workout Analysis section directly above already covers the
+     most useful information about the athlete's most recent workout,
+     so this dark card was a duplicate. Underlying activity data and
+     sync functionality are untouched — brain.js still populates any
+     Latest Activity fields elsewhere (setText no-ops when the element
+     is absent), and js/syncStatus.js still owns the sync banner and
+     card. -->
 
   <!-- Note: the sparkline stat grid that used to live here has been folded
        into the "At a glance" strip above the Athlevo Score, so no metric
@@ -4545,107 +4486,271 @@ function toggleDailyBrief(btn){
   else { full.removeAttribute("hidden"); }
 }
 
-/* Short-line projection. Reads the training summary that dailyBrief.js
-   writes into #dailyBriefTrainingSummary (now living inside "Read full
-   briefing") and shows just its first sentence in the compact caption.
-   No AI or data change — the source paragraph is untouched. */
-function syncCompactShortLine(){
-  var src = document.getElementById("dailyBriefTrainingSummary");
-  var out = document.getElementById("dailyBriefShortLine");
-  if (!src || !out) return;
-  var text = (src.textContent || "").trim();
-  if (!text) {
-    out.textContent = "Tap “Read full briefing” for today's coaching.";
-    return;
-  }
-  var firstSentence = text.split(/(?<=[.!?])\s+/)[0] || text;
-  out.textContent = firstSentence;
+/* ─────────────────────── TODAY'S RECOMMENDATION ───────────────────────
+   Sources the headline and short reason from the athlete's PLANNED
+   training_sessions row for today — never from the Daily Coach
+   Briefing AI output. If no session is scheduled a truthful fallback
+   is shown. Presentation and existing-data wiring only. */
+
+var TODAY_REC_HEADLINES = {
+  rest:        "Rest Day",
+  recovery:    "Recovery",
+  easy:        "Easy Run",
+  long:        "Long Run",
+  threshold:   "Threshold Session",
+  tempo:       "Tempo Session",
+  control:     "Threshold Session",
+  vo2:         "Interval Session",
+  interval:    "Interval Session",
+  repetition:  "Speed Session",
+  speed:       "Speed Session",
+  stride:      "Speed Session",
+  hill:        "Hill Session",
+  marathon:    "Marathon Pace Run",
+  fartlek:     "Fartlek",
+  progression: "Progression Run"
+};
+
+var TODAY_REC_REASONS = {
+  rest:        "Rest is where progress consolidates — take today off with intention.",
+  recovery:    "Very easy movement to boost recovery without adding stress.",
+  easy:        "Aerobic base at a comfortable pace — build fitness without fatigue.",
+  long:        "Time on feet raises your endurance ceiling. Steady and controlled.",
+  threshold:   "Build fitness with controlled intensity while keeping fatigue manageable.",
+  tempo:       "Sustained comfortably-hard effort to raise race-pace stamina.",
+  control:     "Controlled effort at threshold — hard but sustainable, not maximal.",
+  vo2:         "Sharp efforts that raise your ceiling. Keep every rep controlled.",
+  interval:    "Structured intervals build power and pace tolerance.",
+  repetition:  "Short, fast reps to build mechanics, power and turnover.",
+  speed:       "Short, fast reps to build mechanics, power and turnover.",
+  stride:      "Short, fast reps to build mechanics, power and turnover.",
+  hill:        "Hills build strength and running economy without spiking risk.",
+  marathon:    "Rehearsal at goal pace — dial in effort and pacing feel.",
+  fartlek:     "Play with pace — mixed efforts that build fitness and range.",
+  progression: "Start easy, finish strong — fitness by feel, not pressure."
+};
+
+function classifyPlannedSessionType(raw){
+  var t = String(raw || "").toLowerCase().replace(/[\s-]+/g,"_");
+  if (!t) return null;
+  if (/rest|day_off|off\b/.test(t))                     return "rest";
+  if (/recovery|shakeout/.test(t))                      return "recovery";
+  if (/long/.test(t))                                   return "long";
+  if (/marathon|goal_?pace/.test(t))                    return "marathon";
+  if (/progression/.test(t))                            return "progression";
+  if (/fartlek/.test(t))                                return "fartlek";
+  if (/threshold|tempo|control/.test(t))                return "threshold";
+  if (/vo2|interval/.test(t))                           return "vo2";
+  if (/rep|speed|stride/.test(t))                       return "speed";
+  if (/hill/.test(t))                                   return "hill";
+  if (/easy|foundation|base|steady|aerobic/.test(t))    return "easy";
+  return null;
 }
 
-/* Compact readiness ring projection. Reads the score + status the
-   existing readiness renderer paints into #readinessEmptyState and
-   #readinessCopy, then mirrors them into the small ring in the rec
-   card and the readiness tile in the At-a-glance strip. When no
-   reading exists it shows a neutral "Check readiness" state — never
-   an invented score. */
-var COMPACT_READINESS_LABELS = {
-  optimal:  "Good to go",
-  good:     "Good to go",
-  moderate: "Proceed with care",
-  low:      "Recover today"
-};
-function syncCompactReadinessRing(){
-  var scoreEl  = document.querySelector("#readinessEmptyState .ring .center b");
-  var statusEl = document.querySelector("#readinessCopy .rd-status");
-  var ring     = document.getElementById("dailyBriefReadinessRing");
-  var tile     = document.getElementById("todayReadinessTile");
+function todayLocalKey(){
+  var now = new Date();
+  return now.getFullYear() + "-"
+    + String(now.getMonth()+1).padStart(2,"0") + "-"
+    + String(now.getDate()).padStart(2,"0");
+}
 
-  var score = null;
-  if (scoreEl) {
-    var parsed = parseInt((scoreEl.textContent || "").trim(), 10);
-    if (Number.isFinite(parsed)) score = parsed;
+async function loadTodaysPlannedSession(){
+  try {
+    if (typeof supabaseClient === "undefined" || !supabaseClient) return null;
+    var res = await supabaseClient.auth.getUser();
+    var user = res && res.data && res.data.user;
+    if (!user) return null;
+    var day = todayLocalKey();
+    var q = await supabaseClient
+      .from("training_sessions")
+      .select("session_type,title,purpose,session_date")
+      .eq("user_id", user.id)
+      .eq("session_date", day)
+      .limit(1);
+    var rows = q && q.data;
+    return (Array.isArray(rows) && rows.length) ? rows[0] : null;
+  } catch (e) {
+    return null;
   }
-  var statusLabel = statusEl ? (statusEl.textContent || "").trim() : "";
-  var lc = statusLabel.toLowerCase();
-  var status = "";
-  if      (lc.indexOf("optimal")  >= 0) status = "optimal";
-  else if (lc.indexOf("good")     >= 0) status = "good";
-  else if (lc.indexOf("moderate") >= 0) status = "moderate";
-  else if (lc.indexOf("low")      >= 0) status = "low";
+}
 
-  if (ring) {
-    var scoreDisplay = ring.querySelector(".rc-score");
-    var labelDisplay = ring.querySelector(".rc-label");
-    var fill = ring.querySelector(".rc-fill");
-    var C = 226.19; // 2π × r(36)
-    if (score === null || !status) {
-      ring.dataset.status = "";
-      if (scoreDisplay) scoreDisplay.textContent = "—";
-      if (labelDisplay) labelDisplay.textContent = "Check readiness";
-      if (fill) fill.style.strokeDashoffset = String(C);
+function firstSentence(str){
+  var t = String(str || "").trim();
+  if (!t) return "";
+  var m = t.match(/^[^.!?]*[.!?]/);
+  return (m ? m[0] : t).trim();
+}
+
+async function renderTodayRecommendation(){
+  var headline = document.getElementById("todayRecommendationHeadline");
+  var reason   = document.getElementById("todayRecommendationReason");
+  if (!headline || !reason) return;
+
+  var session = await loadTodaysPlannedSession();
+
+  if (!session) {
+    headline.textContent = "No workout scheduled";
+    reason.textContent = "Review today's training or take an intentional rest day.";
+    return;
+  }
+
+  var key = classifyPlannedSessionType(session.session_type);
+  var title = (typeof formatSessionType === "function"
+    ? formatSessionType(session.session_type)
+    : String(session.session_type || "")).trim();
+
+  headline.textContent =
+    (key && TODAY_REC_HEADLINES[key]) ||
+    (session.title && String(session.title).trim()) ||
+    title ||
+    "Review today's training";
+
+  reason.textContent = firstSentence(session.purpose)
+    || (key && TODAY_REC_REASONS[key])
+    || "Open today's workout for the full plan and coaching context.";
+}
+
+/* ─────────────────────── PASSIVE READINESS/STATUS ─────────────────────
+   Classifies "Good to go" / "Proceed with care" / "Recovery recommended" /
+   "Not enough data" from signals CoachBrainData already collects. No
+   numeric score is invented — the status is qualitative only. */
+async function renderTodayPassiveStatus(profile){
+  var block = document.getElementById("todayPassiveStatusBlock");
+  var label = document.getElementById("todayPassiveStatusLabel");
+  if (!block || !label) return;
+
+  function set(status, text){
+    block.dataset.status = status;
+    label.textContent = text;
+  }
+
+  try {
+    if (!window.CoachBrainData || !window.CoachBrainData.collectSignals){
+      set("unknown", "Not enough data");
+      return;
+    }
+    var signals = await window.CoachBrainData.collectSignals(profile || null);
+    if (!signals || Object.keys(signals).length <= 1){ // { now } only
+      set("unknown", "Not enough data");
+      return;
+    }
+    // Recovery flag: pain in the last window OR very high acute load.
+    if (signals.pain && signals.pain.present === true){
+      set("recover", "Recovery recommended");
+      return;
+    }
+    if (signals.recovery && Number.isFinite(signals.recovery.acwr)){
+      var acwr = signals.recovery.acwr;
+      if (acwr >= 1.5){ set("recover", "Recovery recommended"); return; }
+      if (acwr >= 1.3){ set("care",    "Proceed with care");    return; }
+    }
+    // Existing (passive) readiness record, if the athlete filled one
+    // previously — reused as a signal, no new questionnaire surfaced.
+    if (signals.readiness && signals.readiness.status){
+      var s = String(signals.readiness.status).toLowerCase();
+      if (s.indexOf("low") >= 0)      { set("recover", "Recovery recommended"); return; }
+      if (s.indexOf("moderate") >= 0) { set("care",    "Proceed with care");    return; }
+      if (s.indexOf("good") >= 0 || s.indexOf("optimal") >= 0){
+        set("good", "Good to go"); return;
+      }
+    }
+    // Enough passive signals present to say the athlete is on track.
+    if (signals.recovery || signals.consistency || signals.volume){
+      set("good", "Good to go");
+      return;
+    }
+    set("unknown", "Not enough data");
+  } catch (e) {
+    set("unknown", "Not enough data");
+  }
+}
+
+/* ─────────────────────── COMPACT LATEST WORKOUT ANALYSIS ─────────────
+   The workoutAnalysis renderer replaces innerHTML on every refresh.
+   After each refresh we (a) pull the first sentence of "Coach insight"
+   into a compact takeaway line, and (b) wrap the long sections in a
+   <details class="lwa-full"> so they only appear on request. Pure
+   presentation — the source content is unchanged. */
+function compressLatestWorkoutAnalysis(){
+  var root = document.querySelector("#latestWorkoutAnalysis .lwa");
+  if (!root || root.dataset.lwaCompressed === "true") return;
+
+  var sections = Array.prototype.slice.call(root.querySelectorAll(".lwa-section"));
+  if (!sections.length) return;
+
+  var insightSection = null;
+  sections.forEach(function(sec){
+    var lbl = sec.querySelector(".lwa-section-label");
+    if (lbl && /coach insight/i.test((lbl.textContent || "").trim())){
+      insightSection = sec;
+    }
+  });
+
+  var takeaway = "";
+  if (insightSection){
+    var p = insightSection.querySelector("p");
+    takeaway = firstSentence(p && p.textContent);
+  }
+
+  if (takeaway){
+    var takeawayEl = document.createElement("div");
+    takeawayEl.className = "lwa-takeaway";
+    takeawayEl.innerHTML =
+      '<span class="lwa-takeaway-label">Coach takeaway</span>' +
+      '<span class="lwa-takeaway-text"></span>';
+    takeawayEl.querySelector(".lwa-takeaway-text").textContent = takeaway;
+    var metrics = root.querySelector(".lwa-metrics");
+    if (metrics && metrics.parentNode === root){
+      metrics.parentNode.insertBefore(takeawayEl, metrics.nextSibling);
     } else {
-      ring.dataset.status = status;
-      if (scoreDisplay) scoreDisplay.textContent = String(score) + "%";
-      if (labelDisplay) labelDisplay.textContent =
-        COMPACT_READINESS_LABELS[status] || statusLabel;
-      var pct = Math.max(0, Math.min(100, score));
-      if (fill) fill.style.strokeDashoffset = String(C * (1 - pct / 100));
+      root.insertBefore(takeawayEl, sections[0]);
     }
   }
 
-  if (tile) {
-    tile.textContent = (score === null || !status)
-      ? "—"
-      : String(score) + "%";
-  }
+  var details = document.createElement("details");
+  details.className = "lwa-full";
+  var summary = document.createElement("summary");
+  summary.textContent = "View full analysis";
+  details.appendChild(summary);
+  var first = sections[0];
+  first.parentNode.insertBefore(details, first);
+  sections.forEach(function(sec){ details.appendChild(sec); });
+
+  root.dataset.lwaCompressed = "true";
 }
 
-/* Observe the two source elements the readiness renderer writes into,
-   plus the training summary paragraph. Every time any of them changes
-   we re-project into the compact card and glance strip. */
-(function initTodayCompactWatchers(){
-  function observe(target, handler, key){
-    if (!target || target.dataset[key] === "true") return;
-    target.dataset[key] = "true";
-    try {
-      new MutationObserver(handler).observe(target, {
-        childList: true, subtree: true, characterData: true
-      });
-    } catch (e) {}
-  }
+/* Observe the latest-workout mount for renderer refreshes so the
+   compression re-applies whenever the card re-renders. */
+(function initLatestWorkoutObserver(){
   function attach(){
-    observe(document.getElementById("readinessCopy"),
-      syncCompactReadinessRing, "compactObserved");
-    observe(document.querySelector("#readinessEmptyState .ring .center b"),
-      syncCompactReadinessRing, "compactObserved");
-    observe(document.getElementById("dailyBriefTrainingSummary"),
-      syncCompactShortLine, "compactObserved");
-    syncCompactReadinessRing();
-    syncCompactShortLine();
+    var mount = document.getElementById("latestWorkoutAnalysis");
+    if (!mount || mount.dataset.lwaWatched === "true") return;
+    mount.dataset.lwaWatched = "true";
+    try {
+      new MutationObserver(function(){ compressLatestWorkoutAnalysis(); })
+        .observe(mount, { childList: true, subtree: false });
+    } catch (e) {}
+    compressLatestWorkoutAnalysis();
   }
-  if (document.readyState === "loading") {
+  if (document.readyState === "loading"){
     document.addEventListener("DOMContentLoaded", attach);
   } else { attach(); }
+})();
+
+/* Kick both Today helpers on initial load and whenever brain.js signals
+   a Today refresh (see js/brain.js refreshAthleteUI which calls these
+   two names at the end, when they exist). */
+window.renderTodayRecommendation = renderTodayRecommendation;
+window.renderTodayPassiveStatus = renderTodayPassiveStatus;
+
+(function initTodayCompactBoot(){
+  function boot(){
+    try { renderTodayRecommendation(); } catch (e) {}
+    try { renderTodayPassiveStatus(null); } catch (e) {}
+  }
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", boot);
+  } else { boot(); }
 })();
 /* Onboarding is handled by the single authoritative flow in
    js/onboarding.js (startAthlevoOnboarding). It asks real questions,
