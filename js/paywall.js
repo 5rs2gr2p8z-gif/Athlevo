@@ -32,7 +32,7 @@
    * Format: https://whop.com/checkout/<plan-id>/  or
    *         https://whop.com/<company>/checkout/<plan-pass-id>/
    */
-  const WHOP_CHECKOUT_URL = "https://whop.com/athlevo-performance/checkout/plan_XXXXXXX/";
+  const WHOP_CHECKOUT_URL = "https://whop.com/checkout/plan_F5PftzWCJCQVw;
 
   /*
    * How long to poll for entitlement after checkout return, and how
