@@ -172,8 +172,45 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
         ${ART.account}
         <h2 class="cf-title serif">Create your free Sync account</h2>
         <p class="cf-body">This free account lets Athlevo receive your workouts from Garmin, COROS, Polar and others. It's the standard, secure way training apps connect to your watch — most runners set it up once and forget it.</p>
-        <button class="cf-btn primary" onclick="AthlevoConnect.authorize()">Create free account &amp; continue</button>
+        <button class="cf-btn primary" onclick="AthlevoConnect.continueToHandoff()">Create free account &amp; continue</button>
         <p class="cf-note small">Your Sync Partner is ${esc(serviceName())}. Athlevo only ever <b>reads</b> your workouts — it never posts, edits or deletes anything.</p>
+        ${helpBlock()}
+      </div>
+    `);
+  }
+
+  /*
+   * STEP 2b — the branded HANDOFF. Beta feedback: being dropped onto
+   * Intervals.icu cold breaks trust ("did I just leave the app? whose site is
+   * this?"). This screen answers every next question BEFORE the redirect:
+   * what's about to happen, why Intervals is involved, that they may need to
+   * make a free account, and that they return to Athlevo automatically. The
+   * 3-step tracker frames the trip as part of Athlevo, not a detour.
+   */
+  function handoffTracker(activeIndex) {
+    const steps = [
+      ["Connect training account", "Sign in (or create a free account)"],
+      ["Authorize sync", "Allow Athlevo to read your workouts"],
+      ["Return to Athlevo", "We bring you straight back"]
+    ];
+    return `<ol class="cf-howto cf-track">` + steps.map((s, i) => {
+      const cls = i < activeIndex ? "done" : (i === activeIndex ? "active" : "");
+      const mark = i < activeIndex ? "✓" : String(i + 1);
+      return `<li class="${cls}" data-mark="${mark}"><b>${esc(s[0])}</b><small>${esc(s[1])}</small></li>`;
+    }).join("") + `</ol>`;
+  }
+
+  function stepHandoff() {
+    show(`
+      <div class="cf-step">
+        ${progress(2)}
+        ${ART.link}
+        <h2 class="cf-title serif">Opening ${esc(serviceName())}, our secure sync partner</h2>
+        <p class="cf-body">In a moment we'll send you to ${esc(serviceName())} to authorize the connection — then bring you <b>right back to Athlevo automatically</b>. Don't have a ${esc(serviceName())} account? You can create one free in a few seconds on the same screen.</p>
+        ${handoffTracker(0)}
+        <button class="cf-btn primary" onclick="AthlevoConnect.authorize()">Continue to ${esc(serviceName())}</button>
+        <button class="cf-link" onclick="AthlevoConnect.next('account')">Back</button>
+        <p class="cf-note small">Athlevo only ever <b>reads</b> your workouts — never posts, edits or deletes anything.</p>
         ${helpBlock()}
       </div>
     `);
@@ -247,8 +284,8 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
       <div class="cf-step center">
         ${ART.check}
         <span class="cf-confirm">${esc(wearableLabel())} connected</span>
-        <h2 class="cf-title serif">${esc(summary.headline)}</h2>
-        <p class="cf-body">Your AI coach is now ready.</p>
+        <h2 class="cf-title serif">Your training is connected.</h2>
+        <p class="cf-body">${esc(summary.headline)} Your AI coach is now ready.</p>
         <div class="cf-stats">
           ${stat("This week", summary.weeklyKm)}
           ${stat("Longest run", summary.longestKm)}
@@ -365,6 +402,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
     switch (state.step) {
       case "intro":         return stepIntro();
       case "account":       return stepAccount();
+      case "handoff":       return stepHandoff();
       case "connectGarmin": return stepConnectGarmin();
       case "detecting":     return stepDetecting();
       case "notConnected":  return stepNotConnected();
@@ -541,6 +579,10 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
       if (!state.wearable) rememberWearable("garmin");
       go("account");
     },
+
+    // Step 2 → the branded transition screen shown BEFORE the redirect, so the
+    // athlete knows exactly what's about to happen and that they'll come back.
+    continueToHandoff() { go("handoff"); },
 
     createAccount() { openExternal(DS().signupUrl); },
     openConnections() { openExternal(DS().connectionsUrl); },

@@ -162,6 +162,7 @@ section("Import success confirms the connection before the dashboard");
   const fn = connect.slice(connect.indexOf("function stepSuccess"),
                            connect.indexOf("function stepProblem"));
   t("explicitly confirms the connection (device connected badge)", /cf-confirm/.test(fn) && /connected/.test(fn));
+  t("celebrates with a strong 'Your training is connected.' headline", /Your training is connected\./.test(fn));
   t("shows the real activity count", /summary\.headline/.test(fn));
   t("shows real training stats", /This week/.test(fn) && /Longest run/.test(fn));
   t("names what happens next — the AI coach is ready", /Your AI coach is now ready/.test(fn));
@@ -271,7 +272,7 @@ section("P5. Empty states answer what/why/next");
 section("P2. Athletes are guided, not sent away");
 {
   const fn = connect.slice(connect.indexOf("function stepAccount"),
-                           connect.indexOf("function stepConnectGarmin"));
+                           connect.indexOf("function stepHandoff"));
   t("Athlevo owns the heading", /Create your free Sync account/.test(fn));
   t("the copy explains why, naming the platforms",
     /receive your workouts from Garmin, COROS, Polar and others/.test(fn));

@@ -135,26 +135,30 @@ section("The PRIMARY button emits exactly one action=connect");
   const w = makeWorld();
   await w.g.AthlevoConnect.start();
   w.g.AthlevoConnect.pickWearable("garmin");
-  w.g.AthlevoConnect.continueToAccount();     // Step 2 — the account step owns the connect button
+  w.g.AthlevoConnect.continueToAccount();     // Step 2 — the account explainer
 
-  // Find the real button in the rendered markup, by its onclick.
+  // The account step is where the athlete starts the secure sign-in, but it
+  // does NOT name the raw provider in a heading/button (that reassurance is
+  // deferred to the branded handoff screen).
+  t("the screen is titled 'Create your free Sync account'",
+    /Create your free Sync account/.test(w.dom.html));
+  t("the account step does NOT name the provider in a heading or button",
+    !/<h[12][^>]*>[^<]*Intervals/i.test(w.dom.html) &&
+    !/<button[^>]*>[^<]*Intervals/i.test(w.dom.html));
+
+  // Advance to the branded handoff — the screen that owns the connect button.
+  w.g.AthlevoConnect.continueToHandoff();
+
   const buttons = [...w.dom.html.matchAll(/<button[^>]*onclick="([^"]+)"[^>]*>([\s\S]*?)<\/button>/g)]
     .map(m => ({ onclick: m[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'"),
                  label: m[2].replace(/<[^>]+>/g, " ").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim() }));
 
-  t("the account step rendered a button", buttons.length >= 1, String(buttons.length));
+  t("the handoff step rendered a button", buttons.length >= 1, String(buttons.length));
 
-  const primary = buttons.find(b => /create free account/i.test(b.label));
-  t("the primary button creates the account & continues", Boolean(primary), buttons.map(b => b.label).join(" | "));
+  const primary = buttons.find(b => /AthlevoConnect\.authorize\(\)/.test(b.onclick));
+  t("the primary button continues to the sync partner", Boolean(primary), buttons.map(b => b.label).join(" | "));
   t("...and is bound to authorize()",
     primary && /AthlevoConnect\.authorize\(\)/.test(primary.onclick), primary && primary.onclick);
-
-  // The account step is where the athlete starts the secure sign-in.
-  t("the screen is titled 'Create your free Sync account'",
-    /Create your free Sync account/.test(w.dom.html));
-  t("the sync partner is NOT named in a heading or button",
-    !/<h[12][^>]*>[^<]*Intervals/i.test(w.dom.html) &&
-    !/<button[^>]*>[^<]*Intervals/i.test(w.dom.html));
 
   // Evaluate the onclick exactly as the browser would.
   const before = w.net.length;

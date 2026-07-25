@@ -57,19 +57,33 @@ function loadBrain(nodes, activities = []) {
 
 /* ══════════ PART 1 — the onboarding flow ═══════════════════════════ */
 
-section("1. The account step explains WHY and starts the secure sign-in");
+section("1. The account step explains WHY and leads into the branded handoff");
 {
   const fn = connect.slice(connect.indexOf("function stepAccount"),
-                           connect.indexOf("function stepConnectGarmin"));
+                           connect.indexOf("function stepHandoff"));
   t("title 'Create your free Sync account'", /Create your free Sync account/.test(fn));
   t("explains why in plain words", /receive your workouts from Garmin, COROS, Polar and others/.test(fn));
   t("reassures it's normal and free", /free/.test(fn) && /most runners set it up once/.test(fn));
   t("a progress indicator marks step 2 of 4", /progress\(2\)/.test(fn));
-  t("primary button launches OAuth via authorize()", /onclick="AthlevoConnect\.authorize\(\)"/.test(fn));
-  t("no provider named in heading/button",
+  t("primary button leads to the branded handoff (not a cold redirect)",
+    /onclick="AthlevoConnect\.continueToHandoff\(\)"/.test(fn));
+  t("no provider named in heading/button on the account step",
     !/<h[12][^>]*>[^<]*Intervals/.test(fn) && !/<button[^>]*>[^<]*Intervals/.test(fn));
-  t("partner disclosed once via serviceName()", /\$\{esc\(serviceName\(\)\)\}/.test(fn));
   t("promises read-only access", /only ever <b>reads<\/b>/.test(fn));
+}
+
+section("1b. The branded transition (handoff) answers the next question before the redirect");
+{
+  const fn = connect.slice(connect.indexOf("function handoffTracker"),
+                           connect.indexOf("function stepConnectGarmin"));
+  t("names the sync partner AND reassures it's secure", /our secure sync partner/.test(fn));
+  t("promises an automatic return to Athlevo", /right back to Athlevo automatically/i.test(fn));
+  t("explains they may create a free account", /create one free/i.test(fn));
+  t("shows the 3-step tracker", /Connect training account/.test(fn) &&
+    /Authorize sync/.test(fn) && /Return to Athlevo/.test(fn));
+  t("the primary button performs the real redirect via authorize()",
+    /onclick="AthlevoConnect\.authorize\(\)"/.test(fn));
+  t("offers a Back path (no dead end)", /AthlevoConnect\.next\('account'\)/.test(fn));
 }
 
 /* ══════════ PART 2 — return states ═════════════════════════════════ */
