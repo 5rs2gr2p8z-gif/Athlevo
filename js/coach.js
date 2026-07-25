@@ -446,6 +446,16 @@ function buildCoachContextSummary(context) {
 
 let coachRequestInFlight = false;
 
+/* Flip the send button into its "is-sending" state so the athlete gets
+ * instant visual confirmation the tap registered — even before any of the
+ * network work starts. Safe to call when the button isn't on screen. */
+function setCoachSendingState(isSending) {
+  const sendBtn = document.querySelector(".coach-composer .send");
+  if (!sendBtn) return;
+  sendBtn.classList.toggle("is-sending", !!isSending);
+  sendBtn.setAttribute("aria-busy", isSending ? "true" : "false");
+}
+
 async function askCoach(question) {
   const cleanQuestion = question?.trim();
 
@@ -455,16 +465,26 @@ async function askCoach(question) {
   // creating duplicate stored messages.
   if (coachRequestInFlight) return;
   coachRequestInFlight = true;
+  setCoachSendingState(true);
 
   // Analytics (best-effort): first_coach_message_sent is a once-only milestone;
   // the registry dedupes it. The message text itself is NEVER recorded.
   try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("first_coach_message_sent"); } catch (e) {}
 
+  // ──────────────────────────────────────────────────────────────────
+  // INSTANT FEEDBACK PHASE
+  // Everything the user needs to see immediately happens synchronously,
+  // in this order, before any await hits the event loop:
+  //   1. their own message appears
+  //   2. the "coach is typing" bubble appears
+  //   3. the send button flips to its sending state
+  // Previously saveConversationMessage() and extractAthleteMemoryFromMessage()
+  // were awaited BEFORE the typing bubble — a full Supabase round-trip plus
+  // a memory-extract call that the athlete stared at as a blank screen.
+  // Neither is used by anything downstream, so both are now fired in the
+  // background. Behaviour is unchanged; the perceived wait is gone.
+  // ──────────────────────────────────────────────────────────────────
   addChatMessage("user", cleanQuestion);
-  await saveConversationMessage("user", cleanQuestion);
-  await extractAthleteMemoryFromMessage(
-  cleanQuestion
-);
 
   // A calm "coach is typing" indicator instead of a verbose status line —
   // it reads like texting a real coach who's thinking, not a loading log.
@@ -478,7 +498,19 @@ async function askCoach(question) {
     }
   }
 
+  // Fire-and-forget: history logging has zero downstream dependency and
+  // its errors are already handled inside the function. Moving it off the
+  // critical path removes a Supabase round-trip from the perceived wait.
+  saveConversationMessage("user", cleanQuestion).catch(() => {});
+
   try {
+    // Memory extraction MUST stay awaited because loadAthleteMemory()
+    // below reads what this call writes — firing-and-forgetting would
+    // race the two and change the coach's context. But it now runs
+    // AFTER the typing indicator is on screen, so the athlete never
+    // stares at a blank composer during it.
+    await extractAthleteMemoryFromMessage(cleanQuestion);
+
     const profile =
   await AthlevoBrain.loadAthleteProfile();
 
@@ -617,6 +649,18 @@ if (data.answer) {
       "I couldn’t complete that request. Please try again.";
   } finally {
     coachRequestInFlight = false;
+    setCoachSendingState(false);
+    // Keep the composer ready for the next question. Refocus is safe on
+    // desktop; on iOS Safari the keyboard only reopens if the user was
+    // already interacting with the input (a documented, intentional gate).
+    const input = document.getElementById("chatInput");
+    if (input && document.activeElement !== input) {
+      // Do not steal focus from a user who has tapped elsewhere.
+      const composerHasFocus = document.activeElement &&
+        document.activeElement.closest &&
+        document.activeElement.closest(".coach-composer");
+      if (composerHasFocus) input.focus();
+    }
   }
 
   const chatlog = document.getElementById("chatlog");
@@ -635,12 +679,45 @@ function sendMsg() {
     return;
   }
 
+  // Second line of defence against double submissions: even a rapid
+  // double-tap on the send button can't queue a second message while the
+  // previous coach turn is still in flight. askCoach() also guards this,
+  // but bailing here also skips clearing the input so the user's text is
+  // preserved if they meant a different question.
+  if (coachRequestInFlight) return;
+
   const question = input.value.trim();
 
   if (!question) return;
 
+  // Clear the composer BEFORE the async work so the input feels emptied
+  // in the same frame the tap registers.
   input.value = "";
   askCoach(question);
+}
+
+/* Bind Enter-to-send on the composer input. Previously there was no key
+ * handler, so pressing Enter did nothing on desktop and the athlete had to
+ * reach for the send button. Shift+Enter is left free for a future
+ * multi-line composer without changing behaviour here. */
+function bindCoachComposer() {
+  const input = document.getElementById("chatInput");
+  if (!input || input.dataset.coachBound === "true") return;
+  input.dataset.coachBound = "true";
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      sendMsg();
+    }
+  });
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindCoachComposer);
+  } else {
+    bindCoachComposer();
+  }
 }
 
 /* ══════════════ structured coach actions ══════════════ */
