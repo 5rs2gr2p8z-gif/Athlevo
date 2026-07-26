@@ -5282,9 +5282,10 @@ setTimeout(function () {
    *   • Intervals.icu (provider_accounts) → providerRequest("sync")
    *   • Legacy Strava (strava_accounts)   → /api/strava/sync
    *
-   * The old implementation unconditionally called /api/strava/sync, which
-   * returned 404 for every Intervals-only athlete and silently imported
-   * nothing on every app open.
+   * The decision is EXCLUSIVE: the code determines WHICH provider the
+   * athlete uses, then calls THAT provider's sync. An Intervals user
+   * NEVER falls through to the Strava endpoint, even if the Intervals
+   * sync fails — a failed sync is not the same as a missing connection.
    */
   async function syncAndRefresh({
     announce = false,
@@ -5300,38 +5301,73 @@ setTimeout(function () {
       }
 
       /*
-       * Try the provider router first (Intervals.icu and future providers).
-       * This reads from provider_accounts, the canonical connection table.
+       * Step 1 — determine the connected provider.
+       *
+       * Check provider_accounts (Intervals.icu) FIRST. If the athlete has
+       * a live provider connection, that is the sync source — period.
+       * The legacy Strava path is only for athletes who have NEVER used
+       * the provider router and still have a strava_accounts row.
        */
-      let result = null;
-      let importedCount = 0;
-      if (AthlevoBrain.providerStatus && AthlevoBrain.syncIntervals) {
+      let providerConnected = false;
+      if (AthlevoBrain.providerStatus) {
         try {
           const status = await AthlevoBrain.providerStatus();
-          if (status && status.connected) {
-            result = await AthlevoBrain.syncIntervals();
-            importedCount = Number(result?.imported) || 0;
-            console.log(`Imported ${importedCount} activities via provider sync.`);
-          }
+          providerConnected = Boolean(status && status.connected);
         } catch (e) {
-          console.warn("Provider sync skipped or failed:", e?.message || e);
+          // Status check failed — cannot determine provider state.
+          // Do NOT guess and do NOT fall through to Strava.
+          console.warn("Provider status check failed:", e?.message || e);
         }
       }
 
-      /*
-       * Legacy Strava path — only for athletes who connected via the old
-       * api/strava/* flow and have a strava_accounts row but no
-       * provider_accounts row. Once all Strava users are migrated to the
-       * provider router, this block can be removed.
-       */
-      if (!result) {
+      let result = null;
+      let importedCount = 0;
+
+      if (providerConnected) {
+        /*
+         * Step 2a — Intervals.icu (or future provider) sync.
+         * Uses providerRequest("sync") → /api/providers?provider=intervals&action=sync
+         * NEVER calls /api/strava/sync.
+         */
         try {
-          result = await AthlevoBrain.syncStravaActivities();
-          importedCount = Number(result?.activitiesSaved) || 0;
-          console.log(`Imported ${importedCount} Strava activities (legacy path).`);
+          result = await AthlevoBrain.syncIntervals();
+          importedCount = Number(result?.imported) || 0;
+          console.log(`Imported ${importedCount} activities via provider sync.`);
         } catch (e) {
-          // No Strava account either — that is fine, not an error.
-          console.log("No sync source available:", e?.message || e);
+          // The sync FAILED but the connection EXISTS. Do not fall through
+          // to Strava — this athlete is an Intervals user whose sync
+          // temporarily errored. Strava would 404 anyway.
+          console.warn("Provider sync failed:", e?.message || e);
+          if (announce && typeof toast === "function") {
+            toast("Connected, but sync didn't finish — will retry shortly.");
+          }
+          return null;
+        }
+      } else {
+        /*
+         * Step 2b — Legacy Strava sync (guarded).
+         * Only attempt this when the athlete's profile confirms a live
+         * Strava connection. Without this guard, every athlete with NO
+         * connection at all would hit /api/strava/sync → 404.
+         */
+        let stravaConnected = false;
+        try {
+          const profile = await AthlevoBrain.loadAthleteProfile();
+          stravaConnected = Boolean(profile && profile.strava_connected);
+        } catch (e) { /* profile unavailable — skip Strava too */ }
+
+        if (stravaConnected) {
+          try {
+            result = await AthlevoBrain.syncStravaActivities();
+            importedCount = Number(result?.activitiesSaved) || 0;
+            console.log(`Imported ${importedCount} Strava activities (legacy path).`);
+          } catch (e) {
+            console.warn("Strava sync failed:", e?.message || e);
+            return null;
+          }
+        } else {
+          console.log("No sync source connected.");
+          return null;
         }
       }
 
