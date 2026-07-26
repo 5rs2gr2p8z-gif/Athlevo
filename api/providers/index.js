@@ -66,7 +66,19 @@ const LOG_SAFE = new Set([
   "stateValid", "tokenExchangeAttempted", "tokenHttpStatus",
   "pendingWriteAttempted", "pendingWriteOk", "pendingHttpStatus",
   "finalRedirectState", "returnOrigin", "redirectUriOrigin",
-  "redirectUriSource", "originsMatch"
+  "redirectUriSource", "originsMatch",
+  /*
+   * Intervals OWNERSHIP diagnostics (callback + finalize).
+   *
+   * Opaque Athlevo/Intervals identifiers, a lookup outcome and a decision
+   * label — nothing more. Deliberately absent, and must stay absent: provider
+   * access/refresh credentials, the authorization code, the completion token,
+   * the pending token hash, the client secret and any Authorization header.
+   * Athlevo user ids and the Intervals athlete id are opaque keys, not
+   * credentials: neither authenticates anything on its own.
+   */
+  "userId", "providerAthleteId", "ownerUserId", "ownerExistsInAuth",
+  "ownershipDecision", "ownershipLookupOk", "pendingRow"
 ]);
 
 function log(event, fields = {}) {
@@ -186,8 +198,13 @@ async function findOwnerByProviderAthlete(provider, athleteId) {
  * FAIL CLOSED. Reclaim is permitted ONLY on a definitive 404. Any other outcome
  * (200, 5xx, network error, malformed) is treated as "still exists" so an
  * uncertain lookup can never relink a live account to a second user.
+ *
+ * `obs` is an OBSERVABILITY SINK ONLY. It records whether the lookup was
+ * definitive, because the returned boolean deliberately collapses "exists"
+ * and "could not tell" into the same fail-closed `true`. Writing to it
+ * changes no branch and no return value.
  */
-async function authUserExists(userId) {
+async function authUserExists(userId, obs) {
   const url = process.env.SUPABASE_URL;
   if (!userId) return false;
   try {
@@ -195,9 +212,11 @@ async function authUserExists(userId) {
       `${url}/auth/v1/admin/users/${encodeURIComponent(String(userId))}`,
       { headers: sbHeaders() }
     );
+    if (obs) obs.ownerExistsInAuth = res.status === 404 ? false : (res.ok ? true : "unknown");
     if (res.status === 404) return false;   // the ONLY signal that permits reclaim
     return true;                            // exists, or unknown → treat as active
   } catch {
+    if (obs) obs.ownerExistsInAuth = "unknown";
     return true;                            // unknown → never reclaim
   }
 }
@@ -213,15 +232,32 @@ async function authUserExists(userId) {
  *   { ok:true, decision:'reclaim', staleUserId }
  *                                   → the only owner is orphaned (gone from
  *                                     auth.users) → the claimant may reclaim it
+ *
+ * `obs` is an OBSERVABILITY SINK ONLY — it records the two lookup results and
+ * the resulting label so a call site can log WHY a decision came out the way it
+ * did. It is never read back here and influences no branch.
  */
-async function decideOwnership(provider, athleteId, claimantUserId) {
+async function decideOwnership(provider, athleteId, claimantUserId, obs) {
   const owner = await findOwnerByProviderAthlete(provider, athleteId);
+  if (obs) {
+    obs.ownershipLookupOk = owner.ok;
+    obs.ownerUserId = owner.ok ? (owner.userId || null) : null;
+    obs.ownerExistsInAuth = "not_checked";
+    obs.ownershipDecision = null;
+  }
   if (!owner.ok) return { ok: false };
-  if (!owner.userId) return { ok: true, decision: "clear" };
-  if (owner.userId === String(claimantUserId)) return { ok: true, decision: "self" };
+  if (!owner.userId) {
+    if (obs) { obs.ownerExistsInAuth = null; obs.ownershipDecision = "clear"; }
+    return { ok: true, decision: "clear" };
+  }
+  if (owner.userId === String(claimantUserId)) {
+    if (obs) obs.ownershipDecision = "self";
+    return { ok: true, decision: "self" };
+  }
   // A different account holds the authoritative row. It may block ONLY if that
   // account still exists; an orphaned row must never freeze the athlete forever.
-  const prevExists = await authUserExists(owner.userId);
+  const prevExists = await authUserExists(owner.userId, obs);
+  if (obs) obs.ownershipDecision = prevExists ? "blocked" : "reclaim";
   return prevExists
     ? { ok: true, decision: "blocked" }
     : { ok: true, decision: "reclaim", staleUserId: owner.userId };
@@ -780,15 +816,41 @@ async function actionCallback(request, response, cid) {
    * exactly how reconnect works (Intervals.icu issues a fresh token, which
    * replaces the old one).
    */
-  const ownership = await decideOwnership("intervals", athleteId, payload.userId);
+  /*
+   * OWNERSHIP OBSERVABILITY (diagnostic only — changes no branch below).
+   *
+   * `userId` here is the claimant carried in the SIGNED STATE, i.e. the account
+   * that was authenticated when the flow started. A callback is a redirect from
+   * Intervals.icu and carries no Authorization header, so no session-derived
+   * user id exists at this point — which is precisely why the event name says
+   * "callback" and finalize has its own event.
+   */
+  const own = {};
+  const ownership = await decideOwnership("intervals", athleteId, payload.userId, own);
+  log("intervals_callback_ownership", {
+    correlationId: cid, provider: "intervals",
+    userId: payload.userId || null,
+    providerAthleteId: athleteId,
+    ownerUserId: own.ownerUserId ?? null,
+    ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
+    ownershipDecision: own.ownershipDecision ?? null,
+    ownershipLookupOk: own.ownershipLookupOk ?? false,
+    pendingRow: "not_yet"
+  });
   if (!ownership.ok) {
-    log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP" });
+    log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP",
+      userId: payload.userId || null, providerAthleteId: athleteId,
+      ownerUserId: own.ownerUserId ?? null, ownershipDecision: null });
     return backToApp("failed", "We couldn't save the connection just now. Please try again in a moment.");
   }
   if (ownership.decision === "blocked") {
     // Another account that STILL EXISTS owns this athlete. Refuse — one active
     // Intervals identity can never belong to two active Athlevo users.
-    log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED" });
+    log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED",
+      userId: payload.userId || null, providerAthleteId: athleteId,
+      ownerUserId: own.ownerUserId ?? null,
+      ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
+      ownershipDecision: "blocked", pendingRow: "not_created" });
     return backToApp(
       "failed",
       "This Intervals.icu account is already connected to another Athlevo account.",
@@ -799,7 +861,11 @@ async function actionCallback(request, response, cid) {
     // The only claim is an orphan whose owner is gone from auth.users. Note it
     // and fall through — the AUTHORITATIVE reclaim (row deletion + write) happens
     // in finalize, where the caller's identity is proven.
-    log("intervals_ownership_reclaim", { correlationId: cid, provider: "intervals", status: "callback" });
+    log("intervals_ownership_reclaim", { correlationId: cid, provider: "intervals", status: "callback",
+      userId: payload.userId || null, providerAthleteId: athleteId,
+      ownerUserId: own.ownerUserId ?? null,
+      ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
+      ownershipDecision: "reclaim" });
   }
 
   /*
@@ -831,6 +897,19 @@ async function actionCallback(request, response, cid) {
 
   log("intervals_callback_pending_result", { correlationId: cid, provider: "intervals",
     pendingWriteOk: Boolean(completion) });
+
+  // Ties the pending-row outcome to the ownership decision that allowed it.
+  log("intervals_callback_outcome", {
+    correlationId: cid, provider: "intervals",
+    userId: payload.userId || null,
+    providerAthleteId: athleteId,
+    ownerUserId: own.ownerUserId ?? null,
+    ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
+    ownershipDecision: own.ownershipDecision ?? null,
+    pendingRow: completion ? "created" : "not_created",
+    finalRedirectState: completion ? "pending" : "failed",
+    code: completion ? null : "PENDING_PERSIST"
+  });
 
   if (!completion) {
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "PENDING_PERSIST" });
@@ -890,6 +969,14 @@ async function actionFinalize(request, response, cid) {
    * connection rather than leave it available for another attempt.
    */
   const pending = await consumePendingConnection(completion);
+  // Diagnostic only. The completion token and its hash are NOT logged.
+  log("intervals_finalize_pending", {
+    correlationId: cid, provider: "intervals",
+    userId: user.id,
+    providerAthleteId: pending.ok && pending.row ? String(pending.row.provider_athlete_id) : null,
+    pendingRow: pending.ok ? "consumed" : "not_consumed",
+    code: pending.ok ? null : pending.code
+  });
   if (!pending.ok) {
     log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: pending.code });
     return response.status(pending.code === "LOOKUP_FAILED" ? 503 : 400).json({
@@ -909,7 +996,8 @@ async function actionFinalize(request, response, cid) {
    * The pending row is already consumed above, so a mismatch cannot be retried.
    */
   if (String(row.user_id) !== String(user.id)) {
-    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "SESSION_CHANGED" });
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "SESSION_CHANGED",
+      userId: user.id, providerAthleteId: String(row.provider_athlete_id), pendingRow: "consumed" });
     return response.status(409).json({
       error: "Your Athlevo account changed while connecting your training data. " +
              "For security, please restart the connection from the account you want to use.",
@@ -918,9 +1006,26 @@ async function actionFinalize(request, response, cid) {
   }
 
   // Re-checked here, not just in the callback: ownership can change in between.
-  const ownership = await decideOwnership("intervals", row.provider_athlete_id, user.id);
+  const own = {};
+  const ownership = await decideOwnership("intervals", row.provider_athlete_id, user.id, own);
+  /*
+   * OWNERSHIP OBSERVABILITY (diagnostic only — changes no branch below).
+   * Here `userId` IS the session-authenticated caller from requireUser().
+   */
+  log("intervals_finalize_ownership", {
+    correlationId: cid, provider: "intervals",
+    userId: user.id,
+    providerAthleteId: String(row.provider_athlete_id),
+    ownerUserId: own.ownerUserId ?? null,
+    ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
+    ownershipDecision: own.ownershipDecision ?? null,
+    ownershipLookupOk: own.ownershipLookupOk ?? false,
+    pendingRow: "consumed"
+  });
   if (!ownership.ok) {
-    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP" });
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP",
+      userId: user.id, providerAthleteId: String(row.provider_athlete_id),
+      ownerUserId: own.ownerUserId ?? null, ownershipDecision: null, pendingRow: "consumed" });
     return response.status(503).json({
       error: "We couldn't save the connection just now. Please try again in a moment.",
       code: "OWNERSHIP_LOOKUP"
@@ -928,7 +1033,11 @@ async function actionFinalize(request, response, cid) {
   }
   if (ownership.decision === "blocked") {
     // Another account that still exists owns it. Never relink an active account.
-    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED" });
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED",
+      userId: user.id, providerAthleteId: String(row.provider_athlete_id),
+      ownerUserId: own.ownerUserId ?? null,
+      ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
+      ownershipDecision: "blocked", pendingRow: "consumed" });
     return response.status(409).json({
       error: "This Intervals.icu account is already connected to another Athlevo account.",
       code: "ALREADY_LINKED"
@@ -943,13 +1052,19 @@ async function actionFinalize(request, response, cid) {
      */
     const released = await releaseOrphanedOwnership("intervals", row.provider_athlete_id, ownership.staleUserId);
     if (!released) {
-      log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP" });
+      log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP",
+        userId: user.id, providerAthleteId: String(row.provider_athlete_id),
+        ownerUserId: own.ownerUserId ?? null, ownershipDecision: "reclaim", pendingRow: "consumed" });
       return response.status(503).json({
         error: "We couldn't save the connection just now. Please try again in a moment.",
         code: "OWNERSHIP_LOOKUP"
       });
     }
-    log("intervals_ownership_reclaim", { correlationId: cid, provider: "intervals", status: "finalize" });
+    log("intervals_ownership_reclaim", { correlationId: cid, provider: "intervals", status: "finalize",
+      userId: user.id, providerAthleteId: String(row.provider_athlete_id),
+      ownerUserId: own.ownerUserId ?? null,
+      ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
+      ownershipDecision: "reclaim" });
   }
 
   const saved = await upsertProviderAccount({
@@ -978,7 +1093,9 @@ async function actionFinalize(request, response, cid) {
   });
 
   if (!saved) {
-    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "PERSIST" });
+    log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "PERSIST",
+      userId: user.id, providerAthleteId: String(row.provider_athlete_id),
+      ownershipDecision: own.ownershipDecision ?? null, pendingRow: "consumed" });
     return response.status(503).json({
       error: "We connected to Intervals.icu but couldn't save it. Please try again.",
       code: "PERSIST"
@@ -991,7 +1108,12 @@ async function actionFinalize(request, response, cid) {
   // purgeExpiredPending will remove it once its TTL passes.
   deletePendingConnection(row.id);
 
-  log("intervals_finalize_success", { correlationId: cid, provider: "intervals" });
+  log("intervals_finalize_success", { correlationId: cid, provider: "intervals",
+    userId: user.id, providerAthleteId: String(row.provider_athlete_id),
+    ownerUserId: own.ownerUserId ?? null,
+    ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
+    ownershipDecision: own.ownershipDecision ?? null,
+    pendingRow: "consumed", code: null });
   return response.status(200).json({ success: true, connected: true });
 }
 
