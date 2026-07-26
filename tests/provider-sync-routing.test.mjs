@@ -33,7 +33,7 @@ const section = s => console.log(`\n──── ${s} ────`);
  * structural drift.
  */
 async function runSyncRouting(brain) {
-  const log = { providerStatus: 0, syncIntervals: 0, syncStrava: 0, loadProfile: 0 };
+  const log = { providerStatus: 0, syncIntervals: 0, syncStrava: 0, stravaCheck: 0 };
 
   let providerConnected = false;
   if (brain.providerStatus) {
@@ -41,7 +41,10 @@ async function runSyncRouting(brain) {
       const status = await brain.providerStatus();
       log.providerStatus++;
       providerConnected = Boolean(status && status.connected);
-    } catch (e) { /* status check failed */ }
+    } catch (e) {
+      // Status check FAILED — unknown state, do NOT guess Strava.
+      return { result: null, importedCount: 0, log, failedProvider: true };
+    }
   }
 
   let result = null;
@@ -58,12 +61,12 @@ async function runSyncRouting(brain) {
       return { result: null, importedCount: 0, log, failedProvider: true };
     }
   } else {
-    // Legacy Strava — ONLY when profile.strava_connected is true.
+    // Legacy Strava — ONLY when a real strava_accounts row exists (the
+    // authoritative source). The profile flag can be stale and must NOT gate.
     let stravaConnected = false;
     try {
-      const profile = await brain.loadAthleteProfile();
-      log.loadProfile++;
-      stravaConnected = Boolean(profile && profile.strava_connected);
+      stravaConnected = await brain.stravaAccountConnected();
+      log.stravaCheck++;
     } catch (e) { /* skip */ }
 
     if (stravaConnected) {
@@ -87,12 +90,12 @@ section("Intervals user syncs via provider router, never calls Strava");
     providerStatus: async () => ({ connected: true, provider: "intervals" }),
     syncIntervals: async () => ({ imported: 5, withLaps: 1, failed: 0, status: "success" }),
     syncStravaActivities: async () => { throw new Error("MUST NOT BE CALLED"); },
-    loadAthleteProfile: async () => { throw new Error("MUST NOT BE CALLED"); },
+    stravaAccountConnected: async () => { throw new Error("MUST NOT BE CALLED"); },
   };
   const r = await runSyncRouting(brain);
   t("syncIntervals was called", r.log.syncIntervals === 1);
   t("syncStravaActivities was NOT called", r.log.syncStrava === 0);
-  t("loadAthleteProfile was NOT called (no Strava check needed)", r.log.loadProfile === 0);
+  t("Strava account check was NOT performed (no Strava check needed)", r.log.stravaCheck === 0);
   t("imported count comes from provider result", r.importedCount === 5);
   t("result is truthy", r.result !== null);
 }
@@ -103,7 +106,7 @@ section("Intervals sync failure does NOT fall back to Strava");
     providerStatus: async () => ({ connected: true }),
     syncIntervals: async () => { throw new Error("network timeout"); },
     syncStravaActivities: async () => { throw new Error("MUST NOT BE CALLED"); },
-    loadAthleteProfile: async () => { throw new Error("MUST NOT BE CALLED"); },
+    stravaAccountConnected: async () => { throw new Error("MUST NOT BE CALLED"); },
   };
   const r = await runSyncRouting(brain);
   t("provider was detected as connected", r.log.providerStatus === 1);
@@ -112,67 +115,68 @@ section("Intervals sync failure does NOT fall back to Strava");
   t("failedProvider flag is set", r.failedProvider === true);
 }
 
-section("Strava-only user syncs via legacy path");
+section("Strava-only user syncs via legacy path (real strava_accounts row)");
 {
   const brain = {
     providerStatus: async () => ({ connected: false }),
     syncIntervals: async () => { throw new Error("MUST NOT BE CALLED"); },
     syncStravaActivities: async () => ({ activitiesSaved: 3 }),
-    loadAthleteProfile: async () => ({ strava_connected: true }),
+    stravaAccountConnected: async () => true,   // authoritative row exists
   };
   const r = await runSyncRouting(brain);
   t("providerStatus confirmed not connected", r.log.providerStatus === 1);
-  t("loadAthleteProfile was checked for Strava state", r.log.loadProfile === 1);
+  t("authoritative Strava account was checked", r.log.stravaCheck === 1);
   t("syncStravaActivities was called", r.log.syncStrava === 1);
   t("syncIntervals was NOT called", r.log.syncIntervals === 0);
   t("imported count comes from Strava result", r.importedCount === 3);
 }
 
-section("No-provider user does NOT fall back to Strava");
+section("Stale strava_connected flag with NO real account does NOT sync");
 {
   const brain = {
     providerStatus: async () => ({ connected: false }),
     syncIntervals: async () => { throw new Error("MUST NOT BE CALLED"); },
     syncStravaActivities: async () => { throw new Error("MUST NOT BE CALLED"); },
-    loadAthleteProfile: async () => ({ strava_connected: false }),
+    // Authoritative source says NO row even though a profile flag might be stale.
+    stravaAccountConnected: async () => false,
   };
   const r = await runSyncRouting(brain);
   t("providerStatus was checked", r.log.providerStatus === 1);
-  t("profile was checked for Strava", r.log.loadProfile === 1);
-  t("syncStravaActivities was NOT called", r.log.syncStrava === 0);
+  t("authoritative Strava account was checked", r.log.stravaCheck === 1);
+  t("syncStravaActivities was NOT called (stale flag ignored)", r.log.syncStrava === 0);
   t("syncIntervals was NOT called", r.log.syncIntervals === 0);
   t("result is null", r.result === null);
 }
 
-section("No-provider, no-profile user does nothing");
+section("No-provider, no Strava account does nothing");
 {
   const brain = {
     providerStatus: async () => ({ connected: false }),
     syncIntervals: async () => { throw new Error("MUST NOT BE CALLED"); },
     syncStravaActivities: async () => { throw new Error("MUST NOT BE CALLED"); },
-    loadAthleteProfile: async () => null,
+    stravaAccountConnected: async () => false,
   };
   const r = await runSyncRouting(brain);
-  t("no sync attempted when profile is null", r.log.syncStrava === 0 && r.log.syncIntervals === 0);
+  t("no sync attempted when neither provider is connected", r.log.syncStrava === 0 && r.log.syncIntervals === 0);
   t("result is null", r.result === null);
 }
 
-section("providerStatus failure does not fall back to Strava");
+section("providerStatus failure does NOT fall back to Strava (truthful null)");
 {
   const brain = {
     providerStatus: async () => { throw new Error("network error"); },
     syncIntervals: async () => { throw new Error("MUST NOT BE CALLED"); },
     syncStravaActivities: async () => { throw new Error("MUST NOT BE CALLED"); },
-    loadAthleteProfile: async () => ({ strava_connected: true }),
+    // Even a stale-true flag must not authorize Strava when provider state
+    // is UNKNOWN. The authoritative check is never even reached.
+    stravaAccountConnected: async () => { throw new Error("MUST NOT BE CALLED"); },
   };
   const r = await runSyncRouting(brain);
-  // When we can't determine provider state, we check Strava profile
-  // (this is the safe fallback — providerStatus failing doesn't mean
-  // the user has Intervals, it means we couldn't check)
-  t("no sync calls when providerStatus throws", r.log.syncIntervals === 0);
-  // The providerStatus threw, so providerConnected stays false,
-  // then it falls to the Strava branch (profile check + guarded sync)
-  // This is the correct behavior: unknown provider state → check Strava
+  t("no Intervals sync when providerStatus throws", r.log.syncIntervals === 0);
+  t("no Strava sync when providerStatus throws", r.log.syncStrava === 0);
+  t("authoritative Strava check never reached (no guess)", r.log.stravaCheck === 0);
+  t("failedProvider flag is set (unknown state → truthful null)", r.failedProvider === true);
+  t("result is null", r.result === null);
 }
 
 /* ═══════════ Part 2: Source code structure verification ════════════════ */
@@ -190,8 +194,12 @@ section("syncAndRefresh source has exclusive routing (no unguarded Strava fallba
     /providerConnected/.test(fn) && /if \(providerConnected\)/.test(fn));
   t("Strava path is in an else branch (exclusive)",
     /\} else \{[\s\S]*?syncStravaActivities/.test(fn));
-  t("Strava is guarded by profile.strava_connected",
-    /strava_connected/.test(fn) && /if \(stravaConnected\)/.test(fn));
+  t("Strava is guarded by the authoritative strava_accounts check, not the stale flag",
+    /stravaAccountConnected/.test(fn) && /if \(stravaConnected\)/.test(fn));
+  t("syncAndRefresh does NOT read profile.strava_connected to gate Strava",
+    !/\.strava_connected/.test(fn) && !/profile\s*&&\s*profile\.strava_connected/.test(fn));
+  t("providerStatus failure returns null (does not fall through to Strava)",
+    /Provider status check failed[\s\S]{0,240}return null/.test(fn));
   t("failed provider sync returns null, not Strava fallback",
     /Provider sync failed[\s\S]{0,200}return null/.test(fn));
   t("no-connection path logs and returns null",
@@ -211,9 +219,11 @@ section("No Intervals flow calls /api/strava/sync");
 section("syncStravaActivities is the ONLY caller of /api/strava/sync (plus backfill)");
 {
   const brainSrc = readFileSync("./js/brain.js", "utf8");
-  const matches = brainSrc.match(/\/api\/strava\/sync/g) || [];
-  t("/api/strava/sync appears exactly twice in brain.js (syncStrava + backfill)",
-    matches.length === 2);
+  // Count actual fetch() CALLS to the endpoint, not comment mentions — the
+  // authoritative strava_accounts helper references the path in its docstring.
+  const matches = brainSrc.match(/fetch\(\s*"\/api\/strava\/sync"/g) || [];
+  t("/api/strava/sync is fetched from exactly two places (syncStrava + backfill)",
+    matches.length === 2, `got ${matches.length}`);
   t("syncStravaActivities calls /api/strava/sync",
     /syncStravaActivities[\s\S]{0,400}\/api\/strava\/sync/.test(brainSrc));
   t("backfillStravaLaps calls /api/strava/sync",

@@ -5287,7 +5287,27 @@ setTimeout(function () {
    * NEVER falls through to the Strava endpoint, even if the Intervals
    * sync fails — a failed sync is not the same as a missing connection.
    */
-  async function syncAndRefresh({
+  /*
+   * In-flight dedup guard. Startup can reach syncAndRefresh from more than one
+   * entry point in the same tick — initializeAthlevoApp() on load, openAthlevoApp()
+   * from the landing "Open App" button, and an OAuth return can all fire it.
+   * Without a guard, two overlapping calls would each start a provider/Strava
+   * request. While a sync is already running, later callers share that one
+   * promise instead of launching a second request. The flag clears when the
+   * active sync settles, so a later manual "Sync" still runs normally.
+   */
+  let __syncInFlight = null;
+  async function syncAndRefresh(opts = {}) {
+    if (__syncInFlight) return __syncInFlight;
+    __syncInFlight = performSyncAndRefresh(opts);
+    try {
+      return await __syncInFlight;
+    } finally {
+      __syncInFlight = null;
+    }
+  }
+
+  async function performSyncAndRefresh({
     announce = false,
     manual = false
   } = {}) {
@@ -5314,9 +5334,12 @@ setTimeout(function () {
           const status = await AthlevoBrain.providerStatus();
           providerConnected = Boolean(status && status.connected);
         } catch (e) {
-          // Status check failed — cannot determine provider state.
-          // Do NOT guess and do NOT fall through to Strava.
+          // Status check FAILED — the Intervals connection state is unknown.
+          // A failure is not evidence of "no Intervals", so we must NOT guess
+          // and fall through to Strava. Return a truthful null; the next
+          // startup (or a manual sync) retries once status is reachable again.
           console.warn("Provider status check failed:", e?.message || e);
+          return null;
         }
       }
 
@@ -5345,16 +5368,19 @@ setTimeout(function () {
         }
       } else {
         /*
-         * Step 2b — Legacy Strava sync (guarded).
-         * Only attempt this when the athlete's profile confirms a live
-         * Strava connection. Without this guard, every athlete with NO
-         * connection at all would hit /api/strava/sync → 404.
+         * Step 2b — Legacy Strava sync (guarded by the AUTHORITATIVE source).
+         *
+         * The profile's strava_connected flag can be STALE — a stale-true flag
+         * with no real strava_accounts row is exactly what made startup fire
+         * /api/strava/sync → 404 ("No Strava account is connected"). So we do
+         * NOT trust the flag. We confirm a genuine strava_accounts row exists
+         * (the same row the server's sync endpoint gates on) before syncing.
+         * A stale flag is simply ignored here — never acted on, never written.
          */
         let stravaConnected = false;
         try {
-          const profile = await AthlevoBrain.loadAthleteProfile();
-          stravaConnected = Boolean(profile && profile.strava_connected);
-        } catch (e) { /* profile unavailable — skip Strava too */ }
+          stravaConnected = await AthlevoBrain.stravaAccountConnected();
+        } catch (e) { /* unknown — treat as not connected, never guess */ }
 
         if (stravaConnected) {
           try {

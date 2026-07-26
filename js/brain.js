@@ -1461,6 +1461,46 @@ async function syncStravaActivities() {
 }
 
 /*
+ * Authoritative check for a REAL, current Strava connection.
+ *
+ * The profile's `strava_connected` flag can go stale — e.g. the strava_accounts
+ * row was removed or migrated away server-side while the flag stayed true. A
+ * stale flag must NEVER authorize a legacy /api/strava/sync call: that is
+ * exactly what produced the production 404 "No Strava account is connected."
+ *
+ * This reads the SAME source the server's sync endpoint gates on
+ * (readStravaAccount → a strava_accounts row for the authenticated athlete),
+ * selecting only a non-token identity column so no token material is exposed.
+ * Returns true ONLY when a genuine row exists; any error or missing row → false
+ * (never guess a connection into existence).
+ */
+async function stravaAccountConnected() {
+  try {
+    const {
+      data: { user }
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) return false;
+
+    const { data, error } = await supabaseClient
+      .from("strava_accounts")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Strava account check failed:", error.message);
+      return false;
+    }
+
+    return Boolean(data);
+  } catch (e) {
+    console.warn("Strava account check threw:", e?.message || e);
+    return false;
+  }
+}
+
+/*
  * Returns the athlete's exact number of imported activities using a
  * head-only count query (no rows fetched), so the Trends "Imported
  * activities" figure reflects the true total rather than the 200-row
@@ -2349,5 +2389,6 @@ window.AthlevoBrain = {
   updateTrendsActivityData,
   resetAthleteUI,
   refreshAthleteUI,
-  syncStravaActivities
+  syncStravaActivities,
+  stravaAccountConnected
 };
