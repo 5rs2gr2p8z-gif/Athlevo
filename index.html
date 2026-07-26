@@ -2721,7 +2721,7 @@ body.landing-active #tabbar{display:none!important}
       </div>
       <div class="lp-nav-cta">
         <button class="lp-link" onclick="landingSignIn()">Sign In</button>
-        <button class="lp-btn sm" onclick="landingStartTrial()">Start free trial</button>
+        <button class="lp-btn sm" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start free trial</button>
       </div>
     </div>
   </nav>
@@ -2736,7 +2736,7 @@ body.landing-active #tabbar{display:none!important}
         <p class="lp-lead lp-reveal">Athlevo builds your endurance plan, analyzes completed workouts and adjusts what comes next based on your goals, training history and daily readiness.</p>
         <p class="lp-body lp-reveal" style="max-width:52ch;font-size:var(--fs-body)">Athlevo is an adaptive AI endurance coaching platform that creates personalized training plans, analyzes completed workouts, tracks readiness and adjusts future training based on the athlete's goals and history.</p>
         <div class="lp-cta lp-reveal">
-          <button class="lp-btn" onclick="landingStartTrial()">Start 3-day free trial</button>
+          <button class="lp-btn" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
           <a class="lp-btn ghost" href="#lp-how">See how Athlevo works</a>
         </div>
         <p class="lp-billing lp-reveal">₱0 today, then ₱597/month. Cancel anytime before your trial ends.</p>
@@ -2961,7 +2961,7 @@ body.landing-active #tabbar{display:none!important}
             <li>AI coach conversations</li>
             <li>Continued product improvements while subscribed</li>
           </ul>
-          <button class="lp-btn" style="width:100%" onclick="landingStartTrial()">Start 3-day free trial</button>
+          <button class="lp-btn" style="width:100%" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
           <p class="lp-price-trial">Start with a 3-day free trial. Your card is required, but you will be charged ₱0 today. After the trial, your subscription renews at ₱597/month unless cancelled before billing.</p>
           <p class="lp-price-cancel">Cancel anytime.</p>
         </div>
@@ -3036,7 +3036,7 @@ body.landing-active #tabbar{display:none!important}
       <h2 class="lp-h2 big">Stop guessing what your training needs next.</h2>
       <p class="lp-body" style="color:rgba(255,255,255,.65);max-width:36ch;margin:18px auto 0">Build your plan, complete your readiness check and let every workout inform what comes after it.</p>
       <div class="lp-cta" style="margin-top:36px">
-        <button class="lp-btn light" onclick="landingStartTrial()">Start 3-day free trial</button>
+        <button class="lp-btn light" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
         <a class="lp-btn ghost-light" href="#lp-pricing">View pricing</a>
       </div>
       <p class="lp-billing lp-reveal">₱0 today, then ₱597/month.</p>
@@ -4561,6 +4561,7 @@ async function doSignup(bypassEmbeddedWarning) {
       msg.style.color = 'var(--good)';
       msg.textContent = 'Account created!';
       trackFunnel("signup_completed");
+      try { if (window.AthlevoProductAnalytics) { AthlevoProductAnalytics.identifyAthlete(user); AthlevoProductAnalytics.trackAthlevoEvent('signup_completed', { auth_method: 'email' }); } } catch(e){}
       closeAuth();
       startOnboarding();
       return;
@@ -4582,6 +4583,7 @@ async function doSignup(bypassEmbeddedWarning) {
         msg.style.color = 'var(--good)';
         msg.textContent = 'Account created!';
         trackFunnel("signup_completed");
+        try { if (window.AthlevoProductAnalytics) { AthlevoProductAnalytics.identifyAthlete(user); AthlevoProductAnalytics.trackAthlevoEvent('signup_completed', { auth_method: 'email' }); } } catch(e){}
         closeAuth();
         startOnboarding();
         return;
@@ -4672,6 +4674,7 @@ async function doLogout() {
     return;
   }
   AthlevoBrain.resetAthleteUI();
+  try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
 
   // Never let a signed-out athlete's cached activities survive into the next
   // session (or another athlete on a shared device).
@@ -4897,6 +4900,7 @@ function showScreen(id){
   // Landing is the only full-width marketing screen; everything else runs
   // inside the phone-framed app shell.
   document.body.classList.toggle('landing-active', id==='screen-landing');
+  if(id==='screen-landing' && window.AthlevoProductAnalytics) try { AthlevoProductAnalytics.trackAthlevoEvent('landing_viewed'); } catch(e){}
   if(id!=='screen-landing') window.scrollTo(0,0);
   // Analytics (best-effort): a primary-tab view + a once-per-load app session.
   try {
@@ -5436,6 +5440,14 @@ async function restoreSession(opts) {
   // onboarding rather than being dropped into an empty Today.
   if (session) {
     console.log("Session restored:", session.user.email);
+    try {
+      if (window.AthlevoProductAnalytics) {
+        AthlevoProductAnalytics.identifyAthlete(session.user);
+        if (AthlevoProductAnalytics.checkAppReturned()) {
+          AthlevoProductAnalytics.trackAthlevoEvent('app_returned');
+        }
+      }
+    } catch(e){}
     await routeAfterAuth(session.user.id);
     return true;
   }
@@ -5584,6 +5596,7 @@ setTimeout(function () {
 <script src="js/trends.js?v=67"></script>
 <script src="js/socialAuth.js?v=67"></script>
 <script src="js/analyticsRegistry.js?v=67"></script>
+<script src="js/analytics.js?v=67"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=67"></script>
 <script src="js/onboardingConnect.js?v=67"></script>
@@ -6096,6 +6109,7 @@ setTimeout(function () {
               await AthlevoBrain.finalizeIntervals(completion);     // exactly once on success
               __finalizeSettled = true;
               stage("finalize_response", { ok: true });
+              try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('data_connection_completed', { provider: 'intervals' }); } catch(e){}
               consumeReturnSnapshot();
               stripIntervalsParams();
               window.__athlevoFinalizePending = false;

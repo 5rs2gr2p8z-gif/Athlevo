@@ -932,6 +932,7 @@ async function obFinish() {
   }
 
   if (window.AthlevoAnalytics) window.AthlevoAnalytics.track("profile_completed");
+  try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('onboarding_completed'); } catch(e){}
 
   /*
    * The athlete profile is done. For free users the next step is the
@@ -1012,7 +1013,17 @@ async function obLoadProfile() {
     .select()
     .single();
 
-  if (!createError) return created;
+  if (!createError) {
+    // First profile creation — covers both email and OAuth signup paths.
+    // For email signups this is a harmless duplicate (deduped in analytics.js).
+    try {
+      if (window.AthlevoProductAnalytics) {
+        var method = (user.app_metadata && user.app_metadata.provider) || 'email';
+        AthlevoProductAnalytics.trackAthlevoEvent('signup_completed', { auth_method: method, is_first_time: true });
+      }
+    } catch(e){}
+    return created;
+  }
 
   if (obIsDuplicateError(createError)) {
     const { data: after } = await supabaseClient

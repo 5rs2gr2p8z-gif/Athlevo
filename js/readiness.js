@@ -720,6 +720,7 @@ async function submitReadiness() {
     if (typeof toast === "function") {
       toast("Readiness saved");
     }
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('readiness_check_completed'); } catch(e){}
 
     await renderReadinessCard();
   } catch (error) {

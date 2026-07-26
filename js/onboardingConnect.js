@@ -420,6 +420,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
 
   async function authorize() {
     stage("connect_button_clicked");
+    try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.trackAthlevoEvent('data_connection_started', { provider: 'intervals' }); } catch(e){}
     try {
       stage("authorize_entered", { hasDataSource: Boolean(DS()) });
       await DS().connect();
@@ -448,6 +449,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
 
     markActive(true);
     A().track("intervals_connected", { wearable: state.wearable || null });
+    try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.trackAthlevoEvent('data_connection_completed', { provider: 'intervals' }); } catch(e){}
     beginDetection();
   }
 

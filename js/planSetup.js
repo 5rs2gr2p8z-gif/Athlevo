@@ -340,6 +340,7 @@
       try {
         if (window.AthlevoAnalytics && outcome.alreadyExists !== true) AthlevoAnalytics.track("first_plan_generated");
       } catch (e) {}
+      if (outcome.alreadyExists !== true) { try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('plan_generated'); } catch(e){} }
       completeFinalStep();
       showSuccess(outcome.alreadyExists !== true);   // first plan → milestone state
       return;

@@ -353,6 +353,7 @@
     }
 
     try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("paywall_checkout_tapped"); } catch (e) {}
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('checkout_opened'); } catch (e) {}
     window.open(url, "_blank");
   }
 

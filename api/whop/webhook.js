@@ -189,6 +189,28 @@ export default async function handler(req, res) {
     if (!first) return send(res, 200, { ok: true, duplicate: true });
 
     await upsertSubscription(userId, mapped.patch);
+
+    // PostHog server-side event: trial_started fires only from the verified
+    // webhook, never from a client click. Best-effort — never blocks the 200.
+    if (mapped.patch.status === "trialing" || (mapped.effect === "activate" && mapped.patch.status === "active")) {
+      try {
+        const phKey = process.env.POSTHOG_KEY;
+        const phHost = process.env.POSTHOG_HOST || "https://us.i.posthog.com";
+        if (phKey && userId) {
+          await fetch(phHost + "/capture/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: phKey,
+              distinct_id: userId,
+              event: "trial_started",
+              properties: { source: "whop_webhook" }
+            })
+          });
+        }
+      } catch (e) { /* analytics must never block payment processing */ }
+    }
+
     return send(res, 200, { ok: true, effect: mapped.effect, status: mapped.patch.status });
   } catch (err) {
     // Unexpected fault → 500 so Whop retries the delivery.
