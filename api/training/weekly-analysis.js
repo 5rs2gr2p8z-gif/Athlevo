@@ -1,3 +1,4 @@
+import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
 import {
   addDays,
   calculateWeeksUntilRace,
@@ -195,6 +196,12 @@ export default async function handler(request, response) {
         error:
           "The authenticated athlete could not be verified."
       });
+    }
+
+    // Rate limit: weekly analysis
+    const limit = await checkAiRateLimit(user.id, "weekly-analysis");
+    if (!limit.allowed) {
+      return rateLimitResponse(response, limit);
     }
 
     const userId = encodeURIComponent(user.id);

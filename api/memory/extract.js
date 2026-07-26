@@ -1,3 +1,5 @@
+import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -637,6 +639,12 @@ export default async function handler(
         error:
           "The authenticated user could not be verified."
       });
+    }
+
+    // Rate limit: memory extraction
+    const limit = await checkAiRateLimit(user.id, "memory-extract");
+    if (!limit.allowed) {
+      return rateLimitResponse(res, limit);
     }
 
     const existingMemories =

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
 import { buildAthlevoMethodPrompt } from "../../lib/server/athlevoMethod.js";
 
 import {
@@ -1782,6 +1783,12 @@ export default async function handler(
         code: "AUTH_REQUIRED",
         action: "signIn"
       });
+    }
+
+    // Rate limit: plan generation is the most expensive AI call.
+    const limit = await checkAiRateLimit(user.id, "generate-plan");
+    if (!limit.allowed) {
+      return rateLimitResponse(response, limit);
     }
 
     const [
