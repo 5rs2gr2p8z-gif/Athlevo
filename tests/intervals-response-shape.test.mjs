@@ -126,7 +126,7 @@ console.log("\n──── 404 is reserved for routing; NOT_CONNECTED is a stat
     /reason === "SESSION_CHANGED"/.test(conn) && /COMPLETION_EXPIRED/.test(conn));
   const html = readFileSync("./index.html", "utf8");
   t("detection cannot run before finalization succeeds",
-    /if \(outcome\.ok\) return handleIntervalsResult\("connected"/.test(html));
+    /await AthlevoBrain\.finalizeIntervals\(completion\)[\s\S]{0,500}await handleIntervalsResult\("connected"/.test(html));
 }
 
 console.log(`\n${p} passed, ${f} failed`);

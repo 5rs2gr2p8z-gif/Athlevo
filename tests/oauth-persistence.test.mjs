@@ -344,9 +344,13 @@ section("9/10. The client finalizes BEFORE detection, and routes failure truthfu
   t("the return handler detects the pending state", pending.length > 0);
   t("it finalizes with the current session", /AthlevoBrain\.finalizeIntervals\(completion\)/.test(pending));
   t("detection only runs AFTER finalization succeeds",
-    /if \(outcome\.ok\) return handleIntervalsResult\("connected"/.test(pending));
+    /await AthlevoBrain\.finalizeIntervals\(completion\)[\s\S]{0,500}await handleIntervalsResult\("connected"/.test(pending));
   t("a failed finalization never reaches detection",
-    pending.indexOf("showConnectFailure") > pending.indexOf("if (outcome.ok)"));
+    pending.split('handleIntervalsResult("connected"').length === 2 &&
+    pending.indexOf("await AthlevoBrain.finalizeIntervals(completion)") <
+      pending.indexOf('handleIntervalsResult("connected"') &&
+    pending.indexOf('handleIntervalsResult("connected"') <
+      pending.indexOf("} catch (e)"));
   t("the completion token is stripped from the URL immediately",
     /stripIntervalsParams\(\);/.test(pending) &&
     /"completion"\]\.forEach\(k => url\.searchParams\.delete\(k\)\)/.test(html));
@@ -508,12 +512,12 @@ section("13. A pending return issues exactly one finalize, before any diagnose")
   t("checkIntervalsReturn is driven by the snapshot too",
     /const snap = window\.__athlevoOAuthReturn;\n      if \(snap && snap\.state\)/.test(html));
   t("the token is stripped only AFTER finalize resolves",
-    pending.indexOf("await AthlevoBrain.finalizeIntervals") < pending.indexOf("stripIntervalsParams()"));
+    /await AthlevoBrain\.finalizeIntervals\(completion\);[\s\S]{0,300}stripIntervalsParams\(\);/.test(pending));
   t("finalize is attempted BEFORE any diagnose can run",
     html.indexOf("athlevoFinalizeInFlight") <
       html.indexOf("window.AthlevoConnect.resumeAfterConnect(); return;"));
   t("a not-ready client is reported as such, not as a write failure",
-    /code: "CLIENT_NOT_READY"/.test(pending));
+    /"CLIENT_NOT_READY"/.test(pending));
 
   // ── the staged trail the operator can read in production ──
   ["oauth_return_detected", "completion_token_present", "session_ready",

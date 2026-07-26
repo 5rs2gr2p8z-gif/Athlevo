@@ -5532,17 +5532,104 @@ setTimeout(function () {
    * the session may already be present and no event would ever fire.
    */
   const stage = (s, d) => { try { window.__athlevoOAuthStage(s, d); } catch (e) {} };
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-  async function waitForSession(timeoutMs = 8000) {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
+  /*
+   * The completion token is single-use and lives for 8 minutes server-side.
+   * How long the whole finalize dance may take before we stop trying THIS load
+   * (the snapshot is still recoverable on a reload within the TTL).
+   */
+  const FINALIZE_TOTAL_BUDGET_MS = (window && window.__athlevoFinalizeBudgetMs) || 45000;
+
+  /*
+   * Cross-call guards. checkIntervalsReturn(), routeAfterAuth() and an
+   * onAuthStateChange retry can all reach handleIntervalsResult("pending") in
+   * the same load. `__finalizeInFlight` collapses concurrent callers onto one
+   * promise; `__finalizeSettled` means a DEFINITIVE result (success, or a
+   * server verdict that consumed/invalidated the token) was already reached, so
+   * finalize is never issued twice.
+   */
+  let __finalizeInFlight = null;
+  let __finalizeSettled = false;
+
+  /*
+   * Resolves as soon as Supabase has a session. Subscribes to onAuthStateChange
+   * (the event that fires when a delayed/Safari restore finally completes) AND
+   * polls (covers a warm reload where the session is already present and no
+   * event will ever fire). Never rejects; resolves null on timeout.
+   */
+  async function waitForSession(timeoutMs = (window && window.__athlevoSessionWaitMs) || 20000) {
+    try {
+      const { data } = await supabaseClient.auth.getSession();
+      if (data && data.session) return data.session;
+    } catch (e) { /* transient during restore */ }
+    return new Promise(resolve => {
+      let done = false, sub = null;
+      const finish = (s) => {
+        if (done) return;
+        done = true;
+        try { if (sub && sub.subscription) sub.subscription.unsubscribe(); } catch (e) {}
+        clearInterval(iv); clearTimeout(to);
+        resolve(s || null);
+      };
       try {
-        const { data } = await supabaseClient.auth.getSession();
-        if (data && data.session) return data.session;
-      } catch (e) { /* transient during restore */ }
-      await new Promise(r => setTimeout(r, 150));
+        sub = supabaseClient.auth.onAuthStateChange((_e, session) => { if (session) finish(session); });
+      } catch (e) { /* older client without the API — polling still covers it */ }
+      const iv = setInterval(async () => {
+        try {
+          const { data } = await supabaseClient.auth.getSession();
+          if (data && data.session) finish(data.session);
+        } catch (e) {}
+      }, 200);
+      const to = setTimeout(() => finish(null), timeoutMs);
+    });
+  }
+
+  // Burn the one-time snapshot. Called ONLY on a definitive outcome — never on
+  // a transient miss, which must leave it recoverable.
+  function consumeReturnSnapshot() {
+    try { sessionStorage.removeItem("athlevo_oauth_return"); } catch (e) {}
+    try { delete window.__athlevoOAuthReturn; } catch (e) {}
+  }
+
+  /*
+   * A finalize error is TRANSIENT when the pending row was provably NOT
+   * consumed, so retrying the same token is safe:
+   *   · no `.code` at all → providerRequest() threw "Please sign in first."
+   *     BEFORE fetch (session not ready), or fetch() itself rejected (network).
+   *     Either way the request never produced a server verdict.
+   *   · LOOKUP_FAILED → the server could not even read the pending table; the
+   *     row was not touched.
+   * Every other coded verdict (SESSION_CHANGED, ALREADY_LINKED,
+   * COMPLETION_EXPIRED/INVALID/MISSING, PERSIST, OWNERSHIP_LOOKUP) means the
+   * request reached the server and the token is spent or invalid — definitive.
+   */
+  const TRANSIENT_FINALIZE_CODES = new Set(["LOOKUP_FAILED"]);
+  function isTransientFinalizeError(err) {
+    if (!err) return false;
+    const code = err.code || null;
+    if (code) return TRANSIENT_FINALIZE_CODES.has(code);
+    return true;
+  }
+
+  function showFinalizeFailure(code, message) {
+    if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+      window.AthlevoConnect.showConnectFailure(code, message);
+    } else if (typeof toast === "function") {
+      toast(message || "Could not finish connecting — please try again");
     }
-    return null;
+  }
+
+  // Truthful "not yet, but not lost" state: the token is retained (URL stripped
+  // for hygiene, snapshot kept in sessionStorage) so reopening Athlevo within
+  // the 8-minute TTL finishes the connection.
+  function showFinalizeRetry(code) {
+    if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
+      window.AthlevoConnect.showConnectFailure(code || "UNAUTHENTICATED",
+        "We couldn't confirm your sign-in in time. Reopen Athlevo to finish connecting.");
+    } else if (typeof toast === "function") {
+      toast("Almost done — reopen Athlevo to finish connecting Intervals.icu.");
+    }
   }
 
   async function handleIntervalsResult(state, message) {
@@ -5556,6 +5643,9 @@ setTimeout(function () {
      * against a connection that does not exist and report "no workouts found".
      */
     if (state === "pending") {
+      if (__finalizeSettled) return;                 // already finished this load
+      if (__finalizeInFlight) return __finalizeInFlight;   // collapse duplicates
+
       /*
        * From the snapshot taken by captureOAuthReturn() before any other
        * script ran — NOT from window.location, which by now may have been
@@ -5564,47 +5654,89 @@ setTimeout(function () {
       const snap = window.__athlevoOAuthReturn || {};
       const completion = snap.completion || null;
       stage("completion_token_present", { hasCompletion: Boolean(completion) });
-      let outcome = { ok: false, code: "COMPLETION_MISSING" };
-      /*
-       * WAIT FOR THE SESSION FIRST.
-       *
-       * checkIntervalsReturn() runs synchronously at parse time, but Supabase
-       * restores the session asynchronously (and detectSessionInUrl may still
-       * be working). finalize is the first authenticated call Athlevo has ever
-       * made at parse time: providerRequest() throws "Please sign in first."
-       * BEFORE issuing fetch(), so the request never reached the network at
-       * all — no finalize row in the Network log, and no connection saved.
-       */
-      const session = await waitForSession();
-      stage("session_ready", { ok: Boolean(session) });
-      if (!session) outcome = { ok: false, code: "UNAUTHENTICATED" };
-      else if (!completion) outcome = { ok: false, code: "COMPLETION_MISSING" };
-      else if (!(window.AthlevoBrain && AthlevoBrain.finalizeIntervals)) {
-        outcome = { ok: false, code: "CLIENT_NOT_READY" };
-      } else {
-        stage("finalize_called");
+
+      // No token can ever be finished — definitively over.
+      if (!completion) {
+        __finalizeSettled = true;
+        consumeReturnSnapshot();
+        stripIntervalsParams();
+        showFinalizeFailure("COMPLETION_MISSING", null);
+        return;
+      }
+
+      // Signals to the rest of boot that a connection is still being decided,
+      // so status/sync do not run and paint a false "not connected" yet.
+      window.__athlevoFinalizePending = true;
+
+      __finalizeInFlight = (async () => {
+        const deadline = Date.now() + FINALIZE_TOTAL_BUDGET_MS;
+        let lastCode = "UNAUTHENTICATED";
         try {
-          await AthlevoBrain.finalizeIntervals(completion);
-          outcome = { ok: true };
-        } catch (e) {
-          outcome = { ok: false, code: (e && e.code) || "PERSIST", message: e && e.message };
+          while (Date.now() < deadline && !__finalizeSettled) {
+            /*
+             * WAIT FOR THE SESSION FIRST.
+             *
+             * checkIntervalsReturn() runs at parse time, but Supabase restores
+             * the session asynchronously (and on Safari the restore can land
+             * AFTER this point). finalize is the first authenticated call
+             * Athlevo makes: providerRequest() throws "Please sign in first."
+             * BEFORE fetch() if there is no session — which is exactly how a
+             * pending row was left behind with no finalize request on the wire.
+             * So we never issue finalize until a session actually exists.
+             */
+            const session = await waitForSession(Math.min(20000, Math.max(0, deadline - Date.now())));
+            stage("session_ready", { ok: Boolean(session) });
+            if (!session) { lastCode = "UNAUTHENTICATED"; break; }   // keep token
+
+            if (!(window.AthlevoBrain && AthlevoBrain.finalizeIntervals)) {
+              lastCode = "CLIENT_NOT_READY";
+              await sleep(300);
+              continue;                                             // keep token
+            }
+
+            stage("finalize_called");
+            try {
+              await AthlevoBrain.finalizeIntervals(completion);     // exactly once on success
+              __finalizeSettled = true;
+              stage("finalize_response", { ok: true });
+              consumeReturnSnapshot();
+              stripIntervalsParams();
+              window.__athlevoFinalizePending = false;
+              await handleIntervalsResult("connected", null);       // status + sync ONLY now
+              return { ok: true };
+            } catch (e) {
+              lastCode = (e && e.code) || "PERSIST";
+              stage("finalize_response", { ok: false, code: lastCode });
+              if (isTransientFinalizeError(e)) {
+                await sleep(500);                                    // keep token, retry
+                continue;
+              }
+              // Definitive server verdict — the token is spent or invalid.
+              __finalizeSettled = true;
+              consumeReturnSnapshot();
+              stripIntervalsParams();
+              window.__athlevoFinalizePending = false;
+              showFinalizeFailure(lastCode, e && e.message);
+              return { ok: false, code: lastCode };
+            }
+          }
+
+          /*
+           * Budget exhausted with no definitive result (session never arrived,
+           * or only transient errors). DO NOT burn the token: it is still valid
+           * server-side for its 8-minute TTL, and captureOAuthReturn() recovers
+           * the snapshot from sessionStorage on the next load, so reopening
+           * Athlevo finishes the connection. Strip the URL for hygiene only.
+           */
+          window.__athlevoFinalizePending = false;
+          stripIntervalsParams();
+          showFinalizeRetry(lastCode);
+          return { ok: false, code: lastCode };
+        } finally {
+          __finalizeInFlight = null;
         }
-        stage("finalize_response", { ok: outcome.ok, code: outcome.code || null });
-      }
-      /*
-       * Cleared only NOW. Stripping before the await meant a reload mid-flight
-       * lost the token permanently and the athlete could never finish.
-       */
-      stripIntervalsParams();
-      try { sessionStorage.removeItem("athlevo_oauth_return"); } catch (e) {}
-      delete window.__athlevoOAuthReturn;
-      if (outcome.ok) return handleIntervalsResult("connected", null);
-      if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
-        window.AthlevoConnect.showConnectFailure(outcome.code, outcome.message);
-      } else if (typeof toast === "function") {
-        toast(outcome.message || "Could not finish connecting — please try again");
-      }
-      return;
+      })();
+      return __finalizeInFlight;
     }
 
     if (state === "connected") {
