@@ -5037,6 +5037,42 @@ async function restoreSession(opts) {
     console.error("Session restore threw:", error);
   }
 
+  /*
+   * Server-side validation. getSession() only proves a token EXISTS in
+   * localStorage — the underlying auth.users row may have been deleted.
+   * getUser() is the authoritative server check: it returns an error when
+   * the UID no longer exists.  If the user is gone, tear down the stale
+   * session so the athlete is cleanly signed out instead of stuck in a
+   * half-authenticated state where provider writes fail foreign-key checks.
+   */
+  if (session) {
+    try {
+      const { data: userData, error: userError } = await Promise.race([
+        supabaseClient.auth.getUser(),
+        new Promise(resolve =>
+          setTimeout(() => resolve({ data: { user: null }, error: { message: "user_check_timeout" }, timedOut: true }), 6000))
+      ]);
+      if (userError || !(userData && userData.user)) {
+        console.warn("Session user no longer exists — signing out.", userError && userError.message);
+        session = null;
+        try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
+        try {
+          sessionStorage.removeItem("athlevo_oauth_return");
+          sessionStorage.removeItem("athlevo_oauth_trail");
+          sessionStorage.removeItem("athlevo_guided_setup");
+          sessionStorage.removeItem("athlevo_guided_wearable");
+        } catch (e) { /* private mode */ }
+        try { delete window.__athlevoOAuthReturn; } catch (e) {}
+        window.__athlevoStaleSessionCleared = true;
+      }
+    } catch (e) {
+      // Network failure during validation: let the session through rather
+      // than locking out an athlete who is offline.  The next boot will
+      // recheck.
+      console.warn("User validation threw — proceeding with cached session:", e && e.message);
+    }
+  }
+
   athlevoSessionUserId = session ? session.user.id : null;
 
   // Authenticated → into the app, in BOTH browser and installed PWA.
@@ -5051,7 +5087,12 @@ async function restoreSession(opts) {
   // No session. The installed app must never show marketing — an athlete
   // who opened their training app wants to sign in, not read a pitch.
   document.getElementById('tabbar').style.display = 'none';
-  if (isStandaloneMode()) {
+  if (window.__athlevoStaleSessionCleared) {
+    // A deleted user was just signed out — always show the sign-in screen
+    // with an explanation, never the marketing landing.
+    showScreen("screen-welcome");
+    if (typeof toast === "function") toast("Your session expired. Please sign in again.");
+  } else if (isStandaloneMode()) {
     showScreen("screen-welcome");
   } else {
     showScreen("screen-landing");

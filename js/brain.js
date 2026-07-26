@@ -1675,6 +1675,27 @@ async function providerRequest(action, body) {
   const { data: { session } } = await supabaseClient.auth.getSession();
   stage("connect_session_checked", { hasSession: Boolean(session) });
   if (!session) throw new Error("Please sign in first.");
+
+  /*
+   * For session-mutating actions (connect, finalize, disconnect), verify the
+   * user still exists server-side before sending a request that will fail
+   * with a foreign-key violation. Read-only actions (status, diagnose, sync)
+   * skip this — they will simply get a 401 from the edge function if the
+   * token is invalid, which is already handled.
+   */
+  if (action === "connect" || action === "finalize" || action === "disconnect") {
+    try {
+      const { error: userErr } = await supabaseClient.auth.getUser();
+      if (userErr) {
+        const staleErr = new Error("Your session expired. Please sign in again.");
+        staleErr.code = "STALE_SESSION";
+        throw staleErr;
+      }
+    } catch (e) {
+      if (e.code === "STALE_SESSION") throw e;
+      // Network error — let the downstream fetch decide.
+    }
+  }
   stage("connect_fetch_sent");
   const res = await fetch(`${INTERVALS_ENDPOINT}&action=${action}`, {
     method: "POST",
