@@ -4926,6 +4926,14 @@ async function routeAfterAuth(userId) {
   // interactive login). refreshAthleteUI populates Today/Train/Trends +
   // profile + Strava state; then the brief and the weekly plan load.
   await AthlevoBrain.refreshAthleteUI();
+
+  // The sync status card may have initialised at DOMContentLoaded (before
+  // the session was ready) and painted "No wearable connected". Now the
+  // session is live — refresh the card so it reads the real provider state.
+  if (window.AthlevoSyncStatus && AthlevoSyncStatus.refresh) {
+    AthlevoSyncStatus.refresh();
+  }
+
   await AthlevoDailyBrief.load();
 
   if (typeof window.loadWeeklyPlan === "function") {
@@ -4970,7 +4978,7 @@ function updateOpenAppUI(hasSession) {
 async function openAthlevoApp() {
   if (!athlevoSessionUserId) { openLogin(); return; }
   await routeAfterAuth(athlevoSessionUserId);
-  await syncStravaAndRefresh({ announce: false, manual: false });
+  await syncAndRefresh({ announce: false, manual: false });
 }
 window.openAthlevoApp = openAthlevoApp;
 
@@ -5257,10 +5265,18 @@ setTimeout(function () {
     }
   }
 
-  // depends on "latest activity" (Today, Train) and regenerate today's
-  // Daily Brief from the freshly imported data. Best-effort: a missing
-  // or unconnected Strava account must never break startup.
-  async function syncStravaAndRefresh({
+  /*
+   * Provider-agnostic auto-sync.
+   *
+   * Determines which sync path is appropriate for the current athlete:
+   *   • Intervals.icu (provider_accounts) → providerRequest("sync")
+   *   • Legacy Strava (strava_accounts)   → /api/strava/sync
+   *
+   * The old implementation unconditionally called /api/strava/sync, which
+   * returned 404 for every Intervals-only athlete and silently imported
+   * nothing on every app open.
+   */
+  async function syncAndRefresh({
     announce = false,
     manual = false
   } = {}) {
@@ -5269,14 +5285,47 @@ setTimeout(function () {
 
       // Respect the cooldown for automatic syncs; manual syncs skip it.
       if (!manual && !isStravaSyncDue(userId)) {
-        console.log("Strava auto-sync skipped — within 10-minute cooldown.");
+        console.log("Auto-sync skipped — within 10-minute cooldown.");
         return null;
       }
 
-      const result = await AthlevoBrain.syncStravaActivities();
+      /*
+       * Try the provider router first (Intervals.icu and future providers).
+       * This reads from provider_accounts, the canonical connection table.
+       */
+      let result = null;
+      let importedCount = 0;
+      if (AthlevoBrain.providerStatus && AthlevoBrain.syncIntervals) {
+        try {
+          const status = await AthlevoBrain.providerStatus();
+          if (status && status.connected) {
+            result = await AthlevoBrain.syncIntervals();
+            importedCount = Number(result?.imported) || 0;
+            console.log(`Imported ${importedCount} activities via provider sync.`);
+          }
+        } catch (e) {
+          console.warn("Provider sync skipped or failed:", e?.message || e);
+        }
+      }
 
-      const importedCount = Number(result?.activitiesSaved) || 0;
-      console.log(`Imported ${importedCount} Strava activities.`);
+      /*
+       * Legacy Strava path — only for athletes who connected via the old
+       * api/strava/* flow and have a strava_accounts row but no
+       * provider_accounts row. Once all Strava users are migrated to the
+       * provider router, this block can be removed.
+       */
+      if (!result) {
+        try {
+          result = await AthlevoBrain.syncStravaActivities();
+          importedCount = Number(result?.activitiesSaved) || 0;
+          console.log(`Imported ${importedCount} Strava activities (legacy path).`);
+        } catch (e) {
+          // No Strava account either — that is fine, not an error.
+          console.log("No sync source available:", e?.message || e);
+        }
+      }
+
+      if (!result) return null;
 
       // A successful sync may have changed the activity set — drop the cached
       // activity list so Today/Trends/Train/Score/Coach never render stale data.
@@ -5288,40 +5337,34 @@ setTimeout(function () {
       setLastStravaSync(userId);
 
       // Re-run the (heavy) refresh pipeline only when there is genuinely
-      // new data to show, or when the athlete asked for it manually. On a
-      // routine open, routeAfterAuth has already rendered current state, so
-      // an auto-sync that imports nothing new must not refresh everything
-      // again — that was doubling every startup read.
+      // new data to show, or when the athlete asked for it manually.
       if (manual || importedCount > 0) {
         await AthlevoBrain.refreshAthleteUI();
-
-        // The brief's per-activity fingerprint means this only regenerates
-        // when the import actually changed something.
         await AthlevoDailyBrief.load();
-
-        // Keep the Train tab's plan/matching in sync with new activities.
         if (typeof window.loadWeeklyPlan === "function") {
           await window.loadWeeklyPlan();
         }
       }
 
+      // Refresh the sync status card with the real result.
+      if (window.AthlevoSyncStatus && AthlevoSyncStatus.refresh) {
+        AthlevoSyncStatus.refresh();
+      }
+
       return result;
     } catch (error) {
-      console.warn(
-        "Strava sync skipped or failed:",
-        error?.message || error
-      );
+      console.warn("Sync skipped or failed:", error?.message || error);
 
-      // The connection itself is saved server-side; a failed FIRST import
-      // must not look like a failed connection. Tell the athlete it will
-      // retry (the manual "Sync" button is the explicit Retry Sync).
       if (announce && typeof toast === "function") {
-        toast("Strava connected. Activity import will retry shortly.");
+        toast("Connected. Activity import will retry shortly.");
       }
 
       return null;
     }
   }
+
+  // Backward-compatible alias for existing callers.
+  const syncStravaAndRefresh = syncAndRefresh;
 
   // Manual "Sync" button — always bypasses the cooldown.
   async function syncStravaNow(button) {
@@ -5331,7 +5374,7 @@ setTimeout(function () {
       button.textContent = "Syncing…";
     }
 
-    const result = await syncStravaAndRefresh({ manual: true });
+    const result = await syncAndRefresh({ manual: true });
 
     if (button) {
       button.disabled = false;
@@ -5340,7 +5383,7 @@ setTimeout(function () {
     }
 
     if (typeof toast === "function") {
-      toast(result ? "Synced with Strava" : "Could not sync right now");
+      toast(result ? "Synced" : "Could not sync right now");
     }
 
     return result;
@@ -5655,7 +5698,7 @@ setTimeout(function () {
     // the landing page never triggers authenticated data calls. Honours the
     // cooldown; a fresh connection bypasses it and announces.
     if (enteredApp) {
-      await syncStravaAndRefresh({
+      await syncAndRefresh({
         announce: justConnected,
         manual: justConnected
       });

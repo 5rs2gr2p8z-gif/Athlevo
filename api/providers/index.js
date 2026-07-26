@@ -325,6 +325,23 @@ async function purgeExpiredPending() {
   } catch (e) { /* housekeeping only */ }
 }
 
+/*
+ * Delete a specific consumed pending row by its id. Called ONLY after the
+ * provider_accounts upsert succeeds — if the upsert fails the consumed row
+ * stays so an operator can investigate (it is already burned and cannot be
+ * replayed). Best-effort: a failed delete is harmless because purgeExpired
+ * will catch it later once it passes its TTL.
+ */
+async function deletePendingConnection(rowId) {
+  if (!rowId) return;
+  const url = process.env.SUPABASE_URL;
+  try {
+    await fetch(
+      `${url}/rest/v1/pending_provider_connections?id=eq.${encodeURIComponent(rowId)}`,
+      { method: "DELETE", headers: { ...sbHeaders(), Prefer: "return=minimal" } });
+  } catch (e) { /* best-effort */ }
+}
+
 /* ───────────────────────── activity persistence ─────────────────────── */
 
 /*
@@ -836,6 +853,12 @@ async function actionFinalize(request, response, cid) {
       code: "PERSIST"
     });
   }
+
+  // The provider account is safely written — clean up the consumed pending
+  // row so it does not linger in the table. Best-effort: failure here is
+  // harmless because the row is already consumed (consumed_at is set) and
+  // purgeExpiredPending will remove it once its TTL passes.
+  deletePendingConnection(row.id);
 
   log("intervals_finalize_success", { correlationId: cid, provider: "intervals" });
   return response.status(200).json({ success: true, connected: true });
