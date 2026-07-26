@@ -4128,10 +4128,6 @@ body.landing-active #tabbar{display:none!important}
   <div class="rowlink" onclick="openLegal('terms')">
     <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
   </div>
-  <div class="spacer-md" style="height:12px"></div>
-  <div class="rowlink" onclick="openLegal('beta')">
-    <div><b>Private Beta</b><small>What to expect while Athlevo is in private beta.</small></div><span class="arr">→</span>
-  </div>
   <div class="spacer-lg"></div>
 
   <div class="appearance">
@@ -4157,8 +4153,8 @@ body.landing-active #tabbar{display:none!important}
 </button>
 
 <div class="app-version">
-  <div>Athlevo Private Beta</div>
-  <div>Version 0.6.0</div>
+  <div>Athlevo</div>
+  <div id="appVersionDisplay">Version 0.6.0</div>
 </div>
 
 <div class="spacer-lg"></div>
@@ -4300,8 +4296,11 @@ body.landing-active #tabbar{display:none!important}
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
- // Build identifier attached to beta feedback submissions.
- window.ATHLEVO_BUILD = "beta-2026.07.13";
+ // Build identifier attached to feedback submissions.
+ window.ATHLEVO_BUILD = "2026.07.13";
+ // Single source of truth for the displayed app version.
+ window.ATHLEVO_VERSION = "0.6.0";
+ (function() { var v = document.getElementById("appVersionDisplay"); if (v) v.textContent = "Version " + window.ATHLEVO_VERSION; })();
  const SUPABASE_URL = 'https://hqwdehqsllyvrcnlcytj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -4353,7 +4352,7 @@ function showLoginForm() {
 /* ══════════════ APP ENTRY (welcome) — landing CTA destination ══════════════
  * The original app entry screen (#screen-welcome: logo, title, tagline,
  * Create account, Log in, Continue with Apple/Google) is the destination for
- * Open App and Start Free Beta. CTAs never jump straight into the expanded
+ * Open App and Start Free Trial. CTAs never jump straight into the expanded
  * form or into Today. Reuses the existing auth functions — no new system. */
 function openAppEntry() {
   var modal = document.getElementById('authModal');
@@ -5523,9 +5522,8 @@ setTimeout(function () {
       <button id="suBtn" onclick="doSignup()" disabled>Create Account</button>
       <p class="auth-msg" id="suMsg"></p>
       <p class="auth-legal">By creating an account, you agree to our
-        <a onclick="openLegal('terms')">Terms of Service</a>,
-        <a onclick="openLegal('privacy')">Privacy Policy</a>, and
-        <a onclick="openLegal('beta')">Private Beta Disclaimer</a>.</p>
+        <a onclick="openLegal('terms')">Terms of Service</a> and
+        <a onclick="openLegal('privacy')">Privacy Policy</a>.</p>
       <p class="auth-switch">Already have an account?
         <a onclick="showLoginForm()">Log in</a></p>
     </div>

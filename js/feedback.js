@@ -268,7 +268,7 @@ function showBetaFeedbackConfirmation() {
     <div class="lesson">
       <span class="eyebrow">Thank you</span>
       <h3 class="serif">Your feedback is with the team</h3>
-      <p>We read every note from beta athletes. Thank you for helping make Athlevo better.</p>
+      <p>We read every note from our athletes. Thank you for helping make Athlevo better.</p>
       <button class="lesson-done" type="button" id="bfDone">Done</button>
     </div>
   `;
