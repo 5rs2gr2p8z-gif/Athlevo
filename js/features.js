@@ -16,10 +16,11 @@ const PLAN_TIERS = {
   free: 0,
   essentials: 1,
   performance: 2,
+  founding_beta: 2,           // same access as performance; temporary grant
   elite: 3
 };
 
-const PLAN_ORDER = ["free", "essentials", "performance", "elite"];
+const PLAN_ORDER = ["free", "essentials", "performance", "founding_beta", "elite"];
 
 const FEATURE_REGISTRY = {
   morning_checkin: { label: "Morning Check-in", minPlan: "free", category: "core" },
@@ -71,6 +72,7 @@ function resolveEntitlement(subscription, now) {
     inTrial: false,
     inGrace: false,
     isFounder: false,
+    isFoundingBeta: false,
     reason: "free"
   };
 
@@ -82,9 +84,10 @@ function resolveEntitlement(subscription, now) {
   const paidTier = tierOf(planId);
   const status = String(subscription.status || "active").toLowerCase();
   const isFounder = subscription.is_founder === true;
+  const isFoundingBeta = planId === "founding_beta";
 
   if (planId === "free" || paidTier === 0) {
-    return Object.assign({}, free, { planId: planId, isFounder: isFounder });
+    return Object.assign({}, free, { planId: planId, isFounder: isFounder, isFoundingBeta: false });
   }
 
   const trialEnd = toTime(subscription.trial_end);
@@ -101,6 +104,7 @@ function resolveEntitlement(subscription, now) {
         inTrial: false,
         inGrace: false,
         isFounder,
+        isFoundingBeta,
         reason
       },
       extra || {}
@@ -114,6 +118,7 @@ function resolveEntitlement(subscription, now) {
     inTrial: false,
     inGrace: false,
     isFounder,
+    isFoundingBeta,
     reason,
     effectivePaidPlan: planId
   });
@@ -195,13 +200,44 @@ async function loadSubscription() {
     }
 
     subscriptionLoaded = true;
+    updateFoundingBetaBanner();
     return currentSubscription;
   } catch (error) {
     console.warn("Subscription load error; defaulting to Free:", error);
     currentSubscription = null;
     subscriptionLoaded = true;
+    updateFoundingBetaBanner();
     return null;
   }
+}
+
+/*
+ * Show/hide the Founding Beta banner on the You screen.
+ * Called once after subscription load — not on every navigation.
+ */
+function updateFoundingBetaBanner() {
+  try {
+    const banner = document.getElementById("foundingBetaBanner");
+    const detail = document.getElementById("foundingBetaDetail");
+    if (!banner) return;
+
+    const ent = resolveEntitlement(currentSubscription, Date.now());
+    if (ent.isFoundingBeta && ent.tier > 0) {
+      const endDate = currentSubscription && currentSubscription.current_period_end;
+      let dateStr = "—";
+      if (endDate) {
+        try {
+          dateStr = new Date(endDate).toLocaleDateString("en-PH", {
+            month: "short", day: "numeric", year: "numeric"
+          });
+        } catch (e) { dateStr = String(endDate).slice(0, 10); }
+      }
+      if (detail) detail.textContent = "Full access until " + dateStr;
+      banner.style.display = "block";
+    } else {
+      banner.style.display = "none";
+    }
+  } catch (e) { /* never break the app for a UI badge */ }
 }
 
 window.AthlevoPlan = {

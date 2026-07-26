@@ -720,6 +720,9 @@ input,textarea,select{color:var(--text)}
 .pfp{width:60px;height:60px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--serif);font-size:var(--fs-h1);display:flex;align-items:center;justify-content:center}
 .profilehead h1{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500}
 .profilehead p{font-size:var(--fs-body-sm);color:var(--ink2)}
+.founding-beta-banner{margin:12px 22px 0;padding:14px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg)}
+.founding-beta-badge{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red);margin-bottom:4px}
+.founding-beta-detail{font-size:var(--fs-body-sm);color:var(--ink2);margin:0}
 .integ{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
 .integ-row{display:flex;align-items:center;gap:14px;padding:15px 18px;border-top:1px solid var(--line)}
 .integ-row:first-child{border-top:none}
@@ -3684,6 +3687,13 @@ body.landing-active #tabbar{display:none!important}
     </p>
   </div>
 </div>
+
+  <!-- Founding Beta access notice (hidden by default; shown by features.js) -->
+  <div id="foundingBetaBanner" class="founding-beta-banner" style="display:none">
+    <div class="founding-beta-badge">Founding Beta access</div>
+    <p class="founding-beta-detail" id="foundingBetaDetail">Full access until —</p>
+  </div>
+
   <div class="spacer-md"></div>
 
  <div class="memory">
