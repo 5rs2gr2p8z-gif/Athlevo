@@ -91,6 +91,13 @@ globalThis.fetch = async (url, init = {}) => {
     json: async () => body
   });
 
+  // Supabase GoTrue admin: ownership reclaim asks whether a prior owner still
+  // exists in auth.users. In these fixtures every owner is a live account, so
+  // it always exists (a 404 here would wrongly mark an active owner orphaned).
+  if (u.includes("/auth/v1/admin/users/")) {
+    return J(200, { id: decodeURIComponent(u.split("/auth/v1/admin/users/")[1].split(/[?#]/)[0]) });
+  }
+
   // Supabase auth
   if (u.includes("/auth/v1/user")) {
     const bad = String(init.headers.Authorization).includes("bad");

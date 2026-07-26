@@ -342,7 +342,8 @@ section("OAuth persistence: a FAILED connect never masquerades as 'no workouts'"
   t("the already-linked case sends reason=already_linked",
     /"already_linked"/.test(api));
   t("the ownership guard still refuses to move the link (security intact)",
-    /owner\.userId !== String\(payload\.userId\)/.test(api));
+    /decideOwnership\("intervals", athleteId, payload\.userId\)/.test(api) &&
+    /ownership\.decision === "blocked"/.test(api));
   t("nothing is written when ownership fails",
     api.indexOf('"already_linked"') < api.indexOf("const saved = await upsertProviderAccount"));
 

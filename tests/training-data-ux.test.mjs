@@ -167,6 +167,11 @@ section("3. Disconnect is authenticated, scoped, and releases ownership");
       const s = String(u), m = (i.method || "GET").toUpperCase();
       const J = (c, b) => ({ ok: c >= 200 && c < 300, status: c,
         headers: { get: () => null }, json: async () => b, text: async () => JSON.stringify(b) });
+      // Ownership reclaim probes auth.users for a prior owner; here every owner
+      // is a live account, so it exists (a 404 would mark it wrongly orphaned).
+      if (s.includes("/auth/v1/admin/users/")) {
+        return J(200, { id: decodeURIComponent(s.split("/auth/v1/admin/users/")[1].split(/[?#]/)[0]) });
+      }
       if (s.includes("/auth/v1/user")) {
         const who = String((i.headers && i.headers.Authorization) || "").replace("Bearer ", "");
         return who === "none" ? J(401, {}) : J(200, { id: who });
@@ -258,7 +263,8 @@ section("3. Disconnect is authenticated, scoped, and releases ownership");
       /code: "ALREADY_LINKED"/.test(src));
     t("...and in finalize", (src.match(/ALREADY_LINKED/g) || []).length >= 2);
     t("a LIVE connection still blocks a second Athlevo user",
-      /owner\.userId && owner\.userId !== String\(user\.id\)/.test(src));
+      /decideOwnership\("intervals", row\.provider_athlete_id, user\.id\)/.test(src) &&
+      /ownership\.decision === "blocked"/.test(src));
   }
 
   // Imported training history is never destroyed.

@@ -152,6 +152,13 @@ async function readProviderAccount(userId, provider) {
 }
 
 // Who (if anyone) already owns this external provider account?
+//
+// AUTHORITATIVE by construction. Only a live connection matches: actionDisconnect
+// nulls provider_athlete_id when an athlete disconnects, so a disconnected row can
+// never be returned here. A hit therefore means "some Athlevo account still holds a
+// real connection to this Intervals identity" — which is exactly the claim the
+// ALREADY_LINKED guard is allowed to act on. Selects user_id ONLY; no token leaves
+// the database.
 async function findOwnerByProviderAthlete(provider, athleteId) {
   const url = process.env.SUPABASE_URL;
   try {
@@ -166,6 +173,101 @@ async function findOwnerByProviderAthlete(provider, athleteId) {
   } catch {
     return { ok: false, userId: null };
   }
+}
+
+/*
+ * Does this Athlevo user still exist in auth.users?
+ *
+ * This is the line between "another ACTIVE account owns the athlete" (refuse) and
+ * "a dead/orphaned account left a claim behind" (reclaimable). Uses the GoTrue
+ * admin endpoint with the service role — the user object never leaves the server
+ * and is never logged.
+ *
+ * FAIL CLOSED. Reclaim is permitted ONLY on a definitive 404. Any other outcome
+ * (200, 5xx, network error, malformed) is treated as "still exists" so an
+ * uncertain lookup can never relink a live account to a second user.
+ */
+async function authUserExists(userId) {
+  const url = process.env.SUPABASE_URL;
+  if (!userId) return false;
+  try {
+    const res = await fetch(
+      `${url}/auth/v1/admin/users/${encodeURIComponent(String(userId))}`,
+      { headers: sbHeaders() }
+    );
+    if (res.status === 404) return false;   // the ONLY signal that permits reclaim
+    return true;                            // exists, or unknown → treat as active
+  } catch {
+    return true;                            // unknown → never reclaim
+  }
+}
+
+/*
+ * Ownership decision for one Intervals identity and one claiming Athlevo user.
+ * Pure policy over the two lookups above; performs no writes. Returns:
+ *
+ *   { ok:false }                    → the ownership lookup itself failed (retry later)
+ *   { ok:true, decision:'clear' }   → no authoritative owner → the claimant may take it
+ *   { ok:true, decision:'self' }    → the claimant already owns it → reconnect
+ *   { ok:true, decision:'blocked' } → another ACTIVE account owns it → ALREADY_LINKED
+ *   { ok:true, decision:'reclaim', staleUserId }
+ *                                   → the only owner is orphaned (gone from
+ *                                     auth.users) → the claimant may reclaim it
+ */
+async function decideOwnership(provider, athleteId, claimantUserId) {
+  const owner = await findOwnerByProviderAthlete(provider, athleteId);
+  if (!owner.ok) return { ok: false };
+  if (!owner.userId) return { ok: true, decision: "clear" };
+  if (owner.userId === String(claimantUserId)) return { ok: true, decision: "self" };
+  // A different account holds the authoritative row. It may block ONLY if that
+  // account still exists; an orphaned row must never freeze the athlete forever.
+  const prevExists = await authUserExists(owner.userId);
+  return prevExists
+    ? { ok: true, decision: "blocked" }
+    : { ok: true, decision: "reclaim", staleUserId: owner.userId };
+}
+
+/*
+ * Remove an orphaned provider_accounts claim so one Intervals identity is never
+ * owned by two rows. Called ONLY after decideOwnership() has proven the owner is
+ * gone from auth.users. Scoped to (provider, athlete, the specific stale user),
+ * so a live connection can never be touched. return=minimal → no token is read
+ * back. (Deleting the auth.users row would normally cascade this away; this is
+ * the belt-and-braces path for a claim that outlived its owner.)
+ */
+async function releaseOrphanedOwnership(provider, athleteId, staleUserId) {
+  if (!staleUserId) return false;
+  const url = process.env.SUPABASE_URL;
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/provider_accounts?provider=eq.${encodeURIComponent(provider)}` +
+      `&provider_athlete_id=eq.${encodeURIComponent(String(athleteId))}` +
+      `&user_id=eq.${encodeURIComponent(String(staleUserId))}`,
+      { method: "DELETE", headers: { ...sbHeaders(), Prefer: "return=minimal" } }
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/*
+ * Sweep abandoned pending handoffs for this Intervals identity that belong to a
+ * DIFFERENT account than the one now connecting. A never-finalized attempt from
+ * another user (the i652649 / 281d9a23 orphan) has no authority — it is not a
+ * connection — so it must never linger as a phantom claim. The claimant's own
+ * fresh pending row is left untouched. Best-effort; never blocks the flow.
+ */
+async function purgeForeignPendingForAthlete(provider, athleteId, keepUserId) {
+  const url = process.env.SUPABASE_URL;
+  try {
+    await fetch(
+      `${url}/rest/v1/pending_provider_connections?provider=eq.${encodeURIComponent(provider)}` +
+      `&provider_athlete_id=eq.${encodeURIComponent(String(athleteId))}` +
+      `&user_id=neq.${encodeURIComponent(String(keepUserId))}`,
+      { method: "DELETE", headers: { ...sbHeaders(), Prefer: "return=minimal" } }
+    );
+  } catch (e) { /* housekeeping only */ }
 }
 
 
@@ -678,18 +780,26 @@ async function actionCallback(request, response, cid) {
    * exactly how reconnect works (Intervals.icu issues a fresh token, which
    * replaces the old one).
    */
-  const owner = await findOwnerByProviderAthlete("intervals", athleteId);
-  if (!owner.ok) {
+  const ownership = await decideOwnership("intervals", athleteId, payload.userId);
+  if (!ownership.ok) {
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP" });
     return backToApp("failed", "We couldn't save the connection just now. Please try again in a moment.");
   }
-  if (owner.userId && owner.userId !== String(payload.userId)) {
+  if (ownership.decision === "blocked") {
+    // Another account that STILL EXISTS owns this athlete. Refuse — one active
+    // Intervals identity can never belong to two active Athlevo users.
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED" });
     return backToApp(
       "failed",
       "This Intervals.icu account is already connected to another Athlevo account.",
       "already_linked"
     );
+  }
+  if (ownership.decision === "reclaim") {
+    // The only claim is an orphan whose owner is gone from auth.users. Note it
+    // and fall through — the AUTHORITATIVE reclaim (row deletion + write) happens
+    // in finalize, where the caller's identity is proven.
+    log("intervals_ownership_reclaim", { correlationId: cid, provider: "intervals", status: "callback" });
   }
 
   /*
@@ -728,6 +838,9 @@ async function actionCallback(request, response, cid) {
   }
 
   purgeExpiredPending();   // fire-and-forget housekeeping
+  // Drop any abandoned handoff for this athlete left by a different account, so
+  // a never-finalized orphan attempt cannot masquerade as a claim later.
+  purgeForeignPendingForAthlete("intervals", athleteId, payload.userId);
 
   /*
    * Only the opaque completion token travels in the URL. It is a random
@@ -805,20 +918,38 @@ async function actionFinalize(request, response, cid) {
   }
 
   // Re-checked here, not just in the callback: ownership can change in between.
-  const owner = await findOwnerByProviderAthlete("intervals", row.provider_athlete_id);
-  if (!owner.ok) {
+  const ownership = await decideOwnership("intervals", row.provider_athlete_id, user.id);
+  if (!ownership.ok) {
     log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP" });
     return response.status(503).json({
       error: "We couldn't save the connection just now. Please try again in a moment.",
       code: "OWNERSHIP_LOOKUP"
     });
   }
-  if (owner.userId && owner.userId !== String(user.id)) {
+  if (ownership.decision === "blocked") {
+    // Another account that still exists owns it. Never relink an active account.
     log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED" });
     return response.status(409).json({
       error: "This Intervals.icu account is already connected to another Athlevo account.",
       code: "ALREADY_LINKED"
     });
+  }
+  if (ownership.decision === "reclaim") {
+    /*
+     * The sole owner is orphaned — gone from auth.users. Release the dead claim
+     * BEFORE the upsert so the athlete id is never owned by two rows at once. If
+     * the release fails we refuse rather than risk a split-ownership write; the
+     * pending row is already consumed, so the athlete simply retries.
+     */
+    const released = await releaseOrphanedOwnership("intervals", row.provider_athlete_id, ownership.staleUserId);
+    if (!released) {
+      log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP" });
+      return response.status(503).json({
+        error: "We couldn't save the connection just now. Please try again in a moment.",
+        code: "OWNERSHIP_LOOKUP"
+      });
+    }
+    log("intervals_ownership_reclaim", { correlationId: cid, provider: "intervals", status: "finalize" });
   }
 
   const saved = await upsertProviderAccount({
