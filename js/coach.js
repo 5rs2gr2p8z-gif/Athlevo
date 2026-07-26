@@ -1,5 +1,97 @@
 console.log("Athlevo Coach Loaded");
 
+/* ══════════════ Empty state + personalized greeting ══════════════ */
+
+function hideCoachEmptyState() {
+  const el = document.getElementById("coachEmptyState");
+  if (el) el.style.display = "none";
+}
+
+function showCoachEmptyState() {
+  const el = document.getElementById("coachEmptyState");
+  if (el) el.style.display = "";
+}
+
+/* Personalizes the empty-state greeting with the athlete's name (read
+   from the same profileName element brain.js populates). */
+function personalizeCoachGreeting() {
+  const nameEl = document.getElementById("profileName");
+  const greetEl = document.getElementById("coachEmptyGreeting");
+  if (!nameEl || !greetEl) return;
+  const name = (nameEl.textContent || "").trim();
+  if (name && name !== "Athlete") {
+    greetEl.textContent = "Ask away, " + name + ".";
+  }
+}
+
+/* Bind starter-prompt buttons (one-time, delegated). */
+function bindCoachStarters() {
+  const container = document.getElementById("coachStarters");
+  if (!container || container.dataset.bound === "true") return;
+  container.dataset.bound = "true";
+  container.addEventListener("click", function (e) {
+    var btn = e.target.closest(".coach-starter");
+    if (!btn) return;
+    var prompt = btn.dataset.prompt;
+    if (prompt) askCoach(prompt);
+  });
+}
+
+/* ══════════════ Thinking indicator with rotating labels ══════════ */
+
+var _coachThinkingTimer = null;
+
+/* Labels rotate only while a real request is pending and reflect data
+   that was actually assembled into the coach context. */
+var COACH_THINKING_LABELS = [
+  "Reviewing your training…",
+  "Checking your recent workload…",
+  "Looking at today's session…",
+  "Preparing your recommendation…"
+];
+
+function createCoachThinkingEl() {
+  var wrap = document.createElement("div");
+  wrap.className = "coach-thinking";
+  wrap.setAttribute("role", "status");
+  wrap.setAttribute("aria-label", "Coach is thinking");
+  wrap.innerHTML =
+    '<div class="coach-thinking-mark"><img src="assets/athlevo-logo.png" alt="" /></div>' +
+    '<span class="coach-thinking-label">' + COACH_THINKING_LABELS[0] + '</span>';
+  return wrap;
+}
+
+function startThinkingLabelRotation(labelEl) {
+  if (!labelEl) return;
+  var idx = 0;
+  _coachThinkingTimer = setInterval(function () {
+    idx = (idx + 1) % COACH_THINKING_LABELS.length;
+    labelEl.style.opacity = "0";
+    setTimeout(function () {
+      labelEl.textContent = COACH_THINKING_LABELS[idx];
+      labelEl.style.opacity = "1";
+    }, 160);
+  }, 2800);
+}
+
+function stopThinkingLabelRotation() {
+  if (_coachThinkingTimer) {
+    clearInterval(_coachThinkingTimer);
+    _coachThinkingTimer = null;
+  }
+}
+
+/* ══════════════ Textarea auto-grow ═══════════════════════════════ */
+
+function autoGrowComposer() {
+  var el = document.getElementById("chatInput");
+  if (!el || el.tagName !== "TEXTAREA") return;
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+}
+
+/* ══════════════ Chat message rendering ═══════════════════════════ */
+
 function addChatMessage(role, text) {
   const chatlog = document.getElementById("chatlog");
 
@@ -7,6 +99,9 @@ function addChatMessage(role, text) {
     console.error("Chat log not found.");
     return null;
   }
+
+  // Hide the empty state as soon as the first message is added.
+  hideCoachEmptyState();
 
   const message = document.createElement("div");
   message.className = `msg ${role}`;
@@ -25,17 +120,17 @@ function addChatMessage(role, text) {
 
   message.querySelector(".change").textContent = text;
   chatlog.appendChild(message);
-  chatlog.scrollTop = chatlog.scrollHeight;
 
-  requestAnimationFrame(() => {
-  const chatlog =
-    document.getElementById("chatlog");
-
-  if (chatlog) {
-    chatlog.scrollTop =
-      chatlog.scrollHeight;
+  // Smart-scroll: only auto-scroll if the athlete is near the bottom.
+  // For user messages, always scroll (they just typed it).
+  if (role === "user") {
+    requestAnimationFrame(() => {
+      const cl = document.getElementById("chatlog");
+      if (cl) cl.scrollTo({ top: cl.scrollHeight, behavior: "smooth" });
+    });
+  } else {
+    requestAnimationFrame(coachSmartScroll);
   }
-});
   return message;
 }
 async function saveConversationMessage(role, message) {
@@ -99,9 +194,16 @@ async function renderConversationHistory() {
 
   const history = await loadConversationHistory();
 
-  if (!history.length) return;
+  if (!history.length) {
+    // No history: show empty state, personalize greeting.
+    showCoachEmptyState();
+    personalizeCoachGreeting();
+    return;
+  }
 
+  // Clear the chatlog (including the empty state markup) for real messages.
   chatlog.innerHTML = "";
+  hideCoachEmptyState();
 
   history.forEach(item => {
   const role =
@@ -446,6 +548,177 @@ function buildCoachContextSummary(context) {
 
 let coachRequestInFlight = false;
 
+/* Track the last question so retry can replay it. */
+var _coachLastQuestion = null;
+var _coachRetryInFlight = false;
+
+/* ══════════════ Smart scroll + jump-to-latest ═══════════════════ */
+
+var _coachScrollListener = null;
+
+function coachIsNearBottom() {
+  var cl = document.getElementById("chatlog");
+  if (!cl) return true;
+  return cl.scrollHeight - cl.scrollTop - cl.clientHeight < 80;
+}
+
+function coachSmartScroll() {
+  if (coachIsNearBottom()) {
+    var cl = document.getElementById("chatlog");
+    if (cl) cl.scrollTo({ top: cl.scrollHeight, behavior: "smooth" });
+  } else {
+    showJumpToLatest();
+  }
+}
+
+function showJumpToLatest() {
+  var existing = document.getElementById("coachJumpLatest");
+  if (existing) { existing.style.display = ""; return; }
+  var cl = document.getElementById("chatlog");
+  if (!cl) return;
+  var btn = document.createElement("button");
+  btn.type = "button";
+  btn.id = "coachJumpLatest";
+  btn.className = "coach-jump-latest";
+  btn.textContent = "Jump to latest";
+  btn.setAttribute("aria-label", "Jump to latest message");
+  btn.addEventListener("click", function () {
+    var cl2 = document.getElementById("chatlog");
+    if (cl2) cl2.scrollTo({ top: cl2.scrollHeight, behavior: "smooth" });
+  });
+  // Insert relative to the coach screen, not inside the scrolling chatlog.
+  var screen = document.getElementById("screen-coachai");
+  if (screen) screen.appendChild(btn);
+}
+
+function hideJumpToLatest() {
+  var el = document.getElementById("coachJumpLatest");
+  if (el) el.style.display = "none";
+}
+
+function bindCoachScrollWatcher() {
+  var cl = document.getElementById("chatlog");
+  if (!cl) return;
+  // Clean up any previous listener.
+  if (_coachScrollListener) {
+    cl.removeEventListener("scroll", _coachScrollListener);
+  }
+  _coachScrollListener = function () {
+    if (coachIsNearBottom()) hideJumpToLatest();
+    else showJumpToLatest();
+  };
+  cl.addEventListener("scroll", _coachScrollListener, { passive: true });
+}
+
+/* ══════════════ Follow-up actions ═══════════════════════════════ */
+
+/*
+ * Selects up to 3 contextual follow-up actions based on the response
+ * type and existing app state. Actions must genuinely work — either
+ * sending a useful follow-up prompt or navigating via existing routing.
+ */
+function buildFollowUpActions(answer) {
+  var actions = [];
+  var type = answer && answer.response_type || "standard";
+
+  // Always offer a conversational deepener.
+  actions.push({ label: "Explain further", type: "prompt",
+    prompt: "Can you explain that in more detail?" });
+
+  // Week-impact question when we know a plan exists.
+  if (type === "plan_change" || type === "workout_analysis" ||
+      (answer && answer.actions && answer.actions.length > 0)) {
+    actions.push({ label: "How does this affect my week?", type: "prompt",
+      prompt: "How does this affect the rest of my week?" });
+  } else {
+    actions.push({ label: "How is my week progressing?", type: "prompt",
+      prompt: "How is my week progressing?" });
+  }
+
+  // Readiness check (navigates to Today).
+  actions.push({ label: "Check my readiness", type: "navigate",
+    screen: "screen-today" });
+
+  return actions.slice(0, 3);
+}
+
+function renderFollowUpActions(answer) {
+  var chipsContainer = document.getElementById("chips");
+  if (!chipsContainer) return;
+
+  var actions = buildFollowUpActions(answer);
+  if (!actions.length) { chipsContainer.style.display = "none"; return; }
+
+  chipsContainer.innerHTML = "";
+
+  actions.forEach(function (action) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip";
+    btn.textContent = action.label;
+    btn.dataset.followupType = action.type;
+    btn.addEventListener("click", function () {
+      // Analytics: follow-up clicked.
+      try {
+        if (window.AthlevoProductAnalytics) {
+          AthlevoProductAnalytics.trackAthlevoEvent("coach_followup_clicked", {
+            followup_type: action.type, action_type: action.label
+          });
+        }
+      } catch (e) {}
+
+      if (action.type === "navigate") {
+        if (typeof showScreen === "function") showScreen(action.screen);
+        if (typeof go === "function") {
+          var tabBtn = document.querySelector("[data-screen=\"" + action.screen + "\"]");
+          if (tabBtn) go(tabBtn);
+        }
+      } else if (action.type === "prompt" && action.prompt) {
+        askCoach(action.prompt);
+      }
+    });
+    chipsContainer.appendChild(btn);
+  });
+
+  chipsContainer.style.display = "flex";
+}
+
+/* ══════════════ Inline error + retry ════════════════════════════ */
+
+function renderCoachError(container, question) {
+  if (!container) return;
+  container.innerHTML = "";
+  container.classList.add("coach-rich-response");
+
+  var wrap = document.createElement("div");
+  wrap.className = "coach-error";
+  wrap.setAttribute("role", "alert");
+
+  var msg = document.createElement("p");
+  msg.className = "coach-error-msg";
+  msg.textContent = "I couldn't finish that response. Your message is still here — try again.";
+  wrap.appendChild(msg);
+
+  var retryBtn = document.createElement("button");
+  retryBtn.type = "button";
+  retryBtn.className = "coach-error-retry";
+  retryBtn.textContent = "Try again";
+  retryBtn.addEventListener("click", function () {
+    if (_coachRetryInFlight || coachRequestInFlight) return;
+    _coachRetryInFlight = true;
+    retryBtn.disabled = true;
+    retryBtn.textContent = "Retrying…";
+    // Remove the error bubble entirely, then replay.
+    var msgEl = container.closest(".msg");
+    if (msgEl) msgEl.remove();
+    askCoach(question);
+    _coachRetryInFlight = false;
+  });
+  wrap.appendChild(retryBtn);
+
+  container.appendChild(wrap);
+}
+
 /* Flip the send button into its "is-sending" state so the athlete gets
  * instant visual confirmation the tap registered — even before any of the
  * network work starts. Safe to call when the button isn't on screen. */
@@ -465,6 +738,7 @@ async function askCoach(question) {
   // creating duplicate stored messages.
   if (coachRequestInFlight) return;
   coachRequestInFlight = true;
+  _coachLastQuestion = cleanQuestion;
   setCoachSendingState(true);
 
   // Analytics (best-effort): first_coach_message_sent is a once-only milestone;
@@ -477,25 +751,22 @@ async function askCoach(question) {
   // Everything the user needs to see immediately happens synchronously,
   // in this order, before any await hits the event loop:
   //   1. their own message appears
-  //   2. the "coach is typing" bubble appears
+  //   2. the "coach is thinking" bubble appears
   //   3. the send button flips to its sending state
-  // Previously saveConversationMessage() and extractAthleteMemoryFromMessage()
-  // were awaited BEFORE the typing bubble — a full Supabase round-trip plus
-  // a memory-extract call that the athlete stared at as a blank screen.
-  // Neither is used by anything downstream, so both are now fired in the
-  // background. Behaviour is unchanged; the perceived wait is gone.
   // ──────────────────────────────────────────────────────────────────
   addChatMessage("user", cleanQuestion);
 
-  // A calm "coach is typing" indicator instead of a verbose status line —
-  // it reads like texting a real coach who's thinking, not a loading log.
+  // Premium thinking indicator — small Athlevo mark with a breathing
+  // pulse and a rotating contextual label. Replaces the bouncing dots.
   const loadingMessage = addChatMessage("ai", "");
   {
     const changeEl = loadingMessage && loadingMessage.querySelector(".change");
     if (changeEl) {
-      changeEl.innerHTML =
-        '<span class="coach-typing" role="status" aria-label="Coach is typing">' +
-        "<i></i><i></i><i></i></span>";
+      const thinkingEl = createCoachThinkingEl();
+      changeEl.innerHTML = "";
+      changeEl.appendChild(thinkingEl);
+      const labelEl = thinkingEl.querySelector(".coach-thinking-label");
+      startThinkingLabelRotation(labelEl);
     }
   }
 
@@ -603,6 +874,7 @@ context.recentConversation = (await loadRecentConversationForCoach())
     if (!response.ok) {
       // Subscription-required: show upgrade prompt instead of generic error.
       if (response.status === 402 && data.code === "SUBSCRIPTION_REQUIRED") {
+        stopThinkingLabelRotation();
         const container = loadingMessage.querySelector(".change");
         if (container) {
           container.innerHTML =
@@ -637,6 +909,8 @@ context.recentConversation = (await loadRecentConversationForCoach())
 // reply and persists with the saved conversation history.
 answer.coach_context = buildCoachContextSummary(context);
 
+stopThinkingLabelRotation();
+
 const responseContainer =
   loadingMessage.querySelector(".change");
 
@@ -645,9 +919,19 @@ renderCoachResponse(
   answer
 );
 
-renderSuggestedReplies(
-  answer.suggested_replies
-);
+// Follow-up actions (contextual chips below the response).
+// Model-suggested replies take priority; fall back to built-in actions.
+if (Array.isArray(answer.suggested_replies) && answer.suggested_replies.length > 0) {
+  renderSuggestedReplies(answer.suggested_replies);
+} else {
+  renderFollowUpActions(answer);
+}
+
+// Analytics: successful response.
+try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent("coach_response_received", { response_status: "success", source: "coach" }); } catch (e) {}
+
+// Smart-scroll after response renders.
+coachSmartScroll();
 
 // Only persist a genuine, successful reply. A missing data.answer means
 // the model call did not produce a real structured response, so we show
@@ -660,9 +944,14 @@ if (data.answer) {
 }
   } catch (error) {
     console.error("Athlevo Coach error:", error);
+    stopThinkingLabelRotation();
 
-    loadingMessage.querySelector(".change").textContent =
-      "I couldn’t complete that request. Please try again.";
+    // Analytics: failed response.
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent("coach_response_failed", { response_status: "error", source: "coach" }); } catch (e) {}
+
+    // Inline error with retry button (preserves the user's message above).
+    const errorContainer = loadingMessage.querySelector(".change");
+    renderCoachError(errorContainer, cleanQuestion);
   } finally {
     coachRequestInFlight = false;
     setCoachSendingState(false);
@@ -678,9 +967,6 @@ if (data.answer) {
       if (composerHasFocus) input.focus();
     }
   }
-
-  const chatlog = document.getElementById("chatlog");
-  chatlog.scrollTop = chatlog.scrollHeight;
 }
 
 function ask(question) {
@@ -695,37 +981,45 @@ function sendMsg() {
     return;
   }
 
-  // Second line of defence against double submissions: even a rapid
-  // double-tap on the send button can't queue a second message while the
-  // previous coach turn is still in flight. askCoach() also guards this,
-  // but bailing here also skips clearing the input so the user's text is
-  // preserved if they meant a different question.
+  // Second line of defence against double submissions.
   if (coachRequestInFlight) return;
 
   const question = input.value.trim();
 
   if (!question) return;
 
-  // Clear the composer BEFORE the async work so the input feels emptied
-  // in the same frame the tap registers.
+  // Clear and reset the composer BEFORE the async work so the input
+  // feels emptied in the same frame the tap registers.
   input.value = "";
+  if (input.tagName === "TEXTAREA") {
+    input.style.height = "auto";
+  }
   askCoach(question);
 }
 
-/* Bind Enter-to-send on the composer input. Previously there was no key
- * handler, so pressing Enter did nothing on desktop and the athlete had to
- * reach for the send button. Shift+Enter is left free for a future
- * multi-line composer without changing behaviour here. */
+/* Bind Enter-to-send, Shift+Enter for newline, and auto-grow on the
+ * composer textarea. Also wires up the empty-state starter prompts. */
 function bindCoachComposer() {
   const input = document.getElementById("chatInput");
   if (!input || input.dataset.coachBound === "true") return;
   input.dataset.coachBound = "true";
+
   input.addEventListener("keydown", event => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       sendMsg();
     }
   });
+
+  // Auto-grow for textarea.
+  if (input.tagName === "TEXTAREA") {
+    input.addEventListener("input", autoGrowComposer);
+  }
+
+  // Wire up starter prompts, personalize greeting, start scroll watcher.
+  bindCoachStarters();
+  personalizeCoachGreeting();
+  bindCoachScrollWatcher();
 }
 
 if (typeof document !== "undefined") {
@@ -964,3 +1258,8 @@ window.saveConversationMessage = saveConversationMessage;
 window.renderConversationHistory = renderConversationHistory;
 window.applyCoachAction = applyCoachAction;
 window.cancelCoachAction = cancelCoachAction;
+window.personalizeCoachGreeting = personalizeCoachGreeting;
+window.hideCoachEmptyState = hideCoachEmptyState;
+window.showCoachEmptyState = showCoachEmptyState;
+window.renderFollowUpActions = renderFollowUpActions;
+window.coachSmartScroll = coachSmartScroll;
