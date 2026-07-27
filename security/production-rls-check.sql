@@ -32,16 +32,17 @@
 -- ═══════════════════════════════════════════════════════════════
 
 SELECT
-  unnest(ARRAY[
-    'profiles', 'activities', 'training_plans',
-    'training_sessions', 'strava_accounts', 'ai_rate_limits'
-  ]) AS expected_table,
+  t.expected_table,
   EXISTS (
     SELECT 1 FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind = 'r'
-      AND c.relname = unnest
-  ) AS table_exists;
+      AND c.relname = t.expected_table
+  ) AS table_exists
+FROM unnest(ARRAY[
+  'profiles', 'activities', 'training_plans',
+  'training_sessions', 'strava_accounts', 'ai_rate_limits'
+]) AS t(expected_table);
 
 -- Workaround: individual checks if the above unnest form is unsupported
 SELECT 'profiles' AS table_name,
