@@ -435,6 +435,10 @@
     }
 
     try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("paywall_converted"); } catch (e) {}
+
+    // Meta Pixel — fire StartTrial exactly once per session (deduped across
+    // refreshes so a page reload on the confirmation screen does not re-fire).
+    try { if (window.AthlevoMetaPixel) AthlevoMetaPixel.trackOnce("StartTrial"); } catch (e) {}
   }
 
   function proceed() {
