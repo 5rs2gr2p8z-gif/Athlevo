@@ -12,10 +12,20 @@
 | File | Purpose |
 |---|---|
 | `security/phase1-security-matrix.md` | Full security inventory of every table, API route, secret, and rate limit |
-| `security/remediation-migration.sql` | Idempotent SQL: RLS + policies for 5 unprotected tables, atomic rate-limit function |
-| `security/rollback-migration.sql` | Reversal SQL for all remediation changes |
-| `tests/security-isolation.test.mjs` | 77-assertion security test suite |
+| `security/001-atomic-rate-limit-rpc.sql` | Migration 001: Atomic rate-limit RPC function (low-risk, apply first) |
+| `security/001-atomic-rate-limit-rpc-rollback.sql` | Rollback for migration 001 |
+| `security/002-athlete-table-rls.sql` | Migration 002: RLS + policies for 5 unprotected tables (conditional on schema verification) |
+| `security/002-athlete-table-rls-rollback.sql` | Rollback for migration 002 (drops policies, does NOT disable RLS) |
+| `security/production-rls-check.sql` | Read-only production inspection SQL (16 verification queries) |
+| `tests/security-isolation.test.mjs` | Security test suite with migration separation assertions |
 | `security/SPRINT4-FINAL-REPORT.md` | This file |
+
+### Removed files
+
+| File | Reason |
+|---|---|
+| `security/remediation-migration.sql` | Replaced by split migrations 001 + 002 |
+| `security/rollback-migration.sql` | Replaced by per-migration rollback files |
 
 ### Modified files (tracked)
 
@@ -32,13 +42,13 @@
 
 ### CRITICAL — Fixed
 
-1. **5 tables had no RLS migration:** `profiles`, `activities`, `training_plans`, `training_sessions`, `strava_accounts`. Any authenticated user could query any other user's data via the Supabase anon key. **Fix:** `remediation-migration.sql` enables RLS + auth.uid()-scoped policies on all 5 tables.
+1. **5 tables had no RLS migration:** `profiles`, `activities`, `training_plans`, `training_sessions`, `strava_accounts`. Any authenticated user could query any other user's data via the Supabase anon key. **Fix:** `security/002-athlete-table-rls.sql` enables RLS + auth.uid()-scoped policies on all 5 tables.
 
 2. **3 AI endpoints had no rate limiting:** `generate-plan` (most expensive, 60s timeout), `weekly-analysis`, `memory/extract`. A single user could generate unlimited OpenAI costs. **Fix:** All 3 now import and call `checkAiRateLimit()`.
 
 ### HIGH — Fixed
 
-3. **Non-atomic rate limit increment:** The read-then-write pattern allowed concurrent requests to bypass limits. **Fix:** `increment_rate_limit` Postgres function does INSERT...ON CONFLICT...DO UPDATE atomically. The JS code calls this RPC first, falling back to the legacy path until deployed.
+3. **Non-atomic rate limit increment:** The read-then-write pattern allowed concurrent requests to bypass limits. **Fix:** `security/001-atomic-rate-limit-rpc.sql` creates a SECURITY DEFINER `increment_rate_limit` function that does INSERT...ON CONFLICT...DO UPDATE atomically. The JS code calls this RPC first, falling back to the legacy path until deployed.
 
 4. **No daily aggregate cap:** Hourly limits allowed 40/hr × 24hr = 960 coach calls/day. **Fix:** 200/day aggregate cap across all AI endpoints.
 
@@ -84,26 +94,29 @@ Design tokens:      43 passed, 0 failed
 
 ## Production deployment checklist
 
-Before committing, verify these against your production Supabase:
+**IMPORTANT:** Committing SQL to Git does NOT mean it has been applied to Supabase. Each migration must be run manually in the Supabase SQL Editor after verification.
 
-- [ ] **Check current RLS state** on the 5 critical tables. Run in Supabase SQL Editor:
-  ```sql
-  SELECT tablename, rowsecurity FROM pg_tables
-  WHERE schemaname = 'public'
-  AND tablename IN ('profiles','activities','training_plans',
-                     'training_sessions','strava_accounts');
-  ```
-  If `rowsecurity = true` on any table, it already has RLS — the migration's `enable row level security` is a safe no-op, but check existing policies don't conflict.
+### Step 1 — Deploy runtime rate limiting (already committed)
+- [ ] Deploy the 4 modified API files to Vercel. The rate limit changes are backward-compatible — the RPC function call fails gracefully to the legacy path until migration 001 is applied.
 
-- [ ] **Run `remediation-migration.sql`** in Supabase SQL Editor (or via CLI migration). This is idempotent and can be run multiple times safely.
+### Step 2 — Run production read-only inspection
+- [ ] Run `security/production-rls-check.sql` in Supabase SQL Editor. This performs NO mutations. Review the output to confirm table schemas, ownership columns, and current RLS state.
 
-- [ ] **Test client queries still work** after RLS is enabled. Sign in as a real user and verify: profile loads, activities load, training plan view works, strava connection status shows.
+### Step 3 — Apply migration 001 (low-risk)
+- [ ] Run `security/001-atomic-rate-limit-rpc.sql` in Supabase SQL Editor. This only creates one function and hardens its permissions. It does not touch any user-data tables.
+- [ ] Test AI endpoints — verify rate limiting works and returns 429 when limits are exceeded.
+- [ ] If anything breaks, run `security/001-atomic-rate-limit-rpc-rollback.sql` to drop the function. The JS code falls back to the legacy path automatically.
 
-- [ ] **Deploy the 4 modified API files** to Vercel. The rate limit changes are backward-compatible — the RPC function call fails gracefully to the legacy path until the migration is run.
+### Step 4 — Apply migration 002 (conditional on schema verification)
+- [ ] Re-run `security/production-rls-check.sql` to confirm all 5 target tables exist and ownership columns are UUID-type.
+- [ ] Run `security/002-athlete-table-rls.sql` in Supabase SQL Editor. This enables RLS and creates auth.uid()-scoped policies.
+- [ ] Test cross-account isolation: sign in as a real user and verify profile loads, activities load, training plan view works, strava connection status shows (will return empty — frontend handles gracefully).
+- [ ] Test normal user flows end-to-end.
+- [ ] If anything breaks, run `security/002-athlete-table-rls-rollback.sql` to drop policies. Note: this does NOT disable RLS (previous state unknown). To fully disable RLS, do so manually after confirming the previous state.
 
-- [ ] **Verify rate limiting** by checking Vercel function logs for the new endpoints after deployment.
-
-- [ ] If anything breaks, run `rollback-migration.sql` to disable RLS on the 5 tables and drop the RPC function.
+### Risk assessment
+- **Migration 001** is expected to be low-risk: it creates a single function that the JS code already handles gracefully if missing.
+- **Migration 002** remains conditional on production schema verification. If ownership columns are not UUID or tables have unexpected structures, policies could block all access.
 
 ---
 

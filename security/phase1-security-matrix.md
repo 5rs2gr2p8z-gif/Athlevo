@@ -48,7 +48,14 @@
 | **training_sessions** | user_id | YES — js/athleteModel.js | **CRITICAL** — daily session data readable | Pre-dates migration directory |
 | **strava_accounts** | user_id | YES — js/brain.js queries it | **CRITICAL** — contains OAuth tokens | Only constraints migration exists |
 
-**Note:** These tables may have RLS enabled via the Supabase dashboard. This must be verified against production before applying the remediation migration. If RLS is already on, the migration's `enable row level security` is a no-op and safe to run. If RLS is off, this is the top-priority fix.
+**Note:** These tables may have RLS enabled via the Supabase dashboard. This must be verified against production before applying the migration. Run `security/production-rls-check.sql` first. If RLS is already on, the migration's `enable row level security` is a no-op and safe to run. If RLS is off, this is the top-priority fix.
+
+**Migration files:**
+- `security/001-atomic-rate-limit-rpc.sql` — Atomic rate-limit RPC function (apply first, low-risk)
+- `security/002-athlete-table-rls.sql` — RLS + policies for the 5 tables above (apply after schema verification)
+- Matching rollback files: `001-atomic-rate-limit-rpc-rollback.sql`, `002-athlete-table-rls-rollback.sql`
+
+**Committing SQL to Git does NOT mean it has been applied to Supabase.** See `security/SPRINT4-FINAL-REPORT.md` for the deployment checklist.
 
 ---
 
@@ -101,7 +108,7 @@
 
 | Concern | Status |
 |---|---|
-| Atomic increment | **VULNERABLE** — read-then-increment race condition |
+| Atomic increment | **FIXED** — `security/001-atomic-rate-limit-rpc.sql` provides INSERT...ON CONFLICT...DO UPDATE in a SECURITY DEFINER function |
 | Endpoints covered | Only coach (40/hr) and daily-brief (30/hr) |
 | Daily aggregate cap | **MISSING** |
 | Cost exposure | generate-plan + weekly-analysis + memory-extract = unlimited AI spend |
@@ -152,8 +159,10 @@
 
 ## 9. Priority Remediation Order
 
-1. **CRITICAL** — Enable RLS + policies on profiles, activities, training_plans, training_sessions, strava_accounts
-2. **HIGH** — Add rate limiting to generate-plan, weekly-analysis, memory/extract
-3. **HIGH** — Add daily aggregate AI cap across all endpoints
-4. **MEDIUM** — Make rate-limit increment atomic (upsert with increment)
-5. **LOW** — Verify production RLS state matches migrations
+1. **CRITICAL** — Enable RLS + policies on profiles, activities, training_plans, training_sessions, strava_accounts → `security/002-athlete-table-rls.sql` (conditional on production schema verification)
+2. **HIGH** — Add rate limiting to generate-plan, weekly-analysis, memory/extract → **DONE** (runtime code committed)
+3. **HIGH** — Add daily aggregate AI cap across all endpoints → **DONE** (runtime code committed)
+4. **MEDIUM** — Make rate-limit increment atomic → `security/001-atomic-rate-limit-rpc.sql` (low-risk, apply first)
+5. **LOW** — Verify production RLS state matches migrations → `security/production-rls-check.sql`
+
+**Deployment order:** Deploy runtime code (already done) → Run production-rls-check.sql → Apply 001 → Test → Apply 002 → Test
