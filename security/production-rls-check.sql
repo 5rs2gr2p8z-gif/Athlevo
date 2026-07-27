@@ -12,7 +12,7 @@
  *    3.  Whether expected ownership columns exist
  *    4.  Whether ownership columns are UUID-compatible with auth.uid()
  *    5.  relrowsecurity (RLS enabled)
- *    6.  relforcerowlevel (FORCE RLS)
+ *    6.  relforcerowsecurity (FORCE RLS)
  *    7.  All existing policies (schema, table, name, permissive/
  *        restrictive, roles, command, USING, WITH CHECK)
  *    8.  Existing grants to anon and authenticated
@@ -89,13 +89,13 @@ ORDER BY table_name, ordinal_position;
 
 
 -- ═══════════════════════════════════════════════════════════════
--- 5–6. RLS status: relrowsecurity and relforcerowlevel
+-- 5–6. RLS status: relrowsecurity and relforcerowsecurity
 -- ═══════════════════════════════════════════════════════════════
 
 SELECT
   c.relname                             AS table_name,
   c.relrowsecurity                      AS rls_enabled,
-  c.relforcerowlevel                    AS force_rls,
+  c.relforcerowsecurity                  AS force_rls,
   CASE
     WHEN c.relname IN (
       'profiles', 'activities', 'training_plans',
