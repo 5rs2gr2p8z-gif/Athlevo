@@ -1038,6 +1038,18 @@ const CHECKIN_FELT_OPTIONS = [
     "Mixed"
 ];
 
+async function canUseTrainingFeature(featureName) {
+    try {
+        if (!window.AthlevoPlan) return false;
+        if (typeof window.AthlevoPlan.load === "function") {
+            await window.AthlevoPlan.load();
+        }
+        return window.AthlevoPlan.canUse(featureName);
+    } catch (error) {
+        return false;
+    }
+}
+
 async function loadWeeklyLoop(token) {
 
     const container =
@@ -1053,14 +1065,21 @@ async function loadWeeklyLoop(token) {
             Authorization: `Bearer ${token}`
         };
 
+        const paidWeeklyAnalysis =
+            await canUseTrainingFeature("weekly_analysis");
+
         const [analysisRes, checkinRes] =
             await Promise.all([
-                fetch("/api/training/weekly-analysis", { headers }),
+                paidWeeklyAnalysis
+                    ? fetch("/api/training/weekly-analysis", { headers })
+                    : Promise.resolve(null),
                 fetch("/api/training/check-in", { headers })
             ]);
 
         const analysis =
-            analysisRes.ok ? await analysisRes.json() : null;
+            analysisRes && analysisRes.ok
+                ? await analysisRes.json()
+                : null;
 
         const checkin =
             checkinRes.ok ? await checkinRes.json() : null;
@@ -2350,6 +2369,16 @@ async function generateWeek(){
 
     const button =
         event.target;
+
+    if (!await canUseTrainingFeature("additional_plan_generation")) {
+        if (
+            window.AthlevoAccessGuard &&
+            typeof window.AthlevoAccessGuard.upgrade === "function"
+        ) {
+            window.AthlevoAccessGuard.upgrade();
+        }
+        return;
+    }
 
     button.disabled=true;
 

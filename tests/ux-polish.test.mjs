@@ -237,7 +237,8 @@ section("P5. No dead buttons or fake promises");
               "athlevoScore", "legal", "feedback", "memory", "readiness",
               "raceDetection", "workoutAnalysis", "developmentData", "athleteModel",
               "planEngine", "dailyBrief", "authSupport", "prescription",
-              "productionVerify", "workoutGuidance", "onboarding"]
+              "productionVerify", "workoutGuidance", "onboarding",
+              "accessGuard", "paywall"]
     .map(f => { try { return readFileSync(`./js/${f}.js`, "utf8"); } catch (e) { return ""; } })
     .join("\n") + html;
 

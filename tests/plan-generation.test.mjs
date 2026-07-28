@@ -74,14 +74,35 @@ const goodPlan = () => ({
 
 function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
                  profile = PROFILE, activities = [], failPlanInsert = false,
-                 preexistingSessions = [] } = {}) {
-  const db = { plans: [], sessions: [...preexistingSessions], aiCalls: 0 };
+                 preexistingSessions = [], subscription = null } = {}) {
+  const db = {
+    plans: [], sessions: [...preexistingSessions], aiCalls: 0,
+    freePlanUsage: 0
+  };
   const fetchFn = async (url, init = {}) => {
     const u = String(url), m = (init.method || "GET").toUpperCase();
     const J = (s, b) => ({ ok: s >= 200 && s < 300, status: s,
       json: async () => b, text: async () => JSON.stringify(b) });
 
     if (u.includes("/auth/v1/user")) return J(200, { id: "u1", email: "a@b.c" });
+    if (u.includes("/rest/v1/subscriptions")) {
+      return J(200, subscription ? [subscription] : []);
+    }
+    if (u.includes("/rest/v1/rpc/increment_rate_limit")) {
+      const rpcBody = JSON.parse(init.body || "{}");
+      if (rpcBody.p_endpoint !== "free:initial_plan") {
+        return J(200, { allowed: true, current_count: 1 });
+      }
+      db.freePlanUsage += 1;
+      return J(200, {
+        allowed: db.freePlanUsage <= 1,
+        current_count: db.freePlanUsage
+      });
+    }
+    if (u.includes("/rest/v1/ai_rate_limits") && m === "DELETE") {
+      db.freePlanUsage = 0;
+      return J(204, null);
+    }
     if (u.includes("openai.com")) {
       db.aiCalls += 1;
       if (openAiStatus !== 200) return J(openAiStatus, { error: { message: "upstream" } });
@@ -184,8 +205,9 @@ section("4. Double click produces one plan");
 {
   const w = world();
   const [a, b] = await Promise.all([call(w), call(w)]);
-  t("both requests answer without error",
-    [a.code, b.code].every(c => c === 200), `${a.code}/${b.code}`);
+  t("one request succeeds and the concurrent request cannot generate again",
+    [a.code, b.code].includes(200) &&
+    [a.code, b.code].every(c => c === 200 || c === 402), `${a.code}/${b.code}`);
   t("only ONE plan row survives (upsert on user_id,week_start)",
     w.db.plans.length === 1, `${w.db.plans.length}`);
   t("only seven session rows survive (upsert on user_id,session_date)",
@@ -193,6 +215,30 @@ section("4. Double click produces one plan");
 
   const client = readFileSync("./js/planSetup.js", "utf8");
   t("client also guards re-entry", /if \(buildInFlight\) return;/.test(client));
+}
+
+section("4b. Additional plans require verified payment");
+{
+  const free = world();
+  await call(free);
+  const blocked = await call(free, { body: { regenerate: true } });
+  t("free user's explicit second generation is blocked",
+    blocked.code === 402 && blocked.body.code === "FREE_LIMIT_REACHED");
+  t("blocked generation does not call the model again", free.db.aiCalls === 1);
+
+  const paid = world({
+    subscription: {
+      provider: "whop",
+      plan_id: "performance",
+      status: "active",
+      current_period_end: new Date(Date.now() + 86400000).toISOString()
+    }
+  });
+  await call(paid);
+  const regenerated = await call(paid, { body: { regenerate: true } });
+  t("verified paid user can regenerate", regenerated.code === 200);
+  t("paid regeneration bypasses the free counter",
+    paid.db.aiCalls === 2 && paid.db.freePlanUsage === 0);
 }
 
 /* ══════════════ 5–9. failure handling ══════════════════════════════ */

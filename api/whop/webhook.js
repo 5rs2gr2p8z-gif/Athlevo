@@ -25,6 +25,7 @@ import {
   verifyWhopSignature, parseWhopEvent, mapWhopEvent, extractMembership
 } from "../../lib/server/whopWebhook.js";
 import { makeWhopClient } from "../../lib/server/whopClient.js";
+import { captureServerEvent } from "../../lib/server/productAnalytics.js";
 
 // Disable Vercel's body parser so we receive the exact bytes Whop signed.
 export const config = { api: { bodyParser: false } };
@@ -190,25 +191,12 @@ export default async function handler(req, res) {
 
     await upsertSubscription(userId, mapped.patch);
 
-    // PostHog server-side event: trial_started fires only from the verified
-    // webhook, never from a client click. Best-effort — never blocks the 200.
-    if (mapped.patch.status === "trialing" || (mapped.effect === "activate" && mapped.patch.status === "active")) {
-      try {
-        const phKey = process.env.POSTHOG_KEY;
-        const phHost = process.env.POSTHOG_HOST || "https://us.i.posthog.com";
-        if (phKey && userId) {
-          await fetch(phHost + "/capture/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              api_key: phKey,
-              distinct_id: userId,
-              event: "trial_started",
-              properties: { source: "whop_webhook" }
-            })
-          });
-        }
-      } catch (e) { /* analytics must never block payment processing */ }
+    // Paid activation is authoritative only after signature verification and
+    // the idempotent subscription write above.
+    if (mapped.effect === "activate" && mapped.patch.status === "active") {
+      await captureServerEvent(userId, "paid_subscription_activated", {
+        source: "whop_webhook"
+      });
     }
 
     return send(res, 200, { ok: true, effect: mapped.effect, status: mapped.patch.status });

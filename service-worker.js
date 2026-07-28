@@ -16,7 +16,7 @@
  *  activate. No coaching logic, auth, or API behaviour is affected.
  */
 
-const CACHE_VERSION = "athlevo-shell-v67";
+const CACHE_VERSION = "athlevo-shell-v68";
 const SHELL = [
   "/",
   "/index.html",

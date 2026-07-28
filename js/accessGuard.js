@@ -3,9 +3,9 @@
  *  Athlevo — Access Guard  (navigation entitlement gates)
  * ══════════════════════════════════════════════════════════════════════
  *
- *  Intercepts tab navigation for Coach, Train, and Trends. Free users
- *  see locked previews with a trial CTA. Paid/trial users pass through
- *  without friction.
+ *  Freemium navigation and paid-feature upgrade entry point. Coach history,
+ *  Train/calendar, and basic Trends remain open; server APIs enforce free AI
+ *  limits and paid-only mutations.
  *
  *  Source of truth: AthlevoPlan.entitlement() — the same subscription
  *  system the paywall and server endpoints trust.
@@ -19,7 +19,7 @@
   /* ─────────────── entitlement helpers ───────────────────────────── */
 
   /*
-   * Check whether the current user has a paid/trial entitlement.
+   * Check whether the current user has verified Whop paid entitlement.
    * Uses the already-loaded subscription from features.js — no extra
    * network call if AthlevoPlan is already loaded.
    */
@@ -48,12 +48,12 @@
 
   /* ─────────────── locked screen templates ───────────────────────── */
 
-  const TRIAL_CTA_HTML = `
+  const UPGRADE_CTA_HTML = `
     <div class="ag-cta">
       <div class="ag-cta-badge">Athlevo Performance</div>
-      <p class="ag-cta-text">Start your 3-day free trial to unlock full coaching, adaptive training plans, and trends analysis.</p>
-      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.startTrial()">Start my 3-day free trial</button>
-      <p class="ag-cta-sub">₱0 today · ₱597/month after trial · Cancel anytime</p>
+      <p class="ag-cta-text">Unlock adaptive plan changes, deeper analysis, Daily Brief, and the full paid Coach allowance.</p>
+      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.upgrade()">Upgrade to Performance</button>
+      <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
     </div>`;
 
   function lockedCoachHTML() {
@@ -77,7 +77,7 @@
             </div>
           </div>
         </div>
-        ${TRIAL_CTA_HTML}
+        ${UPGRADE_CTA_HTML}
       </div>`;
   }
 
@@ -101,7 +101,7 @@
             <div class="ag-day"><span class="ag-day-name">Sun</span><span class="ag-day-type rest">Rest</span><span class="ag-day-detail">Full recovery</span></div>
           </div>
         </div>
-        ${TRIAL_CTA_HTML}
+        ${UPGRADE_CTA_HTML}
       </div>`;
   }
 
@@ -133,37 +133,28 @@
             </div>
           </div>
         </div>
-        ${TRIAL_CTA_HTML}
+        ${UPGRADE_CTA_HTML}
       </div>`;
   }
 
   /* ─────────────── guard logic ───────────────────────────────────── */
 
-  /*
-   * Returns true if the navigation should be BLOCKED (free user on a
-   * premium tab). Returns false if navigation should proceed normally.
-   *
-   * When blocked, the function renders the locked preview into the
-   * target screen's container.
-   */
+  const FREE_TABS = new Set([
+    "screen-coachai",
+    "screen-train",
+    "screen-trends"
+  ]);
+
+  function syncTrendsUpgrade(paid) {
+    const upgrade = document.getElementById("trendsUpgrade");
+    if (upgrade) upgrade.style.display = paid ? "none" : "block";
+  }
+
   async function guardTab(screenId) {
-    // Only guard premium tabs.
-    const GUARDED = {
-      "screen-coachai": lockedCoachHTML,
-      "screen-train": lockedTrainHTML,
-      "screen-trends": lockedTrendsHTML
-    };
-
-    const htmlFn = GUARDED[screenId];
-    if (!htmlFn) return false;   // not a guarded tab
-
-    // Paid/trial users always pass through.
-    if (await hasPaidAccess()) return false;
-
-    // Free user — show locked preview.
-    renderLockedScreen(screenId, htmlFn());
-    try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("locked_tab_shown", { tab: screenId }); } catch (e) {}
-    return true;
+    if (!FREE_TABS.has(screenId)) return false;
+    const paid = await hasPaidAccess();
+    if (screenId === "screen-trends") syncTrendsUpgrade(paid);
+    return false;
   }
 
   function renderLockedScreen(screenId, html) {
@@ -205,14 +196,21 @@
 
   /* ─────────────── actions ───────────────────────────────────────── */
 
-  function startTrial() {
-    if (window.AthlevoPaywall && typeof window.AthlevoPaywall.checkout === "function") {
-      window.AthlevoPaywall.checkout();
+  function upgrade() {
+    try {
+      if (window.AthlevoProductAnalytics) {
+        AthlevoProductAnalytics.trackAthlevoEvent("upgrade_clicked", {
+          source: "feature_gate"
+        });
+      }
+    } catch (e) {}
+    if (window.AthlevoPaywall && typeof window.AthlevoPaywall.show === "function") {
+      window.AthlevoPaywall.show();
     }
   }
 
   /*
-   * Called after a successful checkout/trial activation to remove all
+   * Called after a successful paid activation to remove all
    * locked overlays so tabs work normally going forward.
    */
   function unlockAll() {
@@ -225,7 +223,7 @@
     guardTab,
     hasPaidAccess,
     unlockAll,
-    startTrial,
+    upgrade,
     VERSION: "access-guard-v1"
   };
 })();

@@ -12,8 +12,21 @@ import {
 } from "../../lib/server/coachActions.js";
 
 import { buildProposal } from "../../lib/server/adaptivePlanAdapter.js";
+import {
+  accessResponse,
+  requirePaidAccess
+} from "../../lib/server/freemium.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
+
+const PAID_PLAN_ACTIONS = new Set([
+  "move_workout",
+  "modify_workout",
+  "replace_workout",
+  "skip_workout",
+  "adjust_remaining_week",
+  "update_temporary_availability"
+]);
 
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -432,6 +445,18 @@ async function handleApplyAction(response, user, body) {
 
   if (error) {
     return sendJson(response, 400, { error });
+  }
+
+  // Profile/race settings and corrections remain free. Only actions that
+  // change (or adapt) the training plan require verified Whop paid access.
+  if (PAID_PLAN_ACTIONS.has(action.type)) {
+    const paidAccess = await requirePaidAccess(
+      user.id,
+      "workout_modifications"
+    );
+    if (!paidAccess.allowed) {
+      return accessResponse(response, paidAccess, user.id);
+    }
   }
 
   const nowIso = new Date().toISOString();
@@ -990,6 +1015,21 @@ async function handlePost(request, response, user) {
       : typeof request.body === "string" && request.body
       ? JSON.parse(request.body)
       : {};
+
+  const paidIntents = new Set([
+    "adaptive_preview",
+    "adaptive_apply",
+    "adaptive_dismiss"
+  ]);
+  if (paidIntents.has(body.intent)) {
+    const paidAccess = await requirePaidAccess(
+      user.id,
+      "workout_modifications"
+    );
+    if (!paidAccess.allowed) {
+      return accessResponse(response, paidAccess, user.id);
+    }
+  }
 
   // Adaptive Smart Plan v2 — preview / apply / dismiss.
   if (body.intent === "adaptive_preview") return await handleAdaptivePreview(response, user, body);

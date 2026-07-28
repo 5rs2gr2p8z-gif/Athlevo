@@ -935,18 +935,13 @@ async function obFinish() {
   try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('onboarding_completed'); } catch(e){}
 
   /*
-   * The athlete profile is done. For free users the next step is the
-   * personalized preview + paywall — NOT wearable connection. Connecting
-   * training data happens AFTER the trial starts (from plan setup), so the
-   * athlete never hits a friction wall before seeing what Athlevo offers.
-   *
-   * Flow: onboarding → paywall/preview → trial checkout → plan setup → connect
-   *
-   * Paid/trial users skip the paywall and land directly in plan setup.
+   * Freemium flow: profile → training-data connection → free app. Payment is
+   * never part of onboarding; Whop appears only when an athlete chooses an
+   * upgrade or reaches a paid feature.
    */
-  if (window.AthlevoPlan && typeof window.AthlevoPlan.maybeLaunchAfterOnboarding === "function") {
-    try { await window.AthlevoPlan.maybeLaunchAfterOnboarding(); return; }
-    catch (e) { console.warn("Plan setup launch failed:", e); }
+  if (window.AthlevoConnect && typeof window.AthlevoConnect.start === "function") {
+    try { await window.AthlevoConnect.start(); return; }
+    catch (e) { console.warn("Training-data setup failed:", e); }
   }
   showScreen("screen-today");
 }
@@ -1019,7 +1014,7 @@ async function obLoadProfile() {
     try {
       if (window.AthlevoProductAnalytics) {
         var method = (user.app_metadata && user.app_metadata.provider) || 'email';
-        AthlevoProductAnalytics.trackAthlevoEvent('signup_completed', { auth_method: method, is_first_time: true });
+        AthlevoProductAnalytics.trackAthlevoEvent('free_account_created', { auth_method: method, is_first_time: true });
       }
     } catch(e){}
     return created;

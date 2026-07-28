@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
+import {
+  accessResponse,
+  checkAccess,
+  consumeFreeUsage,
+  releaseFreeUsage
+} from "../../lib/server/freemium.js";
 import { buildAthlevoMethodPrompt } from "../../lib/server/athlevoMethod.js";
 
 import {
@@ -1727,6 +1733,9 @@ export default async function handler(
   request,
   response
 ) {
+  let freePlanReservation = null;
+  let authenticatedUserId = null;
+
   if (request.method !== "POST") {
     return sendJson(
       response,
@@ -1784,6 +1793,7 @@ export default async function handler(
         action: "signIn"
       });
     }
+    authenticatedUserId = user.id;
 
     // Rate limit: plan generation is the most expensive AI call.
     const limit = await checkAiRateLimit(user.id, "generate-plan");
@@ -1852,6 +1862,38 @@ const weekEnd =
           message: "A training plan already exists for this week."
         });
       }
+    }
+
+    // Free athletes may create exactly one initial plan. Existing historical
+    // plans count, and the atomic lifetime reservation closes the two-tab /
+    // concurrent-request race before the expensive model call.
+    const access = await checkAccess(user.id);
+    if (!access.ok) {
+      return accessResponse(response, {
+        serviceUnavailable: true,
+        feature: "initial_plan"
+      }, user.id);
+    }
+    if (!access.paid) {
+      const existingPlan = await optionalSupabaseRequest(
+        `training_plans?user_id=eq.${encodeURIComponent(user.id)}` +
+          "&select=id&limit=1"
+      );
+      if (Array.isArray(existingPlan) && existingPlan.length > 0) {
+        return accessResponse(response, {
+          allowed: false,
+          feature: "additional_plan_generation",
+          usageType: "initial_plan",
+          limit: 1,
+          period: "lifetime"
+        }, user.id);
+      }
+
+      const initialPlanUsage = await consumeFreeUsage(user.id, "initial_plan");
+      if (!initialPlanUsage.allowed) {
+        return accessResponse(response, initialPlanUsage, user.id);
+      }
+      freePlanReservation = initialPlanUsage;
     }
 
     const targetRace =
@@ -2030,6 +2072,16 @@ const weekEnd =
       }
     );
   } catch (error) {
+    if (
+      freePlanReservation &&
+      freePlanReservation.windowStart
+    ) {
+      await releaseFreeUsage(
+        authenticatedUserId,
+        "initial_plan",
+        freePlanReservation.windowStart
+      );
+    }
     // Full detail to the server log ONLY.
     console.error(
       "Training plan generation failed:",

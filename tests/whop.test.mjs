@@ -106,6 +106,13 @@ section("Every lifecycle event maps to the correct subscription state");
   t("email is lower-cased for matching", activate.email === "a@x.com");
   t("plan resolves to the fallback paid slug", activate.patch.plan_id === "performance");
 
+  const providerTrial = mapWhopEvent(ev("membership.activated", {
+    id: "mem_trial", email: "trial@x.com", valid: true, status: "trialing"
+  }));
+  t("provider trial label does not create a timed Athlevo trial state",
+    providerTrial.patch.status === "active" &&
+    providerTrial.event_type === "activated");
+
   const renew = mapWhopEvent(ev("payment.succeeded", { id: "mem_a", valid: true, status: "active", renewal_period_end: Math.floor(Date.now() / 1000) + 60 * 86400 }));
   t("renewal → effect activate/renew, still active", renew.patch.status === "active");
 
@@ -135,9 +142,15 @@ section("Every lifecycle event maps to the correct subscription state");
 /* ══════ 3 — premium helper delegates to features.js (no duplication) ══ */
 section("Premium checks reuse the central entitlement system");
 {
-  const active = { plan_id: "performance", status: "active", current_period_end: iso(20) };
+  const active = {
+    provider: "whop", plan_id: "performance", status: "active",
+    current_period_end: iso(20)
+  };
   const free = { plan_id: "free", status: "active" };
-  const expired = { plan_id: "performance", status: "expired", current_period_end: iso(-2) };
+  const expired = {
+    provider: "whop", plan_id: "performance", status: "expired",
+    current_period_end: iso(-2)
+  };
   t("active paid subscription is premium", isPremium(active) === true);
   t("free plan is not premium", isPremium(free) === false);
   t("expired subscription is not premium", isPremium(expired) === false);

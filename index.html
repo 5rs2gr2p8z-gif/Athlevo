@@ -171,7 +171,7 @@
   "operatingSystem": "iOS, Android, Web",
   "url": "https://athlevo.org/",
   "description": "An adaptive AI endurance coaching platform that creates personalized training plans, analyzes completed workouts, tracks readiness and adjusts future training.",
-  "offers": { "@type": "Offer", "price": "597", "priceCurrency": "PHP", "description": "Monthly subscription with 3-day free trial" }
+  "offers": { "@type": "AggregateOffer", "lowPrice": "0", "highPrice": "597", "priceCurrency": "PHP", "description": "Free training tools with an optional Athlevo Performance subscription" }
 }
 </script>
 
@@ -2779,7 +2779,7 @@ body.landing-active #tabbar{display:none!important}
       </div>
       <div class="lp-nav-cta">
         <button class="lp-link" onclick="landingSignIn()">Sign In</button>
-        <button class="lp-btn sm" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start free trial</button>
+        <button class="lp-btn sm" onclick="landingStartFree()">Build My Training Plan</button>
       </div>
     </div>
   </nav>
@@ -2794,10 +2794,9 @@ body.landing-active #tabbar{display:none!important}
         <p class="lp-lead lp-reveal">Athlevo builds your endurance plan, analyzes completed workouts and adjusts what comes next based on your goals, training history and daily readiness.</p>
         <p class="lp-body lp-reveal" style="max-width:52ch;font-size:var(--fs-body)">Athlevo is an adaptive AI endurance coaching platform that creates personalized training plans, analyzes completed workouts, tracks readiness and adjusts future training based on the athlete's goals and history.</p>
         <div class="lp-cta lp-reveal">
-          <button class="lp-btn" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
+          <button class="lp-btn" onclick="landingStartFree()">Build My Training Plan</button>
           <a class="lp-btn ghost" href="#lp-how">See how Athlevo works</a>
         </div>
-        <p class="lp-billing lp-reveal">₱0 today, then ₱597/month. Cancel anytime before your trial ends.</p>
         <p class="lp-subline lp-reveal">Built for runners and endurance athletes who want more structure and fewer guesses.</p>
       </div>
 
@@ -3002,25 +3001,25 @@ body.landing-active #tabbar{display:none!important}
   <!-- 9. PRICING -->
   <section class="lp-section" id="lp-pricing">
     <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">FOUNDING PLAN</span>
-      <h2 class="lp-h2 lp-reveal">Personalized endurance guidance for ₱597 per month.</h2>
+      <span class="lp-kicker lp-reveal">FREE TO START</span>
+      <h2 class="lp-h2 lp-reveal">Build your first plan free. Upgrade when you need ongoing adaptation.</h2>
       <div class="lp-pricing-wrap lp-reveal">
         <div class="lp-price-card">
-          <div class="lp-price-name">Athlevo Founding Plan</div>
+          <div class="lp-price-name">Athlevo Performance</div>
           <div class="lp-price-amount">₱597</div>
           <div class="lp-price-period">per month</div>
           <ul class="lp-price-features">
             <li>Adaptive endurance plan</li>
             <li>Daily training recommendation</li>
             <li>Readiness-based guidance</li>
-            <li>Workout analysis</li>
+            <li>Ongoing AI workout analysis</li>
             <li>Personalized training paces</li>
             <li>Athlete development tracking</li>
             <li>AI coach conversations</li>
             <li>Continued product improvements while subscribed</li>
           </ul>
-          <button class="lp-btn" style="width:100%" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
-          <p class="lp-price-trial">Start with a 3-day free trial. Your card is required, but you will be charged ₱0 today. After the trial, your subscription renews at ₱597/month unless cancelled before billing.</p>
+          <button class="lp-btn" style="width:100%" onclick="landingStartFree()">Build My Training Plan</button>
+          <p class="lp-price-trial">Start free with your initial plan, training calendar, readiness, basic Trends, and 3 Coach messages per week. Upgrade to Athlevo Performance for ongoing adaptive coaching.</p>
           <p class="lp-price-cancel">Cancel anytime.</p>
         </div>
       </div>
@@ -3049,16 +3048,16 @@ body.landing-active #tabbar{display:none!important}
           <div class="lp-faq-body">Athlevo includes an adaptive endurance training plan, daily training recommendations, readiness-based guidance, workout analysis, personalized training paces, athlete development tracking and AI coach conversations — all in one platform.</div>
         </details>
         <details>
-          <summary>How does the 3-day free trial work?</summary>
-          <div class="lp-faq-body">When you sign up, you get full access to Athlevo for 3 days. Your card is required at signup, but you are charged ₱0 today. If you decide Athlevo is not for you, cancel before the trial ends and you will not be charged.</div>
+          <summary>What can I use for free?</summary>
+          <div class="lp-faq-body">The free version includes onboarding, activity syncing, Today, readiness, your training calendar, basic Trends, one initial training plan and 3 Coach messages per week.</div>
         </details>
         <details>
           <summary>When will I be charged?</summary>
-          <div class="lp-faq-body">Your first charge of ₱597 occurs after your 3-day free trial ends. After that, your subscription renews monthly at ₱597 unless you cancel.</div>
+          <div class="lp-faq-body">The free version does not require payment. You are charged only when you choose Athlevo Performance through Whop, at ₱597 per month.</div>
         </details>
         <details>
           <summary>Can I cancel anytime?</summary>
-          <div class="lp-faq-body">Yes. You can cancel your subscription at any time. If you cancel during the free trial, you will not be charged. If you cancel after billing, you retain access until the end of your current billing period.</div>
+          <div class="lp-faq-body">Yes. You can cancel Athlevo Performance at any time. You retain paid access until the end of your current billing period, then return to the free version.</div>
         </details>
         <details>
           <summary>Do I need a sports watch?</summary>
@@ -3094,10 +3093,9 @@ body.landing-active #tabbar{display:none!important}
       <h2 class="lp-h2 big">Stop guessing what your training needs next.</h2>
       <p class="lp-body" style="color:rgba(255,255,255,.65);max-width:36ch;margin:18px auto 0">Build your plan, complete your readiness check and let every workout inform what comes after it.</p>
       <div class="lp-cta" style="margin-top:36px">
-        <button class="lp-btn light" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
+        <button class="lp-btn light" onclick="landingStartFree()">Build My Training Plan</button>
         <a class="lp-btn ghost-light" href="#lp-pricing">View pricing</a>
       </div>
-      <p class="lp-billing lp-reveal">₱0 today, then ₱597/month.</p>
     </div>
   </section>
 
@@ -3232,7 +3230,7 @@ body.landing-active #tabbar{display:none!important}
   <div id="planGenBody"></div>
 </section>
 
-<!-- ══════════════ PAYWALL (post-onboarding preview + trial offer) ══════════════ -->
+<!-- ══════════════ ATHLEVO PERFORMANCE UPGRADE ══════════════ -->
 <style>
   #screen-paywall{padding:0;background:var(--bg)}
   .pw-scroll{padding:calc(28px + env(safe-area-inset-top)) 22px 40px;max-width:520px;margin:0 auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -3257,7 +3255,7 @@ body.landing-active #tabbar{display:none!important}
   .pw-wall-sub{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin-bottom:20px}
   .pw-offer{display:flex;flex-direction:column;gap:10px;text-align:left;margin:0 auto 22px;max-width:260px}
   .pw-offer-row{display:flex;align-items:center;gap:var(--s-3);font-size:var(--fs-body);color:var(--text)}
-  .pw-offer-row.pw-offer-trial{font-weight:700}
+  .pw-offer-row.pw-offer-highlight{font-weight:700}
   .pw-offer-check{color:var(--good);font-weight:800;font-size:var(--fs-body)}
   .pw-cta{width:100%;border:none;border-radius:var(--r-pill);background:var(--red);color:#fff;font-family:var(--sans);font-weight:700;font-size:var(--fs-h3);letter-spacing:-.01em;padding:17px;cursor:pointer;transition:transform var(--dur-fast)}
   .pw-cta:active{transform:scale(.99)}
@@ -3312,7 +3310,7 @@ body.landing-active #tabbar{display:none!important}
   .ag-trend-bar.rising{background:linear-gradient(90deg,var(--good),#2980b9)}
   .ag-trend-val{font-size:var(--fs-body-sm);font-weight:700;color:var(--ink2);min-width:60px;text-align:right}
 
-  /* Trial CTA block */
+  /* Upgrade CTA block */
   .ag-cta{text-align:center;background:linear-gradient(180deg,var(--card) 0%,var(--bg) 100%);border:1px solid var(--line);border-radius:var(--r-lg);padding:28px 22px 24px;margin-top:24px}
   .ag-cta-badge{display:inline-block;font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red);margin-bottom:10px}
   .ag-cta-text{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin-bottom:18px}
@@ -4087,6 +4085,12 @@ body.landing-active #tabbar{display:none!important}
   </ul>
   <p class="predict-foot">No estimate is shown until it's genuinely reliable — no guesses.</p>
 </div>
+<div id="trendsUpgrade" class="ag-cta" style="display:none">
+  <div class="ag-cta-badge">Athlevo Performance</div>
+  <p class="ag-cta-text">Unlock weekly analysis, training trajectory, and premium recommendations.</p>
+  <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.upgrade()">Upgrade to Performance</button>
+  <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
+</div>
 
   <div class="spacer-lg"></div>
 
@@ -4105,14 +4109,6 @@ body.landing-active #tabbar{display:none!important}
     </p>
   </div>
 </div>
-
-  <!-- Founding Beta access notice (hidden by default; shown by features.js) -->
-  <div id="foundingBetaBanner" class="founding-beta-banner" style="display:none">
-    <div class="founding-beta-badge">Founding Beta access</div>
-    <p class="founding-beta-detail" id="foundingBetaDetail">Full access until —</p>
-  </div>
-
-  <div class="spacer-md"></div>
 
  <div class="memory">
   <span class="eyebrow">Coach memory</span>
@@ -4414,7 +4410,7 @@ function showLoginForm() {
 /* ══════════════ APP ENTRY (welcome) — landing CTA destination ══════════════
  * The original app entry screen (#screen-welcome: logo, title, tagline,
  * Create account, Log in, Continue with Apple/Google) is the destination for
- * Open App and Start Free Trial. CTAs never jump straight into the expanded
+ * Open App and Build My Training Plan. CTAs never jump straight into the expanded
  * form or into Today. Reuses the existing auth functions — no new system. */
 function openAppEntry() {
   var modal = document.getElementById('authModal');
@@ -4430,11 +4426,11 @@ window.openAppEntry = openAppEntry;
 // Landing CTAs. Logged in → straight into the app (never asked to create a
 // second account). Logged out → the app entry screen.
 function landingOpenApp()    { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); } }
-function landingStartTrial() { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); } }
-function landingStartBeta()  { landingStartTrial(); }
+function landingStartFree()  { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); } }
+function landingStartBeta()  { landingStartFree(); }
 function landingSignIn()     { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); openLogin(); } }
 window.landingOpenApp = landingOpenApp;
-window.landingStartTrial = landingStartTrial;
+window.landingStartFree = landingStartFree;
 window.landingStartBeta = landingStartBeta;
 window.landingSignIn = landingSignIn;
 
@@ -4624,7 +4620,7 @@ async function doSignup(bypassEmbeddedWarning) {
       msg.style.color = 'var(--good)';
       msg.textContent = 'Account created!';
       trackFunnel("signup_completed");
-      try { if (window.AthlevoProductAnalytics) { AthlevoProductAnalytics.identifyAthlete(user); AthlevoProductAnalytics.trackAthlevoEvent('signup_completed', { auth_method: 'email' }); } } catch(e){}
+      try { if (window.AthlevoProductAnalytics) { AthlevoProductAnalytics.identifyAthlete(user); AthlevoProductAnalytics.trackAthlevoEvent('free_account_created', { auth_method: 'email' }); } } catch(e){}
       closeAuth();
       startOnboarding();
       return;
@@ -4646,7 +4642,7 @@ async function doSignup(bypassEmbeddedWarning) {
         msg.style.color = 'var(--good)';
         msg.textContent = 'Account created!';
         trackFunnel("signup_completed");
-        try { if (window.AthlevoProductAnalytics) { AthlevoProductAnalytics.identifyAthlete(user); AthlevoProductAnalytics.trackAthlevoEvent('signup_completed', { auth_method: 'email' }); } } catch(e){}
+        try { if (window.AthlevoProductAnalytics) { AthlevoProductAnalytics.identifyAthlete(user); AthlevoProductAnalytics.trackAthlevoEvent('free_account_created', { auth_method: 'email' }); } } catch(e){}
         closeAuth();
         startOnboarding();
         return;

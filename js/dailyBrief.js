@@ -204,6 +204,32 @@ function renderDailyBriefError(error) {
   );
 }
 
+function renderDailyBriefUpgrade() {
+  setDailyBriefText(
+    "dailyBriefHeadline",
+    "Daily Brief is available with Athlevo Performance.",
+    ""
+  );
+  setDailyBriefText(
+    "dailyBriefTrainingSummary",
+    "Your free Today screen, readiness, and training calendar remain available.",
+    ""
+  );
+  setDailyBriefText("dailyBriefObservation", "Upgrade for a daily coaching summary.", "");
+  setDailyBriefText("dailyBriefRecommendation", "Continue with your current training plan.", "");
+  setDailyBriefText("dailyBriefReasoning", "Athlevo Performance adds ongoing AI analysis and recommendations.", "");
+  setDailyBriefText("dailyBriefStatus", "Athlevo Performance · ₱597/month", "");
+
+  const limitations = document.getElementById("dailyBriefLimitations");
+  if (limitations) {
+    limitations.innerHTML = `
+      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.upgrade()">
+        Upgrade to Performance
+      </button>
+    `;
+  }
+}
+
 async function loadDailyBrief({
   force = false
 } = {}) {
@@ -230,6 +256,16 @@ async function loadDailyBrief({
       return null;
     }
 
+    if (window.AthlevoPlan) {
+      if (typeof window.AthlevoPlan.load === "function") {
+        await window.AthlevoPlan.load();
+      }
+      if (!window.AthlevoPlan.canUse("daily_brief")) {
+        renderDailyBriefUpgrade();
+        return null;
+      }
+    }
+
     const response = await fetch(
       "/api/daily-brief",
       {
@@ -249,6 +285,11 @@ async function loadDailyBrief({
 
     const result =
       await response.json();
+
+    if (response.status === 402 && result?.code === "FREE_LIMIT_REACHED") {
+      renderDailyBriefUpgrade();
+      return null;
+    }
 
     if (!response.ok) {
       throw new Error(

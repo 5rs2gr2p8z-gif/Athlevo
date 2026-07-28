@@ -1,5 +1,9 @@
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { checkAiRateLimit } from "../lib/server/rateLimit.js";
+import {
+  accessResponse,
+  requirePaidAccess
+} from "../lib/server/freemium.js";
 import { summarizeExecutionRecord } from "../lib/server/executionRecords.js";
 import { applyActivityOverrides } from "../lib/server/coachActions.js";
 import {
@@ -851,16 +855,8 @@ export default async function handler(req, res) {
     !SUPABASE_URL ||
     !SUPABASE_SERVICE_ROLE_KEY
   ) {
-    return sendJson(res, 500, {
-      error:
-        "Supabase server configuration is missing."
-    });
-  }
-
-  if (!OPENAI_API_KEY) {
-    return sendJson(res, 500, {
-      error:
-        "OPENAI_API_KEY is not configured."
+    return sendJson(res, 503, {
+      error: "Daily Brief is unavailable right now. Please try again shortly."
     });
   }
 
@@ -880,6 +876,17 @@ export default async function handler(req, res) {
       return sendJson(res, 401, {
         error:
           "The authenticated user could not be verified."
+      });
+    }
+
+    const paidAccess = await requirePaidAccess(user.id, "daily_brief");
+    if (!paidAccess.allowed) {
+      return accessResponse(res, paidAccess, user.id);
+    }
+
+    if (!OPENAI_API_KEY) {
+      return sendJson(res, 503, {
+        error: "Daily Brief is unavailable right now. Please try again shortly."
       });
     }
 

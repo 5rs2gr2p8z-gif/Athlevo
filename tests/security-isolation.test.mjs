@@ -380,11 +380,16 @@ section("12 — Feature system: deny-by-default for unknown features");
   t("Unshipped feature returns false even for elite",
     canUse("coach_reports", { plan_id: "elite", status: "active" }) === false);
 
-  t("Free user cannot use coach_chat",
-    canUse("coach_chat", null) === false);
+  t("Free user can use limited coach_chat",
+    canUse("coach_chat", null) === true);
 
-  t("Expired subscription downgrades to free",
-    canUse("coach_chat", { plan_id: "performance", status: "expired" }) === false);
+  const inactive = {
+    provider: "whop", plan_id: "performance", status: "expired"
+  };
+  t("Inactive paid subscription retains free Coach access",
+    canUse("coach_chat", inactive) === true);
+  t("Inactive paid subscription cannot use adaptive AI",
+    canUse("adaptive_ai", inactive) === false);
 }
 
 

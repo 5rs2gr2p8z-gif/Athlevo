@@ -1,5 +1,9 @@
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
 import {
+  accessResponse,
+  requirePaidAccess
+} from "../../lib/server/freemium.js";
+import {
   addDays,
   calculateWeeksUntilRace,
   createDateFromParts,
@@ -196,6 +200,11 @@ export default async function handler(request, response) {
         error:
           "The authenticated athlete could not be verified."
       });
+    }
+
+    const paidAccess = await requirePaidAccess(user.id, "weekly_analysis");
+    if (!paidAccess.allowed) {
+      return accessResponse(response, paidAccess, user.id);
     }
 
     // Rate limit: weekly analysis

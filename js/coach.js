@@ -872,17 +872,26 @@ context.recentConversation = (await loadRecentConversationForCoach())
     const data = await response.json();
 
     if (!response.ok) {
-      // Subscription-required: show upgrade prompt instead of generic error.
-      if (response.status === 402 && data.code === "SUBSCRIPTION_REQUIRED") {
+      // Weekly free allowance reached: keep conversation history visible and
+      // offer an upgrade without losing the athlete's draft/context.
+      if (response.status === 402 && data.code === "FREE_LIMIT_REACHED") {
+        try {
+          if (window.AthlevoProductAnalytics) {
+            AthlevoProductAnalytics.trackAthlevoEvent("free_limit_reached", {
+              feature: data.feature || "coach_message",
+              limit_period: data.period || "week"
+            });
+          }
+        } catch (e) {}
         stopThinkingLabelRotation();
         const container = loadingMessage.querySelector(".change");
         if (container) {
           container.innerHTML =
-            '<p style="margin-bottom:12px"><b>Your free coaching preview is complete.</b></p>' +
-            '<p style="margin-bottom:14px">Upgrade to Athlevo Performance for unlimited AI coaching, adaptive plans, and trends.</p>' +
-            '<button onclick="if(window.AthlevoAccessGuard)AthlevoAccessGuard.startTrial()" ' +
+            '<p style="margin-bottom:12px"><b>You’ve used your 3 free Coach messages this week.</b></p>' +
+            '<p style="margin-bottom:14px">Your previous conversations stay available. Upgrade to continue coaching now.</p>' +
+            '<button onclick="if(window.AthlevoAccessGuard)AthlevoAccessGuard.upgrade()" ' +
             'style="background:var(--red);color:#fff;border:none;border-radius:var(--r-pill);padding:14px 24px;font-weight:700;font-size:var(--fs-body);cursor:pointer;font-family:var(--sans)">' +
-            'Start my 3-day free trial</button>';
+            'Upgrade to Performance</button>';
         }
         coachRequestInFlight = false;
         setCoachSendingState(false);

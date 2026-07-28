@@ -1,21 +1,15 @@
 /*
  * ══════════════════════════════════════════════════════════════════════
- *  Athlevo — Post-onboarding personalized preview + paywall
+ *  Athlevo — Athlevo Performance upgrade
  * ══════════════════════════════════════════════════════════════════════
  *
- *  Shown ONCE, right after onboarding, BEFORE plan generation.
- *  1. The athlete has completed their profile and (optionally) connected
- *     training data. Athlevo has enough context to show a personalized
- *     preview of their coaching approach.
- *  2. Before revealing the full generated plan and premium coaching, the
- *     paywall presents the Whop Performance checkout with a 3-day trial.
- *  3. Paid / trial users bypass this entirely — they never see it.
+ *  Shown only when an athlete chooses to upgrade or reaches a paid feature.
+ *  Free onboarding and the initial plan never route here.
  *
  *  Source of truth: AthlevoPlan.load() → resolveEntitlement(). The
  *  paywall NEVER grants access from a URL parameter or localStorage.
  *
- *  Does NOT touch: Today, Coach, Readiness, Workout Analysis, or any
- *  feature outside the onboarding-to-plan transition.
+ *  Whop's verified webhook remains the only path that grants paid access.
  */
 (function () {
   "use strict";
@@ -25,7 +19,7 @@
   /*
    * Whop checkout link for Athlevo Performance. This is the direct plan
    * purchase URL — it takes the athlete straight to payment for the
-   * specific plan (Performance, 3-day trial), no login wall or marketplace
+   * specific Athlevo Performance plan, no login wall or marketplace
    * browse required. Email is appended as a query param for Whop matching.
    *
    * To update: replace with your actual Whop plan's checkout/purchase URL.
@@ -58,7 +52,7 @@
 
   /*
    * Returns true when the athlete has an active paid subscription or
-   * trial — the ONLY check that matters. Uses the existing subscription
+   * subscription — the ONLY check that matters. Uses the existing subscription
    * system (features.js → AthlevoPlan.load → resolveEntitlement).
    */
   async function isPaid() {
@@ -264,26 +258,26 @@
           <p class="pw-wall-sub">Athlevo has built your starting approach around your goal, training history, and available schedule.</p>
 
           <div class="pw-offer">
-            <div class="pw-offer-row pw-offer-trial">
+            <div class="pw-offer-row">
               <span class="pw-offer-check">✓</span>
-              <span>3 days free</span>
+              <span>Ongoing adaptive plan adjustments</span>
             </div>
             <div class="pw-offer-row">
               <span class="pw-offer-check">✓</span>
-              <span>₱0 due today</span>
+              <span>Daily Brief and weekly analysis</span>
             </div>
             <div class="pw-offer-row">
               <span class="pw-offer-check">✓</span>
-              <span>₱597/month after trial</span>
+              <span>Advanced Trends and ongoing AI workout analysis</span>
             </div>
             <div class="pw-offer-row">
               <span class="pw-offer-check">✓</span>
-              <span>Cancel anytime</span>
+              <span>₱597/month · Cancel anytime</span>
             </div>
           </div>
 
           <button class="pw-cta" id="pw-checkout-btn" type="button" onclick="AthlevoPaywall.checkout()">
-            Start my 3-day free trial
+            Upgrade to Athlevo Performance
           </button>
 
           <button class="pw-secondary" type="button" onclick="AthlevoPaywall.scrollToPreview()">
@@ -296,7 +290,7 @@
           <div class="pw-confirming-orb">
             <img src="assets/athlevo-icon.png" alt="" width="40" height="40">
           </div>
-          <h2 class="pw-wall-title serif" id="pwConfirmTitle">Confirming your trial…</h2>
+          <h2 class="pw-wall-title serif" id="pwConfirmTitle">Confirming your subscription…</h2>
           <p class="pw-wall-sub" id="pwConfirmSub">We're verifying your subscription. This usually takes a few seconds.</p>
           <button class="pw-secondary" id="pwCheckBtn" type="button" onclick="AthlevoPaywall.checkAccess()" style="display:none">
             Check access
@@ -353,6 +347,7 @@
     }
 
     try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("paywall_checkout_tapped"); } catch (e) {}
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('upgrade_clicked', { source: 'upgrade_screen' }); } catch (e) {}
     try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('checkout_opened'); } catch (e) {}
     window.open(url, "_blank");
   }
@@ -427,8 +422,8 @@
         <div class="pw-scroll">
           <div class="pw-confirmed">
             <div class="pw-confirmed-check">✓</div>
-            <h2 class="pw-wall-title serif">Your Athlevo Performance trial is active.</h2>
-            <p class="pw-wall-sub">Full coaching access is unlocked. Let's build your plan.</p>
+            <h2 class="pw-wall-title serif">Athlevo Performance is active.</h2>
+            <p class="pw-wall-sub">Your paid coaching features are unlocked.</p>
             <button class="pw-cta" type="button" onclick="AthlevoPaywall.proceed()">Continue</button>
           </div>
         </div>`;
@@ -436,9 +431,6 @@
 
     try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("paywall_converted"); } catch (e) {}
 
-    // Meta Pixel — fire StartTrial exactly once per session (deduped across
-    // refreshes so a page reload on the confirmation screen does not re-fire).
-    try { if (window.AthlevoMetaPixel) AthlevoMetaPixel.trackOnce("StartTrial"); } catch (e) {}
   }
 
   function proceed() {
@@ -449,12 +441,7 @@
     if (window.AthlevoAccessGuard && typeof window.AthlevoAccessGuard.unlockAll === "function") {
       window.AthlevoAccessGuard.unlockAll();
     }
-    // Hand back to the plan setup flow.
-    if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function") {
-      window.AthlevoPlan.start();
-    } else if (typeof showScreen === "function") {
-      showScreen("screen-today");
-    }
+    if (typeof showScreen === "function") showScreen("screen-today");
   }
 
   /* ─────────────── checkout return on page load ───────────────────── */

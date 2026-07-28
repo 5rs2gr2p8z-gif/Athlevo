@@ -239,6 +239,10 @@ function progressWorld(extra = {}) {
   return {
     users: { tokA: "A", tokB: "B" },
     tables: {
+      subscriptions: [{
+        user_id: "A", provider: "whop", plan_id: "performance", status: "active",
+        current_period_end: "2099-01-01T00:00:00.000Z"
+      }],
       training_plans: [{ id: "P", user_id: "A", status: "active", week_start: ago(2), updated_at: NOW }],
       training_sessions: sessions, activities, workout_execution_records: executions,
       profiles: [{ id: "A", race_date: null }], coach_action_proposals: []
@@ -274,6 +278,43 @@ section("Handler: apply patches ONLY the specified future workout");
   t("an applied audit envelope is stored with metadata", db.coach_action_proposals.some(pr =>
     pr.status === "applied" && pr.proposed_changes.kind === "adaptive" &&
     pr.proposed_changes.engineVersion && pr.applied_at && pr.original_snapshot));
+}
+
+section("Handler: confirmed Coach plan changes require verified payment");
+{
+  const paidDb = makeWorld(progressWorld());
+  const applied = await call("tokA", {
+    intent: "apply_coach_action",
+    proposal: {
+      id: "coach_change_1",
+      type: "modify_workout",
+      target_session_id: "su1",
+      changes: { duration_minutes: 30 },
+      reason: "Reduce the session to fit the athlete's current week."
+    }
+  });
+  t("verified paid athlete can apply a confirmed Coach change",
+    applied.code === 200 && applied.body.success === true);
+  t("the confirmed paid change reaches the plan write",
+    paidDb.training_sessions.find(s => s.id === "su1").duration_minutes === 30);
+
+  const freeSeed = progressWorld();
+  freeSeed.tables.subscriptions = [];
+  const freeDb = makeWorld(freeSeed);
+  const blocked = await call("tokA", {
+    intent: "apply_coach_action",
+    proposal: {
+      id: "coach_change_2",
+      type: "modify_workout",
+      target_session_id: "su1",
+      changes: { duration_minutes: 30 },
+      reason: "Reduce the session to fit the athlete's current week."
+    }
+  });
+  t("free athlete is blocked before a confirmed Coach plan write",
+    blocked.code === 402 && blocked.body.code === "FREE_LIMIT_REACHED");
+  t("blocked Coach change leaves the session untouched",
+    freeDb.training_sessions.find(s => s.id === "su1").duration_minutes === 24);
 }
 
 section("Handler: Keep current plan dismisses the exact fingerprint; card then hidden");
@@ -317,9 +358,10 @@ section("Handler: another athlete cannot read or modify this plan");
 {
   const db = makeWorld(progressWorld());
   const preB = await call("tokB", { intent: "adaptive_preview", today: NOW });
-  t("user B sees no plan (cannot read A's plan)", preB.body.hasPlan === false);
+  t("free user B is blocked before reading a paid adaptive preview",
+    preB.code === 402 && preB.body.code === "FREE_LIMIT_REACHED");
   const applyB = await call("tokB", { intent: "adaptive_apply", fingerprint: fpA, today: NOW });
-  t("user B cannot apply against A's plan", applyB.code === 404 || applyB.code === 409, String(applyB.code));
+  t("free user B cannot apply against A's plan", applyB.code === 402, String(applyB.code));
   const su1 = db.training_sessions.find(s => s.id === "su1");
   t("A's future session is untouched by B", su1.duration_minutes === 24);
 }

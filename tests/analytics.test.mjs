@@ -42,6 +42,9 @@ function makeClient(opts = {}) {
   return { A: g.AthlevoAnalytics, R: g.AthlevoAnalyticsRegistry, inserted, g };
 }
 const REQUIRED = [
+  "free_account_created", "onboarding_completed", "data_connection_completed",
+  "free_limit_reached", "upgrade_clicked", "checkout_opened",
+  "paid_subscription_activated",
   "account_created", "email_verified", "athlete_onboarding_started", "athlete_onboarding_completed",
   "wearable_setup_started", "sync_account_step_viewed", "wearable_provider_step_viewed",
   "wearable_connection_succeeded", "wearable_connection_failed", "first_sync_started",
@@ -58,7 +61,7 @@ section("1. Every required funnel event is registered");
   const names = R.names();
   REQUIRED.forEach(n => t("registry has " + n, names.includes(n)));
   t("no duplicate/near-duplicate names for one action (aliases resolve)",
-    R.canonicalName("intervals_connected") === "wearable_connection_succeeded");
+    R.canonicalName("intervals_connected") === "data_connection_completed");
 }
 
 /* ══════ 2 — invalid names rejected ══════════════════════════════════ */

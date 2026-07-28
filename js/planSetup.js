@@ -19,18 +19,6 @@
   let lastHasPlan = null;         // cache of the most recent get-week result
   let dismissedThisSession = false;
 
-  /*
-   * Returns true when the athlete has no paid entitlement and should see the
-   * paywall before plan generation. Uses the same subscription system the rest
-   * of the app trusts — never a URL parameter or localStorage flag.
-   */
-  async function shouldShowPaywall() {
-    if (window.AthlevoPaywall && typeof window.AthlevoPaywall.isPaid === "function") {
-      return !(await window.AthlevoPaywall.isPaid());
-    }
-    return false;   // paywall module not loaded → skip safely
-  }
-
   function esc(v) {
     return String(v == null ? "" : v)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -124,11 +112,6 @@
   async function start() {
     let profile = null;
     try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
-
-    // Entitlement gate: free users see the paywall, not the plan builder.
-    if (await shouldShowPaywall()) {
-      if (window.AthlevoPaywall) { await window.AthlevoPaywall.show(profile); return; }
-    }
 
     /*
      * ONE authoritative connection source, shared with the Today card. Asking
@@ -297,9 +280,22 @@
         outcome = { ok: false, code: "AUTH_REQUIRED",
           message: "Please sign in again to build your plan.", action: "signIn" };
       } else {
-        // Best-effort pre-generation analysis refresh. Never blocks the build.
+        // Weekly AI analysis is paid. The free initial plan does not need it.
         try {
-          await fetch("/api/training/weekly-analysis", { headers: { Authorization: `Bearer ${token}` } });
+          if (
+            window.AthlevoPlan &&
+            typeof window.AthlevoPlan.load === "function"
+          ) {
+            await window.AthlevoPlan.load();
+          }
+          if (
+            window.AthlevoPlan &&
+            window.AthlevoPlan.canUse("weekly_analysis")
+          ) {
+            await fetch("/api/training/weekly-analysis", {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+          }
         } catch (e) { /* non-fatal */ }
 
         /*
@@ -320,6 +316,16 @@
             ? { ok: true, alreadyExists: data.alreadyExists === true }
             : { ok: false, code: data.code || "PLAN_FAILED",
                 message: data.error, action: data.action || "retry" };
+          if (res.status === 402 && data.code === "FREE_LIMIT_REACHED") {
+            try {
+              if (window.AthlevoProductAnalytics) {
+                AthlevoProductAnalytics.trackAthlevoEvent("free_limit_reached", {
+                  feature: data.feature || "initial_plan",
+                  limit_period: data.period || "lifetime"
+                });
+              }
+            } catch (e) {}
+          }
         } finally {
           clearTimeout(timer);
         }
@@ -340,7 +346,7 @@
       try {
         if (window.AthlevoAnalytics && outcome.alreadyExists !== true) AthlevoAnalytics.track("first_plan_generated");
       } catch (e) {}
-      if (outcome.alreadyExists !== true) { try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('plan_generated'); } catch(e){} }
+      if (outcome.alreadyExists !== true) { try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('first_plan_generated'); } catch(e){} }
       completeFinalStep();
       showSuccess(outcome.alreadyExists !== true);   // first plan → milestone state
       return;
@@ -397,6 +403,7 @@
       checkAgain: { label: "Check for my plan", onclick: "AthlevoPlan.recheckPlan()" },
       signIn: { label: "Sign in", onclick: "AthlevoPlan.notNow()" },
       completeProfile: { label: "Complete my profile", onclick: "AthlevoPlan.start()" },
+      upgrade: { label: "Upgrade to Performance", onclick: "AthlevoAccessGuard.upgrade()" },
       viewPlan: { label: "View my plan", onclick: "AthlevoPlan.enterTrain()" }
     };
     // A timeout may still be completing server-side; offer to look rather than
@@ -432,17 +439,9 @@
 
   // Called by onboarding when it finishes. New athlete + no plan → guide them
   // straight into setup. Anything else → Today.
-  // If the user is free (no paid subscription), show the personalized preview
-  // and paywall before allowing plan generation.
   async function maybeLaunchAfterOnboarding() {
     const has = await hasPlan();
     if (has === false) {
-      // Check entitlement: free users see the paywall first.
-      if (await shouldShowPaywall()) {
-        let profile = null;
-        try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
-        if (window.AthlevoPaywall) { await window.AthlevoPaywall.show(profile); return true; }
-      }
       await start(); return true;
     }
     if (typeof showScreen === "function") showScreen("screen-today");
@@ -545,13 +544,6 @@
    * a plan exists, opens that plan instead, and never sends `regenerate`.
    */
   async function autoBuildFirstPlan() {
-    // Check entitlement: free users see the paywall first.
-    if (await shouldShowPaywall()) {
-      let profile = null;
-      try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
-      if (window.AthlevoPaywall) { await window.AthlevoPaywall.show(profile); return { skipped: "paywall" }; }
-    }
-
     if (!AUTO_FIRST_PLAN) {
       // Manual for now. Show the dashboard with the plan CTA visible.
       if (typeof showScreen === "function") showScreen("screen-today");

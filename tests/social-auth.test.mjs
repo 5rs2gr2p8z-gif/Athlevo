@@ -218,8 +218,13 @@ section("Routing — derived from the real index.html + onboarding.js");
 
   t("NEW Google user → profile onboarding (no profile row yet)",
     /if \(!completed\)\s*\{\s*startOnboarding\(\);\s*return;\s*\}/.test(route));
-  t("...then paywall/plan setup (wearable connection is optional, post-trial)",
-    /AthlevoPlan[\s\S]{0,120}maybeLaunchAfterOnboarding/.test(ob));
+  const finish = ob.slice(
+    ob.indexOf("async function obFinish"),
+    ob.indexOf("function obFirstIncompleteStep")
+  );
+  t("...then training-data connection, never a payment funnel",
+    /AthlevoConnect\.start/.test(finish) &&
+    !/AthlevoPaywall|maybeLaunchAfterOnboarding|checkout/.test(finish));
   t("EXISTING Google user with a complete profile → dashboard",
     /showScreen\("screen-today"\)/.test(route));
   t("routing runs from ONE place (session restore), not per-provider",

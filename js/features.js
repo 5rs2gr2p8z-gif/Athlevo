@@ -3,9 +3,8 @@ console.log("Athlevo Plan/Features Loaded");
 /*
  * Client mirror of lib/server/features.js. PLAN_TIERS, FEATURE_REGISTRY,
  * resolveEntitlement, and canUse are kept byte-for-byte identical to the
- * server so UI gating matches server enforcement (a parity test guards
- * this). Architecture only — no feature is gated yet; this exposes the
- * tools for when paid plans go live.
+ * server so UI gating matches server enforcement. Paid access comes only
+ * from an active Whop subscription; all other users retain the free tier.
  *
  * Usage:
  *   await AthlevoPlan.load();                 // fetch the subscription
@@ -16,31 +15,47 @@ const PLAN_TIERS = {
   free: 0,
   essentials: 1,
   performance: 2,
-  founding_beta: 2,           // same access as performance; temporary grant
+  founding_beta: 2,           // legacy stored value; never grants access itself
   elite: 3
 };
 
 const PLAN_ORDER = ["free", "essentials", "performance", "founding_beta", "elite"];
 
+const ACCESS_STATES = Object.freeze({
+  FREE: "free",
+  PAID_ACTIVE: "paid_active",
+  PAID_INACTIVE: "paid_inactive"
+});
+
 const FEATURE_REGISTRY = {
+  today: { label: "Today", minPlan: "free", category: "core" },
+  basic_trends: { label: "Basic Trends", minPlan: "free", category: "core" },
+  training_calendar: { label: "Training Calendar", minPlan: "free", category: "core" },
+  initial_plan: { label: "Initial Training Plan", minPlan: "free", category: "core" },
   morning_checkin: { label: "Morning Check-in", minPlan: "free", category: "core" },
   readiness: { label: "Daily Readiness", minPlan: "free", category: "core" },
   training_history: { label: "Training History", minPlan: "free", category: "core" },
+  provider_connection: { label: "Provider Connection", minPlan: "free", category: "core" },
+  activity_import: { label: "Activity Import", minPlan: "free", category: "core" },
+  profile_settings: { label: "Profile and Settings", minPlan: "free", category: "core" },
   strava_sync: { label: "Strava Sync", minPlan: "free", category: "core" },
   train_tab: { label: "Weekly Plan View", minPlan: "free", category: "core" },
   trends: { label: "Trends", minPlan: "free", category: "core" },
+  coach_chat: { label: "AI Coach Chat", minPlan: "free", category: "coaching" },
+  coach_history: { label: "Coach Conversation History", minPlan: "free", category: "coaching" },
 
-  coach_chat: { label: "AI Coach Chat", minPlan: "essentials", category: "coaching" },
-  daily_brief: { label: "Daily Coach Brief", minPlan: "essentials", category: "coaching" },
-  conversation_memory: { label: "Conversation Memory", minPlan: "essentials", category: "coaching" },
-
+  daily_brief: { label: "Daily Coach Brief", minPlan: "performance", category: "coaching" },
+  conversation_memory: { label: "Conversation Memory", minPlan: "free", category: "coaching" },
   adaptive_ai: { label: "Adaptive AI Coaching", minPlan: "performance", category: "coaching" },
   workout_modifications: { label: "Workout Modifications", minPlan: "performance", category: "coaching" },
-  activity_corrections: { label: "Activity Corrections", minPlan: "performance", category: "coaching" },
+  additional_plan_generation: { label: "Additional Plan Generation", minPlan: "performance", category: "coaching" },
+  activity_corrections: { label: "Activity Corrections", minPlan: "free", category: "coaching" },
   weekly_analysis: { label: "Weekly Analysis", minPlan: "performance", category: "analysis" },
   next_week_generation: { label: "Adaptive Next-Week Plans", minPlan: "performance", category: "coaching" },
-
-  advanced_analytics: { label: "Advanced Analytics", minPlan: "elite", category: "analysis" },
+  advanced_trends: { label: "Advanced Trends", minPlan: "performance", category: "analysis" },
+  premium_recommendations: { label: "Premium Recommendations", minPlan: "performance", category: "coaching" },
+  workout_analysis: { label: "Ongoing AI Workout Analysis", minPlan: "performance", category: "analysis" },
+  advanced_analytics: { label: "Advanced Analytics", minPlan: "performance", category: "analysis" },
   coach_reports: { label: "Coach Reports", minPlan: "elite", category: "analysis", available: false },
   coach_personalities: { label: "Coach Personalities", minPlan: "elite", category: "coaching", available: false },
 
@@ -65,14 +80,13 @@ function resolveEntitlement(subscription, now) {
   now = now || Date.now();
 
   const free = {
+    accessState: ACCESS_STATES.FREE,
     planId: "free",
     tier: 0,
     status: "active",
     entitled: true,
-    inTrial: false,
     inGrace: false,
     isFounder: false,
-    isFoundingBeta: false,
     reason: "free"
   };
 
@@ -80,17 +94,22 @@ function resolveEntitlement(subscription, now) {
     return free;
   }
 
-  const planId = String(subscription.plan_id || "free").toLowerCase();
+  const storedPlanId = String(subscription.plan_id || "free").toLowerCase();
+  const provider = String(subscription.provider || "").toLowerCase();
+  const whopPaidRow = provider === "whop" && storedPlanId !== "free";
+  const planId = whopPaidRow ? "performance" : storedPlanId;
   const paidTier = tierOf(planId);
   const status = String(subscription.status || "active").toLowerCase();
   const isFounder = subscription.is_founder === true;
-  const isFoundingBeta = planId === "founding_beta";
 
-  if (planId === "free" || paidTier === 0) {
-    return Object.assign({}, free, { planId: planId, isFounder: isFounder, isFoundingBeta: false });
+  if (
+    planId === "free" ||
+    paidTier === 0 ||
+    !whopPaidRow
+  ) {
+    return Object.assign({}, free, { planId: planId, isFounder: isFounder });
   }
 
-  const trialEnd = toTime(subscription.trial_end);
   const periodEnd = toTime(subscription.current_period_end);
   const graceUntil = toTime(subscription.grace_until);
 
@@ -98,37 +117,31 @@ function resolveEntitlement(subscription, now) {
     Object.assign(
       {
         planId,
+        accessState: ACCESS_STATES.PAID_ACTIVE,
         tier: paidTier,
         status,
         entitled: true,
-        inTrial: false,
         inGrace: false,
         isFounder,
-        isFoundingBeta,
         reason
       },
       extra || {}
     );
 
   const downgrade = reason => ({
-    planId: "free",
+    accessState: ACCESS_STATES.PAID_INACTIVE,
+    planId,
     tier: 0,
     status: "expired",
     entitled: true,
-    inTrial: false,
     inGrace: false,
     isFounder,
-    isFoundingBeta,
     reason,
     effectivePaidPlan: planId
   });
 
   switch (status) {
     case "trialing":
-      return trialEnd === null || trialEnd > now
-        ? keep("trialing", { inTrial: true })
-        : downgrade("trial_ended");
-
     case "active":
       return periodEnd === null || periodEnd > now
         ? keep("active")
@@ -137,10 +150,12 @@ function resolveEntitlement(subscription, now) {
         : downgrade("period_ended");
 
     case "grace":
-    case "past_due":
       return graceUntil && graceUntil > now
         ? keep(status, { inGrace: true })
         : downgrade("grace_ended");
+
+    case "past_due":
+      return downgrade("past_due");
 
     case "cancelled":
       return periodEnd && periodEnd > now
@@ -200,47 +215,17 @@ async function loadSubscription() {
     }
 
     subscriptionLoaded = true;
-    updateFoundingBetaBanner();
     return currentSubscription;
   } catch (error) {
     console.warn("Subscription load error; defaulting to Free:", error);
     currentSubscription = null;
     subscriptionLoaded = true;
-    updateFoundingBetaBanner();
     return null;
   }
 }
 
-/*
- * Show/hide the Founding Beta banner on the You screen.
- * Called once after subscription load — not on every navigation.
- */
-function updateFoundingBetaBanner() {
-  try {
-    const banner = document.getElementById("foundingBetaBanner");
-    const detail = document.getElementById("foundingBetaDetail");
-    if (!banner) return;
-
-    const ent = resolveEntitlement(currentSubscription, Date.now());
-    if (ent.isFoundingBeta && ent.tier > 0) {
-      const endDate = currentSubscription && currentSubscription.current_period_end;
-      let dateStr = "—";
-      if (endDate) {
-        try {
-          dateStr = new Date(endDate).toLocaleDateString("en-PH", {
-            month: "short", day: "numeric", year: "numeric"
-          });
-        } catch (e) { dateStr = String(endDate).slice(0, 10); }
-      }
-      if (detail) detail.textContent = "Full access until " + dateStr;
-      banner.style.display = "block";
-    } else {
-      banner.style.display = "none";
-    }
-  } catch (e) { /* never break the app for a UI badge */ }
-}
-
 window.AthlevoPlan = {
+  ACCESS_STATES,
   PLAN_TIERS,
   PLAN_ORDER,
   FEATURE_REGISTRY,

@@ -22,6 +22,13 @@
 
   // event → { kind, props }.  kind: "milestone" (once/athlete) | "behavioural".
   var EVENTS = {
+    free_account_created:          { kind: "milestone",   props: ["auth_method", "source"] },
+    onboarding_completed:         { kind: "milestone",   props: ["experience_level"] },
+    data_connection_completed:    { kind: "milestone",   props: ["provider"] },
+    free_limit_reached:           { kind: "behavioural", props: ["feature", "limit_period", "source"] },
+    upgrade_clicked:              { kind: "behavioural", props: ["source"] },
+    checkout_opened:              { kind: "behavioural", props: ["source"] },
+    paid_subscription_activated:  { kind: "milestone",   props: ["source"] },
     account_created:               { kind: "milestone",   props: ["method", "source"] },
     email_verified:                { kind: "milestone",   props: [] },
     athlete_onboarding_started:    { kind: "milestone",   props: [] },
@@ -50,10 +57,10 @@
   // mean. track() records the canonical name so there is only ever ONE name
   // per action, while old instrumentation keeps working unchanged.
   var ALIASES = {
-    signup_completed:     "account_created",
-    profile_completed:    "athlete_onboarding_completed",
+    signup_completed:     "free_account_created",
+    profile_completed:    "onboarding_completed",
     connect_step_viewed:  "wearable_setup_started",
-    intervals_connected:  "wearable_connection_succeeded",
+    intervals_connected:  "data_connection_completed",
     initial_sync_started: "first_sync_started",
     initial_sync_completed:"first_activity_imported",
     activities_detected:  "first_sync_started",

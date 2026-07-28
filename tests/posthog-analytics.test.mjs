@@ -106,11 +106,11 @@ t("does not throw when PostHog key is absent", (() => {
 section("Event names");
 
 const EXPECTED_EVENTS = [
-  "landing_viewed", "trial_cta_clicked", "signup_completed",
-  "onboarding_completed", "data_connection_started",
-  "data_connection_completed", "plan_generated", "checkout_opened",
-  "trial_started", "readiness_check_completed", "coach_message_sent",
-  "app_returned"
+  "landing_viewed", "free_account_created", "onboarding_completed",
+  "data_connection_completed", "first_plan_generated",
+  "free_limit_reached", "upgrade_clicked", "checkout_opened",
+  "paid_subscription_activated", "readiness_check_completed",
+  "coach_message_sent", "app_returned"
 ];
 
 EXPECTED_EVENTS.forEach(name => {
@@ -135,7 +135,7 @@ t("same event fires only once per page load", (() => {
 t("different events each fire once", (() => {
   const { api, captured } = makeAnalytics({ key: "phc_test" });
   api.trackAthlevoEvent("landing_viewed");
-  api.trackAthlevoEvent("trial_cta_clicked");
+  api.trackAthlevoEvent("upgrade_clicked");
   return captured.length === 2;
 })());
 
@@ -177,7 +177,7 @@ section("Property sanitization");
 
 t("only SAFE_PROPS pass through", (() => {
   const { api, captured } = makeAnalytics({ key: "phc_test" });
-  api.trackAthlevoEvent("signup_completed", {
+  api.trackAthlevoEvent("free_account_created", {
     auth_method: "google",
     source: "landing",
     email: "user@test.com",         // prohibited
@@ -198,7 +198,7 @@ t("only SAFE_PROPS pass through", (() => {
 
 t("boolean and number values pass through for safe keys", (() => {
   const { api, captured } = makeAnalytics({ key: "phc_test" });
-  api.trackAthlevoEvent("signup_completed", {
+  api.trackAthlevoEvent("free_account_created", {
     is_first_time: true,
     source: "test"
   });
@@ -208,7 +208,7 @@ t("boolean and number values pass through for safe keys", (() => {
 
 t("overly long strings are dropped", (() => {
   const { api, captured } = makeAnalytics({ key: "phc_test" });
-  api.trackAthlevoEvent("signup_completed", {
+  api.trackAthlevoEvent("free_account_created", {
     source: "a".repeat(100)   // > 80 chars
   });
   return !("source" in captured[0].props) || captured[0].props.source !== "a".repeat(100);
@@ -315,7 +315,7 @@ t("_initDone flag is true after first event, preventing re-init", (() => {
   // Before any event, _initDone should become true on first trackAthlevoEvent
   api.trackAthlevoEvent("landing_viewed");
   const afterFirst = api._initDone();
-  api.trackAthlevoEvent("trial_cta_clicked");
+  api.trackAthlevoEvent("upgrade_clicked");
   api.identifyAthlete({ id: "x" });
   const afterMore = api._initDone();
   return afterFirst === true && afterMore === true;

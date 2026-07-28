@@ -265,8 +265,8 @@ section("Public visitors still see marketing (unchanged)");
 section("Landing CTAs (source-level)");
 {
   // These are one-liners; assert the shipped behaviour directly.
-  t("9. Start trial → app when signed in, entry when not",
-    /function landingStartTrial\(\)\s*\{ if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \} else \{ openAppEntry\(\); \} \}/.test(html));
+  t("9. Build-plan CTA → app when signed in, entry when not",
+    /function landingStartFree\(\)\s*\{ if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \} else \{ openAppEntry\(\); \} \}/.test(html));
   t("10. Sign In → app when signed in, else entry + login",
     /function landingSignIn\(\)\s*\{ if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \} else \{ openAppEntry\(\); openLogin\(\); \} \}/.test(html));
   t("11. Open App → app when signed in, else entry",
