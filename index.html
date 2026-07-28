@@ -2472,11 +2472,11 @@ body.landing-active #tabbar{display:none!important}
 .lp-btn.light:hover{background:#fff;box-shadow:var(--elev-3)}
 
 /* hero */
-.lp-hero{padding:clamp(64px,11vw,132px) 0 clamp(52px,8vw,88px);text-align:center;background:radial-gradient(120% 90% at 50% -10%,var(--card2) 0%,var(--paper) 55%)}
-.lp-eyebrow{display:inline-block;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--red);background:rgba(192,39,45,.07);border:1px solid rgba(192,39,45,.16);padding:7px 15px;border-radius:var(--r-pill);margin-bottom:26px}
+.lp-hero{padding:clamp(48px,8vw,96px) 0 clamp(44px,6vw,72px);text-align:center;background:radial-gradient(120% 90% at 50% -10%,var(--card2) 0%,var(--paper) 55%)}
 .lp-h1{font-family:var(--serif);font-weight:500;font-size:clamp(38px,7vw,74px);line-height:1.02;letter-spacing:-.025em;margin:0 auto;max-width:16ch;color:var(--text)}
-.lp-lead{font-family:var(--sans);font-size:clamp(16.5px,2.2vw,21px);line-height:var(--lh-body);color:var(--ink2);max-width:36ch;margin:26px auto 0;letter-spacing:-.01em}
+.lp-lead{font-family:var(--sans);font-size:clamp(16.5px,2.2vw,21px);line-height:var(--lh-body);color:var(--ink2);max-width:40ch;margin:22px auto 0;letter-spacing:-.01em}
 .lp-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:38px}
+.lp-hero .lp-cta{margin-top:30px}
 .lp-note{font-family:var(--sans);font-size:var(--fs-body-sm);color:var(--ink3);margin-top:20px;letter-spacing:-.01em}
 
 /* ── hero two-column layout (desktop: copy left, product right) ── */
@@ -2485,15 +2485,12 @@ body.landing-active #tabbar{display:none!important}
   .lp-hero-copy{text-align:left}
   .lp-hero-copy .lp-h1{margin:0;max-width:none}
   .lp-hero-copy .lp-lead{margin-left:0;margin-right:0}
-  .lp-hero-copy .lp-body{margin-left:0;margin-right:0;text-align:left}
   .lp-hero-copy .lp-cta{justify-content:flex-start}
-  .lp-hero-copy .lp-billing,
-  .lp-hero-copy .lp-subline{text-align:left}
 }
 /* mobile: product visual below copy */
 .lp-hero-visual{display:flex;justify-content:center;align-items:flex-start;padding:0 20px 24px}
 @media (max-width:859px){
-  .lp-hero-visual{margin-top:48px}
+  .lp-hero-visual{margin-top:36px}
 }
 
 /* ── product phone frame ── */
@@ -2789,15 +2786,12 @@ body.landing-active #tabbar{display:none!important}
     <div class="lp-wrap">
       <!-- copy column -->
       <div class="lp-hero-copy">
-        <span class="lp-eyebrow lp-reveal">ADAPTIVE ENDURANCE COACHING</span>
         <h1 class="lp-h1 lp-reveal">Your training plan should change when your life does.</h1>
-        <p class="lp-lead lp-reveal">Athlevo builds your endurance plan, analyzes completed workouts and adjusts what comes next based on your goals, training history and daily readiness.</p>
-        <p class="lp-body lp-reveal" style="max-width:52ch;font-size:var(--fs-body)">Athlevo is an adaptive AI endurance coaching platform that creates personalized training plans, analyzes completed workouts, tracks readiness and adjusts future training based on the athlete's goals and history.</p>
+        <p class="lp-lead lp-reveal">Athlevo builds your personalized endurance plan, analyzes completed workouts, and adjusts what comes next based on your goals, training history, and daily readiness.</p>
         <div class="lp-cta lp-reveal">
           <button class="lp-btn" onclick="landingStartFree()">Build My Training Plan</button>
           <a class="lp-btn ghost" href="#lp-how">See how Athlevo works</a>
         </div>
-        <p class="lp-subline lp-reveal">Built for runners and endurance athletes who want more structure and fewer guesses.</p>
       </div>
 
       <!-- product visual column -->
