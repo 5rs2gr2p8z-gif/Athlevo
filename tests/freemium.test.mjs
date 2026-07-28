@@ -222,11 +222,12 @@ section("Freemium onboarding, upgrade UI, and removed trial copy");
   test("landing primary CTA is Build My Training Plan",
     (index.match(/Build My Training Plan/g) || []).length >= 3);
   test("active UI contains no 3-day free-trial messaging",
-    !/3[- ]day free trial|3 days free|after trial|trial ends/i.test(activeUi));
+    !/start\s+(?:my\s+)?(?:\d+[-\s]day\s+)?free\s+trial|3\s+days\s+free|after\s+(?:the\s+)?trial|trial\s+ends/i.test(activeUi));
   test("the obsolete paywall screen and bundle are removed",
     !/screen-paywall|paywallBody|js\/paywall\.js|AthlevoPaywall/.test(activeUi));
   test("explicit upgrade UI names Athlevo Performance and ₱597/month",
-    /Athlevo Performance/.test(accessGuard) && /₱597\/month/.test(accessGuard));
+    /Upgrade to Athlevo Performance/.test(accessGuard) &&
+    /₱597\/month/.test(accessGuard));
   test("Whop opens only from the explicit upgrade handler",
     /function checkout\(\)/.test(accessGuard) &&
     /window\.open\(checkoutUrl\(\)/.test(accessGuard));

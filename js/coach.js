@@ -891,7 +891,7 @@ context.recentConversation = (await loadRecentConversationForCoach())
             '<p style="margin-bottom:14px">Your previous conversations stay available. Upgrade to continue coaching now.</p>' +
             '<button onclick="if(window.AthlevoAccessGuard)AthlevoAccessGuard.checkout()" ' +
             'style="background:var(--red);color:#fff;border:none;border-radius:var(--r-pill);padding:14px 24px;font-weight:700;font-size:var(--fs-body);cursor:pointer;font-family:var(--sans)">' +
-            'Upgrade to Performance</button>';
+            'Upgrade to Athlevo Performance</button>';
         }
         coachRequestInFlight = false;
         setCoachSendingState(false);

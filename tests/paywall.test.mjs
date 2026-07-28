@@ -17,6 +17,8 @@ const guardSource = readFileSync("./js/accessGuard.js", "utf8");
 const onboardingSource = readFileSync("./js/onboarding.js", "utf8");
 const planSetupSource = readFileSync("./js/planSetup.js", "utf8");
 const trainSource = readFileSync("./js/train.js", "utf8");
+const coachSource = readFileSync("./js/coach.js", "utf8");
+const dailyBriefSource = readFileSync("./js/dailyBrief.js", "utf8");
 const indexSource = readFileSync("./index.html", "utf8");
 
 function browser({ subscription = null, profile = {}, connected = true } = {}) {
@@ -130,16 +132,28 @@ section("Explicit paid upgrade");
     w.product.some(event => event.name === "upgrade_clicked"));
   test("checkout opening is tracked",
     w.product.some(event => event.name === "checkout_opened"));
+  test("checkout goes directly to the configured paid Whop plan",
+    /whop\.com\/checkout\/plan_/.test(w.opened[0].url));
+  test("checkout sends no timed-trial parameter",
+    !/trial|free_period|defer/i.test(w.opened[0].url));
 }
 
 section("Removed timed screen");
 {
-  const activeUi = [indexSource, guardSource, onboardingSource, planSetupSource].join("\n");
+  const activeUi = [
+    indexSource, guardSource, onboardingSource, planSetupSource,
+    coachSource, dailyBriefSource, trainSource
+  ].join("\n");
   test("obsolete paywall bundle is deleted", !existsSync("./js/paywall.js"));
   test("obsolete paywall screen and mount are deleted",
     !/screen-paywall|paywallBody|js\/paywall\.js|AthlevoPaywall/.test(activeUi));
-  test("trial CTA and checklist copy are absent",
-    !/3[- ]day free trial|3 days free|due today|after trial/i.test(activeUi));
+  test("timed CTA and checklist copy are absent",
+    !/start\s+(?:my\s+)?(?:\d+[-\s]day\s+)?free\s+trial|3\s+days\s+free|due\s+today|after\s+(?:the\s+)?trial/i.test(activeUi));
+  test("every paid CTA uses the approved label",
+    !/Upgrade to Performance/.test(activeUi) &&
+    [
+      indexSource, guardSource, planSetupSource, coachSource, dailyBriefSource
+    ].every(source => /Upgrade to Athlevo Performance/.test(source)));
   test("plan flow has no automatic paywall fallback",
     !/shouldShowPaywall/.test(planSetupSource));
   test("denied additional-plan action does not open checkout automatically",

@@ -54,7 +54,7 @@
     <div class="ag-cta">
       <div class="ag-cta-badge">Athlevo Performance</div>
       <p class="ag-cta-text">Unlock adaptive plan changes, deeper analysis, Daily Brief, and the full paid Coach allowance.</p>
-      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Upgrade to Performance</button>
+      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Upgrade to Athlevo Performance</button>
       <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
     </div>`;
 

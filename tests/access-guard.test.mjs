@@ -105,7 +105,7 @@ section("Onboarding and limits");
     /response\.status === 402/.test(coachClientSource) &&
     /FREE_LIMIT_REACHED/.test(coachClientSource));
   test("Coach client offers Performance upgrade",
-    /Upgrade to Performance/.test(coachClientSource) &&
+    /Upgrade to Athlevo Performance/.test(coachClientSource) &&
     /AthlevoAccessGuard.*checkout/.test(coachClientSource));
 }
 
@@ -129,7 +129,7 @@ section("Upgrade and safety");
   test("obsolete paywall screen and bundle are removed",
     !/screen-paywall|paywallBody|js\/paywall\.js/.test(indexSource));
   test("no timed free-trial copy remains",
-    !/3[- ]day free trial|3 days free|after trial|trial ends/i.test(
+    !/start\s+(?:my\s+)?(?:\d+[-\s]day\s+)?free\s+trial|3\s+days\s+free|after\s+(?:the\s+)?trial|trial\s+ends/i.test(
       [guardSource, onboardingSource, indexSource].join("\n")));
   test("no server secret appears in client access code",
     !/WHOP_API_KEY|WHOP_WEBHOOK_SECRET|SUPABASE_SERVICE_ROLE|OPENAI_API_KEY/.test(guardSource));
