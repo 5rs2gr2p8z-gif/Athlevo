@@ -999,7 +999,7 @@ function showTrialConfirmation(isNewTrial) {
   });
 
   // Only fire trial_started for genuinely new trials — not idempotent replays.
-  // The server-side event (api/trial/start.js) is authoritative; this is supplementary.
+  // The server-side event (POST /api/trial) is authoritative; this is supplementary.
   if (isNewTrial) {
     try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('trial_started', { source: 'onboarding' }); } catch(e){}
   }

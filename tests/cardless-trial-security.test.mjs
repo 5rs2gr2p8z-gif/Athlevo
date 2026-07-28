@@ -31,11 +31,11 @@ const t = (n, c, e) => { c ? (p++, console.log("PASS — " + n))
 const section = s => console.log(`\n──── ${s} ────`);
 
 // Source files for static analysis
-const trialStartSrc     = readFileSync("./api/trial/start.js", "utf8");
-const entitlementSrc    = readFileSync("./api/trial/entitlement.js", "utf8");
+const trialStartSrc     = readFileSync("./api/trial.js", "utf8");
+const entitlementSrc    = trialStartSrc;
 const coachSrc          = readFileSync("./api/coach.js", "utf8");
 const generatePlanSrc   = readFileSync("./api/training/generate-plan.js", "utf8");
-const weeklyAnalysisSrc = readFileSync("./api/training/weekly-analysis.js", "utf8");
+const weeklyAnalysisSrc = readFileSync("./lib/server/training/weekly-analysis-route.js", "utf8");
 const dailyBriefSrc      = readFileSync("./api/daily-brief.js", "utf8");
 const getWeekSrc         = readFileSync("./api/training/get-week.js", "utf8");
 const trialLimitsSrc    = readFileSync("./lib/server/trialLimits.js", "utf8");
@@ -78,8 +78,10 @@ t("Frontend features.js does not write to subscriptions table directly",
   !featuresSrc.includes("/rest/v1/subscriptions") ||
   (featuresSrc.includes("/rest/v1/subscriptions") && !featuresSrc.includes("method: \"POST\"") && !featuresSrc.includes("method: \"PATCH\"")));
 
-t("Frontend features.js startCardlessTrial calls POST /api/trial/start",
-  featuresSrc.includes("/api/trial/start"));
+t("Frontend features.js uses consolidated GET/POST /api/trial",
+  featuresSrc.includes('fetch("/api/trial"') &&
+  !featuresSrc.includes("/api/trial/start") &&
+  !featuresSrc.includes("/api/trial/entitlement"));
 
 t("Database RPC REVOKE ALL FROM PUBLIC",
   migrationSrc.includes("REVOKE ALL ON FUNCTION") && migrationSrc.includes("start_cardless_trial"));

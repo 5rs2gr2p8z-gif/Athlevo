@@ -8,7 +8,7 @@
  *
  *  Why one function: Vercel Hobby allows 12 serverless functions and Athlevo
  *  uses 11. Three separate Intervals endpoints would break the deploy, so
- *  this file replaces the DORMANT api/terra/index.js (which had no UI, no
+ *  this file replaces the former dormant Terra endpoint (which had no UI, no
  *  webhook and a default-off flag) and keeps the count at 11 with one spare.
  *
  *  Strava is deliberately NOT routed here. Its connect/callback/sync flow is
@@ -670,7 +670,7 @@ async function actionConnect(request, response, cid) {
    * declared grant type, rejects the request on its own error page, and never
    * redirects to redirect_uri — so our callback never runs, no connection is
    * ever parked, and the client has nothing to finalize. Its absence looked
-   * like a client bug for four investigations. api/strava/connect.js has
+   * like a client bug for four investigations. The Strava connect handler has
    * always set it; this endpoint never did.
    */
   authorizeUrl.searchParams.set("response_type", "code");
@@ -1778,9 +1778,12 @@ export default async function handler(request, response) {
      */
     if (provider === "terra") {
       if (process.env.WEARABLE_TERRA_ENABLED !== "true") {
-        return response.status(404).json({ error: "Wearable provider not available." });
+        return response.status(404).json({ error: "Wearable provider not available.", code: "TERRA_DISABLED" });
       }
-      return response.status(501).json({ error: "Wearable provider is enabled but not configured in this build." });
+      return response.status(503).json({
+        error: "Wearable provider is enabled but not configured in this build.",
+        code: "TERRA_NOT_CONFIGURED"
+      });
     }
 
     if (provider !== "intervals") {

@@ -1055,8 +1055,8 @@ async function loadWeeklyLoop(token) {
 
         const [analysisRes, checkinRes] =
             await Promise.all([
-                fetch("/api/training/weekly-analysis", { headers }),
-                fetch("/api/training/check-in", { headers })
+                fetch("/api/training/insights?action=weekly-analysis", { headers }),
+                fetch("/api/training/insights?action=check-in", { headers })
             ]);
 
         const analysis =
@@ -1656,7 +1656,7 @@ async function submitWeeklyCheckin() {
             data: { session }
         } = await supabaseClient.auth.getSession();
 
-        const res = await fetch("/api/training/check-in", {
+        const res = await fetch("/api/training/insights?action=check-in", {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${session.access_token}`,
@@ -2358,7 +2358,7 @@ async function generateWeek(){
     // Refresh last week's analysis so the new plan adapts to the
     // freshest truth about what actually happened. Best effort.
     try {
-        await fetch("/api/training/weekly-analysis", {
+        await fetch("/api/training/insights?action=weekly-analysis", {
             headers: {
                 Authorization:
                     `Bearer ${session.access_token}`

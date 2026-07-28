@@ -1435,7 +1435,7 @@ async function syncStravaActivities() {
       throw new Error("Please log in again before syncing Strava.");
     }
 
-    const response = await fetch("/api/strava/sync", {
+    const response = await fetch("/api/strava?action=sync", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.access_token}`,
@@ -1465,7 +1465,7 @@ async function syncStravaActivities() {
  *
  * The profile's `strava_connected` flag can go stale — e.g. the strava_accounts
  * row was removed or migrated away server-side while the flag stayed true. A
- * stale flag must NEVER authorize a legacy /api/strava/sync call: that is
+ * stale flag must NEVER authorize a legacy /api/strava?action=sync call: that is
  * exactly what produced the production 404 "No Strava account is connected."
  *
  * This reads the SAME source the server's sync endpoint gates on
@@ -2071,7 +2071,7 @@ async function backfillStravaLaps(options) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) { console.warn("Not signed in."); break; }
 
-    const res = await fetch("/api/strava/sync", {
+    const res = await fetch("/api/strava?action=sync", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

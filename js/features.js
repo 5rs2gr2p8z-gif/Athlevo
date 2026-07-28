@@ -253,7 +253,7 @@ async function loadServerEntitlement() {
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !session.access_token) return null;
-    const res = await fetch("/api/trial/entitlement", {
+    const res = await fetch("/api/trial", {
       headers: { Authorization: "Bearer " + session.access_token }
     });
     if (!res.ok) return null;
@@ -272,7 +272,7 @@ async function startCardlessTrial() {
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !session.access_token) return null;
-    const res = await fetch("/api/trial/start", {
+    const res = await fetch("/api/trial", {
       method: "POST",
       headers: {
         Authorization: "Bearer " + session.access_token,

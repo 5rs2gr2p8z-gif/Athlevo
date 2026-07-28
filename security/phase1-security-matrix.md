@@ -67,12 +67,12 @@
 | api/daily-brief.js | Bearer→Supabase | JWT | user_id from JWT | 30/hr | daily_brief |
 | api/memory/extract.js | Bearer→Supabase | JWT | user_id from JWT | **NONE** | conversation_memory |
 | api/training/generate-plan.js | Bearer→Supabase | JWT | user_id from JWT | **NONE** | next_week_generation |
-| api/training/weekly-analysis.js | Bearer→Supabase | JWT | user_id from JWT | **NONE** | weekly_analysis |
+| api/training/insights.js?action=weekly-analysis | Bearer→Supabase | JWT | user_id from JWT | **NONE** | weekly_analysis |
 | api/training/get-week.js | Bearer→Supabase | JWT | user_id from JWT | N/A (read) | train_tab |
-| api/training/check-in.js | Bearer→Supabase | JWT | user_id from JWT | N/A (write) | morning_checkin |
-| api/strava/connect.js | Bearer→Supabase | JWT | user_id from JWT | N/A | strava_sync |
+| api/training/insights.js?action=check-in | Bearer→Supabase | JWT | user_id from JWT | N/A (write) | morning_checkin |
+| api/strava.js?action=connect | Bearer→Supabase | JWT | user_id from JWT | N/A | strava_sync |
 | api/strava/callback.js | HMAC state | Signed state param | State verification | N/A | — |
-| api/strava/sync.js | Bearer→Supabase | JWT | user_id from JWT | N/A | strava_sync |
+| api/strava.js?action=sync | Bearer→Supabase | JWT | user_id from JWT | N/A | strava_sync |
 | api/providers/index.js | Bearer→Supabase | JWT (requireUser) | user_id from JWT | N/A | — |
 | api/whop/webhook.js | Webhook HMAC | N/A (server→server) | N/A | N/A | — |
 

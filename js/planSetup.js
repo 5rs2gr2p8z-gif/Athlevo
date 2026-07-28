@@ -313,7 +313,7 @@
       } else {
         // Best-effort pre-generation analysis refresh. Never blocks the build.
         try {
-          await fetch("/api/training/weekly-analysis", { headers: { Authorization: `Bearer ${token}` } });
+          await fetch("/api/training/insights?action=weekly-analysis", { headers: { Authorization: `Bearer ${token}` } });
         } catch (e) { /* non-fatal */ }
 
         /*

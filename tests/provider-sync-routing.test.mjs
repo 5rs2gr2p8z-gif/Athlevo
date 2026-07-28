@@ -3,7 +3,7 @@
  *
  * Verifies:
  *   · Intervals user syncs via provider router, NEVER calls syncStravaActivities
- *   · Intervals user NEVER requests /api/strava/sync
+ *   · Intervals user NEVER requests /api/strava?action=sync
  *   · Failed Intervals sync does NOT fall back to Strava
  *   · Strava-only user (profile.strava_connected) uses legacy path
  *   · No-provider user does NOT fall back to Strava
@@ -206,28 +206,28 @@ section("syncAndRefresh source has exclusive routing (no unguarded Strava fallba
     /No sync source connected[\s\S]{0,80}return null/.test(fn));
 }
 
-section("No Intervals flow calls /api/strava/sync");
+section("No Intervals flow calls /api/strava?action=sync");
 {
   const brainSrc = readFileSync("./js/brain.js", "utf8");
   const syncIntervalsFn = brainSrc.match(/async function syncIntervals\(\)\s*\{[\s\S]*?\n\}/)?.[0] || "";
   t("syncIntervals uses providerRequest('sync')", /providerRequest\("sync"\)/.test(syncIntervalsFn));
-  t("syncIntervals does NOT call /api/strava/sync", !/api\/strava\/sync/.test(syncIntervalsFn));
+  t("syncIntervals does NOT call the Strava sync action", !/api\/strava\?action=sync/.test(syncIntervalsFn));
   t("INTERVALS_ENDPOINT points to /api/providers",
     /INTERVALS_ENDPOINT\s*=\s*"\/api\/providers\?provider=intervals"/.test(brainSrc));
 }
 
-section("syncStravaActivities is the ONLY caller of /api/strava/sync (plus backfill)");
+section("syncStravaActivities is the ONLY caller of the Strava sync action (plus backfill)");
 {
   const brainSrc = readFileSync("./js/brain.js", "utf8");
   // Count actual fetch() CALLS to the endpoint, not comment mentions — the
   // authoritative strava_accounts helper references the path in its docstring.
-  const matches = brainSrc.match(/fetch\(\s*"\/api\/strava\/sync"/g) || [];
-  t("/api/strava/sync is fetched from exactly two places (syncStrava + backfill)",
+  const matches = brainSrc.match(/fetch\(\s*"\/api\/strava\?action=sync"/g) || [];
+  t("the Strava sync action is fetched from exactly two places (syncStrava + backfill)",
     matches.length === 2, `got ${matches.length}`);
-  t("syncStravaActivities calls /api/strava/sync",
-    /syncStravaActivities[\s\S]{0,400}\/api\/strava\/sync/.test(brainSrc));
-  t("backfillStravaLaps calls /api/strava/sync",
-    /backfillStravaLaps[\s\S]{0,800}\/api\/strava\/sync/.test(brainSrc));
+  t("syncStravaActivities calls the Strava sync action",
+    /syncStravaActivities[\s\S]{0,400}\/api\/strava\?action=sync/.test(brainSrc));
+  t("backfillStravaLaps calls the Strava sync action",
+    /backfillStravaLaps[\s\S]{0,800}\/api\/strava\?action=sync/.test(brainSrc));
 }
 
 /* ═══════════ Part 3: Sync status card ══════════════════════════════════ */
@@ -273,7 +273,7 @@ section("Sync status card is refreshed after routeAfterAuth");
 
 /* ═══════════ Part 4: Check now + OAuth callback ════════════════════════ */
 
-section("checkNow() in syncStatus.js calls syncIntervals, not /api/strava/sync");
+section("checkNow() in syncStatus.js calls syncIntervals, not Strava sync");
 {
   const src = readFileSync("./js/syncStatus.js", "utf8");
   const checkNowFn = src.match(/async function checkNow\(\)\s*\{[\s\S]*?\n  \}/)?.[0] || "";
@@ -340,22 +340,22 @@ section("Legacy syncStravaActivities still exists for actual Strava users");
 {
   const brainSrc = readFileSync("./js/brain.js", "utf8");
   const stravaFn = brainSrc.match(/async function syncStravaActivities[\s\S]*?\n\}/)?.[0] || "";
-  t("syncStravaActivities calls /api/strava/sync", /\/api\/strava\/sync/.test(stravaFn));
+  t("syncStravaActivities calls the Strava sync action", /\/api\/strava\?action=sync/.test(stravaFn));
 }
 
 section("backfillStravaLaps is Strava-specific and unchanged");
 {
   const brainSrc = readFileSync("./js/brain.js", "utf8");
   const backfillFn = brainSrc.match(/async function backfillStravaLaps[\s\S]*?\n\}/)?.[0] || "";
-  t("backfillStravaLaps calls /api/strava/sync with mode backfill",
-    /\/api\/strava\/sync/.test(backfillFn) && /mode.*backfill/.test(backfillFn));
+  t("backfillStravaLaps calls the Strava sync action with mode backfill",
+    /\/api\/strava\?action=sync/.test(backfillFn) && /mode.*backfill/.test(backfillFn));
 }
 
 section("Strava provider config endpoints do not affect Intervals routing");
 {
   const provSrc = readFileSync("./lib/server/wearable/providers.js", "utf8");
   t("Strava provider endpoints are in the strava config only",
-    /strava[\s\S]{0,200}sync:.*\/api\/strava\/sync/.test(provSrc));
+    /strava[\s\S]{0,220}sync:.*\/api\/strava\?action=sync/.test(provSrc));
   const intervalsConfig = provSrc.match(/intervals[\s\S]*?\}/)?.[0] || "";
   t("Intervals config does not reference /api/strava",
     !/api\/strava/.test(intervalsConfig));

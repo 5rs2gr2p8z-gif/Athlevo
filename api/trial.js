@@ -1,18 +1,18 @@
 /*
  * ══════════════════════════════════════════════════════════════════════
- *  Athlevo — Entitlement status endpoint
+ *  Athlevo — Cardless trial endpoint
  * ══════════════════════════════════════════════════════════════════════
  *
- *  GET /api/trial/entitlement
+ *  GET  /api/trial — normalized entitlement
+ *  POST /api/trial — idempotently start the cardless trial
  *
- *  Returns the normalized entitlement state for the authenticated user.
- *  The client uses this to display trial status, remaining time, and
- *  feature availability. Never exposes billing secrets.
+ *  Both methods authenticate with the verified Supabase JWT. All subscription
+ *  and trial writes use the service role exclusively on the server.
  */
 
 import {
   resolveAccessState, ACCESS_STATES, TRIAL_LIMITS
-} from "../../lib/server/subscriptions.js";
+} from "../lib/server/subscriptions.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,22 +35,7 @@ async function getAuthenticatedUser(accessToken) {
   } catch (e) { return null; }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
-    return send(res, 405, { error: "Method not allowed." });
-  }
-
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    return send(res, 500, { error: "Server not configured." });
-  }
-
-  const token = getBearerToken(req);
-  if (!token) return send(res, 401, { error: "Not authenticated." });
-
-  const user = await getAuthenticatedUser(token);
-  if (!user || !user.id) return send(res, 401, { error: "Invalid session." });
-
+async function handleEntitlement(req, res, user) {
   try {
     // Load subscription with service role
     const subRes = await fetch(
@@ -119,4 +104,93 @@ export default async function handler(req, res) {
     console.error("[trial/entitlement] Error:", err && err.message);
     return send(res, 500, { error: "Could not check entitlement." });
   }
+}
+
+async function handleStart(req, res, user) {
+  try {
+    const rpcRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/start_cardless_trial`,
+      {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ p_user_id: user.id })
+      }
+    );
+
+    if (!rpcRes.ok) {
+      const text = await rpcRes.text();
+      console.error("[trial/start] RPC failed:", rpcRes.status, text);
+      return send(res, 500, { error: "Could not start trial." });
+    }
+
+    const result = await rpcRes.json();
+
+    // Server event is authoritative and only fires for a newly created trial.
+    if (result && result.created === true) {
+      try {
+        const phKey = process.env.POSTHOG_KEY;
+        const phHost =
+          process.env.POSTHOG_HOST || "https://us.i.posthog.com";
+        if (phKey) {
+          fetch(phHost + "/capture/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: phKey,
+              distinct_id: user.id,
+              event: "trial_started",
+              properties: {
+                source: "cardless_trial",
+                trial_days: 3,
+                access_state: "trial_active"
+              }
+            })
+          }).catch(() => {});
+        }
+      } catch (error) {
+        // Analytics never blocks trial creation.
+      }
+    }
+
+    return send(res, 200, {
+      ok: true,
+      created: result.created === true,
+      reason: result.reason || null,
+      access_state: result.created
+        ? "trial_active"
+        : result.status === "trialing"
+        ? "trial_active"
+        : "existing",
+      trial_ends_at: result.trial_end || null,
+      plan_id: result.plan_id || null
+    });
+  } catch (error) {
+    console.error("[trial/start] Unexpected error:", error?.message);
+    return send(res, 500, { error: "Could not start trial." });
+  }
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
+    return send(res, 405, { error: "Method not allowed." });
+  }
+
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    return send(res, 500, { error: "Server not configured." });
+  }
+
+  const token = getBearerToken(req);
+  if (!token) return send(res, 401, { error: "Not authenticated." });
+
+  const user = await getAuthenticatedUser(token);
+  if (!user?.id) return send(res, 401, { error: "Invalid session." });
+
+  return req.method === "GET"
+    ? handleEntitlement(req, res, user)
+    : handleStart(req, res, user);
 }

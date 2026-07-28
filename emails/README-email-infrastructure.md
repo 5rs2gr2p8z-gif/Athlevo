@@ -28,7 +28,7 @@ The codebase has **no email sending infrastructure**. Specifically:
    - Query expiring trials: `WHERE provider='athlevo_trial' AND status='trialing' AND trial_end BETWEEN now() AND now() + interval '25 hours'`
    - Query expired trials: `WHERE provider='athlevo_trial' AND status='trialing' AND trial_end < now()`
    - Send the appropriate email (using subscription_events to prevent duplicate sends)
-4. **Wire trial-started email** into `api/trial/start.js` after successful RPC call
+4. **Wire trial-started email** into `POST /api/trial` after successful RPC call
 
 ### Template variables
 

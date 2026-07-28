@@ -275,8 +275,9 @@ section("UI reflects reconnect_required");
 
 section("Strava untouched");
 {
-  const files = ["api/strava/connect.js", "api/strava/callback.js", "api/strava/sync.js"];
-  t("all Strava endpoints still present", files.every(f => readFileSync("./" + f, "utf8").length > 0));
+  const files = ["api/strava.js", "api/strava/callback.js"];
+  t("consolidated Strava gateway and callback are present",
+    files.every(f => readFileSync("./" + f, "utf8").length > 0));
   const providers = readFileSync("./lib/server/wearable/providers.js", "utf8");
   t("Strava provider still registered as active",
     /key: "strava"[\s\S]{0,200}active: true/.test(providers));
