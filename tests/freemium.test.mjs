@@ -194,10 +194,9 @@ section("Freemium onboarding, upgrade UI, and removed trial copy");
   const onboarding = readFileSync("./js/onboarding.js", "utf8");
   const connect = readFileSync("./js/onboardingConnect.js", "utf8");
   const planSetup = readFileSync("./js/planSetup.js", "utf8");
-  const paywall = readFileSync("./js/paywall.js", "utf8");
   const accessGuard = readFileSync("./js/accessGuard.js", "utf8");
   const index = readFileSync("./index.html", "utf8");
-  const activeUi = [index, onboarding, connect, planSetup, paywall, accessGuard]
+  const activeUi = [index, onboarding, connect, planSetup, accessGuard]
     .join("\n");
 
   const finish = onboarding.slice(
@@ -224,8 +223,13 @@ section("Freemium onboarding, upgrade UI, and removed trial copy");
     (index.match(/Build My Training Plan/g) || []).length >= 3);
   test("active UI contains no 3-day free-trial messaging",
     !/3[- ]day free trial|3 days free|after trial|trial ends/i.test(activeUi));
-  test("upgrade UI names Athlevo Performance and ₱597/month",
-    /Athlevo Performance/.test(paywall) && /₱597\/month/.test(paywall));
+  test("the obsolete paywall screen and bundle are removed",
+    !/screen-paywall|paywallBody|js\/paywall\.js|AthlevoPaywall/.test(activeUi));
+  test("explicit upgrade UI names Athlevo Performance and ₱597/month",
+    /Athlevo Performance/.test(accessGuard) && /₱597\/month/.test(accessGuard));
+  test("Whop opens only from the explicit upgrade handler",
+    /function checkout\(\)/.test(accessGuard) &&
+    /window\.open\(checkoutUrl\(\)/.test(accessGuard));
 }
 
 section("Privacy-safe analytics");

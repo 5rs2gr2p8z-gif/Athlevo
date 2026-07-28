@@ -223,7 +223,7 @@ function renderDailyBriefUpgrade() {
   const limitations = document.getElementById("dailyBriefLimitations");
   if (limitations) {
     limitations.innerHTML = `
-      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.upgrade()">
+      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">
         Upgrade to Performance
       </button>
     `;

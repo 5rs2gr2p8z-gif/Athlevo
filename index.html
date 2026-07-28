@@ -3230,47 +3230,8 @@ body.landing-active #tabbar{display:none!important}
   <div id="planGenBody"></div>
 </section>
 
-<!-- ══════════════ ATHLEVO PERFORMANCE UPGRADE ══════════════ -->
+<!-- ══════════════ ATHLEVO PERFORMANCE ACCESS GUARD ══════════════ -->
 <style>
-  #screen-paywall{padding:0;background:var(--bg)}
-  .pw-scroll{padding:calc(28px + env(safe-area-inset-top)) 22px 40px;max-width:520px;margin:0 auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
-
-  /* preview */
-  .pw-preview{margin-bottom:28px}
-  .pw-badge{display:inline-block;font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red);background:var(--red-soft);border:1px solid rgba(192,39,45,.15);border-radius:var(--r-pill);padding:6px 14px;margin-bottom:16px}
-  .pw-headline{font-size:var(--fs-h1);font-weight:500;letter-spacing:-.02em;line-height:var(--lh-heading);color:var(--text);margin-bottom:8px}
-  .pw-situation{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin-bottom:20px}
-  .pw-section{margin-bottom:18px}
-  .pw-section-label{display:block;font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
-  .pw-section-body{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text)}
-  .pw-sample{margin-bottom:18px}
-  .pw-sample-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px}
-  .pw-sample-title{font-family:var(--sans);font-size:var(--fs-body);font-weight:700;color:var(--text);margin-bottom:6px}
-  .pw-sample-detail{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin-bottom:6px}
-  .pw-sample-purpose{font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink3);font-style:italic}
-
-  /* paywall offer */
-  .pw-wall{text-align:center;background:linear-gradient(180deg,var(--card) 0%,var(--bg) 100%);border:1px solid var(--line);border-radius:var(--r-lg);padding:28px 22px 24px;margin-bottom:24px}
-  .pw-wall-title{font-size:var(--fs-h1);font-weight:500;letter-spacing:-.02em;color:var(--text);margin-bottom:8px}
-  .pw-wall-sub{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin-bottom:20px}
-  .pw-offer{display:flex;flex-direction:column;gap:10px;text-align:left;margin:0 auto 22px;max-width:260px}
-  .pw-offer-row{display:flex;align-items:center;gap:var(--s-3);font-size:var(--fs-body);color:var(--text)}
-  .pw-offer-row.pw-offer-highlight{font-weight:700}
-  .pw-offer-check{color:var(--good);font-weight:800;font-size:var(--fs-body)}
-  .pw-cta{width:100%;border:none;border-radius:var(--r-pill);background:var(--red);color:#fff;font-family:var(--sans);font-weight:700;font-size:var(--fs-h3);letter-spacing:-.01em;padding:17px;cursor:pointer;transition:transform var(--dur-fast)}
-  .pw-cta:active{transform:scale(.99)}
-  .pw-secondary{display:block;margin:14px auto 0;background:none;border:none;color:var(--ink3);font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-
-  /* confirming state */
-  .pw-confirming{display:flex;flex-direction:column;align-items:center;text-align:center;padding:60px 0}
-  .pw-confirming-orb{width:80px;height:80px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;margin-bottom:20px;animation:pgPulse 1.8s ease-in-out infinite}
-  .pw-confirming-orb img{border-radius:var(--r-sm)}
-
-  /* confirmed state */
-  .pw-confirmed{display:flex;flex-direction:column;align-items:center;text-align:center;padding:60px 0}
-  .pw-confirmed-check{width:74px;height:74px;border-radius:50%;background:var(--good);color:#fff;display:grid;place-items:center;font-size:38px;font-weight:800;margin-bottom:20px;animation:pgPop var(--dur-slow) var(--ease-emphasized)}
-  .pw-confirmed .pw-cta{margin-top:24px}
-
   /* ══════ Access Guard — locked previews ══════ */
   .ag-overlay{position:absolute;inset:0;z-index:10;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg);padding:calc(28px + env(safe-area-inset-top)) 22px calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom) + 30px)}
   .ag-locked{max-width:520px;margin:0 auto}
@@ -3318,9 +3279,6 @@ body.landing-active #tabbar{display:none!important}
   .ag-cta-btn:active{transform:scale(.99)}
   .ag-cta-sub{font-size:var(--fs-caption);color:var(--ink3);margin-top:10px}
 </style>
-<section class="screen" id="screen-paywall">
-  <div id="paywallBody"></div>
-</section>
 
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
@@ -4088,7 +4046,7 @@ body.landing-active #tabbar{display:none!important}
 <div id="trendsUpgrade" class="ag-cta" style="display:none">
   <div class="ag-cta-badge">Athlevo Performance</div>
   <p class="ag-cta-text">Unlock weekly analysis, training trajectory, and premium recommendations.</p>
-  <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.upgrade()">Upgrade to Performance</button>
+  <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Upgrade to Performance</button>
   <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
 </div>
 
@@ -5680,7 +5638,6 @@ setTimeout(function () {
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
-<script src="js/paywall.js?v=67"></script>
 <script src="js/accessGuard.js?v=67"></script>
 <script src="js/planSetup.js?v=67"></script>
 <script src="js/feedback.js?v=67"></script>

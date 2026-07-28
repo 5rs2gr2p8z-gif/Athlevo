@@ -1,9 +1,9 @@
 /*
- * Athlevo — freemium upgrade screen and plan-flow tests.
+ * Athlevo — freemium onboarding and explicit-upgrade tests.
  * Run: node tests/paywall.test.mjs
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 let passed = 0, failed = 0;
 const test = (name, condition) => {
@@ -13,28 +13,26 @@ const test = (name, condition) => {
 const section = name => console.log(`\n──── ${name} ────`);
 
 const featuresSource = readFileSync("./js/features.js", "utf8");
-const paywallSource = readFileSync("./js/paywall.js", "utf8");
+const guardSource = readFileSync("./js/accessGuard.js", "utf8");
+const onboardingSource = readFileSync("./js/onboarding.js", "utf8");
 const planSetupSource = readFileSync("./js/planSetup.js", "utf8");
+const trainSource = readFileSync("./js/train.js", "utf8");
+const indexSource = readFileSync("./index.html", "utf8");
 
 function browser({ subscription = null, profile = {}, connected = true } = {}) {
-  const screens = [], analytics = [], product = [], opened = [], mounts = {};
+  const screens = [], product = [], opened = [], mounts = {};
   let planExists = false;
   const mount = id => mounts[id] || (mounts[id] = {
-    style: {}, dataset: {},
+    style: {}, dataset: {}, children: [], querySelector: () => null,
     set innerHTML(value) { this.html = value; },
     get innerHTML() { return this.html || ""; },
-    querySelectorAll: () => [], scrollIntoView() {}
+    querySelectorAll: () => []
   });
   const document = {
     getElementById: mount,
-    querySelector(selector) {
-      if (selector === ".pw-wall" || selector === ".pw-preview") return mount(selector);
-      return null;
-    },
+    querySelector: () => null,
     querySelectorAll: () => [],
-    addEventListener() {},
-    removeEventListener() {},
-    visibilityState: "visible"
+    createElement: () => ({ style: {}, children: [], className: "" })
   };
   const sandbox = {
     document,
@@ -56,7 +54,7 @@ function browser({ subscription = null, profile = {}, connected = true } = {}) {
     },
     supabaseClient: {
       auth: {
-        getUser: async () => ({ data: { user: { id: "u1", email: "runner@example.test" } } }),
+        getUser: async () => ({ data: { user: { id: "u1" } } }),
         getSession: async () => ({ data: { session: { access_token: "token" } } })
       },
       from: () => ({
@@ -70,14 +68,17 @@ function browser({ subscription = null, profile = {}, connected = true } = {}) {
       providerStatus: async () => ({ connected }),
       refreshAthleteUI: async () => {}
     },
-    AthlevoAnalytics: { track: name => analytics.push(name) },
     AthlevoProductAnalytics: {
       trackAthlevoEvent: (name, props) => product.push({ name, props })
     },
-    open: url => opened.push(url),
-    URL, URLSearchParams,
-    location: { origin: "https://preview.vercel.app", pathname: "/", search: "", hash: "" },
-    history: { replaceState() {} },
+    open: (url, target, features) => opened.push({ url, target, features }),
+    URL,
+    location: {
+      origin: "https://athlevo-preview.vercel.app",
+      pathname: "/app",
+      search: "",
+      hash: ""
+    },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     matchMedia: () => ({ matches: true }),
     setTimeout: (fn, ms) => setTimeout(fn, Math.min(ms, 5)),
@@ -89,78 +90,66 @@ function browser({ subscription = null, profile = {}, connected = true } = {}) {
   };
   sandbox.window = sandbox;
   new Function(...Object.keys(sandbox), featuresSource)(...Object.values(sandbox));
-  new Function(...Object.keys(sandbox), paywallSource)(...Object.values(sandbox));
+  new Function(...Object.keys(sandbox), guardSource)(...Object.values(sandbox));
   new Function(...Object.keys(sandbox), planSetupSource.replace(/\}\)\(\);?\s*$/, "})()"))(
     ...Object.values(sandbox)
   );
-  return { sandbox, screens, analytics, product, opened, mounts };
+  return { sandbox, screens, product, opened, mounts };
 }
 
-const visibleText = html => String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-
-section("Free plan journey");
+section("Free onboarding and plan journey");
 {
+  const finish = onboardingSource.slice(
+    onboardingSource.indexOf("async function obFinish"),
+    onboardingSource.indexOf("function obFirstIncompleteStep")
+  );
+  test("onboarding enters provider connection",
+    /AthlevoConnect\.start/.test(finish));
+  test("onboarding has no checkout or paywall fallback",
+    !/AthlevoPaywall|screen-paywall|maybeLaunchAfterOnboarding|checkout/.test(finish));
+
   const w = browser({ profile: { name: "Dean", goal: "10K" } });
   await w.sandbox.AthlevoPlan.start();
-  test("free user can open plan setup", w.screens.includes("screen-plansetup"));
-  test("free plan setup does not open upgrade screen", !w.screens.includes("screen-paywall"));
-  const setup = visibleText(w.mounts.planSetupBody.html);
-  test("free user is offered initial plan generation",
-    /Build Training Plan/.test(setup));
-  test("initial plan generation does not open checkout", w.opened.length === 0);
+  test("free user can open initial plan setup",
+    w.screens.includes("screen-plansetup"));
+  test("initial plan setup does not open Whop", w.opened.length === 0);
 }
 
-section("Upgrade screen");
+section("Explicit paid upgrade");
 {
-  const w = browser({ profile: { name: "Maria", goal: "Marathon" } });
-  const shown = await w.sandbox.AthlevoPaywall.show({
-    name: "Maria", goal: "Marathon", experience: "beginner"
-  });
-  const text = visibleText(w.mounts.paywallBody.html);
-  test("free user can explicitly open the upgrade screen", shown === true &&
-    w.screens.includes("screen-paywall"));
-  test("upgrade screen names Athlevo Performance", /Athlevo Performance/.test(text));
-  test("upgrade screen shows ₱597/month", /₱597\/month/.test(text));
-  test("upgrade CTA is explicit", /Upgrade to Athlevo Performance/.test(text));
-  test("upgrade screen has no timed free-trial copy",
-    !/3[- ]day free trial|3 days free|after trial|trial ends/i.test(text));
-
-  w.sandbox.AthlevoPaywall.checkout();
-  test("checkout opens Whop", w.opened.length === 1 && /whop\.com/.test(w.opened[0]));
-  test("checkout return uses the current origin",
-    /preview\.vercel\.app/.test(decodeURIComponent(w.opened[0])));
-  test("upgrade click is tracked", w.product.some(e => e.name === "upgrade_clicked"));
-  test("checkout opening is tracked", w.product.some(e => e.name === "checkout_opened"));
+  const w = browser();
+  test("nothing opens before an explicit upgrade click", w.opened.length === 0);
+  w.sandbox.AthlevoAccessGuard.checkout();
+  test("one explicit click opens Whop once",
+    w.opened.length === 1 && /whop\.com/.test(w.opened[0].url));
+  test("checkout uses a new noopener tab",
+    w.opened[0].target === "_blank" && w.opened[0].features === "noopener");
+  test("checkout return preserves the current preview origin",
+    /athlevo-preview\.vercel\.app/.test(decodeURIComponent(w.opened[0].url)));
+  test("upgrade click is tracked",
+    w.product.some(event => event.name === "upgrade_clicked"));
+  test("checkout opening is tracked",
+    w.product.some(event => event.name === "checkout_opened"));
 }
 
-section("Verified paid behavior");
+section("Removed timed screen");
 {
-  const activeWhop = {
-    provider: "whop", plan_id: "performance", status: "active",
-    current_period_end: new Date(Date.now() + 86400000).toISOString()
-  };
-  const paid = browser({ subscription: activeWhop, profile: { name: "Ana" } });
-  test("verified paid user is not shown the upgrade screen",
-    await paid.sandbox.AthlevoPaywall.show({}) === false);
-  await paid.sandbox.AthlevoPlan.start();
-  test("verified paid user keeps normal plan setup behavior",
-    paid.screens.includes("screen-plansetup"));
-
-  const fake = browser({
-    subscription: { provider: "manual", plan_id: "performance", status: "active" }
-  });
-  test("frontend cannot grant paid access from a non-Whop row",
-    await fake.sandbox.AthlevoPaywall.isPaid() === false);
-}
-
-section("Static safety");
-{
+  const activeUi = [indexSource, guardSource, onboardingSource, planSetupSource].join("\n");
+  test("obsolete paywall bundle is deleted", !existsSync("./js/paywall.js"));
+  test("obsolete paywall screen and mount are deleted",
+    !/screen-paywall|paywallBody|js\/paywall\.js|AthlevoPaywall/.test(activeUi));
+  test("trial CTA and checklist copy are absent",
+    !/3[- ]day free trial|3 days free|due today|after trial/i.test(activeUi));
   test("plan flow has no automatic paywall fallback",
     !/shouldShowPaywall/.test(planSetupSource));
-  test("upgrade screen preserves Whop return handling",
-    /redirect_url/.test(paywallSource) && /visibilitychange/.test(paywallSource));
-  test("client contains no payment or service-role secrets",
-    !/WHOP_API_KEY|WHOP_WEBHOOK_SECRET|SUPABASE_SERVICE_ROLE/.test(paywallSource));
+  test("denied additional-plan action does not open checkout automatically",
+    !/AthlevoAccessGuard\.checkout/.test(
+      trainSource.slice(
+        trainSource.indexOf("async function generateWeek"),
+        trainSource.indexOf("async function generateWeek") + 700
+      )));
+  test("client upgrade code contains no server secret",
+    !/WHOP_API_KEY|WHOP_WEBHOOK_SECRET|SUPABASE_SERVICE_ROLE|OPENAI_API_KEY/.test(guardSource));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

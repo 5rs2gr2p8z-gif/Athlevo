@@ -16,6 +16,8 @@
 (function () {
   "use strict";
 
+  const WHOP_CHECKOUT_URL = "https://whop.com/checkout/plan_F5PftzWCJCQVw";
+
   /* ─────────────── entitlement helpers ───────────────────────────── */
 
   /*
@@ -52,7 +54,7 @@
     <div class="ag-cta">
       <div class="ag-cta-badge">Athlevo Performance</div>
       <p class="ag-cta-text">Unlock adaptive plan changes, deeper analysis, Daily Brief, and the full paid Coach allowance.</p>
-      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.upgrade()">Upgrade to Performance</button>
+      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Upgrade to Performance</button>
       <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
     </div>`;
 
@@ -196,7 +198,18 @@
 
   /* ─────────────── actions ───────────────────────────────────────── */
 
-  function upgrade() {
+  function checkoutUrl() {
+    let url = WHOP_CHECKOUT_URL;
+    try {
+      const returnUrl = new URL(window.location.pathname, window.location.origin);
+      returnUrl.searchParams.set("checkout_return", "1");
+      const separator = url.includes("?") ? "&" : "?";
+      url += separator + "redirect_url=" + encodeURIComponent(returnUrl.toString());
+    } catch (e) {}
+    return url;
+  }
+
+  function checkout() {
     try {
       if (window.AthlevoProductAnalytics) {
         AthlevoProductAnalytics.trackAthlevoEvent("upgrade_clicked", {
@@ -204,9 +217,12 @@
         });
       }
     } catch (e) {}
-    if (window.AthlevoPaywall && typeof window.AthlevoPaywall.show === "function") {
-      window.AthlevoPaywall.show();
-    }
+    try {
+      if (window.AthlevoProductAnalytics) {
+        AthlevoProductAnalytics.trackAthlevoEvent("checkout_opened");
+      }
+    } catch (e) {}
+    window.open(checkoutUrl(), "_blank", "noopener");
   }
 
   /*
@@ -223,7 +239,7 @@
     guardTab,
     hasPaidAccess,
     unlockAll,
-    upgrade,
+    checkout,
     VERSION: "access-guard-v1"
   };
 })();

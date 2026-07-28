@@ -403,7 +403,7 @@
       checkAgain: { label: "Check for my plan", onclick: "AthlevoPlan.recheckPlan()" },
       signIn: { label: "Sign in", onclick: "AthlevoPlan.notNow()" },
       completeProfile: { label: "Complete my profile", onclick: "AthlevoPlan.start()" },
-      upgrade: { label: "Upgrade to Performance", onclick: "AthlevoAccessGuard.upgrade()" },
+      upgrade: { label: "Upgrade to Performance", onclick: "AthlevoAccessGuard.checkout()" },
       viewPlan: { label: "View my plan", onclick: "AthlevoPlan.enterTrain()" }
     };
     // A timeout may still be completing server-side; offer to look rather than

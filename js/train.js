@@ -2371,11 +2371,8 @@ async function generateWeek(){
         event.target;
 
     if (!await canUseTrainingFeature("additional_plan_generation")) {
-        if (
-            window.AthlevoAccessGuard &&
-            typeof window.AthlevoAccessGuard.upgrade === "function"
-        ) {
-            window.AthlevoAccessGuard.upgrade();
+        if (typeof toast === "function") {
+            toast("Additional plans are available with Athlevo Performance. Choose Upgrade to Performance when you're ready.");
         }
         return;
     }
