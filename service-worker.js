@@ -5,7 +5,8 @@
  *
  *  Makes Athlevo installable and resilient offline WITHOUT ever caching
  *  private or dynamic data. Strategy:
- *    · App shell (HTML/CSS/JS/icons/fonts)  → cache-first, updated in the
+ *    · Navigations / HTML → network-first, current-shell offline fallback.
+ *    · Static assets (CSS/JS/icons/fonts) → cache-first, updated in the
  *      background (stale-while-revalidate).
  *    · Everything dynamic or private (Supabase, /api, Strava, auth, any
  *      non-GET) → NETWORK ONLY, never touched by the cache.
@@ -16,7 +17,8 @@
  *  activate. No coaching logic, auth, or API behaviour is affected.
  */
 
-const CACHE_VERSION = "athlevo-shell-v68";
+const ATHLEVO_CACHE_PREFIX = "athlevo-";
+const CACHE_VERSION = "athlevo-shell-v69";
 const SHELL = [
   "/",
   "/index.html",
@@ -51,7 +53,11 @@ self.addEventListener("install", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter(k => k.startsWith(ATHLEVO_CACHE_PREFIX) && k !== CACHE_VERSION)
+          .map(k => caches.delete(k))
+      )
     ).then(() => self.clients.claim())
   );
 });
@@ -82,14 +88,18 @@ self.addEventListener("fetch", event => {
    */
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).then(response => {
+      fetch(request, { cache: "no-store" }).then(response => {
         if (response && response.ok) {
           const copy = response.clone();
-          caches.open(CACHE_VERSION).then(cache => cache.put("/index.html", copy));
+          event.waitUntil(
+            caches.open(CACHE_VERSION).then(cache => cache.put("/index.html", copy))
+          );
         }
         return response;
       }).catch(() =>
-        caches.match("/index.html").then(r => r || caches.match("/"))
+        caches.open(CACHE_VERSION).then(cache =>
+          cache.match("/index.html").then(r => r || cache.match("/"))
+        )
       )
     );
     return;
@@ -101,15 +111,15 @@ self.addEventListener("fetch", event => {
   if (!sameOrigin && !isFont) return;
 
   event.respondWith(
-    caches.match(request).then(cached => {
+    caches.open(CACHE_VERSION).then(cache => cache.match(request).then(cached => {
       const network = fetch(request).then(response => {
         if (response && response.status === 200 && (response.type === "basic" || response.type === "cors")) {
           const copy = response.clone();
-          caches.open(CACHE_VERSION).then(cache => cache.put(request, copy));
+          event.waitUntil(cache.put(request, copy));
         }
         return response;
       }).catch(() => cached);
       return cached || network;
-    })
+    }))
   );
 });

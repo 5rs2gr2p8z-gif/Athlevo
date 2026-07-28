@@ -329,10 +329,14 @@ section("Service worker");
   const v = Number((sw.match(/athlevo-shell-v(\d+)/) || [])[1] || 0);
   t("cache version is at or past the routing fix (v16+)", v >= 16, `v${v}`);
   t("navigations are network-first (stale shell can't dictate routing)",
-    /request\.mode === "navigate"[\s\S]{0,200}fetch\(request\)\.then/.test(sw));
+    /request\.mode === "navigate"[\s\S]{0,200}fetch\(request,\s*\{\s*cache:\s*"no-store"\s*\}\)\.then/.test(sw));
   t("successful navigation refreshes the cached shell",
     /cache\.put\("\/index\.html", copy\)/.test(sw));
-  t("cached shell still serves offline", /\.catch\(\(\) =>\s*caches\.match\("\/index\.html"\)/.test(sw));
+  t("cached shell still serves offline from the current cache only",
+    /\.catch\(\(\) =>\s*caches\.open\(CACHE_VERSION\)/.test(sw) &&
+    /cache\.match\("\/index\.html"\)/.test(sw));
+  t("old Athlevo cache names are purged during activation",
+    /k\.startsWith\(ATHLEVO_CACHE_PREFIX\)[\s\S]{0,100}caches\.delete\(k\)/.test(sw));
   t("auth + API remain network-only", /"supabase\.co"/.test(sw) && /"\/api\/"/.test(sw));
 }
 
