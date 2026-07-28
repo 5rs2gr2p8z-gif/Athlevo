@@ -2574,15 +2574,21 @@ body.landing-active #tabbar{display:none!important}
 
 /* athlete results — approved coaching testimonials replace placeholders */
 .lp-athlete-results .lp-body{max-width:58ch}
-.lp-athlete-card{display:flex;flex-direction:column;min-height:240px}
-.lp-athlete-photo{aspect-ratio:4/3;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:22px;color:var(--ink3)}
-.lp-athlete-photo span{font-size:var(--fs-body-sm);font-weight:650;color:var(--ink2)}
-.lp-athlete-photo small{font-size:var(--fs-caption);margin-top:4px}
-.lp-athlete-quote{font-family:var(--serif);font-size:clamp(18px,2.1vw,22px);line-height:1.45;letter-spacing:-.01em;color:var(--text);margin:0}
-.lp-athlete-meta{margin-top:auto;padding-top:22px;border-top:1px solid var(--line)}
-.lp-athlete-name{display:block;font-size:var(--fs-body);font-weight:700;color:var(--text)}
+.lp-athlete-card{display:flex;align-items:stretch;gap:16px;min-height:174px;padding:18px}
+.lp-athlete-photo{width:88px;height:110px;flex:0 0 88px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--ink3);padding:6px;overflow:hidden}
+.lp-athlete-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.lp-athlete-photo span{font-size:11px;line-height:1.25;font-weight:650;color:var(--ink2)}
+.lp-athlete-photo small{font-size:10px;line-height:1.2;margin-top:4px;overflow-wrap:anywhere}
+.lp-athlete-content{display:flex;flex:1;min-width:0;flex-direction:column}
+.lp-athlete-quote{font-family:var(--serif);font-size:clamp(16px,1.5vw,18px);line-height:1.4;letter-spacing:-.005em;color:var(--text);margin:0;overflow-wrap:anywhere}
+.lp-athlete-meta{margin-top:auto;padding-top:12px}
+.lp-athlete-name{display:block;font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
 .lp-athlete-context,.lp-athlete-result{display:block;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink3);margin-top:4px}
 .lp-athlete-result{color:var(--ink2)}
+@media (max-width:560px){
+  .lp-athlete-card{gap:14px;min-height:152px;padding:16px}
+  .lp-athlete-photo{width:72px;height:92px;flex-basis:72px}
+}
 
 /* coach insight mocks */
 .lp-mockrow{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:48px}
@@ -2877,81 +2883,93 @@ body.landing-active #tabbar{display:none!important}
       <div class="lp-grid lp-reveal">
         <article class="lp-card lp-athlete-card">
           <!-- APPROVED ATHLETE IMAGE — CHRISTIAN FRANCIA:
-               Replace the placeholder below with Christian's approved 4:3 image. Do not use stock photography. -->
+               Replace the placeholder below with Christian's approved rectangular portrait. Do not use stock photography. -->
           <div class="lp-athlete-photo">
             <span>Approved athlete image</span>
             <small>Christian Francia</small>
           </div>
-          <blockquote class="lp-athlete-quote">“100% mai-improve ang fitness level mo at mas maaabot mo ang goals mo with the help of Athlevo Coaching.”</blockquote>
-          <footer class="lp-athlete-meta">
-            <strong class="lp-athlete-name">Christian Francia</strong>
-            <span class="lp-athlete-context">Marathon Runner</span>
-          </footer>
+          <div class="lp-athlete-content">
+            <blockquote class="lp-athlete-quote">“100% mai-improve ang fitness level mo at mas maaabot mo ang goals mo with the help of Athlevo Coaching.”</blockquote>
+            <footer class="lp-athlete-meta">
+              <strong class="lp-athlete-name">Christian Francia</strong>
+              <span class="lp-athlete-context">Marathon Runner</span>
+            </footer>
+          </div>
         </article>
         <article class="lp-card lp-athlete-card">
           <!-- APPROVED ATHLETE IMAGE — RODEL MARK:
-               Replace the placeholder below with Rodel's approved 4:3 image. Do not use stock photography. -->
+               Replace the placeholder below with Rodel's approved rectangular portrait. Do not use stock photography. -->
           <div class="lp-athlete-photo">
             <span>Approved athlete image</span>
             <small>Rodel Mark</small>
           </div>
-          <blockquote class="lp-athlete-quote">“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”</blockquote>
-          <footer class="lp-athlete-meta">
-            <strong class="lp-athlete-name">Rodel Mark</strong>
-            <span class="lp-athlete-context">Athlete · Sub-19 5K</span>
-          </footer>
+          <div class="lp-athlete-content">
+            <blockquote class="lp-athlete-quote">“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”</blockquote>
+            <footer class="lp-athlete-meta">
+              <strong class="lp-athlete-name">Rodel Mark</strong>
+              <span class="lp-athlete-context">Athlete · Sub-19 5K</span>
+            </footer>
+          </div>
         </article>
         <article class="lp-card lp-athlete-card">
           <!-- APPROVED ATHLETE IMAGE — CARL ZITA:
-               Replace the placeholder below with Carl's approved 4:3 image. Do not use stock photography. -->
+               Replace the placeholder below with Carl's approved rectangular portrait. Do not use stock photography. -->
           <div class="lp-athlete-photo">
             <span>Approved athlete image</span>
             <small>Carl Zita</small>
           </div>
-          <blockquote class="lp-athlete-quote">“Effective program, quality sessions, and very informative coaching.”</blockquote>
-          <footer class="lp-athlete-meta">
-            <strong class="lp-athlete-name">Carl Zita</strong>
-            <span class="lp-athlete-context">Recreational Runner</span>
-          </footer>
+          <div class="lp-athlete-content">
+            <blockquote class="lp-athlete-quote">“Effective program, quality sessions, and very informative coaching.”</blockquote>
+            <footer class="lp-athlete-meta">
+              <strong class="lp-athlete-name">Carl Zita</strong>
+              <span class="lp-athlete-context">Recreational Runner</span>
+            </footer>
+          </div>
         </article>
         <article class="lp-card lp-athlete-card">
           <!-- APPROVED ATHLETE IMAGE — AMIR PAULE:
-               Replace the placeholder below with Amir's approved 4:3 image. Do not use stock photography. -->
+               Replace the placeholder below with Amir's approved rectangular portrait. Do not use stock photography. -->
           <div class="lp-athlete-photo">
             <span>Approved athlete image</span>
             <small>Amir Paule</small>
           </div>
-          <blockquote class="lp-athlete-quote">“Solid Athlevo! Mag-i-improve ka talaga.”</blockquote>
-          <footer class="lp-athlete-meta">
-            <strong class="lp-athlete-name">Amir Paule</strong>
-            <span class="lp-athlete-context">Athlete</span>
-          </footer>
+          <div class="lp-athlete-content">
+            <blockquote class="lp-athlete-quote">“Solid Athlevo! Mag-i-improve ka talaga.”</blockquote>
+            <footer class="lp-athlete-meta">
+              <strong class="lp-athlete-name">Amir Paule</strong>
+              <span class="lp-athlete-context">Athlete</span>
+            </footer>
+          </div>
         </article>
         <article class="lp-card lp-athlete-card">
           <!-- APPROVED ATHLETE IMAGE — JB LUNA:
-               Replace the placeholder below with JB's approved 4:3 image. Do not use stock photography. -->
+               Replace the placeholder below with JB's approved rectangular portrait. Do not use stock photography. -->
           <div class="lp-athlete-photo">
             <span>Approved athlete image</span>
             <small>JB Luna</small>
           </div>
-          <blockquote class="lp-athlete-quote">“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”</blockquote>
-          <footer class="lp-athlete-meta">
-            <strong class="lp-athlete-name">JB Luna</strong>
-            <span class="lp-athlete-context">Recreational Runner</span>
-          </footer>
+          <div class="lp-athlete-content">
+            <blockquote class="lp-athlete-quote">“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”</blockquote>
+            <footer class="lp-athlete-meta">
+              <strong class="lp-athlete-name">JB Luna</strong>
+              <span class="lp-athlete-context">Recreational Runner</span>
+            </footer>
+          </div>
         </article>
         <article class="lp-card lp-athlete-card">
           <!-- APPROVED ATHLETE IMAGE — MIGUEL BULADO:
-               Replace the placeholder below with Miguel's approved 4:3 image. Do not use stock photography. -->
+               Replace the placeholder below with Miguel's approved rectangular portrait. Do not use stock photography. -->
           <div class="lp-athlete-photo">
             <span>Approved athlete image</span>
             <small>Miguel Bulado</small>
           </div>
-          <blockquote class="lp-athlete-quote">“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”</blockquote>
-          <footer class="lp-athlete-meta">
-            <strong class="lp-athlete-name">Miguel Bulado</strong>
-            <span class="lp-athlete-context">Student Athlete</span>
-          </footer>
+          <div class="lp-athlete-content">
+            <blockquote class="lp-athlete-quote">“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”</blockquote>
+            <footer class="lp-athlete-meta">
+              <strong class="lp-athlete-name">Miguel Bulado</strong>
+              <span class="lp-athlete-context">Student Athlete</span>
+            </footer>
+          </div>
         </article>
       </div>
     </div>
