@@ -102,14 +102,13 @@ section("Feature allocation");
   });
 }
 
-section("Atomic free limits");
+section("Atomic repeatable limits and persisted first-plan allowance");
 {
   test("Coach limit is exactly 3 per week",
     FREE_LIMITS.coach_message.limit === 3 &&
     FREE_LIMITS.coach_message.period === "week");
-  test("initial plan limit is exactly 1 lifetime",
-    FREE_LIMITS.initial_plan.limit === 1 &&
-    FREE_LIMITS.initial_plan.period === "lifetime");
+  test("initial plan is not consumed through a pre-AI counter",
+    !Object.prototype.hasOwnProperty.call(FREE_LIMITS, "initial_plan"));
 
   const counters = new Map();
   let subscription = null;
@@ -144,11 +143,6 @@ section("Atomic free limits");
   test("fourth weekly Coach message is blocked",
     coach[3].allowed === false && coach[3].limit === 3);
 
-  const firstPlan = await consumeFreeUsage("another-free-user", "initial_plan");
-  const secondPlan = await consumeFreeUsage("another-free-user", "initial_plan");
-  test("first initial plan succeeds", firstPlan.allowed === true);
-  test("second initial plan is blocked", secondPlan.allowed === false);
-
   subscription = {
     provider: "whop",
     plan_id: "performance",
@@ -175,10 +169,13 @@ section("Server enforcement wiring");
     /consumeFreeUsage\(\s*authenticatedUser\.id,\s*"coach_message"\s*\)/.test(coach) &&
     coach.search(/consumeFreeUsage\(\s*authenticatedUser\.id,\s*"coach_message"\s*\)/) <
       coach.indexOf('"https://api.openai.com/v1/responses"'));
-  test("plan generation reserves initial_plan before AI",
-    plan.includes('consumeFreeUsage(user.id, "initial_plan")') &&
-    plan.indexOf('consumeFreeUsage(user.id, "initial_plan")') <
+  test("plan generation checks persisted plans before AI",
+    /training_plans\?user_id=eq\./.test(plan) &&
+    plan.indexOf("training_plans?user_id=eq.") <
       plan.indexOf("await generateWeeklyPlan"));
+  test("plan generation never consumes a pre-AI lifetime counter",
+    !/consumeFreeUsage\(\s*user\.id,\s*"initial_plan"/.test(plan) &&
+    !/releaseFreeUsage/.test(plan));
   test("Daily Brief requires paid access before AI",
     brief.includes('requirePaidAccess(user.id, "daily_brief")'));
   test("weekly analysis requires paid access before analysis",

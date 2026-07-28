@@ -74,10 +74,13 @@ const goodPlan = () => ({
 
 function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
                  profile = PROFILE, activities = [], failPlanInsert = false,
+                 failSessionInsert = false, preexistingPlans = [],
                  preexistingSessions = [], subscription = null } = {}) {
   const db = {
-    plans: [], sessions: [...preexistingSessions], aiCalls: 0,
-    freePlanUsage: 0
+    plans: [...preexistingPlans], sessions: [...preexistingSessions], aiCalls: 0,
+    aiRateLimitCalls: 0, initialPlanCounterCalls: 0,
+    initialPlanCounterDeletes: 0,
+    openAiStatus, failPlanInsert, failSessionInsert
   };
   const fetchFn = async (url, init = {}) => {
     const u = String(url), m = (init.method || "GET").toUpperCase();
@@ -91,28 +94,29 @@ function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
     if (u.includes("/rest/v1/rpc/increment_rate_limit")) {
       const rpcBody = JSON.parse(init.body || "{}");
       if (rpcBody.p_endpoint !== "free:initial_plan") {
+        db.aiRateLimitCalls += 1;
         return J(200, { allowed: true, current_count: 1 });
       }
-      db.freePlanUsage += 1;
+      db.initialPlanCounterCalls += 1;
       return J(200, {
-        allowed: db.freePlanUsage <= 1,
-        current_count: db.freePlanUsage
+        allowed: false,
+        current_count: db.initialPlanCounterCalls
       });
     }
     if (u.includes("/rest/v1/ai_rate_limits") && m === "DELETE") {
-      db.freePlanUsage = 0;
+      db.initialPlanCounterDeletes += 1;
       return J(204, null);
     }
     if (u.includes("openai.com")) {
       db.aiCalls += 1;
-      if (openAiStatus !== 200) return J(openAiStatus, { error: { message: "upstream" } });
+      if (db.openAiStatus !== 200) return J(db.openAiStatus, { error: { message: "upstream" } });
       return J(200, { output_text: openAiText !== null ? openAiText : JSON.stringify(plan) });
     }
     if (u.includes("/rest/v1/profiles")) return J(200, profile ? [profile] : []);
     if (u.includes("/rest/v1/activities")) return J(200, activities);
     if (u.includes("/rest/v1/training_plans")) {
       if (m === "POST") {
-        if (failPlanInsert) return J(500, { message: "insert failed" });
+        if (db.failPlanInsert) return J(500, { message: "insert failed" });
         // PostgREST accepts a single object OR an array; saveTrainingPlan
         // sends a single object, so normalise before asserting.
         const parsed = JSON.parse(init.body);
@@ -129,6 +133,7 @@ function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
     }
     if (u.includes("/rest/v1/training_sessions")) {
       if (m === "POST") {
+        if (db.failSessionInsert) return J(500, { message: "session insert failed" });
         const parsed = JSON.parse(init.body);
         const rows = Array.isArray(parsed) ? parsed : [parsed];
         rows.forEach(row => {
@@ -171,6 +176,10 @@ section("1. New athlete, completed profile, NO activities");
   t("seven sessions were written", w.db.sessions.length === 7, `${w.db.sessions.length}`);
   t("plan is owned by the authenticated athlete", w.db.plans[0].user_id === "u1");
   t("no activity history did not block generation", w.db.aiCalls === 1);
+  t("the first plan does not consume a pre-AI lifetime counter",
+    w.db.initialPlanCounterCalls === 0);
+  t("the separate hourly AI limiter increments once",
+    w.db.aiRateLimitCalls === 1);
 }
 
 section("2. Athlete WITH connected history");
@@ -199,6 +208,8 @@ section("3. Existing plan is loaded, not duplicated");
   t("the model was called exactly once", w.db.aiCalls === 1, `${w.db.aiCalls}`);
   t("exactly one plan row exists", w.db.plans.length === 1);
   t("existing plan was NOT silently overwritten", w.db.sessions.length === 7);
+  t("a duplicate request consumes no lifetime counter",
+    w.db.initialPlanCounterCalls === 0);
 }
 
 section("4. Double click produces one plan");
@@ -212,6 +223,8 @@ section("4. Double click produces one plan");
     w.db.plans.length === 1, `${w.db.plans.length}`);
   t("only seven session rows survive (upsert on user_id,session_date)",
     w.db.sessions.length === 7, `${w.db.sessions.length}`);
+  t("concurrent duplicate requests consume no lifetime counter",
+    w.db.initialPlanCounterCalls === 0);
 
   const client = readFileSync("./js/planSetup.js", "utf8");
   t("client also guards re-entry", /if \(buildInFlight\) return;/.test(client));
@@ -223,7 +236,7 @@ section("4b. Additional plans require verified payment");
   await call(free);
   const blocked = await call(free, { body: { regenerate: true } });
   t("free user's explicit second generation is blocked",
-    blocked.code === 402 && blocked.body.code === "FREE_LIMIT_REACHED");
+    blocked.code === 402 && blocked.body.code === "FREE_PLAN_ACTIVE");
   t("blocked generation does not call the model again", free.db.aiCalls === 1);
 
   const paid = world({
@@ -238,7 +251,29 @@ section("4b. Additional plans require verified payment");
   const regenerated = await call(paid, { body: { regenerate: true } });
   t("verified paid user can regenerate", regenerated.code === 200);
   t("paid regeneration bypasses the free counter",
-    paid.db.aiCalls === 2 && paid.db.freePlanUsage === 0);
+    paid.db.aiCalls === 2 && paid.db.initialPlanCounterCalls === 0);
+}
+
+section("4c. An existing saved free plan requires an upgrade");
+{
+  const previousWeek = formatDateKey(addDays(WEEK_START, -7));
+  const free = world({
+    preexistingPlans: [{
+      id: "existing-plan",
+      user_id: "u1",
+      week_start: previousWeek,
+      status: "active"
+    }]
+  });
+  const blocked = await call(free);
+  t("saved historical plan is treated as the used free plan",
+    blocked.code === 402 && blocked.body.code === "FREE_PLAN_ACTIVE");
+  t("the blocked response carries the exact athlete-facing title",
+    blocked.body.title === "Your free training plan is already active.");
+  t("the blocked response offers upgrade and current-plan actions",
+    blocked.body.action === "upgrade" &&
+    blocked.body.secondary_action === "viewPlan");
+  t("existing-plan block happens before AI", free.db.aiCalls === 0);
 }
 
 /* ══════════════ 5–9. failure handling ══════════════════════════════ */
@@ -269,6 +304,22 @@ section("7. AI provider failure");
   t("no provider name leaked", !/openai|upstream|gpt/i.test(r.body.error));
 }
 
+section("7b. Failed first AI attempt remains retryable");
+{
+  const w = world({ openAiStatus: 500 });
+  const failed = await call(w);
+  const plansAfterFailure = w.db.plans.length;
+  w.db.openAiStatus = 200;
+  const retried = await call(w);
+  t("first AI failure writes no plan", failed.code === 503 && plansAfterFailure === 0);
+  t("retry succeeds and saves the first plan",
+    retried.code === 200 && retried.body.success === true &&
+    w.db.plans.length === 1 && w.db.sessions.length === 7);
+  t("failure and retry never touch a lifetime counter",
+    w.db.initialPlanCounterCalls === 0 &&
+    w.db.initialPlanCounterDeletes === 0);
+}
+
 section("8. Malformed model output is not saved");
 {
   const w = world({ openAiText: "I'm sorry, I can't help with that." });
@@ -295,6 +346,27 @@ section("9. Database write failure");
   t("no database internals leaked",
     !/supabase|insert|constraint|postgres|500/i.test(r.body.error), r.body.error);
   t("no orphan sessions were written", w.db.sessions.length === 0);
+  w.db.failPlanInsert = false;
+  const retried = await call(w);
+  t("retry after a failed plan write remains allowed",
+    retried.code === 200 && w.db.plans.length === 1 && w.db.sessions.length === 7);
+  t("failed database attempt consumes no lifetime counter",
+    w.db.initialPlanCounterCalls === 0);
+}
+
+section("9b. Partial persistence repairs the current first plan");
+{
+  const w = world({ failSessionInsert: true });
+  const failed = await call(w);
+  t("session write failure is reported", failed.code === 500);
+  t("the plan row is retained without deleting real user data",
+    w.db.plans.length === 1 && w.db.sessions.length === 0);
+  w.db.failSessionInsert = false;
+  const retried = await call(w);
+  t("retry repairs the sole incomplete current plan",
+    retried.code === 200 && w.db.plans.length === 1 && w.db.sessions.length === 7);
+  t("partial persistence never consumes a lifetime counter",
+    w.db.initialPlanCounterCalls === 0);
 }
 
 /* ══════════════ 10–12. persistence, ownership ══════════════════════ */
@@ -365,6 +437,14 @@ section("14. Client surfaces the server's real message");
     /signIn:/.test(c) && /completeProfile:/.test(c) && /retry:/.test(c));
   t("messages are escaped before rendering", /escapeText\(message\)/.test(c));
   t("there is always a way back to the dashboard", /Back to Today/.test(c));
+  t("used free-plan state has the exact title and body",
+    /Your free training plan is already active\./.test(c) &&
+    /Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis\./.test(c));
+  t("used free-plan state offers both required actions",
+    /Upgrade to Athlevo Performance/.test(c) &&
+    /View My Current Plan/.test(c) &&
+    /AthlevoAccessGuard\.checkout\(\)/.test(c) &&
+    /AthlevoPlan\.enterTrain\(\)/.test(c));
 }
 
 section("Analytics/nonessential failures never block generation");

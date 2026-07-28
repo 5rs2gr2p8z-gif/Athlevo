@@ -312,11 +312,30 @@
             signal: controller.signal
           });
           const data = await res.json().catch(() => ({}));
+          const freePlanActive =
+            res.status === 402 &&
+            (
+              data.code === "FREE_PLAN_ACTIVE" ||
+              data.feature === "initial_plan" ||
+              data.feature === "additional_plan_generation"
+            );
           outcome = res.ok
             ? { ok: true, alreadyExists: data.alreadyExists === true }
-            : { ok: false, code: data.code || "PLAN_FAILED",
-                message: data.error, action: data.action || "retry" };
-          if (res.status === 402 && data.code === "FREE_LIMIT_REACHED") {
+            : {
+                ok: false,
+                code: freePlanActive ? "FREE_PLAN_ACTIVE" : (data.code || "PLAN_FAILED"),
+                title: freePlanActive
+                  ? "Your free training plan is already active."
+                  : data.title,
+                message: freePlanActive
+                  ? "Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis."
+                  : data.error,
+                action: data.action || "retry",
+                secondaryAction: freePlanActive
+                  ? "viewPlan"
+                  : data.secondary_action
+              };
+          if (freePlanActive) {
             try {
               if (window.AthlevoProductAnalytics) {
                 AthlevoProductAnalytics.trackAthlevoEvent("free_limit_reached", {
@@ -395,8 +414,14 @@
     const mount = document.getElementById("planGenBody");
     if (!mount) return;
 
-    const message = outcome.message ||
-      "We couldn't create your plan just now. Please try again.";
+    const freePlanActive = outcome.code === "FREE_PLAN_ACTIVE";
+    const title = freePlanActive
+      ? "Your free training plan is already active."
+      : (outcome.title || "That didn't finish.");
+    const message = freePlanActive
+      ? "Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis."
+      : (outcome.message ||
+        "We couldn't create your plan just now. Please try again.");
 
     const ACTIONS = {
       retry: { label: "Try again", onclick: "AthlevoPlan.build()" },
@@ -404,20 +429,23 @@
       signIn: { label: "Sign in", onclick: "AthlevoPlan.notNow()" },
       completeProfile: { label: "Complete my profile", onclick: "AthlevoPlan.start()" },
       upgrade: { label: "Upgrade to Athlevo Performance", onclick: "AthlevoAccessGuard.checkout()" },
-      viewPlan: { label: "View my plan", onclick: "AthlevoPlan.enterTrain()" }
+      viewPlan: { label: "View My Current Plan", onclick: "AthlevoPlan.enterTrain()" }
     };
     // A timeout may still be completing server-side; offer to look rather than
     // to regenerate, so the athlete never races their own in-flight request.
     if (outcome.code === "PLAN_TIMEOUT") outcome.action = "checkAgain";
     const primary = ACTIONS[outcome.action] || ACTIONS.retry;
+    const secondary = freePlanActive
+      ? ACTIONS.viewPlan
+      : { label: "Back to Today", onclick: "AthlevoPlan.notNow()" };
 
     mount.innerHTML = `
       <div class="pg-wrap">
         <div class="pg-check err">!</div>
-        <h2 class="pg-title serif">That didn't finish.</h2>
+        <h2 class="pg-title serif">${escapeText(title)}</h2>
         <p class="pg-sub">${escapeText(message)}</p>
         <button class="ps-build" type="button" onclick="${primary.onclick}">${escapeText(primary.label)}</button>
-        <button class="ps-later" type="button" onclick="AthlevoPlan.notNow()">Back to Today</button>
+        <button class="ps-later" type="button" onclick="${secondary.onclick}">${escapeText(secondary.label)}</button>
       </div>`;
   }
 
