@@ -2572,6 +2572,15 @@ body.landing-active #tabbar{display:none!important}
 .lp-card h3{font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:-.015em;margin:0 0 9px;color:var(--text)}
 .lp-card p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0}
 
+/* athlete results — approved coaching testimonials replace placeholders */
+.lp-athlete-results .lp-body{max-width:58ch}
+.lp-athlete-card{display:flex;flex-direction:column;min-height:240px}
+.lp-athlete-quote{font-family:var(--serif);font-size:clamp(18px,2.1vw,22px);line-height:1.45;letter-spacing:-.01em;color:var(--text);margin:0}
+.lp-athlete-meta{margin-top:auto;padding-top:22px;border-top:1px solid var(--line)}
+.lp-athlete-name{display:block;font-size:var(--fs-body);font-weight:700;color:var(--text)}
+.lp-athlete-context,.lp-athlete-result{display:block;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink3);margin-top:4px}
+.lp-athlete-result{color:var(--ink2)}
+
 /* coach insight mocks */
 .lp-mockrow{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:48px}
 .lp-mock{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5);box-shadow:var(--elev-3)}
@@ -2857,24 +2866,43 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </header>
 
-  <!-- 2. PROBLEM / POSITIONING -->
-  <section class="lp-section lp-alt">
+  <!-- 2. ATHLETE RESULTS -->
+  <section class="lp-section lp-alt lp-athlete-results">
     <div class="lp-wrap">
-      <h2 class="lp-h2 lp-reveal">Static plans cannot respond when real life changes.</h2>
-      <p class="lp-body lp-reveal">Missed sessions, poor sleep, soreness, schedule changes and unexpected races can make a fixed plan outdated. Athlevo keeps your training context connected so the next decision reflects what actually happened.</p>
-      <div class="lp-points lp-reveal">
-        <div class="lp-point">
-          <span class="lp-point-icon">→</span>
-          <div><b>Plans respond to completed and missed training</b><small>Your schedule reshapes based on what you actually did, not just what was planned.</small></div>
-        </div>
-        <div class="lp-point">
-          <span class="lp-point-icon">→</span>
-          <div><b>Daily readiness adds how the athlete actually feels</b><small>A quick check-in lets your coach adjust to soreness, fatigue and energy levels.</small></div>
-        </div>
-        <div class="lp-point">
-          <span class="lp-point-icon">→</span>
-          <div><b>Workout analysis informs what comes next</b><small>Each completed session is reviewed and shapes future training decisions.</small></div>
-        </div>
+      <span class="lp-kicker lp-reveal">ATHLETE RESULTS</span>
+      <h2 class="lp-h2 lp-reveal">Built from real coaching experience.</h2>
+      <p class="lp-body lp-reveal">Athlevo is shaped by the same personalized coaching principles used to guide real athletes toward stronger, more consistent performance.</p>
+      <div class="lp-grid lp-reveal">
+        <!-- TESTIMONIAL PLACEHOLDER 1:
+             Replace with athlete-approved wording, identity, context, and only verified results. -->
+        <article class="lp-card lp-athlete-card">
+          <blockquote class="lp-athlete-quote">Testimonial quote placeholder.</blockquote>
+          <footer class="lp-athlete-meta">
+            <strong class="lp-athlete-name">Athlete name placeholder</strong>
+            <span class="lp-athlete-context">Race goal, distance, or coaching program placeholder</span>
+            <small class="lp-athlete-result">Optional verified result placeholder</small>
+          </footer>
+        </article>
+        <!-- TESTIMONIAL PLACEHOLDER 2:
+             Replace with athlete-approved wording, identity, context, and only verified results. -->
+        <article class="lp-card lp-athlete-card">
+          <blockquote class="lp-athlete-quote">Testimonial quote placeholder.</blockquote>
+          <footer class="lp-athlete-meta">
+            <strong class="lp-athlete-name">Athlete name placeholder</strong>
+            <span class="lp-athlete-context">Race goal, distance, or coaching program placeholder</span>
+            <small class="lp-athlete-result">Optional verified result placeholder</small>
+          </footer>
+        </article>
+        <!-- TESTIMONIAL PLACEHOLDER 3:
+             Replace with athlete-approved wording, identity, context, and only verified results. -->
+        <article class="lp-card lp-athlete-card">
+          <blockquote class="lp-athlete-quote">Testimonial quote placeholder.</blockquote>
+          <footer class="lp-athlete-meta">
+            <strong class="lp-athlete-name">Athlete name placeholder</strong>
+            <span class="lp-athlete-context">Race goal, distance, or coaching program placeholder</span>
+            <small class="lp-athlete-result">Optional verified result placeholder</small>
+          </footer>
+        </article>
       </div>
     </div>
   </section>
