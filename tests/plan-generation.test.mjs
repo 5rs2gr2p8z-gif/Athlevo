@@ -70,6 +70,23 @@ const goodPlan = () => ({
   sessions: Array.from({ length: 7 }, (_, i) => session(i))
 });
 
+const currentPlanRow = (overrides = {}) => ({
+  id: "existing-plan",
+  user_id: "u1",
+  week_start: formatDateKey(WEEK_START),
+  week_end: formatDateKey(addDays(WEEK_START, 6)),
+  status: "active",
+  ...overrides
+});
+
+const savedSession = (planId = "existing-plan", index = 0, overrides = {}) => ({
+  id: `saved-session-${index}`,
+  user_id: "u1",
+  training_plan_id: planId,
+  session_date: formatDateKey(addDays(WEEK_START, index)),
+  ...overrides
+});
+
 /* ── Supabase + OpenAI doubles ───────────────────────────────────────── */
 
 function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
@@ -79,7 +96,7 @@ function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
   const db = {
     plans: [...preexistingPlans], sessions: [...preexistingSessions], aiCalls: 0,
     aiRateLimitCalls: 0, initialPlanCounterCalls: 0,
-    initialPlanCounterDeletes: 0,
+    initialPlanCounterDeletes: 0, planDeletes: 0, queryUrls: [],
     openAiStatus, failPlanInsert, failSessionInsert
   };
   const fetchFn = async (url, init = {}) => {
@@ -129,7 +146,16 @@ function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
         const r = { id: "plan" + (db.plans.length + 1), ...row };
         db.plans.push(r); return J(201, [r]);
       }
-      return J(200, db.plans);
+      if (m === "DELETE") {
+        db.planDeletes += 1;
+        return J(204, null);
+      }
+      db.queryUrls.push(u);
+      const userMatch = u.match(/user_id=eq\.([^&]+)/);
+      const scopedUser = userMatch ? decodeURIComponent(userMatch[1]) : null;
+      return J(200, db.plans.filter(row =>
+        !scopedUser || String(row?.user_id) === scopedUser
+      ));
     }
     if (u.includes("/rest/v1/training_sessions")) {
       if (m === "POST") {
@@ -138,11 +164,22 @@ function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
         const rows = Array.isArray(parsed) ? parsed : [parsed];
         rows.forEach(row => {
           const i = db.sessions.findIndex(x => x.user_id === row.user_id && x.session_date === row.session_date);
-          if (i >= 0) db.sessions[i] = { ...db.sessions[i], ...row }; else db.sessions.push(row);
+          if (i >= 0) db.sessions[i] = { ...db.sessions[i], ...row };
+          else db.sessions.push({ id: `session-${db.sessions.length + 1}`, ...row });
         });
         return J(201, rows);
       }
-      return J(200, db.sessions);
+      db.queryUrls.push(u);
+      const userMatch = u.match(/user_id=eq\.([^&]+)/);
+      const scopedUser = userMatch ? decodeURIComponent(userMatch[1]) : null;
+      const idsMatch = u.match(/training_plan_id=in\.\(([^)]*)\)/);
+      const planIds = idsMatch
+        ? new Set(idsMatch[1].split(",").map(decodeURIComponent))
+        : null;
+      return J(200, db.sessions.filter(row =>
+        (!scopedUser || String(row?.user_id) === scopedUser) &&
+        (!planIds || planIds.has(String(row?.training_plan_id)))
+      ));
     }
     return J(200, []);
   };
@@ -254,19 +291,14 @@ section("4b. Additional plans require verified payment");
     paid.db.aiCalls === 2 && paid.db.initialPlanCounterCalls === 0);
 }
 
-section("4c. An existing saved free plan requires an upgrade");
+section("4c. A usable saved free plan requires an upgrade");
 {
-  const previousWeek = formatDateKey(addDays(WEEK_START, -7));
   const free = world({
-    preexistingPlans: [{
-      id: "existing-plan",
-      user_id: "u1",
-      week_start: previousWeek,
-      status: "active"
-    }]
+    preexistingPlans: [currentPlanRow()],
+    preexistingSessions: [savedSession()]
   });
   const blocked = await call(free);
-  t("saved historical plan is treated as the used free plan",
+  t("active current plan with a saved session is treated as usable",
     blocked.code === 402 && blocked.body.code === "FREE_PLAN_ACTIVE");
   t("the blocked response carries the exact athlete-facing title",
     blocked.body.title === "Your free training plan is already active.");
@@ -274,6 +306,103 @@ section("4c. An existing saved free plan requires an upgrade");
     blocked.body.action === "upgrade" &&
     blocked.body.secondary_action === "viewPlan");
   t("existing-plan block happens before AI", free.db.aiCalls === 0);
+}
+
+section("4d. Only a valid usable current plan consumes the free plan");
+{
+  const noRow = world();
+  const noRowResult = await call(noRow);
+  t("case 1 — no plan row allows first generation",
+    noRowResult.code === 200 && noRow.db.plans.length === 1);
+
+  const empty = world({ preexistingPlans: [currentPlanRow()] });
+  const emptyResult = await call(empty);
+  t("case 2 — empty current plan row with no sessions is repaired",
+    emptyResult.code === 200 && empty.db.plans.length === 1 &&
+    empty.db.sessions.length === 7);
+
+  const failed = world({
+    preexistingPlans: [currentPlanRow({ status: "failed" })]
+  });
+  const failedResult = await call(failed);
+  t("case 3 — failed placeholder row does not block generation",
+    failedResult.code === 200 && failed.db.sessions.length === 7);
+
+  const usable = world({
+    preexistingPlans: [currentPlanRow()],
+    preexistingSessions: [savedSession()]
+  });
+  const usableResult = await call(usable);
+  t("case 4 — valid current plan with a saved session blocks another free plan",
+    usableResult.code === 402 &&
+    usableResult.body.code === "FREE_PLAN_ACTIVE" &&
+    usable.db.aiCalls === 0);
+
+  const paid = world({
+    preexistingPlans: [currentPlanRow()],
+    preexistingSessions: [savedSession()],
+    subscription: {
+      provider: "whop",
+      plan_id: "performance",
+      status: "active",
+      current_period_end: new Date(Date.now() + 86400000).toISOString()
+    }
+  });
+  const paidResult = await call(paid, { body: { regenerate: true } });
+  t("case 5 — paid user remains allowed",
+    paidResult.code === 200 && paid.db.aiCalls === 1);
+
+  const validRow = currentPlanRow();
+  const preserved = world({
+    preexistingPlans: [validRow],
+    preexistingSessions: [savedSession()]
+  });
+  await call(preserved);
+  t("case 6 — a valid existing plan is never deleted or replaced when blocked",
+    preserved.db.planDeletes === 0 &&
+    preserved.db.plans.length === 1 &&
+    preserved.db.plans[0] === validRow);
+
+  const otherUser = world({
+    preexistingPlans: [currentPlanRow({ id: "other-plan", user_id: "u2" })],
+    preexistingSessions: [
+      savedSession("other-plan", 0, { id: "other-session", user_id: "u2" })
+    ]
+  });
+  const scopedResult = await call(otherUser);
+  t("case 7 — another user's valid plan cannot consume this user's allowance",
+    scopedResult.code === 200 &&
+    otherUser.db.plans.some(row => row.user_id === "u1"));
+  t("case 7 — both eligibility lookups are scoped to the JWT user",
+    otherUser.db.queryUrls
+      .filter(url => /training_(plans|sessions)/.test(url))
+      .every(url => url.includes("user_id=eq.u1")));
+}
+
+section("4e. Invalid or stale rows do not create false positives");
+{
+  const stale = world({
+    preexistingPlans: [currentPlanRow({
+      week_start: formatDateKey(addDays(WEEK_START, -7)),
+      week_end: formatDateKey(addDays(WEEK_START, -1))
+    })],
+    preexistingSessions: [
+      savedSession("existing-plan", 0, {
+        session_date: formatDateKey(addDays(WEEK_START, -7))
+      })
+    ]
+  });
+  const staleResult = await call(stale);
+  t("an out-of-range plan with a session is not a usable current plan",
+    staleResult.code === 200 && stale.db.aiCalls === 1);
+
+  const malformed = world({
+    preexistingPlans: [currentPlanRow({ week_end: "not-a-date" })],
+    preexistingSessions: [savedSession()]
+  });
+  const malformedResult = await call(malformed);
+  t("a malformed plan range does not block a repair",
+    malformedResult.code === 200 && malformed.db.aiCalls === 1);
 }
 
 /* ══════════════ 5–9. failure handling ══════════════════════════════ */
@@ -444,7 +573,9 @@ section("14. Client surfaces the server's real message");
     /Upgrade to Athlevo Performance/.test(c) &&
     /View My Current Plan/.test(c) &&
     /AthlevoAccessGuard\.checkout\(\)/.test(c) &&
-    /AthlevoPlan\.enterTrain\(\)/.test(c));
+    /AthlevoPlan\.viewCurrentPlan\(\)/.test(c));
+  t("View My Current Plan revalidates before opening Train",
+    /async function viewCurrentPlan\(\)[\s\S]*await hasPlan\(\)[\s\S]*stored === true[\s\S]*enterTrain\(\)[\s\S]*await start\(\)/.test(c));
 }
 
 section("Analytics/nonessential failures never block generation");

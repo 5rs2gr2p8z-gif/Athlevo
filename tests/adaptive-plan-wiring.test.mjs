@@ -223,6 +223,34 @@ const call = async (token, body) => {
   return r;
 };
 
+const callGet = async token => {
+  const r = res();
+  await handler({ method: "GET", headers: { authorization: `Bearer ${token}` } }, r);
+  return r;
+};
+
+function currentManilaWeek() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+  const values = {};
+  parts.forEach(part => {
+    if (part.type !== "literal") values[part.type] = part.value;
+  });
+  const day = new Date(Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day)
+  ));
+  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
+  const start = day.toISOString().slice(0, 10);
+  day.setUTCDate(day.getUTCDate() + 6);
+  return { start, end: day.toISOString().slice(0, 10) };
+}
+
 // A world that yields a one-threshold-progression proposal for user A.
 function progressWorld(extra = {}) {
   const sessions = [
@@ -364,6 +392,103 @@ section("Handler: another athlete cannot read or modify this plan");
   t("free user B cannot apply against A's plan", applyB.code === 402, String(applyB.code));
   const su1 = db.training_sessions.find(s => s.id === "su1");
   t("A's future session is untouched by B", su1.duration_minutes === 24);
+}
+
+section("Handler GET: current-plan selection requires a usable session");
+{
+  const week = currentManilaWeek();
+  const baseTables = {
+    subscriptions: [],
+    activities: [],
+    workout_execution_records: [],
+    activity_data_overrides: [],
+    profiles: [],
+    coach_action_proposals: []
+  };
+
+  makeWorld({
+    users: { tokA: "A" },
+    tables: {
+      ...baseTables,
+      training_plans: [{
+        id: "empty-plan",
+        user_id: "A",
+        status: "active",
+        week_start: week.start,
+        week_end: week.end,
+        updated_at: new Date().toISOString()
+      }],
+      training_sessions: []
+    }
+  });
+  const empty = await callGet("tokA");
+  t("an active current placeholder with no sessions returns hasPlan:false",
+    empty.code === 200 &&
+    empty.body.hasPlan === false &&
+    empty.body.plan === null);
+
+  makeWorld({
+    users: { tokA: "A" },
+    tables: {
+      ...baseTables,
+      training_plans: [{
+        id: "usable-plan",
+        user_id: "A",
+        status: "active",
+        week_start: week.start,
+        week_end: week.end,
+        updated_at: new Date().toISOString()
+      }],
+      training_sessions: [{
+        id: "usable-session",
+        user_id: "A",
+        training_plan_id: "usable-plan",
+        session_date: week.start,
+        title: "Easy run",
+        session_type: "easy"
+      }]
+    }
+  });
+  const usable = await callGet("tokA");
+  t("an active current plan with an owned session returns hasPlan:true",
+    usable.code === 200 &&
+    usable.body.hasPlan === true &&
+    usable.body.sessions.length === 1);
+
+  makeWorld({
+    users: { tokA: "A" },
+    tables: {
+      ...baseTables,
+      training_plans: [{
+        id: "newer-empty-plan",
+        user_id: "A",
+        status: "active",
+        week_start: week.start,
+        week_end: week.end,
+        updated_at: "2099-01-02T00:00:00.000Z"
+      }, {
+        id: "older-usable-plan",
+        user_id: "A",
+        status: "active",
+        week_start: week.start,
+        week_end: week.end,
+        updated_at: "2099-01-01T00:00:00.000Z"
+      }],
+      training_sessions: [{
+        id: "older-usable-session",
+        user_id: "A",
+        training_plan_id: "older-usable-plan",
+        session_date: week.start,
+        title: "Easy run",
+        session_type: "easy"
+      }]
+    }
+  });
+  const afterPlaceholder = await callGet("tokA");
+  t("an empty newer placeholder cannot hide another usable current plan",
+    afterPlaceholder.code === 200 &&
+    afterPlaceholder.body.hasPlan === true &&
+    afterPlaceholder.body.plan.id === "older-usable-plan");
 }
 
 /* ══════ Tier C — the client card / modal / weekly review render ═══════ */

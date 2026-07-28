@@ -14,7 +14,8 @@ import {
 import { buildProposal } from "../../lib/server/adaptivePlanAdapter.js";
 import {
   accessResponse,
-  requirePaidAccess
+  requirePaidAccess,
+  usableTrainingPlanSessions
 } from "../../lib/server/freemium.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -191,25 +192,25 @@ function daysBetween(aKey, bKey) {
   return Math.round((b - a) / 86400000);
 }
 
-async function loadCurrentPlan(
+async function loadCurrentPlans(
   userId,
-  weekStart
+  weekStart,
+  weekEnd
 ) {
   const rows = await supabaseRequest(
     [
       "training_plans",
       `?user_id=eq.${encodeURIComponent(userId)}`,
-      `&week_start=eq.${weekStart}`,
-      "&status=eq.active",
+      `&week_start=lte.${encodeURIComponent(weekStart)}`,
+      `&week_end=gte.${encodeURIComponent(weekEnd)}`,
+      "&status=in.(active,current)",
       "&select=*",
       "&order=updated_at.desc",
-      "&limit=1"
+      "&limit=50"
     ].join("")
   );
 
-  return Array.isArray(rows)
-    ? rows[0] || null
-    : null;
+  return Array.isArray(rows) ? rows : [];
 }
 
 async function loadPlanSessions(
@@ -229,6 +230,25 @@ async function loadPlanSessions(
   return Array.isArray(rows)
     ? rows
     : [];
+}
+
+async function loadPlanSessionsForPlans(userId, trainingPlanIds) {
+  if (!Array.isArray(trainingPlanIds) || trainingPlanIds.length === 0) {
+    return [];
+  }
+  const rows = await supabaseRequest(
+    [
+      "training_sessions",
+      `?user_id=eq.${encodeURIComponent(userId)}`,
+      `&training_plan_id=in.(${trainingPlanIds
+        .map(id => encodeURIComponent(id))
+        .join(",")})`,
+      "&select=*",
+      "&order=session_date.asc",
+      "&limit=500"
+    ].join("")
+  );
+  return Array.isArray(rows) ? rows : [];
 }
 
 async function loadExecutionRecords(userId, sessionIds) {
@@ -373,7 +393,42 @@ async function handleGet(request, response, user) {
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
   const weekEndKey = toDateKey(weekEnd);
 
-  const plan = await loadCurrentPlan(user.id, weekStartKey);
+  const candidatePlans = await loadCurrentPlans(
+    user.id,
+    weekStartKey,
+    weekEndKey
+  );
+
+  if (candidatePlans.length === 0) {
+    return sendJson(response, 200, {
+      hasPlan: false,
+      weekStart: weekStartKey,
+      plan: null,
+      sessions: [],
+      executionRecords: []
+    });
+  }
+
+  const sessions = await loadPlanSessionsForPlans(
+    user.id,
+    candidatePlans.map(plan => plan?.id).filter(Boolean)
+  );
+  let plan = null;
+  let usableSessions = [];
+  for (const candidate of candidatePlans) {
+    const candidateSessions = usableTrainingPlanSessions({
+      plan: candidate,
+      sessions,
+      userId: user.id,
+      currentWeekStart: weekStartKey,
+      currentWeekEnd: weekEndKey
+    });
+    if (candidateSessions.length > 0) {
+      plan = candidate;
+      usableSessions = candidateSessions;
+      break;
+    }
+  }
 
   if (!plan) {
     return sendJson(response, 200, {
@@ -385,9 +440,7 @@ async function handleGet(request, response, user) {
     });
   }
 
-  const sessions = await loadPlanSessions(user.id, plan.id);
-
-  const sessionIds = sessions
+  const sessionIds = usableSessions
     .map(session => session?.id)
     .filter(Boolean);
 
@@ -397,7 +450,7 @@ async function handleGet(request, response, user) {
     loadActivityOverrides(user.id)
   ]);
 
-  const enriched = enrichSessions(sessions, records, activities);
+  const enriched = enrichSessions(usableSessions, records, activities);
 
   return sendJson(response, 200, {
     hasPlan: true,

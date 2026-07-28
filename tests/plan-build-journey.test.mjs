@@ -44,6 +44,7 @@ function world({ providerConnected = false, statusThrows = false,
   };
 
   const doc = {
+    querySelector: () => null,
     getElementById: (id) => {
       if (id === "pgSteps") return nodes.pgSteps || (nodes.pgSteps = {
         querySelectorAll: () => (nodes._steps || (nodes._steps =
@@ -263,6 +264,25 @@ section("3g. The loader does not fake completion before success");
   t("...and completed only when the plan is genuinely stored",
     /completeFinalStep\(\)/.test(planSetupSrc) &&
     planSetupSrc.indexOf("completeFinalStep();") > planSetupSrc.indexOf("if (outcome.ok)"));
+}
+
+section("3h. View My Current Plan never opens an empty calendar");
+{
+  const withPlan = world({ hasPlanValue: true });
+  const opened = await withPlan.plan.viewCurrentPlan();
+  t("a revalidated usable plan opens Train",
+    opened === true &&
+    withPlan.screens.some(screen => screen.id === "screen-train"));
+  t("the plan is revalidated before navigation",
+    withPlan.net.some(request => request.url.includes("get-week")));
+
+  const withoutPlan = world({ hasPlanValue: false });
+  const openedEmpty = await withoutPlan.plan.viewCurrentPlan();
+  t("no usable plan returns to Build My Plan",
+    openedEmpty === false &&
+    withoutPlan.screens.some(screen => screen.id === "screen-plansetup"));
+  t("no usable plan never opens the empty Train screen",
+    !withoutPlan.screens.some(screen => screen.id === "screen-train"));
 }
 
 console.log(`\n${p} passed, ${f} failed`);

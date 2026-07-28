@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
 import {
   accessResponse,
-  checkAccess
+  checkAccess,
+  isUsableTrainingPlan,
+  usableTrainingPlanSessions
 } from "../../lib/server/freemium.js";
 import { buildAthlevoMethodPrompt } from "../../lib/server/athlevoMethod.js";
 
@@ -1834,45 +1836,22 @@ const weekEnd =
       (request.body && (request.body.regenerate === true || request.body.regenerate === "true")) ||
       (request.query && (request.query.regenerate === "true" || request.query.regenerate === true));
 
-    let currentWeekSessionCount = 0;
     const weekStartKey = formatDateKey(weekStart);
-    if (!explicitRegenerate) {
-      const existingWeek = await supabaseRequest(
-        `training_sessions?user_id=eq.${encodeURIComponent(user.id)}` +
-          `&plan_week_start=eq.${encodeURIComponent(weekStartKey)}` +
-          "&select=id&limit=7"
-      );
-      currentWeekSessionCount = Array.isArray(existingWeek)
-        ? existingWeek.length
-        : 0;
-      if (currentWeekSessionCount >= 7) {
-        console.log(
-          JSON.stringify({
-            event: "plan_generation_duplicate_prevented",
-            correlationId: randomUUID(),
-            weekStart: weekStartKey
-          })
-        );
-        return response.status(200).json({
-          success: true,
-          alreadyExists: true,
-          weekStart: weekStartKey,
-          message: "A training plan already exists for this week."
-        });
-      }
-    }
+    const weekEndKey = formatDateKey(weekEnd);
 
     /*
-     * A saved training plan is the authoritative lifetime allowance record.
+     * A usable current training plan is the authoritative free allowance
+     * record. A row alone is not enough: failed writes can leave an inactive,
+     * malformed or sessionless placeholder that the Train screen cannot show.
      *
      * Do not reserve `free:initial_plan` before AI: a serverless timeout can
      * terminate the process before catch/finally runs, permanently consuming
      * the counter even though no plan exists. The unique
      * (user_id, week_start) upsert keeps duplicate requests idempotent.
      *
-     * A sole, incomplete current-week plan may be repaired after a partial DB
-     * failure. Any completed current plan or any historical plan counts as the
-     * athlete's free plan and requires Performance for another generation.
+     * Every lookup is scoped to the verified JWT user. Empty/failed rows remain
+     * in place and are repaired by the current-week upsert; valid rows are
+     * never deleted.
      */
     const access = await checkAccess(user.id);
     if (!access.ok) {
@@ -1881,33 +1860,68 @@ const weekEnd =
         feature: "initial_plan"
       }, user.id);
     }
-    if (!access.paid) {
-      const existingPlans = await supabaseRequest(
-        `training_plans?user_id=eq.${encodeURIComponent(user.id)}` +
-          "&select=id,week_start"
-      );
-      const plans = Array.isArray(existingPlans) ? existingPlans : [];
-      const currentWeekPlans = plans.filter(plan =>
-        String(plan?.week_start || "").slice(0, 10) === weekStartKey
-      );
-      const repairingIncompleteCurrentPlan =
-        !explicitRegenerate &&
-        plans.length === 1 &&
-        currentWeekPlans.length === 1 &&
-        currentWeekSessionCount < 7;
+    const existingPlans = await supabaseRequest(
+      `training_plans?user_id=eq.${encodeURIComponent(user.id)}` +
+        "&select=*"
+    );
+    const plans = Array.isArray(existingPlans) ? existingPlans : [];
+    const planIds = plans.map(plan => plan?.id).filter(Boolean);
+    const existingSessions = planIds.length > 0
+      ? await supabaseRequest(
+          `training_sessions?user_id=eq.${encodeURIComponent(user.id)}` +
+            `&training_plan_id=in.(${planIds
+              .map(id => encodeURIComponent(id))
+              .join(",")})` +
+            "&select=id,user_id,training_plan_id,session_date&limit=500"
+        )
+      : [];
+    const sessions = Array.isArray(existingSessions)
+      ? existingSessions
+      : [];
+    const usablePlan = plans.find(plan => isUsableTrainingPlan({
+      plan,
+      sessions,
+      userId: user.id,
+      currentWeekStart: weekStartKey,
+      currentWeekEnd: weekEndKey
+    })) || null;
+    const usableSessions = usablePlan
+      ? usableTrainingPlanSessions({
+          plan: usablePlan,
+          sessions,
+          userId: user.id,
+          currentWeekStart: weekStartKey,
+          currentWeekEnd: weekEndKey
+        })
+      : [];
 
-      if (plans.length > 0 && !repairingIncompleteCurrentPlan) {
-        return accessResponse(response, {
-          allowed: false,
-          feature: "additional_plan_generation",
-          code: "FREE_PLAN_ACTIVE",
-          title: "Your free training plan is already active.",
-          error: "Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis.",
-          action: "upgrade",
-          secondaryAction: "viewPlan",
-          period: "lifetime"
-        }, user.id);
-      }
+    if (!explicitRegenerate && usableSessions.length >= 7) {
+      console.log(
+        JSON.stringify({
+          event: "plan_generation_duplicate_prevented",
+          correlationId: randomUUID(),
+          weekStart: weekStartKey
+        })
+      );
+      return response.status(200).json({
+        success: true,
+        alreadyExists: true,
+        weekStart: weekStartKey,
+        message: "A training plan already exists for this week."
+      });
+    }
+
+    if (!access.paid && usablePlan) {
+      return accessResponse(response, {
+        allowed: false,
+        feature: "additional_plan_generation",
+        code: "FREE_PLAN_ACTIVE",
+        title: "Your free training plan is already active.",
+        error: "Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis.",
+        action: "upgrade",
+        secondaryAction: "viewPlan",
+        period: "lifetime"
+      }, user.id);
     }
 
     const targetRace =

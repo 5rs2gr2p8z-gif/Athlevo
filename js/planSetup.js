@@ -429,7 +429,7 @@
       signIn: { label: "Sign in", onclick: "AthlevoPlan.notNow()" },
       completeProfile: { label: "Complete my profile", onclick: "AthlevoPlan.start()" },
       upgrade: { label: "Upgrade to Athlevo Performance", onclick: "AthlevoAccessGuard.checkout()" },
-      viewPlan: { label: "View My Current Plan", onclick: "AthlevoPlan.enterTrain()" }
+      viewPlan: { label: "View My Current Plan", onclick: "AthlevoPlan.viewCurrentPlan()" }
     };
     // A timeout may still be completing server-side; offer to look rather than
     // to regenerate, so the athlete never races their own in-flight request.
@@ -461,6 +461,16 @@
     if (btn && typeof go === "function") { go(btn); return; }
     if (typeof showScreen === "function") showScreen("screen-train");
     if (typeof window.loadWeeklyPlan === "function") window.loadWeeklyPlan();
+  }
+
+  async function viewCurrentPlan() {
+    const stored = await hasPlan();
+    if (stored === true) {
+      enterTrain();
+      return true;
+    }
+    await start();
+    return false;
   }
 
   /* ───────────── auto-detection + Today CTA (discovery) ───────────────── */
@@ -606,6 +616,7 @@
   // .canUse, .entitlement) remain available alongside plan-building methods.
   Object.assign(window.AthlevoPlan || (window.AthlevoPlan = {}), {
     hasPlan, start, build, autoBuildFirstPlan, autoFirstPlanEnabled, notNow, enterTrain,
+    viewCurrentPlan,
     maybeLaunchAfterOnboarding, refreshTodayCta, renderTodayCta, connectTrainingData, recheckPlan,
     VERSION: "plan-setup-v1"
   });
