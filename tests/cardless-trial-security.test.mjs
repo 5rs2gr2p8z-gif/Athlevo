@@ -36,6 +36,8 @@ const entitlementSrc    = readFileSync("./api/trial/entitlement.js", "utf8");
 const coachSrc          = readFileSync("./api/coach.js", "utf8");
 const generatePlanSrc   = readFileSync("./api/training/generate-plan.js", "utf8");
 const weeklyAnalysisSrc = readFileSync("./api/training/weekly-analysis.js", "utf8");
+const dailyBriefSrc      = readFileSync("./api/daily-brief.js", "utf8");
+const getWeekSrc         = readFileSync("./api/training/get-week.js", "utf8");
 const trialLimitsSrc    = readFileSync("./lib/server/trialLimits.js", "utf8");
 const subscriptionsSrc  = readFileSync("./lib/server/subscriptions.js", "utf8");
 const migrationSrc      = readFileSync("./migrations/2026-07-27_cardless_trial.sql", "utf8");
@@ -103,6 +105,13 @@ t("Database RPC returns existing trial info on replay (not a new trial)",
 
 t("API returns created=false for idempotent replay",
   trialStartSrc.includes("created: result.created"));
+
+t("Server emits trial_started only when created is exactly true",
+  trialStartSrc.includes("result && result.created === true"));
+
+t("Onboarding replay continues without emitting trial_started",
+  onboardingSrc.includes("showTrialConfirmation(trialResult.created === true)") &&
+  onboardingSrc.includes("if (isNewTrial)"));
 
 t("Onboarding calls startCardlessTrial (which calls the idempotent API)",
   onboardingSrc.includes("startCardlessTrial") ||
@@ -177,6 +186,16 @@ t("Weekly analysis endpoint imports and calls checkTrialLimit",
   weeklyAnalysisSrc.includes("checkTrialLimit") &&
   weeklyAnalysisSrc.includes("trialLimitResponse"));
 
+t("Daily Brief derives identity from verified JWT and enforces daily_brief",
+  dailyBriefSrc.includes("getAuthenticatedUser(accessToken)") &&
+  dailyBriefSrc.includes('checkTrialLimit(user.id, "daily_brief")') &&
+  !dailyBriefSrc.includes("req.body.user_id"));
+
+t("Confirmed Coach action enforces plan_adjustment before its first write",
+  getWeekSrc.includes('checkTrialLimit(user.id, "plan_adjustment")') &&
+  getWeekSrc.indexOf('checkTrialLimit(user.id, "plan_adjustment")') <
+    getWeekSrc.indexOf('"coach_action_proposals?on_conflict=id"'));
+
 t("trialLimits.js blocks expired trial users",
   trialLimitsSrc.includes("isExpired") &&
   trialLimitsSrc.includes("allowed: false"));
@@ -186,6 +205,10 @@ t("Trial limit response returns 402 status",
 
 t("Trial limit response includes trial_limit_reached flag",
   trialLimitsSrc.includes("trial_limit_reached: true"));
+
+t("Explicit trial limits include one Daily Brief per day and one lifetime adjustment",
+  TRIAL_LIMITS.daily_brief === 1 &&
+  TRIAL_LIMITS.plan_adjustment === 1);
 
 
 /* ══════════════════════════════════════════════════════════════════════

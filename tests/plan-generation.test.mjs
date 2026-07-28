@@ -87,6 +87,15 @@ function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
       if (openAiStatus !== 200) return J(openAiStatus, { error: { message: "upstream" } });
       return J(200, { output_text: openAiText !== null ? openAiText : JSON.stringify(plan) });
     }
+    if (u.includes("/rest/v1/subscriptions")) {
+      return J(200, [{
+        user_id: "u1",
+        provider: "whop",
+        status: "active",
+        plan_id: "performance",
+        current_period_end: new Date(Date.now() + 30 * 86400000).toISOString()
+      }]);
+    }
     if (u.includes("/rest/v1/profiles")) return J(200, profile ? [profile] : []);
     if (u.includes("/rest/v1/activities")) return J(200, activities);
     if (u.includes("/rest/v1/training_plans")) {

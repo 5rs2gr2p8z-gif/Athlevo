@@ -27,7 +27,7 @@ function makeAnalytics(opts = {}) {
     console: { log() {}, warn() {}, error() {}, debug() {} },
     navigator: { userAgent: opts.userAgent || "Mozilla/5.0 (Macintosh)" },
     localStorage: (() => {
-      const store = {};
+      const store = opts.localStore || {};
       return {
         getItem: k => store[k] || null,
         setItem: (k, v) => { store[k] = String(v); },
@@ -110,7 +110,7 @@ const EXPECTED_EVENTS = [
   "onboarding_completed", "data_connection_started",
   "data_connection_completed", "plan_generated", "checkout_opened",
   "trial_started", "readiness_check_completed", "coach_message_sent",
-  "app_returned"
+  "app_returned", "trial_expired"
 ];
 
 EXPECTED_EVENTS.forEach(name => {
@@ -137,6 +137,56 @@ t("different events each fire once", (() => {
   api.trackAthlevoEvent("landing_viewed");
   api.trackAthlevoEvent("trial_cta_clicked");
   return captured.length === 2;
+})());
+
+t("created:true trial_started emission path fires once", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("trial_started", { source: "onboarding" });
+  api.trackAthlevoEvent("trial_started", { source: "onboarding" });
+  return captured.filter(event => event.name === "trial_started").length === 1;
+})());
+
+t("repeated expired-banner renders persistently emit one trial_expired", (() => {
+  const localStore = {};
+  const trialEnd = "2026-07-27T10:00:00.000Z";
+
+  function renderFromFreshLoad() {
+    const analytics = makeAnalytics({
+      key: "phc_test",
+      localStore
+    });
+    const element = {
+      innerHTML: "",
+      style: {}
+    };
+    analytics.win.document.getElementById = id =>
+      id === "trialBanner" ? element : null;
+    analytics.win.AthlevoPlan = {
+      accessState: () => ({
+        access_state: "expired_limited",
+        trial_ends_at: trialEnd
+      })
+    };
+    const bannerCode = readFileSync("./js/trialBanner.js", "utf8");
+    new Function(
+      "window",
+      "document",
+      "AthlevoProductAnalytics",
+      bannerCode
+    )(
+      analytics.win,
+      analytics.win.document,
+      analytics.api
+    );
+    analytics.win.AthlevoTrialBanner.render();
+    analytics.win.AthlevoTrialBanner.render();
+    return analytics.captured;
+  }
+
+  const firstLoad = renderFromFreshLoad();
+  const secondLoad = renderFromFreshLoad();
+  return firstLoad.filter(event => event.name === "trial_expired").length === 1 &&
+    secondLoad.filter(event => event.name === "trial_expired").length === 0;
 })());
 
 t("reset clears dedup state so events can fire again", (() => {

@@ -756,10 +756,9 @@ The athlete data may include todayReadiness: the athlete's own report of today's
   const data = await response.json();
 
   if (!response.ok) {
-    console.error(
-      "Daily briefing OpenAI error:",
-      data
-    );
+    // Log only operational metadata. Never log provider payloads because they
+    // can echo request details containing athlete health or workout data.
+    console.error("Daily briefing AI request failed:", response.status);
 
     throw new Error(
       data?.error?.message ||
@@ -1019,15 +1018,12 @@ export default async function handler(req, res) {
       cached: false
     });
   } catch (error) {
-    console.error(
-      "Daily briefing API error:",
-      error
-    );
+    // Keep logs content-free: no request body, generated brief, token, health,
+    // workout, or provider response data.
+    console.error("Daily briefing API request failed.");
 
     return sendJson(res, 500, {
-      error:
-        error.message ||
-        "Could not create the daily briefing."
+      error: "Could not create the daily briefing. Please try again."
     });
   }
 }

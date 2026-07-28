@@ -49,7 +49,7 @@
     trial_started:                 { kind: "milestone",   props: ["source"] },
     trial_limit_reached:           { kind: "behavioural", props: ["usage_type", "source"] },
     trial_expiring_viewed:         { kind: "behavioural", props: [] },
-    trial_expired:                 { kind: "behavioural", props: ["source"] },
+    trial_expired:                 { kind: "milestone",   props: ["source"] },
     upgrade_clicked:               { kind: "behavioural", props: ["source"] },
     checkout_opened:               { kind: "behavioural", props: ["source"] },
     paid_subscription_activated:   { kind: "milestone",   props: ["provider_type"] }

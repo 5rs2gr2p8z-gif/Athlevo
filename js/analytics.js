@@ -134,6 +134,7 @@
   /* ═══════════════════════ deduplication ═══════════════════════════ */
 
   var _fired = {};    // { eventName: true } — once per page load
+  var PERSISTENT_ONCE_PREFIX = "athlevo_analytics_once:";
 
   /* ═══════════════════ app_returned logic ══════════════════════════ */
 
@@ -176,6 +177,26 @@
     } catch (e) { /* silent */ }
   }
 
+  /*
+   * Persistently deduplicate a non-sensitive lifecycle occurrence across
+   * reloads and route renders. occurrenceKey must be an opaque lifecycle
+   * value such as trial_end — never identity, health, workout, or message
+   * data.
+   */
+  function trackAthlevoEventOnce(name, occurrenceKey, properties) {
+    try {
+      if (!name || !occurrenceKey) return;
+      var storageKey =
+        PERSISTENT_ONCE_PREFIX + String(name) + ":" + String(occurrenceKey);
+      if (localStorage.getItem(storageKey) === "1") return;
+      trackAthlevoEvent(name, properties);
+      localStorage.setItem(storageKey, "1");
+    } catch (e) {
+      // Storage may be unavailable; retain the page-load dedup fallback.
+      trackAthlevoEvent(name, properties);
+    }
+  }
+
   function identifyAthlete(user) {
     try {
       if (!user || !user.id) return;
@@ -205,6 +226,7 @@
 
   root.AthlevoProductAnalytics = {
     trackAthlevoEvent: trackAthlevoEvent,
+    trackAthlevoEventOnce: trackAthlevoEventOnce,
     identifyAthlete: identifyAthlete,
     resetAthleteAnalytics: resetAthleteAnalytics,
     checkAppReturned: checkAppReturned,

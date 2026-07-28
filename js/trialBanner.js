@@ -16,9 +16,6 @@
 (function () {
   "use strict";
 
-  // Per-session dedup for trial_expired — fire once per app session, not per render.
-  var _expiredFired = false;
-
   function esc(v) {
     return String(v == null ? "" : v)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -84,7 +81,19 @@
         </div>`;
       el.style.display = "block";
 
-      try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('trial_expired'); } catch (e) {}
+      try {
+        if (
+          window.AthlevoProductAnalytics &&
+          typeof AthlevoProductAnalytics.trackAthlevoEventOnce === "function" &&
+          state.trial_ends_at
+        ) {
+          AthlevoProductAnalytics.trackAthlevoEventOnce(
+            "trial_expired",
+            state.trial_ends_at,
+            { source: "trial_banner" }
+          );
+        }
+      } catch (e) {}
       return;
     }
 

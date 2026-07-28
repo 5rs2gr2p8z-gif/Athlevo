@@ -241,7 +241,24 @@ function progressWorld(extra = {}) {
     tables: {
       training_plans: [{ id: "P", user_id: "A", status: "active", week_start: ago(2), updated_at: NOW }],
       training_sessions: sessions, activities, workout_execution_records: executions,
-      profiles: [{ id: "A", race_date: null }], coach_action_proposals: []
+      profiles: [{ id: "A", race_date: null }],
+      subscriptions: [
+        {
+          user_id: "A",
+          provider: "whop",
+          status: "active",
+          plan_id: "performance",
+          current_period_end: new Date(Date.now() + 30 * 86400000).toISOString()
+        },
+        {
+          user_id: "B",
+          provider: "whop",
+          status: "active",
+          plan_id: "performance",
+          current_period_end: new Date(Date.now() + 30 * 86400000).toISOString()
+        }
+      ],
+      coach_action_proposals: []
     }
   };
 }

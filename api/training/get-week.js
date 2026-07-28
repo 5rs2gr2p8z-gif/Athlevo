@@ -430,12 +430,6 @@ async function handleApplyAction(response, user, body) {
     }
   }
 
-  // Trial usage limit — 1 plan adjustment per trial (fails closed, bypassed for paid).
-  const trialCheck = await checkTrialLimit(user.id, "plan_adjustment");
-  if (!trialCheck.allowed) {
-    return trialLimitResponse(response, { ...trialCheck, usage_type: "plan_adjustment" });
-  }
-
   const { action, error } = validateActionForApply(proposal);
 
   if (error) {
@@ -501,6 +495,18 @@ async function handleApplyAction(response, user, body) {
         targetActivity.sport_type || targetActivity.activity_type || null
     };
     correctedValues = action.corrected_values;
+  }
+
+  // Consume the one-per-trial adjustment only after the athlete has confirmed
+  // a valid proposal and all target ownership/conflict checks have passed.
+  // The atomic RPC is the final gate before the first database write, so
+  // concurrent Apply requests cannot both pass.
+  const trialCheck = await checkTrialLimit(user.id, "plan_adjustment");
+  if (!trialCheck.allowed) {
+    return trialLimitResponse(response, {
+      ...trialCheck,
+      usage_type: "plan_adjustment"
+    });
   }
 
   // 1) Write the proposal FIRST. It is the audit row AND the foreign-key
