@@ -185,7 +185,7 @@ section("1c. Preview handles minimal profile gracefully");
 
 /* ══════════ 2 — paywall gating ════════════════════════════════════ */
 
-section("2. Free users see the paywall after onboarding");
+section("2. Legacy no-entitlement plan launcher still shows the paywall");
 {
   const w = world({ subscriptionRow: null, profile: { name: "Dean", goal: "10K", experience: "intermediate" } });
   await w.plan.maybeLaunchAfterOnboarding();

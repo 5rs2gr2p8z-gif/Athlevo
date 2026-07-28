@@ -76,7 +76,6 @@
         <div class="ag-cta-badge">Athlevo Performance</div>
         <p class="ag-cta-text">Start your 3-day free trial to unlock full coaching, adaptive training plans, and trends analysis.</p>
         <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.startTrial()">Start Free Trial</button>
-        <p class="ag-cta-sub">3 days free. No card required.</p>
       </div>`;
   }
 

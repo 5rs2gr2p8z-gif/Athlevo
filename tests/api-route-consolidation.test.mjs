@@ -94,6 +94,7 @@ section("Consolidated GET/POST /api/trial");
   const requests = [];
   let startCalls = 0;
   let analyticsCalls = 0;
+  let rpcMode = "normal";
   const trialEnd = new Date(Date.now() + 2 * 86400000).toISOString();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -135,6 +136,17 @@ section("Consolidated GET/POST /api/trial");
 
     if (url.includes("/rest/v1/rpc/start_cardless_trial")) {
       startCalls += 1;
+      if (rpcMode === "failure") {
+        return httpResponse(500, { code: "42501", message: "rpc failed" });
+      }
+      if (rpcMode === "paid") {
+        return httpResponse(200, {
+          created: false,
+          reason: "already_paid",
+          status: "active",
+          plan_id: "performance"
+        });
+      }
       return httpResponse(200, startCalls === 1
         ? {
             created: true,
@@ -144,7 +156,7 @@ section("Consolidated GET/POST /api/trial");
           }
         : {
             created: false,
-            reason: "already_started",
+            reason: "trial_already_exists",
             status: "trialing",
             trial_end: trialEnd,
             plan_id: "performance"
@@ -191,11 +203,37 @@ section("Consolidated GET/POST /api/trial");
     secondStart.body.created === false &&
     secondStart.body.access_state === "trial_active");
 
+  rpcMode = "failure";
+  const failedStart = apiResponse();
+  await trialHandler({
+    method: "POST",
+    headers: { authorization: "Bearer verified-token" }
+  }, failedStart);
+  test("POST exposes a stable retryable failure without database details",
+    failedStart.code === 503 &&
+    JSON.stringify(failedStart.body) === JSON.stringify({
+      ok: false,
+      code: "TRIAL_START_FAILED",
+      error: "We couldn't start your trial. Please try again."
+    }));
+
+  rpcMode = "paid";
+  const paidStart = apiResponse();
+  await trialHandler({
+    method: "POST",
+    headers: { authorization: "Bearer verified-token" }
+  }, paidStart);
+  test("POST preserves paid users without creating a cardless trial",
+    paidStart.code === 200 &&
+    paidStart.body.ok === true &&
+    paidStart.body.created === false &&
+    paidStart.body.access_state === "paid_active");
+
   const rpcRequests = requests.filter(request =>
     request.url.includes("/rest/v1/rpc/start_cardless_trial")
   );
   test("trial RPC identity comes from the verified JWT",
-    rpcRequests.length === 2 &&
+    rpcRequests.length === 4 &&
     rpcRequests.every(request =>
       JSON.parse(request.init.body).p_user_id === "verified-user"
     ));

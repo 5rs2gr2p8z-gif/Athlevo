@@ -222,8 +222,8 @@ section("Routing — derived from the real index.html + onboarding.js");
 
   t("NEW Google user → profile onboarding (no profile row yet)",
     /if \(!completed\)\s*\{\s*startOnboarding\(\);\s*return;\s*\}/.test(route));
-  t("...then paywall/plan setup (wearable connection is optional, post-trial)",
-    /AthlevoPlan[\s\S]{0,120}maybeLaunchAfterOnboarding/.test(ob));
+  t("...then starts the server cardless trial before app entry",
+    /AthlevoPlan[\s\S]{0,120}startCardlessTrial/.test(ob));
   t("EXISTING Google user with a complete profile → dashboard",
     /showScreen\("screen-today"\)/.test(route));
   t("routing runs from ONE place (session restore), not per-provider",
@@ -254,8 +254,8 @@ section("Email/password login is untouched");
     /startOnboarding\(\);/.test(html) && /routeAfterAuth\(/.test(html));
   t("signup_completed tracking intact",
     (html.match(/trackFunnel\("signup_completed"\)/g) || []).length === 2);
-  t("signup helper explains the post-trial payment requirement",
-    /<p class="w-help"[^>]*>3-day trial\. Payment required after trial to continue\.<\/p>/.test(html));
+  t("retired trial helper copy is absent from signup",
+    !/3-day trial\. Payment required after trial to continue\./.test(html));
 }
 
 section("Security");

@@ -918,9 +918,6 @@ async function obWriteOnboardingRace() {
 }
 
 async function obFinish() {
-  const tabbar = document.getElementById("tabbar");
-  if (tabbar) tabbar.style.display = "flex";
-
   // Persist the optional recent race BEFORE refreshing, so the Athlevo
   // Score card reflects it immediately.
   await obWriteOnboardingRace();
@@ -942,23 +939,69 @@ async function obFinish() {
    *
    * Already-paid or already-trialing users skip trial creation and proceed.
    */
+  await obStartCardlessTrial();
+}
+
+async function obStartCardlessTrial() {
+  let trialResult = null;
   try {
     if (window.AthlevoPlan && typeof window.AthlevoPlan.startCardlessTrial === "function") {
-      const trialResult = await window.AthlevoPlan.startCardlessTrial();
-      if (trialResult && trialResult.ok) {
-        // Show trial confirmation (only fire analytics if this is the first creation)
-        showTrialConfirmation(trialResult.created === true);
-        return;
-      }
+      trialResult = await window.AthlevoPlan.startCardlessTrial();
     }
-  } catch (e) { console.warn("Trial start failed:", e); }
-
-  // Fallback: proceed to plan setup or Today
-  if (window.AthlevoPlan && typeof window.AthlevoPlan.maybeLaunchAfterOnboarding === "function") {
-    try { await window.AthlevoPlan.maybeLaunchAfterOnboarding(); return; }
-    catch (e) { console.warn("Plan setup launch failed:", e); }
+  } catch (e) {
+    trialResult = {
+      ok: false,
+      error: "We couldn't start your trial. Please try again."
+    };
   }
-  showScreen("screen-today");
+
+  if (trialResult && trialResult.ok === true) {
+    // Existing paid athletes keep their normal post-onboarding plan route.
+    if (trialResult.access_state === "paid_active") {
+      const tabbar = document.getElementById("tabbar");
+      if (tabbar) tabbar.style.display = "flex";
+      if (window.AthlevoPlan && typeof window.AthlevoPlan.maybeLaunchAfterOnboarding === "function") {
+        await window.AthlevoPlan.maybeLaunchAfterOnboarding();
+      } else {
+        showScreen("screen-today");
+      }
+      return;
+    }
+
+    // Show trial confirmation (only fire analytics if this is the first creation).
+    showTrialConfirmation(trialResult.created === true);
+    return;
+  }
+
+  // Never route a failed trial start into the Whop paywall. Keep the athlete
+  // in onboarding with a clear, repeatable retry action.
+  showTrialStartError(trialResult);
+}
+
+function showTrialStartError(result) {
+  const body = document.getElementById("ob2Body");
+  if (!body) return;
+  const tabbar = document.getElementById("tabbar");
+  if (tabbar) tabbar.style.display = "none";
+
+  const message = result && result.error
+    ? result.error
+    : "We couldn't start your trial. Please try again.";
+
+  body.innerHTML = `
+    <div class="ob2-step" style="text-align:center;padding-top:60px">
+      <div style="font-size:48px;margin-bottom:16px">!</div>
+      <h2 class="ob2-title" style="font-size:22px;margin-bottom:8px">Your trial didn't start.</h2>
+      <p class="ob2-sub" style="max-width:340px;margin:0 auto 28px">${obEscape(message)}</p>
+      <button class="ob2-continue done" id="obTrialRetry" type="button" style="max-width:320px;margin:0 auto">Try again</button>
+    </div>`;
+
+  const retry = document.getElementById("obTrialRetry");
+  if (retry) retry.addEventListener("click", async () => {
+    retry.disabled = true;
+    retry.textContent = "Starting trial...";
+    await obStartCardlessTrial();
+  });
 }
 
 /*
@@ -967,7 +1010,12 @@ async function obFinish() {
  */
 function showTrialConfirmation(isNewTrial) {
   const body = document.getElementById("ob2Body");
-  if (!body) { showScreen("screen-today"); return; }
+  if (!body) {
+    const tabbar = document.getElementById("tabbar");
+    if (tabbar) tabbar.style.display = "flex";
+    showScreen("screen-today");
+    return;
+  }
 
   // Hide onboarding chrome
   const top = document.querySelector(".ob2-top");

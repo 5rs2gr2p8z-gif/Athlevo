@@ -266,12 +266,20 @@ async function loadServerEntitlement() {
 
 /*
  * Start the cardless trial via the server endpoint.
- * Returns the server response or null on error.
+ * Returns a structured result for both success and failure so onboarding can
+ * stop safely instead of treating a failed request as a reason to show Whop.
  */
 async function startCardlessTrial() {
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session || !session.access_token) return null;
+    if (!session || !session.access_token) {
+      return {
+        ok: false,
+        status: 401,
+        code: "AUTH_REQUIRED",
+        error: "Your session expired. Please sign in again and retry."
+      };
+    }
     const res = await fetch("/api/trial", {
       method: "POST",
       headers: {
@@ -279,15 +287,36 @@ async function startCardlessTrial() {
         "Content-Type": "application/json"
       }
     });
-    if (!res.ok) return null;
-    const result = await res.json();
+    let result = null;
+    try { result = await res.json(); } catch (e) { /* handled below */ }
+    if (!res.ok || !result || result.ok !== true) {
+      return {
+        ok: false,
+        status: res.status,
+        code: (result && result.code) || "TRIAL_START_FAILED",
+        error: (result && result.error) ||
+          "We couldn't start your trial. Please try again."
+      };
+    }
+    // Seed the authoritative cache immediately. A successful POST must not
+    // become a paywall merely because the follow-up refresh is slow or fails.
+    serverEntitlement = {
+      access_state: result.access_state,
+      plan_id: result.plan_id || null,
+      trial_ends_at: result.trial_ends_at || null,
+      is_cardless_trial: result.access_state === "trial_active"
+    };
     // Refresh both caches after trial start
     await loadSubscription();
     await loadServerEntitlement();
-    return result;
+    return Object.assign({ status: res.status }, result);
   } catch (e) {
-    console.warn("Trial start failed:", e);
-    return null;
+    return {
+      ok: false,
+      status: 0,
+      code: "TRIAL_START_UNREACHABLE",
+      error: "We couldn't reach the trial service. Check your connection and try again."
+    };
   }
 }
 

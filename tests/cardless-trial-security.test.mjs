@@ -119,6 +119,32 @@ t("Onboarding calls startCardlessTrial (which calls the idempotent API)",
   onboardingSrc.includes("startCardlessTrial") ||
   onboardingSrc.includes("AthlevoPlan.startCardlessTrial"));
 
+t("Failed onboarding trial start shows retry instead of launching a paywall",
+  onboardingSrc.includes("showTrialStartError(trialResult)") &&
+  onboardingSrc.includes('id="obTrialRetry"') &&
+  !onboardingSrc.slice(
+    onboardingSrc.indexOf("async function obFinish"),
+    onboardingSrc.indexOf("function showTrialConfirmation")
+  ).includes("AthlevoPaywall"));
+
+t("Only the explicitly paid path may use the legacy post-onboarding launcher",
+  (() => {
+    const flow = onboardingSrc.slice(
+      onboardingSrc.indexOf("async function obStartCardlessTrial"),
+      onboardingSrc.indexOf("function showTrialStartError")
+    );
+    return flow.indexOf('trialResult.access_state === "paid_active"') <
+      flow.indexOf("maybeLaunchAfterOnboarding");
+  })());
+
+t("Successful POST seeds entitlement before refresh can fall back to paywall",
+  featuresSrc.indexOf("serverEntitlement = {") <
+    featuresSrc.indexOf("await loadSubscription()", featuresSrc.indexOf("async function startCardlessTrial")));
+
+t("Client preserves the exact trial API status and public error",
+  featuresSrc.includes("status: res.status") &&
+  featuresSrc.includes("(result && result.error)"));
+
 
 /* ══════════════════════════════════════════════════════════════════════
  * 3. Browser time does not extend server-controlled access

@@ -124,10 +124,43 @@ async function handleStart(req, res, user) {
     if (!rpcRes.ok) {
       const text = await rpcRes.text();
       console.error("[trial/start] RPC failed:", rpcRes.status, text);
-      return send(res, 500, { error: "Could not start trial." });
+      return send(res, 503, {
+        ok: false,
+        code: "TRIAL_START_FAILED",
+        error: "We couldn't start your trial. Please try again."
+      });
     }
 
     const result = await rpcRes.json();
+    if (!result || typeof result !== "object") {
+      console.error("[trial/start] RPC returned an invalid response.");
+      return send(res, 503, {
+        ok: false,
+        code: "TRIAL_START_FAILED",
+        error: "We couldn't start your trial. Please try again."
+      });
+    }
+
+    const trialEnd = result.trial_end
+      ? new Date(result.trial_end).getTime()
+      : null;
+    const hasActiveTrial =
+      result.created === true ||
+      (
+        result.reason === "trial_already_exists" &&
+        result.status === "trialing" &&
+        Number.isFinite(trialEnd) &&
+        trialEnd > Date.now()
+      );
+    const alreadyPaid = result.reason === "already_paid";
+
+    if (!hasActiveTrial && !alreadyPaid) {
+      return send(res, 409, {
+        ok: false,
+        code: "TRIAL_UNAVAILABLE",
+        error: "This account isn't eligible for another free trial."
+      });
+    }
 
     // Server event is authoritative and only fires for a newly created trial.
     if (result && result.created === true) {
@@ -160,11 +193,7 @@ async function handleStart(req, res, user) {
       ok: true,
       created: result.created === true,
       reason: result.reason || null,
-      access_state: result.created
-        ? "trial_active"
-        : result.status === "trialing"
-        ? "trial_active"
-        : "existing",
+      access_state: alreadyPaid ? "paid_active" : "trial_active",
       trial_ends_at: result.trial_end || null,
       plan_id: result.plan_id || null
     });

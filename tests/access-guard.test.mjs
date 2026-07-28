@@ -212,8 +212,8 @@ section("3. Locked screens contain trial CTA");
 {
   t("accessGuard.js contains trial CTA text",
     /Start Free Trial/.test(accessGuardSrc));
-  t("accessGuard.js contains no-card messaging",
-    /No card required/.test(accessGuardSrc));
+  t("accessGuard.js removes the retired no-card helper text",
+    !/3 days free\. No card required\./.test(accessGuardSrc));
   t("accessGuard.js contains expired trial upgrade CTA",
     /Continue with Athlevo Pro/.test(accessGuardSrc));
 
@@ -227,7 +227,7 @@ section("3. Locked screens contain trial CTA");
 
 /* ══════════ 4 — onboarding flow reorder ══════════════════════════ */
 
-section("4. Onboarding goes to paywall before wearable connection");
+section("4. Onboarding starts cardless trial without a paywall fallback");
 {
   t("obFinish no longer calls AthlevoConnect.start directly",
     !/AthlevoConnect\.start/.test(
@@ -241,12 +241,25 @@ section("4. Onboarding goes to paywall before wearable connection");
         onboardingSrc.indexOf("async function obFinish"),
         onboardingSrc.indexOf("async function obFinish") + 1200)));
 
-  // Verify a free user ends up on the paywall after onboarding
+  const trialFlow = onboardingSrc.slice(
+    onboardingSrc.indexOf("async function obStartCardlessTrial"),
+    onboardingSrc.indexOf("function showTrialConfirmation")
+  );
+  t("failed trial start renders a retry state",
+    /showTrialStartError\(trialResult\)/.test(trialFlow) &&
+    /obTrialRetry/.test(trialFlow));
+  t("Whop paywall is not referenced by the onboarding trial flow",
+    !/AthlevoPaywall|checkout/.test(trialFlow));
+  t("legacy post-onboarding launcher is restricted to paid_active",
+    trialFlow.indexOf('trialResult.access_state === "paid_active"') <
+    trialFlow.indexOf("maybeLaunchAfterOnboarding"));
+
+  // Preserve the standalone no-entitlement plan gate outside onboarding.
   const w = world({ subscriptionRow: null, profile: { name: "Dean", goal: "10K" } });
   await w.plan.maybeLaunchAfterOnboarding();
   await wait();
-  t("free user sees paywall after onboarding", w.screens.includes("screen-paywall"));
-  t("free user does NOT see connect screen", !w.screens.includes("screen-connect"));
+  t("standalone no-entitlement launcher still shows paywall",
+    w.screens.includes("screen-paywall"));
 }
 
 /* ══════════ 5 — go() function integration ════════════════════════ */
