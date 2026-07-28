@@ -218,8 +218,11 @@ section("Freemium onboarding, upgrade UI, and removed trial copy");
     /screen-trends/.test(accessGuard));
   test("landing primary CTA is Build My Training Plan",
     (index.match(/Build My Training Plan/g) || []).length >= 3);
-  test("active UI contains no 3-day free-trial messaging",
-    !/start\s+(?:my\s+)?(?:\d+[-\s]day\s+)?free\s+trial|3\s+days\s+free|after\s+(?:the\s+)?trial|trial\s+ends/i.test(activeUi));
+  const inAppUi = [onboarding, connect, planSetup, accessGuard].join("\n");
+  test("in-app UI contains no timed free-trial messaging",
+    !/start\s+(?:my\s+)?(?:\d+[-\s]day\s+)?free\s+trial|3\s+days\s+free|after\s+(?:the\s+)?trial|trial\s+ends/i.test(inAppUi));
+  test("landing contains the approved pricing disclosure exactly once",
+    (index.match(/₱0 today, then ₱597\/month\. Cancel anytime before your trial ends\./g) || []).length === 1);
   test("the obsolete paywall screen and bundle are removed",
     !/screen-paywall|paywallBody|js\/paywall\.js|AthlevoPaywall/.test(activeUi));
   test("explicit upgrade UI names Athlevo Performance and ₱597/month",

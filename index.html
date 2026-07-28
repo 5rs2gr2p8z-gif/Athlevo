@@ -2472,7 +2472,7 @@ body.landing-active #tabbar{display:none!important}
 .lp-btn.light:hover{background:#fff;box-shadow:var(--elev-3)}
 
 /* hero */
-.lp-hero{padding:clamp(48px,8vw,96px) 0 clamp(44px,6vw,72px);text-align:center;background:radial-gradient(120% 90% at 50% -10%,var(--card2) 0%,var(--paper) 55%)}
+.lp-hero{padding:clamp(48px,8vw,96px) 0 clamp(28px,4vw,48px);text-align:center;background:radial-gradient(120% 90% at 50% -10%,var(--card2) 0%,var(--paper) 55%)}
 .lp-h1{font-family:var(--serif);font-weight:500;font-size:clamp(38px,7vw,74px);line-height:1.02;letter-spacing:-.025em;margin:0 auto;max-width:16ch;color:var(--text)}
 .lp-lead{font-family:var(--sans);font-size:clamp(16.5px,2.2vw,21px);line-height:var(--lh-body);color:var(--ink2);max-width:40ch;margin:22px auto 0;letter-spacing:-.01em}
 .lp-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:38px}
@@ -2488,9 +2488,9 @@ body.landing-active #tabbar{display:none!important}
   .lp-hero-copy .lp-cta{justify-content:flex-start}
 }
 /* mobile: product visual below copy */
-.lp-hero-visual{display:flex;justify-content:center;align-items:flex-start;padding:0 20px 24px}
+.lp-hero-visual{display:flex;justify-content:center;align-items:flex-start;padding:0 20px 8px}
 @media (max-width:859px){
-  .lp-hero-visual{margin-top:36px}
+  .lp-hero-visual{margin-top:28px}
 }
 
 /* ── product phone frame ── */
@@ -2792,6 +2792,7 @@ body.landing-active #tabbar{display:none!important}
           <button class="lp-btn" onclick="landingStartFree()">Build My Training Plan</button>
           <a class="lp-btn ghost" href="#lp-how">See how Athlevo works</a>
         </div>
+        <p class="lp-billing lp-reveal">₱0 today, then ₱597/month. Cancel anytime before your trial ends.</p>
       </div>
 
       <!-- product visual column -->
@@ -2859,7 +2860,6 @@ body.landing-active #tabbar{display:none!important}
   <!-- 2. PROBLEM / POSITIONING -->
   <section class="lp-section lp-alt">
     <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">WHY ATHLEVO</span>
       <h2 class="lp-h2 lp-reveal">Static plans cannot respond when real life changes.</h2>
       <p class="lp-body lp-reveal">Missed sessions, poor sleep, soreness, schedule changes and unexpected races can make a fixed plan outdated. Athlevo keeps your training context connected so the next decision reflects what actually happened.</p>
       <div class="lp-points lp-reveal">
