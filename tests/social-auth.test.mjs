@@ -103,6 +103,10 @@ section("Redirect target");
       === "https://athlevo-git-abc.vercel.app/");
   t("a non-http origin falls back to canonical production",
     load({ origin: "file://" }).api.redirectTarget() === "https://athlevo.org/");
+  t("email confirmation reuses the preview-aware OAuth target",
+    /emailRedirectTo:\s*window\.AthlevoSocialAuth\.redirectTarget\(\)/.test(html));
+  t("email confirmation no longer forces the canonical production URL",
+    !/emailRedirectTo:\s*[\s\S]{0,100}canonicalUrl\(\)/.test(html));
 }
 
 /* ═══════════════════════ Apple is gated off ═════════════════════════ */
@@ -250,6 +254,8 @@ section("Email/password login is untouched");
     /startOnboarding\(\);/.test(html) && /routeAfterAuth\(/.test(html));
   t("signup_completed tracking intact",
     (html.match(/trackFunnel\("signup_completed"\)/g) || []).length === 2);
+  t("signup helper explains the post-trial payment requirement",
+    /<p class="w-help"[^>]*>3-day trial\. Payment required after trial to continue\.<\/p>/.test(html));
 }
 
 section("Security");

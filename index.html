@@ -3149,7 +3149,7 @@ body.landing-active #tabbar{display:none!important}
     <!-- Answers beta pain #1 ("Google or create an account?") before it's asked:
          any option creates the account; Google/Apple are the one-tap path. -->
     <button class="w-btn primary" onclick="openSignup()">Start Free Trial</button>
-    <p class="w-help" style="margin:-4px 0 10px;font-size:var(--fs-caption);color:var(--ink3)">3 days free. No card required.</p>
+    <p class="w-help" style="margin:-4px 0 10px;font-size:var(--fs-caption);color:var(--ink3)">3-day trial. Payment required after trial to continue.</p>
     <button class="w-btn" onclick="openLogin()">Log in</button>
     <div class="w-or"><span>or continue in one tap</span></div>
     <button class="w-btn" id="authBtnApple" onclick="continueWithApple()"> Continue with Apple</button>
@@ -4607,8 +4607,9 @@ async function doSignup(bypassEmbeddedWarning) {
       password,
       options: {
         data: { full_name: name },
-        // Confirmation links (when enabled) return to the canonical app.
-        emailRedirectTo: (window.AthlevoEnv && window.AthlevoEnv.canonicalUrl()) || window.location.origin
+        // Use the same current-origin policy as OAuth so preview confirmation
+        // links return to the preview that started signup.
+        emailRedirectTo: window.AthlevoSocialAuth.redirectTarget()
       }
     }), 15000, 'Signup timed out');
 
