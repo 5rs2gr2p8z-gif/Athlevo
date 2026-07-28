@@ -240,12 +240,65 @@ function updateFoundingBetaBanner() {
   } catch (e) { /* never break the app for a UI badge */ }
 }
 
+/*
+ * ── Server-authoritative entitlement (cardless trial + Whop) ────────
+ * Fetches the normalized access state from the server. This is the
+ * ONLY source of truth for trial status, remaining time, and limits.
+ * The local subscription cache is still used for feature gating (canUse)
+ * but the trial UI reads from this server response.
+ */
+let serverEntitlement = null;
+
+async function loadServerEntitlement() {
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) return null;
+    const res = await fetch("/api/trial/entitlement", {
+      headers: { Authorization: "Bearer " + session.access_token }
+    });
+    if (!res.ok) return null;
+    serverEntitlement = await res.json();
+    return serverEntitlement;
+  } catch (e) {
+    return null;
+  }
+}
+
+/*
+ * Start the cardless trial via the server endpoint.
+ * Returns the server response or null on error.
+ */
+async function startCardlessTrial() {
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) return null;
+    const res = await fetch("/api/trial/start", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + session.access_token,
+        "Content-Type": "application/json"
+      }
+    });
+    if (!res.ok) return null;
+    const result = await res.json();
+    // Refresh both caches after trial start
+    await loadSubscription();
+    await loadServerEntitlement();
+    return result;
+  } catch (e) {
+    console.warn("Trial start failed:", e);
+    return null;
+  }
+}
+
 window.AthlevoPlan = {
   PLAN_TIERS,
   PLAN_ORDER,
   FEATURE_REGISTRY,
 
   load: loadSubscription,
+  loadEntitlement: loadServerEntitlement,
+  startCardlessTrial,
 
   // canUse(feature) uses the cached subscription; pass an explicit
   // subscription as the 2nd arg to check against a specific one.
@@ -262,6 +315,14 @@ window.AthlevoPlan = {
       subscription === undefined ? currentSubscription : subscription,
       Date.now()
     );
+  },
+
+  /*
+   * Server-authoritative access state. Returns the cached server
+   * entitlement, or null if not yet loaded.
+   */
+  accessState() {
+    return serverEntitlement;
   },
 
   usableFeatures(subscription) {

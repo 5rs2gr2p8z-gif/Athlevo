@@ -1,4 +1,5 @@
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
+import { checkTrialLimit, trialLimitResponse } from "../../lib/server/trialLimits.js";
 import {
   addDays,
   calculateWeeksUntilRace,
@@ -196,6 +197,12 @@ export default async function handler(request, response) {
         error:
           "The authenticated athlete could not be verified."
       });
+    }
+
+    // Trial usage limit for AI analysis
+    const trialCheck = await checkTrialLimit(user.id, "ai_analysis");
+    if (!trialCheck.allowed) {
+      return trialLimitResponse(response, { ...trialCheck, usage_type: "ai_analysis" });
     }
 
     // Rate limit: weekly analysis

@@ -935,20 +935,74 @@ async function obFinish() {
   try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('onboarding_completed'); } catch(e){}
 
   /*
-   * The athlete profile is done. For free users the next step is the
-   * personalized preview + paywall — NOT wearable connection. Connecting
-   * training data happens AFTER the trial starts (from plan setup), so the
-   * athlete never hits a friction wall before seeing what Athlevo offers.
+   * The athlete profile is done. Start the cardless 3-day trial (no payment
+   * required), then route directly into the app. No Whop checkout, no paywall.
    *
-   * Flow: onboarding → paywall/preview → trial checkout → plan setup → connect
+   * Flow: onboarding → cardless trial starts → plan setup → connect
    *
-   * Paid/trial users skip the paywall and land directly in plan setup.
+   * Already-paid or already-trialing users skip trial creation and proceed.
    */
+  try {
+    if (window.AthlevoPlan && typeof window.AthlevoPlan.startCardlessTrial === "function") {
+      const trialResult = await window.AthlevoPlan.startCardlessTrial();
+      if (trialResult && trialResult.ok) {
+        // Show trial confirmation (only fire analytics if this is the first creation)
+        showTrialConfirmation(trialResult.created === true);
+        return;
+      }
+    }
+  } catch (e) { console.warn("Trial start failed:", e); }
+
+  // Fallback: proceed to plan setup or Today
   if (window.AthlevoPlan && typeof window.AthlevoPlan.maybeLaunchAfterOnboarding === "function") {
     try { await window.AthlevoPlan.maybeLaunchAfterOnboarding(); return; }
     catch (e) { console.warn("Plan setup launch failed:", e); }
   }
   showScreen("screen-today");
+}
+
+/*
+ * Trial confirmation screen — shown once, right after the cardless trial starts.
+ * Brief, encouraging, then routes into plan setup.
+ */
+function showTrialConfirmation(isNewTrial) {
+  const body = document.getElementById("ob2Body");
+  if (!body) { showScreen("screen-today"); return; }
+
+  // Hide onboarding chrome
+  const top = document.querySelector(".ob2-top");
+  const foot = document.querySelector(".ob2-foot");
+  if (top) top.style.display = "none";
+  if (foot) foot.style.display = "none";
+
+  body.innerHTML = `
+    <div class="ob2-step" style="text-align:center;padding-top:60px">
+      <div style="font-size:48px;margin-bottom:16px">✓</div>
+      <h2 class="ob2-title" style="font-size:22px;margin-bottom:8px">Your 3-day Athlevo trial has started.</h2>
+      <p class="ob2-sub" style="max-width:340px;margin:0 auto 28px">No card required. Explore your plan, Coach, readiness, and training insights.</p>
+      <button class="ob2-continue done" id="obTrialContinue" type="button" style="max-width:320px;margin:0 auto">Continue</button>
+    </div>`;
+
+  const btn = document.getElementById("obTrialContinue");
+  if (btn) btn.addEventListener("click", async () => {
+    const tabbar = document.getElementById("tabbar");
+    if (tabbar) tabbar.style.display = "flex";
+    // Restore onboarding chrome for potential re-use
+    if (top) top.style.display = "";
+    if (foot) foot.style.display = "";
+    // Go to plan setup
+    if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function") {
+      await window.AthlevoPlan.start();
+    } else {
+      showScreen("screen-today");
+    }
+  });
+
+  // Only fire trial_started for genuinely new trials — not idempotent replays.
+  // The server-side event (api/trial/start.js) is authoritative; this is supplementary.
+  if (isNewTrial) {
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('trial_started', { source: 'onboarding' }); } catch(e){}
+  }
 }
 
 /* Find the first step still missing a required answer (post-prefill). */

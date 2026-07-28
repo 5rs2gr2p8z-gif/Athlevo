@@ -12,6 +12,7 @@ import {
 } from "../../lib/server/coachActions.js";
 
 import { buildProposal } from "../../lib/server/adaptivePlanAdapter.js";
+import { checkTrialLimit, trialLimitResponse } from "../../lib/server/trialLimits.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 
@@ -417,6 +418,7 @@ async function handleApplyAction(response, user, body) {
       : null;
 
   // Idempotency: if this proposal was already applied, return it.
+  // (does not consume a trial adjustment — the work is already done)
   if (proposalId) {
     const existing = await loadProposalById(user.id, proposalId);
     if (existing && existing.status === "applied") {
@@ -426,6 +428,12 @@ async function handleApplyAction(response, user, body) {
         proposal: existing
       });
     }
+  }
+
+  // Trial usage limit — 1 plan adjustment per trial (fails closed, bypassed for paid).
+  const trialCheck = await checkTrialLimit(user.id, "plan_adjustment");
+  if (!trialCheck.allowed) {
+    return trialLimitResponse(response, { ...trialCheck, usage_type: "plan_adjustment" });
   }
 
   const { action, error } = validateActionForApply(proposal);
@@ -828,6 +836,12 @@ async function handleAdaptivePreview(response, user, body) {
 }
 
 async function handleAdaptiveApply(response, user, body) {
+  // Trial usage limit — plan adjustments share the same trial limit as coach actions.
+  const trialCheck = await checkTrialLimit(user.id, "plan_adjustment");
+  if (!trialCheck.allowed) {
+    return trialLimitResponse(response, { ...trialCheck, usage_type: "plan_adjustment" });
+  }
+
   const fingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
   if (!fingerprint) {
     return sendJson(response, 400, { error: "A proposal fingerprint is required." });

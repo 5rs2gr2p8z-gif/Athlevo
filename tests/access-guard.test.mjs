@@ -211,11 +211,11 @@ section("2b. Trial users pass through all tabs");
 section("3. Locked screens contain trial CTA");
 {
   t("accessGuard.js contains trial CTA text",
-    /Start my 3-day free trial/.test(accessGuardSrc));
-  t("accessGuard.js contains pricing info",
-    /₱597\/month/.test(accessGuardSrc));
-  t("accessGuard.js contains ₱0 today",
-    /₱0 today/.test(accessGuardSrc));
+    /Start Free Trial/.test(accessGuardSrc));
+  t("accessGuard.js contains no-card messaging",
+    /No card required/.test(accessGuardSrc));
+  t("accessGuard.js contains expired trial upgrade CTA",
+    /Continue with Athlevo Pro/.test(accessGuardSrc));
 
   t("Coach locked screen has sample interaction",
     /Sample coaching interaction/.test(accessGuardSrc));
@@ -235,8 +235,8 @@ section("4. Onboarding goes to paywall before wearable connection");
         onboardingSrc.indexOf("async function obFinish"),
         onboardingSrc.indexOf("async function obFinish") + 1200)));
 
-  t("obFinish calls maybeLaunchAfterOnboarding",
-    /AthlevoPlan.*maybeLaunchAfterOnboarding/.test(
+  t("obFinish calls startCardlessTrial (cardless trial flow)",
+    /AthlevoPlan.*startCardlessTrial/.test(
       onboardingSrc.slice(
         onboardingSrc.indexOf("async function obFinish"),
         onboardingSrc.indexOf("async function obFinish") + 1200)));

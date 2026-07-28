@@ -43,7 +43,16 @@
     adaptive_plan_reviewed:        { kind: "behavioural", props: [] },
     adaptive_plan_applied:         { kind: "behavioural", props: ["change_count_bucket"] },
     app_session_started:           { kind: "behavioural", props: ["source"] },
-    primary_tab_viewed:            { kind: "behavioural", props: ["screen_name"] }
+    primary_tab_viewed:            { kind: "behavioural", props: ["screen_name"] },
+
+    // ── Cardless trial lifecycle ──────────────────────────────────────
+    trial_started:                 { kind: "milestone",   props: ["source"] },
+    trial_limit_reached:           { kind: "behavioural", props: ["usage_type", "source"] },
+    trial_expiring_viewed:         { kind: "behavioural", props: [] },
+    trial_expired:                 { kind: "behavioural", props: ["source"] },
+    upgrade_clicked:               { kind: "behavioural", props: ["source"] },
+    checkout_opened:               { kind: "behavioural", props: ["source"] },
+    paid_subscription_activated:   { kind: "milestone",   props: ["provider_type"] }
   };
 
   // Legacy names still emitted by older call sites → the canonical event they

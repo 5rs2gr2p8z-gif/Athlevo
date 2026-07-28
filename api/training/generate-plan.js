@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
+import { checkTrialLimit, trialLimitResponse } from "../../lib/server/trialLimits.js";
 import { buildAthlevoMethodPrompt } from "../../lib/server/athlevoMethod.js";
 
 import {
@@ -1783,6 +1784,12 @@ export default async function handler(
         code: "AUTH_REQUIRED",
         action: "signIn"
       });
+    }
+
+    // Trial usage limit (fails closed for trial users, bypassed for paid).
+    const trialCheck = await checkTrialLimit(user.id, "plan_generation");
+    if (!trialCheck.allowed) {
+      return trialLimitResponse(response, { ...trialCheck, usage_type: "plan_generation" });
     }
 
     // Rate limit: plan generation is the most expensive AI call.

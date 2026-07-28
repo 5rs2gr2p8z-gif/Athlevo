@@ -2371,6 +2371,24 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 /* ── Import success banner (subtle, non-intrusive) ──────────────────── */
 .ss-banner-wrap{margin:0}
 .ss-banner-wrap:empty{display:none}
+
+/* ═══════════ TRIAL BANNER ═══════════ */
+.trial-banner{margin:4px 22px 8px;padding:10px 14px;border-radius:var(--r-md);
+  display:flex;align-items:center;gap:10px;font-size:var(--fs-body-sm);line-height:var(--lh-body)}
+.trial-banner.trial-active{background:var(--card);border:1px solid var(--line);color:var(--text)}
+.trial-banner.trial-expiring{background:color-mix(in srgb,var(--red) 8%,transparent);border:1px solid color-mix(in srgb,var(--red) 25%,transparent);color:var(--text)}
+.trial-banner.trial-expired{background:color-mix(in srgb,var(--red) 6%,transparent);border:1px solid color-mix(in srgb,var(--red) 20%,transparent);color:var(--text)}
+.trial-banner .tb-text{flex:1;min-width:0}
+.trial-banner .tb-label{font-weight:650;letter-spacing:-.01em}
+.trial-banner .tb-sub{color:var(--ink3);margin-top:1px;font-size:var(--fs-caption)}
+.trial-banner .tb-btn{flex-shrink:0;border:none;border-radius:var(--r-pill);
+  background:var(--ink);color:#fff;font-family:var(--sans);font-weight:650;
+  font-size:var(--fs-caption);padding:7px 14px;cursor:pointer;white-space:nowrap}
+.trial-banner .tb-btn:hover{background:#000}
+@media(prefers-color-scheme:dark){
+  .trial-banner .tb-btn{background:#fff;color:#000}
+  .trial-banner .tb-btn:hover{background:#e0e0e0}
+}
 .ss-banner{display:flex;align-items:center;gap:11px;background:var(--good-soft);
   border:1px solid var(--good);border-radius:var(--r-md);padding:12px 14px;margin:10px 0 2px;
   animation:ssSlide var(--dur-base) ease}
@@ -2779,7 +2797,7 @@ body.landing-active #tabbar{display:none!important}
       </div>
       <div class="lp-nav-cta">
         <button class="lp-link" onclick="landingSignIn()">Sign In</button>
-        <button class="lp-btn sm" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start free trial</button>
+        <button class="lp-btn sm" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start Free Trial</button>
       </div>
     </div>
   </nav>
@@ -2797,7 +2815,7 @@ body.landing-active #tabbar{display:none!important}
           <button class="lp-btn" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
           <a class="lp-btn ghost" href="#lp-how">See how Athlevo works</a>
         </div>
-        <p class="lp-billing lp-reveal">₱0 today, then ₱597/month. Cancel anytime before your trial ends.</p>
+        <p class="lp-billing lp-reveal">3 days free. No card required.</p>
         <p class="lp-subline lp-reveal">Built for runners and endurance athletes who want more structure and fewer guesses.</p>
       </div>
 
@@ -3019,8 +3037,8 @@ body.landing-active #tabbar{display:none!important}
             <li>AI coach conversations</li>
             <li>Continued product improvements while subscribed</li>
           </ul>
-          <button class="lp-btn" style="width:100%" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
-          <p class="lp-price-trial">Start with a 3-day free trial. Your card is required, but you will be charged ₱0 today. After the trial, your subscription renews at ₱597/month unless cancelled before billing.</p>
+          <button class="lp-btn" style="width:100%" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start Free Trial</button>
+          <p class="lp-price-trial">3 days free. No card required. After the trial, continue with Athlevo Pro at ₱597/month.</p>
           <p class="lp-price-cancel">Cancel anytime.</p>
         </div>
       </div>
@@ -3094,10 +3112,10 @@ body.landing-active #tabbar{display:none!important}
       <h2 class="lp-h2 big">Stop guessing what your training needs next.</h2>
       <p class="lp-body" style="color:rgba(255,255,255,.65);max-width:36ch;margin:18px auto 0">Build your plan, complete your readiness check and let every workout inform what comes after it.</p>
       <div class="lp-cta" style="margin-top:36px">
-        <button class="lp-btn light" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start 3-day free trial</button>
+        <button class="lp-btn light" onclick="try{if(window.AthlevoProductAnalytics)AthlevoProductAnalytics.trackAthlevoEvent('trial_cta_clicked',{source:'landing'})}catch(e){}landingStartTrial()">Start Free Trial</button>
         <a class="lp-btn ghost-light" href="#lp-pricing">View pricing</a>
       </div>
-      <p class="lp-billing lp-reveal">₱0 today, then ₱597/month.</p>
+      <p class="lp-billing lp-reveal">3 days free. No card required.</p>
     </div>
   </section>
 
@@ -3130,7 +3148,8 @@ body.landing-active #tabbar{display:none!important}
   <div class="w-btns">
     <!-- Answers beta pain #1 ("Google or create an account?") before it's asked:
          any option creates the account; Google/Apple are the one-tap path. -->
-    <button class="w-btn primary" onclick="openSignup()">Create account</button>
+    <button class="w-btn primary" onclick="openSignup()">Start Free Trial</button>
+    <p class="w-help" style="margin:-4px 0 10px;font-size:var(--fs-caption);color:var(--ink3)">3 days free. No card required.</p>
     <button class="w-btn" onclick="openLogin()">Log in</button>
     <div class="w-or"><span>or continue in one tap</span></div>
     <button class="w-btn" id="authBtnApple" onclick="continueWithApple()"> Continue with Apple</button>
@@ -3331,6 +3350,8 @@ body.landing-active #tabbar{display:none!important}
 </div>
   <!-- Subtle import-success banner (js/syncStatus.js). Non-intrusive, auto-dismisses. -->
   <div id="syncBanner" class="ss-banner-wrap"></div>
+  <!-- Trial status banner (js/trialBanner.js). Shows during trial and after expiry. -->
+  <div id="trialBanner" style="display:none"></div>
   <div class="greet">
   <h1 class="serif">
     Good morning,<br><span id="todayAthleteName">Athlete</span>.
@@ -5355,6 +5376,11 @@ async function routeAfterAuth(userId) {
   document.getElementById("tabbar").style.display = "flex";
   showScreen("screen-today");
 
+  // Load server-authoritative entitlement (trial status, limits) and refresh the banner.
+  if (window.AthlevoTrialBanner && typeof window.AthlevoTrialBanner.refresh === "function") {
+    AthlevoTrialBanner.refresh().catch(function(e) {});
+  }
+
   // Authoritative post-auth data load (used by both session restore and
   // interactive login). refreshAthleteUI populates Today/Train/Trends +
   // profile + Strava state; then the brief and the weekly plan load.
@@ -5685,8 +5711,9 @@ setTimeout(function () {
 <script src="js/trainCalendar.js?v=67"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
 <script src="js/paywall.js?v=67"></script>
-<script src="js/accessGuard.js?v=67"></script>
-<script src="js/planSetup.js?v=67"></script>
+<script src="js/accessGuard.js?v=68"></script>
+<script src="js/trialBanner.js?v=68"></script>
+<script src="js/planSetup.js?v=68"></script>
 <script src="js/feedback.js?v=67"></script>
 <script src="js/readiness.js?v=67"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>

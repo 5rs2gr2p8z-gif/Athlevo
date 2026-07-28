@@ -1,5 +1,6 @@
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { checkAiRateLimit } from "../lib/server/rateLimit.js";
+import { checkTrialLimit, trialLimitResponse } from "../lib/server/trialLimits.js";
 import { summarizeExecutionRecord } from "../lib/server/executionRecords.js";
 import { applyActivityOverrides } from "../lib/server/coachActions.js";
 import {
@@ -881,6 +882,12 @@ export default async function handler(req, res) {
         error:
           "The authenticated user could not be verified."
       });
+    }
+
+    // Trial usage limit (fails closed for trial users, bypassed for paid).
+    const trialCheck = await checkTrialLimit(user.id, "daily_brief");
+    if (!trialCheck.allowed) {
+      return trialLimitResponse(res, { ...trialCheck, usage_type: "daily_brief" });
     }
 
     // Per-athlete AI rate limit (fails open if the limiter is unavailable).

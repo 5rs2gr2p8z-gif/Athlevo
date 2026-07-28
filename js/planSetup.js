@@ -24,7 +24,21 @@
    * paywall before plan generation. Uses the same subscription system the rest
    * of the app trusts — never a URL parameter or localStorage flag.
    */
+  /*
+   * With the cardless trial flow, the paywall is no longer shown after
+   * onboarding. Trial users (who got their trial from onboarding) and
+   * paid users both proceed directly to plan setup. The paywall is only
+   * shown to users with no entitlement at all (edge case).
+   */
   async function shouldShowPaywall() {
+    // Check server entitlement first (most authoritative)
+    if (window.AthlevoPlan && typeof window.AthlevoPlan.accessState === "function") {
+      const state = window.AthlevoPlan.accessState();
+      if (state && (state.access_state === "trial_active" || state.access_state === "paid_active")) {
+        return false;
+      }
+    }
+    // Fall back to subscription check
     if (window.AthlevoPaywall && typeof window.AthlevoPaywall.isPaid === "function") {
       return !(await window.AthlevoPaywall.isPaid());
     }

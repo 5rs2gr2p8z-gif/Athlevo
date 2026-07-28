@@ -26,6 +26,13 @@
   async function hasPaidAccess() {
     if (!window.AthlevoPlan) return false;
     try {
+      // Check server entitlement first (most authoritative for trial state)
+      if (typeof window.AthlevoPlan.accessState === "function") {
+        const state = window.AthlevoPlan.accessState();
+        if (state && (state.access_state === "trial_active" || state.access_state === "paid_active")) {
+          return true;
+        }
+      }
       if (typeof window.AthlevoPlan.load === "function") {
         await window.AthlevoPlan.load();
       }
@@ -40,6 +47,13 @@
     return false;
   }
 
+  /* Is the user in an expired trial state? */
+  function isExpiredTrial() {
+    if (!window.AthlevoPlan || typeof window.AthlevoPlan.accessState !== "function") return false;
+    const state = window.AthlevoPlan.accessState();
+    return state && state.access_state === "expired_limited";
+  }
+
   function esc(v) {
     return String(v == null ? "" : v)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -48,13 +62,23 @@
 
   /* ─────────────── locked screen templates ───────────────────────── */
 
-  const TRIAL_CTA_HTML = `
-    <div class="ag-cta">
-      <div class="ag-cta-badge">Athlevo Performance</div>
-      <p class="ag-cta-text">Start your 3-day free trial to unlock full coaching, adaptive training plans, and trends analysis.</p>
-      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.startTrial()">Start my 3-day free trial</button>
-      <p class="ag-cta-sub">₱0 today · ₱597/month after trial · Cancel anytime</p>
-    </div>`;
+  function trialCtaHtml() {
+    if (isExpiredTrial()) {
+      return `
+        <div class="ag-cta">
+          <div class="ag-cta-badge">Your trial has ended</div>
+          <p class="ag-cta-text">Your training history is safe. Upgrade to continue receiving adaptive coaching.</p>
+          <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.upgrade()">Continue with Athlevo Pro</button>
+        </div>`;
+    }
+    return `
+      <div class="ag-cta">
+        <div class="ag-cta-badge">Athlevo Performance</div>
+        <p class="ag-cta-text">Start your 3-day free trial to unlock full coaching, adaptive training plans, and trends analysis.</p>
+        <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.startTrial()">Start Free Trial</button>
+        <p class="ag-cta-sub">3 days free. No card required.</p>
+      </div>`;
+  }
 
   function lockedCoachHTML() {
     return `
@@ -77,7 +101,7 @@
             </div>
           </div>
         </div>
-        ${TRIAL_CTA_HTML}
+        ${trialCtaHtml()}
       </div>`;
   }
 
@@ -101,7 +125,7 @@
             <div class="ag-day"><span class="ag-day-name">Sun</span><span class="ag-day-type rest">Rest</span><span class="ag-day-detail">Full recovery</span></div>
           </div>
         </div>
-        ${TRIAL_CTA_HTML}
+        ${trialCtaHtml()}
       </div>`;
   }
 
@@ -133,7 +157,7 @@
             </div>
           </div>
         </div>
-        ${TRIAL_CTA_HTML}
+        ${trialCtaHtml()}
       </div>`;
   }
 
@@ -206,9 +230,21 @@
   /* ─────────────── actions ───────────────────────────────────────── */
 
   function startTrial() {
+    // With cardless trial, direct to signup/onboarding (trial starts after onboarding)
+    if (typeof window.openAppEntry === "function") {
+      window.openAppEntry();
+    } else if (window.AthlevoPaywall && typeof window.AthlevoPaywall.checkout === "function") {
+      window.AthlevoPaywall.checkout();
+    }
+  }
+
+  /* Open Whop checkout for upgrade (expired trial or voluntary upgrade) */
+  function upgrade() {
     if (window.AthlevoPaywall && typeof window.AthlevoPaywall.checkout === "function") {
       window.AthlevoPaywall.checkout();
     }
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('upgrade_clicked', { source: 'access_guard' }); } catch (e) {}
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('checkout_opened', { source: 'access_guard' }); } catch (e) {}
   }
 
   /*
@@ -224,8 +260,10 @@
   window.AthlevoAccessGuard = {
     guardTab,
     hasPaidAccess,
+    isExpiredTrial,
     unlockAll,
     startTrial,
-    VERSION: "access-guard-v1"
+    upgrade,
+    VERSION: "access-guard-v2"
   };
 })();

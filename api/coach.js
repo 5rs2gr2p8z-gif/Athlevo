@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { checkAiRateLimit, rateLimitResponse } from "../lib/server/rateLimit.js";
 import { userCanUse } from "../lib/server/subscriptions.js";
+import { checkTrialLimit, trialLimitResponse } from "../lib/server/trialLimits.js";
 
 /*
  * Authentication gate (same pattern as every other Athlevo endpoint).
@@ -261,6 +262,18 @@ export default async function handler(req, res) {
   } catch (e) {
     // Fail open — subscription check failure should never block coaching.
     console.warn("Coach subscription check failed (allowing):", e?.message);
+  }
+
+  // Trial usage limit (fails closed for trial users, bypassed for paid).
+  const trialCheck = await checkTrialLimit(authenticatedUser.id, "coach_message");
+  if (!trialCheck.allowed) {
+    try { if (process.env.POSTHOG_KEY) {
+      fetch((process.env.POSTHOG_HOST || "https://us.i.posthog.com") + "/capture/", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: process.env.POSTHOG_KEY, distinct_id: authenticatedUser.id,
+          event: "trial_limit_reached", properties: { feature: "coach_message", limit_type: trialCheck.expired ? "expired" : "daily" } })
+      }).catch(() => {}); } } catch (e) {}
+    return trialLimitResponse(res, { ...trialCheck, usage_type: "coach_message" });
   }
 
   // Per-athlete rate limit (fails open if the limiter itself is unavailable).
