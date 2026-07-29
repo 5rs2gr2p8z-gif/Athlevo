@@ -531,9 +531,17 @@ body{
 .readiness-btn.primary{background:var(--ink);color:#fff;border-color:var(--text)}
 .readiness-btn:active{transform:scale(.98)}
 /* daily readiness modal */
-.rd-why{font-size:var(--fs-body-sm);line-height:1.6;color:var(--ink2);margin-bottom:6px}
+.rd-sheet{padding-top:22px}
+.rd-greeting{font-size:var(--fs-caption)!important;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)!important;margin-bottom:4px!important}
+.rd-why{font-size:var(--fs-body-sm)!important;line-height:var(--lh-body)!important;color:var(--ink2);margin-bottom:6px}
 .rd-scale{flex-wrap:wrap}
 .rd-scale .ci-dot{width:30px;height:34px}
+.rd-field-label{display:block;margin-top:10px}
+.rd-actions{position:sticky;bottom:calc(-28px - env(safe-area-inset-bottom));margin:4px -24px calc(-28px - env(safe-area-inset-bottom));padding:0 24px calc(20px + env(safe-area-inset-bottom));background:var(--paper)}
+.rd-secondary{width:100%;margin-top:8px;border:0;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:650;padding:10px;cursor:pointer;border-radius:var(--r-pill)}
+.rd-secondary:hover{color:var(--text);background:var(--card)}
+.rd-secondary:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.rd-settings-link{width:calc(100% - 44px);border:0;text-align:left;font-family:var(--sans)}
 
 /* ---------- latest workout analysis card ---------- */
 .lwa{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5);overflow:hidden}
@@ -4117,6 +4125,12 @@ body.landing-active #tabbar{display:none!important}
 </div>
   <div class="spacer-lg"></div>
 
+  <div class="pad"><div class="section-title serif">Daily readiness</div></div>
+  <button class="rowlink rd-settings-link" type="button" onclick="openReadinessCheck()">
+    <div><b>Open today’s check-in</b><small>Update how you’re feeling whenever you need to.</small></div><span class="arr">→</span>
+  </button>
+  <div class="spacer-lg"></div>
+
  <div class="integ">
   <!--
     ONE training-data connection.
@@ -4281,7 +4295,7 @@ body.landing-active #tabbar{display:none!important}
 <div class="modal-back" id="betaFeedbackModal"></div>
 
 <!-- ══════════════ DAILY READINESS MODAL ══════════════ -->
-<div class="modal-back" id="readinessModal"></div>
+<div class="modal-back" id="readinessModal" aria-hidden="true"></div>
 
 <!-- ══════════════ ATHLEVO SCORE DETAIL MODAL ══════════════ -->
 <div class="modal-back" id="scoreDetailModal"></div>
@@ -4843,6 +4857,14 @@ async function go(btn){
   if (screenId === "screen-today") {
     await refreshTodayAfterPlanChange("screen-enter");
     animateRing();
+    if (
+      window.AthlevoMorningCheckIn &&
+      typeof window.AthlevoMorningCheckIn.evaluate === "function"
+    ) {
+      window.AthlevoMorningCheckIn.evaluate({
+        reason: "today-tab-entry"
+      }).catch(function(){});
+    }
   }
   if (screenId === "screen-coachai") {
     await renderConversationHistory();
@@ -4955,6 +4977,18 @@ function showScreen(id){
   if(id!=='screen-landing') window.scrollTo(0,0);
   if (id === "screen-today" && typeof window.refreshTodayAfterPlanChange === "function"){
     window.refreshTodayAfterPlanChange("screen-enter").catch(function(){});
+  }
+  if (id === "screen-today"){
+    setTimeout(function(){
+      if (
+        window.AthlevoMorningCheckIn &&
+        typeof window.AthlevoMorningCheckIn.evaluate === "function"
+      ) {
+        window.AthlevoMorningCheckIn.evaluate({
+          reason: "today-screen-entry"
+        }).catch(function(){});
+      }
+    }, 0);
   }
   // Analytics (best-effort): a primary-tab view + a once-per-load app session.
   try {
@@ -5810,6 +5844,19 @@ async function routeAfterAuth(userId) {
       });
     }
   } catch (e) {}
+
+  // The boot gate is lifted immediately after authenticated routing returns.
+  // Evaluate on the next task so Today is populated and visible first.
+  setTimeout(function(){
+    if (
+      window.AthlevoMorningCheckIn &&
+      typeof window.AthlevoMorningCheckIn.evaluate === "function"
+    ) {
+      window.AthlevoMorningCheckIn.evaluate({
+        reason: "authenticated-open"
+      }).catch(function(){});
+    }
+  }, 0);
 }
 // True when Athlevo is running as an installed PWA (standalone display).
 function isStandaloneMode() {
@@ -6113,7 +6160,8 @@ setTimeout(function () {
 <script src="js/accessGuard.js?v=67"></script>
 <script src="js/planSetup.js?v=67"></script>
 <script src="js/feedback.js?v=67"></script>
-<script src="js/readiness.js?v=67"></script>
+<script src="js/readiness.js?v=68"></script>
+<script src="js/morningCheckIn.js?v=68"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=67"></script>
 <script src="js/onboarding.js?v=67"></script>

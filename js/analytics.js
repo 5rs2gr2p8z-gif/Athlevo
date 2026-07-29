@@ -48,6 +48,7 @@
     "source", "campaign", "medium", "provider", "auth_method",
     "device_type", "is_first_time", "wearable", "experience_level",
     "plan_goal_type", "feature", "limit_period",
+    "completion_status",
     "utm_source", "utm_medium", "utm_campaign"
   ];
 

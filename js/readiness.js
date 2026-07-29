@@ -2,16 +2,12 @@ console.log("Athlevo Readiness Loaded");
 
 /*
  * Daily Readiness — coaching input the athlete gives before training.
- * Stored directly in the user-owned daily_readiness table via RLS (no API
- * endpoint). One record per calendar day; a repeated submit upserts.
+ * Stored directly in the user-owned daily_readiness table via the verified
+ * Supabase session and RLS (no service credential in the browser). One record
+ * per Manila calendar day; a repeated submit upserts.
  * Nothing here fabricates a readiness/HRV/recovery score — it only
  * captures and reflects the athlete's own answers.
  */
-
-const READINESS_PHILOSOPHY =
-  "Your watch measures your body. Only you know how your body actually " +
-  "feels. Daily Readiness combines objective training data with how you " +
-  "actually feel today so Athlevo can make better coaching decisions.";
 
 const READINESS_SLEEP_OPTIONS = [
   { value: 1, label: "Very poor" },
@@ -38,6 +34,8 @@ const READINESS_SCALES = [
 let readinessDraft = {};
 let readinessSubmitting = false;
 let todayReadinessRecord = null;
+let readinessOpenContext = null;
+let readinessBackgroundState = [];
 
 function readinessEscape(value) {
   return String(value == null ? "" : value)
@@ -47,44 +45,119 @@ function readinessEscape(value) {
     .replaceAll('"', "&quot;");
 }
 
-/* Local calendar day (YYYY-MM-DD) — matches the athlete's "today". */
-function readinessTodayKey() {
-  const d = new Date();
-  return (
-    `${d.getFullYear()}-` +
-    `${String(d.getMonth() + 1).padStart(2, "0")}-` +
-    `${String(d.getDate()).padStart(2, "0")}`
-  );
+/* Asia/Manila calendar day (YYYY-MM-DD), shared with AthlevoCalendar. */
+function readinessTodayKey(now = new Date()) {
+  try {
+    if (
+      window.AthlevoCalendar &&
+      typeof window.AthlevoCalendar.localCivil === "function"
+    ) {
+      const civil = window.AthlevoCalendar.localCivil(now, "Asia/Manila");
+      return (
+        `${civil.y}-` +
+        `${String(civil.m).padStart(2, "0")}-` +
+        `${String(civil.d).padStart(2, "0")}`
+      );
+    }
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(now);
+  } catch (error) {
+    return new Date(now).toISOString().slice(0, 10);
+  }
 }
 
-async function loadTodayReadiness() {
+/*
+ * Authoritative daily lookup. `getUser()` verifies the current JWT with
+ * Supabase; the RLS query is additionally scoped to that verified user.
+ * Callers can distinguish "no row" from "not verified", so the automatic
+ * prompt never flashes during a failed or still-pending lookup.
+ */
+async function verifyTodayReadiness(dayKey = readinessTodayKey()) {
   try {
     const {
-      data: { user }
+      data: { user },
+      error: userError
     } = await supabaseClient.auth.getUser();
 
-    if (!user) {
-      return null;
+    if (userError || !user) {
+      return {
+        verified: false,
+        user: null,
+        dayKey,
+        record: null,
+        reason: userError ? "auth_error" : "signed_out"
+      };
     }
 
     const { data, error } = await supabaseClient
       .from("daily_readiness")
       .select("*")
       .eq("user_id", user.id)
-      .eq("readiness_date", readinessTodayKey())
+      .eq("readiness_date", dayKey)
       .maybeSingle();
 
     if (error) {
       console.error("Could not load today's readiness:", error);
-      return null;
+      return {
+        verified: false,
+        user,
+        dayKey,
+        record: null,
+        reason: "query_error"
+      };
+    }
+
+    // Authentication can change while the network query is in flight (logout
+    // or account switch in another tab). Confirm the same verified owner
+    // before exposing the result to the prompt coordinator.
+    const {
+      data: { user: currentUser },
+      error: currentUserError
+    } = await supabaseClient.auth.getUser();
+    if (
+      currentUserError ||
+      !currentUser ||
+      currentUser.id !== user.id
+    ) {
+      return {
+        verified: false,
+        user: null,
+        dayKey,
+        record: null,
+        reason: "session_changed"
+      };
     }
 
     todayReadinessRecord = data || null;
-    return todayReadinessRecord;
+    return {
+      verified: true,
+      user,
+      dayKey,
+      record: todayReadinessRecord,
+      reason: data ? "completed" : "incomplete"
+    };
   } catch (error) {
     console.error("Readiness load failed:", error);
+    return {
+      verified: false,
+      user: null,
+      dayKey,
+      record: null,
+      reason: "query_error"
+    };
+  }
+}
+
+async function loadTodayReadiness() {
+  const result = await verifyTodayReadiness(readinessTodayKey());
+  if (!result.verified) {
     return null;
   }
+  return result.record;
 }
 
 /* Factual one-line summary of the athlete's own answers (no score). */
@@ -413,14 +486,14 @@ let todayReadinessScored = null;
  * short explanation, and an Edit/Start button. Never a fabricated number.
  */
 async function renderReadinessCard() {
-  const cta = document.getElementById("readinessCta");
-  if (!cta) return;
-
   const record = await loadTodayReadiness();
   const scored = await computeTodayReadiness(record);
   todayReadinessScored = scored;
 
   updateReadinessRing(scored);
+
+  const cta = document.getElementById("readinessCta");
+  if (!cta) return scored;
 
   const title = document.getElementById("readinessTitle");
   const copy = document.getElementById("readinessCopy");
@@ -480,14 +553,100 @@ async function getReadinessForCoach() {
   return out;
 }
 
-function openReadinessCheck() {
-  const modal = document.getElementById("readinessModal");
+function readinessFirstName(fallback) {
+  const explicit = String(fallback || "").trim();
+  if (explicit) return explicit.split(/\s+/)[0];
+  const todayName = document.getElementById("todayAthleteName");
+  const visible = todayName ? String(todayName.textContent || "").trim() : "";
+  return visible && visible.toLowerCase() !== "athlete"
+    ? visible.split(/\s+/)[0]
+    : "Athlete";
+}
 
-  if (!modal) {
+function setReadinessBackgroundInert(inert) {
+  if (inert) {
+    readinessBackgroundState = [];
+    document.querySelectorAll(".screen.active, #tabbar").forEach(element => {
+      readinessBackgroundState.push({
+        element,
+        ariaHidden: element.getAttribute("aria-hidden"),
+        inert: element.inert === true
+      });
+      element.inert = true;
+      element.setAttribute("aria-hidden", "true");
+    });
     return;
   }
 
+  readinessBackgroundState.forEach(state => {
+    state.element.inert = state.inert;
+    if (state.ariaHidden === null) {
+      state.element.removeAttribute("aria-hidden");
+    } else {
+      state.element.setAttribute("aria-hidden", state.ariaHidden);
+    }
+  });
+  readinessBackgroundState = [];
+}
+
+function readinessFocusable(modal) {
+  return Array.from(
+    modal.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter(element => !element.hidden && element.offsetParent !== null);
+}
+
+function handleReadinessModalKeydown(event) {
+  const modal = document.getElementById("readinessModal");
+  if (!modal || !modal.classList.contains("show")) return;
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeReadinessCheck({
+      dismiss: Boolean(readinessOpenContext?.automatic)
+    });
+    return;
+  }
+
+  if (event.key !== "Tab") return;
+  const focusable = readinessFocusable(modal);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function openReadinessCheck(options = {}) {
+  const modal = document.getElementById("readinessModal");
+
+  if (!modal || modal.classList.contains("show")) {
+    return false;
+  }
+
   const existing = todayReadinessRecord || null;
+  const automatic = options.automatic === true;
+  const firstName = readinessFirstName(options.firstName);
+  const returnFocus = document.activeElement &&
+    typeof document.activeElement.focus === "function"
+    ? document.activeElement
+    : null;
+
+  readinessOpenContext = {
+    automatic,
+    source: options.source || (automatic ? "morning_prompt" : "manual"),
+    onDismiss: typeof options.onDismiss === "function"
+      ? options.onDismiss
+      : null,
+    returnFocus,
+    dismissed: false
+  };
 
   readinessSubmitting = false;
   readinessDraft = {
@@ -501,24 +660,29 @@ function openReadinessCheck() {
 
   const sleepChips = READINESS_SLEEP_OPTIONS.map(
     option =>
-      `<button class="ob-chip" type="button" data-rd="sleep_quality" data-value="${option.value}"${
+      `<button class="ob-chip" type="button" data-rd="sleep_quality" data-value="${option.value}" aria-pressed="${
+        readinessDraft.sleep_quality === option.value ? "true" : "false"
+      }"${
         readinessDraft.sleep_quality === option.value ? ' data-sel="1"' : ""
       }>${readinessEscape(option.label)}</button>`
   ).join("");
 
   const scaleRows = READINESS_SCALES.map(scale => {
+    const labelId = `rd-${scale.key}-label`;
     const dots = [];
     for (let value = 1; value <= 10; value += 1) {
       dots.push(
-        `<button class="ci-dot" type="button" data-rd="${scale.key}" data-value="${value}"${
+        `<button class="ci-dot" type="button" data-rd="${scale.key}" data-value="${value}" aria-label="${readinessEscape(scale.label)} ${value} of 10" aria-pressed="${
+          readinessDraft[scale.key] === value ? "true" : "false"
+        }"${
           readinessDraft[scale.key] === value ? ' data-sel="1"' : ""
         }>${value}</button>`
       );
     }
     return `
       <div class="ci-row">
-        <div class="ci-label">${readinessEscape(scale.label)}</div>
-        <div class="ci-scale rd-scale">${dots.join("")}</div>
+        <div class="ci-label" id="${labelId}">${readinessEscape(scale.label)}</div>
+        <div class="ci-scale rd-scale" role="group" aria-labelledby="${labelId}">${dots.join("")}</div>
         <div class="ci-hints"><span>${readinessEscape(scale.low)}</span><span>${readinessEscape(scale.high)}</span></div>
       </div>
     `;
@@ -527,45 +691,51 @@ function openReadinessCheck() {
   const painLocation = readinessEscape(existing?.pain_location || "");
 
   modal.innerHTML = `
-    <div class="lesson">
-      <span class="eyebrow">Daily readiness · under 30 seconds</span>
-      <h3 class="serif">How does your body feel today?</h3>
-      <p class="rd-why">${readinessEscape(READINESS_PHILOSOPHY)}</p>
+    <div class="lesson rd-sheet" role="dialog" aria-modal="true" aria-labelledby="rdTitle" aria-describedby="rdDescription">
+      <p class="rd-greeting">Good morning, ${readinessEscape(firstName)}</p>
+      <h3 class="serif" id="rdTitle" tabindex="-1">How are you feeling today?</h3>
+      <p class="rd-why" id="rdDescription">Your answers help Athlevo adjust today’s recommendation.</p>
 
       <div class="ci-row">
-        <div class="ci-label">Sleep quality</div>
-        <div class="ci-chips">${sleepChips}</div>
+        <div class="ci-label" id="rd-sleep-label">Sleep quality</div>
+        <div class="ci-chips" role="group" aria-labelledby="rd-sleep-label">${sleepChips}</div>
       </div>
 
       ${scaleRows}
 
       <div class="ci-row">
-        <div class="ci-label">Any pain?</div>
-        <div class="ci-chips">
-          <button class="ob-chip" type="button" data-rd="pain_present" data-value="no"${
+        <div class="ci-label" id="rd-pain-label">Any pain?</div>
+        <div class="ci-chips" role="group" aria-labelledby="rd-pain-label">
+          <button class="ob-chip" type="button" data-rd="pain_present" data-value="no" aria-pressed="${
+            readinessDraft.pain_present ? "false" : "true"
+          }"${
             readinessDraft.pain_present ? "" : ' data-sel="1"'
           }>No</button>
-          <button class="ob-chip" type="button" data-rd="pain_present" data-value="yes"${
+          <button class="ob-chip" type="button" data-rd="pain_present" data-value="yes" aria-pressed="${
+            readinessDraft.pain_present ? "true" : "false"
+          }"${
             readinessDraft.pain_present ? ' data-sel="1"' : ""
           }>Yes</button>
         </div>
         <div id="rdPainDetail" style="${readinessDraft.pain_present ? "" : "display:none"}">
+          <label class="ci-label rd-field-label" for="rdPainLocation">Pain location</label>
           <input id="rdPainLocation" class="ci-input" type="text" placeholder="Where does it hurt?" value="${painLocation}">
-          <div class="ci-label" style="margin-top:10px">Severity (1–10)</div>
-          <div class="ci-scale rd-scale rd-pain-scale"></div>
+          <div class="ci-label" id="rd-pain-severity-label" style="margin-top:10px">Severity (1–10)</div>
+          <div class="ci-scale rd-scale rd-pain-scale" role="group" aria-labelledby="rd-pain-severity-label"></div>
         </div>
       </div>
 
       <div class="ci-row">
-        <div class="ci-label">Anything important today?</div>
+        <label class="ci-label" for="rdNotes">Anything important today?</label>
         <textarea id="rdNotes" class="ci-input" placeholder="e.g. traveling, race today, bad stomach, busy at work">${readinessEscape(existing?.notes || "")}</textarea>
       </div>
 
-      <p class="ci-msg" id="rdMsg"></p>
+      <p class="ci-msg" id="rdMsg" role="alert" aria-live="polite"></p>
 
-      <button class="lesson-done" type="button" id="rdSubmit">
-        ${existing ? "Update readiness" : "Save readiness"}
-      </button>
+      <div class="rd-actions">
+        <button class="lesson-done" type="button" id="rdSubmit">Save check-in</button>
+        <button class="rd-secondary" type="button" id="rdDismiss">${automatic ? "Not now" : "Cancel"}</button>
+      </div>
     </div>
   `;
 
@@ -574,11 +744,19 @@ function openReadinessCheck() {
 
   modal.onclick = event => {
     if (event.target === modal) {
-      closeReadinessCheck();
+      closeReadinessCheck({ dismiss: automatic });
     }
   };
+  modal.onkeydown = handleReadinessModalKeydown;
 
+  modal.setAttribute("aria-hidden", "false");
+  setReadinessBackgroundInert(true);
   modal.classList.add("show");
+  const title = modal.querySelector("#rdTitle");
+  if (title && typeof title.focus === "function") {
+    title.focus({ preventScroll: true });
+  }
+  return true;
 }
 
 function renderReadinessPainScale(modal) {
@@ -590,7 +768,9 @@ function renderReadinessPainScale(modal) {
   const dots = [];
   for (let value = 1; value <= 10; value += 1) {
     dots.push(
-      `<button class="ci-dot" type="button" data-rd="pain_severity" data-value="${value}"${
+      `<button class="ci-dot" type="button" data-rd="pain_severity" data-value="${value}" aria-label="Pain severity ${value} of 10" aria-pressed="${
+        readinessDraft.pain_severity === value ? "true" : "false"
+      }"${
         readinessDraft.pain_severity === value ? ' data-sel="1"' : ""
       }>${value}</button>`
     );
@@ -626,7 +806,11 @@ function wireReadinessSheet(modal) {
 
       modal
         .querySelectorAll(`[data-rd="${key}"]`)
-        .forEach(other => other.classList.toggle("sel", other === el));
+        .forEach(other => {
+          const selected = other === el;
+          other.classList.toggle("sel", selected);
+          other.setAttribute("aria-pressed", selected ? "true" : "false");
+        });
     });
   });
 
@@ -634,15 +818,49 @@ function wireReadinessSheet(modal) {
   if (submit) {
     submit.addEventListener("click", submitReadiness);
   }
+  const dismiss = modal.querySelector("#rdDismiss");
+  if (dismiss) {
+    dismiss.addEventListener("click", () => {
+      closeReadinessCheck({
+        dismiss: Boolean(readinessOpenContext?.automatic)
+      });
+    });
+  }
 }
 
-function closeReadinessCheck() {
+function closeReadinessCheck(options = {}) {
   const modal = document.getElementById("readinessModal");
+  const context = readinessOpenContext;
+  if (
+    options.dismiss === true &&
+    context?.automatic &&
+    context.dismissed !== true
+  ) {
+    context.dismissed = true;
+    if (typeof context.onDismiss === "function") {
+      try {
+        context.onDismiss();
+      } catch (error) {
+        console.warn("Readiness dismissal could not be recorded.");
+      }
+    }
+  }
   if (modal) {
     modal.classList.remove("show");
+    modal.setAttribute("aria-hidden", "true");
+    modal.onclick = null;
+    modal.onkeydown = null;
     modal.innerHTML = "";
   }
+  setReadinessBackgroundInert(false);
   readinessSubmitting = false;
+  readinessOpenContext = null;
+  if (
+    context?.returnFocus &&
+    typeof context.returnFocus.focus === "function"
+  ) {
+    context.returnFocus.focus({ preventScroll: true });
+  }
 }
 
 async function submitReadiness() {
@@ -715,14 +933,53 @@ async function submitReadiness() {
       throw new Error(error.message || "Your readiness could not be saved.");
     }
 
+    todayReadinessRecord = row;
+    const submissionSource = readinessOpenContext?.source || "manual";
+    if (
+      window.AthlevoMorningCheckIn &&
+      typeof window.AthlevoMorningCheckIn.markCompleted === "function"
+    ) {
+      window.AthlevoMorningCheckIn.markCompleted(
+        user.id,
+        row.readiness_date
+      );
+    }
+
+    try {
+      if (window.AthlevoProductAnalytics) {
+        window.AthlevoProductAnalytics.trackAthlevoEvent(
+          "readiness_check_completed",
+          {
+            source: submissionSource,
+            completion_status: "completed"
+          }
+        );
+      }
+    } catch (error) {}
+
     closeReadinessCheck();
 
     if (typeof toast === "function") {
       toast("Readiness saved");
     }
-    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('readiness_check_completed'); } catch(e){}
 
     await renderReadinessCard();
+    if (typeof window.renderTodayPassiveStatus === "function") {
+      await window.renderTodayPassiveStatus(null);
+    }
+    if (typeof window.refreshTodayAfterPlanChange === "function") {
+      await window.refreshTodayAfterPlanChange("readiness-check");
+    }
+    try {
+      window.dispatchEvent(
+        new CustomEvent("athlevo:readiness-completed", {
+          detail: {
+            source: submissionSource,
+            completionStatus: "completed"
+          }
+        })
+      );
+    } catch (error) {}
   } catch (error) {
     console.error("Readiness submit failed:", error);
     readinessSubmitting = false;
@@ -733,9 +990,7 @@ async function submitReadiness() {
     }
     if (submit) {
       submit.disabled = false;
-      submit.textContent = todayReadinessRecord
-        ? "Update readiness"
-        : "Save readiness";
+      submit.textContent = "Save check-in";
     }
   }
 }
@@ -744,4 +999,6 @@ window.renderReadinessCard = renderReadinessCard;
 window.openReadinessCheck = openReadinessCheck;
 window.closeReadinessCheck = closeReadinessCheck;
 window.loadTodayReadiness = loadTodayReadiness;
+window.verifyTodayReadiness = verifyTodayReadiness;
+window.readinessTodayKey = readinessTodayKey;
 window.getReadinessForCoach = getReadinessForCoach;

@@ -49,6 +49,9 @@
     first_coach_message_sent:      { kind: "milestone",   props: [] },
     adaptive_plan_reviewed:        { kind: "behavioural", props: [] },
     adaptive_plan_applied:         { kind: "behavioural", props: ["change_count_bucket"] },
+    readiness_prompt_shown:        { kind: "behavioural", props: ["source"] },
+    readiness_prompt_dismissed:    { kind: "behavioural", props: ["source"] },
+    readiness_check_completed:     { kind: "behavioural", props: ["source", "completion_status"] },
     app_session_started:           { kind: "behavioural", props: ["source"] },
     primary_tab_viewed:            { kind: "behavioural", props: ["screen_name"] }
   };

@@ -109,7 +109,8 @@ const EXPECTED_EVENTS = [
   "landing_viewed", "free_account_created", "onboarding_completed",
   "data_connection_completed", "first_plan_generated",
   "free_limit_reached", "upgrade_clicked", "checkout_opened",
-  "paid_subscription_activated", "readiness_check_completed",
+  "paid_subscription_activated", "readiness_prompt_shown",
+  "readiness_prompt_dismissed", "readiness_check_completed",
   "coach_message_sent", "app_returned"
 ];
 
