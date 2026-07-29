@@ -665,10 +665,19 @@ body{
 .coach-error-retry:disabled{opacity:.5;pointer-events:none}
 .coach-error-retry:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 
-/* ── Jump to latest pill ──────────────────────────────────────────── */
-.coach-jump-latest{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:10;background:var(--ink);color:#fff;border:none;border-radius:var(--r-pill);padding:8px 18px;font-family:var(--sans);font-size:var(--fs-caption);font-weight:650;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18);animation:coachReveal var(--dur-base) var(--ease-standard) both;transition:opacity var(--dur-fast) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
-.coach-jump-latest:hover{opacity:.9}
-.coach-jump-latest:active{transform:translateX(-50%) scale(.96)}
+/* The latest-message control lives in normal composer flow so it cannot
+   overlap replies or suggestions. Its icon-only treatment stays secondary. */
+.coach-jump-latest{width:38px;height:38px;margin:0 auto var(--s-2);display:grid;place-items:center;
+  background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:50%;
+  cursor:pointer;box-shadow:var(--elev-1);
+  animation:coachReveal var(--dur-base) var(--ease-standard) both;
+  transition:border-color var(--dur-fast) var(--ease-standard),
+  transform var(--dur-fast) var(--ease-standard)}
+.coach-jump-latest[hidden]{display:none}
+.coach-jump-latest svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.coach-jump-latest:hover{border-color:var(--ink3)}
+.coach-jump-latest:active{transform:scale(.96)}
 .coach-jump-latest:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 
 /* ── Legacy coach typing dots (kept for fallback) ─────────────────── */
@@ -1241,7 +1250,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .coach-rich-response {
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--s-3);
   width: 100%;
   max-width: 640px;
   animation: coachReveal var(--dur-slow) var(--ease-standard) both;
@@ -1249,32 +1258,31 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 
 .coach-response-headline {
   margin: 0;
-  font-family: var(--serif);
-  font-size: var(--fs-h2);
-  line-height: var(--lh-heading);
-  font-weight: 500;
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: 650;
 }
 
-/* The opening coaching decision — calm but clearly the headline of the
-   reply. Set slightly larger and firmer than the reasoning beneath it. */
+/* The opening decision reads as an integrated lead, not a page title. */
 .coach-response-lead {
   margin: 0;
   font-size: var(--fs-h3);
   font-weight: 650;
-  line-height: var(--lh-body);
+  line-height: var(--lh-caption);
   letter-spacing: var(--ls-tight);
   color: var(--text);
 }
 
 .coach-response-direct {
   margin: 0;
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
+  font-size: calc(var(--fs-body) + 1px);
+  line-height: calc(var(--lh-body) + .1);
   color: var(--ink2);
 }
 
 .coach-response-section {
-  padding-top: var(--s-4);
+  padding-top: var(--s-3);
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -1293,17 +1301,19 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 
 .coach-response-section-body {
   margin: 0;
-  line-height: var(--lh-body);
+  font-size: calc(var(--fs-body) + 1px);
+  line-height: calc(var(--lh-body) + .1);
 }
 
 .coach-response-list {
-  margin: 8px 0 0;
+  margin: var(--s-1) 0 0;
   padding-left: 20px;
 }
 
 .coach-response-list li {
-  margin: var(--s-2) 0;
-  line-height: var(--lh-body);
+  margin: var(--s-1) 0;
+  font-size: calc(var(--fs-body) + 1px);
+  line-height: calc(var(--lh-body) + .05);
   color: var(--ink2);
 }
 .coach-response-list li strong{color:var(--text)}
@@ -1515,6 +1525,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding-bottom:var(--s-3);scroll-padding-bottom:var(--s-6)
 }
+#screen-coachai.coach-is-active #chatlog{
+  padding-left:var(--s-6);padding-right:var(--s-6)
+}
 #screen-coachai .coach-composer{
   flex:0 0 auto;position:relative;z-index:4;margin:0;
   padding:var(--s-2) 22px var(--s-3);
@@ -1523,16 +1536,21 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 #screen-coachai.coach-is-active .coach-starters{display:none}
 #screen-coachai.coach-is-empty #chips{display:none!important}
 #screen-coachai .coach-composer .chips{
-  display:flex;flex-wrap:nowrap;overflow-x:auto;gap:var(--s-2);margin:var(--s-2) 0 0;
+  display:flex;flex-wrap:wrap;overflow:visible;gap:var(--s-2);margin:0 0 var(--s-2);
   padding:0;scrollbar-width:none
 }
 #screen-coachai .coach-composer .chips::-webkit-scrollbar{display:none}
-#screen-coachai .coach-composer .chip{flex:0 0 auto}
+#screen-coachai .coach-composer .chip{
+  flex:0 1 auto;max-width:100%;white-space:normal;text-align:left;line-height:var(--lh-caption);
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+  background:var(--card2)
+}
 
 @media (max-width:360px){
   #screen-coachai .coach-head,
   #screen-coachai .chatlog,
   #screen-coachai .coach-composer{padding-left:var(--s-4);padding-right:var(--s-4)}
+  #screen-coachai.coach-is-active #chatlog{padding-left:var(--s-4);padding-right:var(--s-4)}
   .coach-empty-greeting{font-size:var(--fs-h1)}
   .coach-starters{grid-template-columns:1fr}
 }
@@ -3661,6 +3679,20 @@ body.landing-active #tabbar{display:none!important}
   </div>
 
   <div class="coach-composer">
+    <div class="coach-active-tools">
+      <button
+        type="button"
+        class="coach-jump-latest"
+        id="coachJumpLatest"
+        aria-label="Jump to latest message"
+        hidden
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 9l6 6 6-6"></path>
+        </svg>
+      </button>
+      <div class="chips" id="chips" data-has-suggestions="false"></div>
+    </div>
     <div class="composer">
       <textarea
         id="chatInput"
@@ -3688,7 +3720,6 @@ body.landing-active #tabbar{display:none!important}
       <button type="button" class="coach-starter" data-prompt="Am I recovering well?">Am I recovering well?</button>
       <button type="button" class="coach-starter" data-prompt="How is my recent training load?">How is my recent training load?</button>
     </div>
-    <div class="chips" id="chips"></div>
   </div>
 </section>
 
@@ -6033,8 +6064,8 @@ setTimeout(function () {
 <script src="js/raceDetection.js?v=67"></script>
 <script src="js/memory.js?v=67"></script>
 <script src="js/dailyBrief.js?v=67"></script>
-<script src="js/renderCoachResponse.js?v=67"></script>
-<script src="js/coach.js?v=67"></script>
+<script src="js/renderCoachResponse.js?v=68"></script>
+<script src="js/coach.js?v=68"></script>
 <script src="js/features.js?v=67"></script>
 <script src="js/train.js?v=67"></script>
 <script src="js/coachTimeline.js?v=67"></script>

@@ -98,7 +98,11 @@ test("structured response typography keeps conclusion-first hierarchy",
   /coach-response-headline/.test(renderer) &&
   /appendCoachProse\([\s\S]*?"coach-response-lead"/.test(renderer) &&
   /coach-response-section/.test(renderer) &&
-  /\.coach-rich-response\s*\{[^}]*max-width:\s*640px/.test(html));
+  /\.coach-rich-response\s*\{[^}]*gap:\s*var\(--s-3\)[^}]*max-width:\s*640px/.test(html) &&
+  /\.coach-response-lead\s*\{[^}]*font-size:\s*var\(--fs-h3\)[^}]*font-weight:\s*650[^}]*line-height:\s*var\(--lh-caption\)/.test(html) &&
+  /\.coach-response-direct\s*\{[^}]*font-size:\s*calc\(var\(--fs-body\) \+ 1px\)[^}]*line-height:\s*calc\(var\(--lh-body\) \+ \.1\)/.test(html) &&
+  /\.coach-response-headline\s*\{[^}]*font-family:\s*var\(--sans\)[^}]*font-size:\s*var\(--fs-body\)/.test(html) &&
+  !/\.coach-response-(?:headline|lead)\s*\{[^}]*font-size:\s*var\(--fs-(?:display|h1|h2)\)/.test(html));
 test("safe Coach output rendering remains DOM-based",
   /element\.textContent = cleanCoachText\(text\)/.test(renderer) &&
   /document\.createTextNode\(part\)/.test(renderer));
@@ -113,6 +117,95 @@ test("active conversations expose no more than two follow-ups",
 test("large starter suggestions disappear after conversation starts",
   /coach-is-active \.coach-starters\s*\{display:none\}/.test(html) &&
   /hideCoachEmptyState\(\)/.test(extractFunction(coach, "addChatMessage")));
+test("follow-up suggestions are mounted above the composer input",
+  coachScreen.indexOf('id="chips"') < coachScreen.indexOf('<div class="composer">') &&
+  /coach-composer \.chips\{[^}]*flex-wrap:wrap[^}]*margin:0 0 var\(--s-2\)/.test(html));
+
+console.log("\n──── Latest-message controls ────");
+test("old text pill is replaced by a labelled circular arrow",
+  !/textContent\s*=\s*["']Jump to latest["']|>Jump to latest</.test(coach + coachScreen) &&
+  /id="coachJumpLatest"[\s\S]*?aria-label="Jump to latest message"[\s\S]*?<svg/.test(coachScreen) &&
+  /\.coach-jump-latest\{[^}]*width:38px;height:38px[^}]*border-radius:50%/.test(coachCss) &&
+  /\.coach-jump-latest\[hidden\]\{display:none\}/.test(coachCss));
+
+const chatlog = {
+  scrollHeight: 1000,
+  scrollTop: 600,
+  clientHeight: 400,
+  listeners: {},
+  addEventListener(name, fn) { this.listeners[name] = fn; },
+  removeEventListener() {},
+  scrollTo({ top }) { this.scrollTop = top; }
+};
+const chips = {
+  dataset: { hasSuggestions: "true" },
+  children: [{}],
+  style: {}
+};
+const jumpButton = {
+  hidden: true,
+  dataset: {},
+  listeners: {},
+  addEventListener(name, fn) { this.listeners[name] = fn; }
+};
+const coachActiveScreen = {
+  classList: { contains: name => name === "coach-is-empty" ? false : false }
+};
+const scrollDocument = {
+  getElementById(id) {
+    return {
+      chatlog,
+      chips,
+      coachJumpLatest: jumpButton,
+      "screen-coachai": coachActiveScreen
+    }[id] || null;
+  }
+};
+const scrollControlsFactory = new Function(
+  "document",
+  "window",
+  "requestAnimationFrame",
+  `var coachRequestInFlight = false;
+   var _coachScrollListener = null;
+   var _coachJumpingToLatest = false;
+   ${extractFunction(coach, "coachIsNearBottom")}
+   ${extractFunction(coach, "coachScrollBehavior")}
+   ${extractFunction(coach, "setCoachFollowUpsVisible")}
+   ${extractFunction(coach, "showJumpToLatest")}
+   ${extractFunction(coach, "hideJumpToLatest")}
+   ${extractFunction(coach, "syncCoachScrollUi")}
+   ${extractFunction(coach, "jumpToLatestCoachMessage")}
+   ${extractFunction(coach, "bindCoachScrollWatcher")}
+   bindCoachScrollWatcher();
+   return { syncCoachScrollUi, jumpToLatestCoachMessage };`
+)(
+  scrollDocument,
+  { matchMedia: () => ({ matches: false }) },
+  callback => callback()
+);
+
+test("at latest, suggestions show and the arrow is hidden",
+  chips.style.display === "flex" && jumpButton.hidden === true);
+chatlog.scrollTop = 100;
+chatlog.listeners.scroll();
+test("away from latest, only the circular arrow shows",
+  chips.style.display === "none" && jumpButton.hidden === false);
+jumpButton.listeners.click();
+test("clicking the arrow reaches latest and restores suggestions",
+  chatlog.scrollTop === chatlog.scrollHeight &&
+  chips.style.display === "flex" &&
+  jumpButton.hidden === true);
+test("arrow and suggestions can never be visible together",
+  /if \(coachIsNearBottom\(\)\)[\s\S]*?hideJumpToLatest\(\);[\s\S]*?setCoachFollowUpsVisible\(!coachRequestInFlight\)/.test(
+    extractFunction(coach, "syncCoachScrollUi")
+  ) &&
+  /setCoachFollowUpsVisible\(false\);[\s\S]*?showJumpToLatest\(\)/.test(
+    extractFunction(coach, "syncCoachScrollUi")
+  ));
+test("loading clears stale follow-up suggestions",
+  /if \(isSending[\s\S]*?chips\.innerHTML = ""[\s\S]*?hasSuggestions = "false"/.test(
+    extractFunction(coach, "setCoachSendingState")
+  ));
 
 console.log("\n──── Composer and state feedback ────");
 test("composer is multiline, labelled, and uses the required placeholder",
@@ -168,7 +261,9 @@ test("dark mode remains token-driven and Coach contains no glass surface",
   !/#screen-coachai \.coach-(?:head|composer)[^{]*\{[^}]*(?:nav-glass|backdrop-filter)/.test(html));
 test("reduced-motion coverage remains for Coach transitions",
   /prefers-reduced-motion:reduce[\s\S]*?coach-thinking-mark\{animation:none/.test(coachCss) &&
-  /prefers-reduced-motion: reduce[\s\S]*?\.msg\{animation:none\}/.test(html));
+  /prefers-reduced-motion: reduce[\s\S]*?\.msg\{animation:none\}/.test(html) &&
+  extractFunction(coach, "coachScrollBehavior")
+    .includes('matchMedia("(prefers-reduced-motion: reduce)")'));
 test("no Gemini branding, copied assets, gradients, or sparkle decoration exist",
   !/gemini|sparkle/i.test(coachScreen + coach + renderer + coachCss) &&
   !/gradient\(/.test(coachCss));

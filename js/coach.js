@@ -184,7 +184,10 @@ function addChatMessage(role, text) {
   if (role === "user") {
     requestAnimationFrame(() => {
       const cl = document.getElementById("chatlog");
-      if (cl) cl.scrollTo({ top: cl.scrollHeight, behavior: "smooth" });
+      if (cl) cl.scrollTo({
+        top: cl.scrollHeight,
+        behavior: coachScrollBehavior()
+      });
     });
   } else {
     requestAnimationFrame(coachSmartScroll);
@@ -308,6 +311,7 @@ if (latestAssistantMessage) {
 }
 
   chatlog.scrollTop = chatlog.scrollHeight;
+  syncCoachScrollUi();
 
   // Any proposal cards restored from history that were already applied
   // must show Applied (and lose their buttons) so nothing re-applies.
@@ -613,6 +617,7 @@ var _coachRetryInFlight = false;
 /* ══════════════ Smart scroll + jump-to-latest ═══════════════════ */
 
 var _coachScrollListener = null;
+var _coachJumpingToLatest = false;
 
 function coachIsNearBottom() {
   var cl = document.getElementById("chatlog");
@@ -620,38 +625,85 @@ function coachIsNearBottom() {
   return cl.scrollHeight - cl.scrollTop - cl.clientHeight < 80;
 }
 
-function coachSmartScroll() {
+function coachScrollBehavior() {
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return "auto";
+  }
+  return "smooth";
+}
+
+function setCoachFollowUpsVisible(visible) {
+  var chips = document.getElementById("chips");
+  if (!chips) return;
+  var hasSuggestions =
+    chips.dataset.hasSuggestions === "true" && chips.children.length > 0;
+  chips.style.display = visible && hasSuggestions ? "flex" : "none";
+}
+
+function syncCoachScrollUi() {
+  var screen = document.getElementById("screen-coachai");
+  if (screen && screen.classList.contains("coach-is-empty")) {
+    hideJumpToLatest();
+    setCoachFollowUpsVisible(false);
+    return;
+  }
+
   if (coachIsNearBottom()) {
+    _coachJumpingToLatest = false;
+    hideJumpToLatest();
+    setCoachFollowUpsVisible(!coachRequestInFlight);
+    return;
+  }
+
+  setCoachFollowUpsVisible(false);
+  if (_coachJumpingToLatest) hideJumpToLatest();
+  else showJumpToLatest();
+}
+
+function coachSmartScroll(forceLatest) {
+  var shouldFollowLatest = forceLatest === true || coachIsNearBottom();
+  if (shouldFollowLatest) {
     var cl = document.getElementById("chatlog");
-    if (cl) cl.scrollTo({ top: cl.scrollHeight, behavior: "smooth" });
+    if (cl) {
+      if (forceLatest === true && !coachIsNearBottom()) {
+        _coachJumpingToLatest = true;
+        hideJumpToLatest();
+        setCoachFollowUpsVisible(false);
+      }
+      cl.scrollTo({
+        top: cl.scrollHeight,
+        behavior: coachScrollBehavior()
+      });
+    }
   } else {
-    showJumpToLatest();
+    syncCoachScrollUi();
   }
 }
 
 function showJumpToLatest() {
-  var existing = document.getElementById("coachJumpLatest");
-  if (existing) { existing.style.display = ""; return; }
-  var cl = document.getElementById("chatlog");
-  if (!cl) return;
-  var btn = document.createElement("button");
-  btn.type = "button";
-  btn.id = "coachJumpLatest";
-  btn.className = "coach-jump-latest";
-  btn.textContent = "Jump to latest";
-  btn.setAttribute("aria-label", "Jump to latest message");
-  btn.addEventListener("click", function () {
-    var cl2 = document.getElementById("chatlog");
-    if (cl2) cl2.scrollTo({ top: cl2.scrollHeight, behavior: "smooth" });
-  });
-  // Insert relative to the coach screen, not inside the scrolling chatlog.
-  var screen = document.getElementById("screen-coachai");
-  if (screen) screen.appendChild(btn);
+  var btn = document.getElementById("coachJumpLatest");
+  if (btn) btn.hidden = false;
 }
 
 function hideJumpToLatest() {
   var el = document.getElementById("coachJumpLatest");
-  if (el) el.style.display = "none";
+  if (el) el.hidden = true;
+}
+
+function jumpToLatestCoachMessage() {
+  var cl = document.getElementById("chatlog");
+  if (!cl) return;
+  _coachJumpingToLatest = true;
+  hideJumpToLatest();
+  setCoachFollowUpsVisible(false);
+  cl.scrollTo({
+    top: cl.scrollHeight,
+    behavior: coachScrollBehavior()
+  });
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(syncCoachScrollUi);
+  }
 }
 
 function bindCoachScrollWatcher() {
@@ -662,10 +714,16 @@ function bindCoachScrollWatcher() {
     cl.removeEventListener("scroll", _coachScrollListener);
   }
   _coachScrollListener = function () {
-    if (coachIsNearBottom()) hideJumpToLatest();
-    else showJumpToLatest();
+    syncCoachScrollUi();
   };
   cl.addEventListener("scroll", _coachScrollListener, { passive: true });
+
+  var jumpButton = document.getElementById("coachJumpLatest");
+  if (jumpButton && jumpButton.dataset.bound !== "true") {
+    jumpButton.dataset.bound = "true";
+    jumpButton.addEventListener("click", jumpToLatestCoachMessage);
+  }
+  syncCoachScrollUi();
 }
 
 /* ══════════════ Follow-up actions ═══════════════════════════════ */
@@ -705,7 +763,12 @@ function renderFollowUpActions(answer) {
   if (!chipsContainer) return;
 
   var actions = buildFollowUpActions(answer);
-  if (!actions.length) { chipsContainer.style.display = "none"; return; }
+  if (!actions.length) {
+    chipsContainer.dataset.hasSuggestions = "false";
+    chipsContainer.style.display = "none";
+    syncCoachScrollUi();
+    return;
+  }
 
   chipsContainer.innerHTML = "";
 
@@ -738,7 +801,9 @@ function renderFollowUpActions(answer) {
     chipsContainer.appendChild(btn);
   });
 
-  chipsContainer.style.display = "flex";
+  chipsContainer.dataset.hasSuggestions =
+    chipsContainer.children.length > 0 ? "true" : "false";
+  syncCoachScrollUi();
 }
 
 /* ══════════════ Inline error + retry ════════════════════════════ */
@@ -782,10 +847,20 @@ function renderCoachError(container, question) {
  * network work starts. Safe to call when the button isn't on screen. */
 function setCoachSendingState(isSending) {
   const sendBtn = document.querySelector(".coach-composer .send");
-  if (!sendBtn) return;
-  sendBtn.classList.toggle("is-sending", !!isSending);
-  sendBtn.disabled = !!isSending;
-  sendBtn.setAttribute("aria-busy", isSending ? "true" : "false");
+  if (sendBtn) {
+    sendBtn.classList.toggle("is-sending", !!isSending);
+    sendBtn.disabled = !!isSending;
+    sendBtn.setAttribute("aria-busy", isSending ? "true" : "false");
+  }
+
+  if (isSending && typeof document.getElementById === "function") {
+    const chips = document.getElementById("chips");
+    if (chips) {
+      chips.innerHTML = "";
+      chips.dataset.hasSuggestions = "false";
+    }
+  }
+  if (typeof document.getElementById === "function") syncCoachScrollUi();
 }
 
 async function askCoach(question) {
@@ -982,12 +1057,14 @@ stopThinkingLabelRotation();
 const responseContainer =
   loadingMessage.querySelector(".change");
 
+const wasAtLatestBeforeResponse = coachIsNearBottom();
+
 renderCoachResponse(
   responseContainer,
   answer
 );
 
-// Follow-up actions (contextual chips below the response).
+// Follow-up actions (contextual chips in the active tools slot above composer).
 // Model-suggested replies take priority; fall back to built-in actions.
 if (Array.isArray(answer.suggested_replies) && answer.suggested_replies.length > 0) {
   renderSuggestedReplies(answer.suggested_replies);
@@ -999,7 +1076,7 @@ if (Array.isArray(answer.suggested_replies) && answer.suggested_replies.length >
 try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent("coach_response_received", { response_status: "success", source: "coach" }); } catch (e) {}
 
 // Smart-scroll after response renders.
-coachSmartScroll();
+coachSmartScroll(wasAtLatestBeforeResponse);
 
 // Only persist a genuine, successful reply. A missing data.answer means
 // the model call did not produce a real structured response, so we show
@@ -1331,3 +1408,4 @@ window.hideCoachEmptyState = hideCoachEmptyState;
 window.showCoachEmptyState = showCoachEmptyState;
 window.renderFollowUpActions = renderFollowUpActions;
 window.coachSmartScroll = coachSmartScroll;
+window.syncCoachScrollUi = syncCoachScrollUi;

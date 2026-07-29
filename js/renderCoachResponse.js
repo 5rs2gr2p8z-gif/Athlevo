@@ -515,12 +515,16 @@ function renderSuggestedReplies(replies) {
   }
 
   chipsContainer.innerHTML = "";
+  chipsContainer.dataset.hasSuggestions = "false";
 
   if (
     !Array.isArray(replies) ||
     replies.length === 0
   ) {
     chipsContainer.style.display = "none";
+    if (typeof window.syncCoachScrollUi === "function") {
+      window.syncCoachScrollUi();
+    }
     return;
   }
 
@@ -560,7 +564,14 @@ function renderSuggestedReplies(replies) {
     chipsContainer.appendChild(button);
   });
 
-  chipsContainer.style.display = "flex";
+  chipsContainer.dataset.hasSuggestions =
+    chipsContainer.children.length > 0 ? "true" : "false";
+  if (typeof window.syncCoachScrollUi === "function") {
+    window.syncCoachScrollUi();
+  } else {
+    chipsContainer.style.display =
+      chipsContainer.dataset.hasSuggestions === "true" ? "flex" : "none";
+  }
 }
 
 window.renderCoachResponse =
