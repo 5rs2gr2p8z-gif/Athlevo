@@ -767,15 +767,14 @@ function resetAthleteUI() {
   setText("todayDirectionLabel", "Controlled day");
   setText("todayDirectionScore", "—");
   setText("todayDirectionQuality", "Limited data");
-  setText("todayDirectionRecovery", "No recent check-in");
-  setText("todayDirectionLoad", "Training load unavailable");
-  setText("todayDirectionPain", "Pain status unavailable");
+  setText("todayDirectionRecovery", "No check-in");
+  setText("todayDirectionLoad", "Load unavailable");
+  setText("todayDirectionPain", "Pain data unavailable");
   setText("todayDirectionWhy", "Athlevo needs a recent check-in and training-load history to explain today’s direction.");
 
   const directionBlock = document.getElementById("todayPassiveStatusBlock");
   const directionCard = document.getElementById("dailyBriefCard");
   const directionQuality = document.getElementById("todayDirectionQuality");
-  const directionDial = document.getElementById("todayDirectionDialValue");
   const directionNeedle = document.getElementById("todayDirectionDialNeedle");
   if (directionBlock) directionBlock.dataset.direction = "hold";
   if (directionCard) {
@@ -783,8 +782,7 @@ function resetAthleteUI() {
     directionCard.dataset.score = "missing";
   }
   if (directionQuality) directionQuality.hidden = false;
-  if (directionDial) directionDial.style.strokeDasharray = "0 100";
-  if (directionNeedle) directionNeedle.style.transform = "rotate(-90deg)";
+  if (directionNeedle) directionNeedle.style.transform = "rotate(0deg)";
 
   setText("profileName", "Athlete");
   setText("profileInitial", "A");

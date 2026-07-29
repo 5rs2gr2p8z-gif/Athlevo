@@ -57,9 +57,10 @@ const directionConstants = html.slice(
 const classifySource = extractFunction(html, "classifyAthlevoDirection");
 const viewSource = extractFunction(html, "buildAthlevoDirectionView");
 const contextSource = extractFunction(html, "buildTodayTrainingContext");
+const needleSource = extractFunction(html, "directionZoneNeedleDeg");
 const helpers = new Function(
-  `${directionConstants}\n${classifySource}\n${viewSource}\n${contextSource}
-   return { classifyAthlevoDirection, buildAthlevoDirectionView, buildTodayTrainingContext };`
+  `${directionConstants}\n${classifySource}\n${viewSource}\n${contextSource}\n${needleSource}
+   return { classifyAthlevoDirection, buildAthlevoDirectionView, buildTodayTrainingContext, directionZoneNeedleDeg };`
 )();
 
 console.log("\n──── Direction score and state behavior ────");
@@ -92,6 +93,7 @@ console.log("\n──── Truthful contributors and confidence ────");
     checkIn: { recorded: true, soreness: 1, painPresent: false }
   });
   test("real readiness score is displayed without recomputation", complete.score === 72);
+  test("readiness signal uses compact label", complete.readiness === "Readiness 72");
   test("stable real load is labelled compactly", complete.load === "Load stable");
   test("completed pain check-in can truthfully say clear", complete.pain === "Pain clear");
   test("complete signal set hides the missing-data indicator", complete.quality === "");
@@ -99,10 +101,10 @@ console.log("\n──── Truthful contributors and confidence ────");
 {
   const partial = helpers.buildAthlevoDirectionView({});
   test("missing readiness is not replaced with a fabricated score",
-    partial.score === null && partial.readiness === "No recent check-in");
+    partial.score === null && partial.readiness === "No check-in");
   test("missing load and pain are labelled honestly",
-    partial.load === "Training load unavailable" &&
-    partial.pain === "Pain status unavailable");
+    partial.load === "Load unavailable" &&
+    partial.pain === "Pain data unavailable");
   test("incomplete signals show Limited data", partial.quality === "Limited data");
 }
 test("reported soreness is shown from the check-in",
@@ -116,6 +118,24 @@ test("a partial check-in is not mislabeled as absent",
   helpers.buildAthlevoDirectionView({
     checkIn: { recorded: true, soreness: 1, painPresent: false }
   }).readiness === "Check-in incomplete");
+
+console.log("\n──── Instrument needle follows direction, not score ────");
+test("needle centers on the recover zone",
+  helpers.directionZoneNeedleDeg("recover") === -63);
+test("needle centers on the hold zone",
+  helpers.directionZoneNeedleDeg("hold") === 0);
+test("needle centers on the push zone",
+  helpers.directionZoneNeedleDeg("push") === 63);
+test("pain override keeps RECOVER even with a high readiness score",
+  helpers.classifyAthlevoDirection({
+    readiness: { score: 82, status: "good" },
+    pain: { present: true }
+  }).state === "RECOVER");
+test("high load override keeps HOLD even with a high readiness score",
+  helpers.classifyAthlevoDirection({
+    readiness: { score: 82, status: "good" },
+    recovery: { acwr: 1.35 }
+  }).state === "HOLD");
 
 console.log("\n──── Training context ────");
 test("current plan renders race and exact week position",
@@ -147,25 +167,46 @@ const positions = [
   today.indexOf("Good morning,"),
   today.indexOf("todayContextLine"),
   today.indexOf("Athlevo Direction"),
-  today.indexOf("todayDirectionDialValue"),
+  today.indexOf("todayPassiveStatusBlock"),
+  today.indexOf("todayDirectionDialNeedle"),
   today.indexOf("Today's workout"),
   today.indexOf("Open today's workout")
 ];
-test("first viewport follows mark → greeting → context → dial → workout → action",
+test("first viewport follows mark → greeting → context → instrument → workout → action",
   positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
 test("Direction is a named live status for assistive technology",
   /id="todayPassiveStatusBlock"[\s\S]*?role="status"[\s\S]*?aria-live="polite"[\s\S]*?aria-atomic="true"/.test(today));
-test("dial has an accessible title and dynamic description",
+test("instrument has an accessible title and dynamic description",
   /role="img" aria-labelledby="todayDirectionDialTitle todayDirectionDialDescription"/.test(today) &&
   /id="todayDirectionDialDescription"/.test(today));
-test("dial is an open arc, not a copied circular ring",
-  /class="direction-dial-track"[\s\S]*?d="M30 124 A90 90 0 0 1 210 124"/.test(today) &&
-  !/<circle[^>]+class="direction-dial-(?:track|value)"/.test(today));
-test("central score and all three contributors have dedicated mounts",
+test("instrument is a three-zone open arc, not a copied circular ring",
+  /class="direction-zone direction-zone--recover"[\s\S]*?d="M30 124 A90 90 0 0 1 210 124"/.test(today) &&
+  /class="direction-zone direction-zone--hold"/.test(today) &&
+  /class="direction-zone direction-zone--push"/.test(today) &&
+  !/<circle[^>]+class="direction-zone/.test(today) &&
+  !/id="todayDirectionDialValue"/.test(today));
+test("active zone styling is driven by data-direction on the card",
+  /\.direction-card\[data-direction="recover"\] \.direction-zone--recover/.test(html) &&
+  /\.direction-card\[data-direction="hold"\] \.direction-zone--hold/.test(html) &&
+  /\.direction-card\[data-direction="push"\] \.direction-zone--push/.test(html));
+test("needle follows direction zone, not readiness score arc",
+  /directionZoneNeedleDeg\(key\)/.test(html) &&
+  !/dialScore \* 1\.8/.test(html));
+test("center score and all three signal chips have dedicated mounts",
   /id="todayDirectionScore"/.test(today) &&
+  /class="direction-signals"/.test(today) &&
   /id="todayDirectionRecovery"/.test(today) &&
   /id="todayDirectionLoad"/.test(today) &&
-  /id="todayDirectionPain"/.test(today));
+  /id="todayDirectionPain"/.test(today) &&
+  !/direction-contributors/.test(today));
+test("missing score hides the /100 denominator instead of showing zero",
+  /\.direction-card\[data-score="missing"\] \.direction-score-denom\{display:none\}/.test(html) &&
+  /value\.score === null \? "—"/.test(html));
+test("semantic zone colors are defined without gradients",
+  /--zone-recover:#3d6fd4/.test(html) &&
+  /--zone-hold:#c4841a/.test(html) &&
+  /--zone-push:var\(--red\)/.test(html) &&
+  !/\.direction-zone\{[^}]*gradient/.test(html));
 test("primary action remains a real button with existing Train routing",
   /class="rec-cta"[\s\S]*?onclick="todayGoToTrain\(\)"[\s\S]*?>Open today's workout<\/button>/.test(today));
 test("Why this is a native expandable disclosure below the workout",
@@ -195,8 +236,8 @@ test("greeting uses the athlete's first name without an email fallback",
 test("Direction uses a theme-aware editorial surface and no gradient",
   /\.direction-card\{[^}]*background:var\(--paper\)/.test(html) &&
     !/\.direction-card\{[^}]*gradient/.test(html));
-test("dial appearance uses restrained tokenized motion",
-  /\.direction-dial-value\{[^}]*transition:[^}]*var\(--dur-slow\)[^}]*var\(--ease-standard\)/.test(html));
+test("needle appearance uses restrained tokenized motion",
+  /\.direction-dial-needle\{[^}]*transition:[^}]*var\(--dur-slow\)[^}]*var\(--ease-standard\)/.test(html));
 test("global reduced-motion support remains present",
   /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html));
 
