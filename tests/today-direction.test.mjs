@@ -104,7 +104,7 @@ console.log("\n──── Truthful contributors and confidence ────");
     partial.score === null && partial.readiness === "No check-in");
   test("missing load and pain are labelled honestly",
     partial.load === "Load unavailable" &&
-    partial.pain === "Pain data unavailable");
+    partial.pain === "Pain unavailable");
   test("incomplete signals show Limited data", partial.quality === "Limited data");
 }
 test("reported soreness is shown from the check-in",
@@ -192,13 +192,30 @@ test("active zone styling is driven by data-direction on the card",
 test("needle follows direction zone, not readiness score arc",
   /directionZoneNeedleDeg\(key\)/.test(html) &&
   !/dialScore \* 1\.8/.test(html));
-test("center score and all three signal chips have dedicated mounts",
+test("center score and all three evidence values have dedicated mounts",
   /id="todayDirectionScore"/.test(today) &&
-  /class="direction-signals"/.test(today) &&
+  /class="direction-evidence"/.test(today) &&
   /id="todayDirectionRecovery"/.test(today) &&
   /id="todayDirectionLoad"/.test(today) &&
   /id="todayDirectionPain"/.test(today) &&
-  !/direction-contributors/.test(today));
+  !/direction-signal"/.test(today));
+test("missing evidence renders as one quiet line",
+  /<p class="direction-evidence"[\s\S]*?No check-in[\s\S]*?Load unavailable[\s\S]*?Pain unavailable[\s\S]*?<\/p>/.test(today));
+test("instrument is roughly twenty percent larger",
+  /\.direction-dial\{[^}]*width:min\(100%,326px\)[^}]*height:146px/.test(html));
+test("zone labels use a normal phone-readable type token",
+  /\.direction-zone-label\{[^}]*font-size:var\(--fs-caption\)/.test(html));
+test("active zone is substantially stronger than inactive zones",
+  /\.direction-zone\{[^}]*stroke-width:9[^}]*opacity:\.2/.test(html) &&
+  /direction-zone--push\{opacity:1;stroke-width:15\}/.test(html));
+test("needle is a short arc pointer clear of the center score",
+  /id="todayDirectionDialNeedle" x1="120" y1="47" x2="120" y2="65"/.test(today) &&
+  !/class="direction-dial-pivot"/.test(today));
+test("Limited data is quiet text rather than a pill",
+  /\.direction-quality\{[^}]*color:var\(--ink3\)[^}]*padding:2px 0/.test(html) &&
+  !/\.direction-quality\{[^}]*background:/.test(html));
+test("narrow phones reduce greeting size with the existing display token",
+  /@media \(max-width:380px\)\{[\s\S]*?\.greet h1\{font-size:calc\(var\(--fs-display\) \* \.88\)/.test(html));
 test("missing score hides the /100 denominator instead of showing zero",
   /\.direction-card\[data-score="missing"\] \.direction-score-denom\{display:none\}/.test(html) &&
   /value\.score === null \? "—"/.test(html));

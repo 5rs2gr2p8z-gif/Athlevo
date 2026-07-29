@@ -769,7 +769,7 @@ function resetAthleteUI() {
   setText("todayDirectionQuality", "Limited data");
   setText("todayDirectionRecovery", "No check-in");
   setText("todayDirectionLoad", "Load unavailable");
-  setText("todayDirectionPain", "Pain data unavailable");
+  setText("todayDirectionPain", "Pain unavailable");
   setText("todayDirectionWhy", "Athlevo needs a recent check-in and training-load history to explain today’s direction.");
 
   const directionBlock = document.getElementById("todayPassiveStatusBlock");
