@@ -144,8 +144,10 @@
         if (r && r.date) {
           signals.checkIn = {
             recorded: true,
+            sleepQuality: num(r.sleepQuality1to5),
             soreness: num(r.muscleSoreness1to10),
-            painPresent: r.painPresent === true
+            painPresent: r.painPresent === true,
+            painSeverity: num(r.painSeverity1to10)
           };
         }
         if (r && r.readinessScore != null) {

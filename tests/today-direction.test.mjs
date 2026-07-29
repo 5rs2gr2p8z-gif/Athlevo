@@ -59,18 +59,18 @@ const readinessPresentationSource = extractFunction(
   html,
   "buildReadinessSignalPresentation"
 );
-const freshnessPresentationSource = extractFunction(
+const recoveryPresentationSource = extractFunction(
   html,
-  "buildFreshnessSignalPresentation"
+  "buildRecoverySignalPresentation"
 );
 const viewSource = extractFunction(html, "buildAthlevoDirectionView");
 const contextSource = extractFunction(html, "buildTodayTrainingContext");
 const helpers = new Function(
-  `${directionConstants}\n${classifySource}\n${readinessPresentationSource}\n${freshnessPresentationSource}\n${viewSource}\n${contextSource}
+  `${directionConstants}\n${classifySource}\n${readinessPresentationSource}\n${recoveryPresentationSource}\n${viewSource}\n${contextSource}
    return {
      classifyAthlevoDirection,
      buildReadinessSignalPresentation,
-     buildFreshnessSignalPresentation,
+     buildRecoverySignalPresentation,
      buildAthlevoDirectionView,
      buildTodayTrainingContext
    };`
@@ -190,78 +190,104 @@ test("RECOVER receives concise presentation copy without changing classification
     pain: { present: true }
   }).coaching === "Recovery signals suggest shortening or replacing the session.");
 
-console.log("\n──── Form-backed Recovery presentation ────");
-test("Form ≥ +25 maps to Very fresh with the detraining-aware amber tone",
-  [25, 40].every(form => {
-    const signal = helpers.buildFreshnessSignalPresentation(form);
-    return signal.value === "Very fresh" &&
-      signal.note === "Low recent load" &&
-      signal.tone === "freshness-detraining";
-  }));
-test("Form +5 to below +25 maps to Fresh with the blue tone",
-  [5, 24.9].every(form => {
-    const signal = helpers.buildFreshnessSignalPresentation(form);
-    return signal.value === "Fresh" &&
-      signal.note === "Ready for quality" &&
-      signal.tone === "freshness-fresh";
-  }));
-test("Form −5 to below +5 maps to Balanced",
-  [-5, 0, 4.9].every(form => {
-    const signal = helpers.buildFreshnessSignalPresentation(form);
-    return signal.value === "Balanced" &&
-      signal.note === "Maintaining" &&
-      signal.tone === "freshness-balanced";
-  }));
-test("Form −20 to below −5 maps to Loaded with the green tone",
-  [-20, -10, -5.1].every(form => {
-    const signal = helpers.buildFreshnessSignalPresentation(form);
-    return signal.value === "Loaded" &&
-      signal.note === "Building fitness" &&
-      signal.tone === "freshness-loaded";
-  }));
-test("Form below −20 maps to Fatigued with the red tone",
-  [-20.1, -35].every(form => {
-    const signal = helpers.buildFreshnessSignalPresentation(form);
-    return signal.value === "Fatigued" &&
-      signal.note === "Recovery needed" &&
-      signal.tone === "freshness-fatigued";
-  }));
-test("missing Form stays neutral with no fabricated arc",
+console.log("\n──── Composite Recovery presentation ────");
+test("Recovery bands map exactly to Poor, Moderate, Good, and Excellent",
+  helpers.buildRecoverySignalPresentation({
+    available: true, score: 39, quality: "Partial data"
+  }).value === "Poor" &&
+  helpers.buildRecoverySignalPresentation({
+    available: true, score: 40, quality: "Partial data"
+  }).value === "Moderate" &&
+  helpers.buildRecoverySignalPresentation({
+    available: true, score: 69, quality: "Partial data"
+  }).value === "Moderate" &&
+  helpers.buildRecoverySignalPresentation({
+    available: true, score: 70, quality: "Partial data"
+  }).value === "Good" &&
+  helpers.buildRecoverySignalPresentation({
+    available: true, score: 84, quality: "Partial data"
+  }).value === "Good" &&
+  helpers.buildRecoverySignalPresentation({
+    available: true, score: 85, quality: "Partial data"
+  }).value === "Excellent" &&
+  helpers.buildRecoverySignalPresentation({
+    available: true, score: 100, quality: "Partial data"
+  }).value === "Excellent");
+test("Recovery bands use the requested supporting copy and semantic tones",
   (() => {
-    const signal = helpers.buildFreshnessSignalPresentation(null);
+    const poor = helpers.buildRecoverySignalPresentation({
+      available: true, score: 20, quality: "Limited data"
+    });
+    const moderate = helpers.buildRecoverySignalPresentation({
+      available: true, score: 55, quality: "Partial data"
+    });
+    const good = helpers.buildRecoverySignalPresentation({
+      available: true, score: 78, quality: "Partial data"
+    });
+    const excellent = helpers.buildRecoverySignalPresentation({
+      available: true, score: 92, quality: "Full data"
+    });
+    return poor.note === "Recovery limited" && poor.tone === "recovery-poor" &&
+      moderate.note === "Some recovery" && moderate.tone === "recovery-moderate" &&
+      good.note === "Ready to train" && good.tone === "recovery-good" &&
+      excellent.note === "Very well recovered" &&
+      excellent.tone === "recovery-excellent";
+  })());
+test("insufficient Recovery stays neutral without a precise score or arc",
+  (() => {
+    const signal = helpers.buildRecoverySignalPresentation({
+      available: false,
+      score: null,
+      quality: "Limited data"
+    });
     return signal.value === "—" &&
-      signal.note === "Unavailable" &&
+      signal.note === "Not enough data" &&
+      signal.quality === "Limited data" &&
       signal.tone === "missing" &&
       signal.progress === 0 &&
-      signal.progressKind === "missing";
+      signal.score === null;
   })());
-test("Form-backed Recovery is categorical and does not duplicate the numeric readiness score",
+test("Recovery no longer renders Form state labels",
+  ["Fresh", "Balanced", "Loaded", "Fatigued", "Very fresh"].every(label =>
+    ![
+      helpers.buildRecoverySignalPresentation({
+        available: true, score: 20, quality: "Partial data"
+      }).value,
+      helpers.buildRecoverySignalPresentation({
+        available: true, score: 55, quality: "Partial data"
+      }).value,
+      helpers.buildRecoverySignalPresentation({
+        available: true, score: 78, quality: "Partial data"
+      }).value,
+      helpers.buildRecoverySignalPresentation({
+        available: true, score: 92, quality: "Full data"
+      }).value
+    ].includes(label)
+  ));
+test("Recovery does not duplicate the subjective readiness score directly",
   (() => {
     const view = helpers.buildAthlevoDirectionView({
       readiness: { score: 72 },
-      form: { value: 14 }
+      compositeRecovery: {
+        available: true,
+        score: 88,
+        quality: "Limited data"
+      }
     });
     return view.signals.readiness.value === "72" &&
-      view.signals.freshness.value === "Fresh" &&
-      !/\d/.test(view.signals.freshness.value);
+      view.signals.recovery.value === "Excellent" &&
+      view.signals.recovery.score === 88;
   })());
-{
-  const latestFormSource = extractFunction(html, "latestTodayFormFromTrendData");
-  const latestForm = new Function(
-    `${latestFormSource}; return latestTodayFormFromTrendData;`
-  )();
-  test("Today uses the latest real non-null Form value from provider Trends",
-    latestForm({
-      days: [
-        { date: "2026-07-27", form: 4 },
-        { date: "2026-07-28", form: null },
-        { date: "2026-07-29", form: -12 }
-      ]
-    }) === -12 &&
-    /loadProviderTrends\("6w"\)/.test(
-      extractFunction(html, "loadLatestTodayForm")
-    ));
-}
+test("Today Recovery input uses real check-in and load fields without Form",
+  (() => {
+    const inputSource = extractFunction(html, "buildTodayRecoveryInput");
+    return /readinessScore:\s*s\.readiness && s\.readiness\.score/.test(inputSource) &&
+      /sleepQuality:\s*checkIn\.sleepQuality/.test(inputSource) &&
+      /soreness:\s*checkIn\.soreness/.test(inputSource) &&
+      /painPresent:/.test(inputSource) &&
+      /acwr:\s*s\.recovery && s\.recovery\.acwr/.test(inputSource) &&
+      !/\bform\b/i.test(inputSource);
+  })());
 
 console.log("\n──── Direction safety overrides ────");
 test("pain override keeps RECOVER even with a high readiness score",
@@ -431,6 +457,130 @@ const readiness61 = {
     root.getAttribute("aria-label") === "Readiness, no check-in");
 }
 
+console.log("\n──── Recovery ring transition behavior ────");
+const recoveryStateSource = html.slice(
+  html.indexOf("var todayRecoveryRingState"),
+  html.indexOf("function renderTodayRecoverySignal")
+);
+const recoveryRenderSource = extractFunction(
+  html,
+  "renderTodayRecoverySignal"
+);
+
+function makeRecoveryRingRuntime(reducedMotion = false) {
+  const frames = [];
+  const timers = [];
+  const cancelled = new Set();
+  let nextId = 1;
+  const fakeWindow = {
+    matchMedia: () => ({ matches: reducedMotion }),
+    requestAnimationFrame(callback) {
+      const id = nextId++;
+      frames.push({ id, callback });
+      return id;
+    },
+    cancelAnimationFrame(id) { cancelled.add(id); },
+    setTimeout(callback) {
+      const id = nextId++;
+      timers.push({ id, callback });
+      return id;
+    },
+    clearTimeout(id) { cancelled.add(id); }
+  };
+  const api = new Function(
+    "window",
+    `${recoveryStateSource}
+     ${readinessTransitionSource}
+     ${reducedMotionSource}
+     ${recoveryRenderSource}
+     return { renderTodayRecoverySignal, state: todayRecoveryRingState };`
+  )(fakeWindow);
+  const run = queue => {
+    while (queue.length) {
+      const task = queue.shift();
+      if (!cancelled.has(task.id)) {
+        task.callback();
+        return true;
+      }
+    }
+    return false;
+  };
+  return {
+    api,
+    frames,
+    timers,
+    runFrame: () => run(frames),
+    runTimer: () => run(timers)
+  };
+}
+
+const recovery78 = {
+  value: "Good",
+  note: "Ready to train",
+  quality: "Partial data",
+  tone: "recovery-good",
+  progress: 78,
+  progressKind: "normalized",
+  score: 78
+};
+{
+  const runtime = makeRecoveryRingRuntime();
+  const root = makeSignalNode();
+  const value = makeSignalNode();
+  const note = makeSignalNode();
+  const quality = makeSignalNode();
+  runtime.api.renderTodayRecoverySignal(root, value, note, quality, recovery78);
+  test("initial confirmed Recovery animates once without showing fake zero",
+    root.style.getPropertyValue("--signal-progress") === "0" &&
+    value.textContent === "Good" &&
+    runtime.frames.length === 1);
+  test("Recovery accessibility exposes score, band, and data quality",
+    root.getAttribute("aria-label") ===
+      "Recovery 78 out of 100, Good. Partial data.");
+  runtime.runFrame();
+  test("confirmed Recovery settles on its real score and semantic color",
+    root.style.getPropertyValue("--signal-progress") === "78" &&
+    root.dataset.tone === "recovery-good");
+  runtime.api.renderTodayRecoverySignal(root, value, note, quality, recovery78);
+  test("unchanged Recovery does not replay",
+    runtime.frames.length === 0 &&
+    root.dataset.animated === "false");
+}
+{
+  const runtime = makeRecoveryRingRuntime(true);
+  const root = makeSignalNode();
+  const value = makeSignalNode();
+  const note = makeSignalNode();
+  const quality = makeSignalNode();
+  runtime.api.renderTodayRecoverySignal(root, value, note, quality, recovery78);
+  test("reduced motion renders confirmed Recovery immediately",
+    runtime.frames.length === 0 &&
+    root.style.getPropertyValue("--signal-progress") === "78" &&
+    root.dataset.tone === "recovery-good");
+}
+{
+  const runtime = makeRecoveryRingRuntime();
+  const root = makeSignalNode();
+  const value = makeSignalNode();
+  const note = makeSignalNode();
+  const quality = makeSignalNode();
+  runtime.api.renderTodayRecoverySignal(root, value, note, quality, {
+    value: "—",
+    note: "Not enough data",
+    quality: "Limited data",
+    tone: "missing",
+    progress: 0,
+    progressKind: "missing",
+    score: null
+  });
+  test("Recovery loading and insufficient data never animate from fake zero",
+    runtime.frames.length === 0 &&
+    value.textContent === "—" &&
+    root.dataset.tone === "missing" &&
+    root.getAttribute("aria-label") ===
+      "Recovery, not enough data. Limited data.");
+}
+
 console.log("\n──── Training context ────");
 test("current plan renders race and exact week position",
   helpers.buildTodayTrainingContext({
@@ -565,40 +715,43 @@ test("all three compact signal indicators have dynamic mounts",
   /id="todayDirectionCoaching"/.test(today) &&
   /id="todayReadinessSignalValue"/.test(today) &&
   /id="todayLoadSignalValue"/.test(today) &&
-  /id="todayFreshnessSignalValue"/.test(today) &&
+  /id="todayRecoverySignalValue"/.test(today) &&
   (directionMarkup.match(/class="direction-signal-ring"/g) || []).length === 3);
 test("the third signal is visibly and accessibly named Recovery",
-  /id="todayFreshnessSignal" aria-label="Recovery: unavailable"/.test(directionMarkup) &&
+  /id="todayRecoverySignal" aria-label="Recovery: not enough data"/.test(directionMarkup) &&
   /class="direction-signal-name">Recovery<\/span>/.test(directionMarkup) &&
-  /value\.signals\.freshness,[\s\S]*?"Recovery"/.test(html) &&
+  /value\.signals\.recovery/.test(html) &&
   !/class="direction-signal-name">Freshness<\/span>/.test(directionMarkup) &&
   !/aria-label="Freshness:/.test(directionMarkup));
+test("Recovery exposes quiet Full, Partial, or Limited data quality",
+  /id="todayRecoverySignalQuality">Limited data<\/span>/.test(directionMarkup) &&
+  /qualityNode\.textContent = signal\.quality \|\| "Limited data"/.test(html));
 test("missing signals render explicit dashes and honest labels",
   helpers.buildAthlevoDirectionView({}).signals.readiness.value === "—" &&
   helpers.buildAthlevoDirectionView({}).signals.readiness.note === "No check-in" &&
   helpers.buildAthlevoDirectionView({}).signals.load.note === "Load unavailable" &&
-  helpers.buildAthlevoDirectionView({}).signals.freshness.note === "Unavailable" &&
+  helpers.buildAthlevoDirectionView({}).signals.recovery.note === "Not enough data" &&
   helpers.buildAthlevoDirectionView({}).signals.load.progress === 0 &&
-  helpers.buildAthlevoDirectionView({}).signals.freshness.progress === 0);
+  helpers.buildAthlevoDirectionView({}).signals.recovery.progress === 0);
 test("real signal values remain dynamic",
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
     checkIn: { recorded: true, soreness: 1, painPresent: false },
-    form: { value: 14 }
+    compositeRecovery: { available: true, score: 78, quality: "Partial data" }
   }).signals.readiness.value === "72" &&
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
     checkIn: { recorded: true, soreness: 1, painPresent: false },
-    form: { value: 14 }
+    compositeRecovery: { available: true, score: 78, quality: "Partial data" }
   }).signals.load.value === "Stable" &&
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
     checkIn: { recorded: true, soreness: 1, painPresent: false },
-    form: { value: 14 }
-  }).signals.freshness.value === "Fresh");
+    compositeRecovery: { available: true, score: 78, quality: "Partial data" }
+  }).signals.recovery.value === "Good");
 test("training-load display mapping remains categorical and unchanged", (() => {
   const missing = helpers.buildAthlevoDirectionView({}).signals.load;
   const below = helpers.buildAthlevoDirectionView({
@@ -629,7 +782,7 @@ test("training-load display mapping remains categorical and unchanged", (() => {
     high.note === "High load" &&
     high.tone === "risk";
 })());
-test("readiness uses a normalized real score while load and Recovery are categorical",
+test("readiness and Recovery use normalized scores while load remains categorical",
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
@@ -644,8 +797,11 @@ test("readiness uses a normalized real score while load and Recovery are categor
     recovery: { acwr: 1.04 }
   }).signals.load.progressKind === "categorical" &&
   helpers.buildAthlevoDirectionView({
-    form: { value: 0 }
-  }).signals.freshness.progressKind === "categorical");
+    compositeRecovery: { available: true, score: 78, quality: "Partial data" }
+  }).signals.recovery.progressKind === "normalized" &&
+  helpers.buildAthlevoDirectionView({
+    compositeRecovery: { available: true, score: 78, quality: "Partial data" }
+  }).signals.recovery.progress === 78);
 test("three thin progress rings meet the standard size without gradients",
   /\.direction-signal-ring\{[^}]*width:72px;height:72px/.test(html) &&
   (directionMarkup.match(/class="direction-signal-progress"/g) || []).length === 3 &&
@@ -663,11 +819,9 @@ test("semantic ring colors support light and dark mode without gradients",
   /\.direction-signal\[data-tone="readiness-low"\]\{--signal-color:var\(--bad\)\}/.test(html) &&
   /\.direction-signal\[data-tone="readiness-moderate"\]\{--signal-color:var\(--warn\)\}/.test(html) &&
   /\.direction-signal\[data-tone="readiness-good"\]\{--signal-color:var\(--good\)\}/.test(html) &&
-  /\.direction-signal\[data-tone="freshness-detraining"\]\{--signal-color:var\(--warn\)\}/.test(html) &&
-  /\.direction-signal\[data-tone="freshness-fresh"\]\{--signal-color:var\(--trend-fitness\)\}/.test(html) &&
-  /\.direction-signal\[data-tone="freshness-balanced"\]\{--signal-color:var\(--trend-maintaining\)\}/.test(html) &&
-  /\.direction-signal\[data-tone="freshness-loaded"\]\{--signal-color:var\(--good\)\}/.test(html) &&
-  /\.direction-signal\[data-tone="freshness-fatigued"\]\{--signal-color:var\(--bad\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="recovery-poor"\]\{--signal-color:var\(--bad\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="recovery-moderate"\]\{--signal-color:var\(--warn\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="recovery-good"\],[\s\S]*?\.direction-signal\[data-tone="recovery-excellent"\]\{--signal-color:var\(--good\)\}/.test(html) &&
   /\.direction-signal\[data-tone="recovery"\]\{--signal-color:#3970c8\}/.test(html) &&
   /\.direction-signal\[data-tone="positive"\]\{--signal-color:var\(--good\)\}/.test(html) &&
   /html\[data-theme="dark"\] \.direction-signal\[data-tone="recovery"\]\{--signal-color:#78a6ff\}/.test(html) &&
@@ -694,8 +848,8 @@ test("current-week data comes from the authenticated server endpoint",
 test("Today uses the server-selected valid plan and saved sessions",
   /snapshot\.hasPlan\s*\?\s*snapshot\.plan/.test(html) &&
     /snapshot\.hasPlan[\s\S]*?Array\.isArray\(snapshot\.sessions\)/.test(html));
-test("signal collector exposes only real check-in soreness and pain flags",
-  /signals\.checkIn\s*=\s*\{[\s\S]*?soreness:\s*num\(r\.muscleSoreness1to10\)[\s\S]*?painPresent:\s*r\.painPresent\s*===\s*true/.test(coachData));
+test("signal collector exposes only real sleep, soreness, and pain check-in fields",
+  /signals\.checkIn\s*=\s*\{[\s\S]*?sleepQuality:\s*num\(r\.sleepQuality1to5\)[\s\S]*?soreness:\s*num\(r\.muscleSoreness1to10\)[\s\S]*?painPresent:\s*r\.painPresent\s*===\s*true[\s\S]*?painSeverity:\s*num\(r\.painSeverity1to10\)/.test(coachData));
 test("greeting uses the athlete's first name without an email fallback",
   /fullName\.split\(\/\\s\+\/\)\[0\]/.test(brain) &&
     !/profile\.email\?\.split\("@"\)\[0\]/.test(extractFunction(brain, "updateTodayDashboard")));

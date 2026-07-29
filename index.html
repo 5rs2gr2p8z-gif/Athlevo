@@ -3387,11 +3387,10 @@ body.landing-active #tabbar{display:none!important}
     .direction-signal[data-tone="positive"]{--signal-color:var(--good)}
     .direction-signal[data-tone="warning"]{--signal-color:var(--warn)}
     .direction-signal[data-tone="risk"]{--signal-color:var(--bad)}
-    .direction-signal[data-tone="freshness-detraining"]{--signal-color:var(--warn)}
-    .direction-signal[data-tone="freshness-fresh"]{--signal-color:var(--trend-fitness)}
-    .direction-signal[data-tone="freshness-balanced"]{--signal-color:var(--trend-maintaining)}
-    .direction-signal[data-tone="freshness-loaded"]{--signal-color:var(--good)}
-    .direction-signal[data-tone="freshness-fatigued"]{--signal-color:var(--bad)}
+    .direction-signal[data-tone="recovery-poor"]{--signal-color:var(--bad)}
+    .direction-signal[data-tone="recovery-moderate"]{--signal-color:var(--warn)}
+    .direction-signal[data-tone="recovery-good"],
+    .direction-signal[data-tone="recovery-excellent"]{--signal-color:var(--good)}
     .direction-signal[data-tone="missing"]{--signal-color:var(--line)}
     html[data-theme="dark"] .direction-signal[data-tone="recovery"]{--signal-color:#78a6ff}
     @media (prefers-color-scheme: dark){
@@ -3408,6 +3407,8 @@ body.landing-active #tabbar{display:none!important}
     .direction-signal-name{max-width:100%;margin-top:6px;font-size:var(--fs-micro);
       font-weight:700;line-height:1.2;color:var(--ink2)}
     .direction-signal-note{max-width:100%;margin-top:2px;font-size:var(--fs-micro);
+      font-weight:550;line-height:1.2;color:var(--ink3)}
+    .direction-signal-quality{max-width:100%;margin-top:2px;font-size:10px;
       font-weight:550;line-height:1.2;color:var(--ink3)}
     .direction-verdict{text-align:left}
     .direction-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;
@@ -3540,16 +3541,17 @@ body.landing-active #tabbar{display:none!important}
         <span class="direction-signal-name">Training load</span>
         <span class="direction-signal-note" id="todayLoadSignalNote">Unavailable</span>
       </div>
-      <div class="direction-signal" id="todayFreshnessSignal" aria-label="Recovery: unavailable">
+      <div class="direction-signal" id="todayRecoverySignal" aria-label="Recovery: not enough data">
         <span class="direction-signal-ring" aria-hidden="true">
           <svg viewBox="0 0 72 72" focusable="false">
             <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
             <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
           </svg>
-          <strong class="direction-signal-value" id="todayFreshnessSignalValue">—</strong>
+          <strong class="direction-signal-value" id="todayRecoverySignalValue">—</strong>
         </span>
         <span class="direction-signal-name">Recovery</span>
-        <span class="direction-signal-note" id="todayFreshnessSignalNote">Unavailable</span>
+        <span class="direction-signal-note" id="todayRecoverySignalNote">Not enough data</span>
+        <span class="direction-signal-quality" id="todayRecoverySignalQuality">Limited data</span>
       </div>
     </div>
 
@@ -5507,60 +5509,61 @@ function buildReadinessSignalPresentation(score){
   };
 }
 
-/* Display-only interpretation of the same absolute Form value used by
-   Training Status in Trends. Pain and soreness remain separate safety inputs. */
-function buildFreshnessSignalPresentation(form){
-  if (!Number.isFinite(form)){
+function buildRecoverySignalPresentation(recovery){
+  var result = recovery && typeof recovery === "object" ? recovery : {};
+  if (result.available !== true || !Number.isFinite(result.score)){
     return {
       value: "—",
-      note: "Unavailable",
+      note: "Not enough data",
+      quality: result.quality || "Limited data",
       tone: "missing",
       progress: 0,
-      progressKind: "missing"
+      progressKind: "missing",
+      score: null
     };
   }
-  if (form >= 25){
+  var score = Math.round(Math.min(100, Math.max(0, result.score)));
+  if (score < 40){
     return {
-      value: "Very fresh",
-      note: "Low recent load",
-      tone: "freshness-detraining",
-      progress: 100,
-      progressKind: "categorical"
+      value: "Poor",
+      note: "Recovery limited",
+      quality: result.quality,
+      tone: "recovery-poor",
+      progress: score,
+      progressKind: "normalized",
+      score: score
     };
   }
-  if (form >= 5){
+  if (score < 70){
     return {
-      value: "Fresh",
-      note: "Ready for quality",
-      tone: "freshness-fresh",
-      progress: 100,
-      progressKind: "categorical"
+      value: "Moderate",
+      note: "Some recovery",
+      quality: result.quality,
+      tone: "recovery-moderate",
+      progress: score,
+      progressKind: "normalized",
+      score: score
     };
   }
-  if (form >= -5){
+  if (score < 85){
     return {
-      value: "Balanced",
-      note: "Maintaining",
-      tone: "freshness-balanced",
-      progress: 100,
-      progressKind: "categorical"
-    };
-  }
-  if (form >= -20){
-    return {
-      value: "Loaded",
-      note: "Building fitness",
-      tone: "freshness-loaded",
-      progress: 100,
-      progressKind: "categorical"
+      value: "Good",
+      note: "Ready to train",
+      quality: result.quality,
+      tone: "recovery-good",
+      progress: score,
+      progressKind: "normalized",
+      score: score
     };
   }
   return {
-    value: "Fatigued",
-    note: "Recovery needed",
-    tone: "freshness-fatigued",
-    progress: 100,
-    progressKind: "categorical"
+    value: "Excellent",
+    note: "Very well recovered",
+    quality: result.quality,
+    tone: "recovery-excellent",
+    progress: score,
+    progressKind: "normalized",
+    score: score
   };
 }
 
@@ -5614,10 +5617,7 @@ function buildAthlevoDirectionView(signals){
         ? "Limited data means today should stay measured."
         : "Available signals support an easy, measured effort.";
   var readinessSignal = buildReadinessSignalPresentation(score);
-  var formValue = s.form && Number.isFinite(s.form.value)
-    ? s.form.value
-    : null;
-  var freshnessSignal = buildFreshnessSignalPresentation(formValue);
+  var recoverySignal = buildRecoverySignalPresentation(s.compositeRecovery);
 
   var loadValue = "—";
   var loadNote = "Load unavailable";
@@ -5658,7 +5658,7 @@ function buildAthlevoDirectionView(signals){
         progress: loadProgress,
         progressKind: hasLoad ? "categorical" : "missing"
       },
-      freshness: freshnessSignal
+      recovery: recoverySignal
     },
     recommendationTitle: recommendationTitle,
     coaching: coaching,
@@ -5785,30 +5785,100 @@ function renderTodayReadinessSignal(root, valueNode, noteNode, signal){
   });
 }
 
-function latestTodayFormFromTrendData(data){
-  var days = data && Array.isArray(data.days) ? data.days : [];
-  for (var index = days.length - 1; index >= 0; index -= 1){
-    var raw = days[index] && days[index].form;
-    if (raw === null || raw === undefined || raw === "") continue;
-    var form = Number(raw);
-    if (Number.isFinite(form)) return form;
-  }
-  return null;
+function buildTodayRecoveryInput(signals){
+  var s = signals && typeof signals === "object" ? signals : {};
+  var checkIn = s.checkIn && s.checkIn.recorded === true ? s.checkIn : {};
+  var hrv = s.hrv && typeof s.hrv === "object" ? s.hrv : {};
+  var resting = s.restingHeartRate && typeof s.restingHeartRate === "object"
+    ? s.restingHeartRate
+    : {};
+  return {
+    readinessScore: s.readiness && s.readiness.score,
+    hrv: hrv.current,
+    hrvBaseline: hrv.baseline,
+    restingHeartRate: resting.current,
+    restingHeartRateBaseline: resting.baseline,
+    sleepQuality: checkIn.sleepQuality,
+    soreness: checkIn.soreness,
+    painPresent: checkIn.painPresent === true ||
+      Boolean(s.pain && s.pain.present === true),
+    painSeverity: checkIn.painSeverity,
+    acwr: s.recovery && s.recovery.acwr
+  };
 }
 
-async function loadLatestTodayForm(){
+var todayRecoveryRingState = {
+  confirmedScore: null,
+  hasConfirmedScore: false,
+  animationFrame: null,
+  cleanupTimer: null
+};
+
+function renderTodayRecoverySignal(root, valueNode, noteNode, qualityNode, signal){
+  if (!root || !valueNode || !noteNode || !qualityNode) return;
+  var nextScore = Number.isFinite(signal.score) ? signal.score : null;
+  var previousScore = todayRecoveryRingState.hasConfirmedScore
+    ? todayRecoveryRingState.confirmedScore
+    : null;
+  var transition = buildReadinessRingTransition(
+    previousScore,
+    nextScore,
+    todayDirectionPrefersReducedMotion()
+  );
+
   if (
-    !window.AthlevoBrain ||
-    typeof window.AthlevoBrain.loadProviderTrends !== "function"
+    todayRecoveryRingState.animationFrame !== null &&
+    window.cancelAnimationFrame
   ){
-    return null;
+    window.cancelAnimationFrame(todayRecoveryRingState.animationFrame);
   }
-  try {
-    var data = await window.AthlevoBrain.loadProviderTrends("6w");
-    return latestTodayFormFromTrendData(data);
-  } catch (error) {
-    return null;
+  if (todayRecoveryRingState.cleanupTimer !== null && window.clearTimeout){
+    window.clearTimeout(todayRecoveryRingState.cleanupTimer);
   }
+  todayRecoveryRingState.animationFrame = null;
+  todayRecoveryRingState.cleanupTimer = null;
+
+  valueNode.textContent = signal.value;
+  valueNode.dataset.long = String(signal.value).length > 6 ? "true" : "false";
+  noteNode.textContent = signal.note;
+  qualityNode.textContent = signal.quality || "Limited data";
+  root.dataset.progressKind = signal.progressKind || "missing";
+  root.setAttribute("aria-label", nextScore === null
+    ? "Recovery, not enough data. " + qualityNode.textContent + "."
+    : "Recovery " + nextScore + " out of 100, " + signal.value +
+      ". " + qualityNode.textContent + ".");
+
+  if (nextScore === null){
+    todayRecoveryRingState.confirmedScore = null;
+    todayRecoveryRingState.hasConfirmedScore = false;
+    root.dataset.animated = "false";
+    root.dataset.tone = "missing";
+    root.style.setProperty("--signal-progress", "0");
+    return;
+  }
+
+  todayRecoveryRingState.confirmedScore = nextScore;
+  todayRecoveryRingState.hasConfirmedScore = true;
+  if (!transition.animate || !window.requestAnimationFrame){
+    root.dataset.animated = "false";
+    root.dataset.tone = signal.tone;
+    root.style.setProperty("--signal-progress", String(transition.end));
+    return;
+  }
+
+  root.dataset.animated = "true";
+  root.style.setProperty("--signal-progress", String(transition.start));
+  todayRecoveryRingState.animationFrame = window.requestAnimationFrame(function(){
+    root.dataset.tone = signal.tone;
+    root.style.setProperty("--signal-progress", String(transition.end));
+    todayRecoveryRingState.animationFrame = null;
+    if (window.setTimeout){
+      todayRecoveryRingState.cleanupTimer = window.setTimeout(function(){
+        root.dataset.animated = "false";
+        todayRecoveryRingState.cleanupTimer = null;
+      }, 660);
+    }
+  });
 }
 
 /* ───────────────────────── ATHLEVO DIRECTION ─────────────────────────
@@ -5825,9 +5895,10 @@ async function renderTodayPassiveStatus(profile){
   var loadSignal = document.getElementById("todayLoadSignal");
   var loadValue = document.getElementById("todayLoadSignalValue");
   var loadNote = document.getElementById("todayLoadSignalNote");
-  var freshnessSignal = document.getElementById("todayFreshnessSignal");
-  var freshnessValue = document.getElementById("todayFreshnessSignalValue");
-  var freshnessNote = document.getElementById("todayFreshnessSignalNote");
+  var recoverySignal = document.getElementById("todayRecoverySignal");
+  var recoveryValue = document.getElementById("todayRecoverySignalValue");
+  var recoveryNote = document.getElementById("todayRecoverySignalNote");
+  var recoveryQuality = document.getElementById("todayRecoverySignalQuality");
   var why = document.getElementById("todayDirectionWhy");
   if (!block || !label || !coaching || !card) return;
 
@@ -5861,12 +5932,12 @@ async function renderTodayPassiveStatus(profile){
       value.signals.readiness
     );
     setSignal(loadSignal, loadValue, loadNote, value.signals.load, "Training load");
-    setSignal(
-      freshnessSignal,
-      freshnessValue,
-      freshnessNote,
-      value.signals.freshness,
-      "Recovery"
+    renderTodayRecoverySignal(
+      recoverySignal,
+      recoveryValue,
+      recoveryNote,
+      recoveryQuality,
+      value.signals.recovery
     );
 
     if (card.dataset.planState !== "no-plan" && card.dataset.planState !== "unavailable"){
@@ -5886,14 +5957,14 @@ async function renderTodayPassiveStatus(profile){
       set(buildAthlevoDirectionView({}));
       return;
     }
-    var todaySignalResults = await Promise.all([
-      window.CoachBrainData.collectSignals(profile || null),
-      loadLatestTodayForm()
-    ]);
-    var signals = todaySignalResults[0] || {};
-    var latestForm = todaySignalResults[1];
-    if (Number.isFinite(latestForm)){
-      signals.form = { value: latestForm };
+    var signals = await window.CoachBrainData.collectSignals(profile || null);
+    if (
+      window.AthlevoRecovery &&
+      typeof window.AthlevoRecovery.calculateRecovery === "function"
+    ){
+      signals.compositeRecovery = window.AthlevoRecovery.calculateRecovery(
+        buildTodayRecoveryInput(signals)
+      );
     }
     set(buildAthlevoDirectionView(signals));
   } catch (e) {
@@ -6388,6 +6459,7 @@ setTimeout(function () {
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
 <script src="js/authSupport.js?v=67"></script>
+<script src="js/recoveryScore.js?v=69"></script>
 <script src="js/brain.js?v=68"></script>
 <script src="js/syncStatus.js?v=67"></script>
 <script src="js/performance.js?v=67"></script>

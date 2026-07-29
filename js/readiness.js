@@ -533,7 +533,10 @@ async function getReadinessForCoach() {
   const sleepLabels = READINESS_SLEEP_LABELS;
   const out = { date: record.readiness_date || null };
 
-  if (sleepLabels[record.sleep_quality]) out.sleepQuality = sleepLabels[record.sleep_quality];
+  if (sleepLabels[record.sleep_quality]) {
+    out.sleepQuality = sleepLabels[record.sleep_quality];
+    out.sleepQuality1to5 = Number(record.sleep_quality);
+  }
   if (Number(record.energy) > 0) out.energy1to10 = Number(record.energy);
   if (Number(record.muscle_soreness) > 0) out.muscleSoreness1to10 = Number(record.muscle_soreness);
   if (Number(record.mental_stress) > 0) out.mentalStress1to10 = Number(record.mental_stress);
