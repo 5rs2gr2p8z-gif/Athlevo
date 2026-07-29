@@ -3388,55 +3388,50 @@ body.landing-active #tabbar{display:none!important}
       font-family:var(--sans);font-weight:650;font-size:var(--fs-body-sm);padding:9px 18px;cursor:pointer}
     .today-install .ti-btn:hover{background:#000}
 
-    /* ═══════════ ATHLEVO DIRECTION INSTRUMENT ═══════════
-       Three-zone open arc (RECOVER · HOLD · PUSH). The needle and active
-       zone follow the final coaching direction; the center score is
-       supporting evidence only when a real check-in exists. */
+    /* ═══════════ ATHLEVO DIRECTION BAND ═══════════
+       One continuous three-state track. Only the final coaching direction
+       receives colour; readiness remains small supporting evidence. */
     .direction-card{margin:0 22px;background:var(--paper);border:1px solid var(--line);
-      border-radius:var(--r-lg);padding:13px 16px 11px;box-shadow:var(--elev-2);
+      border-radius:var(--r-lg);padding:12px 16px 10px;box-shadow:var(--elev-2);
+      height:164px;box-sizing:border-box;
       --zone-recover:#3d6fd4;--zone-hold:#c4841a;--zone-push:var(--red)}
     .direction-topline{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
-      margin-bottom:2px}
+      margin-bottom:8px}
     .direction-eyebrow{font-size:var(--fs-micro);font-weight:750;letter-spacing:.14em;
       text-transform:uppercase;color:var(--ink2)}
     .direction-quality{font-size:var(--fs-micro);font-weight:550;letter-spacing:.02em;
       color:var(--ink3);padding:2px 0}
     .direction-quality[hidden]{display:none}
-    .direction-instrument{margin:0}
-    .direction-dial{position:relative;width:min(100%,326px);height:146px;margin:-4px auto -6px}
-    .direction-dial svg{display:block;width:100%;height:100%;overflow:visible}
-    .direction-zone{fill:none;stroke-linecap:round;stroke-width:9;stroke:var(--line);opacity:.2;
-      transition:stroke var(--dur-slow) var(--ease-standard),opacity var(--dur-slow) var(--ease-standard),
-        stroke-width var(--dur-slow) var(--ease-standard)}
-    .direction-card[data-direction="recover"] .direction-zone--recover,
-    .direction-card[data-direction="hold"] .direction-zone--hold,
-    .direction-card[data-direction="push"] .direction-zone--push{opacity:1;stroke-width:15}
-    .direction-card[data-direction="recover"] .direction-zone--recover{stroke:var(--zone-recover)}
-    .direction-card[data-direction="hold"] .direction-zone--hold{stroke:var(--zone-hold)}
-    .direction-card[data-direction="push"] .direction-zone--push{stroke:var(--zone-push)}
-    .direction-zone-label{font-family:var(--sans);font-size:var(--fs-caption);font-weight:650;
-      letter-spacing:.1em;text-transform:uppercase;fill:var(--ink3);opacity:.62;
-      transition:fill var(--dur-slow) var(--ease-standard),opacity var(--dur-slow) var(--ease-standard)}
-    .direction-card[data-direction="recover"] .direction-zone-label--recover{fill:var(--zone-recover);font-weight:750;opacity:1}
-    .direction-card[data-direction="hold"] .direction-zone-label--hold{fill:var(--zone-hold);font-weight:750;opacity:1}
-    .direction-card[data-direction="push"] .direction-zone-label--push{fill:var(--zone-push);font-weight:750;opacity:1}
-    .direction-dial-needle{stroke:var(--text);stroke-width:3;stroke-linecap:round;
-      transform-origin:120px 124px;transform:rotate(0deg);
-      transition:transform var(--dur-slow) var(--ease-standard)}
-    .direction-center{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);
-      width:100%;text-align:center;pointer-events:none}
-    .direction-score{display:flex;align-items:baseline;justify-content:center;
-      white-space:nowrap;color:var(--ink2);margin:0}
-    .direction-score strong{font-family:var(--sans);font-size:var(--fs-h2);font-weight:700;
-      line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-    .direction-score-denom{font-size:var(--fs-micro);font-weight:650;color:var(--ink3);margin-left:2px}
-    .direction-card[data-score="missing"] .direction-score-denom{display:none}
+    .direction-band{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+      height:40px;border:1px solid var(--line);border-radius:var(--r-sm);
+      overflow:hidden;background:var(--card)}
+    .direction-band-zone{position:relative;display:grid;place-items:center;
+      background:var(--card);color:var(--ink3);font-size:var(--fs-caption);
+      font-weight:700;letter-spacing:.09em;transition:background var(--dur-base) var(--ease-standard),
+      color var(--dur-base) var(--ease-standard)}
+    .direction-band-zone+ .direction-band-zone{border-left:1px solid var(--line)}
+    .direction-band-marker{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);
+      width:18px;height:3px;border-radius:2px;background:currentColor;opacity:0;
+      transition:opacity var(--dur-base) var(--ease-standard)}
+    .direction-card[data-direction="recover"] .direction-band-zone--recover{
+      background:var(--zone-recover);color:#fff}
+    .direction-card[data-direction="hold"] .direction-band-zone--hold{
+      background:var(--zone-hold);color:#141416}
+    .direction-card[data-direction="push"] .direction-band-zone--push{
+      background:var(--zone-push);color:#fff}
+    .direction-card[data-direction="recover"] .direction-band-zone--recover .direction-band-marker,
+    .direction-card[data-direction="hold"] .direction-band-zone--hold .direction-band-marker,
+    .direction-card[data-direction="push"] .direction-band-zone--push .direction-band-marker{opacity:.9}
+    .direction-verdict{text-align:center;margin-top:8px}
+    .direction-state{display:block;font-size:var(--fs-h3);font-weight:750;line-height:1;
+      letter-spacing:.13em;color:var(--text)}
     .direction-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;
       line-height:var(--lh-heading);color:var(--text);margin:2px 0 0}
-    .direction-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
-      overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .direction-readiness{display:block;font-size:var(--fs-micro);font-weight:600;
+      color:var(--ink3);line-height:var(--lh-caption);margin-top:2px}
+    .direction-readiness[hidden]{display:none}
     .direction-evidence{font-size:var(--fs-caption);font-weight:550;line-height:var(--lh-caption);
-      color:var(--ink2);text-align:center;margin:7px 0 0;white-space:nowrap;
+      color:var(--ink2);text-align:center;margin:6px 0 0;white-space:nowrap;
       overflow:hidden;text-overflow:ellipsis}
     .direction-evidence-sep{color:var(--ink3);padding:0 3px}
 
@@ -3476,7 +3471,6 @@ body.landing-active #tabbar{display:none!important}
     .rec-full .daily-brief-status{margin-top:10px;font-size:var(--fs-caption);color:var(--ink3)}
     @media (max-width:360px){
       .direction-card{padding-left:14px;padding-right:14px}
-      .direction-dial{height:138px}
       .direction-evidence{font-size:var(--fs-micro)}
     }
 
@@ -3541,36 +3535,29 @@ body.landing-active #tabbar{display:none!important}
     .lwa-takeaway-label{display:block;font-size:var(--fs-micro);font-weight:700;
       letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
   </style>
-  <!-- ═══════════ ATHLEVO DIRECTION INSTRUMENT ═══════════
-       Three-zone arc. The needle follows the final PUSH/HOLD/RECOVER
-       decision; the center score is shown only when a real check-in exists. -->
+  <!-- ═══════════ ATHLEVO DIRECTION BAND ═══════════ -->
   <article class="direction-card" id="dailyBriefCard" data-direction="hold" data-score="missing">
     <div class="direction-topline">
       <span class="direction-eyebrow">Athlevo Direction</span>
       <span class="direction-quality" id="todayDirectionQuality">Limited data</span>
     </div>
 
-    <div class="direction-instrument" id="todayPassiveStatusBlock" data-direction="hold" role="status" aria-live="polite" aria-atomic="true">
-      <div class="direction-dial">
-        <svg viewBox="0 0 240 150" role="img" aria-labelledby="todayDirectionDialTitle todayDirectionDialDescription">
-          <title id="todayDirectionDialTitle">Athlevo Direction</title>
-          <desc id="todayDirectionDialDescription">HOLD. Readiness score unavailable. Limited data.</desc>
-          <path class="direction-zone direction-zone--recover" pathLength="100" stroke-dasharray="30 70" stroke-dashoffset="0" d="M30 124 A90 90 0 0 1 210 124"></path>
-          <path class="direction-zone direction-zone--hold" pathLength="100" stroke-dasharray="30 70" stroke-dashoffset="-32" d="M30 124 A90 90 0 0 1 210 124"></path>
-          <path class="direction-zone direction-zone--push" pathLength="100" stroke-dasharray="30 70" stroke-dashoffset="-64" d="M30 124 A90 90 0 0 1 210 124"></path>
-          <text class="direction-zone-label direction-zone-label--recover" x="38" y="58">RECOVER</text>
-          <text class="direction-zone-label direction-zone-label--hold" x="120" y="36" text-anchor="middle">HOLD</text>
-          <text class="direction-zone-label direction-zone-label--push" x="202" y="58" text-anchor="end">PUSH</text>
-          <line class="direction-dial-needle" id="todayDirectionDialNeedle" x1="120" y1="47" x2="120" y2="65"></line>
-        </svg>
-        <div class="direction-center">
-          <div class="direction-score" aria-hidden="true">
-            <strong id="todayDirectionScore">—</strong><small class="direction-score-denom">/100</small>
-          </div>
-          <p class="direction-label" id="todayDirectionLabel">Controlled day</p>
-          <span class="direction-sr-only" id="todayPassiveStatusLabel">HOLD</span>
-        </div>
+    <div class="direction-band" aria-hidden="true">
+      <div class="direction-band-zone direction-band-zone--recover">
+        RECOVER<span class="direction-band-marker"></span>
       </div>
+      <div class="direction-band-zone direction-band-zone--hold">
+        HOLD<span class="direction-band-marker"></span>
+      </div>
+      <div class="direction-band-zone direction-band-zone--push">
+        PUSH<span class="direction-band-marker"></span>
+      </div>
+    </div>
+
+    <div class="direction-verdict" id="todayPassiveStatusBlock" data-direction="hold" role="status" aria-live="polite" aria-atomic="true">
+      <strong class="direction-state" id="todayPassiveStatusLabel">HOLD</strong>
+      <p class="direction-label" id="todayDirectionLabel">Controlled day</p>
+      <small class="direction-readiness" id="todayDirectionScore" hidden></small>
     </div>
 
     <p class="direction-evidence" aria-label="Direction evidence">
@@ -3585,7 +3572,7 @@ body.landing-active #tabbar{display:none!important}
     <h3 id="todayRecommendationHeadline">Loading today's session…</h3>
     <div class="today-workout-meta" id="todayWorkoutMeta">Checking duration and distance.</div>
     <p class="today-workout-effort" id="todayWorkoutEffort">Checking your effort cue.</p>
-    <button type="button" class="rec-cta" onclick="todayGoToTrain()">Open today's workout</button>
+    <button type="button" class="rec-cta" id="todayWorkoutCta" onclick="todayGoToTrain()">View training plan</button>
   </section>
 
   <details class="direction-why">
@@ -5164,7 +5151,8 @@ async function renderTodayRecommendation(){
   var headline = document.getElementById("todayRecommendationHeadline");
   var meta = document.getElementById("todayWorkoutMeta");
   var effort = document.getElementById("todayWorkoutEffort");
-  if (!headline || !meta || !effort) return;
+  var cta = document.getElementById("todayWorkoutCta");
+  if (!headline || !meta || !effort || !cta) return;
 
   var session = await loadTodaysPlannedSession();
 
@@ -5172,9 +5160,11 @@ async function renderTodayRecommendation(){
     headline.textContent = "No workout scheduled";
     meta.textContent = "Duration and distance unavailable";
     effort.textContent = "Review your plan before training.";
+    cta.textContent = "View training plan";
     return;
   }
 
+  cta.textContent = "Open today's workout";
   var key = classifyPlannedSessionType(session.session_type);
   var title = (typeof formatSessionType === "function"
     ? formatSessionType(session.session_type)
@@ -5308,13 +5298,6 @@ function buildAthlevoDirectionView(signals){
   };
 }
 
-/* Needle angle for the active coaching zone (not the raw score). */
-function directionZoneNeedleDeg(directionKey){
-  var centers = { recover: -63, hold: 0, push: 63 };
-  var key = String(directionKey || "hold").toLowerCase();
-  return Object.prototype.hasOwnProperty.call(centers, key) ? centers[key] : 0;
-}
-
 /* ───────────────────────── ATHLEVO DIRECTION ─────────────────────────
    Projects the existing readiness score and conservative status from
    CoachBrainData. Missing inputs remain visibly missing. */
@@ -5329,9 +5312,7 @@ async function renderTodayPassiveStatus(profile){
   var load = document.getElementById("todayDirectionLoad");
   var pain = document.getElementById("todayDirectionPain");
   var why = document.getElementById("todayDirectionWhy");
-  var needle = document.getElementById("todayDirectionDialNeedle");
-  var description = document.getElementById("todayDirectionDialDescription");
-  if (!block || !state || !label || !score || !quality || !needle) return;
+  if (!block || !state || !label || !score || !quality) return;
 
   function set(view){
     var value = view || buildAthlevoDirectionView({});
@@ -5343,20 +5324,14 @@ async function renderTodayPassiveStatus(profile){
     }
     state.textContent = value.direction.state;
     label.textContent = value.direction.label;
-    score.textContent = value.score === null ? "—" : String(value.score);
+    score.textContent = value.score === null ? "" : "Readiness " + String(value.score);
+    score.hidden = value.score === null;
     quality.textContent = value.quality;
     quality.hidden = !value.quality;
     if (recovery) recovery.textContent = value.readiness;
     if (load) load.textContent = value.load;
     if (pain) pain.textContent = value.pain;
     if (why) why.textContent = value.why;
-
-    needle.style.transform = "rotate(" + directionZoneNeedleDeg(key) + "deg)";
-    if (description){
-      description.textContent = value.direction.state + ". "
-        + (value.score === null ? "Readiness score unavailable. " : "Readiness score " + value.score + " out of 100. ")
-        + (value.quality || "Full signal set") + ".";
-    }
   }
 
   try {

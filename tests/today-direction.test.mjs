@@ -57,10 +57,9 @@ const directionConstants = html.slice(
 const classifySource = extractFunction(html, "classifyAthlevoDirection");
 const viewSource = extractFunction(html, "buildAthlevoDirectionView");
 const contextSource = extractFunction(html, "buildTodayTrainingContext");
-const needleSource = extractFunction(html, "directionZoneNeedleDeg");
 const helpers = new Function(
-  `${directionConstants}\n${classifySource}\n${viewSource}\n${contextSource}\n${needleSource}
-   return { classifyAthlevoDirection, buildAthlevoDirectionView, buildTodayTrainingContext, directionZoneNeedleDeg };`
+  `${directionConstants}\n${classifySource}\n${viewSource}\n${contextSource}
+   return { classifyAthlevoDirection, buildAthlevoDirectionView, buildTodayTrainingContext };`
 )();
 
 console.log("\n──── Direction score and state behavior ────");
@@ -119,13 +118,7 @@ test("a partial check-in is not mislabeled as absent",
     checkIn: { recorded: true, soreness: 1, painPresent: false }
   }).readiness === "Check-in incomplete");
 
-console.log("\n──── Instrument needle follows direction, not score ────");
-test("needle centers on the recover zone",
-  helpers.directionZoneNeedleDeg("recover") === -63);
-test("needle centers on the hold zone",
-  helpers.directionZoneNeedleDeg("hold") === 0);
-test("needle centers on the push zone",
-  helpers.directionZoneNeedleDeg("push") === 63);
+console.log("\n──── Direction safety overrides ────");
 test("pain override keeps RECOVER even with a high readiness score",
   helpers.classifyAthlevoDirection({
     readiness: { score: 82, status: "good" },
@@ -157,42 +150,95 @@ test("profile supplies a truthful fallback",
 test("missing plan and profile do not invent training position",
   helpers.buildTodayTrainingContext(null, {}) === "Training plan not available yet.");
 
+console.log("\n──── Workout CTA behavior ────");
+async function runRecommendation(session) {
+  const elements = Object.fromEntries([
+    "todayRecommendationHeadline",
+    "todayWorkoutMeta",
+    "todayWorkoutEffort",
+    "todayWorkoutCta"
+  ].map(id => [id, { textContent: "" }]));
+  const render = new Function(
+    "document",
+    "loadTodaysPlannedSession",
+    "classifyPlannedSessionType",
+    "TODAY_REC_HEADLINES",
+    "formatSessionType",
+    "firstSentence",
+    `${extractFunction(html, "renderTodayRecommendation")}
+     return renderTodayRecommendation;`
+  )(
+    { getElementById: id => elements[id] || null },
+    async () => session,
+    () => "easy",
+    { easy: "Easy Run" },
+    value => String(value || ""),
+    value => String(value || "").trim()
+  );
+  await render();
+  return elements;
+}
+{
+  const empty = await runRecommendation(null);
+  test("no scheduled workout offers the truthful plan action",
+    empty.todayRecommendationHeadline.textContent === "No workout scheduled" &&
+    empty.todayWorkoutCta.textContent === "View training plan");
+}
+{
+  const planned = await runRecommendation({
+    session_type: "easy",
+    duration_minutes: 45,
+    distance_km: 8,
+    intensity: "Easy"
+  });
+  test("a scheduled workout restores the workout action",
+    planned.todayRecommendationHeadline.textContent === "Easy Run" &&
+    planned.todayWorkoutCta.textContent === "Open today's workout");
+}
+
 console.log("\n──── Markup, data wiring, and accessibility ────");
 const today = html.slice(
   html.indexOf('<section class="screen" id="screen-today">'),
   html.indexOf('<section class="screen"', html.indexOf('<section class="screen" id="screen-today">') + 1)
+);
+const directionMarkup = today.slice(
+  today.indexOf('<article class="direction-card"'),
+  today.indexOf("</article>", today.indexOf('<article class="direction-card"')) + "</article>".length
 );
 const positions = [
   today.indexOf("brand-icon"),
   today.indexOf("Good morning,"),
   today.indexOf("todayContextLine"),
   today.indexOf("Athlevo Direction"),
+  today.indexOf('class="direction-band"'),
   today.indexOf("todayPassiveStatusBlock"),
-  today.indexOf("todayDirectionDialNeedle"),
   today.indexOf("Today's workout"),
-  today.indexOf("Open today's workout")
+  today.indexOf("todayWorkoutCta")
 ];
 test("first viewport follows mark → greeting → context → instrument → workout → action",
   positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
 test("Direction is a named live status for assistive technology",
   /id="todayPassiveStatusBlock"[\s\S]*?role="status"[\s\S]*?aria-live="polite"[\s\S]*?aria-atomic="true"/.test(today));
-test("instrument has an accessible title and dynamic description",
-  /role="img" aria-labelledby="todayDirectionDialTitle todayDirectionDialDescription"/.test(today) &&
-  /id="todayDirectionDialDescription"/.test(today));
-test("instrument is a three-zone open arc, not a copied circular ring",
-  /class="direction-zone direction-zone--recover"[\s\S]*?d="M30 124 A90 90 0 0 1 210 124"/.test(today) &&
-  /class="direction-zone direction-zone--hold"/.test(today) &&
-  /class="direction-zone direction-zone--push"/.test(today) &&
-  !/<circle[^>]+class="direction-zone/.test(today) &&
-  !/id="todayDirectionDialValue"/.test(today));
+test("instrument is one continuous three-column direction band",
+  /class="direction-band" aria-hidden="true"/.test(today) &&
+  /\.direction-band\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(html) &&
+  /direction-band-zone--recover/.test(today) &&
+  /direction-band-zone--hold/.test(today) &&
+  /direction-band-zone--push/.test(today));
+test("old gauge, arc, SVG, and needle are completely removed",
+  !/direction-dial|direction-zone|directionZoneNeedleDeg|todayDirectionDialNeedle/.test(html) &&
+  !/<svg/.test(directionMarkup));
 test("active zone styling is driven by data-direction on the card",
-  /\.direction-card\[data-direction="recover"\] \.direction-zone--recover/.test(html) &&
-  /\.direction-card\[data-direction="hold"\] \.direction-zone--hold/.test(html) &&
-  /\.direction-card\[data-direction="push"\] \.direction-zone--push/.test(html));
-test("needle follows direction zone, not readiness score arc",
-  /directionZoneNeedleDeg\(key\)/.test(html) &&
-  !/dialScore \* 1\.8/.test(html));
-test("center score and all three evidence values have dedicated mounts",
+  /\.direction-card\[data-direction="recover"\] \.direction-band-zone--recover/.test(html) &&
+  /\.direction-card\[data-direction="hold"\] \.direction-band-zone--hold/.test(html) &&
+  /\.direction-card\[data-direction="push"\] \.direction-band-zone--push/.test(html));
+test("only the active zone reveals its marker",
+  /direction-band-zone--recover \.direction-band-marker,[\s\S]*?direction-band-zone--hold \.direction-band-marker,[\s\S]*?direction-band-zone--push \.direction-band-marker\{opacity:\.9\}/.test(html) &&
+  /\.direction-band-marker\{[^}]*opacity:0/.test(html));
+test("state and human label sit beneath the track",
+  today.indexOf("todayPassiveStatusLabel") > today.indexOf("direction-band") &&
+  /id="todayPassiveStatusLabel">HOLD<\/strong>[\s\S]*?id="todayDirectionLabel">Controlled day<\/p>/.test(today));
+test("supporting score and all three evidence values have dedicated mounts",
   /id="todayDirectionScore"/.test(today) &&
   /class="direction-evidence"/.test(today) &&
   /id="todayDirectionRecovery"/.test(today) &&
@@ -201,33 +247,26 @@ test("center score and all three evidence values have dedicated mounts",
   !/direction-signal"/.test(today));
 test("missing evidence renders as one quiet line",
   /<p class="direction-evidence"[\s\S]*?No check-in[\s\S]*?Load unavailable[\s\S]*?Pain unavailable[\s\S]*?<\/p>/.test(today));
-test("instrument is roughly twenty percent larger",
-  /\.direction-dial\{[^}]*width:min\(100%,326px\)[^}]*height:146px/.test(html));
-test("zone labels use a normal phone-readable type token",
-  /\.direction-zone-label\{[^}]*font-size:var\(--fs-caption\)/.test(html));
-test("active zone is substantially stronger than inactive zones",
-  /\.direction-zone\{[^}]*stroke-width:9[^}]*opacity:\.2/.test(html) &&
-  /direction-zone--push\{opacity:1;stroke-width:15\}/.test(html));
-test("needle is a short arc pointer clear of the center score",
-  /id="todayDirectionDialNeedle" x1="120" y1="47" x2="120" y2="65"/.test(today) &&
-  !/class="direction-dial-pivot"/.test(today));
+test("Direction card has the required compact fixed height",
+  /\.direction-card\{[^}]*height:164px[^}]*box-sizing:border-box/.test(html));
 test("Limited data is quiet text rather than a pill",
   /\.direction-quality\{[^}]*color:var\(--ink3\)[^}]*padding:2px 0/.test(html) &&
   !/\.direction-quality\{[^}]*background:/.test(html));
 test("narrow phones reduce greeting size with the existing display token",
   /@media \(max-width:380px\)\{[\s\S]*?\.greet h1\{font-size:calc\(var\(--fs-display\) \* \.88\)/.test(html));
-test("missing score hides the /100 denominator instead of showing zero",
-  /\.direction-card\[data-score="missing"\] \.direction-score-denom\{display:none\}/.test(html) &&
-  /value\.score === null \? "—"/.test(html));
+test("readiness score is hidden when absent and small when available",
+  /class="direction-readiness" id="todayDirectionScore" hidden/.test(today) &&
+  /score\.textContent = value\.score === null \? "" : "Readiness " \+ String\(value\.score\)/.test(html) &&
+  /score\.hidden = value\.score === null/.test(html));
 test("semantic zone colors are defined without gradients",
   /--zone-recover:#3d6fd4/.test(html) &&
   /--zone-hold:#c4841a/.test(html) &&
   /--zone-push:var\(--red\)/.test(html) &&
-  !/\.direction-zone\{[^}]*gradient/.test(html));
+  !/\.direction-band[^{]*\{[^}]*gradient/.test(html));
 test("primary action remains a real button with existing Train routing",
-  /class="rec-cta"[\s\S]*?onclick="todayGoToTrain\(\)"[\s\S]*?>Open today's workout<\/button>/.test(today));
+  /class="rec-cta" id="todayWorkoutCta" onclick="todayGoToTrain\(\)">View training plan<\/button>/.test(today));
 test("Why this is a native expandable disclosure below the workout",
-  today.indexOf('<details class="direction-why">') > today.indexOf("Open today's workout") &&
+  today.indexOf('<details class="direction-why">') > today.indexOf("todayWorkoutCta") &&
   /<details class="direction-why">\s*<summary>Why this\?<\/summary>/.test(today));
 test("workout card has real mounts for name, duration/distance, and effort",
   /id="todayRecommendationHeadline"/.test(today) &&
@@ -253,8 +292,8 @@ test("greeting uses the athlete's first name without an email fallback",
 test("Direction uses a theme-aware editorial surface and no gradient",
   /\.direction-card\{[^}]*background:var\(--paper\)/.test(html) &&
     !/\.direction-card\{[^}]*gradient/.test(html));
-test("needle appearance uses restrained tokenized motion",
-  /\.direction-dial-needle\{[^}]*transition:[^}]*var\(--dur-slow\)[^}]*var\(--ease-standard\)/.test(html));
+test("band appearance uses restrained tokenized motion",
+  /\.direction-band-zone\{[^}]*transition:[^}]*var\(--dur-base\)[^}]*var\(--ease-standard\)/.test(html));
 test("global reduced-motion support remains present",
   /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html));
 
