@@ -59,13 +59,18 @@ const readinessPresentationSource = extractFunction(
   html,
   "buildReadinessSignalPresentation"
 );
+const freshnessPresentationSource = extractFunction(
+  html,
+  "buildFreshnessSignalPresentation"
+);
 const viewSource = extractFunction(html, "buildAthlevoDirectionView");
 const contextSource = extractFunction(html, "buildTodayTrainingContext");
 const helpers = new Function(
-  `${directionConstants}\n${classifySource}\n${readinessPresentationSource}\n${viewSource}\n${contextSource}
+  `${directionConstants}\n${classifySource}\n${readinessPresentationSource}\n${freshnessPresentationSource}\n${viewSource}\n${contextSource}
    return {
      classifyAthlevoDirection,
      buildReadinessSignalPresentation,
+     buildFreshnessSignalPresentation,
      buildAthlevoDirectionView,
      buildTodayTrainingContext
    };`
@@ -185,43 +190,78 @@ test("RECOVER receives concise presentation copy without changing classification
     pain: { present: true }
   }).coaching === "Recovery signals suggest shortening or replacing the session.");
 
-console.log("\n──── Body feedback presentation ────");
-test("no pain or soreness maps to Clear with the positive tone",
-  (() => {
-    const body = helpers.buildAthlevoDirectionView({
-      checkIn: { recorded: true, soreness: 1, painPresent: false }
-    }).signals.pain;
-    return body.value === "Clear" &&
-      body.note === "No issues" &&
-      body.tone === "positive";
-  })());
-test("reported soreness maps to Mild with the warning tone",
-  [2, 7].every(soreness => {
-    const body = helpers.buildAthlevoDirectionView({
-      checkIn: { recorded: true, soreness, painPresent: false }
-    }).signals.pain;
-    return body.value === "Mild" &&
-      body.note === "Some soreness" &&
-      body.tone === "warning";
+console.log("\n──── Freshness presentation ────");
+test("Form ≥ +25 maps to Very fresh with the detraining-aware amber tone",
+  [25, 40].every(form => {
+    const signal = helpers.buildFreshnessSignalPresentation(form);
+    return signal.value === "Very fresh" &&
+      signal.note === "Low recent load" &&
+      signal.tone === "freshness-detraining";
   }));
-test("meaningful pain maps to Pain with the risk tone",
+test("Form +5 to below +25 maps to Fresh with the blue tone",
+  [5, 24.9].every(form => {
+    const signal = helpers.buildFreshnessSignalPresentation(form);
+    return signal.value === "Fresh" &&
+      signal.note === "Ready for quality" &&
+      signal.tone === "freshness-fresh";
+  }));
+test("Form −5 to below +5 maps to Balanced",
+  [-5, 0, 4.9].every(form => {
+    const signal = helpers.buildFreshnessSignalPresentation(form);
+    return signal.value === "Balanced" &&
+      signal.note === "Maintaining" &&
+      signal.tone === "freshness-balanced";
+  }));
+test("Form −20 to below −5 maps to Loaded with the green tone",
+  [-20, -10, -5.1].every(form => {
+    const signal = helpers.buildFreshnessSignalPresentation(form);
+    return signal.value === "Loaded" &&
+      signal.note === "Building fitness" &&
+      signal.tone === "freshness-loaded";
+  }));
+test("Form below −20 maps to Fatigued with the red tone",
+  [-20.1, -35].every(form => {
+    const signal = helpers.buildFreshnessSignalPresentation(form);
+    return signal.value === "Fatigued" &&
+      signal.note === "Recovery needed" &&
+      signal.tone === "freshness-fatigued";
+  }));
+test("missing Form stays neutral with no fabricated arc",
   (() => {
-    const body = helpers.buildAthlevoDirectionView({
-      checkIn: { recorded: true, soreness: 1, painPresent: true },
-      pain: { present: true }
-    }).signals.pain;
-    return body.value === "Pain" &&
-      body.note === "Pain reported" &&
-      body.tone === "risk";
+    const signal = helpers.buildFreshnessSignalPresentation(null);
+    return signal.value === "—" &&
+      signal.note === "Unavailable" &&
+      signal.tone === "missing" &&
+      signal.progress === 0 &&
+      signal.progressKind === "missing";
   })());
-test("missing body check-in stays neutral and explicit",
+test("Freshness is categorical and does not duplicate the numeric readiness score",
   (() => {
-    const body = helpers.buildAthlevoDirectionView({}).signals.pain;
-    return body.value === "—" &&
-      body.note === "No check-in" &&
-      body.tone === "missing" &&
-      body.progress === 0;
+    const view = helpers.buildAthlevoDirectionView({
+      readiness: { score: 72 },
+      form: { value: 14 }
+    });
+    return view.signals.readiness.value === "72" &&
+      view.signals.freshness.value === "Fresh" &&
+      !/\d/.test(view.signals.freshness.value);
   })());
+{
+  const latestFormSource = extractFunction(html, "latestTodayFormFromTrendData");
+  const latestForm = new Function(
+    `${latestFormSource}; return latestTodayFormFromTrendData;`
+  )();
+  test("Today uses the latest real non-null Form value from provider Trends",
+    latestForm({
+      days: [
+        { date: "2026-07-27", form: 4 },
+        { date: "2026-07-28", form: null },
+        { date: "2026-07-29", form: -12 }
+      ]
+    }) === -12 &&
+    /loadProviderTrends\("6w"\)/.test(
+      extractFunction(html, "loadLatestTodayForm")
+    ));
+}
 
 console.log("\n──── Direction safety overrides ────");
 test("pain override keeps RECOVER even with a high readiness score",
@@ -525,36 +565,39 @@ test("all three compact signal indicators have dynamic mounts",
   /id="todayDirectionCoaching"/.test(today) &&
   /id="todayReadinessSignalValue"/.test(today) &&
   /id="todayLoadSignalValue"/.test(today) &&
-  /id="todayPainSignalValue"/.test(today) &&
+  /id="todayFreshnessSignalValue"/.test(today) &&
   (directionMarkup.match(/class="direction-signal-ring"/g) || []).length === 3);
-test("the third signal is visibly and accessibly named Body feedback",
-  /id="todayPainSignal" aria-label="Body feedback: no check-in"/.test(directionMarkup) &&
-  /class="direction-signal-name">Body feedback<\/span>/.test(directionMarkup) &&
-  /setSignal\(painSignal, painValue, painNote, value\.signals\.pain, "Body feedback"\)/.test(html) &&
-  !/Pain \/ soreness/.test(directionMarkup));
+test("the third signal is visibly and accessibly named Freshness",
+  /id="todayFreshnessSignal" aria-label="Freshness: unavailable"/.test(directionMarkup) &&
+  /class="direction-signal-name">Freshness<\/span>/.test(directionMarkup) &&
+  /value\.signals\.freshness,[\s\S]*?"Freshness"/.test(html) &&
+  !/Body feedback|Body status|Pain \/ soreness/.test(directionMarkup));
 test("missing signals render explicit dashes and honest labels",
   helpers.buildAthlevoDirectionView({}).signals.readiness.value === "—" &&
   helpers.buildAthlevoDirectionView({}).signals.readiness.note === "No check-in" &&
   helpers.buildAthlevoDirectionView({}).signals.load.note === "Load unavailable" &&
-  helpers.buildAthlevoDirectionView({}).signals.pain.note === "No check-in" &&
+  helpers.buildAthlevoDirectionView({}).signals.freshness.note === "Unavailable" &&
   helpers.buildAthlevoDirectionView({}).signals.load.progress === 0 &&
-  helpers.buildAthlevoDirectionView({}).signals.pain.progress === 0);
+  helpers.buildAthlevoDirectionView({}).signals.freshness.progress === 0);
 test("real signal values remain dynamic",
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
-    checkIn: { recorded: true, soreness: 1, painPresent: false }
+    checkIn: { recorded: true, soreness: 1, painPresent: false },
+    form: { value: 14 }
   }).signals.readiness.value === "72" &&
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
-    checkIn: { recorded: true, soreness: 1, painPresent: false }
+    checkIn: { recorded: true, soreness: 1, painPresent: false },
+    form: { value: 14 }
   }).signals.load.value === "Stable" &&
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
-    checkIn: { recorded: true, soreness: 1, painPresent: false }
-  }).signals.pain.value === "Clear");
+    checkIn: { recorded: true, soreness: 1, painPresent: false },
+    form: { value: 14 }
+  }).signals.freshness.value === "Fresh");
 test("training-load display mapping remains categorical and unchanged", (() => {
   const missing = helpers.buildAthlevoDirectionView({}).signals.load;
   const below = helpers.buildAthlevoDirectionView({
@@ -585,7 +628,7 @@ test("training-load display mapping remains categorical and unchanged", (() => {
     high.note === "High load" &&
     high.tone === "risk";
 })());
-test("readiness uses a normalized real score while load and pain are categorical",
+test("readiness uses a normalized real score while load and Freshness are categorical",
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
@@ -600,8 +643,8 @@ test("readiness uses a normalized real score while load and pain are categorical
     recovery: { acwr: 1.04 }
   }).signals.load.progressKind === "categorical" &&
   helpers.buildAthlevoDirectionView({
-    checkIn: { recorded: true, soreness: 1, painPresent: false }
-  }).signals.pain.progressKind === "categorical");
+    form: { value: 0 }
+  }).signals.freshness.progressKind === "categorical");
 test("three thin progress rings meet the standard size without gradients",
   /\.direction-signal-ring\{[^}]*width:72px;height:72px/.test(html) &&
   (directionMarkup.match(/class="direction-signal-progress"/g) || []).length === 3 &&
@@ -619,6 +662,11 @@ test("semantic ring colors support light and dark mode without gradients",
   /\.direction-signal\[data-tone="readiness-low"\]\{--signal-color:var\(--bad\)\}/.test(html) &&
   /\.direction-signal\[data-tone="readiness-moderate"\]\{--signal-color:var\(--warn\)\}/.test(html) &&
   /\.direction-signal\[data-tone="readiness-good"\]\{--signal-color:var\(--good\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="freshness-detraining"\]\{--signal-color:var\(--warn\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="freshness-fresh"\]\{--signal-color:var\(--trend-fitness\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="freshness-balanced"\]\{--signal-color:var\(--trend-maintaining\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="freshness-loaded"\]\{--signal-color:var\(--good\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="freshness-fatigued"\]\{--signal-color:var\(--bad\)\}/.test(html) &&
   /\.direction-signal\[data-tone="recovery"\]\{--signal-color:#3970c8\}/.test(html) &&
   /\.direction-signal\[data-tone="positive"\]\{--signal-color:var\(--good\)\}/.test(html) &&
   /html\[data-theme="dark"\] \.direction-signal\[data-tone="recovery"\]\{--signal-color:#78a6ff\}/.test(html) &&

@@ -250,6 +250,13 @@ section("Fitness/Fatigue and Training Load calculations");
   test("incomplete week is labelled in progress", comparison.inProgress === true);
   test("comparison requires measured data on both elapsed periods",
     comparison.comparable === false && comparison.percent === null);
+  test("planned-load availability is true only for real normalized values",
+    analytics.hasPlannedLoad([
+      { planned: null },
+      { planned: undefined }
+    ]) === false &&
+    analytics.hasPlannedLoad([{ planned: 0 }]) === true &&
+    analytics.hasPlannedLoad([{ planned: 55 }]) === true);
 }
 
 section("Graph-first UI and accessibility");
@@ -259,10 +266,111 @@ section("Graph-first UI and accessibility");
     html.indexOf("</section>", html.indexOf('<section class="screen" id="screen-trends">')) +
       "</section>".length
   );
+  const chartHost = () => ({
+    innerHTML: "",
+    querySelector: () => null,
+    querySelectorAll: () => []
+  });
+  const statusHost = chartHost();
+  analytics.renderStatusChart(statusHost, [
+    { date: "2026-07-25", form: 28 },
+    { date: "2026-07-26", form: 12 },
+    { date: "2026-07-27", form: 0 },
+    { date: "2026-07-28", form: -10 },
+    { date: "2026-07-29", form: -24 }
+  ]);
+  const fitnessHost = chartHost();
+  analytics.renderFitnessChart(fitnessHost, [
+    { date: "2026-07-25", fitness: 42, fatigue: 46 },
+    { date: "2026-07-29", fitness: 45, fatigue: 39 }
+  ]);
+  const loadHost = chartHost();
+  analytics.renderLoadChart(loadHost, [
+    { key: "2026-07-25", label: "Jul 25", completed: 45, planned: null },
+    { key: "2026-07-29", label: "Jul 29", completed: 60, planned: null }
+  ]);
   test("exactly three primary graph views exist",
     (trendsMarkup.match(/data-trend-graph=/g) || []).length === 3);
   test("no separate duplicate Form graph exists",
     !/data-trend-graph="form"/.test(trendsMarkup));
+  test("all five Training Status bands render with direct labels",
+    ["Detraining", "Fresh", "Maintaining", "Gaining Fitness", "High Risk"]
+      .every(label => statusHost.innerHTML.includes(`>${label}</text>`)) &&
+    (statusHost.innerHTML.match(/class="trend-zone trend-zone-/g) || []).length === 5);
+  test("Training Status renders full plot bands, boundaries, and Form thresholds",
+    /class="trend-plot-surface"/.test(statusHost.innerHTML) &&
+    (statusHost.innerHTML.match(/class="trend-zone-boundary"/g) || []).length === 4 &&
+    ["+25", "+5", "−5", "−20"].every(value =>
+      statusHost.innerHTML.includes(`>${value}</text>`)));
+  test("compact Form education and expanded zone definitions are present",
+    trendsMarkup.includes(
+      "Form shows the balance between long-term fitness and short-term fatigue."
+    ) &&
+    trendsMarkup.includes("Form = Fitness − Fatigue") &&
+    trendsMarkup.includes("Positive Form: fresher") &&
+    trendsMarkup.includes("Near zero: balanced") &&
+    trendsMarkup.includes("Negative Form: carrying fatigue") &&
+    [
+      "very low recent load; fitness may begin declining",
+      "reduced fatigue; often suitable for racing or key sessions",
+      "fitness and fatigue are relatively balanced",
+      "productive training load with manageable fatigue",
+      "fatigue is unusually high and recovery should be prioritized"
+    ].every(copy => trendsMarkup.includes(copy)));
+  test("Fitness/Fatigue chart has a plot surface, scale, grid, dates, and latest labels",
+    /class="trend-plot-surface"/.test(fitnessHost.innerHTML) &&
+    (fitnessHost.innerHTML.match(/class="trend-grid-line"/g) || []).length === 4 &&
+    /class="trend-axis-label"/.test(fitnessHost.innerHTML) &&
+    /Fitness 45<\/text>/.test(fitnessHost.innerHTML) &&
+    /Fatigue 39<\/text>/.test(fitnessHost.innerHTML) &&
+    /Jul/.test(fitnessHost.innerHTML));
+  test("Fitness/Fatigue education is concise and dynamic from real deltas",
+    trendsMarkup.includes(
+      "Fitness reflects your longer-term training load. Fatigue reacts more quickly to recent training."
+    ) &&
+    analytics.fitnessInterpretation([
+      { date: "2026-07-22", fitness: 50, fatigue: 60 },
+      { date: "2026-07-23", fitness: null, fatigue: null },
+      { date: "2026-07-24", fitness: null, fatigue: null },
+      { date: "2026-07-25", fitness: null, fatigue: null },
+      { date: "2026-07-26", fitness: null, fatigue: null },
+      { date: "2026-07-27", fitness: null, fatigue: null },
+      { date: "2026-07-28", fitness: null, fatigue: null },
+      { date: "2026-07-29", fitness: 48, fatigue: 48 }
+    ]) === "Fatigue has fallen faster than fitness, leaving you fresher." &&
+    analytics.fitnessInterpretation([
+      { date: "2026-07-22", fitness: 45, fatigue: 40 },
+      { date: "2026-07-23", fitness: null, fatigue: null },
+      { date: "2026-07-24", fitness: null, fatigue: null },
+      { date: "2026-07-25", fitness: null, fatigue: null },
+      { date: "2026-07-26", fitness: null, fatigue: null },
+      { date: "2026-07-27", fitness: null, fatigue: null },
+      { date: "2026-07-28", fitness: null, fatigue: null },
+      { date: "2026-07-29", fitness: 47, fatigue: 50 }
+    ]).includes("carrying more short-term load") &&
+    analytics.fitnessInterpretation([
+      { date: "2026-07-22", fitness: 40, fatigue: 40 },
+      { date: "2026-07-23", fitness: null, fatigue: null },
+      { date: "2026-07-24", fitness: null, fatigue: null },
+      { date: "2026-07-25", fitness: null, fatigue: null },
+      { date: "2026-07-26", fitness: null, fatigue: null },
+      { date: "2026-07-27", fitness: null, fatigue: null },
+      { date: "2026-07-28", fitness: null, fatigue: null },
+      { date: "2026-07-29", fitness: 50, fatigue: 45 }
+    ]) === "Fitness and fatigue are both rising as recent training accumulates.");
+  test("Training Load chart has a plot surface, baseline, grid, and date labels",
+    /class="trend-plot-surface"/.test(loadHost.innerHTML) &&
+    /class="trend-load-baseline"/.test(loadHost.innerHTML) &&
+    (loadHost.innerHTML.match(/class="trend-grid-line"/g) || []).length === 3 &&
+    /class="trend-axis-label"/.test(loadHost.innerHTML) &&
+    /Jul/.test(loadHost.innerHTML));
+  test("Planned legend remains hidden when every planned value is unavailable",
+    /id="trendPlannedLegend" hidden/.test(trendsMarkup) &&
+    /plannedLegend\.hidden = !hasPlannedLoad\(buckets\)/.test(clientSource) &&
+    analytics.hasPlannedLoad([
+      { planned: null },
+      { planned: null }
+    ]) === false);
   test("all four compact time ranges exist with 3 months default",
     ["6w", "3m", "6m", "1y"].every(range =>
       trendsMarkup.includes(`data-trend-range="${range}"`)) &&
@@ -281,13 +389,16 @@ section("Graph-first UI and accessibility");
     /tabindex="0"/.test(trendsMarkup));
   test("native SVG is responsive inside the narrow app shell",
     /\.trend-svg\{[^}]*width:100%[^}]*height:auto/.test(html) &&
-    /\.trend-chart\{[^}]*width:100%[^}]*overflow:hidden/.test(html));
+    /\.trend-chart\{[^}]*width:100%[^}]*overflow:hidden/.test(html) &&
+    /@media\(max-width:360px\)\{[\s\S]*?\.trend-zone-label,\.trend-threshold-label,\.trend-latest-label\{font-size:10px\}/.test(html));
   test("chart colors are centralized as tokens",
     /--trend-fitness:/.test(html) && /--trend-fatigue:/.test(html) &&
     /--trend-zone-risk:/.test(html) && /--trend-load:/.test(html));
   test("chart colors inherit in explicit and system dark modes",
     (html.match(/\[data-theme="dark"\]|prefers-color-scheme:dark/g) || []).length >= 2 &&
     /--trend-fitness:/.test(html) && /--trend-fatigue:/.test(html));
+  test("defined plotting surfaces use theme-aware elevated and border tokens",
+    /\.trend-plot-surface\{fill:var\(--card2\);stroke:var\(--line\)/.test(html));
   test("reduced motion is inherited from the global motion guard",
     /prefers-reduced-motion: reduce\)\{[\s\S]*?animation-duration:\.001ms!important/.test(html));
   test("no Intervals logo, embedded page, copied asset, gradient, or chart dependency was added",

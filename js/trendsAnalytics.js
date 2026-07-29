@@ -156,7 +156,7 @@
 
   function renderStatusChart(host, days) {
     if (!host) return;
-    const width = 360, height = 190, left = 36, right = 10, top = 8, bottom = 28;
+    const width = 360, height = 200, left = 8, right = 34, top = 8, bottom = 28;
     const plotWidth = width - left - right;
     const plotHeight = height - top - bottom;
     const values = days.map(day => day.form).filter(value => value !== null);
@@ -179,8 +179,14 @@
       if (high <= min || low >= max || high <= low) return "";
       const bandY = y(high);
       const bandHeight = y(low) - bandY;
-      return `<rect class="trend-zone trend-zone-${zone.key}" x="${left}" y="${bandY.toFixed(2)}" width="${plotWidth}" height="${bandHeight.toFixed(2)}"></rect>`;
+      return `
+        <rect class="trend-zone trend-zone-${zone.key}" x="${left}" y="${bandY.toFixed(2)}" width="${plotWidth}" height="${bandHeight.toFixed(2)}"></rect>
+        <text class="trend-zone-label" x="${left + 6}" y="${(bandY + bandHeight / 2 + 3).toFixed(2)}">${escapeHtml(zone.label)}</text>`;
     }).join("");
+    const boundaries = [25, 5, -5, -20].map(value => `
+      <line class="trend-zone-boundary" x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}"></line>
+      <text class="trend-threshold-label" x="${width - right + 5}" y="${y(value) + 3}">${value > 0 ? `+${value}` : `−${Math.abs(value)}`}</text>`
+    ).join("");
 
     const paths = segments.map(points =>
       `<path class="trend-series trend-form-series" d="${pathFor(points)}"></path>`
@@ -192,7 +198,9 @@
 
     host.innerHTML = `
       <svg class="trend-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Training Status Form chart">
+        <rect class="trend-plot-surface" x="${left}" y="${top}" width="${plotWidth}" height="${plotHeight}"></rect>
         ${bands}
+        ${boundaries}
         <line class="trend-zero-line" x1="${left}" y1="${y(0)}" x2="${width - right}" y2="${y(0)}"></line>
         ${paths}${points}
         <circle class="trend-latest trend-latest-${current.key}" cx="${x(latest.index)}" cy="${y(latest.value)}" r="5"></circle>
@@ -204,7 +212,7 @@
 
   function renderFitnessChart(host, days) {
     if (!host) return;
-    const width = 360, height = 180, left = 34, right = 10, top = 12, bottom = 28;
+    const width = 360, height = 190, left = 34, right = 64, top = 12, bottom = 28;
     const values = days.flatMap(day => [day.fitness, day.fatigue]).filter(value => value !== null);
     if (!values.length) {
       host.innerHTML = '<p class="trend-chart-empty">Fitness and fatigue data are unavailable for this range.</p>';
@@ -227,15 +235,45 @@
     }).join("");
     const latestFitness = latestValue(days, "fitness");
     const latestFatigue = latestValue(days, "fatigue");
+    const ticks = [0, 1, 2, 3].map(index => {
+      const value = min + ((max - min) * index / 3);
+      return `
+        <line class="trend-grid-line" x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}"></line>
+        <text class="trend-axis-label" x="${left - 6}" y="${y(value) + 3}" text-anchor="end">${escapeHtml(fmt(value))}</text>`;
+    }).join("");
+    let fitnessLabelY = latestFitness ? y(latestFitness.value) + 3 : null;
+    let fatigueLabelY = latestFatigue ? y(latestFatigue.value) + 3 : null;
+    if (
+      fitnessLabelY !== null &&
+      fatigueLabelY !== null &&
+      Math.abs(fitnessLabelY - fatigueLabelY) < 12
+    ) {
+      if (fitnessLabelY <= fatigueLabelY) {
+        fitnessLabelY -= 5;
+        fatigueLabelY += 7;
+      } else {
+        fitnessLabelY += 7;
+        fatigueLabelY -= 5;
+      }
+    }
+    if (fitnessLabelY !== null) {
+      fitnessLabelY = Math.max(top + 9, Math.min(height - bottom - 3, fitnessLabelY));
+    }
+    if (fatigueLabelY !== null) {
+      fatigueLabelY = Math.max(top + 9, Math.min(height - bottom - 3, fatigueLabelY));
+    }
 
     host.innerHTML = `
       <svg class="trend-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Fitness and Fatigue line chart">
-        <line class="trend-grid-line" x1="${left}" y1="${y(min)}" x2="${width - right}" y2="${y(min)}"></line>
+        <rect class="trend-plot-surface" x="${left}" y="${top}" width="${width - left - right}" height="${height - top - bottom}"></rect>
+        ${ticks}
         ${pathMarkup(fitness, "trend-fitness-series")}
         ${pathMarkup(fatigue, "trend-fatigue-series")}
         ${hits}
         ${latestFitness ? `<circle class="trend-latest trend-fitness-point" cx="${x(latestFitness.index)}" cy="${y(latestFitness.value)}" r="4"></circle>` : ""}
         ${latestFatigue ? `<circle class="trend-latest trend-fatigue-point" cx="${x(latestFatigue.index)}" cy="${y(latestFatigue.value)}" r="4"></circle>` : ""}
+        ${latestFitness ? `<text class="trend-latest-label trend-latest-label-fitness" x="${width - right + 7}" y="${fitnessLabelY}">Fitness ${escapeHtml(fmt(latestFitness.value))}</text>` : ""}
+        ${latestFatigue ? `<text class="trend-latest-label trend-latest-label-fatigue" x="${width - right + 7}" y="${fatigueLabelY}">Fatigue ${escapeHtml(fmt(latestFatigue.value))}</text>` : ""}
         ${chartDates(days, width, left, right, height - 8)}
       </svg>
       <div class="trend-chart-tooltip" aria-live="polite"></div>`;
@@ -321,6 +359,11 @@
     };
   }
 
+  function hasPlannedLoad(buckets) {
+    return (Array.isArray(buckets) ? buckets : [])
+      .some(bucket => finite(bucket && bucket.planned) !== null);
+  }
+
   function renderLoadChart(host, buckets) {
     if (!host) return;
     const valid = buckets.filter(bucket => bucket.completed !== null || bucket.planned !== null);
@@ -335,6 +378,10 @@
     const slot = (width - left - right) / Math.max(1, buckets.length);
     const barWidth = Math.max(2, Math.min(12, slot * 0.6));
     const y = value => top + (1 - value / max) * (height - top - bottom);
+    const ticks = [0, max / 2, max].map(value => `
+      <line class="trend-grid-line" x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}"></line>
+      <text class="trend-axis-label" x="${left - 6}" y="${y(value) + 3}" text-anchor="end">${escapeHtml(fmt(value))}</text>`
+    ).join("");
 
     const bars = buckets.map((bucket, index) => {
       const x = left + index * slot + (slot - barWidth) / 2;
@@ -348,7 +395,9 @@
 
     host.innerHTML = `
       <svg class="trend-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Training Load bar chart">
-        <line class="trend-grid-line" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"></line>
+        <rect class="trend-plot-surface" x="${left}" y="${top}" width="${width - left - right}" height="${height - top - bottom}"></rect>
+        ${ticks}
+        <line class="trend-load-baseline" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"></line>
         ${bars}
         ${chartDates(
           buckets.map(bucket => ({ date: bucket.key })),
@@ -385,16 +434,30 @@
     const fatigue = latestValue(days, "fatigue");
     if (!fitness && !fatigue) return "Fitness and fatigue need more training history.";
 
-    const direction = latest => {
-      if (!latest) return "unavailable";
-      const prior = valueAtOrBefore(days, latest === fitness ? "fitness" : "fatigue", latest.index - 7);
-      if (prior === null) return "forming";
-      const delta = latest.value - prior;
-      return delta > 1 ? "rising" : delta < -1 ? "falling" : "stable";
+    const deltaFor = (latest, key) => {
+      if (!latest) return null;
+      const prior = valueAtOrBefore(days, key, latest.index - 7);
+      return prior === null ? null : latest.value - prior;
     };
-    const fitnessDirection = direction(fitness);
-    const fatigueDirection = direction(fatigue);
-    return `Fitness is ${fitnessDirection} while short-term fatigue is ${fatigueDirection}.`;
+    const fitnessDelta = deltaFor(fitness, "fitness");
+    const fatigueDelta = deltaFor(fatigue, "fatigue");
+
+    if (fitnessDelta === null || fatigueDelta === null) {
+      return "Your Fitness and Fatigue trend is still forming.";
+    }
+    if (fatigueDelta < -1 && fatigueDelta < fitnessDelta - 1) {
+      return "Fatigue has fallen faster than fitness, leaving you fresher.";
+    }
+    if (fatigueDelta > 1 && fatigueDelta > fitnessDelta + 1) {
+      return "Fatigue has risen faster than fitness, so you are carrying more short-term load.";
+    }
+    if (fitnessDelta > 1 && fatigueDelta > 1) {
+      return "Fitness and fatigue are both rising as recent training accumulates.";
+    }
+    if (fitnessDelta < -1 && fatigueDelta < -1) {
+      return "Fitness and fatigue are both easing after a lighter training period.";
+    }
+    return "Fitness and fatigue are moving together, keeping Form relatively balanced.";
   }
 
   function statusCoaching(zone) {
@@ -503,7 +566,7 @@
     }
     const plannedLegend = document.getElementById("trendPlannedLegend");
     if (plannedLegend) {
-      plannedLegend.hidden = !buckets.some(bucket => bucket.planned !== null);
+      plannedLegend.hidden = !hasPlannedLoad(buckets);
     }
     renderLoadChart(document.getElementById("trendLoadChart"), buckets);
 
@@ -627,7 +690,12 @@
     lineSegments,
     aggregateTrainingLoad,
     loadWeekComparison,
+    hasPlannedLoad,
     accessibleSummary,
+    renderStatusChart,
+    renderFitnessChart,
+    renderLoadChart,
+    fitnessInterpretation,
     selectRange,
     refresh,
     renderData

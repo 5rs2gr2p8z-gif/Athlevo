@@ -1965,6 +1965,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .trend-chart{position:relative;width:100%;min-width:0;overflow:hidden}
 .trend-svg{display:block;width:100%;height:auto;overflow:visible}
 .trend-axis-label{fill:var(--ink3);font-family:var(--sans);font-size:var(--fs-micro)}
+.trend-plot-surface{fill:var(--card2);stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
 .trend-grid-line,.trend-zero-line{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
 .trend-zero-line{stroke:var(--ink3);stroke-dasharray:3 4}
 .trend-zone{pointer-events:none}
@@ -1973,6 +1974,15 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .trend-zone-maintaining{fill:var(--trend-zone-maintaining)}
 .trend-zone-gaining{fill:var(--trend-zone-gaining)}
 .trend-zone-risk{fill:var(--trend-zone-risk)}
+.trend-zone-boundary{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+.trend-zone-label,.trend-threshold-label,.trend-latest-label{
+  font-family:var(--sans);font-size:var(--fs-micro);font-weight:650;
+  paint-order:stroke;stroke:var(--paper);stroke-width:2px;stroke-linejoin:round}
+.trend-zone-label{fill:var(--ink2)}
+.trend-threshold-label{fill:var(--ink3);font-variant-numeric:tabular-nums}
+.trend-latest-label{font-weight:750}
+.trend-latest-label-fitness{fill:var(--trend-fitness)}
+.trend-latest-label-fatigue{fill:var(--trend-fatigue)}
 .trend-series{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .trend-form-series{stroke:var(--trend-form)}
 .trend-fitness-series{stroke:var(--trend-fitness)}
@@ -1990,17 +2000,28 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .trend-hit.is-active,.trend-hit-area.is-active{stroke:var(--focus-ring);stroke-width:1;vector-effect:non-scaling-stroke}
 .trend-load-completed{fill:var(--trend-load)}
 .trend-load-planned{fill:transparent;stroke:var(--ink3);stroke-width:1;vector-effect:non-scaling-stroke}
+.trend-load-baseline{stroke:var(--ink2);stroke-width:1;vector-effect:non-scaling-stroke}
 .trend-chart-tooltip{min-height:18px;margin-top:-4px;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2);font-variant-numeric:tabular-nums}
 .trend-chart-empty{padding:var(--s-6) 0;font-size:var(--fs-body-sm);color:var(--ink3)}
+.trend-chart-context{margin-top:var(--s-2);padding:var(--s-3);background:var(--card2);
+  border:1px solid var(--line);border-radius:var(--r-sm)}
+.trend-chart-context p{font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
+.trend-formula{margin-top:4px!important;font-weight:750;color:var(--text)!important}
+.trend-form-key{display:flex;flex-wrap:wrap;gap:4px var(--s-3);margin-top:6px}
+.trend-form-key span{font-size:var(--fs-micro);line-height:var(--lh-caption);color:var(--ink3)}
 .trend-interpretation{margin:var(--s-2) 0 0;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text)}
 .trend-text-summary{margin:var(--s-2) 0 0;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink3)}
 .trend-about{margin-top:var(--s-3);padding-top:var(--s-3);border-top:1px solid var(--line)}
 .trend-about summary{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);cursor:pointer}
 .trend-about p{margin:var(--s-2) 0 0;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink2)}
+.trend-about ul{margin:var(--s-2) 0 0;padding-left:18px}
+.trend-about li{margin-top:5px;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink2)}
 @media(max-width:360px){
   .trends-shell{margin-left:var(--s-4);margin-right:var(--s-4)}
   .trends-head-row{display:block}
   .trend-range{margin-top:var(--s-3);width:max-content}
+  .trend-zone-label,.trend-threshold-label,.trend-latest-label{font-size:10px}
+  .trend-form-key{display:grid;grid-template-columns:1fr}
 }
 
 /* ---------- Athlevo Score: horizontal progression (distinct from Readiness) ---------- */
@@ -3364,6 +3385,11 @@ body.landing-active #tabbar{display:none!important}
     .direction-signal[data-tone="positive"]{--signal-color:var(--good)}
     .direction-signal[data-tone="warning"]{--signal-color:var(--warn)}
     .direction-signal[data-tone="risk"]{--signal-color:var(--bad)}
+    .direction-signal[data-tone="freshness-detraining"]{--signal-color:var(--warn)}
+    .direction-signal[data-tone="freshness-fresh"]{--signal-color:var(--trend-fitness)}
+    .direction-signal[data-tone="freshness-balanced"]{--signal-color:var(--trend-maintaining)}
+    .direction-signal[data-tone="freshness-loaded"]{--signal-color:var(--good)}
+    .direction-signal[data-tone="freshness-fatigued"]{--signal-color:var(--bad)}
     .direction-signal[data-tone="missing"]{--signal-color:var(--line)}
     html[data-theme="dark"] .direction-signal[data-tone="recovery"]{--signal-color:#78a6ff}
     @media (prefers-color-scheme: dark){
@@ -3512,16 +3538,16 @@ body.landing-active #tabbar{display:none!important}
         <span class="direction-signal-name">Training load</span>
         <span class="direction-signal-note" id="todayLoadSignalNote">Unavailable</span>
       </div>
-      <div class="direction-signal" id="todayPainSignal" aria-label="Body feedback: no check-in">
+      <div class="direction-signal" id="todayFreshnessSignal" aria-label="Freshness: unavailable">
         <span class="direction-signal-ring" aria-hidden="true">
           <svg viewBox="0 0 72 72" focusable="false">
             <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
             <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
           </svg>
-          <strong class="direction-signal-value" id="todayPainSignalValue">—</strong>
+          <strong class="direction-signal-value" id="todayFreshnessSignalValue">—</strong>
         </span>
-        <span class="direction-signal-name">Body feedback</span>
-        <span class="direction-signal-note" id="todayPainSignalNote">No check-in</span>
+        <span class="direction-signal-name">Freshness</span>
+        <span class="direction-signal-note" id="todayFreshnessSignalNote">Unavailable</span>
       </div>
     </div>
 
@@ -4040,11 +4066,26 @@ body.landing-active #tabbar{display:none!important}
         <span class="trend-graph-values">Form</span>
       </div>
       <div class="trend-chart" id="trendStatusChart"></div>
+      <div class="trend-chart-context">
+        <p>Form shows the balance between long-term fitness and short-term fatigue.</p>
+        <p class="trend-formula">Form = Fitness − Fatigue</p>
+        <div class="trend-form-key" aria-label="How to interpret Form">
+          <span>Positive Form: fresher</span>
+          <span>Near zero: balanced</span>
+          <span>Negative Form: carrying fatigue</span>
+        </div>
+      </div>
       <p class="trend-interpretation" id="trendStatusInterpretation"></p>
       <p class="trend-text-summary" id="trendStatusSummary" tabindex="0"></p>
       <details class="trend-about">
         <summary>About Training Status</summary>
-        <p>Athlevo uses absolute Form (Fitness minus Fatigue): +25 or above suggests detraining, +5 to +24 is Fresh, −5 to +4 is Maintaining, −20 to −6 is Gaining Fitness, and below −20 is High Risk. This interpretation supports coaching context; readiness and pain still take priority.</p>
+        <ul>
+          <li><strong>Detraining:</strong> very low recent load; fitness may begin declining.</li>
+          <li><strong>Fresh:</strong> reduced fatigue; often suitable for racing or key sessions.</li>
+          <li><strong>Maintaining:</strong> fitness and fatigue are relatively balanced.</li>
+          <li><strong>Gaining Fitness:</strong> productive training load with manageable fatigue.</li>
+          <li><strong>High Risk:</strong> fatigue is unusually high and recovery should be prioritized.</li>
+        </ul>
       </details>
     </article>
 
@@ -4060,6 +4101,9 @@ body.landing-active #tabbar{display:none!important}
         <span class="trend-graph-values" id="trendFitnessValues"></span>
       </div>
       <div class="trend-chart" id="trendFitnessChart"></div>
+      <div class="trend-chart-context">
+        <p>Fitness reflects your longer-term training load. Fatigue reacts more quickly to recent training.</p>
+      </div>
       <p class="trend-interpretation" id="trendFitnessInterpretation"></p>
       <p class="trend-text-summary" id="trendFitnessSummary" tabindex="0"></p>
     </article>
@@ -5457,6 +5501,63 @@ function buildReadinessSignalPresentation(score){
   };
 }
 
+/* Display-only interpretation of the same absolute Form value used by
+   Training Status in Trends. Pain and soreness remain separate safety inputs. */
+function buildFreshnessSignalPresentation(form){
+  if (!Number.isFinite(form)){
+    return {
+      value: "—",
+      note: "Unavailable",
+      tone: "missing",
+      progress: 0,
+      progressKind: "missing"
+    };
+  }
+  if (form >= 25){
+    return {
+      value: "Very fresh",
+      note: "Low recent load",
+      tone: "freshness-detraining",
+      progress: 100,
+      progressKind: "categorical"
+    };
+  }
+  if (form >= 5){
+    return {
+      value: "Fresh",
+      note: "Ready for quality",
+      tone: "freshness-fresh",
+      progress: 100,
+      progressKind: "categorical"
+    };
+  }
+  if (form >= -5){
+    return {
+      value: "Balanced",
+      note: "Maintaining",
+      tone: "freshness-balanced",
+      progress: 100,
+      progressKind: "categorical"
+    };
+  }
+  if (form >= -20){
+    return {
+      value: "Loaded",
+      note: "Building fitness",
+      tone: "freshness-loaded",
+      progress: 100,
+      progressKind: "categorical"
+    };
+  }
+  return {
+    value: "Fatigued",
+    note: "Recovery needed",
+    tone: "freshness-fatigued",
+    progress: 100,
+    progressKind: "categorical"
+  };
+}
+
 function buildAthlevoDirectionView(signals){
   var s = signals && typeof signals === "object" ? signals : {};
   var direction = classifyAthlevoDirection(s);
@@ -5507,6 +5608,10 @@ function buildAthlevoDirectionView(signals){
         ? "Limited data means today should stay measured."
         : "Available signals support an easy, measured effort.";
   var readinessSignal = buildReadinessSignalPresentation(score);
+  var formValue = s.form && Number.isFinite(s.form.value)
+    ? s.form.value
+    : null;
+  var freshnessSignal = buildFreshnessSignalPresentation(formValue);
 
   var loadValue = "—";
   var loadNote = "Load unavailable";
@@ -5524,17 +5629,6 @@ function buildAthlevoDirectionView(signals){
     }
   }
 
-  var painValue = "—";
-  var painNote = "No check-in";
-  var painTone = "missing";
-  var painProgress = 0;
-  if ((s.pain && s.pain.present === true) || (checkIn && checkIn.painPresent === true)){
-    painValue = "Pain"; painNote = "Pain reported"; painTone = "risk"; painProgress = 90;
-  } else if (checkIn && Number.isFinite(checkIn.soreness) && checkIn.soreness > 1){
-    painValue = "Mild"; painNote = "Some soreness"; painTone = "warning"; painProgress = 52;
-  } else if (checkIn){
-    painValue = "Clear"; painNote = "No issues"; painTone = "positive"; painProgress = 68;
-  }
   var present = [];
   if (score !== null) present.push("today’s readiness");
   if (hasLoad) present.push("recent training load");
@@ -5558,13 +5652,7 @@ function buildAthlevoDirectionView(signals){
         progress: loadProgress,
         progressKind: hasLoad ? "categorical" : "missing"
       },
-      pain: {
-        value: painValue,
-        note: painNote,
-        tone: painTone,
-        progress: painProgress,
-        progressKind: hasPainSignal ? "categorical" : "missing"
-      }
+      freshness: freshnessSignal
     },
     recommendationTitle: recommendationTitle,
     coaching: coaching,
@@ -5691,6 +5779,32 @@ function renderTodayReadinessSignal(root, valueNode, noteNode, signal){
   });
 }
 
+function latestTodayFormFromTrendData(data){
+  var days = data && Array.isArray(data.days) ? data.days : [];
+  for (var index = days.length - 1; index >= 0; index -= 1){
+    var raw = days[index] && days[index].form;
+    if (raw === null || raw === undefined || raw === "") continue;
+    var form = Number(raw);
+    if (Number.isFinite(form)) return form;
+  }
+  return null;
+}
+
+async function loadLatestTodayForm(){
+  if (
+    !window.AthlevoBrain ||
+    typeof window.AthlevoBrain.loadProviderTrends !== "function"
+  ){
+    return null;
+  }
+  try {
+    var data = await window.AthlevoBrain.loadProviderTrends("6w");
+    return latestTodayFormFromTrendData(data);
+  } catch (error) {
+    return null;
+  }
+}
+
 /* ───────────────────────── ATHLEVO DIRECTION ─────────────────────────
    Projects the existing readiness score and conservative status from
    CoachBrainData. Missing inputs remain visibly missing. */
@@ -5705,9 +5819,9 @@ async function renderTodayPassiveStatus(profile){
   var loadSignal = document.getElementById("todayLoadSignal");
   var loadValue = document.getElementById("todayLoadSignalValue");
   var loadNote = document.getElementById("todayLoadSignalNote");
-  var painSignal = document.getElementById("todayPainSignal");
-  var painValue = document.getElementById("todayPainSignalValue");
-  var painNote = document.getElementById("todayPainSignalNote");
+  var freshnessSignal = document.getElementById("todayFreshnessSignal");
+  var freshnessValue = document.getElementById("todayFreshnessSignalValue");
+  var freshnessNote = document.getElementById("todayFreshnessSignalNote");
   var why = document.getElementById("todayDirectionWhy");
   if (!block || !label || !coaching || !card) return;
 
@@ -5741,7 +5855,13 @@ async function renderTodayPassiveStatus(profile){
       value.signals.readiness
     );
     setSignal(loadSignal, loadValue, loadNote, value.signals.load, "Training load");
-    setSignal(painSignal, painValue, painNote, value.signals.pain, "Body feedback");
+    setSignal(
+      freshnessSignal,
+      freshnessValue,
+      freshnessNote,
+      value.signals.freshness,
+      "Freshness"
+    );
 
     if (card.dataset.planState !== "no-plan" && card.dataset.planState !== "unavailable"){
       label.textContent = value.recommendationTitle;
@@ -5760,7 +5880,15 @@ async function renderTodayPassiveStatus(profile){
       set(buildAthlevoDirectionView({}));
       return;
     }
-    var signals = await window.CoachBrainData.collectSignals(profile || null);
+    var todaySignalResults = await Promise.all([
+      window.CoachBrainData.collectSignals(profile || null),
+      loadLatestTodayForm()
+    ]);
+    var signals = todaySignalResults[0] || {};
+    var latestForm = todaySignalResults[1];
+    if (Number.isFinite(latestForm)){
+      signals.form = { value: latestForm };
+    }
     set(buildAthlevoDirectionView(signals));
   } catch (e) {
     set(buildAthlevoDirectionView({}));
