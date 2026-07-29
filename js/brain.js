@@ -440,10 +440,10 @@ function updateTodayDashboard(profile) {
   const contextElement = document.getElementById("todayContextLine");
 
   if (nameElement) {
-    const preferredName =
-      profile.full_name?.trim() ||
-      profile.email?.split("@")[0] ||
-      "Athlete";
+    const fullName = profile.full_name?.trim() || "";
+    const preferredName = fullName
+      ? fullName.split(/\s+/)[0]
+      : "Athlete";
 
     nameElement.textContent = preferredName;
   }
@@ -461,6 +461,12 @@ function updateTodayDashboard(profile) {
     } else {
       contextElement.textContent = "Your athlete profile is ready.";
     }
+  }
+
+  // The current-week endpoint is authoritative for plan phase/week. Keep
+  // the profile-derived line above as an immediate fallback while it loads.
+  if (typeof window.renderTodayTrainingContext === "function") {
+    window.renderTodayTrainingContext(profile);
   }
 }
 
@@ -757,6 +763,13 @@ function resetAthleteUI() {
 
   setText("todayAthleteName", "Athlete");
   setText("todayContextLine", "Your athlete profile is loading.");
+  setText("todayPassiveStatusLabel", "HOLD");
+  setText("todayDirectionCopy", "You’re ready to train, but today should stay controlled.");
+
+  const directionBlock = document.getElementById("todayPassiveStatusBlock");
+  const directionCard = document.getElementById("dailyBriefCard");
+  if (directionBlock) directionBlock.dataset.direction = "hold";
+  if (directionCard) directionCard.dataset.direction = "hold";
 
   setText("profileName", "Athlete");
   setText("profileInitial", "A");

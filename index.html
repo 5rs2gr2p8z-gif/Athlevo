@@ -491,9 +491,9 @@ body{
 .hairline{height:1px;background:var(--line);border:none}
 
 /* ---------- home ---------- */
-.statusrow{display:flex;justify-content:center;align-items:center;padding:24px 22px 0;font-size:var(--fs-caption);font-weight:600;color:var(--ink2)}
-.brand-icon{height:34px;width:34px;object-fit:contain;display:block}
-.greet{padding:34px 22px 6px}
+.statusrow{display:flex;justify-content:center;align-items:center;padding:20px 22px 0;font-size:var(--fs-caption);font-weight:600;color:var(--ink2)}
+.brand-icon{height:30px;width:30px;object-fit:contain;display:block}
+.greet{padding:24px 22px 16px}
 .greet h1{font-family:var(--serif);font-size:var(--fs-display);font-weight:500;letter-spacing:-.02em;line-height:1.12}
 .greet p{color:var(--ink2);font-size:var(--fs-body);margin-top:6px}
 .greet .wx{display:inline-flex;align-items:center;gap:6px}
@@ -3361,22 +3361,17 @@ body.landing-active #tabbar{display:none!important}
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
   <div class="statusrow">
-  <img class="brand-icon" src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="34" height="34">
+  <img class="brand-icon" src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="30" height="30">
 </div>
-  <!-- Subtle import-success banner (js/syncStatus.js). Non-intrusive, auto-dismisses. -->
-  <div id="syncBanner" class="ss-banner-wrap"></div>
   <div class="greet">
   <h1 class="serif">
-    Good morning,<br><span id="todayAthleteName">Athlete</span>.
+    Good morning, <span id="todayAthleteName">Athlete</span>
   </h1>
 
   <p id="todayContextLine">
-    Your athlete profile is ready.
+    Loading your current training week…
   </p>
 </div>
-
-  <!-- ===== BUILD MY COACH CTA (only while no plan exists) ===== -->
-  <div id="todayPlanCta" style="display:none"></div>
 
   <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
   <style>
@@ -3390,48 +3385,30 @@ body.landing-active #tabbar{display:none!important}
       font-family:var(--sans);font-weight:650;font-size:var(--fs-body-sm);padding:9px 18px;cursor:pointer}
     .today-install .ti-btn:hover{background:#000}
 
-    /* ═══════════ COMPACT TODAY'S RECOMMENDATION ═══════════
-       Above-the-fold, single-glance summary that replaces the long hero
-       briefing. All existing #dailyBrief* IDs are preserved — the full
-       briefing is simply moved behind a "Read full briefing" disclosure. */
-    .rec-card{margin:0 22px;background:var(--card);border:1px solid var(--line);
-      border-radius:var(--r-lg);padding:18px 20px 16px;box-shadow:var(--elev-1);position:relative}
-    .rec-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
-      background:var(--red);border-radius:var(--r-lg) 0 0 var(--r-lg)}
-    .rec-head{display:flex;align-items:center;gap:var(--s-3);margin-bottom:4px}
+    /* ═══════════ ATHLEVO DIRECTION ═══════════
+       The first-viewport decision device. It reuses the existing dark
+       signature-card treatment and red emphasis, with no invented score. */
+    .direction-card{margin:0 22px;background:var(--ink);color:#fff;border-radius:var(--r-lg);
+      padding:22px 20px 18px;box-shadow:var(--elev-3);position:relative;overflow:hidden}
+    .direction-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+      background:var(--red)}
+    .direction-eyebrow{display:block;font-size:var(--fs-micro);font-weight:750;
+      letter-spacing:.14em;text-transform:uppercase;color:#f2a6a6}
+    .direction-signal{margin-top:10px}
+    .direction-state{font-family:var(--sans);font-size:calc(var(--fs-display) * 1.22);
+      font-weight:750;line-height:1;letter-spacing:.08em;color:#fff;margin:0}
+    .direction-copy{font-size:var(--fs-body);line-height:var(--lh-body);
+      color:rgba(255,255,255,.76);margin:8px 0 0;max-width:38ch}
+    .direction-recommendation{margin-top:18px;padding-top:16px;
+      border-top:1px solid rgba(255,255,255,.14)}
     .rec-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.12em;
-      text-transform:uppercase;color:var(--red)}
-    /* Body pairs the copy on the left with a compact readiness ring on the
-       right. The copy uses CSS line-clamp so a long headline or caption
-       coming from the model is visually capped to 2 lines — the full text
-       still lives in the DOM and inside "Read full briefing". */
-    .rec-body{display:flex;align-items:center;gap:var(--s-4);margin-top:6px}
-    .rec-body-text{flex:1;min-width:0}
-    .rec-headline{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;
-      line-height:var(--lh-heading);letter-spacing:-.01em;color:var(--text);margin:0 0 4px;
+      text-transform:uppercase;color:rgba(255,255,255,.52)}
+    .rec-headline{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;
+      line-height:var(--lh-heading);letter-spacing:-.01em;color:#fff;margin:7px 0 3px;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .rec-sentence{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0;
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    /* Passive readiness/status block — no manual questionnaire, no
-       invented numeric score. States: good-to-go / proceed-with-care /
-       recovery / not-enough-data. Fed by renderTodayPassiveStatus below,
-       which classifies signals CoachBrainData already collects. */
-    .rec-status-block{display:flex;flex-direction:column;align-items:center;justify-content:center;
-      gap:6px;padding:12px 10px;min-width:96px;flex-shrink:0;
-      background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);text-align:center}
-    .rec-status-dot{width:14px;height:14px;border-radius:50%;background:var(--ink3);flex-shrink:0;
-      transition:background var(--dur-base) var(--ease-standard)}
-    .rec-status-label{font-size:var(--fs-caption);font-weight:700;color:var(--text);
-      line-height:1.2;letter-spacing:.01em;
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-    .rec-status-block[data-status="good"] .rec-status-dot{background:var(--good)}
-    .rec-status-block[data-status="good"]{border-color:var(--good-soft);background:var(--good-soft)}
-    .rec-status-block[data-status="care"] .rec-status-dot{background:var(--warn)}
-    .rec-status-block[data-status="care"]{border-color:var(--warn-soft);background:var(--warn-soft)}
-    .rec-status-block[data-status="recover"] .rec-status-dot{background:var(--red)}
-    .rec-status-block[data-status="recover"]{border-color:var(--red-soft);background:var(--red-soft)}
-    .rec-status-block[data-status=""] .rec-status-dot,
-    .rec-status-block[data-status="unknown"] .rec-status-dot{background:var(--ink3)}
+    .rec-sentence{font-size:var(--fs-body-sm);line-height:var(--lh-body);
+      color:rgba(255,255,255,.68);margin:0;display:-webkit-box;-webkit-line-clamp:2;
+      -webkit-box-orient:vertical;overflow:hidden}
     .rec-actions{display:flex;align-items:center;gap:var(--s-2);margin-top:14px;
       flex-wrap:wrap;justify-content:space-between}
     .rec-cta{font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;
@@ -3441,27 +3418,29 @@ body.landing-active #tabbar{display:none!important}
     .rec-cta:active{transform:scale(.97)}
     .rec-cta:disabled{opacity:.55;cursor:default}
     .rec-expand{display:inline-flex;align-items:center;gap:6px;background:none;border:none;
-      font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:600;color:var(--ink2);
+      font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:600;color:rgba(255,255,255,.68);
       cursor:pointer;padding:6px 4px;
       transition:color var(--dur-fast) var(--ease-standard)}
-    .rec-expand:hover{color:var(--text)}
+    .rec-expand:hover{color:#fff}
     .rec-expand svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;
       stroke-linecap:round;transition:transform var(--dur-base) var(--ease-standard)}
     .rec-expand[aria-expanded="true"] svg{transform:rotate(180deg)}
-    .rec-full{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+    .rec-full{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.14)}
     .rec-full[hidden]{display:none}
     .rec-full .daily-brief-section{margin-top:12px}
     .rec-full .daily-brief-section:first-child{margin-top:0}
     .rec-full .daily-brief-section .f-name{display:block;font-size:var(--fs-micro);
-      font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
-    .rec-full .daily-brief-section p{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
+      font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px}
+    .rec-full .daily-brief-section p{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:rgba(255,255,255,.86)}
     .rec-full .daily-brief-details{margin-top:14px;font-size:var(--fs-body-sm)}
-    .rec-full .daily-brief-details summary{cursor:pointer;color:var(--ink2);font-weight:600;padding:6px 0}
-    .rec-full .daily-brief-details p{margin-top:8px;color:var(--ink2);line-height:var(--lh-body)}
-    .rec-full .daily-brief-status{margin-top:10px;font-size:var(--fs-caption);color:var(--ink3)}
+    .rec-full .daily-brief-details summary{cursor:pointer;color:rgba(255,255,255,.68);font-weight:600;padding:6px 0}
+    .rec-full .daily-brief-details p{margin-top:8px;color:rgba(255,255,255,.68);line-height:var(--lh-body)}
+    .rec-full .daily-brief-status{margin-top:10px;font-size:var(--fs-caption);color:rgba(255,255,255,.5)}
     @media (max-width:360px){
-      .rec-ring{width:76px;height:76px}
-      .rec-ring .rc-score{font-size:var(--fs-body)}
+      .greet{padding-top:20px}
+      .direction-card{padding:20px 18px 16px}
+      .direction-state{font-size:var(--fs-display)}
+      .rec-actions{align-items:flex-start;flex-direction:column}
     }
 
     /* ═══════════ AT A GLANCE — 4 semantic tiles ═══════════
@@ -3525,68 +3504,32 @@ body.landing-active #tabbar{display:none!important}
     .lwa-takeaway-label{display:block;font-size:var(--fs-micro);font-weight:700;
       letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
   </style>
-  <div class="today-install" id="todayInstallCard">
-    <div class="ti-icon"><img src="assets/athlevo-icon-transparent.png" alt="" width="34" height="34"></div>
-    <div class="ti-copy">
-      <b>Install Athlevo</b>
-      <small>Keep your coach one tap away and open Athlevo like a native app.</small>
+  <!-- ═══════════ ATHLEVO DIRECTION + TODAY'S RECOMMENDATION ═══════════
+       Direction is derived from existing readiness/load/pain signals.
+       HOLD is the safe fallback when those signals are unavailable. The
+       recommendation still comes from today's authenticated saved session. -->
+  <article class="direction-card" id="dailyBriefCard" data-direction="hold">
+    <span class="direction-eyebrow">Athlevo Direction</span>
+    <div
+      class="direction-signal"
+      id="todayPassiveStatusBlock"
+      data-direction="hold"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <h2 class="direction-state" id="todayPassiveStatusLabel">HOLD</h2>
+      <p class="direction-copy" id="todayDirectionCopy">You’re ready to train, but today should stay controlled.</p>
     </div>
-    <button class="ti-btn" onclick="athlevoInstall()">Install</button>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       FEEL COACHED narrative order (presentation only):
-       greeting → hero coaching brief → today's workout → why → recent
-       workout → supporting evidence (Score/radar/readiness) → development.
-       Renderers target these IDs, so container order is a safe UI change.
-       ═══════════════════════════════════════════════════════════════════ -->
-
-  <!-- ===== AUTOMATIC RACE DETECTION PROMPT (actionable, stays near top) ===== -->
-  <div id="raceDetectCard"></div>
-
-  <!-- ═══════════ TODAY'S RECOMMENDATION (from today's planned session) ═══════════
-       The compact card headline + short reason are derived from the
-       athlete's planned training_sessions row for today (see
-       renderTodayRecommendation() in the script block near the bottom).
-       If no session is scheduled the card shows a truthful fallback —
-       never an invented workout.
-
-       A compact passive-status block sits on the right. Its state
-       ("Good to go" / "Proceed with care" / "Recovery recommended" /
-       "Not enough data") is classified in renderTodayPassiveStatus()
-       from signals CoachBrainData already collects (recent load,
-       execution feedback, pain flag, imported activities). No manual
-       readiness questionnaire is surfaced anywhere on Today.
-
-       The full Daily Coach Briefing (its own headline, training
-       summary, observation, recommendation, reasoning and limitations)
-       is preserved verbatim inside "Read full briefing" — every
-       #dailyBrief* ID that js/dailyBrief.js writes into is untouched. -->
-  <div class="rec-card" id="dailyBriefCard">
-    <div class="rec-head">
+    <div class="direction-recommendation">
       <span class="rec-eyebrow">Today's recommendation</span>
-    </div>
-
-    <div class="rec-body">
-      <div class="rec-body-text">
-        <h3 class="rec-headline" id="todayRecommendationHeadline">
-          Loading today's session…
-        </h3>
-        <p class="rec-sentence" id="todayRecommendationReason">
-          Checking your training plan for today.
-        </p>
-      </div>
-
-      <div
-        class="rec-status-block"
-        id="todayPassiveStatusBlock"
-        data-status=""
-        role="img"
-        aria-label="Passive readiness indicator"
-      >
-        <span class="rec-status-dot" aria-hidden="true"></span>
-        <span class="rec-status-label" id="todayPassiveStatusLabel">Not enough data</span>
-      </div>
+      <h3 class="rec-headline" id="todayRecommendationHeadline">
+        Loading today's session…
+      </h3>
+      <p class="rec-sentence" id="todayRecommendationReason">
+        Checking your training plan for today.
+      </p>
     </div>
 
     <div class="rec-actions">
@@ -3655,7 +3598,25 @@ body.landing-active #tabbar{display:none!important}
         class="daily-brief-status"
       ></p>
     </div>
+  </article>
+
+  <!-- ===== BUILD MY COACH CTA (only while no plan exists) ===== -->
+  <div id="todayPlanCta" style="display:none"></div>
+
+  <!-- Subtle import-success banner (js/syncStatus.js). Non-intrusive, auto-dismisses. -->
+  <div id="syncBanner" class="ss-banner-wrap"></div>
+
+  <div class="today-install" id="todayInstallCard">
+    <div class="ti-icon"><img src="assets/athlevo-icon-transparent.png" alt="" width="34" height="34"></div>
+    <div class="ti-copy">
+      <b>Install Athlevo</b>
+      <small>Keep your coach one tap away and open Athlevo like a native app.</small>
+    </div>
+    <button class="ti-btn" onclick="athlevoInstall()">Install</button>
   </div>
+
+  <!-- ===== AUTOMATIC RACE DETECTION PROMPT ===== -->
+  <div id="raceDetectCard"></div>
 
   <!-- ═══════════ AT A GLANCE — 4 semantic tiles, existing values only ═══════════
        Icon + value + label per tile. IDs for distance/load/HR are unchanged
@@ -3683,8 +3644,8 @@ body.landing-active #tabbar{display:none!important}
       <span class="glance-value num" id="todaySevenDayHeartRate">—</span>
       <span class="glance-label">Avg HR</span>
     </div>
-    <!-- The 4th readiness tile was removed: passive readiness now lives
-         in the rec-card status block. Keeping a numeric tile here would
+    <!-- The 4th readiness tile was removed: qualitative readiness now lives
+         in Athlevo Direction. Keeping a numeric tile here would
          duplicate that status without providing a distinct metric. -->
   </div>
 
@@ -3710,7 +3671,7 @@ body.landing-active #tabbar{display:none!important}
      in js/readiness.js) is unchanged — with no #readinessEmptyState mount
      present it early-returns. Any readiness records already stored are
      still read passively by CoachBrainData.collectSignals() and shown as
-     the status block on the recommendation card. -->
+     Athlevo Direction. -->
 
 <!-- ===== YOUR DEVELOPMENT (Athlete Identity & Progression) ===== -->
 <div id="developmentCard"></div>
@@ -5103,24 +5064,85 @@ function todayLocalKey(){
     + String(now.getDate()).padStart(2,"0");
 }
 
-async function loadTodaysPlannedSession(){
+var todayPlanSnapshotCache = {
+  userId: null,
+  promise: null
+};
+
+/* Reuse the authenticated current-week endpoint that already selects a
+   valid, user-scoped plan and its saved sessions for the Train screen. */
+async function loadTodayPlanSnapshot(forceRefresh){
   try {
     if (typeof supabaseClient === "undefined" || !supabaseClient) return null;
-    var res = await supabaseClient.auth.getUser();
-    var user = res && res.data && res.data.user;
-    if (!user) return null;
-    var day = todayLocalKey();
-    var q = await supabaseClient
-      .from("training_sessions")
-      .select("session_type,title,purpose,session_date")
-      .eq("user_id", user.id)
-      .eq("session_date", day)
-      .limit(1);
-    var rows = q && q.data;
-    return (Array.isArray(rows) && rows.length) ? rows[0] : null;
+    var auth = await supabaseClient.auth.getSession();
+    var session = auth && auth.data && auth.data.session;
+    var user = session && session.user;
+    if (!user || !session.access_token) return null;
+
+    if (forceRefresh === true){
+      todayPlanSnapshotCache.userId = null;
+      todayPlanSnapshotCache.promise = null;
+    }
+    if (todayPlanSnapshotCache.userId === user.id && todayPlanSnapshotCache.promise){
+      return todayPlanSnapshotCache.promise;
+    }
+
+    todayPlanSnapshotCache.userId = user.id;
+    todayPlanSnapshotCache.promise = fetch("/api/training/get-week", {
+      headers: { Authorization: "Bearer " + session.access_token }
+    }).then(async function(response){
+      if (!response.ok) return null;
+      var data = await response.json();
+      return data && typeof data === "object" ? data : null;
+    }).catch(function(){ return null; });
+
+    return todayPlanSnapshotCache.promise;
   } catch (e) {
     return null;
   }
+}
+
+function buildTodayTrainingContext(plan, profile){
+  var p = plan && typeof plan === "object" ? plan : null;
+  var athlete = profile && typeof profile === "object" ? profile : {};
+  var label = (p && String(p.target_race || "").trim())
+    || String(athlete.goal || "").trim()
+    || String(athlete.primary_sport || "").trim()
+    || "Training";
+  var week = p && Number(p.phase_week);
+  var total = p && Number(p.phase_length_weeks);
+
+  if (Number.isInteger(week) && week > 0 && Number.isInteger(total) && total >= week){
+    return label + " · Week " + week + " of " + total;
+  }
+  if (p && String(p.phase || "").trim()){
+    var phase = String(p.phase).trim().replace(/[_-]+/g, " ");
+    return label + " · " + phase.charAt(0).toUpperCase() + phase.slice(1) + " phase";
+  }
+  if (athlete.primary_sport && athlete.goal){
+    return String(athlete.primary_sport).trim() + " · " + String(athlete.goal).trim();
+  }
+  if (athlete.goal || athlete.primary_sport) return label;
+  return "Training plan not available yet.";
+}
+
+async function renderTodayTrainingContext(profile){
+  var context = document.getElementById("todayContextLine");
+  if (!context) return;
+  var snapshot = await loadTodayPlanSnapshot(true);
+  context.textContent = buildTodayTrainingContext(
+    snapshot && snapshot.hasPlan ? snapshot.plan : null,
+    profile || null
+  );
+}
+
+async function loadTodaysPlannedSession(){
+  var snapshot = await loadTodayPlanSnapshot();
+  if (!snapshot || !snapshot.hasPlan || !Array.isArray(snapshot.sessions)) return null;
+  var day = todayLocalKey();
+  return snapshot.sessions.find(function(session){
+    return String(session && session.session_date || "").slice(0, 10) === day;
+  }) || null;
 }
 
 function firstSentence(str){
@@ -5159,58 +5181,72 @@ async function renderTodayRecommendation(){
     || "Open today's workout for the full plan and coaching context.";
 }
 
-/* ─────────────────────── PASSIVE READINESS/STATUS ─────────────────────
-   Classifies "Good to go" / "Proceed with care" / "Recovery recommended" /
-   "Not enough data" from signals CoachBrainData already collects. No
-   numeric score is invented — the status is qualitative only. */
+var ATHLEVO_DIRECTIONS = {
+  PUSH: {
+    state: "PUSH",
+    copy: "You’re ready for a demanding session."
+  },
+  HOLD: {
+    state: "HOLD",
+    copy: "You’re ready to train, but today should stay controlled."
+  },
+  RECOVER: {
+    state: "RECOVER",
+    copy: "Prioritize recovery or very easy training today."
+  }
+};
+
+/* Conservative, qualitative classification over signals the app already
+   owns. HOLD is intentional when evidence is missing or mixed. */
+function classifyAthlevoDirection(signals){
+  var s = signals && typeof signals === "object" ? signals : {};
+  if (s.pain && s.pain.present === true) return ATHLEVO_DIRECTIONS.RECOVER;
+
+  if (s.recovery && Number.isFinite(s.recovery.acwr)){
+    if (s.recovery.acwr >= 1.5) return ATHLEVO_DIRECTIONS.RECOVER;
+    if (s.recovery.acwr >= 1.3) return ATHLEVO_DIRECTIONS.HOLD;
+  }
+
+  if (s.readiness && s.readiness.status){
+    var readiness = String(s.readiness.status).toLowerCase();
+    if (readiness.indexOf("low") >= 0) return ATHLEVO_DIRECTIONS.RECOVER;
+    if (readiness.indexOf("moderate") >= 0) return ATHLEVO_DIRECTIONS.HOLD;
+    if (readiness.indexOf("good") >= 0 || readiness.indexOf("optimal") >= 0){
+      return ATHLEVO_DIRECTIONS.PUSH;
+    }
+  }
+
+  return ATHLEVO_DIRECTIONS.HOLD;
+}
+
+/* ───────────────────────── ATHLEVO DIRECTION ─────────────────────────
+   Projects the qualitative direction from CoachBrainData. No numeric
+   readiness score is invented or exposed. */
 async function renderTodayPassiveStatus(profile){
   var block = document.getElementById("todayPassiveStatusBlock");
   var label = document.getElementById("todayPassiveStatusLabel");
-  if (!block || !label) return;
+  var copy = document.getElementById("todayDirectionCopy");
+  var card = document.getElementById("dailyBriefCard");
+  if (!block || !label || !copy) return;
 
-  function set(status, text){
-    block.dataset.status = status;
-    label.textContent = text;
+  function set(direction){
+    var value = direction || ATHLEVO_DIRECTIONS.HOLD;
+    var key = String(value.state || "HOLD").toLowerCase();
+    block.dataset.direction = key;
+    if (card) card.dataset.direction = key;
+    label.textContent = value.state;
+    copy.textContent = value.copy;
   }
 
   try {
     if (!window.CoachBrainData || !window.CoachBrainData.collectSignals){
-      set("unknown", "Not enough data");
+      set(ATHLEVO_DIRECTIONS.HOLD);
       return;
     }
     var signals = await window.CoachBrainData.collectSignals(profile || null);
-    if (!signals || Object.keys(signals).length <= 1){ // { now } only
-      set("unknown", "Not enough data");
-      return;
-    }
-    // Recovery flag: pain in the last window OR very high acute load.
-    if (signals.pain && signals.pain.present === true){
-      set("recover", "Recovery recommended");
-      return;
-    }
-    if (signals.recovery && Number.isFinite(signals.recovery.acwr)){
-      var acwr = signals.recovery.acwr;
-      if (acwr >= 1.5){ set("recover", "Recovery recommended"); return; }
-      if (acwr >= 1.3){ set("care",    "Proceed with care");    return; }
-    }
-    // Existing (passive) readiness record, if the athlete filled one
-    // previously — reused as a signal, no new questionnaire surfaced.
-    if (signals.readiness && signals.readiness.status){
-      var s = String(signals.readiness.status).toLowerCase();
-      if (s.indexOf("low") >= 0)      { set("recover", "Recovery recommended"); return; }
-      if (s.indexOf("moderate") >= 0) { set("care",    "Proceed with care");    return; }
-      if (s.indexOf("good") >= 0 || s.indexOf("optimal") >= 0){
-        set("good", "Good to go"); return;
-      }
-    }
-    // Enough passive signals present to say the athlete is on track.
-    if (signals.recovery || signals.consistency || signals.volume){
-      set("good", "Good to go");
-      return;
-    }
-    set("unknown", "Not enough data");
+    set(classifyAthlevoDirection(signals));
   } catch (e) {
-    set("unknown", "Not enough data");
+    set(ATHLEVO_DIRECTIONS.HOLD);
   }
 }
 
@@ -5291,6 +5327,7 @@ function compressLatestWorkoutAnalysis(){
    two names at the end, when they exist). */
 window.renderTodayRecommendation = renderTodayRecommendation;
 window.renderTodayPassiveStatus = renderTodayPassiveStatus;
+window.renderTodayTrainingContext = renderTodayTrainingContext;
 
 (function initTodayCompactBoot(){
   function boot(){
