@@ -43,6 +43,18 @@
     } catch (e) { return null; }
   }
 
+  // Plan persistence and Today previously kept separate in-memory answers.
+  // Clear this module's existence cache, then let Today perform one
+  // authoritative get-week read for its context, workout, and CTA.
+  async function refreshTodayAfterPlanChange() {
+    lastHasPlan = null;
+    if (typeof window.refreshTodayAfterPlanChange === "function") {
+      try { return await window.refreshTodayAfterPlanChange("plan-change"); }
+      catch (e) { return null; }
+    }
+    return null;
+  }
+
   /* ─────────────────────────── setup screen ──────────────────────────── */
 
   function summaryRow(label, value) {
@@ -137,7 +149,11 @@
     if (buildInFlight) return;
     let stored = null;
     try { stored = await hasPlan(); } catch (e) {}
-    if (stored === true) { lastHasPlan = true; showSuccess(); return; }
+    if (stored === true) {
+      await refreshTodayAfterPlanChange();
+      showSuccess();
+      return;
+    }
     showBuildProblem({ ok: false, code: "PLAN_FAILED", action: "retry",
       message: "We couldn't find a finished plan yet. You can try building it again." });
   }
@@ -360,13 +376,13 @@
     await minAnim;                                  // let the animation finish
 
     if (outcome.ok) {
-      lastHasPlan = true;
       buildInFlight = false;
       try {
         if (window.AthlevoAnalytics && outcome.alreadyExists !== true) AthlevoAnalytics.track("first_plan_generated");
       } catch (e) {}
       if (outcome.alreadyExists !== true) { try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('first_plan_generated'); } catch(e){} }
       completeFinalStep();
+      await refreshTodayAfterPlanChange();
       showSuccess(outcome.alreadyExists !== true);   // first plan → milestone state
       return;
     }
@@ -390,9 +406,9 @@
       let stored = null;
       try { stored = await hasPlan(); } catch (e) {}
       if (stored === true) {
-        lastHasPlan = true;
         buildInFlight = false;
         completeFinalStep();
+        await refreshTodayAfterPlanChange();
         showSuccess(true);
         return;
       }
@@ -490,6 +506,9 @@
   // separate Today setup card. Today now owns one contextual action inside
   // Athlevo Direction, sourced from the authenticated plan snapshot.
   function renderTodayCta() {
+    if (typeof window.refreshTodayAfterPlanChange === "function") {
+      return window.refreshTodayAfterPlanChange("plan-cta");
+    }
     if (typeof window.renderTodayRecommendation === "function") {
       return window.renderTodayRecommendation(true);
     }
@@ -572,7 +591,8 @@
   Object.assign(window.AthlevoPlan || (window.AthlevoPlan = {}), {
     hasPlan, start, build, autoBuildFirstPlan, autoFirstPlanEnabled, notNow, enterTrain,
     viewCurrentPlan,
-    maybeLaunchAfterOnboarding, refreshTodayCta, renderTodayCta, connectTrainingData, recheckPlan,
+    maybeLaunchAfterOnboarding, refreshTodayAfterPlanChange, refreshTodayCta, renderTodayCta,
+    connectTrainingData, recheckPlan,
     VERSION: "plan-setup-v1"
   });
 })();

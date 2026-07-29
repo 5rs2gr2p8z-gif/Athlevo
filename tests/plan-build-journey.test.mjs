@@ -31,6 +31,7 @@ function world({ providerConnected = false, statusThrows = false,
                  generate = { ok: true }, hasPlanValue = false } = {}) {
   const screens = [];
   const net = [];
+  const todayRefreshReasons = [];
   const mounts = {};
   const nodes = {};
 
@@ -101,13 +102,17 @@ function world({ providerConnected = false, statusThrows = false,
     supabaseClient: { auth: { getSession: async () => ({ data: { session: { access_token: "tok" } } }) } },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} }
   };
+  sandbox.refreshTodayAfterPlanChange = async (reason) => {
+    todayRefreshReasons.push(reason);
+    return { hasPlan: planExists };
+  };
   sandbox.window = sandbox;
 
   new Function(...Object.keys(sandbox), "root",
     planSetupSrc.replace(/\}\)\(typeof window[\s\S]*$/, "})(root);"))(
     ...Object.values(sandbox), sandbox);
 
-  return { g: sandbox, screens, net, plan: sandbox.AthlevoPlan };
+  return { g: sandbox, screens, net, todayRefreshReasons, plan: sandbox.AthlevoPlan };
 }
 
 const wait = (ms = 30) => new Promise(r => setTimeout(r, ms));
@@ -191,6 +196,9 @@ section("3. Build sends exactly one request and renders the plan");
   t("...as a POST", gen[0] && gen[0].method === "POST");
   const shown = w.screens.map(s => vis(s.html)).join(" | ");
   t("the plan journey reaches success", /screen-plangen|plan/i.test(shown) || w.g.AthlevoPlan);
+  t("successful persistence invalidates and refreshes Today",
+    w.todayRefreshReasons.length === 1 &&
+    w.todayRefreshReasons[0] === "plan-change");
 }
 
 section("3b. Duplicate submissions are prevented");

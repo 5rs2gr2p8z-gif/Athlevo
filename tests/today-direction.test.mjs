@@ -222,7 +222,9 @@ const restView = workoutHelpers.buildTodayWorkoutCardView({
   sessions: [{ session_date: "2026-07-29", session_type: "rest" }]
 });
 test("an explicit rest day produces View plan rather than Open workout",
-  restView.action === "view" && restView.actionLabel === "View plan");
+  restView.action === "view" &&
+  restView.actionLabel === "View plan" &&
+  restView.summary === "Rest day");
 
 console.log("\n──── Markup, data wiring, and accessibility ────");
 const today = html.slice(
@@ -262,15 +264,12 @@ test("Direction is named for assistive technology without repeated live announce
   !/role="(?:button|tab|status)"|aria-live=|aria-pressed=|aria-selected=/.test(directionMarkup));
 test("classification words are absent from visible first-viewport text",
   !/\b(?:RECOVER|HOLD|PUSH)\b/.test(firstViewportVisibleText));
-test("track, scale, slider, marker, tab, gauge, and needle markup are absent",
+test("interactive scale, slider, marker, tab, gauge, and needle markup are absent",
   !/direction-band|direction-zone|direction-marker|direction-dial|direction-scale/.test(directionMarkup) &&
-  !/role="(?:slider|tab)"|type="range"|aria-valuenow/.test(directionMarkup) &&
-  !/<svg/.test(directionMarkup));
-test("vertical accent is the sole visual state mapping",
-  /\.direction-card::before\{[^}]*inset:0 auto 0 0[^}]*width:4px[^}]*background:var\(--direction-accent\)[^}]*pointer-events:none/.test(html) &&
-  /\.direction-card\[data-direction="recover"\]\{--direction-accent:var\(--direction-recover\)\}/.test(html) &&
-  /\.direction-card\[data-direction="hold"\]\{--direction-accent:var\(--direction-hold\)\}/.test(html) &&
-  /\.direction-card\[data-direction="push"\]\{--direction-accent:var\(--direction-push\)\}/.test(html));
+  !/role="(?:slider|tab)"|type="range"|aria-valuenow/.test(directionMarkup));
+test("left state accent and its pseudo-element are removed",
+  !/\.direction-card::before/.test(directionCss) &&
+  !/--direction-accent|--direction-recover|--direction-hold|--direction-push/.test(directionCss));
 test("controlled recommendation is concise and limited-data aware",
   /id="todayDirectionLabel">Keep today controlled\.<\/p>[\s\S]*?id="todayDirectionCoaching">Limited data means today should stay measured\.<\/p>/.test(today));
 test("Direction card has exactly one contextual action",
@@ -286,8 +285,10 @@ test("all three compact signal indicators have dynamic mounts",
 test("missing signals render explicit dashes and honest labels",
   helpers.buildAthlevoDirectionView({}).signals.readiness.value === "—" &&
   helpers.buildAthlevoDirectionView({}).signals.readiness.note === "No check-in" &&
-  helpers.buildAthlevoDirectionView({}).signals.load.note === "Unavailable" &&
-  helpers.buildAthlevoDirectionView({}).signals.pain.note === "No data");
+  helpers.buildAthlevoDirectionView({}).signals.load.note === "Load unavailable" &&
+  helpers.buildAthlevoDirectionView({}).signals.pain.note === "Pain unavailable" &&
+  helpers.buildAthlevoDirectionView({}).signals.load.progress === 0 &&
+  helpers.buildAthlevoDirectionView({}).signals.pain.progress === 0);
 test("real signal values remain dynamic",
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
@@ -304,22 +305,41 @@ test("real signal values remain dynamic",
     recovery: { acwr: 1.04 },
     checkIn: { recorded: true, soreness: 1, painPresent: false }
   }).signals.pain.value === "Clear");
-test("mini-rings stay compact and avoid a WHOOP-style recovery visualization",
-  /\.direction-signal-ring\{[^}]*width:52px;height:52px[^}]*border:2px solid var\(--line\)/.test(html) &&
-  !/conic-gradient|radial-gradient|stroke-dasharray/.test(directionCss) &&
-  !/<svg/.test(directionMarkup));
+test("readiness uses a normalized real score while load and pain are categorical",
+  helpers.buildAthlevoDirectionView({
+    readiness: { score: 72 },
+    recovery: { acwr: 1.04 },
+    checkIn: { recorded: true, soreness: 1, painPresent: false }
+  }).signals.readiness.progress === 72 &&
+  helpers.buildAthlevoDirectionView({
+    readiness: { score: 72 },
+    recovery: { acwr: 1.04 },
+    checkIn: { recorded: true, soreness: 1, painPresent: false }
+  }).signals.readiness.progressKind === "normalized" &&
+  helpers.buildAthlevoDirectionView({
+    recovery: { acwr: 1.04 }
+  }).signals.load.progressKind === "categorical" &&
+  helpers.buildAthlevoDirectionView({
+    checkIn: { recorded: true, soreness: 1, painPresent: false }
+  }).signals.pain.progressKind === "categorical");
+test("three thin progress rings meet the standard size without gradients",
+  /\.direction-signal-ring\{[^}]*width:72px;height:72px/.test(html) &&
+  (directionMarkup.match(/class="direction-signal-progress"/g) || []).length === 3 &&
+  (directionMarkup.match(/pathLength="100"/g) || []).length === 6 &&
+  /\.direction-signal-progress\{[^}]*stroke-dasharray:var\(--signal-progress\) 100/.test(html) &&
+  !/conic-gradient|radial-gradient|linear-gradient/.test(directionCss));
 test("Direction card remains compact enough for the first viewport",
-  /\.direction-card\{[^}]*min-height:238px[^}]*box-sizing:border-box/.test(html));
+  /\.direction-card\{[^}]*min-height:252px[^}]*box-sizing:border-box/.test(html));
 test("narrow phones reduce greeting size with the existing display token",
   /@media \(max-width:380px\)\{[\s\S]*?\.greet h1\{font-size:calc\(var\(--fs-display\) \* \.88\)/.test(html));
 test("narrow phones keep all three indicators in one responsive row",
   /\.direction-signals\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(html) &&
-  /@media \(max-width:360px\)\{[\s\S]*?\.direction-signal-ring\{width:48px;height:48px\}/.test(html));
-test("semantic accent colors support light and dark mode without gradients",
-  /--direction-recover:#315eb8/.test(html) &&
-  /--direction-hold:#8a5700/.test(html) &&
-  /--direction-push:var\(--red\)/.test(html) &&
-  /html\[data-theme="dark"\] \.direction-card\{[\s\S]*?--direction-recover:#78a6ff;--direction-hold:#e2a94a/.test(html) &&
+  /@media \(max-width:360px\)\{[\s\S]*?\.direction-signal-ring\{width:64px;height:64px\}/.test(html));
+test("semantic ring colors support light and dark mode without gradients",
+  /\.direction-signal\[data-tone="ready"\]\{--signal-color:var\(--red\)\}/.test(html) &&
+  /\.direction-signal\[data-tone="recovery"\]\{--signal-color:#3970c8\}/.test(html) &&
+  /\.direction-signal\[data-tone="positive"\]\{--signal-color:#397a5a\}/.test(html) &&
+  /html\[data-theme="dark"\] \.direction-signal\[data-tone="recovery"\]\{--signal-color:#78a6ff\}/.test(html) &&
   !/\.direction-card\{[^}]*gradient/.test(html));
 test("CTA dispatch keeps existing build and Train navigation",
   /button\.dataset\.action === "build"[\s\S]*?window\.AthlevoPlan\.start\(\)/.test(
@@ -352,7 +372,8 @@ test("Direction uses a theme-aware editorial surface and no gradient",
   /\.direction-card\{[^}]*background:var\(--paper\)/.test(html) &&
     !/\.direction-card\{[^}]*gradient/.test(html));
 test("combined card avoids animated charts and preserves restrained button motion",
-  !/animation:|(?:^|[;{])transform:|stroke-dasharray/.test(directionCss) &&
+  !/\.direction-signal(?:-ring|-progress)?\{[^}]*animation:/.test(directionCss) &&
+  !/\.direction-signal(?:-ring|-progress)?\{[^}]*transition:/.test(directionCss) &&
   /\.direction-action\{[^}]*transition:opacity var\(--dur-fast\) var\(--ease-standard\)/.test(html));
 test("global reduced-motion support remains present",
   /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html));

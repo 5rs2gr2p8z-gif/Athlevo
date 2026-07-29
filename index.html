@@ -3381,24 +3381,11 @@ body.landing-active #tabbar{display:none!important}
     .today-install .ti-btn:hover{background:#000}
 
     /* ═══════════ ATHLEVO DIRECTION ═══════════
-       Editorial status card. Classification is expressed only by the
-       non-interactive accent at the card edge. */
+       One compact, non-interactive status card. Signal arcs are data
+       presentation only; classification does not color the card edge. */
     .direction-card{position:relative;overflow:hidden;margin:0 22px;background:var(--paper);
-      border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px 15px 20px;
-      box-shadow:var(--elev-2);min-height:238px;box-sizing:border-box;
-      --direction-recover:#315eb8;--direction-hold:#8a5700;
-      --direction-push:var(--red);--direction-accent:var(--direction-hold)}
-    html[data-theme="dark"] .direction-card{
-      --direction-recover:#78a6ff;--direction-hold:#e2a94a}
-    @media (prefers-color-scheme: dark){
-      html[data-theme="system"] .direction-card{
-        --direction-recover:#78a6ff;--direction-hold:#e2a94a}
-    }
-    .direction-card::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;
-      background:var(--direction-accent);pointer-events:none}
-    .direction-card[data-direction="recover"]{--direction-accent:var(--direction-recover)}
-    .direction-card[data-direction="hold"]{--direction-accent:var(--direction-hold)}
-    .direction-card[data-direction="push"]{--direction-accent:var(--direction-push)}
+      border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px 15px;
+      box-shadow:var(--elev-2);min-height:252px;box-sizing:border-box}
     .direction-topline{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
       margin-bottom:12px}
     .direction-eyebrow{font-size:var(--fs-micro);font-weight:750;letter-spacing:.14em;
@@ -3410,18 +3397,42 @@ body.landing-active #tabbar{display:none!important}
     .direction-action[hidden]{display:none}
     .direction-action:disabled{opacity:.5;cursor:default}
     .direction-signals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:var(--s-2);align-items:start}
-    .direction-signal{display:flex;min-width:0;flex-direction:column;align-items:center;text-align:center}
-    .direction-signal-name{font-size:var(--fs-micro);font-weight:700;line-height:var(--lh-caption);
-      color:var(--ink3);margin-bottom:5px}
-    .direction-signal-ring{width:52px;height:52px;border:2px solid var(--line);
-      border-radius:50%;background:var(--card);display:grid;place-items:center;box-sizing:border-box}
-    .direction-signal-value{max-width:46px;padding:0 2px;font-size:var(--fs-body-sm);
-      font-weight:750;line-height:1.05;color:var(--text);font-variant-numeric:tabular-nums}
+      gap:var(--s-2);align-items:start;margin-top:2px}
+    .direction-signal{display:flex;min-width:0;flex-direction:column;align-items:center;
+      text-align:center;--signal-progress:0;--signal-color:var(--line)}
+    .direction-signal-ring{position:relative;width:72px;height:72px;display:grid;
+      place-items:center;box-sizing:border-box}
+    .direction-signal-ring svg{position:absolute;inset:0;width:100%;height:100%;
+      display:block;overflow:visible;transform:rotate(-90deg)}
+    .direction-signal-track,.direction-signal-progress{fill:none;stroke-width:4}
+    .direction-signal-track{stroke:var(--line)}
+    .direction-signal-progress{stroke:var(--signal-color);stroke-linecap:round;
+      stroke-dasharray:var(--signal-progress) 100}
+    .direction-signal[data-tone="ready"]{--signal-color:var(--red)}
+    .direction-signal[data-tone="moderate"]{--signal-color:#9a6508}
+    .direction-signal[data-tone="recovery"]{--signal-color:#3970c8}
+    .direction-signal[data-tone="positive"]{--signal-color:#397a5a}
+    .direction-signal[data-tone="warning"]{--signal-color:#a66a05}
+    .direction-signal[data-tone="risk"]{--signal-color:#c43b32}
+    .direction-signal[data-tone="missing"]{--signal-color:var(--line)}
+    html[data-theme="dark"] .direction-signal[data-tone="moderate"],
+    html[data-theme="dark"] .direction-signal[data-tone="warning"]{--signal-color:#e0a33d}
+    html[data-theme="dark"] .direction-signal[data-tone="recovery"]{--signal-color:#78a6ff}
+    html[data-theme="dark"] .direction-signal[data-tone="positive"]{--signal-color:#73b590}
+    @media (prefers-color-scheme: dark){
+      html[data-theme="system"] .direction-signal[data-tone="moderate"],
+      html[data-theme="system"] .direction-signal[data-tone="warning"]{--signal-color:#e0a33d}
+      html[data-theme="system"] .direction-signal[data-tone="recovery"]{--signal-color:#78a6ff}
+      html[data-theme="system"] .direction-signal[data-tone="positive"]{--signal-color:#73b590}
+    }
+    .direction-signal-value{position:relative;z-index:1;max-width:58px;padding:0 2px;
+      font-size:var(--fs-body);font-weight:750;line-height:1.05;color:var(--text);
+      font-variant-numeric:tabular-nums}
     .direction-signal-value[data-long="true"]{font-size:var(--fs-micro)}
-    .direction-signal-note{max-width:100%;margin-top:5px;font-size:var(--fs-micro);
-      font-weight:550;line-height:var(--lh-caption);color:var(--ink2);
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .direction-signal-name{max-width:100%;margin-top:6px;font-size:var(--fs-micro);
+      font-weight:700;line-height:1.2;color:var(--ink2)}
+    .direction-signal-note{max-width:100%;margin-top:2px;font-size:var(--fs-micro);
+      font-weight:550;line-height:1.2;color:var(--ink3)}
     .direction-verdict{text-align:left}
     .direction-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;
       line-height:var(--lh-heading);color:var(--text);margin:13px 0 0;padding-top:11px;
@@ -3454,7 +3465,9 @@ body.landing-active #tabbar{display:none!important}
     @media (max-width:360px){
       .direction-card{padding-left:14px;padding-right:14px}
       .direction-action{padding-left:11px;padding-right:11px}
-      .direction-signal-ring{width:48px;height:48px}
+      .direction-signals{gap:var(--s-1)}
+      .direction-signal-ring{width:64px;height:64px}
+      .direction-signal-name,.direction-signal-note{font-size:var(--fs-micro)}
     }
 
     /* ═══════════ AT A GLANCE — 4 semantic tiles ═══════════
@@ -3530,24 +3543,36 @@ body.landing-active #tabbar{display:none!important}
 
     <div class="direction-signals" aria-label="Today’s readiness signals">
       <div class="direction-signal" id="todayReadinessSignal" aria-label="Readiness: no check-in">
-        <span class="direction-signal-name">Readiness</span>
         <span class="direction-signal-ring" aria-hidden="true">
+          <svg viewBox="0 0 72 72" focusable="false">
+            <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
+            <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
+          </svg>
           <strong class="direction-signal-value" id="todayReadinessSignalValue">—</strong>
         </span>
+        <span class="direction-signal-name">Readiness</span>
         <span class="direction-signal-note" id="todayReadinessSignalNote">No check-in</span>
       </div>
       <div class="direction-signal" id="todayLoadSignal" aria-label="Training load: unavailable">
-        <span class="direction-signal-name">Training load</span>
         <span class="direction-signal-ring" aria-hidden="true">
+          <svg viewBox="0 0 72 72" focusable="false">
+            <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
+            <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
+          </svg>
           <strong class="direction-signal-value" id="todayLoadSignalValue">—</strong>
         </span>
+        <span class="direction-signal-name">Training load</span>
         <span class="direction-signal-note" id="todayLoadSignalNote">Unavailable</span>
       </div>
       <div class="direction-signal" id="todayPainSignal" aria-label="Pain and soreness: no data">
-        <span class="direction-signal-name">Pain / soreness</span>
         <span class="direction-signal-ring" aria-hidden="true">
+          <svg viewBox="0 0 72 72" focusable="false">
+            <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
+            <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
+          </svg>
           <strong class="direction-signal-value" id="todayPainSignalValue">—</strong>
         </span>
+        <span class="direction-signal-name">Pain / soreness</span>
         <span class="direction-signal-note" id="todayPainSignalNote">No data</span>
       </div>
     </div>
@@ -4858,7 +4883,10 @@ async function go(btn){
   if (screenId === "screen-train" && typeof window.loadWeeklyPlan === "function") {
     await window.loadWeeklyPlan();
   }
-  if (screenId === 'screen-today') animateRing();
+  if (screenId === "screen-today") {
+    await refreshTodayAfterPlanChange("screen-enter");
+    animateRing();
+  }
   if (screenId === "screen-coachai") {
     await renderConversationHistory();
     requestAnimationFrame(() => {
@@ -4968,6 +4996,9 @@ function showScreen(id){
   document.body.classList.toggle('landing-active', id==='screen-landing');
   if(id==='screen-landing' && window.AthlevoProductAnalytics) try { AthlevoProductAnalytics.trackAthlevoEvent('landing_viewed'); } catch(e){}
   if(id!=='screen-landing') window.scrollTo(0,0);
+  if (id === "screen-today" && typeof window.refreshTodayAfterPlanChange === "function"){
+    window.refreshTodayAfterPlanChange("screen-enter").catch(function(){});
+  }
   // Analytics (best-effort): a primary-tab view + a once-per-load app session.
   try {
     if (window.AthlevoAnalytics) {
@@ -4996,6 +5027,10 @@ function todayGoToTrain(){
 function todayDirectionPrimaryAction(){
   var button = document.getElementById("todayDirectionAction");
   if (!button || button.disabled) return;
+  if (button.dataset.action === "retry"){
+    refreshTodayAfterPlanChange("retry");
+    return;
+  }
   if (button.dataset.action === "build"){
     if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function"){
       window.AthlevoPlan.start();
@@ -5055,8 +5090,18 @@ function todayLocalKey(){
 
 var todayPlanSnapshotCache = {
   userId: null,
-  promise: null
+  promise: null,
+  lastValidUserId: null,
+  lastValid: null
 };
+var todayPlanRefreshInFlight = null;
+var todayPlanRefreshVersion = 0;
+var todayTrainingContextProfile = null;
+
+function invalidateTodayPlanSnapshot(){
+  todayPlanSnapshotCache.userId = null;
+  todayPlanSnapshotCache.promise = null;
+}
 
 /* Reuse the authenticated current-week endpoint that already selects a
    valid, user-scoped plan and its saved sessions for the Train screen. */
@@ -5066,26 +5111,41 @@ async function loadTodayPlanSnapshot(forceRefresh){
     var auth = await supabaseClient.auth.getSession();
     var session = auth && auth.data && auth.data.session;
     var user = session && session.user;
-    if (!user || !session.access_token) return null;
+    if (!user || !session.access_token){
+      invalidateTodayPlanSnapshot();
+      todayPlanSnapshotCache.lastValidUserId = null;
+      todayPlanSnapshotCache.lastValid = null;
+      return null;
+    }
 
+    if (todayPlanSnapshotCache.lastValidUserId &&
+        todayPlanSnapshotCache.lastValidUserId !== user.id){
+      todayPlanSnapshotCache.lastValidUserId = null;
+      todayPlanSnapshotCache.lastValid = null;
+    }
     if (forceRefresh === true){
-      todayPlanSnapshotCache.userId = null;
-      todayPlanSnapshotCache.promise = null;
+      invalidateTodayPlanSnapshot();
     }
     if (todayPlanSnapshotCache.userId === user.id && todayPlanSnapshotCache.promise){
       return todayPlanSnapshotCache.promise;
     }
 
     todayPlanSnapshotCache.userId = user.id;
-    todayPlanSnapshotCache.promise = fetch("/api/training/get-week", {
+    var request = fetch("/api/training/get-week", {
       headers: { Authorization: "Bearer " + session.access_token }
     }).then(async function(response){
       if (!response.ok) return null;
       var data = await response.json();
-      return data && typeof data === "object" ? data : null;
+      if (!data || typeof data !== "object") return null;
+      if (todayPlanSnapshotCache.promise === request){
+        todayPlanSnapshotCache.lastValidUserId = user.id;
+        todayPlanSnapshotCache.lastValid = data;
+      }
+      return data;
     }).catch(function(){ return null; });
+    todayPlanSnapshotCache.promise = request;
 
-    return todayPlanSnapshotCache.promise;
+    return request;
   } catch (e) {
     return null;
   }
@@ -5118,10 +5178,17 @@ function buildTodayTrainingContext(plan, profile){
 async function renderTodayTrainingContext(profile){
   var context = document.getElementById("todayContextLine");
   if (!context) return;
-  var snapshot = await loadTodayPlanSnapshot(true);
+  todayTrainingContextProfile = profile || null;
+  context.textContent = buildTodayTrainingContext(null, todayTrainingContextProfile);
+  await refreshTodayAfterPlanChange("training-context");
+}
+
+function applyTodayTrainingContext(snapshot){
+  var context = document.getElementById("todayContextLine");
+  if (!context) return;
   context.textContent = buildTodayTrainingContext(
     snapshot && snapshot.hasPlan ? snapshot.plan : null,
-    profile || null
+    todayTrainingContextProfile
   );
 }
 
@@ -5145,11 +5212,11 @@ function buildTodayWorkoutCardView(snapshot){
   if (!snapshot || typeof snapshot !== "object"){
     return {
       state: "unavailable",
-      action: "",
-      actionLabel: "",
+      action: "retry",
+      actionLabel: "Retry",
       summary: "",
       recommendationTitle: "Training status unavailable.",
-      recommendationBody: "Your plan and workout could not be checked."
+      recommendationBody: "Check your connection and try again."
     };
   }
   if (!snapshot.hasPlan){
@@ -5174,7 +5241,7 @@ function buildTodayWorkoutCardView(snapshot){
       state: "no-workout",
       action: "view",
       actionLabel: "View plan",
-      summary: "",
+      summary: key === "rest" ? "Rest day" : "",
       recommendationTitle: "",
       recommendationBody: ""
     };
@@ -5214,7 +5281,7 @@ function buildTodayWorkoutCardView(snapshot){
   };
 }
 
-async function renderTodayRecommendation(forceRefresh){
+function setTodayPlanLoadingState(){
   var card = document.getElementById("dailyBriefCard");
   var title = document.getElementById("todayDirectionLabel");
   var body = document.getElementById("todayDirectionCoaching");
@@ -5222,8 +5289,41 @@ async function renderTodayRecommendation(forceRefresh){
   var action = document.getElementById("todayDirectionAction");
   if (!card || !title || !body || !summary || !action) return;
 
-  var snapshot = await loadTodayPlanSnapshot(forceRefresh === true);
-  var view = buildTodayWorkoutCardView(snapshot);
+  action.dataset.action = "";
+  action.hidden = true;
+  action.disabled = true;
+  card.dataset.refreshing = "true";
+
+  var safeSnapshot = todayPlanSnapshotCache.lastValid &&
+    todayPlanSnapshotCache.lastValid.hasPlan === true
+    ? todayPlanSnapshotCache.lastValid
+    : null;
+  if (!safeSnapshot){
+    card.dataset.planState = "loading";
+    summary.textContent = "";
+    summary.hidden = true;
+    title.textContent = "Checking your training plan…";
+    body.textContent = "Confirming today’s saved training.";
+    card.setAttribute("aria-label", "Athlevo Direction. Training status is loading.");
+  }
+}
+
+function applyTodayPlanSnapshot(snapshot, requestFailed){
+  var card = document.getElementById("dailyBriefCard");
+  var title = document.getElementById("todayDirectionLabel");
+  var body = document.getElementById("todayDirectionCoaching");
+  var summary = document.getElementById("todayWorkoutSummary");
+  var action = document.getElementById("todayDirectionAction");
+  if (!card || !title || !body || !summary || !action) return;
+
+  var safeSnapshot = snapshot;
+  if (!safeSnapshot && requestFailed === true &&
+      todayPlanSnapshotCache.lastValid &&
+      todayPlanSnapshotCache.lastValid.hasPlan === true){
+    safeSnapshot = todayPlanSnapshotCache.lastValid;
+  }
+  var view = buildTodayWorkoutCardView(safeSnapshot);
+  card.dataset.refreshing = "false";
   card.dataset.planState = view.state;
   action.dataset.action = view.action;
   action.textContent = view.actionLabel;
@@ -5245,6 +5345,42 @@ async function renderTodayRecommendation(forceRefresh){
     "Athlevo Direction: " + String(card.dataset.direction || "hold").toUpperCase() +
       ". " + title.textContent + " " + body.textContent
   );
+  applyTodayTrainingContext(safeSnapshot);
+}
+
+async function renderTodayRecommendation(forceRefresh){
+  if (forceRefresh === true){
+    return refreshTodayAfterPlanChange("manual");
+  }
+  var snapshot = await loadTodayPlanSnapshot(false);
+  applyTodayPlanSnapshot(snapshot, snapshot === null);
+}
+
+/* One authoritative refresh boundary for plan persistence, Today screen
+   entry, and app resume. A plan-change refresh supersedes any older read;
+   routine lifecycle refreshes share the current request. */
+async function refreshTodayAfterPlanChange(reason){
+  var planChanged = reason === "plan-change";
+  if (todayPlanRefreshInFlight && !planChanged){
+    return todayPlanRefreshInFlight;
+  }
+
+  var version = ++todayPlanRefreshVersion;
+  invalidateTodayPlanSnapshot();
+  setTodayPlanLoadingState();
+
+  var run = (async function(){
+    var snapshot = await loadTodayPlanSnapshot(false);
+    if (version !== todayPlanRefreshVersion) return snapshot;
+    applyTodayPlanSnapshot(snapshot, snapshot === null);
+    return snapshot;
+  })();
+  todayPlanRefreshInFlight = run;
+  try {
+    return await run;
+  } finally {
+    if (todayPlanRefreshInFlight === run) todayPlanRefreshInFlight = null;
+  }
 }
 
 var ATHLEVO_DIRECTIONS = {
@@ -5337,12 +5473,49 @@ function buildAthlevoDirectionView(signals){
       : available === 0
         ? "Limited data means today should stay measured."
         : "Available signals support an easy, measured effort.";
-  var loadValue = hasLoad ? load.replace(/^Load\s+/, "") : "—";
-  loadValue = loadValue.charAt(0).toUpperCase() + loadValue.slice(1);
+  var readinessTone = "missing";
+  var readinessProgress = 0;
+  var readinessNote = checkIn ? "No score" : "No check-in";
+  if (score !== null){
+    readinessProgress = score;
+    readinessTone = score < 40 ? "recovery" : score < 60 ? "moderate" : "ready";
+    var readinessStatus = String(s.readiness && s.readiness.status || "").toLowerCase();
+    readinessNote = readinessStatus.indexOf("low") >= 0 ? "Low"
+      : readinessStatus.indexOf("moderate") >= 0 ? "Moderate"
+      : readinessStatus.indexOf("good") >= 0 || readinessStatus.indexOf("optimal") >= 0
+        ? "Good" : "";
+  }
+
+  var loadValue = "—";
+  var loadNote = "Load unavailable";
+  var loadTone = "missing";
+  var loadProgress = 0;
+  if (hasLoad){
+    if (s.recovery.acwr >= 1.5){
+      loadValue = "High"; loadNote = "High load"; loadTone = "risk"; loadProgress = 92;
+    } else if (s.recovery.acwr >= 1.3){
+      loadValue = "High"; loadNote = "Elevated"; loadTone = "warning"; loadProgress = 76;
+    } else if (s.recovery.acwr < 0.8){
+      loadValue = "Low"; loadNote = "Below usual"; loadTone = "recovery"; loadProgress = 38;
+    } else {
+      loadValue = "Stable"; loadNote = "Within range"; loadTone = "positive"; loadProgress = 70;
+    }
+  }
+
   var painValue = "—";
-  if (pain === "Pain clear") painValue = "Clear";
-  else if (pain === "Pain reported") painValue = "Reported";
-  else if (/^Soreness\s+/.test(pain)) painValue = pain.replace(/^Soreness\s+/, "");
+  var painNote = "Pain unavailable";
+  var painTone = "missing";
+  var painProgress = 0;
+  if ((s.pain && s.pain.present === true) || (checkIn && checkIn.painPresent === true)){
+    painValue = "High"; painNote = "Pain reported"; painTone = "risk"; painProgress = 90;
+  } else if (checkIn && Number.isFinite(checkIn.soreness) && checkIn.soreness >= 5){
+    painValue = "High"; painNote = "Soreness " + checkIn.soreness + "/10";
+    painTone = "risk"; painProgress = 82;
+  } else if (checkIn && Number.isFinite(checkIn.soreness) && checkIn.soreness > 1){
+    painValue = "Mild"; painNote = "Some soreness"; painTone = "warning"; painProgress = 52;
+  } else if (checkIn){
+    painValue = "Clear"; painNote = "No pain reported"; painTone = "positive"; painProgress = 68;
+  }
   var present = [];
   if (score !== null) present.push("today’s readiness");
   if (hasLoad) present.push("recent training load");
@@ -5358,10 +5531,27 @@ function buildAthlevoDirectionView(signals){
     load: load,
     pain: pain,
     signals: {
-      readiness: { value: score === null ? "—" : String(score), note: score === null
-        ? (checkIn ? "Incomplete" : "No check-in") : "" },
-      load: { value: loadValue, note: hasLoad ? "" : "Unavailable" },
-      pain: { value: painValue, note: hasPainSignal ? "" : "No data" }
+      readiness: {
+        value: score === null ? "—" : String(score),
+        note: readinessNote,
+        tone: readinessTone,
+        progress: readinessProgress,
+        progressKind: score === null ? "missing" : "normalized"
+      },
+      load: {
+        value: loadValue,
+        note: loadNote,
+        tone: loadTone,
+        progress: loadProgress,
+        progressKind: hasLoad ? "categorical" : "missing"
+      },
+      pain: {
+        value: painValue,
+        note: painNote,
+        tone: painTone,
+        progress: painProgress,
+        progressKind: hasPainSignal ? "categorical" : "missing"
+      }
     },
     recommendationTitle: recommendationTitle,
     coaching: coaching,
@@ -5404,8 +5594,14 @@ async function renderTodayPassiveStatus(profile){
       valueNode.textContent = signal.value;
       valueNode.dataset.long = String(signal.value).length > 6 ? "true" : "false";
       noteNode.textContent = signal.note;
+      root.dataset.tone = signal.tone || "missing";
+      root.style.setProperty("--signal-progress", String(
+        Number.isFinite(signal.progress) ? signal.progress : 0
+      ));
+      root.dataset.progressKind = signal.progressKind || "missing";
       root.setAttribute("aria-label", name + ": " + (signal.value === "—"
-        ? signal.note.toLowerCase() : signal.value));
+        ? signal.note.toLowerCase()
+        : signal.value + (signal.note ? ", " + signal.note : "")));
     }
     setSignal(readinessSignal, readinessValue, readinessNote, value.signals.readiness, "Readiness");
     setSignal(loadSignal, loadValue, loadNote, value.signals.load, "Training load");
@@ -5513,6 +5709,24 @@ function compressLatestWorkoutAnalysis(){
 window.renderTodayRecommendation = renderTodayRecommendation;
 window.renderTodayPassiveStatus = renderTodayPassiveStatus;
 window.renderTodayTrainingContext = renderTodayTrainingContext;
+window.refreshTodayAfterPlanChange = refreshTodayAfterPlanChange;
+
+(function initTodayPlanRevalidation(){
+  function todayIsActive(){
+    var screen = document.getElementById("screen-today");
+    return Boolean(screen && screen.classList.contains("active"));
+  }
+  function revalidate(reason){
+    if (!todayIsActive()) return;
+    refreshTodayAfterPlanChange(reason).catch(function(){});
+  }
+  document.addEventListener("visibilitychange", function(){
+    if (document.visibilityState === "visible") revalidate("app-resume");
+  });
+  window.addEventListener("pageshow", function(){
+    revalidate("page-show");
+  });
+})();
 
 (function initTodayCompactBoot(){
   function boot(){
