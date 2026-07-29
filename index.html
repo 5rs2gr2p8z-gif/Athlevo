@@ -3388,54 +3388,39 @@ body.landing-active #tabbar{display:none!important}
       font-family:var(--sans);font-weight:650;font-size:var(--fs-body-sm);padding:9px 18px;cursor:pointer}
     .today-install .ti-btn:hover{background:#000}
 
-    /* ═══════════ ATHLEVO DIRECTION BAND ═══════════
-       One continuous three-state track. Only the final coaching direction
-       receives colour; readiness remains small supporting evidence. */
-    .direction-card{margin:0 22px;background:var(--paper);border:1px solid var(--line);
-      border-radius:var(--r-lg);padding:12px 16px 10px;box-shadow:var(--elev-2);
-      height:164px;box-sizing:border-box;
-      --zone-recover:#315eb8;--zone-hold:#8a5700;--zone-push:var(--red)}
+    /* ═══════════ ATHLEVO DIRECTION ═══════════
+       Editorial status card. Classification is expressed only by the
+       non-interactive accent at the card edge. */
+    .direction-card{position:relative;overflow:hidden;margin:0 22px;background:var(--paper);
+      border:1px solid var(--line);border-radius:var(--r-lg);padding:13px 16px 11px 20px;
+      box-shadow:var(--elev-2);height:150px;box-sizing:border-box;
+      --direction-recover:#315eb8;--direction-hold:#8a5700;
+      --direction-push:var(--red);--direction-accent:var(--direction-hold)}
     html[data-theme="dark"] .direction-card{
-      --zone-recover:#78a6ff;--zone-hold:#e2a94a}
+      --direction-recover:#78a6ff;--direction-hold:#e2a94a}
     @media (prefers-color-scheme: dark){
       html[data-theme="system"] .direction-card{
-        --zone-recover:#78a6ff;--zone-hold:#e2a94a}
+        --direction-recover:#78a6ff;--direction-hold:#e2a94a}
     }
+    .direction-card::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;
+      background:var(--direction-accent);pointer-events:none}
+    .direction-card[data-direction="recover"]{--direction-accent:var(--direction-recover)}
+    .direction-card[data-direction="hold"]{--direction-accent:var(--direction-hold)}
+    .direction-card[data-direction="push"]{--direction-accent:var(--direction-push)}
     .direction-topline{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
-      margin-bottom:8px}
+      margin-bottom:13px}
     .direction-eyebrow{font-size:var(--fs-micro);font-weight:750;letter-spacing:.14em;
       text-transform:uppercase;color:var(--ink2)}
     .direction-quality{font-size:var(--fs-micro);font-weight:600;letter-spacing:.02em;
       color:var(--ink2);padding:2px 0}
     .direction-quality[hidden]{display:none}
-    .direction-band{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-      height:40px;background:transparent}
-    .direction-band::after{content:"";position:absolute;left:0;right:0;bottom:5px;
-      height:2px;border-radius:2px;background:var(--line);pointer-events:none}
-    .direction-band-zone{position:relative;display:flex;align-items:flex-start;justify-content:center;
-      color:var(--ink2);font-size:var(--fs-caption);font-weight:650;line-height:1;
-      letter-spacing:.09em;padding-top:3px;transition:color var(--dur-base) var(--ease-standard)}
-    .direction-band-marker{position:absolute;z-index:1;left:50%;bottom:1px;transform:translateX(-50%);
-      width:9px;height:9px;border-radius:50%;background:currentColor;
-      box-shadow:0 0 0 2px var(--paper);opacity:0;
-      transition:opacity var(--dur-base) var(--ease-standard)}
-    .direction-card[data-direction="recover"] .direction-band-zone--recover{
-      color:var(--zone-recover);font-weight:800}
-    .direction-card[data-direction="hold"] .direction-band-zone--hold{
-      color:var(--zone-hold);font-weight:800}
-    .direction-card[data-direction="push"] .direction-band-zone--push{
-      color:var(--zone-push);font-weight:800}
-    .direction-card[data-direction="recover"] .direction-band-zone--recover .direction-band-marker,
-    .direction-card[data-direction="hold"] .direction-band-zone--hold .direction-band-marker,
-    .direction-card[data-direction="push"] .direction-band-zone--push .direction-band-marker{opacity:1}
-    .direction-verdict{text-align:center;margin-top:7px}
-    .direction-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;
+    .direction-verdict{text-align:left}
+    .direction-label{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;
       line-height:var(--lh-heading);color:var(--text);margin:0}
-    .direction-readiness{display:block;font-size:var(--fs-micro);font-weight:600;
-      color:var(--ink3);line-height:var(--lh-caption);margin-top:2px}
-    .direction-readiness[hidden]{display:none}
+    .direction-coaching{font-size:var(--fs-body-sm);font-weight:500;line-height:var(--lh-compact);
+      color:var(--ink2);margin:5px 0 0}
     .direction-evidence{font-size:var(--fs-caption);font-weight:550;line-height:var(--lh-caption);
-      color:var(--ink2);text-align:center;margin:6px 0 0;white-space:nowrap;
+      color:var(--ink2);text-align:left;margin:11px 0 0;white-space:nowrap;
       overflow:hidden;text-overflow:ellipsis}
     .direction-evidence-sep{color:var(--ink3);padding:0 3px}
 
@@ -3539,29 +3524,17 @@ body.landing-active #tabbar{display:none!important}
     .lwa-takeaway-label{display:block;font-size:var(--fs-micro);font-weight:700;
       letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
   </style>
-  <!-- ═══════════ ATHLEVO DIRECTION BAND ═══════════ -->
+  <!-- ═══════════ ATHLEVO DIRECTION ═══════════ -->
   <article class="direction-card" id="dailyBriefCard" data-direction="hold" data-score="missing"
-    aria-label="Athlevo Direction: HOLD. Controlled day. Limited data.">
+    aria-label="Athlevo Direction: HOLD. Controlled day. Train, but keep the effort measured. Limited data.">
     <div class="direction-topline">
       <span class="direction-eyebrow">Athlevo Direction</span>
       <span class="direction-quality" id="todayDirectionQuality">Limited data</span>
     </div>
 
-    <div class="direction-band" aria-hidden="true">
-      <div class="direction-band-zone direction-band-zone--recover">
-        RECOVER<span class="direction-band-marker"></span>
-      </div>
-      <div class="direction-band-zone direction-band-zone--hold">
-        HOLD<span class="direction-band-marker"></span>
-      </div>
-      <div class="direction-band-zone direction-band-zone--push">
-        PUSH<span class="direction-band-marker"></span>
-      </div>
-    </div>
-
     <div class="direction-verdict" id="todayPassiveStatusBlock" data-direction="hold">
       <p class="direction-label" id="todayDirectionLabel">Controlled day</p>
-      <small class="direction-readiness" id="todayDirectionScore" hidden></small>
+      <p class="direction-coaching" id="todayDirectionCoaching">Train, but keep the effort measured.</p>
     </div>
 
     <p class="direction-evidence" aria-label="Direction evidence">
@@ -5281,6 +5254,11 @@ function buildAthlevoDirectionView(signals){
   var readiness = score === null
     ? (checkIn ? "Check-in incomplete" : "No recent check-in")
     : "Readiness " + String(score);
+  var coaching = direction.state === "RECOVER"
+    ? "Prioritize recovery or very easy training."
+    : direction.state === "PUSH"
+      ? "You’re ready for a demanding session."
+      : "Train, but keep the effort measured.";
   var available = (score === null ? 0 : 1) + (hasLoad ? 1 : 0) + (hasPainSignal ? 1 : 0);
   var quality = available === 3 ? "" : available === 2 ? "Some data missing" : "Limited data";
   var present = [];
@@ -5297,6 +5275,7 @@ function buildAthlevoDirectionView(signals){
     readiness: readiness,
     load: load,
     pain: pain,
+    coaching: coaching,
     quality: quality,
     why: why
   };
@@ -5308,14 +5287,14 @@ function buildAthlevoDirectionView(signals){
 async function renderTodayPassiveStatus(profile){
   var block = document.getElementById("todayPassiveStatusBlock");
   var label = document.getElementById("todayDirectionLabel");
+  var coaching = document.getElementById("todayDirectionCoaching");
   var card = document.getElementById("dailyBriefCard");
-  var score = document.getElementById("todayDirectionScore");
   var quality = document.getElementById("todayDirectionQuality");
   var recovery = document.getElementById("todayDirectionRecovery");
   var load = document.getElementById("todayDirectionLoad");
   var pain = document.getElementById("todayDirectionPain");
   var why = document.getElementById("todayDirectionWhy");
-  if (!block || !label || !score || !quality) return;
+  if (!block || !label || !coaching || !quality) return;
 
   function set(view){
     var value = view || buildAthlevoDirectionView({});
@@ -5326,15 +5305,14 @@ async function renderTodayPassiveStatus(profile){
       card.dataset.score = value.score === null ? "missing" : "available";
     }
     label.textContent = value.direction.label;
-    score.textContent = value.score === null ? "" : "Readiness " + String(value.score);
-    score.hidden = value.score === null;
+    coaching.textContent = value.coaching;
     quality.textContent = value.quality;
     quality.hidden = !value.quality;
     if (card){
       card.setAttribute(
         "aria-label",
         "Athlevo Direction: " + value.direction.state + ". " + value.direction.label +
-          (value.score === null ? "" : ". Readiness " + String(value.score)) +
+          ". " + value.coaching +
           (value.quality ? ". " + value.quality : "") + "."
       );
     }

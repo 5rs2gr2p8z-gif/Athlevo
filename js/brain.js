@@ -764,7 +764,7 @@ function resetAthleteUI() {
   setText("todayAthleteName", "Athlete");
   setText("todayContextLine", "Your athlete profile is loading.");
   setText("todayDirectionLabel", "Controlled day");
-  setText("todayDirectionScore", "");
+  setText("todayDirectionCoaching", "Train, but keep the effort measured.");
   setText("todayDirectionQuality", "Limited data");
   setText("todayDirectionRecovery", "No recent check-in");
   setText("todayDirectionLoad", "Load below usual");
@@ -775,18 +775,16 @@ function resetAthleteUI() {
   const directionBlock = document.getElementById("todayPassiveStatusBlock");
   const directionCard = document.getElementById("dailyBriefCard");
   const directionQuality = document.getElementById("todayDirectionQuality");
-  const directionScore = document.getElementById("todayDirectionScore");
   if (directionBlock) directionBlock.dataset.direction = "hold";
   if (directionCard) {
     directionCard.dataset.direction = "hold";
     directionCard.dataset.score = "missing";
     directionCard.setAttribute(
       "aria-label",
-      "Athlevo Direction: HOLD. Controlled day. Limited data."
+      "Athlevo Direction: HOLD. Controlled day. Train, but keep the effort measured. Limited data."
     );
   }
   if (directionQuality) directionQuality.hidden = false;
-  if (directionScore) directionScore.hidden = true;
 
   setText("profileName", "Athlete");
   setText("profileInitial", "A");
