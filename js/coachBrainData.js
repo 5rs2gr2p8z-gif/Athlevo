@@ -141,6 +141,13 @@
     try {
       if (typeof window.getReadinessForCoach === "function") {
         const r = await window.getReadinessForCoach();
+        if (r && r.date) {
+          signals.checkIn = {
+            recorded: true,
+            soreness: num(r.muscleSoreness1to10),
+            painPresent: r.painPresent === true
+          };
+        }
         if (r && r.readinessScore != null) {
           signals.readiness = { score: num(r.readinessScore), status: String(r.readinessStatus || "").toLowerCase() };
         }

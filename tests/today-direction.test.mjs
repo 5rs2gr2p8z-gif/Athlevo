@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync("./index.html", "utf8");
 const brain = readFileSync("./js/brain.js", "utf8");
+const coachData = readFileSync("./js/coachBrainData.js", "utf8");
 let passed = 0;
 let failed = 0;
 
@@ -54,26 +55,67 @@ const directionConstants = html.slice(
   html.indexOf("/* Conservative, qualitative classification")
 );
 const classifySource = extractFunction(html, "classifyAthlevoDirection");
+const viewSource = extractFunction(html, "buildAthlevoDirectionView");
 const contextSource = extractFunction(html, "buildTodayTrainingContext");
 const helpers = new Function(
-  `${directionConstants}\n${classifySource}\n${contextSource}
-   return { classifyAthlevoDirection, buildTodayTrainingContext };`
+  `${directionConstants}\n${classifySource}\n${viewSource}\n${contextSource}
+   return { classifyAthlevoDirection, buildAthlevoDirectionView, buildTodayTrainingContext };`
 )();
 
-console.log("\n──── Direction behavior ────");
+console.log("\n──── Direction score and state behavior ────");
 test("missing readiness safely resolves to HOLD",
   helpers.classifyAthlevoDirection({}).state === "HOLD");
 test("moderate readiness resolves to HOLD",
   helpers.classifyAthlevoDirection({ readiness: { status: "moderate" } }).state === "HOLD");
 test("good readiness resolves to PUSH",
   helpers.classifyAthlevoDirection({ readiness: { status: "good" } }).state === "PUSH");
+test("existing readiness thresholds map 0–39 RECOVER, 40–59 HOLD, 60–100 PUSH",
+  helpers.classifyAthlevoDirection({ readiness: { score: 39 } }).state === "RECOVER" &&
+  helpers.classifyAthlevoDirection({ readiness: { score: 40 } }).state === "HOLD" &&
+  helpers.classifyAthlevoDirection({ readiness: { score: 59 } }).state === "HOLD" &&
+  helpers.classifyAthlevoDirection({ readiness: { score: 60 } }).state === "PUSH" &&
+  helpers.classifyAthlevoDirection({ readiness: { score: 100 } }).state === "PUSH");
 test("recent pain resolves to RECOVER",
   helpers.classifyAthlevoDirection({ pain: { present: true } }).state === "RECOVER");
 test("very high acute load resolves to RECOVER",
   helpers.classifyAthlevoDirection({ recovery: { acwr: 1.5 } }).state === "RECOVER");
-test("HOLD uses the approved supporting copy",
-  helpers.classifyAthlevoDirection({}).copy ===
-    "You’re ready to train, but today should stay controlled.");
+test("direction labels stay short and human",
+  helpers.classifyAthlevoDirection({}).label === "Controlled day" &&
+  helpers.classifyAthlevoDirection({ readiness: { score: 80 } }).label === "Ready to push" &&
+  helpers.classifyAthlevoDirection({ pain: { present: true } }).label === "Recovery first");
+
+console.log("\n──── Truthful contributors and confidence ────");
+{
+  const complete = helpers.buildAthlevoDirectionView({
+    readiness: { score: 72, status: "good" },
+    recovery: { acwr: 1.04 },
+    checkIn: { recorded: true, soreness: 1, painPresent: false }
+  });
+  test("real readiness score is displayed without recomputation", complete.score === 72);
+  test("stable real load is labelled compactly", complete.load === "Load stable");
+  test("completed pain check-in can truthfully say clear", complete.pain === "Pain clear");
+  test("complete signal set hides the missing-data indicator", complete.quality === "");
+}
+{
+  const partial = helpers.buildAthlevoDirectionView({});
+  test("missing readiness is not replaced with a fabricated score",
+    partial.score === null && partial.readiness === "No recent check-in");
+  test("missing load and pain are labelled honestly",
+    partial.load === "Training load unavailable" &&
+    partial.pain === "Pain status unavailable");
+  test("incomplete signals show Limited data", partial.quality === "Limited data");
+}
+test("reported soreness is shown from the check-in",
+  helpers.buildAthlevoDirectionView({
+    checkIn: { recorded: true, soreness: 4, painPresent: false }
+  }).pain === "Soreness 4/10");
+test("load labels use the same conservative boundaries as Direction",
+  helpers.buildAthlevoDirectionView({ recovery: { acwr: 1.3 } }).load === "Load elevated" &&
+  helpers.buildAthlevoDirectionView({ recovery: { acwr: 1.5 } }).load === "Load high");
+test("a partial check-in is not mislabeled as absent",
+  helpers.buildAthlevoDirectionView({
+    checkIn: { recorded: true, soreness: 1, painPresent: false }
+  }).readiness === "Check-in incomplete");
 
 console.log("\n──── Training context ────");
 test("current plan renders race and exact week position",
@@ -105,28 +147,56 @@ const positions = [
   today.indexOf("Good morning,"),
   today.indexOf("todayContextLine"),
   today.indexOf("Athlevo Direction"),
-  today.indexOf("Today's recommendation"),
+  today.indexOf("todayDirectionDialValue"),
+  today.indexOf("Today's workout"),
   today.indexOf("Open today's workout")
 ];
-test("first viewport follows mark → greeting → context → direction → recommendation → action",
+test("first viewport follows mark → greeting → context → dial → workout → action",
   positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
 test("Direction is a named live status for assistive technology",
   /id="todayPassiveStatusBlock"[\s\S]*?role="status"[\s\S]*?aria-live="polite"[\s\S]*?aria-atomic="true"/.test(today));
+test("dial has an accessible title and dynamic description",
+  /role="img" aria-labelledby="todayDirectionDialTitle todayDirectionDialDescription"/.test(today) &&
+  /id="todayDirectionDialDescription"/.test(today));
+test("dial is an open arc, not a copied circular ring",
+  /class="direction-dial-track"[\s\S]*?d="M30 124 A90 90 0 0 1 210 124"/.test(today) &&
+  !/<circle[^>]+class="direction-dial-(?:track|value)"/.test(today));
+test("central score and all three contributors have dedicated mounts",
+  /id="todayDirectionScore"/.test(today) &&
+  /id="todayDirectionRecovery"/.test(today) &&
+  /id="todayDirectionLoad"/.test(today) &&
+  /id="todayDirectionPain"/.test(today));
 test("primary action remains a real button with existing Train routing",
   /class="rec-cta"[\s\S]*?onclick="todayGoToTrain\(\)"[\s\S]*?>Open today's workout<\/button>/.test(today));
-test("full briefing disclosure retains its accessible relationship",
-  /aria-expanded="false"[\s\S]*?aria-controls="dailyBriefFull"/.test(today));
+test("Why this is a native expandable disclosure below the workout",
+  today.indexOf('<details class="direction-why">') > today.indexOf("Open today's workout") &&
+  /<details class="direction-why">\s*<summary>Why this\?<\/summary>/.test(today));
+test("workout card has real mounts for name, duration/distance, and effort",
+  /id="todayRecommendationHeadline"/.test(today) &&
+  /id="todayWorkoutMeta"/.test(today) &&
+  /id="todayWorkoutEffort"/.test(today));
+test("workout renderer uses only saved session metadata with honest fallbacks",
+  /Number\(session\.duration_minutes\)/.test(html) &&
+  /Number\(session\.distance_km\)/.test(html) &&
+  /session\.intensity/.test(html) &&
+  /session\.target_rpe/.test(html) &&
+  /session\.pace_guidance/.test(html) &&
+  /Effort cue unavailable/.test(html));
 test("current-week data comes from the authenticated server endpoint",
   /fetch\("\/api\/training\/get-week"[\s\S]*?Authorization:\s*"Bearer "\s*\+\s*session\.access_token/.test(html));
 test("Today uses the server-selected valid plan and saved sessions",
   /snapshot\.hasPlan\s*\?\s*snapshot\.plan/.test(html) &&
     /snapshot\.hasPlan[\s\S]*?Array\.isArray\(snapshot\.sessions\)/.test(html));
+test("signal collector exposes only real check-in soreness and pain flags",
+  /signals\.checkIn\s*=\s*\{[\s\S]*?soreness:\s*num\(r\.muscleSoreness1to10\)[\s\S]*?painPresent:\s*r\.painPresent\s*===\s*true/.test(coachData));
 test("greeting uses the athlete's first name without an email fallback",
   /fullName\.split\(\/\\s\+\/\)\[0\]/.test(brain) &&
     !/profile\.email\?\.split\("@"\)\[0\]/.test(extractFunction(brain, "updateTodayDashboard")));
-test("Direction uses theme tokens and no gradient",
-  /\.direction-card\{[^}]*background:var\(--ink\)/.test(html) &&
+test("Direction uses a theme-aware editorial surface and no gradient",
+  /\.direction-card\{[^}]*background:var\(--paper\)/.test(html) &&
     !/\.direction-card\{[^}]*gradient/.test(html));
+test("dial appearance uses restrained tokenized motion",
+  /\.direction-dial-value\{[^}]*transition:[^}]*var\(--dur-slow\)[^}]*var\(--ease-standard\)/.test(html));
 test("global reduced-motion support remains present",
   /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html));
 
