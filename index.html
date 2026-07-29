@@ -614,24 +614,34 @@ body{
 .chat-head b{font-size:var(--fs-body);font-weight:650;display:block}
 .chat-head small{font-size:var(--fs-caption);color:var(--good);font-weight:600;display:flex;align-items:center;gap:5px}
 .chat-head small::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--good)}
-.chatlog{flex:1;padding:18px 18px 8px;display:flex;flex-direction:column;gap:9px}
-.msg{max-width:82%;font-size:var(--fs-body);line-height:var(--lh-body);animation:msgIn var(--dur-base) var(--ease-emphasized)}
+.chatlog{flex:1;padding:22px 22px 10px;display:flex;flex-direction:column;gap:var(--s-5)}
+.msg{width:100%;max-width:100%;font-size:var(--fs-body);line-height:var(--lh-body);
+  animation:msgIn var(--dur-base) var(--ease-emphasized)}
 @keyframes msgIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-.msg.user{align-self:flex-end;background:var(--ink);color:#fff;padding:10px 15px;border-radius:21px 21px 6px 21px}
-.msg.ai{align-self:flex-start;background:var(--card);padding:12px 15px;border-radius:21px 21px 21px 6px}
-/* iMessage feel: no per-bubble sender labels; alignment + colour carry it. */
+.msg.user{align-self:flex-end;width:auto;max-width:78%;background:var(--card2);color:var(--text);
+  padding:9px 13px;border:1px solid var(--line);border-radius:var(--r-lg)}
+.msg.ai{align-self:stretch;background:transparent;padding:8px 0 14px;border-radius:0}
+/* Sender labels stay visually quiet; response structure carries hierarchy. */
 .msg .call{display:none}
 .msg.ai .call{font-weight:650}
 /* ── Coach empty state ─────────────────────────────────────────────── */
-.coach-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:32px 28px 24px;text-align:center;animation:coachReveal var(--dur-slow) var(--ease-standard) both}
-.coach-empty-icon{width:48px;height:48px;border-radius:50%;overflow:hidden;margin-bottom:20px;opacity:.85}
-.coach-empty-icon img{width:130%;height:130%;object-fit:cover;object-position:center;display:block}
-.coach-empty-greeting{font-size:var(--fs-h1);font-weight:500;letter-spacing:-.01em;color:var(--text);margin:0 0 8px}
-.coach-empty-sub{font-size:var(--fs-body);color:var(--ink2);margin:0 0 28px;max-width:300px;line-height:1.4}
-.coach-starters{display:flex;flex-direction:column;gap:8px;width:100%;max-width:320px}
-.coach-starter{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:13px 18px;font-family:var(--sans);font-size:var(--fs-body);font-weight:550;color:var(--text);cursor:pointer;text-align:left;transition:border-color var(--dur-base) var(--ease-standard),background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
+.coach-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  flex:1;padding:var(--s-8) var(--s-5) var(--s-5);text-align:center;
+  animation:coachReveal var(--dur-slow) var(--ease-standard) both}
+.coach-empty-greeting{font-size:var(--fs-display);font-weight:500;line-height:var(--lh-display);
+  letter-spacing:var(--ls-tight);color:var(--text);margin:0 0 var(--s-3)}
+.coach-empty-sub{font-size:var(--fs-body);color:var(--ink2);margin:0;max-width:330px;
+  line-height:var(--lh-body)}
+.coach-starters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-2);
+  width:100%;margin-top:var(--s-3)}
+.coach-starter{background:transparent;border:1px solid var(--line);border-radius:var(--r-md);
+  padding:10px 12px;font-family:var(--sans);font-size:var(--fs-body-sm);line-height:var(--lh-compact);
+  font-weight:550;color:var(--ink2);cursor:pointer;text-align:left;
+  transition:border-color var(--dur-base) var(--ease-standard),
+  background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
 .coach-starter:hover{border-color:var(--ink3);background:var(--card2)}
 .coach-starter:active{transform:scale(.98)}
+.coach-starter:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 
 /* ── Coach thinking indicator (replaces bouncing dots) ────────────── */
 .coach-thinking{display:flex;align-items:center;gap:10px;padding:4px 0}
@@ -669,7 +679,7 @@ body{
 @keyframes coachType{0%,72%,100%{opacity:.28;transform:translateY(0)}36%{opacity:1;transform:translateY(-2px)}}
 @media (prefers-reduced-motion:reduce){.coach-typing i{animation:none}}
 
-.msg.ai .whyblock{margin-top:10px;padding:11px 13px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);font-size:var(--fs-body-sm)}
+.msg.ai .whyblock{margin-top:10px;padding:11px 0;background:transparent;border-top:1px solid var(--line);font-size:var(--fs-body-sm)}
 .msg.ai .whyblock .eyebrow{color:var(--red);margin-bottom:5px}
 .msg.ai .whyblock ul{margin:4px 0 0 16px}
 .msg.ai .whyblock li{margin:3px 0;color:var(--ink2)}
@@ -685,18 +695,27 @@ body{
 .typing i{width:6px;height:6px;border-radius:50%;background:var(--ink3);animation:blink 1.2s infinite}
 .typing i:nth-child(2){animation-delay:var(--dur-base)}.typing i:nth-child(3){animation-delay:var(--dur-slow)}
 @keyframes blink{0%,70%,100%{opacity:.3}35%{opacity:1}}
-.chips{display:flex;gap:var(--s-2);overflow-x:auto;padding:10px 18px;scrollbar-width:none;flex-shrink:0}
+.chips{display:flex;gap:var(--s-2);overflow-x:auto;padding:0;scrollbar-width:none;flex-shrink:0}
 .chips::-webkit-scrollbar{display:none}
-.chip{flex-shrink:0;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-pill);padding:8px 15px;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:550;color:var(--text);cursor:pointer;transition:border-color var(--dur-base) var(--ease-standard),background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
+.chip{flex-shrink:0;background:transparent;border:1px solid var(--line);border-radius:var(--r-pill);
+  padding:7px 13px;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--ink2);
+  cursor:pointer;transition:border-color var(--dur-base) var(--ease-standard),
+  background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
 .chip:hover{border-color:var(--ink3)}
 /* Suggested-reply chips get the same instant press cue as every other
    tap surface so they never feel like dead pixels. */
 .chip:active{transform:scale(.97)}
 
 /* ── Composer (textarea replaces input for multi-line) ────────────── */
-.composer{display:flex;align-items:flex-end;gap:10px;padding:10px 18px 16px;flex-shrink:0}
-.composer textarea{flex:1;border:1px solid var(--line);background:var(--field);color:var(--text);border-radius:var(--r-lg);padding:13px 18px;font-family:var(--sans);font-size:var(--fs-body);outline:none;resize:none;overflow-y:auto;max-height:120px;line-height:1.4;transition:border-color var(--dur-base)}
-.composer textarea:focus{border-color:var(--ink3)}
+.composer{display:flex;align-items:flex-end;gap:var(--s-2);padding:6px 6px 6px 16px;
+  flex-shrink:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--field);
+  transition:border-color var(--dur-base) var(--ease-standard),
+  box-shadow var(--dur-base) var(--ease-standard)}
+.composer:focus-within{border-color:var(--ink3);box-shadow:0 0 0 3px var(--card2)}
+.composer textarea{flex:1;min-height:36px;border:none;background:transparent;color:var(--text);
+  padding:8px 0;font-family:var(--sans);font-size:var(--fs-body);outline:none;resize:none;
+  overflow-y:auto;max-height:120px;line-height:var(--lh-body)}
+.composer textarea:focus{border-color:transparent}
 .composer textarea::placeholder,.ci-input::placeholder{color:var(--ink3);opacity:1}
 /* Legacy input support (other composers) */
 .composer input{flex:1;border:1px solid var(--line);background:var(--field);color:var(--text);border-radius:var(--r-pill);padding:13px 18px;font-family:var(--sans);font-size:var(--fs-body);outline:none;transition:border-color var(--dur-base)}
@@ -704,11 +723,15 @@ body{
 .composer input::placeholder{color:var(--ink3);opacity:1}
 /* Form-control contrast safety in both themes. */
 input,textarea,select{color:var(--text)}
-.send{width:46px;height:46px;border-radius:50%;background:var(--red);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform var(--dur-fast) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard)}
+.send{width:36px;height:36px;border-radius:var(--r-md);background:var(--ink);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:transform var(--dur-fast) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard)}
 .send:active{transform:scale(.92)}
 /* While a message is in flight the send button visibly stands down and
    swallows further taps so a double-tap can't submit twice. */
 .send.is-sending{opacity:.55;pointer-events:none}
+.send:disabled{opacity:.5;cursor:default}
+.send:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .send.is-sending svg.send-arrow{display:none}
 .send.is-sending svg.send-stop{display:block!important}
 .send svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -1218,57 +1241,59 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .coach-rich-response {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--s-4);
   width: 100%;
+  max-width: 640px;
   animation: coachReveal var(--dur-slow) var(--ease-standard) both;
 }
 
 .coach-response-headline {
   margin: 0;
   font-family: var(--serif);
-  font-size: 22px;
-  line-height: 1.15;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-heading);
+  font-weight: 500;
 }
 
 /* The opening coaching decision — calm but clearly the headline of the
    reply. Set slightly larger and firmer than the reasoning beneath it. */
 .coach-response-lead {
   margin: 0;
-  font-size: 16.5px;
-  font-weight: 600;
-  line-height: 1.5;
-  letter-spacing: -0.006em;
+  font-size: var(--fs-h3);
+  font-weight: 650;
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-tight);
   color: var(--text);
 }
 
 .coach-response-direct {
   margin: 0;
-  font-size: 15px;
-  line-height: 1.62;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   color: var(--ink2);
 }
 
 .coach-response-section {
-  padding-top: 16px;
+  padding-top: var(--s-4);
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--s-2);
 }
 
 /* Softer than a shouty label — a section title should guide, not
    interrupt the coach's flow. */
 .coach-response-section-title {
-  margin: 0 0 6px;
-  font-size: 12.5px;
+  margin: 0;
+  font-size: var(--fs-body-sm);
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--ls-normal);
   color: var(--text);
 }
 
 .coach-response-section-body {
   margin: 0;
-  line-height: 1.62;
+  line-height: var(--lh-body);
 }
 
 .coach-response-list {
@@ -1277,8 +1302,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 }
 
 .coach-response-list li {
-  margin: 6px 0;
-  line-height: 1.5;
+  margin: var(--s-2) 0;
+  line-height: var(--lh-body);
   color: var(--ink2);
 }
 .coach-response-list li strong{color:var(--text)}
@@ -1323,10 +1348,10 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 }
 
 .coach-mission {
-  padding: 15px;
-  border-radius: 15px;
-  background: #171719;
-  color: white;
+  padding: var(--s-3) 0 var(--s-3) var(--s-4);
+  border-left: 3px solid var(--red);
+  background: transparent;
+  color: var(--text);
 }
 
 /* Coach Context summary — compact, truthful "what I reviewed" chip
@@ -1463,186 +1488,53 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .ca-msg { min-height: 14px; margin: 10px 0 0; font-size: 12.5px; color: var(--red); }
 .ca-msg.ca-applied { color: var(--good); font-weight: 650; margin-top: 4px; }
 
-/* Coach identity/header stays at the top */
-#screen-coachai .coach-head {
-  position: relative;
-  z-index: 5;
-  flex-shrink: 0;
-  background: var(--nav-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--line);
+/* ===== COACH WORKSPACE LAYOUT ===== */
+.device{position:relative;overflow:hidden}
+:root{--athlevo-tabbar-height:74px}
+
+#screen-coachai{
+  position:absolute;inset:0 0 calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom));
+  height:auto;min-height:0;padding:0;overflow:hidden;display:none;flex-direction:column;
+  background:var(--paper)
 }
-
-/* Only the conversation scrolls */
-#chatlog {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 8px;
+#screen-coachai.active{display:flex}
+#screen-coachai .coach-head{
+  flex:0 0 auto;position:relative;z-index:3;padding:14px 22px 12px;gap:var(--s-2);
+  background:var(--paper);border-bottom:1px solid var(--line)
 }
-
-/* Suggestions + input remain above the bottom navigation */
-#screen-coachai .coach-composer {
-  position: relative;
-  z-index: 6;
-  flex-shrink: 0;
-  background: var(--nav-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--line);
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+#screen-coachai .coach-head b{
+  font-size:var(--fs-body-sm);font-weight:700;letter-spacing:var(--ls-normal)
 }
-/* ===== COACH SCREEN LAYOUT ===== */
-
-#screen-coachai {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  display: none;
-  flex-direction: column;
-  padding-bottom: 0;
+.coach-logo{
+  width:32px;height:32px;border-radius:var(--r-sm);overflow:hidden;display:flex;
+  align-items:center;justify-content:center
 }
+.coach-logo img{display:block;width:130%;height:130%;object-fit:cover;object-position:center}
 
-#screen-coachai.active {
-  display: flex;
+#screen-coachai #chatlog{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding-bottom:var(--s-3);scroll-padding-bottom:var(--s-6)
 }
-
-#screen-coachai .coach-head {
-  flex-shrink: 0;
-  position: relative;
-  z-index: 5;
-  background: var(--nav-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--line);
+#screen-coachai .coach-composer{
+  flex:0 0 auto;position:relative;z-index:4;margin:0;
+  padding:var(--s-2) 22px var(--s-3);
+  background:var(--paper);border-top:none
 }
-
-#screen-coachai #chatlog {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 12px;
+#screen-coachai.coach-is-active .coach-starters{display:none}
+#screen-coachai.coach-is-empty #chips{display:none!important}
+#screen-coachai .coach-composer .chips{
+  display:flex;flex-wrap:nowrap;overflow-x:auto;gap:var(--s-2);margin:var(--s-2) 0 0;
+  padding:0;scrollbar-width:none
 }
+#screen-coachai .coach-composer .chips::-webkit-scrollbar{display:none}
+#screen-coachai .coach-composer .chip{flex:0 0 auto}
 
-#screen-coachai .coach-composer {
-  flex-shrink: 0;
-  position: relative;
-  z-index: 20;
-
-  background: var(--nav-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-
-  border-top: 1px solid var(--line);
-  padding: 10px 18px 10px;
-}
-
-#screen-coachai .coach-composer .chips {
-  margin-bottom: 10px;
-}
-.coach-logo {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.coach-logo img {
-  display: block;
-  width: 130%;
-  height: 130%;
-  object-fit: cover;
-  object-position: center;
-}
-
-/* ===== FINAL COACH SCREEN LAYOUT ===== */
-
-.device {
-  position: relative;
-  overflow: hidden;
-}
-
-:root {
-  --athlevo-tabbar-height: 74px;
-}
-
-/* Coach occupies only the space above the tab bar */
-#screen-coachai {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom));
-
-  height: auto;
-  min-height: 0;
-  padding: 0;
-  overflow: hidden;
-
-  display: none;
-  flex-direction: column;
-}
-
-#screen-coachai.active {
-  display: flex;
-}
-
-/* Fixed within the Coach screen */
-#screen-coachai .coach-head {
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 3;
-  background: var(--paper);
-}
-
-/* Only this area scrolls */
-#screen-coachai #chatlog {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 12px;
-}
-
-/* Composer sits naturally above the tab bar */
-#screen-coachai .coach-composer {
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 4;
-
-  margin: 0;
-  padding: 10px 18px 12px;
-
-  background: var(--nav-glass);
-  border-top: 1px solid var(--line);
-}
-
-/* Keep generated suggestions on one horizontal row */
-#screen-coachai .coach-composer .chips {
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  gap: 8px;
-  margin: 0 0 10px;
-  padding: 0;
-  scrollbar-width: none;
-}
-
-#screen-coachai .coach-composer .chips::-webkit-scrollbar {
-  display: none;
-}
-
-#screen-coachai .coach-composer .chip {
-  flex: 0 0 auto;
+@media (max-width:360px){
+  #screen-coachai .coach-head,
+  #screen-coachai .chatlog,
+  #screen-coachai .coach-composer{padding-left:var(--s-4);padding-right:var(--s-4)}
+  .coach-empty-greeting{font-size:var(--fs-h1)}
+  .coach-starters{grid-template-columns:1fr}
 }
 
 /* Tab bar owns the reserved bottom area. Use min-height (not a fixed height)
@@ -3752,7 +3644,7 @@ body.landing-active #tabbar{display:none!important}
 </section>
 
 <!-- ══════════════ COACH AI ══════════════ -->
-<section class="screen" id="screen-coachai">
+<section class="screen coach-is-empty" id="screen-coachai">
   <div class="chat-head coach-head">
     <div class="avatar coach-logo">
       <img src="assets/athlevo-logo.png" alt="Athlevo" />
@@ -3763,30 +3655,21 @@ body.landing-active #tabbar{display:none!important}
   <div class="chatlog" id="chatlog">
     <!-- Empty state: shown when no conversation history exists -->
     <div class="coach-empty-state" id="coachEmptyState">
-      <div class="coach-empty-icon">
-        <img src="assets/athlevo-logo.png" alt="" />
-      </div>
-      <h2 class="coach-empty-greeting serif" id="coachEmptyGreeting">Ask away.</h2>
-      <p class="coach-empty-sub" id="coachEmptySub">I already have your goals, recent training and current plan in context.</p>
-      <div class="coach-starters" id="coachStarters">
-        <button type="button" class="coach-starter" data-prompt="Should I train today?">Should I train today?</button>
-        <button type="button" class="coach-starter" data-prompt="Explain my latest workout">Explain my latest workout</button>
-        <button type="button" class="coach-starter" data-prompt="How is my week progressing?">How is my week progressing?</button>
-        <button type="button" class="coach-starter" data-prompt="Adjust today's session">Adjust today's session</button>
-      </div>
+      <h2 class="coach-empty-greeting serif" id="coachEmptyGreeting">What should we work on?</h2>
+      <p class="coach-empty-sub" id="coachEmptySub">Ask about today’s training, recovery, pacing, or your plan.</p>
     </div>
   </div>
 
   <div class="coach-composer">
-    <div class="chips" id="chips"></div>
     <div class="composer">
       <textarea
         id="chatInput"
         rows="1"
-        placeholder="Ask your coach anything..."
+        placeholder="Ask your coach anything…"
         aria-label="Message your coach"
       ></textarea>
       <button
+        type="button"
         class="send"
         id="coachSendBtn"
         onclick="sendMsg()"
@@ -3800,6 +3683,12 @@ body.landing-active #tabbar{display:none!important}
         </svg>
       </button>
     </div>
+    <div class="coach-starters" id="coachStarters">
+      <button type="button" class="coach-starter" data-prompt="What should I focus on today?">What should I focus on today?</button>
+      <button type="button" class="coach-starter" data-prompt="Am I recovering well?">Am I recovering well?</button>
+      <button type="button" class="coach-starter" data-prompt="How is my recent training load?">How is my recent training load?</button>
+    </div>
+    <div class="chips" id="chips"></div>
   </div>
 </section>
 

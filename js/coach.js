@@ -1,27 +1,85 @@
 console.log("Athlevo Coach Loaded");
 
-/* ══════════════ Empty state + personalized greeting ══════════════ */
+/* ══════════════ Empty state + contextual starters ══════════════ */
+
+function setCoachConversationState(isEmpty) {
+  const screen = document.getElementById("screen-coachai");
+  if (!screen) return;
+  screen.classList.toggle("coach-is-empty", !!isEmpty);
+  screen.classList.toggle("coach-is-active", !isEmpty);
+}
+
+function buildCoachStarterPrompts() {
+  const directionCard = document.getElementById("dailyBriefCard");
+  const planState = directionCard?.dataset?.planState || "unknown";
+
+  if (planState === "workout") {
+    return [
+      "Should I complete today’s workout?",
+      "How should I pace this session?",
+      "Am I recovering well?",
+      "Adjust this week around my schedule"
+    ];
+  }
+
+  if (planState === "no-workout") {
+    return [
+      "What should I focus on today?",
+      "Am I recovering well?",
+      "How is my week progressing?",
+      "Adjust this week around my schedule"
+    ];
+  }
+
+  if (planState === "no-plan") {
+    return [
+      "What should I focus on today?",
+      "Am I recovering well?",
+      "How should I start training this week?"
+    ];
+  }
+
+  return [
+    "What should I focus on today?",
+    "Am I recovering well?",
+    "How is my recent training load?"
+  ];
+}
+
+function renderCoachStarterPrompts() {
+  const container = document.getElementById("coachStarters");
+  if (!container) return;
+  container.innerHTML = "";
+
+  buildCoachStarterPrompts().slice(0, 4).forEach(prompt => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "coach-starter";
+    button.dataset.prompt = prompt;
+    button.textContent = prompt;
+    container.appendChild(button);
+  });
+}
 
 function hideCoachEmptyState() {
   const el = document.getElementById("coachEmptyState");
   if (el) el.style.display = "none";
+  setCoachConversationState(false);
 }
 
 function showCoachEmptyState() {
   const el = document.getElementById("coachEmptyState");
   if (el) el.style.display = "";
+  setCoachConversationState(true);
+  renderCoachStarterPrompts();
+  if (typeof renderSuggestedReplies === "function") renderSuggestedReplies([]);
 }
 
-/* Personalizes the empty-state greeting with the athlete's name (read
-   from the same profileName element brain.js populates). */
+/* Kept as a stable public hook for existing callers. The new workspace
+   intentionally uses one calm prompt rather than a personalized salutation. */
 function personalizeCoachGreeting() {
-  const nameEl = document.getElementById("profileName");
   const greetEl = document.getElementById("coachEmptyGreeting");
-  if (!nameEl || !greetEl) return;
-  const name = (nameEl.textContent || "").trim();
-  if (name && name !== "Athlete") {
-    greetEl.textContent = "Ask away, " + name + ".";
-  }
+  if (greetEl) greetEl.textContent = "What should we work on?";
 }
 
 /* Bind starter-prompt buttons (one-time, delegated). */
@@ -193,17 +251,17 @@ async function renderConversationHistory() {
   }
 
   const history = await loadConversationHistory();
+  chatlog.querySelectorAll(".msg").forEach(message => message.remove());
 
   if (!history.length) {
-    // No history: show empty state, personalize greeting.
+    // No history: show the workspace prompt and relevant starter actions.
     showCoachEmptyState();
     personalizeCoachGreeting();
     return;
   }
 
-  // Clear the chatlog (including the empty state markup) for real messages.
-  chatlog.innerHTML = "";
   hideCoachEmptyState();
+  renderSuggestedReplies([]);
 
   history.forEach(item => {
   const role =
@@ -613,7 +671,7 @@ function bindCoachScrollWatcher() {
 /* ══════════════ Follow-up actions ═══════════════════════════════ */
 
 /*
- * Selects up to 3 contextual follow-up actions based on the response
+ * Selects up to 2 contextual follow-up actions based on the response
  * type and existing app state. Actions must genuinely work — either
  * sending a useful follow-up prompt or navigating via existing routing.
  */
@@ -639,7 +697,7 @@ function buildFollowUpActions(answer) {
   actions.push({ label: "Check my readiness", type: "navigate",
     screen: "screen-today" });
 
-  return actions.slice(0, 3);
+  return actions.slice(0, 2);
 }
 
 function renderFollowUpActions(answer) {
@@ -726,6 +784,7 @@ function setCoachSendingState(isSending) {
   const sendBtn = document.querySelector(".coach-composer .send");
   if (!sendBtn) return;
   sendBtn.classList.toggle("is-sending", !!isSending);
+  sendBtn.disabled = !!isSending;
   sendBtn.setAttribute("aria-busy", isSending ? "true" : "false");
 }
 
@@ -751,13 +810,13 @@ async function askCoach(question) {
   // Everything the user needs to see immediately happens synchronously,
   // in this order, before any await hits the event loop:
   //   1. their own message appears
-  //   2. the "coach is thinking" bubble appears
+  //   2. the open "coach is thinking" status appears
   //   3. the send button flips to its sending state
   // ──────────────────────────────────────────────────────────────────
   addChatMessage("user", cleanQuestion);
 
-  // Premium thinking indicator — small Athlevo mark with a breathing
-  // pulse and a rotating contextual label. Replaces the bouncing dots.
+  // Quiet thinking indicator — small Athlevo mark with a breathing pulse
+  // and a rotating contextual label. Replaces the bouncing dots.
   const loadingMessage = addChatMessage("ai", "");
   {
     const changeEl = loadingMessage && loadingMessage.querySelector(".change");

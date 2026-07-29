@@ -524,7 +524,7 @@ function renderSuggestedReplies(replies) {
     return;
   }
 
-  replies.slice(0, 3).forEach(reply => {
+  replies.slice(0, 2).forEach(reply => {
     if (
       typeof reply !== "string" ||
       !reply.trim()
