@@ -172,6 +172,11 @@
     const segments = lineSegments(days, "form", x, y);
     const latest = latestValue(days, "form");
     const current = classifyForm(latest.value);
+    const latestX = x(latest.index);
+    const latestY = y(latest.value);
+    const placeLatestLabelLeft = latestX > width - right - 60;
+    const latestLabelX = placeLatestLabelLeft ? latestX - 8 : latestX + 8;
+    const latestLabelY = Math.max(top + 10, Math.min(height - bottom - 4, latestY - 7));
 
     const bands = FORM_ZONES.map(zone => {
       const high = Math.min(max, zone.max);
@@ -203,7 +208,8 @@
         ${boundaries}
         <line class="trend-zero-line" x1="${left}" y1="${y(0)}" x2="${width - right}" y2="${y(0)}"></line>
         ${paths}${points}
-        <circle class="trend-latest trend-latest-${current.key}" cx="${x(latest.index)}" cy="${y(latest.value)}" r="5"></circle>
+        <circle class="trend-latest trend-latest-${current.key}" cx="${latestX}" cy="${latestY}" r="5"></circle>
+        <text class="trend-latest-label trend-latest-label-form" x="${latestLabelX}" y="${latestLabelY}" text-anchor="${placeLatestLabelLeft ? "end" : "start"}">Form ${escapeHtml(fmt(latest.value, true))}</text>
         ${chartDates(days, width, left, right, height - 8)}
       </svg>
       <div class="trend-chart-tooltip" aria-live="polite"></div>`;

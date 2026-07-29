@@ -277,7 +277,7 @@ section("Graph-first UI and accessibility");
     { date: "2026-07-26", form: 12 },
     { date: "2026-07-27", form: 0 },
     { date: "2026-07-28", form: -10 },
-    { date: "2026-07-29", form: -24 }
+    { date: "2026-07-29", form: 14 }
   ]);
   const fitnessHost = chartHost();
   analytics.renderFitnessChart(fitnessHost, [
@@ -302,11 +302,24 @@ section("Graph-first UI and accessibility");
     (statusHost.innerHTML.match(/class="trend-zone-boundary"/g) || []).length === 4 &&
     ["+25", "+5", "−5", "−20"].every(value =>
       statusHost.innerHTML.includes(`>${value}</text>`)));
+  test("Training Status explicitly identifies the gray series as Form",
+    /class="trend-legend trend-status-legend"[\s\S]*?class="form"[\s\S]*?>Form<\/span>/.test(
+      trendsMarkup
+    ) &&
+    /\.trend-legend \.form i\{background:var\(--trend-form\)\}/.test(html) &&
+    /class="trend-series trend-form-series"/.test(statusHost.innerHTML));
+  test("latest Form value is labeled directly beside the latest point",
+    /class="trend-latest-label trend-latest-label-form"[\s\S]*?>Form \+14<\/text>/.test(
+      statusHost.innerHTML
+    ));
   test("compact Form education and expanded zone definitions are present",
     trendsMarkup.includes(
       "Form shows the balance between long-term fitness and short-term fatigue."
     ) &&
     trendsMarkup.includes("Form = Fitness − Fatigue") &&
+    trendsMarkup.includes(
+      "The gray line is your Form over time. Its current value determines your Training Status."
+    ) &&
     trendsMarkup.includes("Positive Form: fresher") &&
     trendsMarkup.includes("Near zero: balanced") &&
     trendsMarkup.includes("Negative Form: carrying fatigue") &&
@@ -317,6 +330,12 @@ section("Graph-first UI and accessibility");
       "productive training load with manageable fatigue",
       "fatigue is unusually high and recovery should be prioritized"
     ].every(copy => trendsMarkup.includes(copy)));
+  test("Training Status remains derived from latest Form without a duplicate graph",
+    /statusTitle\.textContent = zone[\s\S]*?`Training Status: \$\{zone\.label\}`/.test(
+      clientSource
+    ) &&
+    /<span class="trend-graph-values">Form<\/span>/.test(trendsMarkup) &&
+    !/data-trend-graph="form"/.test(trendsMarkup));
   test("Fitness/Fatigue chart has a plot surface, scale, grid, dates, and latest labels",
     /class="trend-plot-surface"/.test(fitnessHost.innerHTML) &&
     (fitnessHost.innerHTML.match(/class="trend-grid-line"/g) || []).length === 4 &&

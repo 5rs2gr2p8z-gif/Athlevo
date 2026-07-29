@@ -190,7 +190,7 @@ test("RECOVER receives concise presentation copy without changing classification
     pain: { present: true }
   }).coaching === "Recovery signals suggest shortening or replacing the session.");
 
-console.log("\n──── Freshness presentation ────");
+console.log("\n──── Form-backed Recovery presentation ────");
 test("Form ≥ +25 maps to Very fresh with the detraining-aware amber tone",
   [25, 40].every(form => {
     const signal = helpers.buildFreshnessSignalPresentation(form);
@@ -235,7 +235,7 @@ test("missing Form stays neutral with no fabricated arc",
       signal.progress === 0 &&
       signal.progressKind === "missing";
   })());
-test("Freshness is categorical and does not duplicate the numeric readiness score",
+test("Form-backed Recovery is categorical and does not duplicate the numeric readiness score",
   (() => {
     const view = helpers.buildAthlevoDirectionView({
       readiness: { score: 72 },
@@ -567,11 +567,12 @@ test("all three compact signal indicators have dynamic mounts",
   /id="todayLoadSignalValue"/.test(today) &&
   /id="todayFreshnessSignalValue"/.test(today) &&
   (directionMarkup.match(/class="direction-signal-ring"/g) || []).length === 3);
-test("the third signal is visibly and accessibly named Freshness",
-  /id="todayFreshnessSignal" aria-label="Freshness: unavailable"/.test(directionMarkup) &&
-  /class="direction-signal-name">Freshness<\/span>/.test(directionMarkup) &&
-  /value\.signals\.freshness,[\s\S]*?"Freshness"/.test(html) &&
-  !/Body feedback|Body status|Pain \/ soreness/.test(directionMarkup));
+test("the third signal is visibly and accessibly named Recovery",
+  /id="todayFreshnessSignal" aria-label="Recovery: unavailable"/.test(directionMarkup) &&
+  /class="direction-signal-name">Recovery<\/span>/.test(directionMarkup) &&
+  /value\.signals\.freshness,[\s\S]*?"Recovery"/.test(html) &&
+  !/class="direction-signal-name">Freshness<\/span>/.test(directionMarkup) &&
+  !/aria-label="Freshness:/.test(directionMarkup));
 test("missing signals render explicit dashes and honest labels",
   helpers.buildAthlevoDirectionView({}).signals.readiness.value === "—" &&
   helpers.buildAthlevoDirectionView({}).signals.readiness.note === "No check-in" &&
@@ -628,7 +629,7 @@ test("training-load display mapping remains categorical and unchanged", (() => {
     high.note === "High load" &&
     high.tone === "risk";
 })());
-test("readiness uses a normalized real score while load and Freshness are categorical",
+test("readiness uses a normalized real score while load and Recovery are categorical",
   helpers.buildAthlevoDirectionView({
     readiness: { score: 72 },
     recovery: { acwr: 1.04 },
