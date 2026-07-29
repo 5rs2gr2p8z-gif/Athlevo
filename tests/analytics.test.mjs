@@ -43,7 +43,7 @@ function makeClient(opts = {}) {
 }
 const REQUIRED = [
   "free_account_created", "onboarding_completed", "data_connection_completed",
-  "free_limit_reached", "upgrade_clicked", "checkout_opened",
+  "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
   "paid_subscription_activated",
   "account_created", "email_verified", "athlete_onboarding_started", "athlete_onboarding_completed",
   "wearable_setup_started", "sync_account_step_viewed", "wearable_provider_step_viewed",

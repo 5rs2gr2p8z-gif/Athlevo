@@ -229,7 +229,7 @@ section("Freemium onboarding, upgrade UI, and removed trial copy");
     /Upgrade to Athlevo Performance/.test(accessGuard) &&
     /₱597\/month/.test(accessGuard));
   test("Whop opens only from the explicit upgrade handler",
-    /function checkout\(\)/.test(accessGuard) &&
+    /function checkout\(context\)/.test(accessGuard) &&
     /window\.open\(checkoutUrl\(\)/.test(accessGuard));
 }
 
@@ -240,7 +240,7 @@ section("Privacy-safe analytics");
   [
     "free_account_created", "onboarding_completed",
     "data_connection_completed", "first_plan_generated",
-    "free_limit_reached", "upgrade_clicked", "checkout_opened",
+    "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
     "paid_subscription_activated"
   ].forEach(event => {
     test(`analytics registry includes ${event}`, registry.includes(event));

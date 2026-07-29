@@ -1890,6 +1890,19 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .asc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .asc-updated{font-size:var(--fs-micro);color:var(--ink3)}
 .asc-details-btn{font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;color:var(--red);background:none;border:none;cursor:pointer;padding:4px 2px;margin-left:auto}
+.asc-locked{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:18px;margin:16px 22px 0;box-shadow:var(--elev-1)}
+.asc-locked-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3)}
+.asc-locked-mark{display:flex;align-items:center;gap:9px}
+.asc-locked-value{font-family:var(--serif);font-size:36px;line-height:1;color:var(--ink3);
+  letter-spacing:.08em}
+.asc-lock-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line);border-radius:50%;color:var(--ink2)}
+.asc-lock-icon svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.asc-locked p{margin:12px 0;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
+.asc-locked button{border:0;background:none;color:var(--red);font-family:var(--sans);
+  font-size:var(--fs-body-sm);font-weight:750;cursor:pointer;padding:5px 0}
 
 /* readiness separation label (UI only) */
 .rd-eyebrow{display:block;font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
@@ -1943,6 +1956,41 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .trend-state-panel h2{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;line-height:var(--lh-heading)}
 .trend-state-panel p{margin:var(--s-2) 0 var(--s-4);font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2)}
 .trend-state-panel button{border:0;border-radius:var(--r-pill);padding:11px 17px;background:var(--ink);color:#fff;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:650;cursor:pointer}
+.trends-performance-preview{margin:0 22px;padding-bottom:calc(var(--athlevo-tabbar-height) + 28px)}
+.trends-performance-preview[hidden]{display:none}
+.trends-preview-intro h2{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;
+  line-height:var(--lh-heading);color:var(--text)}
+.trends-preview-intro p{margin:6px 0 18px;font-size:var(--fs-body);
+  line-height:var(--lh-body);color:var(--ink2)}
+.trends-preview-stack{display:grid;gap:var(--s-3)}
+.trends-preview-chart{position:relative;min-height:118px;overflow:hidden;background:var(--paper);
+  border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
+.trends-preview-chart h3{font-size:var(--fs-body);font-weight:700;color:var(--text);margin:0 0 9px}
+.trends-preview-chart svg{display:block;width:100%;height:66px;color:var(--ink3);opacity:.38}
+.trends-preview-chart path,.trends-preview-chart polyline{fill:none;stroke:currentColor;
+  stroke-width:2;vector-effect:non-scaling-stroke}
+.trends-preview-chart line{stroke:var(--line);stroke-width:1}
+.trends-preview-lock{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:color-mix(in srgb,var(--paper) 70%,transparent);backdrop-filter:blur(5px)}
+.trends-preview-lock span{display:flex;width:34px;height:34px;align-items:center;justify-content:center;
+  border-radius:50%;background:var(--paper);border:1px solid var(--line);color:var(--ink2);
+  box-shadow:var(--elev-1)}
+.trends-preview-lock svg{width:15px;height:15px;opacity:1;fill:none;stroke:currentColor;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.trends-preview-cta{text-align:center;margin-top:var(--s-5);padding:20px 18px;
+  background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg)}
+.trends-preview-cta h3{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;
+  line-height:var(--lh-heading);color:var(--text)}
+.trends-preview-cta p{margin:7px auto 16px;max-width:390px;font-size:var(--fs-body-sm);
+  line-height:var(--lh-body);color:var(--ink2)}
+.trends-preview-cta button{width:100%;border:0;border-radius:var(--r-pill);background:var(--red);
+  color:#fff;font-family:var(--sans);font-size:var(--fs-body);font-weight:750;
+  padding:14px 18px;cursor:pointer}
+.trends-preview-price{display:block;margin-top:9px;font-size:var(--fs-caption);color:var(--ink3)}
+@media (max-width:360px){
+  .trends-performance-preview{margin-left:16px;margin-right:16px}
+  .trends-preview-chart{min-height:108px}
+}
 .trend-history-notice{margin:0 0 var(--s-3);padding:var(--s-3);background:var(--card);border-radius:var(--r-md)}
 .trend-history-notice strong{display:block;font-size:var(--fs-body-sm)}
 .trend-history-notice span{display:block;margin-top:3px;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
@@ -3323,6 +3371,34 @@ body.landing-active #tabbar{display:none!important}
   .ag-cta-btn{width:100%;border:none;border-radius:var(--r-pill);background:var(--red);color:#fff;font-family:var(--sans);font-weight:700;font-size:var(--fs-h3);letter-spacing:-.01em;padding:17px;cursor:pointer;transition:transform var(--dur-fast)}
   .ag-cta-btn:active{transform:scale(.99)}
   .ag-cta-sub{font-size:var(--fs-caption);color:var(--ink3);margin-top:10px}
+
+  /* One reusable Athlevo Performance sheet. Feature previews open this
+     explanation; only its primary action opens checkout. */
+  .performance-upgrade-back{position:fixed;inset:0;z-index:90;display:none;
+    align-items:flex-end;justify-content:center;background:rgba(0,0,0,.44);
+    padding-top:env(safe-area-inset-top)}
+  .performance-upgrade-back.show{display:flex}
+  .performance-upgrade-sheet{width:100%;max-width:560px;background:var(--paper);
+    border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;
+    padding:22px 22px calc(22px + env(safe-area-inset-bottom));
+    box-shadow:var(--elev-3)}
+  .performance-upgrade-eyebrow{font-size:var(--fs-micro);font-weight:750;
+    letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--red)}
+  .performance-upgrade-sheet h2{margin:7px 0 12px;font-family:var(--serif);
+    font-size:var(--fs-h1);font-weight:500;line-height:var(--lh-heading);color:var(--text)}
+  .performance-upgrade-benefits{margin:0;padding:0;list-style:none;border-top:1px solid var(--line)}
+  .performance-upgrade-benefits li{position:relative;padding:9px 0 9px 17px;
+    border-bottom:1px solid var(--line);font-size:var(--fs-body-sm);color:var(--ink2)}
+  .performance-upgrade-benefits li::before{content:"";position:absolute;left:1px;top:15px;
+    width:6px;height:6px;border-radius:50%;background:var(--red)}
+  .performance-upgrade-price{margin:15px 0 12px;font-size:var(--fs-h3);
+    font-weight:750;color:var(--text)}
+  .performance-upgrade-actions{display:grid;gap:var(--s-2)}
+  .performance-upgrade-primary,.performance-upgrade-secondary{width:100%;
+    min-height:48px;border-radius:var(--r-pill);font-family:var(--sans);
+    font-size:var(--fs-body);font-weight:700;cursor:pointer}
+  .performance-upgrade-primary{border:1px solid var(--red);background:var(--red);color:#fff}
+  .performance-upgrade-secondary{border:1px solid var(--line);background:transparent;color:var(--ink2)}
 </style>
 
 <!-- ══════════════ TODAY ══════════════ -->
@@ -3410,6 +3486,24 @@ body.landing-active #tabbar{display:none!important}
       font-weight:550;line-height:1.2;color:var(--ink3)}
     .direction-signal-quality{max-width:100%;margin-top:2px;font-size:10px;
       font-weight:550;line-height:1.2;color:var(--ink3)}
+    .direction-signal-lock{display:none;position:absolute;z-index:2;width:18px;height:18px;
+      align-items:center;justify-content:center;border-radius:50%;background:var(--paper);
+      color:var(--ink2);box-shadow:0 0 0 1px var(--line)}
+    .direction-signal-lock svg{position:static;width:11px;height:11px;fill:none;
+      stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
+      transform:none}
+    .direction-signal[data-premium-state="loading"] .direction-signal-progress{
+      stroke:var(--line);stroke-dasharray:28 100}
+    .direction-signal[data-premium-state="loading"] .direction-signal-value,
+    .direction-signal[data-premium-state="loading"] .direction-signal-note,
+    .direction-signal[data-premium-state="loading"] .direction-signal-quality{visibility:hidden}
+    .direction-signal[data-premium-state="locked"]{--signal-color:var(--ink3)}
+    .direction-signal[data-premium-state="locked"] .direction-signal-progress{
+      stroke-dasharray:38 100;opacity:.42}
+    .direction-signal[data-premium-state="locked"] .direction-signal-value{
+      letter-spacing:.12em;color:var(--ink3)}
+    .direction-signal[data-premium-state="locked"] .direction-signal-lock{display:flex}
+    .direction-signal[data-premium-state="locked"] .direction-signal-quality{display:none}
     .direction-verdict{text-align:left}
     .direction-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;
       line-height:var(--lh-heading);color:var(--text);margin:13px 0 0;padding-top:11px;
@@ -3421,6 +3515,13 @@ body.landing-active #tabbar{display:none!important}
       line-height:var(--lh-compact);color:var(--text);margin:10px 0 0;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .direction-workout-summary[hidden]{display:none}
+    .direction-premium-teaser{display:flex;align-items:center;justify-content:space-between;
+      gap:var(--s-3);margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
+    .direction-premium-teaser[hidden]{display:none}
+    .direction-premium-teaser p{margin:0;max-width:310px;font-size:var(--fs-caption);
+      line-height:var(--lh-caption);color:var(--ink2)}
+    .direction-premium-teaser button{flex:none;border:0;background:none;color:var(--red);
+      font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:750;cursor:pointer;padding:7px 0}
 
     .direction-why{margin:10px 22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
     .direction-why>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;
@@ -3445,6 +3546,7 @@ body.landing-active #tabbar{display:none!important}
       .direction-signals{gap:var(--s-1)}
       .direction-signal-ring{width:64px;height:64px}
       .direction-signal-name,.direction-signal-note{font-size:var(--fs-micro)}
+      .direction-premium-teaser{align-items:flex-start}
     }
 
     /* ═══════════ AT A GLANCE — 4 semantic tiles ═══════════
@@ -3530,24 +3632,32 @@ body.landing-active #tabbar{display:none!important}
         <span class="direction-signal-name">Readiness</span>
         <span class="direction-signal-note" id="todayReadinessSignalNote">No check-in</span>
       </div>
-      <div class="direction-signal" id="todayLoadSignal" aria-label="Training load: unavailable">
+      <div class="direction-signal" id="todayLoadSignal" data-premium-state="loading"
+        aria-label="Training Load access is loading">
         <span class="direction-signal-ring" aria-hidden="true">
           <svg viewBox="0 0 72 72" focusable="false">
             <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
             <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
           </svg>
           <strong class="direction-signal-value" id="todayLoadSignalValue">—</strong>
+          <span class="direction-signal-lock">
+            <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
+          </span>
         </span>
         <span class="direction-signal-name">Training load</span>
         <span class="direction-signal-note" id="todayLoadSignalNote">Unavailable</span>
       </div>
-      <div class="direction-signal" id="todayRecoverySignal" aria-label="Recovery: not enough data">
+      <div class="direction-signal" id="todayRecoverySignal" data-premium-state="loading"
+        aria-label="Recovery access is loading">
         <span class="direction-signal-ring" aria-hidden="true">
           <svg viewBox="0 0 72 72" focusable="false">
             <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
             <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
           </svg>
           <strong class="direction-signal-value" id="todayRecoverySignalValue">—</strong>
+          <span class="direction-signal-lock">
+            <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
+          </span>
         </span>
         <span class="direction-signal-name">Recovery</span>
         <span class="direction-signal-note" id="todayRecoverySignalNote">Not enough data</span>
@@ -3558,6 +3668,12 @@ body.landing-active #tabbar{display:none!important}
     <div class="direction-verdict" id="todayPassiveStatusBlock" data-direction="hold">
       <p class="direction-label" id="todayDirectionLabel">Keep today controlled.</p>
       <p class="direction-coaching" id="todayDirectionCoaching">Limited data means today should stay measured.</p>
+    </div>
+
+    <div class="direction-premium-teaser" id="todayPremiumInsightTeaser" hidden>
+      <p>See how recovery and recent training load shaped today’s recommendation.</p>
+      <button type="button"
+        onclick="AthlevoAccessGuard.showUpgradeSheet('recovery','today')">Unlock insights</button>
     </div>
 
     <p class="direction-workout-summary" id="todayWorkoutSummary" hidden></p>
@@ -4045,7 +4161,7 @@ body.landing-active #tabbar{display:none!important}
         <h1 class="serif">Trends</h1>
         <p class="trends-current" id="trendsHeaderSummary">Loading training trends…</p>
       </div>
-      <div class="trend-range" aria-label="Trend time range">
+      <div class="trend-range" id="trendRangeControls" aria-label="Trend time range" hidden>
         <button type="button" data-trend-range="6w" aria-pressed="false">6 weeks</button>
         <button type="button" class="is-active" data-trend-range="3m" aria-pressed="true">3 months</button>
         <button type="button" data-trend-range="6m" aria-pressed="false">6 months</button>
@@ -4055,6 +4171,59 @@ body.landing-active #tabbar{display:none!important}
   </div>
 
   <div id="trendsState" aria-live="polite"></div>
+
+  <div class="trends-performance-preview" id="trendsPerformancePreview" hidden>
+    <div class="trends-preview-intro">
+      <h2>Your performance trends</h2>
+      <p>See how your fitness, fatigue, Form, and training load change over time.</p>
+    </div>
+
+    <div class="trends-preview-stack" aria-label="Generic Athlevo Performance chart previews, not personal training data">
+      <article class="trends-preview-chart">
+        <h3>Training Status</h3>
+        <svg viewBox="0 0 320 66" aria-hidden="true">
+          <line x1="0" y1="18" x2="320" y2="18"></line>
+          <line x1="0" y1="48" x2="320" y2="48"></line>
+          <path d="M0 43 C48 38 76 45 112 34 S178 20 214 29 S272 38 320 19"></path>
+        </svg>
+        <div class="trends-preview-lock" aria-hidden="true">
+          <span><svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></span>
+        </div>
+      </article>
+
+      <article class="trends-preview-chart">
+        <h3>Fitness vs Fatigue</h3>
+        <svg viewBox="0 0 320 66" aria-hidden="true">
+          <line x1="0" y1="18" x2="320" y2="18"></line>
+          <line x1="0" y1="48" x2="320" y2="48"></line>
+          <path d="M0 49 C54 46 92 40 128 35 S214 27 320 20"></path>
+          <path d="M0 53 C42 31 78 51 116 30 S190 47 230 25 S280 38 320 17"></path>
+        </svg>
+        <div class="trends-preview-lock" aria-hidden="true">
+          <span><svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></span>
+        </div>
+      </article>
+
+      <article class="trends-preview-chart">
+        <h3>Training Load</h3>
+        <svg viewBox="0 0 320 66" aria-hidden="true">
+          <line x1="0" y1="52" x2="320" y2="52"></line>
+          <polyline points="10,50 10,35 38,35 38,50 52,50 52,23 80,23 80,50 94,50 94,40 122,40 122,50 136,50 136,17 164,17 164,50 178,50 178,30 206,30 206,50 220,50 220,21 248,21 248,50 262,50 262,32 290,32 290,50"></polyline>
+        </svg>
+        <div class="trends-preview-lock" aria-hidden="true">
+          <span><svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></span>
+        </div>
+      </article>
+    </div>
+
+    <div class="trends-preview-cta">
+      <h3>Unlock your performance trends</h3>
+      <p>Understand your fitness, fatigue, recovery, and training load over time.</p>
+      <button type="button"
+        onclick="AthlevoAccessGuard.showUpgradeSheet('trends','trends')">Upgrade to Athlevo Performance</button>
+      <span class="trends-preview-price">₱597/month · Cancel anytime</span>
+    </div>
+  </div>
 
   <div class="trends-shell" id="trendsContent" hidden>
     <div class="trend-history-notice" id="trendHistoryNotice" hidden>
@@ -4131,13 +4300,6 @@ body.landing-active #tabbar{display:none!important}
       <p class="trend-interpretation" id="trendLoadInterpretation"></p>
       <p class="trend-text-summary" id="trendLoadSummary" tabindex="0"></p>
     </article>
-
-    <div id="trendsUpgrade" class="ag-cta" style="display:none">
-      <div class="ag-cta-badge">Athlevo Performance</div>
-      <p class="ag-cta-text">Unlock weekly analysis, training trajectory, and premium recommendations.</p>
-      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Upgrade to Athlevo Performance</button>
-      <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
-    </div>
 
     <div class="spacer-lg"></div>
   </div>
@@ -4317,6 +4479,30 @@ body.landing-active #tabbar{display:none!important}
 </section>
 
 <div class="toast" id="toast">Done</div>
+
+<!-- One reusable explanation for every Athlevo Performance feature lock. -->
+<div class="performance-upgrade-back" id="performanceUpgradeModal" role="dialog"
+  aria-modal="true" aria-hidden="true" aria-labelledby="performanceUpgradeTitle"
+  onclick="if(event.target===this)AthlevoAccessGuard.closeUpgradeSheet()">
+  <div class="performance-upgrade-sheet">
+    <span class="performance-upgrade-eyebrow">Athlevo Performance</span>
+    <h2 id="performanceUpgradeTitle">See the full picture behind your training.</h2>
+    <ul class="performance-upgrade-benefits">
+      <li>Recovery and Training Load insights</li>
+      <li>Fitness, Fatigue, Form, and Load trends</li>
+      <li>Adaptive plan changes</li>
+      <li>Deeper workout analysis</li>
+      <li>Ongoing AI coaching</li>
+    </ul>
+    <p class="performance-upgrade-price">₱597/month</p>
+    <div class="performance-upgrade-actions">
+      <button class="performance-upgrade-primary" type="button"
+        onclick="AthlevoAccessGuard.checkoutFromUpgrade()">Upgrade to Athlevo Performance</button>
+      <button class="performance-upgrade-secondary" type="button"
+        onclick="AthlevoAccessGuard.closeUpgradeSheet()">Not now</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════ LESSON MODAL ══════════════ -->
 <div class="modal-back" id="lessonModal" onclick="if(event.target===this)closeLesson()">
@@ -5899,11 +6085,30 @@ async function renderTodayPassiveStatus(profile){
   var recoveryValue = document.getElementById("todayRecoverySignalValue");
   var recoveryNote = document.getElementById("todayRecoverySignalNote");
   var recoveryQuality = document.getElementById("todayRecoverySignalQuality");
+  var premiumTeaser = document.getElementById("todayPremiumInsightTeaser");
   var why = document.getElementById("todayDirectionWhy");
   if (!block || !label || !coaching || !card) return;
 
-  function set(view){
+  function setLockedSignal(root, valueNode, noteNode, qualityNode, name){
+    if (!root || !valueNode || !noteNode) return;
+    root.dataset.premiumState = "locked";
+    root.dataset.tone = "missing";
+    root.dataset.progressKind = "premium-preview";
+    root.dataset.animated = "false";
+    root.style.setProperty("--signal-progress", "38");
+    valueNode.textContent = "••";
+    valueNode.dataset.long = "false";
+    noteNode.textContent = "Performance";
+    if (qualityNode) qualityNode.textContent = "";
+    root.setAttribute(
+      "aria-label",
+      name + ", available with Athlevo Performance"
+    );
+  }
+
+  function set(view, premiumAccess){
     var value = view || buildAthlevoDirectionView({});
+    var paid = premiumAccess === true;
     var key = String(value.direction.state || "HOLD").toLowerCase();
     block.dataset.direction = key;
     card.dataset.direction = key;
@@ -5931,34 +6136,75 @@ async function renderTodayPassiveStatus(profile){
       readinessNote,
       value.signals.readiness
     );
-    setSignal(loadSignal, loadValue, loadNote, value.signals.load, "Training load");
-    renderTodayRecoverySignal(
-      recoverySignal,
-      recoveryValue,
-      recoveryNote,
-      recoveryQuality,
-      value.signals.recovery
-    );
+    if (paid){
+      loadSignal.dataset.premiumState = "unlocked";
+      recoverySignal.dataset.premiumState = "unlocked";
+      setSignal(loadSignal, loadValue, loadNote, value.signals.load, "Training load");
+      renderTodayRecoverySignal(
+        recoverySignal,
+        recoveryValue,
+        recoveryNote,
+        recoveryQuality,
+        value.signals.recovery
+      );
+    } else {
+      if (todayRecoveryRingState.animationFrame !== null && window.cancelAnimationFrame) {
+        window.cancelAnimationFrame(todayRecoveryRingState.animationFrame);
+      }
+      if (todayRecoveryRingState.cleanupTimer !== null && window.clearTimeout) {
+        window.clearTimeout(todayRecoveryRingState.cleanupTimer);
+      }
+      todayRecoveryRingState.confirmedScore = null;
+      todayRecoveryRingState.hasConfirmedScore = false;
+      todayRecoveryRingState.animationFrame = null;
+      todayRecoveryRingState.cleanupTimer = null;
+      setLockedSignal(
+        loadSignal, loadValue, loadNote, null, "Training Load"
+      );
+      setLockedSignal(
+        recoverySignal, recoveryValue, recoveryNote, recoveryQuality, "Recovery"
+      );
+      if (window.AthlevoAccessGuard){
+        window.AthlevoAccessGuard.trackPremiumView("training_load", "today");
+        window.AthlevoAccessGuard.trackPremiumView("recovery", "today");
+      }
+    }
 
     if (card.dataset.planState !== "no-plan" && card.dataset.planState !== "unavailable"){
       label.textContent = value.recommendationTitle;
-      coaching.textContent = value.coaching;
+      coaching.textContent = paid
+        ? value.coaching
+        : value.direction.state === "RECOVER"
+          ? "Prioritize easy training or recovery."
+          : value.direction.state === "PUSH"
+            ? "Follow today’s planned effort."
+            : "Keep the effort measured.";
     }
+    if (premiumTeaser) premiumTeaser.hidden = paid;
     card.setAttribute(
       "aria-label",
       "Athlevo Direction: " + value.direction.state + ". " + label.textContent +
         " " + coaching.textContent + (value.quality ? " " + value.quality + "." : "")
     );
-    if (why) why.textContent = value.why;
+    if (why) {
+      why.textContent = paid
+        ? value.why
+        : "Athlevo Performance explains how recovery and recent training load shaped this recommendation.";
+    }
   }
 
   try {
+    var paid = window.AthlevoAccessGuard &&
+      typeof window.AthlevoAccessGuard.accessState === "function"
+      ? (await window.AthlevoAccessGuard.accessState()) === "paid_active"
+      : false;
     if (!window.CoachBrainData || !window.CoachBrainData.collectSignals){
-      set(buildAthlevoDirectionView({}));
+      set(buildAthlevoDirectionView({}), paid);
       return;
     }
     var signals = await window.CoachBrainData.collectSignals(profile || null);
     if (
+      paid &&
       window.AthlevoRecovery &&
       typeof window.AthlevoRecovery.calculateRecovery === "function"
     ){
@@ -5966,9 +6212,9 @@ async function renderTodayPassiveStatus(profile){
         buildTodayRecoveryInput(signals)
       );
     }
-    set(buildAthlevoDirectionView(signals));
+    set(buildAthlevoDirectionView(signals), paid);
   } catch (e) {
-    set(buildAthlevoDirectionView({}));
+    set(buildAthlevoDirectionView({}), false);
   }
 }
 
@@ -6479,16 +6725,16 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js?v=67"></script>
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
-<script src="js/trendsAnalytics.js?v=68"></script>
+<script src="js/trendsAnalytics.js?v=69"></script>
 <script src="js/socialAuth.js?v=67"></script>
-<script src="js/analyticsRegistry.js?v=67"></script>
+<script src="js/analyticsRegistry.js?v=69"></script>
 <script src="js/metaPixel.js?v=67"></script>
-<script src="js/analytics.js?v=67"></script>
+<script src="js/analytics.js?v=69"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=67"></script>
 <script src="js/onboardingConnect.js?v=67"></script>
 <script src="js/productionVerify.js?v=67"></script>
-<script src="js/athlevoScore.js?v=67"></script>
+<script src="js/athlevoScore.js?v=69"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
 <script src="js/coachBrain.js?v=67"></script>
@@ -6508,7 +6754,7 @@ setTimeout(function () {
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
-<script src="js/accessGuard.js?v=67"></script>
+<script src="js/accessGuard.js?v=69"></script>
 <script src="js/planSetup.js?v=67"></script>
 <script src="js/feedback.js?v=67"></script>
 <script src="js/readiness.js?v=68"></script>

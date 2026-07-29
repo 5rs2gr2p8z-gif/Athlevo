@@ -17,6 +17,13 @@
   "use strict";
 
   const WHOP_CHECKOUT_URL = "https://whop.com/checkout/plan_F5PftzWCJCQVw";
+  const PREMIUM_FEATURES = new Set([
+    "training_load", "recovery", "athlevo_score", "trends"
+  ]);
+  const PREMIUM_SURFACES = new Set(["today", "trends", "upgrade_sheet"]);
+  const viewedThisSession = new Set();
+  let upgradeContext = { feature: "trends", surface: "upgrade_sheet" };
+  let restoreFocusTo = null;
 
   /* ─────────────── entitlement helpers ───────────────────────────── */
 
@@ -25,21 +32,40 @@
    * Uses the already-loaded subscription from features.js — no extra
    * network call if AthlevoPlan is already loaded.
    */
-  async function hasPaidAccess() {
-    if (!window.AthlevoPlan) return false;
+  function cachedAccessState() {
+    if (!window.AthlevoPlan ||
+        typeof window.AthlevoPlan.isLoaded !== "function" ||
+        window.AthlevoPlan.isLoaded() !== true) {
+      return "unknown";
+    }
     try {
-      if (typeof window.AthlevoPlan.load === "function") {
-        await window.AthlevoPlan.load();
-      }
       if (typeof window.AthlevoPlan.entitlement === "function") {
         const ent = window.AthlevoPlan.entitlement();
-        return ent && ent.tier > 0;
-      }
-      if (typeof window.AthlevoPlan.canUse === "function") {
-        return window.AthlevoPlan.canUse("adaptive_ai");
+        const state = ent && ent.accessState;
+        if (state === "paid_active" || state === "paid_inactive" || state === "free") {
+          return state;
+        }
       }
     } catch (e) {}
-    return false;
+    return "unknown";
+  }
+
+  async function accessState() {
+    if (!window.AthlevoPlan) return "unknown";
+    try {
+      if (cachedAccessState() === "unknown" &&
+          typeof window.AthlevoPlan.load === "function") {
+        await window.AthlevoPlan.load();
+      }
+      const state = cachedAccessState();
+      return state === "unknown" ? "free" : state;
+    } catch (e) {
+      return "free";
+    }
+  }
+
+  async function hasPaidAccess() {
+    return (await accessState()) === "paid_active";
   }
 
   function esc(v) {
@@ -147,15 +173,14 @@
     "screen-trends"
   ]);
 
-  function syncTrendsUpgrade(paid) {
-    const upgrade = document.getElementById("trendsUpgrade");
-    if (upgrade) upgrade.style.display = paid ? "none" : "block";
-  }
-
   async function guardTab(screenId) {
     if (!FREE_TABS.has(screenId)) return false;
-    const paid = await hasPaidAccess();
-    if (screenId === "screen-trends") syncTrendsUpgrade(paid);
+    await accessState();
+    if (screenId === "screen-trends" &&
+        window.AthlevoTrendsAnalytics &&
+        typeof window.AthlevoTrendsAnalytics.refresh === "function") {
+      await window.AthlevoTrendsAnalytics.refresh();
+    }
     return false;
   }
 
@@ -209,20 +234,110 @@
     return url;
   }
 
-  function checkout() {
+  function categoricalContext(context, surfaceFallback) {
+    const input = context && typeof context === "object" ? context : {};
+    const feature = PREMIUM_FEATURES.has(input.feature) ? input.feature : null;
+    const surface = PREMIUM_SURFACES.has(input.surface)
+      ? input.surface
+      : surfaceFallback;
+    return { feature, surface };
+  }
+
+  function trackCategorical(name, context) {
+    const safe = categoricalContext(context, "upgrade_sheet");
+    const props = { surface: safe.surface };
+    if (safe.feature) props.feature = safe.feature;
     try {
-      if (window.AthlevoProductAnalytics) {
-        AthlevoProductAnalytics.trackAthlevoEvent("upgrade_clicked", {
-          source: "feature_gate"
-        });
+      if (window.AthlevoAnalytics) {
+        window.AthlevoAnalytics.track(name, props);
       }
     } catch (e) {}
     try {
       if (window.AthlevoProductAnalytics) {
-        AthlevoProductAnalytics.trackAthlevoEvent("checkout_opened");
+        window.AthlevoProductAnalytics.trackAthlevoEvent(name, props);
       }
     } catch (e) {}
+  }
+
+  function trackPremiumView(feature, surface) {
+    const safe = categoricalContext({ feature, surface }, "today");
+    if (!safe.feature) return;
+    const key = `${safe.feature}:${safe.surface}`;
+    if (viewedThisSession.has(key)) return;
+    viewedThisSession.add(key);
+    trackCategorical("premium_feature_viewed", safe);
+  }
+
+  function checkout(context) {
+    const safe = categoricalContext(context, "upgrade_sheet");
+    trackCategorical("upgrade_clicked", safe);
+    trackCategorical("checkout_opened", safe);
     window.open(checkoutUrl(), "_blank", "noopener");
+  }
+
+  function focusableIn(modal) {
+    if (!modal || typeof modal.querySelectorAll !== "function") return [];
+    return Array.from(modal.querySelectorAll(
+      'button:not([disabled]),a[href],input:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    )).filter(node => !node.hidden);
+  }
+
+  function closeUpgradeSheet() {
+    const modal = document.getElementById("performanceUpgradeModal");
+    if (!modal) return;
+    modal.classList.remove("show");
+    modal.setAttribute("aria-hidden", "true");
+    if (restoreFocusTo && typeof restoreFocusTo.focus === "function") {
+      restoreFocusTo.focus();
+    }
+    restoreFocusTo = null;
+  }
+
+  function onUpgradeKeydown(event) {
+    const modal = document.getElementById("performanceUpgradeModal");
+    if (!modal || !modal.classList.contains("show")) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeUpgradeSheet();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const nodes = focusableIn(modal);
+    if (!nodes.length) return;
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function showUpgradeSheet(feature, surface) {
+    const modal = document.getElementById("performanceUpgradeModal");
+    if (!modal) return;
+    const safe = categoricalContext({ feature, surface }, "today");
+    upgradeContext = {
+      feature: safe.feature || "trends",
+      surface: "upgrade_sheet"
+    };
+    trackPremiumView(safe.feature || "trends", safe.surface);
+    restoreFocusTo = document.activeElement;
+    modal.classList.add("show");
+    modal.setAttribute("aria-hidden", "false");
+    if (modal.dataset.focusBound !== "true") {
+      modal.addEventListener("keydown", onUpgradeKeydown);
+      modal.dataset.focusBound = "true";
+    }
+    const nodes = focusableIn(modal);
+    if (nodes.length && typeof nodes[0].focus === "function") nodes[0].focus();
+  }
+
+  function checkoutFromUpgrade() {
+    checkout(upgradeContext);
+    closeUpgradeSheet();
   }
 
   /*
@@ -237,9 +352,15 @@
 
   window.AthlevoAccessGuard = {
     guardTab,
+    accessState,
+    cachedAccessState,
     hasPaidAccess,
     unlockAll,
     checkout,
-    VERSION: "access-guard-v1"
+    checkoutFromUpgrade,
+    showUpgradeSheet,
+    closeUpgradeSheet,
+    trackPremiumView,
+    VERSION: "access-guard-v2"
   };
 })();

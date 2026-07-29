@@ -83,6 +83,12 @@ const makeResponse = () => {
 };
 
 async function callTrends({
+  subscription = {
+    provider: "whop",
+    plan_id: "performance",
+    status: "active",
+    current_period_end: "2099-01-01T00:00:00.000Z"
+  },
   account = {
     id: "pa-a",
     user_id: "user-a",
@@ -107,6 +113,9 @@ async function callTrends({
       text: async () => JSON.stringify(payload)
     });
     if (value.includes("/auth/v1/user")) return json(200, { id: "user-a" });
+    if (value.includes("/rest/v1/subscriptions")) {
+      return json(200, subscription ? [subscription] : []);
+    }
     if (value.includes("/rest/v1/provider_accounts")) {
       return json(200, account ? [account] : []);
     }
@@ -129,6 +138,8 @@ async function callTrends({
 section("Authenticated provider route and security");
 {
   const { response, seen } = await callTrends();
+  test("paid_active receives personalized premium Trends data",
+    response.code === 200 && Array.isArray(response.body.days));
   const accountRead = seen.find(call => call.url.includes("/rest/v1/provider_accounts"));
   test("route scopes provider lookup to verified JWT user",
     accountRead && accountRead.url.includes("user_id=eq.user-a"));
@@ -145,6 +156,39 @@ section("Authenticated provider route and security");
     !JSON.stringify(response.body).includes("provider-secret-token") &&
     !JSON.stringify(response.body).includes("service-secret") &&
     !Object.prototype.hasOwnProperty.call(response.body, "access_token"));
+
+  const free = await callTrends({
+    subscription: null,
+    body: {
+      range: "3m",
+      entitlement: "paid_active",
+      checkout_return: "success"
+    }
+  });
+  test("free receives structured premium-required response without personalized data",
+    free.response.code === 402 &&
+    free.response.body.code === "PERFORMANCE_REQUIRED" &&
+    free.response.body.feature === "trends_analytics" &&
+    !Object.prototype.hasOwnProperty.call(free.response.body, "days"));
+  test("free does not trigger provider-account or Intervals wellness fetch",
+    !free.seen.some(call => call.url.includes("/rest/v1/provider_accounts")) &&
+    !free.seen.some(call => call.url.includes("/athlete/0/wellness")));
+
+  const inactive = await callTrends({
+    subscription: {
+      provider: "whop",
+      plan_id: "performance",
+      status: "expired",
+      current_period_end: "2025-01-01T00:00:00.000Z"
+    }
+  });
+  test("paid_inactive receives no personalized premium Trends data",
+    inactive.response.code === 402 &&
+    inactive.response.body.code === "PERFORMANCE_REQUIRED" &&
+    !inactive.seen.some(call => call.url.includes("/athlete/0/wellness")));
+  test("client entitlement and checkout-return fields cannot unlock Trends",
+    free.response.code === 402 &&
+    !free.seen.some(call => call.url.includes("/athlete/0/wellness")));
 
   const disconnected = await callTrends({ account: null });
   test("disconnected athlete receives the correct state",
@@ -167,13 +211,18 @@ section("Authenticated provider route and security");
     failure.response.body.code === "PROVIDER_UNAVAILABLE" &&
     !Object.prototype.hasOwnProperty.call(failure.response.body, "days"));
   test("route never accepts a client athlete or user identifier",
-    /const range = request\.body && request\.body\.range/.test(providerSource) &&
-    !/actionTrends[\s\S]*?request\.body\.(?:user|user_id|athlete|athlete_id)/.test(
-      providerSource.slice(
+    (() => {
+      const route = providerSource.slice(
         providerSource.indexOf("async function actionTrends"),
         providerSource.indexOf("ACTION: diagnose")
-      )
-    ));
+      );
+      return /const range = request\.body && request\.body\.range/.test(route) &&
+    !/actionTrends[\s\S]*?request\.body\.(?:user|user_id|athlete|athlete_id)/.test(
+      route
+    ) &&
+      route.indexOf('requirePaidAccess(user.id, "trends_analytics")') <
+        route.indexOf("const account = await readProviderAccount");
+    })());
 }
 
 const context = { window: {} };

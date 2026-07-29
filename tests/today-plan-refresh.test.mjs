@@ -218,8 +218,10 @@ const directionMarkup = today.slice(
   today.indexOf('<article class="direction-card"'),
   today.indexOf("</article>", today.indexOf('<article class="direction-card"')) + "</article>".length
 );
-test("the first viewport still contains exactly one contextual CTA",
-  (directionMarkup.match(/<button\b/g) || []).length === 1);
+test("the first viewport keeps one plan/workout CTA and one explicit insight CTA",
+  (directionMarkup.match(/id="todayDirectionAction"/g) || []).length === 1 &&
+  (directionMarkup.match(/id="todayPremiumInsightTeaser"/g) || []).length === 1 &&
+  (directionMarkup.match(/<button\b/g) || []).length === 2);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

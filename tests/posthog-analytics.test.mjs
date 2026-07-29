@@ -108,7 +108,7 @@ section("Event names");
 const EXPECTED_EVENTS = [
   "landing_viewed", "free_account_created", "onboarding_completed",
   "data_connection_completed", "first_plan_generated",
-  "free_limit_reached", "upgrade_clicked", "checkout_opened",
+  "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
   "paid_subscription_activated", "readiness_prompt_shown",
   "readiness_prompt_dismissed", "readiness_check_completed",
   "coach_message_sent", "app_returned"
@@ -213,6 +213,25 @@ t("overly long strings are dropped", (() => {
     source: "a".repeat(100)   // > 80 chars
   });
   return !("source" in captured[0].props) || captured[0].props.source !== "a".repeat(100);
+})());
+
+t("premium events contain only categorical feature and surface", (() => {
+  const { api, captured } = makeAnalytics({
+    key: "phc_test",
+    search: "?utm_source=private-campaign"
+  });
+  api.trackAthlevoEvent("premium_feature_viewed", {
+    feature: "recovery",
+    surface: "today",
+    source: "feature_gate",
+    readiness: 72,
+    score: 88
+  });
+  const props = captured[0].props;
+  return JSON.stringify(Object.keys(props).sort()) ===
+    JSON.stringify(["feature", "surface"]) &&
+    props.feature === "recovery" &&
+    props.surface === "today";
 })());
 
 /* ─────────────── UTM capture and persistence ─────────────────────── */

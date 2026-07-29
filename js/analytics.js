@@ -47,7 +47,7 @@
   var SAFE_PROPS = [
     "source", "campaign", "medium", "provider", "auth_method",
     "device_type", "is_first_time", "wearable", "experience_level",
-    "plan_goal_type", "feature", "limit_period",
+    "plan_goal_type", "feature", "surface", "limit_period",
     "completion_status",
     "utm_source", "utm_medium", "utm_campaign"
   ];
@@ -163,15 +163,24 @@
       if (!ph || typeof ph.capture !== "function") return;
 
       var safe = sanitize(properties);
-      // Merge UTM params into every event
-      var utm = utmProps();
-      Object.keys(utm).forEach(function (k) { if (!safe[k]) safe[k] = utm[k]; });
-
-      // Add device_type if not provided
-      if (!safe.device_type) {
-        try {
-          safe.device_type = /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop";
-        } catch (e) {}
+      var premiumCategorical = name === "premium_feature_viewed" ||
+        name === "upgrade_clicked" ||
+        name === "checkout_opened";
+      if (premiumCategorical) {
+        safe = {
+          ...(safe.feature ? { feature: safe.feature } : {}),
+          ...(safe.surface ? { surface: safe.surface } : {})
+        };
+      } else {
+        // Acquisition and device context belong on general funnel events.
+        // Premium feature events intentionally carry feature/surface only.
+        var utm = utmProps();
+        Object.keys(utm).forEach(function (k) { if (!safe[k]) safe[k] = utm[k]; });
+        if (!safe.device_type) {
+          try {
+            safe.device_type = /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop";
+          } catch (e) {}
+        }
       }
 
       ph.capture(name, safe);

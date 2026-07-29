@@ -47,6 +47,7 @@ import {
   buildProviderTrendsResponse,
   dateRangeForTrends
 } from "../../lib/server/providerTrends.js";
+import { requirePaidAccess } from "../../lib/server/freemium.js";
 
 /* ───────────────────────────── logging ──────────────────────────────── */
 
@@ -1429,6 +1430,28 @@ async function actionTrends(request, response, cid) {
     return response.status(401).json({
       error: "Authentication is required.",
       code: "UNAUTHENTICATED"
+    });
+  }
+
+  /*
+   * Premium analytics are protected before provider-account lookup and before
+   * any Intervals wellness request. The client may select only a bounded time
+   * range; entitlement is always resolved from the authenticated user's
+   * service-role subscription row.
+   */
+  const access = await requirePaidAccess(user.id, "trends_analytics");
+  if (access.serviceUnavailable) {
+    return response.status(503).json({
+      error: "We couldn't verify access right now. Please try again.",
+      code: "ENTITLEMENT_UNAVAILABLE",
+      feature: "trends_analytics"
+    });
+  }
+  if (!access.allowed) {
+    return response.status(402).json({
+      error: "Athlevo Performance is required to view performance trends.",
+      code: "PERFORMANCE_REQUIRED",
+      feature: "trends_analytics"
     });
   }
 

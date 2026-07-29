@@ -632,6 +632,33 @@
       : "Your development is holding steady.";
   }
 
+  function renderLockedScoreCard() {
+    const mount = document.getElementById("athlevoScoreCard");
+    if (!mount) return;
+    // Never place a personalized score, component, history value or hidden
+    // accessibility value in the free preview.
+    mount.innerHTML = `
+      <section class="asc-locked" aria-label="Athlevo Score, Athlevo Performance feature">
+        <div class="asc-locked-head">
+          <span class="asc-eyebrow">Athlevo Score</span>
+          <span class="asc-locked-mark" aria-hidden="true">
+            <strong class="asc-locked-value">••</strong>
+            <span class="asc-lock-icon">
+              <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
+            </span>
+          </span>
+        </div>
+        <p>Track how your training is developing over time.</p>
+        <button type="button"
+          onclick="AthlevoAccessGuard.showUpgradeSheet('athlevo_score','today')">Unlock Athlevo Score</button>
+      </section>`;
+    try {
+      if (window.AthlevoAccessGuard) {
+        window.AthlevoAccessGuard.trackPremiumView("athlevo_score", "today");
+      }
+    } catch (e) {}
+  }
+
   function renderScoreCard(result) {
     const mount = document.getElementById("athlevoScoreCard");
     if (!mount) return;
@@ -904,6 +931,24 @@
     const mount = document.getElementById("athlevoScoreCard");
     if (!mount) return null;
     try {
+      const access = window.AthlevoAccessGuard &&
+        typeof window.AthlevoAccessGuard.accessState === "function"
+        ? await window.AthlevoAccessGuard.accessState()
+        : "free";
+      if (access !== "paid_active") {
+        lastResult = null;
+        lastFitness = null;
+        scoreHistory = [];
+        try { window.__athlevoLastComponents = null; } catch (e) {}
+        const details = document.getElementById("scoreDetailModal");
+        if (details) {
+          details.classList.remove("show");
+          details.innerHTML = "";
+        }
+        renderLockedScoreCard();
+        return null;
+      }
+
       const {
         data: { user }
       } = await supabaseClient.auth.getUser();
@@ -987,7 +1032,8 @@
     refresh,
     openDetails,
     closeDetails,
-    renderScoreCard
+    renderScoreCard,
+    renderLockedScoreCard
   };
   window.renderAthlevoScoreCard = refresh; // repoint the existing hook
 })();

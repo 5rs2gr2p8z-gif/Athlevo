@@ -63,7 +63,10 @@ section("Free navigation");
     test(`${screen} remains available to free users`,
       await sandbox.AthlevoAccessGuard.guardTab(screen) === false);
   }
-  test("advanced Trends shows an upgrade entry", mounts.trendsUpgrade.style.display === "block");
+  test("advanced Trends has a static Performance preview entry",
+    /id="trendsPerformancePreview"/.test(indexSource) &&
+    /Unlock your performance trends/.test(indexSource) &&
+    /showUpgradeSheet\('trends','trends'\)/.test(indexSource));
   test("Today is never blocked",
     await sandbox.AthlevoAccessGuard.guardTab("screen-today") === false);
 }
@@ -78,9 +81,8 @@ section("Whop authority");
   });
   test("verified active Whop subscription has paid access",
     await active.sandbox.AthlevoAccessGuard.hasPaidAccess());
-  await active.sandbox.AthlevoAccessGuard.guardTab("screen-trends");
-  test("paid user does not see Trends upgrade entry",
-    active.mounts.trendsUpgrade.style.display === "none");
+  test("paid user state is resolved only from verified entitlement",
+    await active.sandbox.AthlevoAccessGuard.accessState() === "paid_active");
 
   const unverified = browser({
     provider: "manual", plan_id: "performance", status: "active"
@@ -114,7 +116,7 @@ section("Upgrade and safety");
   const { sandbox, analytics, opened } = browser(null);
   sandbox.AthlevoAccessGuard.checkout();
   test("upgrade click is tracked", analytics.some(e =>
-    e.name === "upgrade_clicked" && e.props.source === "feature_gate"));
+    e.name === "upgrade_clicked" && e.props.surface === "upgrade_sheet"));
   test("explicit upgrade click opens Whop once",
     opened.length === 1 && /whop\.com/.test(opened[0].url));
   test("checkout opening is tracked",
@@ -128,6 +130,8 @@ section("Upgrade and safety");
     /AthlevoAccessGuard.*guardTab/.test(indexSource));
   test("obsolete paywall screen and bundle are removed",
     !/screen-paywall|paywallBody|js\/paywall\.js/.test(indexSource));
+  test("exactly one reusable Performance upgrade sheet exists",
+    (indexSource.match(/id="performanceUpgradeModal"/g) || []).length === 1);
   test("no timed free-trial copy remains",
     !/start\s+(?:my\s+)?(?:\d+[-\s]day\s+)?free\s+trial|3\s+days\s+free|after\s+(?:the\s+)?trial|trial\s+ends/i.test(
       [guardSource, onboardingSource, indexSource].join("\n")));

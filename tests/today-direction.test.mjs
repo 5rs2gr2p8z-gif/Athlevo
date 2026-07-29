@@ -707,9 +707,10 @@ test("left state accent and its pseudo-element are removed",
   !/--direction-accent|--direction-recover|--direction-hold|--direction-push/.test(directionCss));
 test("controlled recommendation is concise and limited-data aware",
   /id="todayDirectionLabel">Keep today controlled\.<\/p>[\s\S]*?id="todayDirectionCoaching">Limited data means today should stay measured\.<\/p>/.test(today));
-test("Direction card has exactly one contextual action",
-  (directionMarkup.match(/<button\b/g) || []).length === 1 &&
+test("Direction card keeps one workout action plus one explicit premium-insight action",
+  (directionMarkup.match(/<button\b/g) || []).length === 2 &&
   /id="todayDirectionAction"[\s\S]*?onclick="todayDirectionPrimaryAction\(\)"/.test(directionMarkup) &&
+  /id="todayPremiumInsightTeaser"[\s\S]*?Unlock insights/.test(directionMarkup) &&
   !/role="(?:tab|slider)"|onpointer|tabindex=/.test(directionMarkup));
 test("all three compact signal indicators have dynamic mounts",
   /id="todayDirectionCoaching"/.test(today) &&
@@ -718,7 +719,7 @@ test("all three compact signal indicators have dynamic mounts",
   /id="todayRecoverySignalValue"/.test(today) &&
   (directionMarkup.match(/class="direction-signal-ring"/g) || []).length === 3);
 test("the third signal is visibly and accessibly named Recovery",
-  /id="todayRecoverySignal" aria-label="Recovery: not enough data"/.test(directionMarkup) &&
+  /id="todayRecoverySignal"[\s\S]{0,100}aria-label="Recovery access is loading"/.test(directionMarkup) &&
   /class="direction-signal-name">Recovery<\/span>/.test(directionMarkup) &&
   /value\.signals\.recovery/.test(html) &&
   !/class="direction-signal-name">Freshness<\/span>/.test(directionMarkup) &&

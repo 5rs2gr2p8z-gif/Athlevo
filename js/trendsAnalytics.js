@@ -491,6 +491,10 @@
     const content = document.getElementById("trendsContent");
     const state = document.getElementById("trendsState");
     if (!content || !state) return;
+    const preview = document.getElementById("trendsPerformancePreview");
+    const ranges = document.getElementById("trendRangeControls");
+    if (preview) preview.hidden = true;
+    if (ranges) ranges.hidden = false;
     const days = expandTrendDays(data.oldest, data.newest, data.days);
     const latestFitness = latestValue(days, "fitness");
     const latestFatigue = latestValue(days, "fatigue");
@@ -589,6 +593,10 @@
     const state = document.getElementById("trendsState");
     const content = document.getElementById("trendsContent");
     if (!state || !content) return;
+    const preview = document.getElementById("trendsPerformancePreview");
+    const ranges = document.getElementById("trendRangeControls");
+    if (preview) preview.hidden = true;
+    if (ranges) ranges.hidden = false;
     content.hidden = true;
 
     const reconnect = code === "TRENDS_SCOPE_REQUIRED" || code === "RECONNECT_REQUIRED";
@@ -618,6 +626,38 @@
       </div>`;
   }
 
+  function renderEntitlementLoading() {
+    const state = document.getElementById("trendsState");
+    const content = document.getElementById("trendsContent");
+    const preview = document.getElementById("trendsPerformancePreview");
+    const ranges = document.getElementById("trendRangeControls");
+    const summary = document.getElementById("trendsHeaderSummary");
+    if (state) state.innerHTML = "";
+    if (content) content.hidden = true;
+    if (preview) preview.hidden = true;
+    if (ranges) ranges.hidden = true;
+    if (summary) summary.textContent = "Checking Athlevo Performance access…";
+  }
+
+  function renderPerformancePreview() {
+    const state = document.getElementById("trendsState");
+    const content = document.getElementById("trendsContent");
+    const preview = document.getElementById("trendsPerformancePreview");
+    const ranges = document.getElementById("trendRangeControls");
+    const summary = document.getElementById("trendsHeaderSummary");
+    confirmedCache.clear();
+    if (state) state.innerHTML = "";
+    if (content) content.hidden = true;
+    if (preview) preview.hidden = false;
+    if (ranges) ranges.hidden = true;
+    if (summary) summary.textContent = "Athlevo Performance analytics";
+    try {
+      if (root.AthlevoAccessGuard) {
+        root.AthlevoAccessGuard.trackPremiumView("trends", "trends");
+      }
+    } catch (error) {}
+  }
+
   async function currentUserId() {
     try {
       const result = await supabaseClient.auth.getUser();
@@ -631,6 +671,16 @@
 
   async function refresh() {
     bind();
+    renderEntitlementLoading();
+    const access = root.AthlevoAccessGuard &&
+      typeof root.AthlevoAccessGuard.accessState === "function"
+      ? await root.AthlevoAccessGuard.accessState()
+      : "free";
+    if (access !== "paid_active") {
+      renderPerformancePreview();
+      return null;
+    }
+
     const userId = await currentUserId();
     if (!userId || !root.AthlevoBrain ||
         typeof root.AthlevoBrain.loadProviderTrends !== "function") {
@@ -645,6 +695,10 @@
       renderData(data, "");
       return data;
     } catch (error) {
+      if (error && error.code === "PERFORMANCE_REQUIRED") {
+        renderPerformancePreview();
+        return null;
+      }
       const cached = confirmedCache.get(`${userId}:${selectedRange}`);
       if (cached) {
         renderData(
@@ -702,6 +756,7 @@
     renderFitnessChart,
     renderLoadChart,
     fitnessInterpretation,
+    renderPerformancePreview,
     selectRange,
     refresh,
     renderData
