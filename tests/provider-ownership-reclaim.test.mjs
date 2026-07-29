@@ -57,7 +57,7 @@ function world({ accounts = [], pending = [], authUsers = [] } = {}) {
       return who === "none" ? J(401, {}) : J(200, { id: who });
     }
     if (s.includes("intervals.icu/api/oauth/token")) {
-      return J(200, { access_token: TOKEN, athlete: { id: ATHLETE }, scope: "ACTIVITY:READ" });
+      return J(200, { access_token: TOKEN, athlete: { id: ATHLETE }, scope: "ACTIVITY:READ,WELLNESS:READ" });
     }
 
     if (s.includes("/rest/v1/pending_provider_connections")) {

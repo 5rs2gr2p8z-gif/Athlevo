@@ -65,7 +65,7 @@ function resetWorld() {
   PENDING = [];                  // pending_provider_connections
   ACTIVITIES = [];               // activities
   patchedIds = [];
-  TOKEN_RESPONSE = { ok: true, body: { access_token: "ZZsecret-access-tokenZZ", scope: "ACTIVITY:READ", athlete: { id: "999" } } };
+  TOKEN_RESPONSE = { ok: true, body: { access_token: "ZZsecret-access-tokenZZ", scope: "ACTIVITY:READ,WELLNESS:READ", athlete: { id: "999" } } };
   INTERVALS_ACTIVITIES = [];
   INTERVALS_LAPS = null;
   lapEndpointStatus = 200;
@@ -271,7 +271,8 @@ resetWorld();
   await handler(mkReq({ provider: "intervals", action: "connect" }), res);
   const url = res.body && res.body.authorizationUrl ? new URL(res.body.authorizationUrl) : null;
   t("1. connect returns an intervals.icu authorize URL", url && url.origin === "https://intervals.icu" && url.pathname === "/oauth/authorize");
-  t("1b. requests only ACTIVITY:READ (no write scopes)", url && url.searchParams.get("scope") === "ACTIVITY:READ");
+  t("1b. requests only activity and wellness READ scopes (no write scopes)",
+    url && url.searchParams.get("scope") === "ACTIVITY:READ,WELLNESS:READ");
   t("1c. state is signed and present", url && (url.searchParams.get("state") || "").split(".").length === 2);
   t("1d. client_secret never reaches the browser", !JSON.stringify(res.body).includes("csecret"));
   t("1e. logs intervals_oauth_start with a correlation id", LOGS.some(l => l.event === "intervals_oauth_start" && l.correlationId));

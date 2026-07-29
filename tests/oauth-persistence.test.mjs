@@ -45,7 +45,7 @@ function world({ accounts = [], meUser = "A", writeStatus = 201, tokenStatus = 2
     }
     if (s.includes("intervals.icu/api/oauth/token")) {
       if (tokenStatus !== 200) return J(tokenStatus, { error: "bad" });
-      return J(200, { access_token: TOKEN, athlete: { id: "i123" }, scope: "ACTIVITY:READ" });
+      return J(200, { access_token: TOKEN, athlete: { id: "i123" }, scope: "ACTIVITY:READ,WELLNESS:READ" });
     }
 
     if (s.includes("/rest/v1/pending_provider_connections")) {
@@ -151,7 +151,8 @@ section("0. The authorization request Intervals.icu actually receives");
 
   t("redirect_uri targets our callback action",
     q.get("redirect_uri").includes("action=callback"));
-  t("scope stays read-only", q.get("scope") === "ACTIVITY:READ");
+  t("scope stays read-only",
+    q.get("scope") === "ACTIVITY:READ,WELLNESS:READ");
   t("state is the signed two-part form", (q.get("state") || "").split(".").length === 2);
   t("the client secret never reaches the browser",
     !r.body.authorizationUrl.includes("sec") && !JSON.stringify(r.body).includes("sec"));

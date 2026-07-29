@@ -220,6 +220,21 @@
   --warn-soft:#fbf3e4;
   --bad:#c0272d;
   --nav-glass:rgba(255,255,255,.92);
+  /* Trends chart palette — centralized for every SVG series and zone. */
+  --trend-fitness:#2f78bd;
+  --trend-fatigue:#7958b8;
+  --trend-form:#73777e;
+  --trend-fresh:#397fbd;
+  --trend-maintaining:#777b82;
+  --trend-gaining:#27865a;
+  --trend-risk:#c4484d;
+  --trend-detraining:#9a6b32;
+  --trend-load:#c0272d;
+  --trend-zone-fresh:rgba(57,127,189,.10);
+  --trend-zone-maintaining:rgba(119,123,130,.08);
+  --trend-zone-gaining:rgba(39,134,90,.10);
+  --trend-zone-risk:rgba(196,72,77,.10);
+  --trend-zone-detraining:rgba(154,107,50,.10);
   --r-lg:22px;
   --r-md:16px;
   --r-sm:10px;
@@ -1905,64 +1920,80 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .scd-hist-row{display:flex;justify-content:space-between;padding:6px 0;color:var(--ink2)}
 .scd-hist-row span:last-child{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
 
-/* ---------- calendar-week Trends (mobile-first, light premium cards) ---------- */
-/* Trends reuses .decision, but here the cards read best light: fixes the
-   dark-on-dark label contrast and lets the charts become the hero. */
-#screen-trends .decision{background:var(--paper);color:var(--text);border:1px solid var(--line);padding:var(--s-5)}
-#screen-trends .decision .eyebrow{color:var(--ink3)}
-#screen-trends .decision>p{color:var(--ink2)}
-#screen-trends .greet{margin-bottom:4px}
-#screen-trends .spacer-md{height:14px}
-
-.trend-narrative{font-size:var(--fs-body);line-height:1.6;color:var(--text);margin-top:10px}
-.trend-metrics{display:flex;flex-direction:column;margin-top:12px}
-.tm-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-top:1px solid var(--line)}
-.tm-row:first-child{border-top:none;padding-top:2px}
-.tm-left{display:flex;flex-direction:column;gap:3px;min-width:0}
-.tm-label{font-size:var(--fs-caption);color:var(--ink3);font-weight:600;letter-spacing:.01em}
-.tm-cur{font-size:var(--fs-h3);font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.tm-diff{font-size:var(--fs-body-sm);font-weight:700;color:var(--good);text-align:right;flex-shrink:0}
-.tm-diff.muted{color:var(--ink3);font-weight:600}
-.trend-foot{font-size:var(--fs-caption);color:var(--ink3);margin-top:14px;line-height:var(--lh-body)}
-
-/* Six-week volume: bars are the hero, current week highlighted, past secondary */
-/* Deterministic 6-column grid — equal columns, shared baseline, no overflow. */
-.trend-sixweek{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--s-2);align-items:end;padding-top:6px;width:100%;max-width:100%;box-sizing:border-box;overflow:hidden}
-.tw-col{min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center}
-.tw-val{font-size:var(--fs-micro);color:var(--ink3);font-weight:600;font-variant-numeric:tabular-nums;height:15px;letter-spacing:-.02em}
-.tw-track{height:132px;width:70%;max-width:34px;display:flex;flex-direction:column;justify-content:flex-end;margin:7px 0;border-bottom:1.5px solid var(--line)}
-.tw-bar{width:100%;border-radius:7px 7px 0 0;transition:height .6s var(--ease-standard)}
-.tw-bar.past{background:#e6e6e2}
-.tw-bar.current{background:linear-gradient(180deg,#e0575d 0%,var(--red) 100%)}
-.tw-rem{width:100%;border:1.5px dashed var(--red);border-bottom:none;border-radius:7px 7px 0 0;opacity:.4;box-sizing:border-box}
-.tw-lab{font-size:var(--fs-micro);color:var(--ink3);margin-top:6px;line-height:var(--lh-heading);letter-spacing:-.01em;height:13px;overflow:hidden;white-space:nowrap;max-width:100%}
-.tw-col.current .tw-val{color:var(--red);font-weight:800}
-.tw-col.current .tw-lab{color:var(--red);font-weight:800}
-
-/* Trends: current-week block progress + comparison */
-.tbp{margin-bottom:18px}
-.tbp-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
-.tbp-label{font-size:var(--fs-micro);font-weight:700;letter-spacing:.09em;color:var(--ink3);text-transform:uppercase}
-.tbp-val{font-size:var(--fs-h3);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.tbp-bar{height:10px;background:var(--card);border-radius:var(--r-pill);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
-.tbp-bar i{display:block;height:100%;background:linear-gradient(90deg,#e0575d,var(--red));border-radius:var(--r-pill);transition:width .6s var(--ease-standard)}
-.tbp-cmp{display:inline-block;margin-top:10px;font-size:var(--fs-caption);font-weight:700}
-.tbp-cmp.up{color:var(--good)}
-.tbp-cmp.muted{color:var(--ink3);font-weight:600}
-
-/* ---------- Race prediction: motivational unlock checklist ---------- */
-.predict{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5)}
-.predict-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-3)}
-.predict-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.01em;line-height:var(--lh-heading);margin-top:6px;color:var(--text)}
-.predict-badge{flex-shrink:0;font-size:var(--fs-micro);font-weight:700;letter-spacing:.04em;color:var(--ink3);background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:var(--r-pill);white-space:nowrap}
-.predict-lead{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:12px 0 16px}
-.predict-checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
-.predict-checklist li{display:flex;gap:var(--s-3);align-items:flex-start}
-.predict-checklist .pc-dot{flex-shrink:0;width:20px;height:20px;border-radius:50%;margin-top:1px;border:2px solid var(--line);background:var(--paper);position:relative}
-.predict-checklist .pc-dot::after{content:"";position:absolute;inset:0;margin:auto;width:6px;height:6px;border-radius:50%;background:var(--line)}
-.predict-checklist b{display:block;font-size:var(--fs-body);font-weight:700;letter-spacing:-.01em;color:var(--text)}
-.predict-checklist small{display:block;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink3);margin-top:2px}
-.predict-foot{font-size:var(--fs-caption);color:var(--ink3);line-height:var(--lh-body);margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+/* ---------- graph-first Trends ---------- */
+#screen-trends{overflow-x:hidden}
+#screen-trends .greet{padding-bottom:var(--s-3)}
+.trends-shell{margin:0 22px;min-width:0}
+.trends-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-3)}
+.trends-current{margin:6px 0 0;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);font-variant-numeric:tabular-nums}
+.trend-range{display:flex;gap:2px;padding:3px;background:var(--card);border-radius:var(--r-pill);flex-shrink:0}
+.trend-range button{min-height:30px;padding:5px 8px;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink2);font-family:var(--sans);font-size:var(--fs-micro);font-weight:650;cursor:pointer}
+.trend-range button.is-active{background:var(--paper);color:var(--text);box-shadow:var(--elev-1)}
+.trend-range button:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.trend-warning{margin:0 0 var(--s-3);padding:9px 11px;border-left:2px solid var(--warn);background:var(--warn-soft);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
+.trend-state-panel{margin:var(--s-6) 22px;padding:var(--s-6);border:1px solid var(--line);border-radius:var(--r-lg);background:var(--paper)}
+.trend-state-panel h2{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;line-height:var(--lh-heading)}
+.trend-state-panel p{margin:var(--s-2) 0 var(--s-4);font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2)}
+.trend-state-panel button{border:0;border-radius:var(--r-pill);padding:11px 17px;background:var(--ink);color:#fff;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:650;cursor:pointer}
+.trend-history-notice{margin:0 0 var(--s-3);padding:var(--s-3);background:var(--card);border-radius:var(--r-md)}
+.trend-history-notice strong{display:block;font-size:var(--fs-body-sm)}
+.trend-history-notice span{display:block;margin-top:3px;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
+.trend-metric-strip{display:flex;gap:var(--s-5);overflow-x:auto;padding:var(--s-3) 0 var(--s-4);border-bottom:1px solid var(--line);scrollbar-width:none}
+.trend-metric-strip::-webkit-scrollbar{display:none}
+.trend-metric{flex:0 0 auto}
+.trend-metric span{display:block;font-size:var(--fs-micro);font-weight:650;letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink3)}
+.trend-metric strong{display:block;margin-top:2px;font-size:var(--fs-h3);font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
+.trend-graph{padding:var(--s-6) 0;border-bottom:1px solid var(--line);min-width:0}
+.trend-graph:first-of-type{padding-top:var(--s-5)}
+.trend-graph-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--s-3);margin-bottom:var(--s-3)}
+.trend-graph-title{font-size:var(--fs-h3);font-weight:700;line-height:var(--lh-heading);color:var(--text)}
+.trend-graph-values{font-size:var(--fs-caption);font-weight:650;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right}
+.trend-legend{display:flex;align-items:center;gap:var(--s-3);margin-top:4px;font-size:var(--fs-caption);color:var(--ink2)}
+.trend-legend span{display:inline-flex;align-items:center;gap:5px}
+.trend-legend i{width:16px;height:2px;background:var(--trend-fitness)}
+.trend-legend .fatigue i{background:var(--trend-fatigue)}
+.trend-legend .completed i{background:var(--trend-load);height:7px}
+.trend-legend .planned i{height:7px;background:transparent;border:1px solid var(--ink3)}
+.trend-chart{position:relative;width:100%;min-width:0;overflow:hidden}
+.trend-svg{display:block;width:100%;height:auto;overflow:visible}
+.trend-axis-label{fill:var(--ink3);font-family:var(--sans);font-size:var(--fs-micro)}
+.trend-grid-line,.trend-zero-line{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+.trend-zero-line{stroke:var(--ink3);stroke-dasharray:3 4}
+.trend-zone{pointer-events:none}
+.trend-zone-detraining{fill:var(--trend-zone-detraining)}
+.trend-zone-fresh{fill:var(--trend-zone-fresh)}
+.trend-zone-maintaining{fill:var(--trend-zone-maintaining)}
+.trend-zone-gaining{fill:var(--trend-zone-gaining)}
+.trend-zone-risk{fill:var(--trend-zone-risk)}
+.trend-series{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.trend-form-series{stroke:var(--trend-form)}
+.trend-fitness-series{stroke:var(--trend-fitness)}
+.trend-fatigue-series{stroke:var(--trend-fatigue)}
+.trend-latest{stroke:var(--paper);stroke-width:2;vector-effect:non-scaling-stroke}
+.trend-latest-detraining{fill:var(--trend-detraining)}
+.trend-latest-fresh,.trend-fitness-point{fill:var(--trend-fresh)}
+.trend-latest-maintaining{fill:var(--trend-maintaining)}
+.trend-latest-gaining{fill:var(--trend-gaining)}
+.trend-latest-risk{fill:var(--trend-risk)}
+.trend-fatigue-point{fill:var(--trend-fatigue)}
+.trend-hit{fill:transparent;stroke:none;cursor:crosshair}
+.trend-hit-area{fill:transparent;cursor:crosshair}
+.trend-hit:focus,.trend-hit-area:focus{outline:none}
+.trend-hit.is-active,.trend-hit-area.is-active{stroke:var(--focus-ring);stroke-width:1;vector-effect:non-scaling-stroke}
+.trend-load-completed{fill:var(--trend-load)}
+.trend-load-planned{fill:transparent;stroke:var(--ink3);stroke-width:1;vector-effect:non-scaling-stroke}
+.trend-chart-tooltip{min-height:18px;margin-top:-4px;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2);font-variant-numeric:tabular-nums}
+.trend-chart-empty{padding:var(--s-6) 0;font-size:var(--fs-body-sm);color:var(--ink3)}
+.trend-interpretation{margin:var(--s-2) 0 0;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text)}
+.trend-text-summary{margin:var(--s-2) 0 0;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink3)}
+.trend-about{margin-top:var(--s-3);padding-top:var(--s-3);border-top:1px solid var(--line)}
+.trend-about summary{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);cursor:pointer}
+.trend-about p{margin:var(--s-2) 0 0;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink2)}
+@media(max-width:360px){
+  .trends-shell{margin-left:var(--s-4);margin-right:var(--s-4)}
+  .trends-head-row{display:block}
+  .trend-range{margin-top:var(--s-3);width:max-content}
+}
 
 /* ---------- Athlevo Score: horizontal progression (distinct from Readiness) ---------- */
 .asc-head-l{display:flex;flex-direction:column}
@@ -3972,79 +4003,85 @@ body.landing-active #tabbar{display:none!important}
 <section class="screen" id="screen-trends">
 
   <div class="greet">
-    <h1 class="serif">Trends</h1>
-
-    <p>
-      Your training patterns will appear as real activity history accumulates.
-    </p>
-  </div>
-
-  <div class="decision">
-    <span class="eyebrow" id="trendWeekLabel">This week</span>
-    <p id="trendNarrative" class="trend-narrative">
-      Your weekly progress will appear here as real activity history accumulates.
-    </p>
-  </div>
-
-  <div class="spacer-md"></div>
-
-  <div class="decision">
-    <span class="eyebrow">Calendar week · this week vs. same point last week</span>
-    <div id="trendMetrics" class="trend-metrics"></div>
-    <p class="trend-foot">Compared against the same weekday and time last week, not a full week.</p>
-  </div>
-
-  <div class="spacer-md"></div>
-
-  <div class="decision">
-  <span class="eyebrow">Six-week volume · Monday–Sunday</span>
-
-  <h3 id="trendVolumeTitle" class="sr-hidden" style="display:none">Six-week volume</h3>
-  <p id="trendVolumeContext" class="sr-hidden" style="display:none"></p>
-
-  <!-- Part 6/7: current-week block progress + week comparison -->
-  <div id="trendBlockProgress"></div>
-
-  <div id="trendWeeklyVolumeChart" class="trend-sixweek"></div>
-</div>
-
-<!-- retained (hidden) legacy nodes so nothing that references them breaks -->
-<div style="display:none">
-  <span id="trendPerformanceTitle"></span>
-  <span id="trendPerformanceContext"></span>
-  <span id="trendCurrentDistance"></span>
-  <span id="trendPreviousDistance"></span>
-  <span id="trendWeeklyChange"></span>
-  <span id="trendWeeklyChangeContext"></span>
-  <span id="trendImportedActivities"></span>
-</div>
-
-<div class="spacer-md"></div>
-
-<div class="predict">
-  <div class="predict-head">
-    <div>
-      <span class="eyebrow">Race Prediction</span>
-      <h3 class="predict-title">Unlock your race predictions</h3>
+    <div class="trends-head-row">
+      <div>
+        <h1 class="serif">Trends</h1>
+        <p class="trends-current" id="trendsHeaderSummary">Loading training trends…</p>
+      </div>
+      <div class="trend-range" aria-label="Trend time range">
+        <button type="button" data-trend-range="6w" aria-pressed="false">6 weeks</button>
+        <button type="button" class="is-active" data-trend-range="3m" aria-pressed="true">3 months</button>
+        <button type="button" data-trend-range="6m" aria-pressed="false">6 months</button>
+        <button type="button" data-trend-range="1y" aria-pressed="false">1 year</button>
+      </div>
     </div>
-    <span class="predict-badge">Coming soon</span>
   </div>
-  <p class="predict-lead">Athlevo predicts race times only when the data behind them is trustworthy. Here's what unlocks it:</p>
-  <ul class="predict-checklist">
-    <li><span class="pc-dot"></span><div><b>Log a race or time trial</b><small>Gives Athlevo a real performance anchor.</small></div></li>
-    <li><span class="pc-dot"></span><div><b>Complete a threshold session</b><small>Calibrates your current speed at effort.</small></div></li>
-    <li><span class="pc-dot"></span><div><b>Build consistency</b><small>A few steady weeks confirm the trend is real.</small></div></li>
-  </ul>
-  <p class="predict-foot">No estimate is shown until it's genuinely reliable — no guesses.</p>
-</div>
-<div id="trendsUpgrade" class="ag-cta" style="display:none">
-  <div class="ag-cta-badge">Athlevo Performance</div>
-  <p class="ag-cta-text">Unlock weekly analysis, training trajectory, and premium recommendations.</p>
-  <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Upgrade to Athlevo Performance</button>
-  <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
-</div>
 
-  <div class="spacer-lg"></div>
+  <div id="trendsState" aria-live="polite"></div>
+
+  <div class="trends-shell" id="trendsContent" hidden>
+    <div class="trend-history-notice" id="trendHistoryNotice" hidden>
+      <strong>Your trends are still forming</strong>
+      <span>Athlevo needs more completed training history before longer-term trends become reliable.</span>
+    </div>
+
+    <div class="trend-metric-strip" id="trendMetricStrip" aria-label="Current training metrics"></div>
+
+    <article class="trend-graph trend-graph-status" data-trend-graph="training-status">
+      <div class="trend-graph-head">
+        <h2 class="trend-graph-title" id="trendStatusTitle">Training Status</h2>
+        <span class="trend-graph-values">Form</span>
+      </div>
+      <div class="trend-chart" id="trendStatusChart"></div>
+      <p class="trend-interpretation" id="trendStatusInterpretation"></p>
+      <p class="trend-text-summary" id="trendStatusSummary" tabindex="0"></p>
+      <details class="trend-about">
+        <summary>About Training Status</summary>
+        <p>Athlevo uses absolute Form (Fitness minus Fatigue): +25 or above suggests detraining, +5 to +24 is Fresh, −5 to +4 is Maintaining, −20 to −6 is Gaining Fitness, and below −20 is High Risk. This interpretation supports coaching context; readiness and pain still take priority.</p>
+      </details>
+    </article>
+
+    <article class="trend-graph" data-trend-graph="fitness-fatigue">
+      <div class="trend-graph-head">
+        <div>
+          <h2 class="trend-graph-title">Fitness vs Fatigue</h2>
+          <div class="trend-legend" aria-hidden="true">
+            <span><i></i>Fitness</span>
+            <span class="fatigue"><i></i>Fatigue</span>
+          </div>
+        </div>
+        <span class="trend-graph-values" id="trendFitnessValues"></span>
+      </div>
+      <div class="trend-chart" id="trendFitnessChart"></div>
+      <p class="trend-interpretation" id="trendFitnessInterpretation"></p>
+      <p class="trend-text-summary" id="trendFitnessSummary" tabindex="0"></p>
+    </article>
+
+    <article class="trend-graph" data-trend-graph="training-load">
+      <div class="trend-graph-head">
+        <div>
+          <h2 class="trend-graph-title">Training Load</h2>
+          <div class="trend-legend" aria-hidden="true">
+            <span class="completed"><i></i>Completed</span>
+            <span class="planned" id="trendPlannedLegend" hidden><i></i>Planned</span>
+          </div>
+        </div>
+        <span class="trend-graph-values" id="trendLoadValues"></span>
+      </div>
+      <div class="trend-chart" id="trendLoadChart"></div>
+      <p class="trend-interpretation" id="trendLoadInterpretation"></p>
+      <p class="trend-text-summary" id="trendLoadSummary" tabindex="0"></p>
+    </article>
+
+    <div id="trendsUpgrade" class="ag-cta" style="display:none">
+      <div class="ag-cta-badge">Athlevo Performance</div>
+      <p class="ag-cta-text">Unlock weekly analysis, training trajectory, and premium recommendations.</p>
+      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Upgrade to Athlevo Performance</button>
+      <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
+    </div>
+
+    <div class="spacer-lg"></div>
+  </div>
 
 </section>
 
@@ -6025,7 +6062,7 @@ setTimeout(function () {
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
 <script src="js/authSupport.js?v=67"></script>
-<script src="js/brain.js?v=67"></script>
+<script src="js/brain.js?v=68"></script>
 <script src="js/syncStatus.js?v=67"></script>
 <script src="js/performance.js?v=67"></script>
 <!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
@@ -6044,6 +6081,7 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js?v=67"></script>
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
+<script src="js/trendsAnalytics.js?v=68"></script>
 <script src="js/socialAuth.js?v=67"></script>
 <script src="js/analyticsRegistry.js?v=67"></script>
 <script src="js/metaPixel.js?v=67"></script>

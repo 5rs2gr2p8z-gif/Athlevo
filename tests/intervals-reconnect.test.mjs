@@ -44,7 +44,7 @@ function reset(accountOverrides = {}) {
     ...accountOverrides
   }];
   ACTIVITIES = []; LOGS = []; upsertCalls = 0;
-  TOKEN = { access_token: "new-token", scope: "ACTIVITY:READ", athlete: { id: "i12345" } };
+  TOKEN = { access_token: "new-token", scope: "ACTIVITY:READ,WELLNESS:READ", athlete: { id: "i12345" } };
   activityStatus = 200; settingsStatus = 403;   // 403 on settings is NORMAL
 }
 
@@ -192,8 +192,8 @@ section("Reconnect via the SAME OAuth flow");
   const authUrl = new URL(r.b.authorizationUrl);
   t("reconnect reuses the standard authorize endpoint",
     authUrl.origin + authUrl.pathname === "https://intervals.icu/oauth/authorize");
-  t("...requesting the same ACTIVITY:READ scope",
-    authUrl.searchParams.get("scope") === "ACTIVITY:READ");
+  t("...requesting the same read-only activity and wellness scopes",
+    authUrl.searchParams.get("scope") === "ACTIVITY:READ,WELLNESS:READ");
 
   // 2. Callback with the real signed state.
   const state = authUrl.searchParams.get("state");

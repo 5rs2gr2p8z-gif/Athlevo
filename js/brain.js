@@ -1765,6 +1765,11 @@ async function finalizeIntervals(completion) {
   return providerRequest("finalize", { completion });
 }
 
+/* Read-only normalized CTL/ATL/load history for the Trends screen. */
+async function loadProviderTrends(range) {
+  return providerRequest("trends", { range: range || "3m" });
+}
+
 /*
  * PART 2: analyse existing activities that predate recognition. Runs at most
  * once per browser (localStorage guard) after the athlete is set up, and can
@@ -2427,6 +2432,7 @@ window.AthlevoBrain = {
   connectIntervals,
   finalizeIntervals,
   syncIntervals,
+  loadProviderTrends,
   refreshIntervalsStatus,
   diagnoseIntervals,
   diagnoseIntervalsQuiet,

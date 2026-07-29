@@ -43,6 +43,10 @@ import {
   getAppReturnOrigin,
   isIntervalsConfigured
 } from "../../lib/server/wearable/intervalsConfig.js";
+import {
+  buildProviderTrendsResponse,
+  dateRangeForTrends
+} from "../../lib/server/providerTrends.js";
 
 /* ───────────────────────────── logging ──────────────────────────────── */
 
@@ -557,9 +561,8 @@ async function intervalsFetch(path, accessToken, meta) {
    *                      athlete must reconnect. This is a token problem.
    *   403 Forbidden    → the credential is VALID but not permitted to touch
    *                      this resource. On Intervals.icu that is normally a
-   *                      missing scope: Athlevo requests ACTIVITY:READ only,
-   *                      so athlete-settings endpoints legitimately return
-   *                      403 while activity endpoints return 200.
+   *                      missing scope: Athlevo requests activity + wellness
+   *                      reads, so settings endpoints legitimately return 403.
    *
    * Treating 403 as an expired token is what made a healthy connection look
    * broken. Only 401 may flip an account to reconnect_required.
@@ -619,6 +622,19 @@ async function intervalsFetch(path, accessToken, meta) {
 function activitiesPath(athleteId, oldest, newest) {
   return `/athlete/${encodeURIComponent(athleteId)}/activities` +
     `?oldest=${oldest}&newest=${newest}`;
+}
+
+function wellnessPath(athleteId, oldest, newest) {
+  return `/athlete/${encodeURIComponent(athleteId)}/wellness` +
+    `?oldest=${oldest}&newest=${newest}`;
+}
+
+function accountHasScope(account, requiredScope) {
+  const granted = String(account && account.scope || "")
+    .split(/[\s,]+/)
+    .map(scope => scope.trim().toUpperCase())
+    .filter(Boolean);
+  return granted.includes(String(requiredScope).toUpperCase());
 }
 
 const ymd = (d) => new Date(d).toISOString().slice(0, 10);
@@ -1398,6 +1414,89 @@ async function actionSync(request, response, cid) {
   }
 }
 
+/* ═══════════════════════════ ACTION: trends ══════════════════════════ */
+
+/*
+ * Read-only daily CTL/ATL/load history for Athlevo-owned charts.
+ *
+ * Identity is derived exclusively from the verified bearer token. The body
+ * may choose a bounded range key, but no client-supplied user or athlete id
+ * participates in account selection. Provider credentials stay server-side.
+ */
+async function actionTrends(request, response, cid) {
+  const user = await requireUser(request);
+  if (!user?.id) {
+    return response.status(401).json({
+      error: "Authentication is required.",
+      code: "UNAUTHENTICATED"
+    });
+  }
+
+  const account = await readProviderAccount(user.id, "intervals");
+  if (!account || !account.access_token) {
+    return response.status(409).json({
+      error: "Connect training data to see your training trends.",
+      code: "NOT_CONNECTED"
+    });
+  }
+
+  if (!accountHasScope(account, "WELLNESS:READ")) {
+    return response.status(403).json({
+      error: "Reconnect training data to enable fitness and fatigue trends.",
+      code: "TRENDS_SCOPE_REQUIRED"
+    });
+  }
+
+  const range = request.body && request.body.range;
+  const dates = dateRangeForTrends(range, new Date());
+
+  try {
+    const records = await intervalsFetch(
+      wellnessPath("0", dates.oldest, dates.newest),
+      account.access_token
+    );
+
+    if (!Array.isArray(records)) {
+      return response.status(502).json({
+        error: "Training trends are temporarily unavailable.",
+        code: "PROVIDER_RESPONSE_INVALID"
+      });
+    }
+
+    return response.status(200).json(
+      buildProviderTrendsResponse(records, dates.range, new Date(`${dates.newest}T00:00:00Z`))
+    );
+  } catch (error) {
+    if (error && error.authExpired) {
+      await patchProviderAccount(account.id, {
+        status: "reconnect_required",
+        last_sync_status: "failed"
+      });
+      return response.status(409).json({
+        error: "Reconnect training data to refresh your trends.",
+        code: "RECONNECT_REQUIRED"
+      });
+    }
+
+    if (error && error.forbidden) {
+      return response.status(403).json({
+        error: "Reconnect training data to enable fitness and fatigue trends.",
+        code: "TRENDS_SCOPE_REQUIRED"
+      });
+    }
+
+    log("intervals_trends_failure", {
+      correlationId: cid,
+      provider: "intervals",
+      code: error && error.rateLimited ? "RATE_LIMITED" : "PROVIDER_UNAVAILABLE"
+    });
+    return response.status(502).json({
+      error: "Your last confirmed trends are still available. Try refreshing shortly.",
+      code: error && error.rateLimited ? "RATE_LIMITED" : "PROVIDER_UNAVAILABLE"
+    });
+  }
+}
+
 /* ═══════════════════════════ ACTION: diagnose ════════════════════════ */
 
 /*
@@ -1804,6 +1903,7 @@ export default async function handler(request, response) {
     if (action === "connect") return actionConnect(request, response, cid);
     if (action === "finalize") return actionFinalize(request, response, cid);
     if (action === "sync") return actionSync(request, response, cid);
+    if (action === "trends") return actionTrends(request, response, cid);
     if (action === "diagnose") return actionDiagnose(request, response, cid);
     if (action === "reanalyze") return actionReanalyze(request, response, cid);
     if (action === "status") return actionStatus(request, response);
