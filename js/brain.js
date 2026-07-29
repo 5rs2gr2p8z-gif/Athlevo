@@ -763,28 +763,38 @@ function resetAthleteUI() {
 
   setText("todayAthleteName", "Athlete");
   setText("todayContextLine", "Your athlete profile is loading.");
-  setText("todayDirectionLabel", "Controlled day");
-  setText("todayDirectionCoaching", "Train, but keep the effort measured.");
-  setText("todayDirectionQuality", "Limited data");
-  setText("todayDirectionRecovery", "No recent check-in");
-  setText("todayDirectionLoad", "Load below usual");
-  setText("todayDirectionPain", "Pain unavailable");
+  setText("todayDirectionLabel", "Keep today controlled.");
+  setText("todayDirectionCoaching", "Limited data means today should stay measured.");
+  setText("todayReadinessSignalValue", "—");
+  setText("todayReadinessSignalNote", "No check-in");
+  setText("todayLoadSignalValue", "—");
+  setText("todayLoadSignalNote", "Unavailable");
+  setText("todayPainSignalValue", "—");
+  setText("todayPainSignalNote", "No data");
   setText("todayDirectionWhy", "Athlevo needs a recent check-in and training-load history to explain today’s direction.");
-  setText("todayWorkoutCta", "View training plan");
 
   const directionBlock = document.getElementById("todayPassiveStatusBlock");
   const directionCard = document.getElementById("dailyBriefCard");
-  const directionQuality = document.getElementById("todayDirectionQuality");
+  const directionAction = document.getElementById("todayDirectionAction");
+  const workoutSummary = document.getElementById("todayWorkoutSummary");
   if (directionBlock) directionBlock.dataset.direction = "hold";
   if (directionCard) {
     directionCard.dataset.direction = "hold";
     directionCard.dataset.score = "missing";
+    directionCard.dataset.planState = "loading";
+    directionCard.dataset.recommendationTitle = "Keep today controlled.";
+    directionCard.dataset.recommendationBody = "Limited data means today should stay measured.";
     directionCard.setAttribute(
       "aria-label",
-      "Athlevo Direction: HOLD. Controlled day. Train, but keep the effort measured. Limited data."
+      "Athlevo Direction. Training status is loading."
     );
   }
-  if (directionQuality) directionQuality.hidden = false;
+  if (directionAction) {
+    directionAction.hidden = true;
+    directionAction.disabled = true;
+    directionAction.dataset.action = "";
+  }
+  if (workoutSummary) workoutSummary.hidden = true;
 
   setText("profileName", "Athlete");
   setText("profileInitial", "A");

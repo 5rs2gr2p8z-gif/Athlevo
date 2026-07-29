@@ -486,44 +486,13 @@
     return false;
   }
 
-  // Persistent Today CTA so EXISTING users without a plan also discover it.
-  function renderTodayCta(profile, has, connectedOverride) {
-    const el = document.getElementById("todayPlanCta");
-    if (!el) return;
-    if (has !== false) { el.style.display = "none"; el.innerHTML = ""; return; }
-    /*
-     * ONE training-data connection. Athlevo aggregates through a provider, so
-     * "is Strava linked" is the wrong question — any working provider
-     * connection means the athlete's training data is connected. Passing the
-     * flag in explicitly (rather than reading profile.intervals_connected,
-     * which is only decorated onto the profile after refreshIntervalsStatus()
-     * happens to have run) means step 1 can no longer look unfinished to an
-     * athlete who is already connected.
-     */
-    const connected = connectedOverride === true || Boolean(profile &&
-      (profile.strava_connected === true || profile.intervals_connected === true));
-    el.style.display = "block";
-    /*
-     * Three states, one card:
-     *   A  no data, no plan  → connect, then build
-     *   B  data connected, no plan  → just build
-     *   C  data + plan  → handled above (card hidden)
-     */
-    // Answers "is it working / what now?" on the first-run Today screen:
-    // when connected we confirm the import is running and name the ONE next
-    // step; when not, we lay out the two steps in order.
-    el.innerHTML = connected
-      ? `<div class="tpc-cta">
-           <div class="tpc-cta-copy"><b>✓ Training data connected</b><small>We're importing your recent workouts in the background — this can take a minute. You don't need to wait. Next: build your personalized plan.</small></div>
-           <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.start()">Build my training plan</button>
-         </div>`
-      : `<div class="tpc-cta">
-           <div class="tpc-cta-copy"><b>Two steps to your plan</b><small>Step 1 — connect your training data so Athlevo learns your paces. Step 2 — build your plan. Takes about 2 minutes.</small></div>
-           <div class="tpc-cta-steps">
-             <button class="tpc-cta-btn" type="button" onclick="AthlevoPlan.connectTrainingData()">Start — connect training data</button>
-             <button class="tpc-cta-btn ghost" type="button" onclick="AthlevoPlan.start()">Skip, build from profile</button>
-           </div>
-         </div>`;
+  // Backwards-compatible refresh hook for callers that previously rendered a
+  // separate Today setup card. Today now owns one contextual action inside
+  // Athlevo Direction, sourced from the authenticated plan snapshot.
+  function renderTodayCta() {
+    if (typeof window.renderTodayRecommendation === "function") {
+      return window.renderTodayRecommendation(true);
+    }
   }
 
   /*
@@ -539,23 +508,9 @@
     }
   }
 
-  // Refresh the Today CTA from current profile + plan status. Safe to call on
-  // every Today render.
+  // Refresh the one contextual Today action. Safe to call on every render.
   async function refreshTodayCta() {
-    let profile = null;
-    try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
-    let has = lastHasPlan;
-    if (has == null) has = await hasPlan();
-
-    // Authoritative provider state — the same source the OAuth guard uses.
-    let connected;
-    try {
-      const s = window.AthlevoBrain && window.AthlevoBrain.providerStatus
-        ? await window.AthlevoBrain.providerStatus() : null;
-      if (s && s.connected === true) connected = true;
-    } catch (e) { /* fall back to the profile flags */ }
-
-    renderTodayCta(profile, has, connected);
+    return renderTodayCta();
   }
 
   /*
@@ -575,8 +530,8 @@
 
   /*
    * The single entry point onboarding calls. While AUTO_FIRST_PLAN is false
-   * this lands the athlete on the dashboard, where the "Create My Training
-   * Plan" card is waiting — the flow they control.
+   * this lands the athlete on the dashboard, where the contextual Build plan
+   * action is waiting inside Athlevo Direction — the flow they control.
    *
    * SAFETY (already in force for when this is enabled): it refuses to run if
    * a plan exists, opens that plan instead, and never sends `regenerate`.

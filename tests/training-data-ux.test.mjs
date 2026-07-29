@@ -37,76 +37,28 @@ const brain = readFileSync("./js/brain.js", "utf8");
 const visible = (s) => String(s).replace(/<[^>]+>/g, " ")
   .replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim();
 
-/* ══════════ 1. Today setup card ═══════════════════════════════════ */
+/* ══════════ 1. Today uses one contextual plan action ═══════════════ */
 
-section("1. The Today setup card talks about training, not Strava");
+section("1. The obsolete Today setup card is removed");
 {
-  const fn = planSetup.slice(planSetup.indexOf("function renderTodayCta"),
-                             planSetup.indexOf("function connectTrainingData"));
-
-  t("title frames the two steps", /Two steps to your plan/.test(fn));
-  t("copy names the two steps generically",
-    /Step 1 — connect your training data so Athlevo learns your paces\. Step 2 — build your plan\./.test(fn));
-  t("the connection CTA leads with 'connect training data'", /Start — connect training data/.test(fn));
-  t("the plan CTA is 'Build my training plan'", /Build my training plan/.test(fn));
-
-  t("NOTHING in the card says 'Connect Strava'", !/Connect Strava/.test(fn));
-  t("...nor 'Build My Coach' — the athlete builds a plan, not a coach",
-    !/Build My Coach/.test(fn));
-  t("the connect action does NOT call connectStrava()", !/connectStrava\(\)/.test(fn));
-
-  t("connect routes into the EXISTING guided provider flow",
-    /AthlevoPlan\.connectTrainingData\(\)/.test(fn) &&
-    /AthlevoConnect\.start\(\)/.test(planSetup));
-  t("...falling back to the existing brain connector, not a new OAuth path",
+  t("the standalone Today plan-card mount is absent", !/id="todayPlanCta"/.test(html));
+  t("the old dark-card CSS is absent", !/#todayPlanCta \.tpc-cta/.test(html));
+  t("Athlevo Direction owns the single contextual action",
+    /id="todayDirectionAction"/.test(html) &&
+    /onclick="todayDirectionPrimaryAction\(\)"/.test(html));
+  t("the contextual Build plan action uses the existing plan flow",
+    /button\.dataset\.action === "build"[\s\S]*?window\.AthlevoPlan\.start\(\)/.test(html));
+  t("the legacy refresh hook delegates to the combined Today renderer",
+    /function renderTodayCta\(\)[\s\S]*?window\.renderTodayRecommendation\(true\)/.test(planSetup));
+  t("the removed Today renderer contains no legacy card template",
+    !/tpc-cta|Two steps to your plan|Build my training plan/.test(
+      planSetup.slice(planSetup.indexOf("function renderTodayCta"),
+                      planSetup.indexOf("function connectTrainingData"))));
+  t("the full plan setup still uses the existing provider flow",
+    /AthlevoConnect\.start\(\)/.test(planSetup) &&
     /AthlevoBrain\.connectIntervals\(\)/.test(planSetup));
   t("no new provider OAuth flow was invented",
     !/garmin.*oauth|coros.*oauth/i.test(planSetup));
-
-  t("the plan CTA still invokes the existing plan action",
-    /onclick="AthlevoPlan\.start\(\)">Build my training plan/.test(fn));
-}
-
-section("1b. Step 1 is satisfied by ANY provider connection");
-{
-  const fn = planSetup.slice(planSetup.indexOf("function renderTodayCta"),
-                             planSetup.indexOf("function connectTrainingData"));
-  t("an explicit connected flag is honoured", /connectedOverride === true/.test(fn));
-  t("a provider connection counts, not just Strava",
-    /profile\.intervals_connected === true/.test(fn));
-
-  const refresh = planSetup.slice(planSetup.indexOf("async function refreshTodayCta"));
-  t("the state comes from the SERVER, not a decorated profile flag",
-    /await window\.AthlevoBrain\.providerStatus\(\)/.test(refresh));
-  t("...and is passed into the render", /renderTodayCta\(profile, has, connected\)/.test(refresh));
-  t("a failed status check falls back rather than throwing",
-    /catch \(e\) \{ \/\* fall back to the profile flags \*\//.test(refresh));
-
-  // Execute the real renderer both ways.
-  const run = (profile, connected) => {
-    let out = "";
-    const doc = { getElementById: () => ({ style: {}, set innerHTML(v) { out = v; }, get innerHTML() { return out; } }) };
-    const src = planSetup.slice(planSetup.indexOf("function renderTodayCta"),
-                                planSetup.indexOf("function connectTrainingData"));
-    new Function("document", src + "\nreturn renderTodayCta;")(doc)(profile, false, connected);
-    return visible(out);
-  };
-
-  const off = run({ strava_connected: false, intervals_connected: false }, undefined);
-  t("a disconnected athlete sees a connection CTA", /connect training data/i.test(off));
-  t("...and is NOT asked for Strava", !/Strava/.test(off), off.slice(0, 90));
-
-  const viaProvider = run({ strava_connected: false, intervals_connected: true }, undefined);
-  t("a provider-connected athlete is treated as connected",
-    /Build my training plan/.test(viaProvider) && !/Start — connect training data/.test(viaProvider));
-  t("...and never sees 'Connect Strava' again", !/Connect Strava/.test(viaProvider));
-
-  const viaServer = run({ strava_connected: false, intervals_connected: false }, true);
-  t("the server's verdict alone is enough", /Build my training plan/.test(viaServer));
-
-  const viaStrava = run({ strava_connected: true, intervals_connected: false }, undefined);
-  t("an existing Strava athlete is still connected — no regression",
-    /Build my training plan/.test(viaStrava));
 }
 
 /* ══════════ 2. The You / connections section ══════════════════════ */
@@ -298,88 +250,22 @@ section("3. Disconnect is authenticated, scoped, and releases ownership");
     !/revoke/i.test(fn) && !/intervals\.icu/i.test(fn));
 }
 
-/* ══════════ Appended: Today setup card states A / B / C ═══════════ */
+section("Today no longer duplicates connection or plan actions");
 {
-  const real2 = console.log;
-  const html2 = readFileSync("./index.html", "utf8");
-  const planSetup2 = readFileSync("./js/planSetup.js", "utf8");
-  const brain2 = readFileSync("./js/brain.js", "utf8");
-  const vis = (s) => String(s).replace(/<[^>]+>/g, " ").replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
-
-  section("No active production renderer emits the old Today strings");
-  {
-    // Every production file, minus comments, must be free of the old copy.
-    const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
-      .replace(/<!--[\s\S]*?-->/g, "");
-    const files = { "index.html": strip(html2), "planSetup.js": strip(planSetup2),
-                    "brain.js": strip(brain2), "train.js": strip(readFileSync("./js/train.js", "utf8")) };
-    for (const bad of ["Set up your coach", "Build My Coach", "Connect Strava", "Step 1 — connect Strava"]) {
-      for (const [name, src] of Object.entries(files)) {
-        t(`'${bad}' is absent from active ${name}`, !src.includes(bad),
-          src.includes(bad) ? bad : "");
-      }
-    }
-    // The renderers themselves.
-    t("renderTodayCta never renders a Strava CTA",
-      !/Connect Strava/.test(planSetup2.slice(planSetup2.indexOf("function renderTodayCta"),
-                                              planSetup2.indexOf("function connectTrainingData"))));
-    t("renderSetup never renders a Strava CTA or 'Build My Coach'",
-      !/Connect Strava|Build My Coach|connectStrava/.test(
-        planSetup2.slice(planSetup2.indexOf("function renderSetup"),
-                         planSetup2.indexOf("async function start"))));
-  }
-
-  // Execute the REAL renderTodayCta across the three states.
-  const runCta = (profile, has, connectedOverride) => {
-    let out = "";
-    const doc = { getElementById: () => ({ style: {}, set innerHTML(v) { out = v; }, get innerHTML() { return out; } }) };
-    const src = planSetup2.slice(planSetup2.indexOf("function renderTodayCta"),
-                                planSetup2.indexOf("function connectTrainingData"));
-    new Function("document", src + "\nreturn renderTodayCta;")(doc)(profile, has, connectedOverride);
-    return out;
-  };
-
-  section("STATE A — not connected, no plan");
-  {
-    const out = runCta({ strava_connected: false, intervals_connected: false }, false, false);
-    const v = vis(out);
-    t("title frames the two steps", /Two steps to your plan/.test(v));
-    t("two-step copy explains why connecting helps",
-      /Step 1 — connect your training data so Athlevo learns your paces\. Step 2 — build your plan\./.test(v));
-    t("shows a connect-training-data CTA", /connect training data/i.test(v));
-    t("shows a build-plan CTA", /Build my training plan|build from profile/i.test(v));
-    t("connect uses the existing provider flow",
-      /AthlevoPlan\.connectTrainingData\(\)/.test(out));
-    t("no Strava CTA", !/Strava/.test(v));
-  }
-
-  section("STATE B — connected, no plan");
-  {
-    const out = runCta({ intervals_connected: true }, false, true);
-    const v = vis(out);
-    t("confirms the data is connected", /Training data connected/.test(v));
-    t("reassures the import is happening + names the next step",
-      /importing your recent workouts/.test(v) && /build your personalized plan/.test(v));
-    t("shows the build-plan CTA", /Build my training plan/.test(v));
-    t("does NOT show a redundant Connect button", !/Start — connect training data/.test(v));
-    t("no Strava CTA", !/Strava/.test(v));
-  }
-
-  section("STATE C — connected, plan exists → no card");
-  {
-    let hidden = false, cleared = false;
-    const doc = { getElementById: () => ({ style: { set display(v) { if (v === "none") hidden = true; } },
-      set innerHTML(v) { if (v === "") cleared = true; } }) };
-    const src = planSetup2.slice(planSetup2.indexOf("function renderTodayCta"),
-                                planSetup2.indexOf("function connectTrainingData"));
-    new Function("document", src + "\nreturn renderTodayCta;")(doc)({ intervals_connected: true }, true, true);
-    t("the setup card is hidden entirely when a plan exists", hidden);
-    t("...and its markup cleared", cleared);
-  }
-
-  console.log = real2;
+  const today = html.slice(
+    html.indexOf('<section class="screen" id="screen-today">'),
+    html.indexOf('<section class="screen"',
+      html.indexOf('<section class="screen" id="screen-today">') + 1)
+  );
+  const card = today.slice(
+    today.indexOf('<article class="direction-card"'),
+    today.indexOf("</article>", today.indexOf('<article class="direction-card"'))
+  );
+  t("Direction contains exactly one button", (card.match(/<button\b/g) || []).length === 1);
+  t("Today contains no obsolete training-data confirmation card",
+    !/Training data connected|Two steps to your plan|tpc-cta/.test(today));
+  t("Today contains no standalone plan-card mount", !/todayPlanCta/.test(today));
 }
 
-console.log(`\n${p} passed, ${f} failed (with Today-states appended)`);
+console.log(`\n${p} passed, ${f} failed`);
 process.exit(f ? 1 : 0);

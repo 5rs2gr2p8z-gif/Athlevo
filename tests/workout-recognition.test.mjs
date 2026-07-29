@@ -195,15 +195,17 @@ section("Part 1 — coach activation milestone");
   t("no auto-dismiss on the milestone", /an intentional, un-timed milestone/.test(ps));
 }
 
-section("Part 2 — after a plan exists, the setup card is gone for good");
+section("Part 2 — Today uses one contextual plan action");
 {
   const ps = readFileSync("./js/planSetup.js", "utf8");
+  const html = readFileSync("./index.html", "utf8");
   const cta = ps.slice(ps.indexOf("function renderTodayCta"), ps.indexOf("function connectTrainingData"));
-  t("the Today CTA hides itself when a plan exists",
-    /if \(has !== false\) \{ el\.style\.display = "none"; el\.innerHTML = ""; return; \}/.test(cta));
-  t("...so the connect CTA cannot reappear once a plan exists",
-    /if \(has !== false\)[\s\S]{0,80}return;/.test(cta) &&
-    cta.indexOf("connect training data") > cta.indexOf("has !== false"));
+  t("the legacy refresh hook delegates to the combined Direction renderer",
+    /window\.renderTodayRecommendation\(true\)/.test(cta));
+  t("the obsolete standalone Today plan-card mount is gone",
+    !/id="todayPlanCta"/.test(html));
+  t("the old connection/build card cannot reappear",
+    !/tpc-cta|connect training data|Build my training plan/.test(cta));
 }
 
 console.log(`\n${p} passed, ${f} failed`);
