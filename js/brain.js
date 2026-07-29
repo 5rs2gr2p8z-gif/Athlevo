@@ -763,12 +763,11 @@ function resetAthleteUI() {
 
   setText("todayAthleteName", "Athlete");
   setText("todayContextLine", "Your athlete profile is loading.");
-  setText("todayPassiveStatusLabel", "HOLD");
   setText("todayDirectionLabel", "Controlled day");
   setText("todayDirectionScore", "");
   setText("todayDirectionQuality", "Limited data");
-  setText("todayDirectionRecovery", "No check-in");
-  setText("todayDirectionLoad", "Load unavailable");
+  setText("todayDirectionRecovery", "No recent check-in");
+  setText("todayDirectionLoad", "Load below usual");
   setText("todayDirectionPain", "Pain unavailable");
   setText("todayDirectionWhy", "Athlevo needs a recent check-in and training-load history to explain today’s direction.");
   setText("todayWorkoutCta", "View training plan");
@@ -781,6 +780,10 @@ function resetAthleteUI() {
   if (directionCard) {
     directionCard.dataset.direction = "hold";
     directionCard.dataset.score = "missing";
+    directionCard.setAttribute(
+      "aria-label",
+      "Athlevo Direction: HOLD. Controlled day. Limited data."
+    );
   }
   if (directionQuality) directionQuality.hidden = false;
   if (directionScore) directionScore.hidden = true;

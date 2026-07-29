@@ -3394,39 +3394,43 @@ body.landing-active #tabbar{display:none!important}
     .direction-card{margin:0 22px;background:var(--paper);border:1px solid var(--line);
       border-radius:var(--r-lg);padding:12px 16px 10px;box-shadow:var(--elev-2);
       height:164px;box-sizing:border-box;
-      --zone-recover:#3d6fd4;--zone-hold:#c4841a;--zone-push:var(--red)}
+      --zone-recover:#315eb8;--zone-hold:#8a5700;--zone-push:var(--red)}
+    html[data-theme="dark"] .direction-card{
+      --zone-recover:#78a6ff;--zone-hold:#e2a94a}
+    @media (prefers-color-scheme: dark){
+      html[data-theme="system"] .direction-card{
+        --zone-recover:#78a6ff;--zone-hold:#e2a94a}
+    }
     .direction-topline{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
       margin-bottom:8px}
     .direction-eyebrow{font-size:var(--fs-micro);font-weight:750;letter-spacing:.14em;
       text-transform:uppercase;color:var(--ink2)}
-    .direction-quality{font-size:var(--fs-micro);font-weight:550;letter-spacing:.02em;
-      color:var(--ink3);padding:2px 0}
+    .direction-quality{font-size:var(--fs-micro);font-weight:600;letter-spacing:.02em;
+      color:var(--ink2);padding:2px 0}
     .direction-quality[hidden]{display:none}
-    .direction-band{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-      height:40px;border:1px solid var(--line);border-radius:var(--r-sm);
-      overflow:hidden;background:var(--card)}
-    .direction-band-zone{position:relative;display:grid;place-items:center;
-      background:var(--card);color:var(--ink3);font-size:var(--fs-caption);
-      font-weight:700;letter-spacing:.09em;transition:background var(--dur-base) var(--ease-standard),
-      color var(--dur-base) var(--ease-standard)}
-    .direction-band-zone+ .direction-band-zone{border-left:1px solid var(--line)}
-    .direction-band-marker{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);
-      width:18px;height:3px;border-radius:2px;background:currentColor;opacity:0;
+    .direction-band{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+      height:40px;background:transparent}
+    .direction-band::after{content:"";position:absolute;left:0;right:0;bottom:5px;
+      height:2px;border-radius:2px;background:var(--line);pointer-events:none}
+    .direction-band-zone{position:relative;display:flex;align-items:flex-start;justify-content:center;
+      color:var(--ink2);font-size:var(--fs-caption);font-weight:650;line-height:1;
+      letter-spacing:.09em;padding-top:3px;transition:color var(--dur-base) var(--ease-standard)}
+    .direction-band-marker{position:absolute;z-index:1;left:50%;bottom:1px;transform:translateX(-50%);
+      width:9px;height:9px;border-radius:50%;background:currentColor;
+      box-shadow:0 0 0 2px var(--paper);opacity:0;
       transition:opacity var(--dur-base) var(--ease-standard)}
     .direction-card[data-direction="recover"] .direction-band-zone--recover{
-      background:var(--zone-recover);color:#fff}
+      color:var(--zone-recover);font-weight:800}
     .direction-card[data-direction="hold"] .direction-band-zone--hold{
-      background:var(--zone-hold);color:#141416}
+      color:var(--zone-hold);font-weight:800}
     .direction-card[data-direction="push"] .direction-band-zone--push{
-      background:var(--zone-push);color:#fff}
+      color:var(--zone-push);font-weight:800}
     .direction-card[data-direction="recover"] .direction-band-zone--recover .direction-band-marker,
     .direction-card[data-direction="hold"] .direction-band-zone--hold .direction-band-marker,
-    .direction-card[data-direction="push"] .direction-band-zone--push .direction-band-marker{opacity:.9}
-    .direction-verdict{text-align:center;margin-top:8px}
-    .direction-state{display:block;font-size:var(--fs-h3);font-weight:750;line-height:1;
-      letter-spacing:.13em;color:var(--text)}
+    .direction-card[data-direction="push"] .direction-band-zone--push .direction-band-marker{opacity:1}
+    .direction-verdict{text-align:center;margin-top:7px}
     .direction-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;
-      line-height:var(--lh-heading);color:var(--text);margin:2px 0 0}
+      line-height:var(--lh-heading);color:var(--text);margin:0}
     .direction-readiness{display:block;font-size:var(--fs-micro);font-weight:600;
       color:var(--ink3);line-height:var(--lh-caption);margin-top:2px}
     .direction-readiness[hidden]{display:none}
@@ -3536,7 +3540,8 @@ body.landing-active #tabbar{display:none!important}
       letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
   </style>
   <!-- ═══════════ ATHLEVO DIRECTION BAND ═══════════ -->
-  <article class="direction-card" id="dailyBriefCard" data-direction="hold" data-score="missing">
+  <article class="direction-card" id="dailyBriefCard" data-direction="hold" data-score="missing"
+    aria-label="Athlevo Direction: HOLD. Controlled day. Limited data.">
     <div class="direction-topline">
       <span class="direction-eyebrow">Athlevo Direction</span>
       <span class="direction-quality" id="todayDirectionQuality">Limited data</span>
@@ -3554,15 +3559,14 @@ body.landing-active #tabbar{display:none!important}
       </div>
     </div>
 
-    <div class="direction-verdict" id="todayPassiveStatusBlock" data-direction="hold" role="status" aria-live="polite" aria-atomic="true">
-      <strong class="direction-state" id="todayPassiveStatusLabel">HOLD</strong>
+    <div class="direction-verdict" id="todayPassiveStatusBlock" data-direction="hold">
       <p class="direction-label" id="todayDirectionLabel">Controlled day</p>
       <small class="direction-readiness" id="todayDirectionScore" hidden></small>
     </div>
 
     <p class="direction-evidence" aria-label="Direction evidence">
-      <span id="todayDirectionRecovery">No check-in</span><span class="direction-evidence-sep" aria-hidden="true">·</span>
-      <span id="todayDirectionLoad">Load unavailable</span><span class="direction-evidence-sep" aria-hidden="true">·</span>
+      <span id="todayDirectionRecovery">No recent check-in</span><span class="direction-evidence-sep" aria-hidden="true">·</span>
+      <span id="todayDirectionLoad">Load below usual</span><span class="direction-evidence-sep" aria-hidden="true">·</span>
       <span id="todayDirectionPain">Pain unavailable</span>
     </p>
   </article>
@@ -5259,7 +5263,7 @@ function buildAthlevoDirectionView(signals){
     var acwr = s.recovery.acwr;
     if (acwr >= 1.5) load = "Load high";
     else if (acwr >= 1.3) load = "Load elevated";
-    else if (acwr < 0.8) load = "Below baseline";
+    else if (acwr < 0.8) load = "Load below usual";
     else load = "Load stable";
   }
 
@@ -5275,7 +5279,7 @@ function buildAthlevoDirectionView(signals){
   }
 
   var readiness = score === null
-    ? (checkIn ? "Check-in incomplete" : "No check-in")
+    ? (checkIn ? "Check-in incomplete" : "No recent check-in")
     : "Readiness " + String(score);
   var available = (score === null ? 0 : 1) + (hasLoad ? 1 : 0) + (hasPainSignal ? 1 : 0);
   var quality = available === 3 ? "" : available === 2 ? "Some data missing" : "Limited data";
@@ -5303,7 +5307,6 @@ function buildAthlevoDirectionView(signals){
    CoachBrainData. Missing inputs remain visibly missing. */
 async function renderTodayPassiveStatus(profile){
   var block = document.getElementById("todayPassiveStatusBlock");
-  var state = document.getElementById("todayPassiveStatusLabel");
   var label = document.getElementById("todayDirectionLabel");
   var card = document.getElementById("dailyBriefCard");
   var score = document.getElementById("todayDirectionScore");
@@ -5312,7 +5315,7 @@ async function renderTodayPassiveStatus(profile){
   var load = document.getElementById("todayDirectionLoad");
   var pain = document.getElementById("todayDirectionPain");
   var why = document.getElementById("todayDirectionWhy");
-  if (!block || !state || !label || !score || !quality) return;
+  if (!block || !label || !score || !quality) return;
 
   function set(view){
     var value = view || buildAthlevoDirectionView({});
@@ -5322,12 +5325,19 @@ async function renderTodayPassiveStatus(profile){
       card.dataset.direction = key;
       card.dataset.score = value.score === null ? "missing" : "available";
     }
-    state.textContent = value.direction.state;
     label.textContent = value.direction.label;
     score.textContent = value.score === null ? "" : "Readiness " + String(value.score);
     score.hidden = value.score === null;
     quality.textContent = value.quality;
     quality.hidden = !value.quality;
+    if (card){
+      card.setAttribute(
+        "aria-label",
+        "Athlevo Direction: " + value.direction.state + ". " + value.direction.label +
+          (value.score === null ? "" : ". Readiness " + String(value.score)) +
+          (value.quality ? ". " + value.quality : "") + "."
+      );
+    }
     if (recovery) recovery.textContent = value.readiness;
     if (load) load.textContent = value.load;
     if (pain) pain.textContent = value.pain;

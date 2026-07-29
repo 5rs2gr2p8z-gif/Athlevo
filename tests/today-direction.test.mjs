@@ -100,7 +100,7 @@ console.log("\n──── Truthful contributors and confidence ────");
 {
   const partial = helpers.buildAthlevoDirectionView({});
   test("missing readiness is not replaced with a fabricated score",
-    partial.score === null && partial.readiness === "No check-in");
+    partial.score === null && partial.readiness === "No recent check-in");
   test("missing load and pain are labelled honestly",
     partial.load === "Load unavailable" &&
     partial.pain === "Pain unavailable");
@@ -111,6 +111,7 @@ test("reported soreness is shown from the check-in",
     checkIn: { recorded: true, soreness: 4, painPresent: false }
   }).pain === "Soreness 4/10");
 test("load labels use the same conservative boundaries as Direction",
+  helpers.buildAthlevoDirectionView({ recovery: { acwr: 0.7 } }).load === "Load below usual" &&
   helpers.buildAthlevoDirectionView({ recovery: { acwr: 1.3 } }).load === "Load elevated" &&
   helpers.buildAthlevoDirectionView({ recovery: { acwr: 1.5 } }).load === "Load high");
 test("a partial check-in is not mislabeled as absent",
@@ -205,6 +206,10 @@ const directionMarkup = today.slice(
   today.indexOf('<article class="direction-card"'),
   today.indexOf("</article>", today.indexOf('<article class="direction-card"')) + "</article>".length
 );
+const directionCss = html.slice(
+  html.indexOf(".direction-card{"),
+  html.indexOf(".today-workout-card{")
+);
 const positions = [
   today.indexOf("brand-icon"),
   today.indexOf("Good morning,"),
@@ -217,11 +222,13 @@ const positions = [
 ];
 test("first viewport follows mark → greeting → context → instrument → workout → action",
   positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
-test("Direction is a named live status for assistive technology",
-  /id="todayPassiveStatusBlock"[\s\S]*?role="status"[\s\S]*?aria-live="polite"[\s\S]*?aria-atomic="true"/.test(today));
+test("Direction is named for assistive technology without repeated live announcements",
+  /<article class="direction-card"[\s\S]*?aria-label="Athlevo Direction: HOLD\. Controlled day\. Limited data\."/.test(today) &&
+  !/role="(?:button|tab|status)"|aria-live=|aria-pressed=|aria-selected=/.test(directionMarkup));
 test("instrument is one continuous three-column direction band",
   /class="direction-band" aria-hidden="true"/.test(today) &&
   /\.direction-band\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(html) &&
+  /\.direction-band::after\{[^}]*left:0;right:0[^}]*height:2px[^}]*background:var\(--line\)/.test(html) &&
   /direction-band-zone--recover/.test(today) &&
   /direction-band-zone--hold/.test(today) &&
   /direction-band-zone--push/.test(today));
@@ -233,11 +240,20 @@ test("active zone styling is driven by data-direction on the card",
   /\.direction-card\[data-direction="hold"\] \.direction-band-zone--hold/.test(html) &&
   /\.direction-card\[data-direction="push"\] \.direction-band-zone--push/.test(html));
 test("only the active zone reveals its marker",
-  /direction-band-zone--recover \.direction-band-marker,[\s\S]*?direction-band-zone--hold \.direction-band-marker,[\s\S]*?direction-band-zone--push \.direction-band-marker\{opacity:\.9\}/.test(html) &&
+  /direction-band-zone--recover \.direction-band-marker,[\s\S]*?direction-band-zone--hold \.direction-band-marker,[\s\S]*?direction-band-zone--push \.direction-band-marker\{opacity:1\}/.test(html) &&
   /\.direction-band-marker\{[^}]*opacity:0/.test(html));
-test("state and human label sit beneath the track",
-  today.indexOf("todayPassiveStatusLabel") > today.indexOf("direction-band") &&
-  /id="todayPassiveStatusLabel">HOLD<\/strong>[\s\S]*?id="todayDirectionLabel">Controlled day<\/p>/.test(today));
+test("HOLD appears once visually and Controlled day is the sole verdict beneath the track",
+  (directionMarkup.match(/HOLD/g) || []).length === 2 &&
+  (directionMarkup.match(/>\s*HOLD\s*</g) || []).length === 1 &&
+  !/todayPassiveStatusLabel|direction-state/.test(directionMarkup) &&
+  /id="todayDirectionLabel">Controlled day<\/p>/.test(today));
+test("Direction track has no control semantics or interaction hooks",
+  !/<button|role="(?:button|tab)"|onclick=|onpointer|tabindex=/.test(directionMarkup) &&
+  !/cursor:pointer|:hover|:focus|:active/.test(directionCss));
+test("active state uses semantic text and a marker, never a filled segment",
+  /\.direction-card\[data-direction="hold"\] \.direction-band-zone--hold\{\s*color:var\(--zone-hold\);font-weight:800\}/.test(html) &&
+  !/\.direction-card\[data-direction="(?:recover|hold|push)"\] \.direction-band-zone--(?:recover|hold|push)\{[^}]*background:/.test(directionCss) &&
+  !/\.direction-band-zone\{[^}]*border:/.test(directionCss));
 test("supporting score and all three evidence values have dedicated mounts",
   /id="todayDirectionScore"/.test(today) &&
   /class="direction-evidence"/.test(today) &&
@@ -246,11 +262,11 @@ test("supporting score and all three evidence values have dedicated mounts",
   /id="todayDirectionPain"/.test(today) &&
   !/direction-signal"/.test(today));
 test("missing evidence renders as one quiet line",
-  /<p class="direction-evidence"[\s\S]*?No check-in[\s\S]*?Load unavailable[\s\S]*?Pain unavailable[\s\S]*?<\/p>/.test(today));
+  /<p class="direction-evidence"[\s\S]*?No recent check-in[\s\S]*?Load below usual[\s\S]*?Pain unavailable[\s\S]*?<\/p>/.test(today));
 test("Direction card has the required compact fixed height",
   /\.direction-card\{[^}]*height:164px[^}]*box-sizing:border-box/.test(html));
 test("Limited data is quiet text rather than a pill",
-  /\.direction-quality\{[^}]*color:var\(--ink3\)[^}]*padding:2px 0/.test(html) &&
+  /\.direction-quality\{[^}]*color:var\(--ink2\)[^}]*padding:2px 0/.test(html) &&
   !/\.direction-quality\{[^}]*background:/.test(html));
 test("narrow phones reduce greeting size with the existing display token",
   /@media \(max-width:380px\)\{[\s\S]*?\.greet h1\{font-size:calc\(var\(--fs-display\) \* \.88\)/.test(html));
@@ -259,9 +275,10 @@ test("readiness score is hidden when absent and small when available",
   /score\.textContent = value\.score === null \? "" : "Readiness " \+ String\(value\.score\)/.test(html) &&
   /score\.hidden = value\.score === null/.test(html));
 test("semantic zone colors are defined without gradients",
-  /--zone-recover:#3d6fd4/.test(html) &&
-  /--zone-hold:#c4841a/.test(html) &&
+  /--zone-recover:#315eb8/.test(html) &&
+  /--zone-hold:#8a5700/.test(html) &&
   /--zone-push:var\(--red\)/.test(html) &&
+  /html\[data-theme="dark"\] \.direction-card\{[\s\S]*?--zone-recover:#78a6ff;--zone-hold:#e2a94a/.test(html) &&
   !/\.direction-band[^{]*\{[^}]*gradient/.test(html));
 test("primary action remains a real button with existing Train routing",
   /class="rec-cta" id="todayWorkoutCta" onclick="todayGoToTrain\(\)">View training plan<\/button>/.test(today));
@@ -292,8 +309,9 @@ test("greeting uses the athlete's first name without an email fallback",
 test("Direction uses a theme-aware editorial surface and no gradient",
   /\.direction-card\{[^}]*background:var\(--paper\)/.test(html) &&
     !/\.direction-card\{[^}]*gradient/.test(html));
-test("band appearance uses restrained tokenized motion",
-  /\.direction-band-zone\{[^}]*transition:[^}]*var\(--dur-base\)[^}]*var\(--ease-standard\)/.test(html));
+test("band appearance uses restrained tokenized motion without press animation",
+  /\.direction-band-zone\{[^}]*transition:color var\(--dur-base\) var\(--ease-standard\)/.test(html) &&
+  !/transform[^;}]*var\(--dur-base\)/.test(directionCss));
 test("global reduced-motion support remains present",
   /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html));
 
