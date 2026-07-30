@@ -2600,11 +2600,12 @@ body.landing-active #tabbar{display:none!important}
 .lp-integrations-copy p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);max-width:45ch;margin:var(--s-3) 0 0}
 .lp-integration-list{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0;padding:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .lp-integration-item{min-width:0;padding:var(--s-4);border-left:1px solid var(--line)}
-.lp-integration-item:first-child{border-left:0}
+.lp-integration-item:nth-child(4n+1){border-left:0}
+.lp-integration-item:nth-child(n+5){border-top:1px solid var(--line)}
 .lp-integration-name{display:block;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;letter-spacing:-.01em;color:var(--text);overflow-wrap:anywhere}
-.lp-integration-status{display:flex;align-items:center;gap:7px;margin-top:var(--s-2);font-size:var(--fs-caption);font-weight:650;color:var(--ink2);white-space:nowrap}
+.lp-integration-status{display:flex;align-items:flex-start;gap:7px;margin-top:var(--s-2);font-size:var(--fs-caption);font-weight:650;line-height:var(--lh-caption);color:var(--ink2);overflow-wrap:anywhere}
 .lp-integration-status::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ink3);flex:none}
-.lp-integration-status.available::before{background:var(--good)}
+.lp-integration-status.direct::before{background:var(--good)}
 .lp-integration-note{font-size:var(--fs-caption);color:var(--ink3);margin:var(--s-2) 0 0;text-align:right}
 
 /* generic section */
@@ -2814,7 +2815,7 @@ body.landing-active #tabbar{display:none!important}
   .lp-subgrid{grid-template-columns:1fr 1fr}
   .lp-integrations{padding:var(--s-7) 0}
   .lp-integration-list{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .lp-integration-item:nth-child(3){border-left:0}
+  .lp-integration-item:nth-child(odd){border-left:0}
   .lp-integration-item:nth-child(n+3){border-top:1px solid var(--line)}
   .lp-integration-note{text-align:left}
   .lp-use-cases{grid-template-columns:1fr}
@@ -2951,28 +2952,44 @@ body.landing-active #tabbar{display:none!important}
       <div class="lp-integrations-copy lp-reveal">
         <span class="lp-kicker">YOUR TRAINING, CONNECTED</span>
         <h2 id="lp-integrations-title">Bring your training with you.</h2>
-        <p>Connect your existing training data so Athlevo understands what you completed—not just what was planned.</p>
+        <p>Connect directly through Strava or bring data from compatible watches and platforms through Intervals.icu.</p>
       </div>
       <div class="lp-reveal">
-        <ul class="lp-integration-list" aria-label="Training platform connection availability">
+        <ul class="lp-integration-list" aria-label="Training platform connection routes">
           <li class="lp-integration-item">
             <span class="lp-integration-name">Strava</span>
-            <span class="lp-integration-status available">Available</span>
+            <span class="lp-integration-status direct">Direct</span>
           </li>
           <li class="lp-integration-item">
             <span class="lp-integration-name">Intervals.icu</span>
-            <span class="lp-integration-status available">Available</span>
+            <span class="lp-integration-status direct">Direct</span>
           </li>
           <li class="lp-integration-item">
             <span class="lp-integration-name">Garmin</span>
-            <span class="lp-integration-status">Coming soon</span>
+            <span class="lp-integration-status">Via Intervals.icu</span>
           </li>
           <li class="lp-integration-item">
             <span class="lp-integration-name">COROS</span>
-            <span class="lp-integration-status">Coming soon</span>
+            <span class="lp-integration-status">Via Intervals.icu</span>
+          </li>
+          <li class="lp-integration-item">
+            <span class="lp-integration-name">Polar</span>
+            <span class="lp-integration-status">Via Intervals.icu</span>
+          </li>
+          <li class="lp-integration-item">
+            <span class="lp-integration-name">Suunto</span>
+            <span class="lp-integration-status">Via Intervals.icu</span>
+          </li>
+          <li class="lp-integration-item">
+            <span class="lp-integration-name">WHOOP</span>
+            <span class="lp-integration-status">Via Intervals.icu</span>
+          </li>
+          <li class="lp-integration-item">
+            <span class="lp-integration-name">Oura</span>
+            <span class="lp-integration-status">Via Intervals.icu</span>
           </li>
         </ul>
-        <p class="lp-integration-note">Direct connection availability varies by platform.</p>
+        <p class="lp-integration-note">Availability depends on the data each platform shares with Intervals.icu.</p>
       </div>
     </div>
   </section>

@@ -40,17 +40,22 @@ test("integration rail precedes the longer athlete proof",
 [
   "YOUR TRAINING, CONNECTED",
   "Bring your training with you.",
-  "Connect your existing training data so Athlevo understands what you completed—not just what was planned.",
-  "Direct connection availability varies by platform."
+  "Connect directly through Strava or bring data from compatible watches and platforms through Intervals.icu.",
+  "Availability depends on the data each platform shares with Intervals.icu."
 ].forEach(copy => test(`exact copy: ${copy}`, integration.includes(copy)));
-test("Strava is marked Available",
-  /Strava<\/span>[\s\S]*?available">Available/.test(integration));
-test("Intervals.icu is marked Available",
-  /Intervals\.icu<\/span>[\s\S]*?available">Available/.test(integration));
-test("Garmin is marked Coming soon",
-  /Garmin<\/span>[\s\S]*?lp-integration-status">Coming soon/.test(integration));
-test("COROS is marked Coming soon",
-  /COROS<\/span>[\s\S]*?lp-integration-status">Coming soon/.test(integration));
+test("Strava is marked Direct",
+  /Strava<\/span>\s*<span class="lp-integration-status direct">Direct/.test(integration));
+test("Intervals.icu is marked Direct",
+  /Intervals\.icu<\/span>\s*<span class="lp-integration-status direct">Direct/.test(integration));
+["Garmin", "COROS", "Polar", "Suunto", "WHOOP", "Oura"].forEach(platform =>
+  test(`${platform} is marked Via Intervals.icu`,
+    integration.includes(
+      `<span class="lp-integration-name">${platform}</span>\n` +
+      '            <span class="lp-integration-status">Via Intervals.icu</span>'
+    ))
+);
+test("supported platforms are not marked Coming soon",
+  !integration.includes("Coming soon"));
 test("no unapproved platform logos are fabricated",
   !/<img\b/.test(integration) && !/<svg\b/.test(integration));
 
@@ -96,9 +101,9 @@ test("narrow viewports receive a readable two-column platform rail",
   /@media \(max-width:560px\)\{[\s\S]*?\.lp-integration-list\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(html));
 test("mobile CTAs remain full-width and visible",
   /@media \(max-width:560px\)\{[\s\S]*?\.lp-cta\{flex-direction:column;align-items:stretch\}/.test(html));
-test("integration availability is exposed as text, not color alone",
-  integration.includes(">Available</span>") &&
-  integration.includes(">Coming soon</span>"));
+test("integration route is exposed as text, not color alone",
+  integration.includes(">Direct</span>") &&
+  integration.includes(">Via Intervals.icu</span>"));
 test("landing reveal honors reduced-motion preferences",
   /@media \(prefers-reduced-motion:reduce\)\{\.lp-reveal\{opacity:1;transform:none;transition:none\}\}/.test(html));
 
