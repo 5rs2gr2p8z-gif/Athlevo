@@ -23,7 +23,10 @@ const src = readFileSync("./js/socialAuth.js", "utf8");
 function load({ origin = "https://athlevo.org", search = "", hash = "",
                 oauthError = null, inAppBrowser = false, noClient = false,
                 loggedIn = false } = {}) {
-  const calls = { oauth: [], replaced: [], tracked: [], product: [], intents: [], notice: 0 };
+  const calls = {
+    oauth: [], replaced: [], tracked: [], product: [], intents: [],
+    notice: 0, handoff: []
+  };
   const elements = {
     authBtnGoogle: { style: { display: "" } },
     authBtnApple: { style: { display: "" } }
@@ -52,7 +55,12 @@ function load({ origin = "https://athlevo.org", search = "", hash = "",
     AthlevoEnv: {
       canonicalUrl: () => "https://athlevo.org",
       shouldWarn: () => inAppBrowser,
-      showNotice: () => { calls.notice += 1; }
+      showNotice: () => { calls.notice += 1; },
+      guardSignupHandoff: (intent, surface) => {
+        calls.handoff.push({ intent, surface });
+        if (inAppBrowser) calls.notice += 1;
+        return inAppBrowser;
+      }
     },
     AthlevoAnalytics: { track: (n, m) => calls.tracked.push({ n, m }) },
     AthlevoProductAnalytics: {
@@ -225,6 +233,10 @@ section("In-app browsers");
   const r = await api.signInWithGoogle();
   t("OAuth is not attempted inside a webview", calls.oauth.length === 0);
   t("the existing environment notice is shown instead", calls.notice === 1);
+  t("the handoff intercept runs before OAuth with categorical context",
+    calls.handoff.length === 1 &&
+    calls.handoff[0].intent === "signup" &&
+    calls.handoff[0].surface === "auth");
   t("marked handled so no duplicate toast appears", r.handled === true);
 }
 

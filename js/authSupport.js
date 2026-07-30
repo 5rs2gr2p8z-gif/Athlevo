@@ -24,6 +24,14 @@
   "use strict";
 
   const CANONICAL_URL = "https://athlevo.org";
+  const CONTINUATION_INTENTS = new Set(["signup", "login"]);
+  const HANDOFF_BROWSERS = new Set(["facebook", "instagram"]);
+  const HANDOFF_SURFACES = new Set(["landing", "auth"]);
+  const ATTRIBUTION_KEYS = [
+    "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"
+  ];
+  let handoffRestoreFocus = null;
+  let continuationTracked = false;
 
   /* ═══════════════════ 1 · embedded-browser detection ═══════════════════ */
 
@@ -95,18 +103,125 @@
 
   /* ── the guidance notice (self-contained neutral overlay) ── */
 
-  function copyLink(url, buttonEl) {
-    const done = () => { if (buttonEl) buttonEl.textContent = "Link copied ✓"; };
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(done, () => fallbackCopy(url, done));
-        return;
-      }
-    } catch (error) { /* fall through */ }
-    fallbackCopy(url, done);
+  function handoffBrowser() {
+    const name = getEmbeddedBrowserName();
+    if (name === "Instagram") return "instagram";
+    if (name === "Facebook" || name === "Messenger") return "facebook";
+    return null;
   }
 
-  function fallbackCopy(url, done) {
+  function safeIntent(value) {
+    return CONTINUATION_INTENTS.has(value) ? value : null;
+  }
+
+  function safeSurface(value) {
+    return HANDOFF_SURFACES.has(value) ? value : "auth";
+  }
+
+  function safeHandoffBrowser(value) {
+    return HANDOFF_BROWSERS.has(value) ? value : null;
+  }
+
+  function shortAttribution(value, key) {
+    if (typeof value !== "string") return null;
+    const clean = value.trim();
+    const max = key === "fbclid" ? 500 : 160;
+    return clean && clean.length <= max ? clean : null;
+  }
+
+  function attributionForHandoff() {
+    const approved = {};
+    try {
+      if (window.AthlevoProductAnalytics &&
+          typeof window.AthlevoProductAnalytics.attributionProps === "function") {
+        const stored = window.AthlevoProductAnalytics.attributionProps() || {};
+        ATTRIBUTION_KEYS.forEach(key => {
+          const value = shortAttribution(stored[key], key);
+          if (value) approved[key] = value;
+        });
+      }
+    } catch (error) {}
+    try {
+      const current = new URLSearchParams(window.location.search || "");
+      ATTRIBUTION_KEYS.forEach(key => {
+        if (approved[key]) return;
+        const value = shortAttribution(current.get(key), key);
+        if (value) approved[key] = value;
+      });
+    } catch (error) {}
+    return approved;
+  }
+
+  function buildContinuationUrl(intent, options) {
+    const allowedIntent = safeIntent(intent) || "signup";
+    const opts = options || {};
+    const url = new URL(CANONICAL_URL + "/");
+    url.searchParams.set("continue", allowedIntent);
+    const browser = safeHandoffBrowser(opts.browser || handoffBrowser());
+    const surface = safeSurface(opts.sourceSurface);
+    if (browser) url.searchParams.set("handoff_browser", browser);
+    url.searchParams.set("source_surface", surface);
+    const attribution = attributionForHandoff();
+    ATTRIBUTION_KEYS.forEach(key => {
+      if (attribution[key]) url.searchParams.set(key, attribution[key]);
+    });
+    return url.toString();
+  }
+
+  function readContinuation() {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      const intent = safeIntent(params.get("continue"));
+      if (!intent) return null;
+      return {
+        intent,
+        browser: safeHandoffBrowser(params.get("handoff_browser")),
+        sourceSurface: safeSurface(params.get("source_surface"))
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function trackHandoffEvent(name, context) {
+    const input = context || {};
+    const browser = safeHandoffBrowser(input.browser);
+    const intent = safeIntent(input.intent);
+    const sourceSurface = safeSurface(input.sourceSurface);
+    if (!browser || !intent) return;
+    try {
+      if (window.AthlevoProductAnalytics &&
+          typeof window.AthlevoProductAnalytics.trackAthlevoEvent === "function") {
+        window.AthlevoProductAnalytics.trackAthlevoEvent(name, {
+          browser,
+          intent,
+          source_surface: sourceSurface
+        });
+      }
+    } catch (error) {}
+  }
+
+  function consumeContinuation() {
+    const continuation = readContinuation();
+    if (!continuation) return null;
+    if (!continuationTracked) {
+      continuationTracked = true;
+      trackHandoffEvent("external_signup_continuation_viewed", continuation);
+    }
+    return continuation;
+  }
+
+  async function copyLink(url) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        return true;
+      }
+    } catch (error) {}
+    return fallbackCopy(url);
+  }
+
+  function fallbackCopy(url) {
     try {
       const ta = document.createElement("textarea");
       ta.value = url;
@@ -115,77 +230,150 @@
       ta.style.left = "-9999px";
       document.body.appendChild(ta);
       ta.select();
-      document.execCommand("copy");
+      const copied = document.execCommand("copy");
       document.body.removeChild(ta);
-      done();
-    } catch (error) { /* no-op: user can long-press the URL */ }
+      return copied !== false;
+    } catch (error) {
+      return false;
+    }
   }
 
   function noticeCopy(context, browserName) {
-    const name = browserName || "This app's";
     const base = {
-      title: "Open Athlevo in your browser",
-      body: `${name === "This app's" ? "This in-app browser" : name + "’s browser"} may interrupt sign-in and Strava connection. Open Athlevo in Safari or Chrome to continue.`
+      title: "Continue in Safari or Chrome",
+      body: "Facebook’s browser can interrupt Google sign-in and training-data connection."
     };
+    if (browserName === "Instagram") {
+      base.body = "Instagram’s browser can interrupt Google sign-in and training-data connection.";
+    }
     if (context === "strava") {
-      base.body = `Strava must be connected from Safari or Chrome. ${name === "This app's" ? "This in-app browser" : name + "’s browser"} can’t complete the Strava connection.`;
+      base.body = "This in-app browser can interrupt training-data connection. Continue in Safari or Chrome.";
     }
     return base;
   }
 
-  // Renders the notice. opts: { context, allowContinue, onContinue }.
+  function ensureHandoffStyles() {
+    if (document.getElementById("athlevoEnvNoticeStyles")) return;
+    const style = document.createElement("style");
+    style.id = "athlevoEnvNoticeStyles";
+    style.textContent =
+      "#athlevoEnvNotice{position:fixed;inset:0;z-index:99999;background:rgba(20,20,22,.58);display:flex;align-items:flex-end;justify-content:center;font-family:var(--sans,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif)}" +
+      "#athlevoEnvNotice .aeh-card{width:100%;max-width:430px;background:var(--paper,#fff);color:var(--text,#141416);border:1px solid var(--line,#e7e7e4);border-radius:24px 24px 0 0;padding:24px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px rgba(0,0,0,.2)}" +
+      "#athlevoEnvNotice h2{font-size:20px;line-height:1.2;margin:0 0 9px}" +
+      "#athlevoEnvNotice p{font-size:14px;line-height:1.5;color:var(--ink2,#60636a);margin:0 0 13px}" +
+      "#athlevoEnvNotice .aeh-instruction{font-weight:600;color:var(--text,#141416)}" +
+      "#athlevoEnvNotice .aeh-actions{display:flex;gap:10px;margin-top:18px}" +
+      "#athlevoEnvNotice button{min-height:46px;border-radius:999px;padding:12px 16px;font:600 14px/1 var(--sans,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif);cursor:pointer}" +
+      "#athlevoEnvCopy{flex:1;border:1px solid var(--ink,#141416);background:var(--ink,#141416);color:var(--paper,#fff)}" +
+      "#athlevoEnvClose{border:1px solid var(--line,#d9d9d5);background:transparent;color:var(--text,#141416)}" +
+      "#athlevoEnvFeedback{min-height:18px;margin:13px 0 0!important;font-size:13px!important}" +
+      "#athlevoEnvNotice button:focus-visible{outline:3px solid color-mix(in srgb,var(--red,#e5484d) 45%,transparent);outline-offset:2px}" +
+      "@media(max-width:360px){#athlevoEnvNotice .aeh-card{padding-left:18px;padding-right:18px}#athlevoEnvNotice .aeh-actions{flex-direction:column}#athlevoEnvClose{width:100%}}" +
+      "@media(min-width:600px){#athlevoEnvNotice{align-items:center}#athlevoEnvNotice .aeh-card{border-radius:24px;margin:20px}}" +
+      "@media(prefers-reduced-motion:reduce){#athlevoEnvNotice *{animation:none!important;transition:none!important}}";
+    document.head.appendChild(style);
+  }
+
+  function closeNotice(overlay) {
+    if (!overlay) return;
+    overlay.remove();
+    if (handoffRestoreFocus && typeof handoffRestoreFocus.focus === "function") {
+      handoffRestoreFocus.focus();
+    }
+    handoffRestoreFocus = null;
+  }
+
+  // Renders a copy-only handoff. Ordinary navigation cannot escape iOS IABs.
   function showNotice(opts) {
     opts = opts || {};
     const browserName = getEmbeddedBrowserName();
     const copy = noticeCopy(opts.context, browserName);
+    const intent = safeIntent(opts.intent) ||
+      (opts.context === "login" || opts.context === "strava" ? "login" : "signup");
+    const sourceSurface = safeSurface(opts.sourceSurface);
+    const browser = safeHandoffBrowser(opts.browser || handoffBrowser());
+    const continuationUrl = buildContinuationUrl(intent, {
+      browser,
+      sourceSurface
+    });
 
     let overlay = document.getElementById("athlevoEnvNotice");
-    if (overlay) overlay.remove();
+    if (overlay) closeNotice(overlay);
 
+    ensureHandoffStyles();
+    handoffRestoreFocus = document.activeElement;
     overlay = document.createElement("div");
     overlay.id = "athlevoEnvNotice";
     overlay.setAttribute("role", "dialog");
     overlay.setAttribute("aria-modal", "true");
-    overlay.style.cssText =
-      "position:fixed;inset:0;z-index:99999;background:rgba(20,20,22,.55);" +
-      "display:flex;align-items:center;justify-content:center;" +
-      "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;";
-
-    const iosHint = /iPhone|iPad|iPod/i.test(uaString())
-      ? "Tap the ••• or menu icon, then choose “Open in Safari”."
-      : "Tap the ⋮ menu, then choose “Open in Chrome” or “Open in browser”.";
+    overlay.setAttribute("aria-labelledby", "athlevoEnvTitle");
+    overlay.setAttribute("aria-describedby", "athlevoEnvBody athlevoEnvInstruction");
 
     overlay.innerHTML =
-      '<div style="background:#fff;max-width:400px;width:calc(100% - 40px);margin:20px;border-radius:22px;padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.18);color:#141416">' +
-        '<h2 style="font-size:19px;margin:0 0 8px">' + escapeHtml(copy.title) + "</h2>" +
-        '<p style="font-size:14px;line-height:1.55;color:#6d7075;margin:0 0 14px">' + escapeHtml(copy.body) + "</p>" +
-        '<p style="font-size:13px;line-height:1.5;color:#6d7075;margin:0 0 16px">' + escapeHtml(iosHint) + "</p>" +
-        '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-          '<button id="athlevoEnvCopy" style="flex:1;min-width:130px;background:#141416;color:#fff;border:none;font-size:14px;font-weight:600;padding:13px 16px;border-radius:100px;cursor:pointer">Copy link</button>' +
-          '<a id="athlevoEnvOpen" href="' + escapeHtml(CANONICAL_URL) + '" target="_blank" rel="noopener" style="flex:1;min-width:130px;text-align:center;text-decoration:none;background:#f6f6f4;color:#141416;font-size:14px;font-weight:600;padding:13px 16px;border-radius:100px">Open in browser</a>' +
+      '<div class="aeh-card">' +
+        '<h2 id="athlevoEnvTitle">' + escapeHtml(copy.title) + "</h2>" +
+        '<p id="athlevoEnvBody">' + escapeHtml(copy.body) + "</p>" +
+        '<p class="aeh-instruction" id="athlevoEnvInstruction">Tap the ••• menu in the top-right corner, then choose Open in external browser or Open in Safari.</p>' +
+        '<div class="aeh-actions">' +
+          '<button id="athlevoEnvCopy" type="button">' +
+            (intent === "signup" ? "Copy signup link" : "Copy login link") +
+          "</button>" +
+          '<button id="athlevoEnvClose" type="button">Close</button>' +
         "</div>" +
-        '<p style="font-size:12px;color:#9a9da3;margin:14px 0 0;text-align:center">' + escapeHtml(CANONICAL_URL) + "</p>" +
-        (opts.allowContinue
-          ? '<button id="athlevoEnvContinue" style="width:100%;margin-top:14px;background:none;border:none;color:#9a9da3;font-size:13px;cursor:pointer">Continue here anyway</button>'
-          : "") +
-        '<button id="athlevoEnvClose" style="width:100%;margin-top:8px;background:none;border:none;color:#9a9da3;font-size:13px;cursor:pointer">Close</button>' +
+        '<p id="athlevoEnvFeedback" role="status" aria-live="polite"></p>' +
       "</div>";
 
     document.body.appendChild(overlay);
 
     const copyBtn = overlay.querySelector("#athlevoEnvCopy");
-    if (copyBtn) copyBtn.addEventListener("click", () => copyLink(CANONICAL_URL, copyBtn));
-
-    const closeBtn = overlay.querySelector("#athlevoEnvClose");
-    if (closeBtn) closeBtn.addEventListener("click", () => overlay.remove());
-
-    const contBtn = overlay.querySelector("#athlevoEnvContinue");
-    if (contBtn) {
-      contBtn.addEventListener("click", () => {
-        overlay.remove();
-        if (typeof opts.onContinue === "function") opts.onContinue();
+    const feedback = overlay.querySelector("#athlevoEnvFeedback");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        const copied = await copyLink(continuationUrl);
+        if (copied) {
+          copyBtn.textContent = "Link copied";
+          if (feedback) {
+            feedback.textContent =
+              "Link copied. Tap ••• above, choose Open in external browser, then paste the link if needed.";
+          }
+          trackHandoffEvent("external_signup_link_copied", {
+            browser,
+            intent,
+            sourceSurface
+          });
+        } else if (feedback) {
+          feedback.textContent = "Could not copy the link. Please try again.";
+        }
       });
     }
+
+    const closeBtn = overlay.querySelector("#athlevoEnvClose");
+    if (closeBtn) closeBtn.addEventListener("click", () => closeNotice(overlay));
+    overlay.addEventListener("click", event => {
+      if (event.target === overlay) closeNotice(overlay);
+    });
+    overlay.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeNotice(overlay);
+        return;
+      }
+      if (event.key !== "Tab" || !copyBtn || !closeBtn) return;
+      if (event.shiftKey && document.activeElement === copyBtn) {
+        event.preventDefault();
+        closeBtn.focus();
+      } else if (!event.shiftKey && document.activeElement === closeBtn) {
+        event.preventDefault();
+        copyBtn.focus();
+      }
+    });
+    if (copyBtn && typeof copyBtn.focus === "function") copyBtn.focus();
+    trackHandoffEvent("in_app_browser_signup_blocked", {
+      browser,
+      intent,
+      sourceSurface
+    });
+    return { continuationUrl, intent, browser, sourceSurface };
   }
 
   function escapeHtml(v) {
@@ -202,10 +390,24 @@
   function guard(context, options) {
     options = options || {};
     if (!shouldWarn()) return false;
-    // If storage is unavailable, continuing cannot persist a session, so we
-    // never offer "continue anyway".
-    const allowContinue = options.allowContinue === true && isStorageAvailable();
-    showNotice({ context, allowContinue, onContinue: options.onContinue });
+    showNotice({
+      context,
+      intent: options.intent,
+      sourceSurface: options.sourceSurface
+    });
+    return true;
+  }
+
+  function guardSignupHandoff(intent, sourceSurface) {
+    if (!shouldWarn()) return false;
+    const browser = handoffBrowser();
+    if (!browser) return false;
+    showNotice({
+      context: intent === "login" ? "login" : "signup",
+      intent: safeIntent(intent) || "signup",
+      sourceSurface: safeSurface(sourceSurface),
+      browser
+    });
     return true;
   }
 
@@ -217,6 +419,11 @@
     shouldWarn,
     showNotice,
     guard,
+    guardSignupHandoff,
+    buildContinuationUrl,
+    readContinuation,
+    consumeContinuation,
+    handoffBrowser,
     canonicalUrl: () => CANONICAL_URL
   };
 

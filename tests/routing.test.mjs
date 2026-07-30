@@ -66,7 +66,7 @@ const SOURCE = [
 
 /* ── minimal DOM + app doubles ──────────────────────────────────────── */
 
-function makeWorld({ session, standalone, routeThrows = false }) {
+function makeWorld({ session, standalone, routeThrows = false, continuation = null }) {
   const state = {
     screens: {
       "screen-landing": { active: false },
@@ -115,7 +115,10 @@ function makeWorld({ session, standalone, routeThrows = false }) {
 
   const sandbox = {
     document,
-    window: { scrollTo() {} },
+    window: {
+      scrollTo() {},
+      AthlevoEnv: { consumeContinuation: () => continuation }
+    },
     console: { log: (...a) => state.log.push(String(a[0])), warn: (...a) => state.log.push(String(a[0])), error: (...a) => state.log.push(String(a[0])) },
     setTimeout,
     isStandaloneMode: () => standalone,
@@ -174,6 +177,19 @@ section("Routing scenarios");
   const r = await boot({ session: null, standalone: false });
   t("1. new visitor opens athlevo.org → landing", r.visible === "screen-landing" && !r.entered);
   t("1b. boot gate is lifted", !r.state.bodyClasses.has("booting"));
+}
+{
+  const r = await boot({
+    session: null,
+    standalone: false,
+    continuation: {
+      intent: "signup",
+      browser: "facebook",
+      sourceSurface: "landing"
+    }
+  });
+  t("1c. valid external signup continuation opens the auth entry screen",
+    r.visible === "screen-welcome" && !r.entered);
 }
 {
   const r = await boot({ session: SESSION, standalone: false });

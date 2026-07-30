@@ -53,6 +53,7 @@
     "cta_text", "cta_location", "destination", "entry_source",
     "previous_page", "signup_method", "user_id", "goal_distance",
     "plan_start_date",
+    "browser", "intent", "source_surface",
     "utm_source", "utm_medium", "utm_campaign", "utm_content",
     "utm_term", "fbclid"
   ];
@@ -64,6 +65,11 @@
   var PROHIBITED = /(token|secret|code|password|email|name|phone|address|message|text|note|content|health|injury|pain|payment|card|ssn|dob|birth|gps|lat|lng|lon|coord|raw|payload)/i;
   var APPROVED_NAMED_KEYS = { cta_text: true, utm_content: true };
   var APPROVED_CTA_TEXT = { "Build My Training Plan": true };
+  var APPROVED_HANDOFF_VALUES = {
+    browser: { facebook: true, instagram: true },
+    intent: { signup: true, login: true },
+    source_surface: { landing: true, auth: true }
+  };
 
   /* ═══════════════════ attribution persistence ═════════════════════ */
 
@@ -230,6 +236,8 @@
       if (t === "boolean" || t === "number") { out[key] = v; return; }
       if (t !== "string" || !v.length) return;
       if (key === "cta_text" && !APPROVED_CTA_TEXT[v.trim()]) return;
+      if (APPROVED_HANDOFF_VALUES[key] &&
+          !APPROVED_HANDOFF_VALUES[key][v.trim()]) return;
       if (key === "page_url") v = safeUrl(v, true);
       if (key === "referrer" || key === "previous_page") v = safeUrl(v, false);
       if (!v) return;
@@ -307,10 +315,19 @@
       var premiumCategorical = name === "premium_feature_viewed" ||
         name === "upgrade_clicked" ||
         name === "checkout_opened";
+      var handoffCategorical = name === "in_app_browser_signup_blocked" ||
+        name === "external_signup_link_copied" ||
+        name === "external_signup_continuation_viewed";
       if (premiumCategorical) {
         safe = {
           ...(safe.feature ? { feature: safe.feature } : {}),
           ...(safe.surface ? { surface: safe.surface } : {})
+        };
+      } else if (handoffCategorical) {
+        safe = {
+          ...(safe.browser ? { browser: safe.browser } : {}),
+          ...(safe.intent ? { intent: safe.intent } : {}),
+          ...(safe.source_surface ? { source_surface: safe.source_surface } : {})
         };
       } else {
         // Acquisition and device context belong on general funnel events.

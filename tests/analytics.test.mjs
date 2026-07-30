@@ -47,6 +47,8 @@ const REQUIRED = [
   "registration_completed", "onboarding_started", "data_connection_started",
   "free_account_created", "onboarding_completed", "data_connection_completed",
   "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
+  "in_app_browser_signup_blocked", "external_signup_link_copied",
+  "external_signup_continuation_viewed",
   "paid_subscription_activated",
   "account_created", "email_verified", "athlete_onboarding_started", "athlete_onboarding_completed",
   "wearable_setup_started", "sync_account_step_viewed", "wearable_provider_step_viewed",

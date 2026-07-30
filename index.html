@@ -4635,7 +4635,25 @@ function beginEmailSignupIntent() {
     }
   } catch (e) {}
 }
+function interceptInAppAuthHandoff(intent, sourceSurface) {
+  try {
+    return Boolean(
+      window.AthlevoEnv &&
+      typeof window.AthlevoEnv.guardSignupHandoff === "function" &&
+      window.AthlevoEnv.guardSignupHandoff(intent, sourceSurface)
+    );
+  } catch (e) {
+    return false;
+  }
+}
 function openSignup(userChoseSignup) {
+  if (
+    userChoseSignup === true &&
+    !athlevoSessionUserId &&
+    interceptInAppAuthHandoff("signup", "auth")
+  ) {
+    return;
+  }
   document.getElementById('authModal').style.display = 'flex';
   if (userChoseSignup === true && !athlevoSessionUserId) {
     trackAuthChoice("email_signup_clicked");
@@ -4645,6 +4663,16 @@ function openSignup(userChoseSignup) {
   pushAuthState();
 }
 function openLogin(userChoseLogin, entrySource) {
+  if (
+    userChoseLogin === true &&
+    !athlevoSessionUserId &&
+    interceptInAppAuthHandoff(
+      "login",
+      entrySource === "landing" ? "landing" : "auth"
+    )
+  ) {
+    return;
+  }
   document.getElementById('authModal').style.display = 'flex';
   showLoginForm(userChoseLogin === true, entrySource);
   pushAuthState();
@@ -4656,6 +4684,13 @@ function closeAuth() {
   document.getElementById('authModal').style.display = 'none';
 }
 function showSignupForm(userChoseSignup) {
+  if (
+    userChoseSignup === true &&
+    !athlevoSessionUserId &&
+    interceptInAppAuthHandoff("signup", "auth")
+  ) {
+    return;
+  }
   document.getElementById('signupForm').style.display = 'block';
   document.getElementById('loginForm').style.display = 'none';
   if (userChoseSignup === true && !athlevoSessionUserId) {
@@ -4722,6 +4757,7 @@ function landingStartFree(trigger)  {
     cta_location: locationName,
     destination: "screen-welcome"
   });
+  if (interceptInAppAuthHandoff("signup", "landing")) return;
   openAppEntry();
 }
 function landingStartBeta(trigger)  { landingStartFree(trigger); }
@@ -4729,6 +4765,7 @@ function landingSignIn()     {
   if (athlevoSessionUserId) { openAthlevoApp(); }
   else {
     rememberLandingAuthEntry("navigation_login");
+    if (interceptInAppAuthHandoff("login", "landing")) return;
     openAppEntry();
     openLogin(true, "landing");
   }
@@ -4848,12 +4885,11 @@ async function doSignup(bypassEmbeddedWarning) {
   const msg = document.getElementById('suMsg');
   const btn = document.getElementById('suBtn');
 
-  // In-app browsers (Messenger/Instagram/…) partition storage, so a session
-  // created here often can't be saved. Warn and guide to Safari/Chrome
-  // first; allow "Continue here anyway" only if storage actually works.
+  // In-app browsers can lose the session. Stop before account creation and
+  // provide the same safe external-browser continuation used by OAuth.
   if (!bypassEmbeddedWarning && window.AthlevoEnv && window.AthlevoEnv.guard('signup', {
-    allowContinue: true,
-    onContinue: () => doSignup(true)
+    intent: "signup",
+    sourceSurface: "auth"
   })) {
     return;
   }
@@ -4999,8 +5035,8 @@ async function doLogin(bypassEmbeddedWarning) {
   const btn = document.getElementById('liBtn');
 
   if (!bypassEmbeddedWarning && window.AthlevoEnv && window.AthlevoEnv.guard('login', {
-    allowContinue: true,
-    onContinue: () => doLogin(true)
+    intent: "login",
+    sourceSurface: "auth"
   })) {
     return;
   }
@@ -6720,11 +6756,27 @@ async function restoreSession(opts) {
     // with an explanation, never the marketing landing.
     showScreen("screen-welcome");
     if (typeof toast === "function") toast("Your session expired. Please sign in again.");
-  } else if (isStandaloneMode()) {
-    showScreen("screen-welcome");
   } else {
-    showScreen("screen-landing");
-    updateOpenAppUI(false);
+    var externalContinuation =
+      window.AthlevoEnv &&
+      typeof window.AthlevoEnv.consumeContinuation === "function"
+        ? window.AthlevoEnv.consumeContinuation()
+        : null;
+    if (externalContinuation) {
+      showScreen("screen-welcome");
+      if (externalContinuation.intent === "login") {
+        setTimeout(function () {
+          if (typeof openLogin === "function") {
+            openLogin(false, "external_handoff");
+          }
+        }, 0);
+      }
+    } else if (isStandaloneMode()) {
+      showScreen("screen-welcome");
+    } else {
+      showScreen("screen-landing");
+      updateOpenAppUI(false);
+    }
   }
   return false;
 }
@@ -6833,7 +6885,7 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/authSupport.js?v=67"></script>
+<script src="js/authSupport.js?v=71"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/brain.js?v=68"></script>
 <script src="js/syncStatus.js?v=67"></script>
@@ -6855,10 +6907,10 @@ setTimeout(function () {
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
 <script src="js/trendsAnalytics.js?v=70"></script>
-<script src="js/socialAuth.js?v=68"></script>
-<script src="js/analyticsRegistry.js?v=70"></script>
+<script src="js/socialAuth.js?v=71"></script>
+<script src="js/analyticsRegistry.js?v=71"></script>
 <script src="js/metaPixel.js?v=67"></script>
-<script src="js/analytics.js?v=70"></script>
+<script src="js/analytics.js?v=71"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=67"></script>
 <script src="js/onboardingConnect.js?v=68"></script>

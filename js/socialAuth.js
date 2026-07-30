@@ -86,8 +86,20 @@
      * already detects this for Strava; reuse it rather than letting the
      * athlete fail silently inside a webview.
      */
+    if (root.AthlevoEnv &&
+        typeof root.AthlevoEnv.guardSignupHandoff === "function" &&
+        root.AthlevoEnv.guardSignupHandoff("signup", "auth")) {
+      try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
+      return { ok: false, handled: true };
+    }
     if (root.AthlevoEnv && root.AthlevoEnv.shouldWarn && root.AthlevoEnv.shouldWarn()) {
-      if (root.AthlevoEnv.showNotice) root.AthlevoEnv.showNotice({ context: "signup" });
+      if (root.AthlevoEnv.showNotice) {
+        root.AthlevoEnv.showNotice({
+          context: "signup",
+          intent: "signup",
+          sourceSurface: "auth"
+        });
+      }
       try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
       return { ok: false, handled: true };
     }

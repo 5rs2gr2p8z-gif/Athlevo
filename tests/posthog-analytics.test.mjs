@@ -116,6 +116,8 @@ section("Event names");
 const EXPECTED_EVENTS = [
   "landing_viewed", "signup_cta_clicked", "auth_screen_viewed",
   "google_signup_clicked", "email_signup_clicked", "login_clicked",
+  "in_app_browser_signup_blocked", "external_signup_link_copied",
+  "external_signup_continuation_viewed",
   "registration_completed", "onboarding_started", "onboarding_completed",
   "data_connection_started", "data_connection_completed", "first_plan_generated",
   "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
@@ -253,6 +255,35 @@ t("premium events contain only categorical feature and surface", (() => {
     JSON.stringify(["feature", "surface"]) &&
     props.feature === "recovery" &&
     props.surface === "today";
+})());
+
+t("handoff events contain only allowlisted categorical properties", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("in_app_browser_signup_blocked", {
+    browser: "facebook",
+    intent: "signup",
+    source_surface: "landing",
+    page_url: "https://athlevo.org/?code=secret",
+    utm_source: "meta",
+    email: "athlete@example.com"
+  });
+  return captured.length === 1 &&
+    JSON.stringify(captured[0].props) === JSON.stringify({
+      browser: "facebook",
+      intent: "signup",
+      source_surface: "landing"
+    });
+})());
+
+t("invalid handoff categories are discarded", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("external_signup_link_copied", {
+    browser: "other",
+    intent: "https://evil.example",
+    source_surface: "unknown"
+  });
+  return captured.length === 1 &&
+    Object.keys(captured[0].props).length === 0;
 })());
 
 t("CTA text is limited to the approved public acquisition label", (() => {
