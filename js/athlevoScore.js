@@ -654,7 +654,12 @@
       </section>`;
     try {
       if (window.AthlevoAccessGuard) {
-        window.AthlevoAccessGuard.trackPremiumView("athlevo_score", "today");
+        const lockedTarget = typeof mount.querySelector === "function"
+          ? mount.querySelector(".asc-locked")
+          : mount;
+        window.AthlevoAccessGuard.trackPremiumView(
+          "athlevo_score", "today", lockedTarget || mount
+        );
       }
     } catch (e) {}
   }

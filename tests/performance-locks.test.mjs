@@ -252,13 +252,8 @@ section("Reusable upgrade sheet, focus, and checkout");
     modal.attrs["aria-hidden"] === "false" &&
     document.activeElement === primary &&
     opened.length === 0);
-  test("sheet impression analytics contain categorical context only",
-    events.some(event =>
-      event.name === "premium_feature_viewed" &&
-      event.props.feature === "recovery" &&
-      event.props.surface === "today") &&
-    events.every(event =>
-      Object.keys(event.props).every(key => key === "feature" || key === "surface")));
+  test("opening the sheet does not synthesize a premium feature impression",
+    !events.some(event => event.name === "premium_feature_viewed"));
 
   let tabPrevented = false;
   modal.handlers.keydown({

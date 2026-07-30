@@ -21,7 +21,16 @@
     "training_load", "recovery", "athlevo_score", "trends"
   ]);
   const PREMIUM_SURFACES = new Set(["today", "trends", "upgrade_sheet"]);
-  const viewedThisSession = new Set();
+  const PREMIUM_SCREEN_IDS = {
+    today: "screen-today",
+    trends: "screen-trends"
+  };
+  const PREMIUM_IMPRESSION_PREFIX = "athlevo_premium_impression_v1:";
+  const observedPremiumTargets = new Map();
+  const pendingPremiumChecks = new Set();
+  const fallbackViewedThisPage = new Set();
+  let premiumObserver = null;
+  let premiumRefreshQueued = false;
   let upgradeContext = { feature: "trends", surface: "upgrade_sheet" };
   let restoreFocusTo = null;
 
@@ -259,13 +268,218 @@
     } catch (e) {}
   }
 
-  function trackPremiumView(feature, surface) {
+  function publicOrAuthSurfaceActive() {
+    const landing = document.getElementById("screen-landing");
+    const welcome = document.getElementById("screen-welcome");
+    const auth = document.getElementById("authModal");
+    if (landing && landing.classList.contains("active")) return true;
+    if (welcome && welcome.classList.contains("active")) return true;
+    if (auth) {
+      const inlineOpen = auth.style && auth.style.display &&
+        auth.style.display !== "none";
+      const ariaOpen = auth.getAttribute &&
+        auth.getAttribute("aria-hidden") === "false";
+      if (inlineOpen || ariaOpen) return true;
+    }
+    return false;
+  }
+
+  function activeSurfaceMatches(surface) {
+    if (publicOrAuthSurfaceActive()) return false;
+    if (surface === "upgrade_sheet") {
+      const modal = document.getElementById("performanceUpgradeModal");
+      return Boolean(
+        modal &&
+        modal.classList.contains("show") &&
+        modal.getAttribute("aria-hidden") === "false"
+      );
+    }
+    const screenId = PREMIUM_SCREEN_IDS[surface];
+    const screen = screenId ? document.getElementById(screenId) : null;
+    return Boolean(screen && screen.classList.contains("active"));
+  }
+
+  function elementIsVisible(target, observerEntry) {
+    if (!target || target.isConnected === false || target.hidden === true) {
+      return false;
+    }
+    if (observerEntry && (
+      observerEntry.isIntersecting !== true ||
+      Number(observerEntry.intersectionRatio) <= 0
+    )) {
+      return false;
+    }
+    try {
+      if (typeof target.closest === "function" &&
+          target.closest('[hidden],[aria-hidden="true"]')) {
+        return false;
+      }
+    } catch (e) {}
+    try {
+      if (typeof window.getComputedStyle === "function") {
+        const style = window.getComputedStyle(target);
+        if (!style ||
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            Number(style.opacity) === 0) {
+          return false;
+        }
+      }
+    } catch (e) {}
+    if (!observerEntry && typeof target.getBoundingClientRect === "function") {
+      const rect = target.getBoundingClientRect();
+      const viewportWidth = window.innerWidth ||
+        (document.documentElement && document.documentElement.clientWidth) || 0;
+      const viewportHeight = window.innerHeight ||
+        (document.documentElement && document.documentElement.clientHeight) || 0;
+      if (!rect || rect.width <= 0 || rect.height <= 0 ||
+          rect.bottom <= 0 || rect.right <= 0 ||
+          rect.top >= viewportHeight || rect.left >= viewportWidth) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async function authenticatedUserId() {
+    try {
+      if (typeof supabaseClient === "undefined" ||
+          !supabaseClient.auth ||
+          typeof supabaseClient.auth.getUser !== "function") {
+        return null;
+      }
+      const result = await supabaseClient.auth.getUser();
+      if (result && result.error) return null;
+      const user = result && result.data && result.data.user;
+      return user && typeof user.id === "string" && user.id
+        ? user.id
+        : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function premiumSessionKey(userId, safe) {
+    const scope = [userId, safe.feature, safe.surface]
+      .map(value => String(value || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 80))
+      .join(":");
+    return PREMIUM_IMPRESSION_PREFIX + scope;
+  }
+
+  function impressionAlreadyFired(key) {
+    if (fallbackViewedThisPage.has(key)) return true;
+    try { return sessionStorage.getItem(key) === "1"; }
+    catch (e) { return false; }
+  }
+
+  function rememberImpression(key) {
+    fallbackViewedThisPage.add(key);
+    try { sessionStorage.setItem(key, "1"); } catch (e) {}
+  }
+
+  function impressionPrerequisites(target, safe, observerEntry) {
+    if (document.visibilityState !== "visible") return false;
+    if (!activeSurfaceMatches(safe.surface)) return false;
+    if (!elementIsVisible(target, observerEntry)) return false;
+    const state = cachedAccessState();
+    return state === "free" || state === "paid_inactive";
+  }
+
+  async function confirmPremiumImpression(target, safe, observerEntry) {
+    const pendingKey = `${safe.feature}:${safe.surface}`;
+    if (pendingPremiumChecks.has(pendingKey)) return false;
+    if (!impressionPrerequisites(target, safe, observerEntry)) return false;
+    pendingPremiumChecks.add(pendingKey);
+    try {
+      const userId = await authenticatedUserId();
+      if (!userId) return false;
+      // Authentication can resolve after a navigation or entitlement change.
+      // Re-check against the element's current viewport position rather than
+      // trusting an observer entry that may already be stale.
+      if (!impressionPrerequisites(target, safe, null)) return false;
+      const key = premiumSessionKey(userId, safe);
+      if (impressionAlreadyFired(key)) return false;
+      trackCategorical("premium_feature_viewed", safe);
+      rememberImpression(key);
+      return true;
+    } finally {
+      pendingPremiumChecks.delete(pendingKey);
+    }
+  }
+
+  function ensurePremiumObserver() {
+    if (premiumObserver || typeof window.IntersectionObserver !== "function") {
+      return premiumObserver;
+    }
+    premiumObserver = new window.IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const contexts = observedPremiumTargets.get(entry.target);
+        if (!contexts) return;
+        contexts.forEach(safe => {
+          confirmPremiumImpression(entry.target, safe, entry).catch(() => {});
+        });
+      });
+    }, { threshold: 0.01 });
+    return premiumObserver;
+  }
+
+  function schedulePremiumTargetCheck(target, safe) {
+    const run = () => {
+      confirmPremiumImpression(target, safe, null).catch(() => {});
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run);
+    } else if (typeof window.setTimeout === "function") {
+      window.setTimeout(run, 0);
+    } else {
+      Promise.resolve().then(run);
+    }
+  }
+
+  /*
+   * Registers a locked element for a real impression. Calling this from a
+   * renderer is safe: no event is emitted until the element is authenticated,
+   * entitled, on the active app screen, in a visible document, and in view.
+   */
+  function trackPremiumView(feature, surface, target) {
     const safe = categoricalContext({ feature, surface }, "today");
-    if (!safe.feature) return;
-    const key = `${safe.feature}:${safe.surface}`;
-    if (viewedThisSession.has(key)) return;
-    viewedThisSession.add(key);
-    trackCategorical("premium_feature_viewed", safe);
+    if (!safe.feature || !target || typeof target !== "object") return false;
+    let contexts = observedPremiumTargets.get(target);
+    if (!contexts) {
+      contexts = new Map();
+      observedPremiumTargets.set(target, contexts);
+    }
+    const contextKey = `${safe.feature}:${safe.surface}`;
+    contexts.set(contextKey, safe);
+    const observer = ensurePremiumObserver();
+    if (observer && typeof observer.observe === "function") {
+      observer.observe(target);
+    }
+    schedulePremiumTargetCheck(target, safe);
+    return true;
+  }
+
+  function refreshPremiumViews() {
+    if (premiumRefreshQueued) return;
+    premiumRefreshQueued = true;
+    const run = () => {
+      premiumRefreshQueued = false;
+      observedPremiumTargets.forEach((contexts, target) => {
+        if (!target || target.isConnected === false) {
+          observedPremiumTargets.delete(target);
+          try { if (premiumObserver) premiumObserver.unobserve(target); } catch (e) {}
+          return;
+        }
+        contexts.forEach(safe => schedulePremiumTargetCheck(target, safe));
+      });
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run);
+    } else if (typeof window.setTimeout === "function") {
+      window.setTimeout(run, 0);
+    } else {
+      Promise.resolve().then(run);
+    }
   }
 
   function checkout(context) {
@@ -323,7 +537,6 @@
       feature: safe.feature || "trends",
       surface: "upgrade_sheet"
     };
-    trackPremiumView(safe.feature || "trends", safe.surface);
     restoreFocusTo = document.activeElement;
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
@@ -348,6 +561,12 @@
     ["screen-coachai", "screen-train", "screen-trends"].forEach(removeLockedOverlay);
   }
 
+  if (document && typeof document.addEventListener === "function") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") refreshPremiumViews();
+    });
+  }
+
   /* ─────────────── public API ────────────────────────────────────── */
 
   window.AthlevoAccessGuard = {
@@ -361,6 +580,7 @@
     showUpgradeSheet,
     closeUpgradeSheet,
     trackPremiumView,
-    VERSION: "access-guard-v2"
+    refreshPremiumViews,
+    VERSION: "access-guard-v3"
   };
 })();

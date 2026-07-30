@@ -653,7 +653,9 @@
     if (summary) summary.textContent = "Athlevo Performance analytics";
     try {
       if (root.AthlevoAccessGuard) {
-        root.AthlevoAccessGuard.trackPremiumView("trends", "trends");
+        root.AthlevoAccessGuard.trackPremiumView(
+          "trends", "trends", preview
+        );
       }
     } catch (error) {}
   }

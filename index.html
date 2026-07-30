@@ -5199,6 +5199,14 @@ async function go(btn){
       if (chatlog) chatlog.scrollTop = chatlog.scrollHeight;
     });
   }
+  try {
+    if (
+      window.AthlevoAccessGuard &&
+      typeof window.AthlevoAccessGuard.refreshPremiumViews === "function"
+    ) {
+      window.AthlevoAccessGuard.refreshPremiumViews();
+    }
+  } catch (e) {}
 }
 function enterCoachMode(){
   // Coach Mode is disabled in the athlete-facing beta. Kept as a no-op
@@ -5337,6 +5345,14 @@ function showScreen(id){
         AthlevoAnalytics.track('primary_tab_viewed', { screen_name: TAB[id] });
         if (id === 'screen-coachai') AthlevoAnalytics.track('coach_opened', { screen_name: 'coach' });
       }
+    }
+  } catch(e){}
+  try {
+    if (
+      window.AthlevoAccessGuard &&
+      typeof window.AthlevoAccessGuard.refreshPremiumViews === "function"
+    ) {
+      window.AthlevoAccessGuard.refreshPremiumViews();
     }
   } catch(e){}
 }
@@ -6265,8 +6281,12 @@ async function renderTodayPassiveStatus(profile){
         recoverySignal, recoveryValue, recoveryNote, recoveryQuality, "Recovery"
       );
       if (window.AthlevoAccessGuard){
-        window.AthlevoAccessGuard.trackPremiumView("training_load", "today");
-        window.AthlevoAccessGuard.trackPremiumView("recovery", "today");
+        window.AthlevoAccessGuard.trackPremiumView(
+          "training_load", "today", loadSignal
+        );
+        window.AthlevoAccessGuard.trackPremiumView(
+          "recovery", "today", recoverySignal
+        );
       }
     }
 
@@ -6834,7 +6854,7 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js?v=67"></script>
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
-<script src="js/trendsAnalytics.js?v=69"></script>
+<script src="js/trendsAnalytics.js?v=70"></script>
 <script src="js/socialAuth.js?v=68"></script>
 <script src="js/analyticsRegistry.js?v=70"></script>
 <script src="js/metaPixel.js?v=67"></script>
@@ -6843,7 +6863,7 @@ setTimeout(function () {
 <script src="js/activation.js?v=67"></script>
 <script src="js/onboardingConnect.js?v=68"></script>
 <script src="js/productionVerify.js?v=67"></script>
-<script src="js/athlevoScore.js?v=69"></script>
+<script src="js/athlevoScore.js?v=70"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
 <script src="js/coachBrain.js?v=67"></script>
@@ -6863,7 +6883,7 @@ setTimeout(function () {
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
-<script src="js/accessGuard.js?v=69"></script>
+<script src="js/accessGuard.js?v=70"></script>
 <script src="js/planSetup.js?v=68"></script>
 <script src="js/feedback.js?v=67"></script>
 <script src="js/readiness.js?v=68"></script>
