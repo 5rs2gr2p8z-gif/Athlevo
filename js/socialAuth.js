@@ -45,6 +45,9 @@
    * the only origin guaranteed to be allow-listed.
    */
   function redirectTarget() {
+    if (root.AthlevoRuntime && root.AthlevoRuntime.isNativeIOS()) {
+      return root.AthlevoRuntime.authRedirectUrl();
+    }
     try {
       const origin = window.location.origin;
       // A file:// or opaque origin cannot receive a redirect — use canonical.
@@ -105,10 +108,14 @@
     }
 
     try {
-      const { error } = await client.auth.signInWithOAuth({
+      const nativeIOS = Boolean(
+        root.AthlevoRuntime && root.AthlevoRuntime.isNativeIOS()
+      );
+      const { data, error } = await client.auth.signInWithOAuth({
         provider: providerKey,
         options: {
           redirectTo: redirectTarget(),
+          skipBrowserRedirect: nativeIOS,
           // Ask Google for a refresh token and always show the account
           // chooser, so an athlete on a shared device is never silently
           // signed into someone else's account.
@@ -122,6 +129,15 @@
         try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
         console.warn("OAuth start failed:", error.name || "error");
         return { ok: false, message: describeStartFailure(error) };
+      }
+      if (nativeIOS) {
+        if (!data || !data.url || !root.AthlevoRuntime.openOAuth) {
+          return { ok: false, message: "We couldn't open Google sign-in. Please try again." };
+        }
+        const opened = await root.AthlevoRuntime.openOAuth(data.url);
+        if (!opened || opened.ok !== true) {
+          return { ok: false, message: "We couldn't open Google sign-in. Please try again." };
+        }
       }
       // Success navigates away; nothing after this runs.
       return { ok: true, redirecting: true };

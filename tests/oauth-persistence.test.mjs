@@ -16,7 +16,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "svc";
 process.env.INTERVALS_CLIENT_ID = "cid";
 process.env.INTERVALS_CLIENT_SECRET = "sec";
 process.env.OAUTH_STATE_SECRET = "state-secret";
-process.env.APP_URL = "https://app.test";
+process.env.APP_URL = "https://athlevo.org";
 
 const handler = (await import("../api/providers/index.js")).default;
 
@@ -345,7 +345,7 @@ section("9/10. The client finalizes BEFORE detection, and routes failure truthfu
   t("the return handler detects the pending state", pending.length > 0);
   t("it finalizes with the current session", /AthlevoBrain\.finalizeIntervals\(completion\)/.test(pending));
   t("detection only runs AFTER finalization succeeds",
-    /await AthlevoBrain\.finalizeIntervals\(completion\)[\s\S]{0,500}await handleIntervalsResult\("connected"/.test(pending));
+    /await AthlevoBrain\.finalizeIntervals\(completion\)[\s\S]{0,900}await handleIntervalsResult\("connected"/.test(pending));
   t("a failed finalization never reaches detection",
     pending.split('handleIntervalsResult("connected"').length === 2 &&
     pending.indexOf("await AthlevoBrain.finalizeIntervals(completion)") <
@@ -556,10 +556,9 @@ section("14. The callback proves its own execution, without leaking anything");
     ev("intervals_callback_redirect").slice(-1)[0].finalRedirectState === "pending");
 
   /*
-   * ORIGIN DIVERGENCE. The outbound redirect_uri may come from
-   * INTERVALS_REDIRECT_URI while the return origin always comes from APP_URL.
-   * When they disagree the callback runs correctly and then bounces the
-   * athlete to a different origin — different sessionStorage, no session.
+   * ORIGIN SAFETY. The outbound redirect_uri may come from
+   * INTERVALS_REDIRECT_URI, but the app return is fixed to canonical HTTPS
+   * Athlevo so a preview APP_URL cannot redirect the completed flow.
    */
   t("both origins are recorded", Boolean(inv.returnOrigin) && Boolean(inv.redirectUriOrigin));
   t("...and compared", typeof inv.originsMatch === "boolean");
@@ -576,7 +575,7 @@ section("14. The callback proves its own execution, without leaking anything");
     !dump.includes(new URL(loc).searchParams.get("intervals") === "pending" ? "eyJ" : "eyJ"));
 }
 
-section("14b. A divergent APP_URL is caught");
+section("14b. A divergent APP_URL cannot change the canonical return origin");
 {
   const realAppUrl = process.env.APP_URL;
   process.env.INTERVALS_REDIRECT_URI =
@@ -588,9 +587,9 @@ section("14b. A divergent APP_URL is caught");
   await startAndCallback("A");
   const inv = logs.map(l => JSON.parse(l)).find(e => e.event === "intervals_callback_invoked");
 
-  t("the mismatch is detected", inv.originsMatch === false);
+  t("the fixed origins still match", inv.originsMatch === true);
   t("...naming the outbound origin", inv.redirectUriOrigin === "https://athlevo.org");
-  t("...and the divergent return origin", inv.returnOrigin === "https://some-preview.vercel.app");
+  t("...and retaining the canonical return origin", inv.returnOrigin === "https://athlevo.org");
   t("...and which variable supplied the redirect_uri",
     inv.redirectUriSource === "INTERVALS_REDIRECT_URI");
 

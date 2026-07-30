@@ -3,61 +3,7 @@ import {
   getStravaRedirectUri,
   getAppReturnOrigin
 } from "../../lib/server/stravaConfig.js";
-
-function verifySignedState(state, secret) {
-  if (!state || !secret) {
-    return null;
-  }
-
-  const parts = state.split(".");
-
-  if (parts.length !== 2) {
-    return null;
-  }
-
-  const [encodedPayload, receivedSignature] = parts;
-
-  const expectedSignature = crypto
-    .createHmac("sha256", secret)
-    .update(encodedPayload)
-    .digest("base64url");
-
-  const receivedBuffer = Buffer.from(receivedSignature);
-  const expectedBuffer = Buffer.from(expectedSignature);
-
-  if (receivedBuffer.length !== expectedBuffer.length) {
-    return null;
-  }
-
-  const signaturesMatch = crypto.timingSafeEqual(
-    receivedBuffer,
-    expectedBuffer
-  );
-
-  if (!signaturesMatch) {
-    return null;
-  }
-
-  try {
-    const payload = JSON.parse(
-      Buffer.from(encodedPayload, "base64url").toString("utf8")
-    );
-
-    const maximumStateAge = 10 * 60 * 1000;
-
-    if (
-      !payload.userId ||
-      !payload.issuedAt ||
-      Date.now() - payload.issuedAt > maximumStateAge
-    ) {
-      return null;
-    }
-
-    return payload;
-  } catch {
-    return null;
-  }
-}
+import { verifyOAuthState } from "../../lib/server/oauthState.js";
 
 async function exchangeAuthorizationCode(code) {
   // Send the EXACT same canonical redirect_uri used in the authorization
@@ -253,19 +199,19 @@ function renderErrorPage(response, { appUrl, reason, code, status = 502 }) {
   return response.send(html);
 }
 
-/* Short, non-reversible id for correlating logs without exposing the uuid. */
-function shortHash(value) {
-  return crypto.createHash("sha256").update(String(value)).digest("hex").slice(0, 10);
-}
-
 /*
  * Privacy-safe stage diagnostic. Emits a correlation id, the stage, a safe
- * internal code, and only non-sensitive identifiers. NEVER tokens, secret,
- * authorization code, full OAuth state, or private user details.
+ * internal code and a database error class. It deliberately rejects every
+ * raw user/provider identifier and all callback or credential material.
  */
 function diag(fields) {
+  const allowed = new Set(["cid", "stage", "code", "dbCode"]);
+  const safe = {};
+  for (const [key, value] of Object.entries(fields || {})) {
+    if (allowed.has(key)) safe[key] = value;
+  }
   try {
-    console.log("strava_callback", JSON.stringify(fields));
+    console.log("strava_callback", JSON.stringify(safe));
   } catch (error) { /* ignore */ }
 }
 
@@ -273,14 +219,29 @@ export default async function handler(request, response) {
   // Canonical return origin (athlevo.org) — never the stale vercel.app URL.
   const appUrl = getAppReturnOrigin();
   const correlationId = crypto.randomUUID().slice(0, 8);
+  const { code, state, scope, error } = request.query || {};
+  const statePayload = state
+    ? verifyOAuthState(state, process.env.OAUTH_STATE_SECRET, {
+        provider: "strava"
+      })
+    : null;
+  const returnsToNative = statePayload?.returnTarget === "ios";
 
   // Benign outcomes return to the app with a param the client toasts.
-  const backToApp = param =>
-    response.redirect(302, `${appUrl}?strava=${param}`);
+  const backToApp = param => {
+    if (returnsToNative) {
+      const target = new URL("athlevo://provider/callback");
+      target.searchParams.set("provider", "strava");
+      target.searchParams.set("result", param);
+      return response.redirect(302, target.toString());
+    }
+    return response.redirect(302, `${appUrl}?strava=${param}`);
+  };
 
   // Hard outcomes render a visible error page with a safe stage code.
   const failPage = (code, reason, status, extra) => {
     diag({ cid: correlationId, ...(extra || {}), code });
+    if (returnsToNative) return backToApp("failed");
     return renderErrorPage(response, { appUrl, reason, code, status: status || 502 });
   };
 
@@ -289,33 +250,30 @@ export default async function handler(request, response) {
     return response.status(405).send("Method not allowed.");
   }
 
-  const { code, state, scope, error } = request.query;
-
-  // Stage 1–2: request received + OAuth state present.
-  if (error) {
-    diag({ cid: correlationId, stage: "authorize", code: "STRAVA_AUTH_DENIED" });
-    return backToApp("cancelled");
-  }
+  // Stage 1–4: every provider outcome, including denial, must carry a valid
+  // signed state before it can select a return channel.
   if (!state) {
     diag({ cid: correlationId, stage: "state", code: "STRAVA_STATE_MISSING" });
     return backToApp("invalid_state");
+  }
+  if (!statePayload || !statePayload.userId) {
+    // verifyOAuthState already rejects tampered signatures AND anything
+    // older than the 10-minute expiry, so this covers stale/expired state.
+    diag({ cid: correlationId, stage: "state", code: "STRAVA_STATE_INVALID" });
+    return backToApp("invalid_state");
+  }
+  if (error) {
+    diag({ cid: correlationId, stage: "authorize", code: "STRAVA_AUTH_DENIED" });
+    return backToApp("cancelled");
   }
   if (!code) {
     diag({ cid: correlationId, stage: "code", code: "STRAVA_CODE_MISSING" });
     return backToApp("missing_code");
   }
 
-  // Stage 3–4: validate state → this yields the authenticated Athlevo user
-  // (the callback needs no browser session; the signed state carries userId).
-  const statePayload = verifySignedState(state, process.env.OAUTH_STATE_SECRET);
-  if (!statePayload || !statePayload.userId) {
-    // verifySignedState already rejects tampered signatures AND anything
-    // older than the 10-minute expiry, so this covers stale/expired state.
-    diag({ cid: correlationId, stage: "state", code: "STRAVA_STATE_INVALID" });
-    return backToApp("invalid_state");
-  }
+  // The verified state yields the authenticated Athlevo user (the callback
+  // needs no browser session; the signed state carries userId).
   const userId = statePayload.userId;
-  const userHash = shortHash(userId);
 
   // Stage 6: exchange the authorization code (single-use by Strava). If it
   // fails, a callback refresh / reused code on an ALREADY-connected user is
@@ -325,14 +283,14 @@ export default async function handler(request, response) {
     tokenData = await exchangeAuthorizationCode(code);
   } catch (exchangeError) {
     if (await userHasConnection(userId)) {
-      diag({ cid: correlationId, stage: "exchange", userHash, code: "STRAVA_ALREADY_CONNECTED_ON_REFRESH" });
+      diag({ cid: correlationId, stage: "exchange", code: "STRAVA_ALREADY_CONNECTED_ON_REFRESH" });
       return backToApp("connected");
     }
     return failPage(
       "STRAVA_TOKEN_EXCHANGE_FAILED",
       "Strava couldn't verify this connection (the link may have expired). Please try connecting again.",
       502,
-      { stage: "exchange", userHash }
+      { stage: "exchange" }
     );
   }
 
@@ -342,7 +300,7 @@ export default async function handler(request, response) {
       "STRAVA_ATHLETE_MISSING",
       "Strava didn't return your athlete details. Please try connecting again.",
       502,
-      { stage: "athlete", userHash }
+      { stage: "athlete" }
     );
   }
   const athleteId = String(tokenData.athlete.id);
@@ -356,7 +314,7 @@ export default async function handler(request, response) {
       "STRAVA_ALREADY_LINKED",
       "This Strava account is already connected to another Athlevo account.",
       409,
-      { stage: "ownership", userHash, athleteId }
+      { stage: "ownership" }
     );
   }
 
@@ -371,14 +329,14 @@ export default async function handler(request, response) {
         "STRAVA_ALREADY_LINKED",
         "This Strava account is already connected to another Athlevo account.",
         409,
-        { stage: "save", userHash, athleteId, dbCode: saved.pgCode }
+        { stage: "save", dbCode: saved.pgCode }
       );
     }
     return failPage(
       "STRAVA_CONNECTION_SAVE_FAILED",
       "We connected to Strava but couldn't save it just now. Please try again in a moment.",
       502,
-      { stage: "save", userHash, athleteId, dbCode: saved.pgCode }
+      { stage: "save", dbCode: saved.pgCode }
     );
   }
 
@@ -387,11 +345,11 @@ export default async function handler(request, response) {
   try {
     await markProfileConnected(userId);
   } catch (flagError) {
-    diag({ cid: correlationId, stage: "profile_flag", userHash, athleteId, code: "STRAVA_PROFILE_FLAG_DEFERRED" });
+    diag({ cid: correlationId, stage: "profile_flag", code: "STRAVA_PROFILE_FLAG_DEFERRED" });
   }
 
   // Stage 11: success. Initial activity sync happens client-side after this
   // redirect and is DECOUPLED — a sync failure never undoes the connection.
-  diag({ cid: correlationId, stage: "success", userHash, athleteId, code: "STRAVA_CONNECTED" });
+  diag({ cid: correlationId, stage: "success", code: "STRAVA_CONNECTED" });
   return backToApp("connected");
 }

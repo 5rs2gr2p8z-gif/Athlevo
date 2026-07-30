@@ -1735,13 +1735,21 @@ async function providerRequest(action, body) {
     }
   }
   stage("connect_fetch_sent");
+  const requestBody = { ...(body || {}) };
+  if (
+    action === "connect" &&
+    window.AthlevoRuntime &&
+    window.AthlevoRuntime.isNativeIOS()
+  ) {
+    requestBody.return_target = "ios";
+  }
   const res = await fetch(`${INTERVALS_ENDPOINT}&action=${action}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`
     },
-    body: JSON.stringify(body || {})
+    body: JSON.stringify(requestBody)
   });
   stage("connect_fetch_response", { status: res.status });
   const data = await res.json().catch(() => ({}));
@@ -1814,7 +1822,11 @@ async function connectIntervals() {
     const { authorizationUrl } = await providerRequest("connect");
     stage("connect_url_received", { hasUrl: Boolean(authorizationUrl) });
     if (!authorizationUrl) throw new Error("Couldn't start the connection.");
-    window.location.href = authorizationUrl;
+    if (window.AthlevoRuntime && window.AthlevoRuntime.startOAuth) {
+      await window.AthlevoRuntime.startOAuth(authorizationUrl);
+    } else {
+      window.location.href = authorizationUrl;
+    }
   } catch (error) {
     stage("connectIntervals_failed", { message: (error && error.message) || "unknown" });
     setIntervalsUi("failed", error.message);
@@ -2029,7 +2041,11 @@ function openSyncPartner() {
   try {
     const url = (window.AthlevoDataSource && window.AthlevoDataSource.connectionsUrl) ||
       "https://intervals.icu/settings";
-    window.open(url, "_blank", "noopener");
+    if (window.AthlevoRuntime && window.AthlevoRuntime.openExternal) {
+      window.AthlevoRuntime.openExternal(url);
+    } else {
+      window.open(url, "_blank", "noopener");
+    }
   } catch (e) {}
 }
 

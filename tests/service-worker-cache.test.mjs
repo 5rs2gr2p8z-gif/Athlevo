@@ -216,7 +216,7 @@ section("Worker activation and product UI contracts");
   test("paid action uses the explicit approved label",
     /Upgrade to Athlevo Performance/.test(accessGuardSource));
   test("Whop opener remains isolated to the explicit checkout handler",
-    /function checkout\(\)[\s\S]*window\.open\(checkoutUrl\(\)/.test(accessGuardSource));
+    /function checkout\(context\)[\s\S]*AthlevoRuntime\.openExternal\(checkoutUrl\(\)\)[\s\S]*window\.open\(checkoutUrl\(\)/.test(accessGuardSource));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

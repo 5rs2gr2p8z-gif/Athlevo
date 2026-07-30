@@ -38,11 +38,14 @@ import {
   INTERVALS_TOKEN_URL,
   INTERVALS_API_BASE,
   INTERVALS_SCOPE,
-  STATE_MAX_AGE_MS,
   getIntervalsRedirectUri,
   getAppReturnOrigin,
   isIntervalsConfigured
 } from "../../lib/server/wearable/intervalsConfig.js";
+import {
+  createOAuthState,
+  verifyOAuthState
+} from "../../lib/server/oauthState.js";
 import {
   buildProviderTrendsResponse,
   dateRangeForTrends
@@ -72,17 +75,8 @@ const LOG_SAFE = new Set([
   "pendingWriteAttempted", "pendingWriteOk", "pendingHttpStatus",
   "finalRedirectState", "returnOrigin", "redirectUriOrigin",
   "redirectUriSource", "originsMatch",
-  /*
-   * Intervals OWNERSHIP diagnostics (callback + finalize).
-   *
-   * Opaque Athlevo/Intervals identifiers, a lookup outcome and a decision
-   * label — nothing more. Deliberately absent, and must stay absent: provider
-   * access/refresh credentials, the authorization code, the completion token,
-   * the pending token hash, the client secret and any Authorization header.
-   * Athlevo user ids and the Intervals athlete id are opaque keys, not
-   * credentials: neither authenticates anything on its own.
-   */
-  "userId", "providerAthleteId", "ownerUserId", "ownerExistsInAuth",
+  // Ownership outcomes only. Raw Athlevo/provider identifiers are forbidden.
+  "ownerExistsInAuth",
   "ownershipDecision", "ownershipLookupOk", "pendingRow"
 ]);
 
@@ -120,38 +114,6 @@ async function requireUser(request) {
   const token = header.slice("Bearer ".length).trim();
   if (!token) return null;
   return getAuthenticatedUser(token);
-}
-
-/* ────────────────────────── signed OAuth state ──────────────────────── */
-
-function signState(payload, secret) {
-  const body = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
-  const sig = crypto.createHmac("sha256", secret).update(body).digest("base64url");
-  return `${body}.${sig}`;
-}
-
-/*
- * Verifies signature FIRST (constant-time), then expiry, then shape. An
- * unsigned or tampered state can never reach the JSON parse, and a valid
- * signature on an expired payload is still rejected.
- */
-function verifyState(state, secret) {
-  if (!state || !secret) return null;
-  const parts = String(state).split(".");
-  if (parts.length !== 2) return null;
-  const [body, sig] = parts;
-  const expected = crypto.createHmac("sha256", secret).update(body).digest("base64url");
-  const a = Buffer.from(sig), b = Buffer.from(expected);
-  if (a.length !== b.length) return null;
-  if (!crypto.timingSafeEqual(a, b)) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
-    if (!payload.userId || !payload.issuedAt) return null;
-    if (Date.now() - payload.issuedAt > STATE_MAX_AGE_MS) return null;
-    return payload;
-  } catch {
-    return null;
-  }
 }
 
 /* ──────────────────── provider_accounts persistence ─────────────────── */
@@ -676,8 +638,24 @@ async function actionConnect(request, response, cid) {
   }
 
   const { uri: redirectUri } = getIntervalsRedirectUri();
-  const state = signState(
-    { userId: user.id, provider: "intervals", issuedAt: Date.now(), nonce: crypto.randomBytes(16).toString("hex") },
+  const requestedReturnTarget = request.body?.return_target;
+  if (
+    requestedReturnTarget !== undefined &&
+    requestedReturnTarget !== "web" &&
+    requestedReturnTarget !== "ios"
+  ) {
+    return response.status(400).json({
+      error: "Invalid return target.",
+      code: "INVALID_RETURN_TARGET"
+    });
+  }
+  const state = createOAuthState(
+    {
+      userId: user.id,
+      provider: "intervals",
+      issuedAt: Date.now(),
+      returnTarget: requestedReturnTarget || "web"
+    },
     process.env.OAUTH_STATE_SECRET
   );
 
@@ -704,6 +682,7 @@ async function actionConnect(request, response, cid) {
 
 async function actionCallback(request, response, cid) {
   const origin = getAppReturnOrigin();
+  let returnTarget = "web";
 
   /*
    * TEMPORARY POST-CONSENT DIAGNOSTICS.
@@ -716,11 +695,9 @@ async function actionCallback(request, response, cid) {
    *
    * ORIGIN DIVERGENCE is the specific thing worth watching: the OUTBOUND
    * redirect_uri may come from INTERVALS_REDIRECT_URI, while the RETURN origin
-   * always comes from APP_URL (see lib/server/wearable/intervalsConfig.js).
-   * If those disagree, the callback executes correctly on the registered
-   * domain and then sends the athlete to a DIFFERENT origin — one with its own
-   * sessionStorage and no Supabase session. The athlete lands on Today,
-   * nothing is connected, and no trail exists on the domain they were on.
+   * is fixed to canonical HTTPS Athlevo (see intervalsConfig.js). Comparing
+   * them proves an environment override cannot silently redirect the athlete
+   * to a preview or other origin after OAuth.
    *
    * Origins and booleans only. No code, token, secret, state body or
    * completion token is ever recorded.
@@ -740,8 +717,8 @@ async function actionCallback(request, response, cid) {
   log("intervals_callback_invoked", {
     correlationId: cid, provider: "intervals", invoked: true,
     method: request.method || null,
-    pathname: String(request.url || "").split("?")[0] || null,
-    action: q0.action || null,
+    pathname: "/api/providers",
+    action: "callback",
     hasCode: Boolean(q0.code),
     hasState: Boolean(q0.state),
     hasError: Boolean(q0.error),
@@ -757,12 +734,20 @@ async function actionCallback(request, response, cid) {
       correlationId: cid, provider: "intervals",
       finalRedirectState: status, returnOrigin
     });
-    const target = new URL(`${origin}/index.html`);
-    target.searchParams.set("intervals", status);
-    if (message) target.searchParams.set("message", message);
+    const native = returnTarget === "ios";
+    const target = new URL(native
+      ? "athlevo://provider/callback"
+      : `${origin}/index.html`);
+    if (native) {
+      target.searchParams.set("provider", "intervals");
+      target.searchParams.set("result", status);
+    } else {
+      target.searchParams.set("intervals", status);
+    }
+    if (!native && message) target.searchParams.set("message", message);
     // A machine-readable reason so the app can react correctly rather than
     // inferring the cause from prose. Never contains athlete data.
-    if (reason) target.searchParams.set("reason", reason);
+    if (!native && reason) target.searchParams.set("reason", reason);
     // Opaque, single-use, short-lived. Never a provider credential.
     if (completion) target.searchParams.set("completion", completion);
     response.setHeader("Location", target.toString());
@@ -770,14 +755,11 @@ async function actionCallback(request, response, cid) {
   };
 
   const q = request.query || {};
+  const payload = verifyOAuthState(q.state, process.env.OAUTH_STATE_SECRET, {
+    provider: "intervals"
+  });
+  if (payload?.returnTarget === "ios") returnTarget = "ios";
 
-  // The athlete declined on Intervals.icu — not an error, just a choice.
-  if (q.error) {
-    log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "ACCESS_DENIED" });
-    return backToApp("cancelled", "Intervals.icu connection was cancelled.");
-  }
-
-  const payload = verifyState(q.state, process.env.OAUTH_STATE_SECRET);
   log("intervals_callback_state", { correlationId: cid, provider: "intervals",
     stateValid: Boolean(payload) });
 
@@ -785,6 +767,12 @@ async function actionCallback(request, response, cid) {
     // Covers tampered, forged, replayed-after-expiry and missing state.
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "INVALID_STATE" });
     return backToApp("failed", "That connection link expired. Please try connecting again.");
+  }
+  // The athlete declined on Intervals.icu — not an error, just a choice, but
+  // it still requires the valid state that bound the user and return channel.
+  if (q.error) {
+    log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "ACCESS_DENIED" });
+    return backToApp("cancelled", "Intervals.icu connection was cancelled.");
   }
   if (!q.code) {
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "NO_CODE" });
@@ -846,9 +834,6 @@ async function actionCallback(request, response, cid) {
   const ownership = await decideOwnership("intervals", athleteId, payload.userId, own);
   log("intervals_callback_ownership", {
     correlationId: cid, provider: "intervals",
-    userId: payload.userId || null,
-    providerAthleteId: athleteId,
-    ownerUserId: own.ownerUserId ?? null,
     ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
     ownershipDecision: own.ownershipDecision ?? null,
     ownershipLookupOk: own.ownershipLookupOk ?? false,
@@ -856,16 +841,13 @@ async function actionCallback(request, response, cid) {
   });
   if (!ownership.ok) {
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP",
-      userId: payload.userId || null, providerAthleteId: athleteId,
-      ownerUserId: own.ownerUserId ?? null, ownershipDecision: null });
+      ownershipDecision: null });
     return backToApp("failed", "We couldn't save the connection just now. Please try again in a moment.");
   }
   if (ownership.decision === "blocked") {
     // Another account that STILL EXISTS owns this athlete. Refuse — one active
     // Intervals identity can never belong to two active Athlevo users.
     log("intervals_oauth_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED",
-      userId: payload.userId || null, providerAthleteId: athleteId,
-      ownerUserId: own.ownerUserId ?? null,
       ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
       ownershipDecision: "blocked", pendingRow: "not_created" });
     return backToApp(
@@ -879,8 +861,6 @@ async function actionCallback(request, response, cid) {
     // and fall through — the AUTHORITATIVE reclaim (row deletion + write) happens
     // in finalize, where the caller's identity is proven.
     log("intervals_ownership_reclaim", { correlationId: cid, provider: "intervals", status: "callback",
-      userId: payload.userId || null, providerAthleteId: athleteId,
-      ownerUserId: own.ownerUserId ?? null,
       ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
       ownershipDecision: "reclaim" });
   }
@@ -918,9 +898,6 @@ async function actionCallback(request, response, cid) {
   // Ties the pending-row outcome to the ownership decision that allowed it.
   log("intervals_callback_outcome", {
     correlationId: cid, provider: "intervals",
-    userId: payload.userId || null,
-    providerAthleteId: athleteId,
-    ownerUserId: own.ownerUserId ?? null,
     ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
     ownershipDecision: own.ownershipDecision ?? null,
     pendingRow: completion ? "created" : "not_created",
@@ -989,8 +966,6 @@ async function actionFinalize(request, response, cid) {
   // Diagnostic only. The completion token and its hash are NOT logged.
   log("intervals_finalize_pending", {
     correlationId: cid, provider: "intervals",
-    userId: user.id,
-    providerAthleteId: pending.ok && pending.row ? String(pending.row.provider_athlete_id) : null,
     pendingRow: pending.ok ? "consumed" : "not_consumed",
     code: pending.ok ? null : pending.code
   });
@@ -1014,7 +989,7 @@ async function actionFinalize(request, response, cid) {
    */
   if (String(row.user_id) !== String(user.id)) {
     log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "SESSION_CHANGED",
-      userId: user.id, providerAthleteId: String(row.provider_athlete_id), pendingRow: "consumed" });
+      pendingRow: "consumed" });
     return response.status(409).json({
       error: "Your Athlevo account changed while connecting your training data. " +
              "For security, please restart the connection from the account you want to use.",
@@ -1031,9 +1006,6 @@ async function actionFinalize(request, response, cid) {
    */
   log("intervals_finalize_ownership", {
     correlationId: cid, provider: "intervals",
-    userId: user.id,
-    providerAthleteId: String(row.provider_athlete_id),
-    ownerUserId: own.ownerUserId ?? null,
     ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
     ownershipDecision: own.ownershipDecision ?? null,
     ownershipLookupOk: own.ownershipLookupOk ?? false,
@@ -1041,8 +1013,7 @@ async function actionFinalize(request, response, cid) {
   });
   if (!ownership.ok) {
     log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP",
-      userId: user.id, providerAthleteId: String(row.provider_athlete_id),
-      ownerUserId: own.ownerUserId ?? null, ownershipDecision: null, pendingRow: "consumed" });
+      ownershipDecision: null, pendingRow: "consumed" });
     return response.status(503).json({
       error: "We couldn't save the connection just now. Please try again in a moment.",
       code: "OWNERSHIP_LOOKUP"
@@ -1051,8 +1022,6 @@ async function actionFinalize(request, response, cid) {
   if (ownership.decision === "blocked") {
     // Another account that still exists owns it. Never relink an active account.
     log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "ALREADY_LINKED",
-      userId: user.id, providerAthleteId: String(row.provider_athlete_id),
-      ownerUserId: own.ownerUserId ?? null,
       ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
       ownershipDecision: "blocked", pendingRow: "consumed" });
     return response.status(409).json({
@@ -1070,16 +1039,13 @@ async function actionFinalize(request, response, cid) {
     const released = await releaseOrphanedOwnership("intervals", row.provider_athlete_id, ownership.staleUserId);
     if (!released) {
       log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "OWNERSHIP_LOOKUP",
-        userId: user.id, providerAthleteId: String(row.provider_athlete_id),
-        ownerUserId: own.ownerUserId ?? null, ownershipDecision: "reclaim", pendingRow: "consumed" });
+        ownershipDecision: "reclaim", pendingRow: "consumed" });
       return response.status(503).json({
         error: "We couldn't save the connection just now. Please try again in a moment.",
         code: "OWNERSHIP_LOOKUP"
       });
     }
     log("intervals_ownership_reclaim", { correlationId: cid, provider: "intervals", status: "finalize",
-      userId: user.id, providerAthleteId: String(row.provider_athlete_id),
-      ownerUserId: own.ownerUserId ?? null,
       ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
       ownershipDecision: "reclaim" });
   }
@@ -1111,7 +1077,6 @@ async function actionFinalize(request, response, cid) {
 
   if (!saved) {
     log("intervals_finalize_failure", { correlationId: cid, provider: "intervals", code: "PERSIST",
-      userId: user.id, providerAthleteId: String(row.provider_athlete_id),
       ownershipDecision: own.ownershipDecision ?? null, pendingRow: "consumed" });
     return response.status(503).json({
       error: "We connected to Intervals.icu but couldn't save it. Please try again.",
@@ -1126,8 +1091,6 @@ async function actionFinalize(request, response, cid) {
   deletePendingConnection(row.id);
 
   log("intervals_finalize_success", { correlationId: cid, provider: "intervals",
-    userId: user.id, providerAthleteId: String(row.provider_athlete_id),
-    ownerUserId: own.ownerUserId ?? null,
     ownerExistsInAuth: own.ownerExistsInAuth ?? "not_checked",
     ownershipDecision: own.ownershipDecision ?? null,
     pendingRow: "consumed", code: null });
@@ -1935,7 +1898,14 @@ export default async function handler(request, response) {
     return response.status(400).json({ error: "Unknown action." });
   } catch (error) {
     log("intervals_sync_failure", { correlationId: cid, provider, code: "UNHANDLED" });
-    console.error("Provider gateway error:", { correlationId: cid, provider, action });
+    console.error("Provider gateway error:", {
+      correlationId: cid,
+      provider: provider === "intervals" ? "intervals" : "unsupported",
+      action: [
+        "connect", "callback", "finalize", "sync", "trends", "diagnose",
+        "reanalyze", "status", "disconnect", "admin_analytics"
+      ].includes(action) ? action : "unsupported"
+    });
     return response.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }

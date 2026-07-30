@@ -1,0 +1,26 @@
+{
+  "appId": "org.athlevo.app",
+  "appName": "Athlevo",
+  "webDir": "dist",
+  "backgroundColor": "#eeeeec",
+  "ios": {
+    "contentInset": "automatic",
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "body",
+      "style": "DEFAULT"
+    },
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "launchShowDuration": 0,
+      "backgroundColor": "#eeeeec",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DEFAULT"
+    }
+  }
+}

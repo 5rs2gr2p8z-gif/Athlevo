@@ -58,6 +58,9 @@
   }
 
   function isStandalonePWA() {
+    if (window.AthlevoRuntime && window.AthlevoRuntime.isInstalledPWA) {
+      return window.AthlevoRuntime.isInstalledPWA();
+    }
     try {
       if (navigator.standalone === true) return true;
       return typeof window.matchMedia === "function" &&
@@ -70,6 +73,7 @@
   // Returns the friendly name of the embedded browser, or null. An
   // installed PWA (standalone) is never treated as embedded.
   function getEmbeddedBrowserName() {
+    if (window.AthlevoRuntime && window.AthlevoRuntime.isNative()) return null;
     if (isStandalonePWA()) return null;
     const s = uaString();
     for (const e of EMBEDDED) {
@@ -98,6 +102,7 @@
   // True when we should warn before auth/OAuth: an embedded browser that is
   // not an installed PWA.
   function shouldWarn() {
+    if (window.AthlevoRuntime && window.AthlevoRuntime.isNative()) return false;
     return isEmbeddedBrowser() && !isStandalonePWA();
   }
 
@@ -412,6 +417,9 @@
   }
 
   window.AthlevoEnv = {
+    isNativeIOS: () => Boolean(
+      window.AthlevoRuntime && window.AthlevoRuntime.isNativeIOS()
+    ),
     isEmbeddedBrowser,
     getEmbeddedBrowserName,
     isStandalonePWA,

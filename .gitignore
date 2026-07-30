@@ -1,2 +1,6 @@
 .DS_Store
 .fuse_hidden*
+node_modules/
+dist/
+ios/App/DerivedData/
+ios/DerivedData/

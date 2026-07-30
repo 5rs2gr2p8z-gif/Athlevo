@@ -157,4 +157,4 @@ Any disputes should first be addressed through good-faith communication before r
 
 ## 17. Contact
 
-Dean Castro, Email: support@athlevo.org.com
+Dean Castro, Email: support@athlevo.org

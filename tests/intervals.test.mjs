@@ -50,7 +50,13 @@ const mkReq = (query, method = "POST", auth = "Bearer good") =>
   ({ query, method, headers: { authorization: auth }, body: {} });
 
 const signState = (payload) => {
-  const body = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const exactLegacyPayload = {
+    provider: "intervals",
+    nonce: "a".repeat(32),
+    returnTarget: "web",
+    ...payload
+  };
+  const body = Buffer.from(JSON.stringify(exactLegacyPayload), "utf8").toString("base64url");
   const sig = crypto.createHmac("sha256", "state-secret").update(body).digest("base64url");
   return `${body}.${sig}`;
 };
@@ -290,6 +296,33 @@ resetWorld();
     !String(PENDING[0].payload_encrypted).includes("ZZsecret-access-tokenZZ"));
 }
 
+// 1h. A native start is carried only inside signed state and returns through
+// the exact allowlisted custom callback without changing the web flow above.
+{
+  resetWorld();
+  const connect = mkReq({ provider: "intervals", action: "connect" });
+  connect.body = { return_target: "ios" };
+  const start = mkRes();
+  await handler(connect, start);
+  const state = new URL(start.body.authorizationUrl).searchParams.get("state");
+  const callback = mkRes();
+  await handler({
+    query: { provider: "intervals", action: "callback", code: "native-c1", state },
+    method: "GET",
+    headers: {}
+  }, callback);
+  const target = new URL(String(callback.headers.Location));
+  t("1h. native callback returns to the exact Athlevo custom scheme",
+    target.protocol === "athlevo:" &&
+    target.hostname === "provider" &&
+    target.pathname === "/callback");
+  t("1i. native callback carries only categorical provider/result plus opaque completion",
+    target.searchParams.get("provider") === "intervals" &&
+    target.searchParams.get("result") === "pending" &&
+    Boolean(target.searchParams.get("completion")) &&
+    !String(callback.headers.Location).includes("ZZsecret-access-tokenZZ"));
+}
+
 // 2. Invalid state
 {
   resetWorld();
@@ -313,7 +346,8 @@ resetWorld();
 {
   resetWorld();
   const res = mkRes();
-  await handler({ query: { provider: "intervals", action: "callback", error: "access_denied" }, method: "GET", headers: {} }, res);
+  const state = signState({ userId: "user-1", issuedAt: Date.now() });
+  await handler({ query: { provider: "intervals", action: "callback", error: "access_denied", state }, method: "GET", headers: {} }, res);
   t("4. denial is handled as 'cancelled', not an error", res.statusCode === 302 &&
     String(res.headers.Location).includes("intervals=cancelled") &&
     LOGS.some(l => l.code === "ACCESS_DENIED"));

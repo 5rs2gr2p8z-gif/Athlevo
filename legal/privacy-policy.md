@@ -199,7 +199,7 @@ Subject to applicable Philippine law, you may request:
 
 Requests may be submitted through:
 
-Dean Castro, Email: support@athlevo.org.com
+Dean Castro, Email: support@athlevo.org
 
 Identity verification may be required before fulfilling requests.
 
@@ -229,4 +229,4 @@ The "Last updated" date will indicate the latest revision.
 
 Questions regarding this Privacy Policy may be directed to:
 
-Dean Castro, Email: support@athlevo.org.com
+Dean Castro, Email: support@athlevo.org

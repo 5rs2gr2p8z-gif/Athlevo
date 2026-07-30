@@ -32,6 +32,7 @@
  */
 (function captureOAuthReturn(){
   var KEY = "athlevo_oauth_return";
+  var NATIVE_PROVIDER_KEY = "athlevo_native_provider_return";
   try {
     var p = new URLSearchParams(window.location.search);
     var state = p.get("intervals");
@@ -55,6 +56,23 @@
         }
       } catch (e) {}
     }
+    /*
+     * Native provider callbacks are parsed by AthlevoRuntime and persisted
+     * briefly in sessionStorage before a clean-path reload. This keeps every
+     * callback value, including the one-time completion token, out of the
+     * visible app URL and browser history.
+     */
+    try {
+      var nativeSaved = JSON.parse(
+        sessionStorage.getItem(NATIVE_PROVIDER_KEY) || "null"
+      );
+      if (nativeSaved && nativeSaved.state &&
+          (Date.now() - nativeSaved.at) < 8 * 60 * 1000) {
+        window.__athlevoNativeProviderReturn = nativeSaved;
+      } else if (nativeSaved) {
+        sessionStorage.removeItem(NATIVE_PROVIDER_KEY);
+      }
+    } catch (e) {}
   } catch (e) {}
 
   /*
@@ -73,7 +91,7 @@
 
   if (window.__athlevoOAuthReturn) {
     window.__athlevoOAuthStage("oauth_return_detected", {
-      state: window.__athlevoOAuthReturn.state,
+      provider: "intervals",
       hasCompletion: Boolean(window.__athlevoOAuthReturn.completion)
     });
   } else {
@@ -102,6 +120,7 @@
   }
 })();
 </script>
+<script src="js/runtimeEnvironment.js?v=72"></script>
 <script>
 (function(){
   try{
@@ -4601,13 +4620,20 @@ body.landing-active #tabbar{display:none!important}
  (function() { var v = document.getElementById("appVersionDisplay"); if (v) v.textContent = "Version " + window.ATHLEVO_VERSION; })();
  const SUPABASE_URL = 'https://hqwdehqsllyvrcnlcytj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt';
+  const athlevoNativeIOS = Boolean(
+    window.AthlevoRuntime && window.AthlevoRuntime.isNativeIOS()
+  );
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
   persistSession: true,
   autoRefreshToken: true,
-  detectSessionInUrl: true,
+  detectSessionInUrl: !athlevoNativeIOS,
+  flowType: athlevoNativeIOS ? 'pkce' : 'implicit',
 }
 });
+  if (athlevoNativeIOS && window.AthlevoRuntime) {
+    window.AthlevoRuntime.initializeNative(supabaseClient);
+  }
 
 </script>
 
@@ -4927,7 +4953,9 @@ async function doSignup(bypassEmbeddedWarning) {
       options: {
         data: { full_name: name },
         // Confirmation links (when enabled) return to the canonical app.
-        emailRedirectTo: (window.AthlevoEnv && window.AthlevoEnv.canonicalUrl()) || window.location.origin
+        emailRedirectTo: (
+          window.AthlevoRuntime && window.AthlevoRuntime.authRedirectUrl()
+        ) || (window.AthlevoEnv && window.AthlevoEnv.canonicalUrl()) || window.location.origin
       }
     }), 15000, 'Signup timed out');
 
@@ -5171,7 +5199,12 @@ async function connectStrava() {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
         "Content-Type": "application/json"
-      }
+      },
+      body: JSON.stringify(
+        window.AthlevoRuntime && window.AthlevoRuntime.isNativeIOS()
+          ? { return_target: "ios" }
+          : {}
+      )
     });
 
     const data = await response.json();
@@ -5186,7 +5219,11 @@ async function connectStrava() {
       throw new Error("Strava authorization URL was not returned.");
     }
 
-    window.location.href = data.authorizationUrl;
+    if (window.AthlevoRuntime && window.AthlevoRuntime.startOAuth) {
+      await window.AthlevoRuntime.startOAuth(data.authorizationUrl);
+    } else {
+      window.location.href = data.authorizationUrl;
+    }
   } catch (error) {
     console.error("Strava connection failed:", error);
 
@@ -6612,6 +6649,9 @@ async function routeAfterAuth(userId) {
 }
 // True when Athlevo is running as an installed PWA (standalone display).
 function isStandaloneMode() {
+  if (window.AthlevoRuntime && window.AthlevoRuntime.isAppMode) {
+    return window.AthlevoRuntime.isAppMode();
+  }
   return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
     window.navigator.standalone === true ||
     document.referrer.startsWith('android-app://');
@@ -6795,6 +6835,9 @@ function endBootGate() {
     showScreen(isStandaloneMode() ? "screen-welcome" : "screen-landing");
   }
   document.body.classList.remove('booting');
+  try {
+    window.dispatchEvent(new CustomEvent("athlevo:app-ready"));
+  } catch (e) {}
 }
 
 /*
@@ -7583,6 +7626,7 @@ setTimeout(function () {
       connected: "Strava connected",
       cancelled: "Strava connection was cancelled",
       error: "Couldn't connect to Strava — please try again",
+      failed: "Couldn't connect to Strava — please try again",
       invalid_state:
         "That Strava link expired — please connect again",
       missing_code:
@@ -7602,7 +7646,10 @@ setTimeout(function () {
 
   async function initializeAthlevoApp() {
     const url = new URL(window.location.href);
-    const stravaResult = url.searchParams.get("strava");
+    const nativeProviderReturn = window.__athlevoNativeProviderReturn || null;
+    const stravaResult = nativeProviderReturn && nativeProviderReturn.state
+      ? nativeProviderReturn.state
+      : url.searchParams.get("strava");
     const justConnected = stravaResult === "connected";
 
     /*
@@ -7629,6 +7676,10 @@ setTimeout(function () {
       handleStravaResult(stravaResult);
       url.searchParams.delete("strava");
       window.history.replaceState({}, "", url.pathname + url.search);
+      try {
+        sessionStorage.removeItem("athlevo_native_provider_return");
+        delete window.__athlevoNativeProviderReturn;
+      } catch (e) {}
     }
 
     // Sync on open ONLY when we actually entered the authenticated app, so
@@ -7643,6 +7694,14 @@ setTimeout(function () {
   }
 
   initializeAthlevoApp();
+
+  window.addEventListener("athlevo:native-auth-complete", async function () {
+    try {
+      await restoreSession({ nativeCallback: true });
+    } finally {
+      endBootGate();
+    }
+  });
 
   // Reflect the active theme choice in the You/Settings segmented control.
   window.syncThemeControl = function(pref){
@@ -7662,7 +7721,10 @@ setTimeout(function () {
    * Registered here; the worker itself (service-worker.js) NEVER caches API,
    * Supabase, Coach, Strava, auth or OpenAI traffic, so no authenticated or
    * private data is ever stored. Coaching/auth behaviour is untouched. */
-  if ('serviceWorker' in navigator) {
+  if (
+    'serviceWorker' in navigator &&
+    (!window.AthlevoRuntime || window.AthlevoRuntime.shouldRegisterServiceWorker())
+  ) {
     window.addEventListener('load', function(){
       var hadController = !!navigator.serviceWorker.controller;
       var reloadingForWorker = false;
@@ -7683,6 +7745,9 @@ setTimeout(function () {
 
   /* ─── Platform + state detection ───────────────────────────────────────*/
   function isStandalone(){
+    if (window.AthlevoRuntime && window.AthlevoRuntime.isAppMode) {
+      return window.AthlevoRuntime.isAppMode();
+    }
     return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
       window.navigator.standalone === true ||
       document.referrer.startsWith('android-app://');
@@ -7695,6 +7760,9 @@ setTimeout(function () {
   // In-app browsers (Messenger, Instagram, Facebook, TikTok, Twitter, LINE…)
   // cannot Add-to-Home-Screen — the user must reopen in the system browser.
   function isInAppBrowser(){
+    if (window.AthlevoRuntime && window.AthlevoRuntime.isEmbeddedBrowser) {
+      return window.AthlevoRuntime.isEmbeddedBrowser();
+    }
     return /FBAN|FBAV|FB_IAB|Instagram|Messenger|Line\/|Twitter|TikTok|Snapchat|Pinterest|MicroMessenger/i.test(ua);
   }
   function isIOSSafari(){
@@ -7714,7 +7782,8 @@ setTimeout(function () {
    * They are hidden only once the app is installed / running standalone —
    * never left broken or permanently hidden otherwise. */
   function refreshInstallUI(){
-    var hide = installed;
+    var hide = installed ||
+      (window.AthlevoRuntime && !window.AthlevoRuntime.shouldShowInstallUI());
     ['lpInstallNav'].forEach(function(id){
       var el = document.getElementById(id); if (el) el.style.display = hide ? 'none' : '';
     });
@@ -7814,6 +7883,10 @@ setTimeout(function () {
 
   /* ─── The single entry point every Install button calls ────────────────*/
   window.athlevoInstall = async function(){
+    if (
+      window.AthlevoRuntime &&
+      !window.AthlevoRuntime.shouldHandleInstallRequest()
+    ) return;
     // 1) Already installed / standalone → nothing to do.
     if (installed || isStandalone()){
       if (typeof toast === 'function') toast('Athlevo is already installed');

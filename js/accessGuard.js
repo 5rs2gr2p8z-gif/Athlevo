@@ -486,7 +486,11 @@
     const safe = categoricalContext(context, "upgrade_sheet");
     trackCategorical("upgrade_clicked", safe);
     trackCategorical("checkout_opened", safe);
-    window.open(checkoutUrl(), "_blank", "noopener");
+    if (window.AthlevoRuntime && window.AthlevoRuntime.openExternal) {
+      window.AthlevoRuntime.openExternal(checkoutUrl());
+    } else {
+      window.open(checkoutUrl(), "_blank", "noopener");
+    }
   }
 
   function focusableIn(modal) {

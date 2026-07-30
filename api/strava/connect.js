@@ -1,25 +1,11 @@
-import crypto from "node:crypto";
 import {
   getStravaRedirectUri,
   isRedirectUriValid
 } from "../../lib/server/stravaConfig.js";
+import { createOAuthState } from "../../lib/server/oauthState.js";
 
 function sendJson(response, statusCode, body) {
   response.status(statusCode).json(body);
-}
-
-function createSignedState(payload, secret) {
-  const encodedPayload = Buffer.from(
-    JSON.stringify(payload),
-    "utf8"
-  ).toString("base64url");
-
-  const signature = crypto
-    .createHmac("sha256", secret)
-    .update(encodedPayload)
-    .digest("base64url");
-
-  return `${encodedPayload}.${signature}`;
 }
 
 async function getAuthenticatedUser(accessToken) {
@@ -109,11 +95,24 @@ export default async function handler(request, response) {
     // state, code, tokens, or secrets.
     console.log("Strava OAuth start:", { host, path, redirectSource: source });
 
-    const state = createSignedState(
+    const requestedReturnTarget = request.body?.return_target;
+    if (
+      requestedReturnTarget !== undefined &&
+      requestedReturnTarget !== "web" &&
+      requestedReturnTarget !== "ios"
+    ) {
+      return sendJson(response, 400, {
+        error: "Invalid return target.",
+        code: "INVALID_RETURN_TARGET"
+      });
+    }
+
+    const state = createOAuthState(
       {
         userId: user.id,
+        provider: "strava",
         issuedAt: Date.now(),
-        nonce: crypto.randomBytes(16).toString("hex")
+        returnTarget: requestedReturnTarget || "web"
       },
       stateSecret
     );
@@ -138,8 +137,10 @@ export default async function handler(request, response) {
     return sendJson(response, 200, {
       authorizationUrl: authorizationUrl.toString()
     });
-  } catch (error) {
-    console.error("Could not start Strava OAuth:", error);
+  } catch {
+    console.error("Could not start Strava OAuth:", {
+      code: "STRAVA_CONNECT_FAILED"
+    });
 
     return sendJson(response, 500, {
       error: "Could not start Strava authorization."

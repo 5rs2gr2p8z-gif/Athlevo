@@ -128,7 +128,12 @@ const res = () => { const r = { b: null, s: null, headers: {} };
   r.setHeader = (k, v) => { r.headers[k] = v; }; r.end = () => r; return r; };
 
 const signState = p => {
-  const body = Buffer.from(JSON.stringify(p), "utf8").toString("base64url");
+  const body = Buffer.from(JSON.stringify({
+    provider: "intervals",
+    nonce: "b".repeat(32),
+    returnTarget: "web",
+    ...p
+  }), "utf8").toString("base64url");
   return `${body}.${crypto.createHmac("sha256", "state-secret").update(body).digest("base64url")}`;
 };
 const account = () => DB.find(d => d.provider === "intervals");

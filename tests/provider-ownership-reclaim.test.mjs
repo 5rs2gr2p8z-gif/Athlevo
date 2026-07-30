@@ -187,9 +187,8 @@ section("1. Orphaned owner (OLD gone from auth.users) is reclaimed by NEW");
     const o = evt("intervals_callback_ownership")[0];
     t("intervals_callback_ownership is emitted", Boolean(o));
     t("…carries the correlationId", Boolean(o && o.correlationId));
-    t("…names the claimant userId", o && o.userId === "NEW", o && o.userId);
-    t("…names the normalized providerAthleteId", o && o.providerAthleteId === ATHLETE);
-    t("…names the existing provider_accounts owner", o && o.ownerUserId === "OLD", o && o.ownerUserId);
+    t("…does not expose claimant, athlete, or owner identifiers",
+      o && !("userId" in o) && !("providerAthleteId" in o) && !("ownerUserId" in o));
     t("…records that the owner is GONE from auth.users", o && o.ownerExistsInAuth === false,
       String(o && o.ownerExistsInAuth));
     t("…records decision=reclaim", o && o.ownershipDecision === "reclaim", o && o.ownershipDecision);
@@ -222,17 +221,16 @@ section("1. Orphaned owner (OLD gone from auth.users) is reclaimed by NEW");
 
     const o = evt("intervals_finalize_ownership")[0];
     t("intervals_finalize_ownership is emitted", Boolean(o));
-    t("…names the AUTHENTICATED userId", o && o.userId === "NEW");
-    t("…names the normalized providerAthleteId", o && o.providerAthleteId === ATHLETE);
-    t("…names the stale owner", o && o.ownerUserId === "OLD");
+    t("…does not expose authenticated, athlete, or owner identifiers",
+      o && !("userId" in o) && !("providerAthleteId" in o) && !("ownerUserId" in o));
     t("…records ownerExistsInAuth=false", o && o.ownerExistsInAuth === false);
     t("…records decision=reclaim", o && o.ownershipDecision === "reclaim");
     t("…records pendingRow=consumed", o && o.pendingRow === "consumed");
 
     const s = evt("intervals_finalize_success")[0];
     t("intervals_finalize_success carries the decision trail",
-      Boolean(s) && s.ownershipDecision === "reclaim" && s.providerAthleteId === ATHLETE &&
-      s.userId === "NEW" && s.code === null);
+      Boolean(s) && s.ownershipDecision === "reclaim" && s.code === null &&
+      !("userId" in s) && !("providerAthleteId" in s) && !("ownerUserId" in s));
   }
 }
 
@@ -261,16 +259,16 @@ section("2. An ACTIVE owner still blocks — two active users can't share one id
     const o = evt("intervals_callback_ownership")[0];
     t("intervals_callback_ownership records decision=blocked",
       Boolean(o) && o.ownershipDecision === "blocked", o && o.ownershipDecision);
-    t("…names the blocking owner", o && o.ownerUserId === "OWNER");
     t("…records ownerExistsInAuth=true", o && o.ownerExistsInAuth === true,
       String(o && o.ownerExistsInAuth));
-    t("…names the claimant and athlete",
-      o && o.userId === "NEW" && o.providerAthleteId === ATHLETE);
+    t("…does not expose the claimant, athlete, or blocking owner",
+      o && !("userId" in o) && !("providerAthleteId" in o) && !("ownerUserId" in o));
 
     const f = evt("intervals_oauth_failure").find(e => e.code === "ALREADY_LINKED");
     t("the ALREADY_LINKED failure carries the ownership context",
-      Boolean(f) && f.ownerUserId === "OWNER" && f.userId === "NEW" &&
-      f.providerAthleteId === ATHLETE && f.pendingRow === "not_created",
+      Boolean(f) && f.ownershipDecision === "blocked" &&
+      f.pendingRow === "not_created" && !("userId" in f) &&
+      !("providerAthleteId" in f) && !("ownerUserId" in f),
       JSON.stringify(f));
     t("no pending row was created on the blocked path",
       !evt("intervals_callback_outcome").length);
@@ -297,12 +295,14 @@ section("3. Finalize refuses when an ACTIVE owner appears after the callback");
     const o = evt("intervals_finalize_ownership")[0];
     t("intervals_finalize_ownership records decision=blocked",
       Boolean(o) && o.ownershipDecision === "blocked", o && o.ownershipDecision);
-    t("…names the owner that appeared mid-flow", o && o.ownerUserId === "OWNER");
     t("…records ownerExistsInAuth=true", o && o.ownerExistsInAuth === true);
+    t("…does not expose the owner that appeared mid-flow",
+      o && !("userId" in o) && !("providerAthleteId" in o) && !("ownerUserId" in o));
     const f = evt("intervals_finalize_failure").find(e => e.code === "ALREADY_LINKED");
     t("the ALREADY_LINKED finalize failure carries the ownership context",
-      Boolean(f) && f.userId === "NEW" && f.ownerUserId === "OWNER" &&
-      f.providerAthleteId === ATHLETE && f.pendingRow === "consumed",
+      Boolean(f) && f.ownershipDecision === "blocked" &&
+      f.pendingRow === "consumed" && !("userId" in f) &&
+      !("providerAthleteId" in f) && !("ownerUserId" in f),
       JSON.stringify(f));
   }
 }
@@ -323,7 +323,8 @@ section("4. Reconnect by the same live account still succeeds");
     const o = evt("intervals_callback_ownership")[0];
     t("intervals_callback_ownership records decision=self",
       Boolean(o) && o.ownershipDecision === "self", o && o.ownershipDecision);
-    t("…names the claimant as its own owner", o && o.ownerUserId === "NEW" && o.userId === "NEW");
+    t("…does not expose the reconnecting account or athlete",
+      o && !("userId" in o) && !("providerAthleteId" in o) && !("ownerUserId" in o));
     t("…records ownerExistsInAuth=not_checked on the self path",
       o && o.ownerExistsInAuth === "not_checked", String(o && o.ownerExistsInAuth));
   }
@@ -359,14 +360,17 @@ section("5. The new ownership diagnostics leak no secrets");
   t("no token_hash appears (key or value)",
     !/token_hash/.test(blob) && !/"completion"/.test(blob));
   t("no Authorization header material appears", !/Bearer /.test(blob));
+  t("no raw Athlevo user identifier appears",
+    !blob.includes("NEW") && !blob.includes("OLD") && !blob.includes("OWNER"));
+  t("no raw Intervals athlete identifier appears", !blob.includes(ATHLETE));
 
   /*
    * Belt and braces: the ownership events are the NEW surface, so assert their
    * key sets explicitly rather than trusting the allowlist by inspection.
    */
   const ALLOWED = new Set([
-    "event", "correlationId", "provider", "userId", "providerAthleteId",
-    "ownerUserId", "ownerExistsInAuth", "ownershipDecision", "ownershipLookupOk",
+    "event", "correlationId", "provider", "ownerExistsInAuth",
+    "ownershipDecision", "ownershipLookupOk",
     "pendingRow", "finalRedirectState", "code", "status"
   ]);
   const newEvents = ALL.map(s => JSON.parse(s)).filter(e =>

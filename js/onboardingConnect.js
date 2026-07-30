@@ -424,6 +424,10 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
   /* ═══════════════════════ orchestration ═══════════════════════════ */
 
   function openExternal(url) {
+    if (root.AthlevoRuntime && root.AthlevoRuntime.openExternal) {
+      root.AthlevoRuntime.openExternal(url);
+      return;
+    }
     try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; }
   }
   const stage = (s, d) => { try { if (root.__athlevoOAuthStage) root.__athlevoOAuthStage(s, d); } catch (e) {} };
