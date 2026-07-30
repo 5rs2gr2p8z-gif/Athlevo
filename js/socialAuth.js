@@ -62,7 +62,23 @@
       return { ok: false, message: `${provider ? provider.label : "That"} sign-in isn't available yet.` };
     }
     const client = sb();
-    if (!client) return { ok: false, message: "Sign-in is unavailable right now. Please try again." };
+    let loggedOut = true;
+    if (client) {
+      try {
+        const { data } = await client.auth.getSession();
+        loggedOut = !(data && data.session && data.session.user);
+      } catch (e) { /* absence of a readable session is logged-out intent */ }
+    }
+
+    if (providerKey === "google" && loggedOut && root.AthlevoProductAnalytics) {
+      root.AthlevoProductAnalytics.trackAthlevoEvent("google_signup_clicked");
+      root.AthlevoProductAnalytics.beginSignupIntent("google");
+    }
+
+    if (!client) {
+      try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
+      return { ok: false, message: "Sign-in is unavailable right now. Please try again." };
+    }
 
     /*
      * In-app browsers (Instagram, Facebook, TikTok) block the third-party
@@ -72,12 +88,11 @@
      */
     if (root.AthlevoEnv && root.AthlevoEnv.shouldWarn && root.AthlevoEnv.shouldWarn()) {
       if (root.AthlevoEnv.showNotice) root.AthlevoEnv.showNotice({ context: "signup" });
+      try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
       return { ok: false, handled: true };
     }
 
     try {
-      if (root.AthlevoAnalytics) root.AthlevoAnalytics.track("signup_started", { method: providerKey });
-
       const { error } = await client.auth.signInWithOAuth({
         provider: providerKey,
         options: {
@@ -92,12 +107,14 @@
       });
 
       if (error) {
+        try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
         console.warn("OAuth start failed:", error.name || "error");
         return { ok: false, message: describeStartFailure(error) };
       }
       // Success navigates away; nothing after this runs.
       return { ok: true, redirecting: true };
     } catch (error) {
+      try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
       console.warn("OAuth start threw:", error && error.name);
       return { ok: false, message: "We couldn't reach the sign-in service. Check your connection and try again." };
     }

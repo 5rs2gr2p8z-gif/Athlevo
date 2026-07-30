@@ -21,8 +21,9 @@ const src = readFileSync("./js/socialAuth.js", "utf8");
 /* ── loader ─────────────────────────────────────────────────────────── */
 
 function load({ origin = "https://athlevo.org", search = "", hash = "",
-                oauthError = null, inAppBrowser = false, noClient = false } = {}) {
-  const calls = { oauth: [], replaced: [], tracked: [], notice: 0 };
+                oauthError = null, inAppBrowser = false, noClient = false,
+                loggedIn = false } = {}) {
+  const calls = { oauth: [], replaced: [], tracked: [], product: [], intents: [], notice: 0 };
   const elements = {
     authBtnGoogle: { style: { display: "" } },
     authBtnApple: { style: { display: "" } }
@@ -39,6 +40,9 @@ function load({ origin = "https://athlevo.org", search = "", hash = "",
     },
     supabaseClient: noClient ? undefined : {
       auth: {
+        getSession: async () => ({
+          data: { session: loggedIn ? { user: { id: "existing-user" } } : null }
+        }),
         signInWithOAuth: async (opts) => {
           calls.oauth.push(opts);
           return oauthError ? { error: oauthError } : { data: {}, error: null };
@@ -50,12 +54,25 @@ function load({ origin = "https://athlevo.org", search = "", hash = "",
       shouldWarn: () => inAppBrowser,
       showNotice: () => { calls.notice += 1; }
     },
-    AthlevoAnalytics: { track: (n, m) => calls.tracked.push({ n, m }) }
+    AthlevoAnalytics: { track: (n, m) => calls.tracked.push({ n, m }) },
+    AthlevoProductAnalytics: {
+      trackAthlevoEvent: (n, m) => calls.product.push({ n, m }),
+      beginSignupIntent: method => calls.intents.push(method),
+      clearSignupIntent: () => calls.intents.push("cleared")
+    }
   };
   const g = sandbox;
   new Function(...Object.keys(sandbox), "root",
     src.replace(/\}\)\(typeof window[\s\S]*$/, "})(root);"))(...Object.values(sandbox), g);
   return { api: g.AthlevoSocialAuth, calls, elements };
+}
+
+{
+  const { api, calls } = load({ loggedIn: true });
+  await api.signInWithGoogle();
+  t("an existing logged-in user is not counted as Google signup intent",
+    !calls.product.some(e => e.n === "google_signup_clicked") &&
+    !calls.intents.includes("google"));
 }
 
 /* ═════════════════ the original defect must not return ══════════════ */
@@ -88,8 +105,10 @@ section("Google sign-in start");
   t("reports it is redirecting", r.ok === true && r.redirecting === true);
   t("requests the account chooser (shared devices)",
     calls.oauth[0].options.queryParams.prompt === "select_account");
-  t("tracks signup_started with the method",
-    calls.tracked.some(e => e.n === "signup_started" && e.m.method === "google"));
+  t("tracks Google signup intent only for the logged-out visitor",
+    calls.product.some(e => e.n === "google_signup_clicked") &&
+    calls.intents.includes("google") &&
+    !calls.tracked.some(e => e.n === "signup_started"));
 }
 
 section("Redirect target");
@@ -253,8 +272,11 @@ section("Email/password login is untouched");
   t("signInWithPassword still present", /supabaseClient\.auth\.signInWithPassword\(/.test(html));
   t("both still route through startOnboarding/routeAfterAuth",
     /startOnboarding\(\);/.test(html) && /routeAfterAuth\(/.test(html));
-  t("signup_completed tracking intact",
-    (html.match(/trackFunnel\("signup_completed"\)/g) || []).length === 2);
+  t("new email registration uses Supabase identity confirmation",
+    /completeRegistration\([\s\S]*?"email"[\s\S]*?data\.user\.identities\.length > 0/.test(html));
+  t("obsolete signup_started/signup_completed calls are gone",
+    !/trackFunnel\("signup_(started|completed)"\)/.test(html) &&
+    !/AthlevoAnalytics\.track\("signup_started"/.test(src));
 }
 
 section("Security");

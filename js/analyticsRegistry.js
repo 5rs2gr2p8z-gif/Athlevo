@@ -22,6 +22,15 @@
 
   // event → { kind, props }.  kind: "milestone" (once/athlete) | "behavioural".
   var EVENTS = {
+    landing_viewed:               { kind: "behavioural", props: ["page_url", "page_path", "referrer", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    signup_cta_clicked:           { kind: "behavioural", props: ["cta_text", "cta_location", "destination", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    auth_screen_viewed:           { kind: "behavioural", props: ["entry_source", "previous_page", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    google_signup_clicked:        { kind: "behavioural", props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    email_signup_clicked:         { kind: "behavioural", props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    login_clicked:                { kind: "behavioural", props: ["entry_source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    registration_completed:      { kind: "milestone",   props: ["signup_method", "user_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    onboarding_started:          { kind: "milestone",   props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    data_connection_started:     { kind: "behavioural", props: ["provider", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     free_account_created:          { kind: "milestone",   props: ["auth_method", "source"] },
     onboarding_completed:         { kind: "milestone",   props: ["experience_level"] },
     data_connection_completed:    { kind: "milestone",   props: ["provider"] },
@@ -44,7 +53,7 @@
     activity_imported:             { kind: "behavioural", props: ["activity_type"] },
     first_workout_analysis_viewed: { kind: "milestone",   props: ["workout_type"] },
     plan_generation_started:       { kind: "behavioural", props: ["plan_goal_type"] },
-    first_plan_generated:          { kind: "milestone",   props: ["plan_goal_type"] },
+    first_plan_generated:          { kind: "milestone",   props: ["plan_goal_type", "user_id", "goal_distance", "plan_start_date"] },
     plan_generation_failed:        { kind: "behavioural", props: ["failure_category"] },
     coach_opened:                  { kind: "behavioural", props: ["screen_name"] },
     first_coach_message_sent:      { kind: "milestone",   props: [] },
@@ -74,6 +83,8 @@
 
   // Keys that must NEVER be recorded, even if allow-listed by mistake elsewhere.
   var PROHIBITED_KEYS = /(email|name|token|secret|message|content|text|note|gps|lat|lng|lon|coord|address|phone|payload|raw|workout|injury|pain|dob|birth|password)/i;
+  var APPROVED_NAMED_KEYS = { cta_text: true, utm_content: true };
+  var APPROVED_CTA_TEXT = { "Build My Training Plan": true };
 
   function canonicalName(name) {
     if (ALIASES[name]) return ALIASES[name];
@@ -91,12 +102,15 @@
     if (!d || !props || typeof props !== "object") return null;
     var out = {}, kept = 0;
     d.props.forEach(function (key) {
-      if (PROHIBITED_KEYS.test(key)) return;              // defensive: never a prohibited key
+      if (PROHIBITED_KEYS.test(key) && !APPROVED_NAMED_KEYS[key]) return;
       var v = props[key];
       if (v == null) return;
       var tv = typeof v;
       if (tv === "number" || tv === "boolean") { out[key] = v; kept++; return; }
-      if (tv === "string" && v.length > 0 && v.length <= 40 && !/\s{2,}/.test(v)) { out[key] = v; kept++; }
+      if (key === "cta_text" && !APPROVED_CTA_TEXT[String(v).trim()]) return;
+      var max = /^(page_url|referrer|fbclid)$/.test(key) ? 500 :
+        (/^(page_path|previous_page|destination)$/.test(key) ? 200 : 80);
+      if (tv === "string" && v.length > 0 && v.length <= max && !/\s{2,}/.test(v)) { out[key] = v; kept++; }
     });
     return kept ? out : null;
   }

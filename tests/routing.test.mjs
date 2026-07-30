@@ -264,13 +264,20 @@ section("Public visitors still see marketing (unchanged)");
 
 section("Landing CTAs (source-level)");
 {
-  // These are one-liners; assert the shipped behaviour directly.
+  // Analytics now runs before the signed-out transition; assert the routing
+  // branches without coupling this test to one-line formatting.
+  const build = extract("landingStartFree");
+  const signIn = extract("landingSignIn");
+  const openApp = extract("landingOpenApp");
   t("9. Build-plan CTA → app when signed in, entry when not",
-    /function landingStartFree\(\)\s*\{ if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \} else \{ openAppEntry\(\); \} \}/.test(html));
+    /if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); return; \}/.test(build) &&
+    /openAppEntry\(\)/.test(build));
   t("10. Sign In → app when signed in, else entry + login",
-    /function landingSignIn\(\)\s*\{ if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \} else \{ openAppEntry\(\); openLogin\(\); \} \}/.test(html));
+    /if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \}/.test(signIn) &&
+    /openAppEntry\(\);[\s\S]*?openLogin\(true, "landing"\)/.test(signIn));
   t("11. Open App → app when signed in, else entry",
-    /function landingOpenApp\(\)\s*\{ if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \} else \{ openAppEntry\(\); \} \}/.test(html));
+    /if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \}/.test(openApp) &&
+    /openAppEntry\(\)/.test(openApp));
 }
 
 section("Onboarding");

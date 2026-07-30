@@ -36,7 +36,7 @@ function makeAnalytics(opts = {}) {
       };
     })(),
     sessionStorage: (() => {
-      const store = {};
+      const store = Object.assign({}, opts.sessionStore || {});
       return {
         getItem: k => store[k] || null,
         setItem: (k, v) => { store[k] = String(v); },
@@ -44,8 +44,16 @@ function makeAnalytics(opts = {}) {
         _store: store
       };
     })(),
-    location: { search: opts.search || "", hash: "" },
+    location: {
+      origin: opts.origin || "https://athlevo.org",
+      pathname: opts.pathname || "/",
+      search: opts.search || "",
+      hash: "",
+      href: (opts.origin || "https://athlevo.org") +
+        (opts.pathname || "/") + (opts.search || "")
+    },
     document: {
+      referrer: opts.referrer || "",
       querySelector: () => opts.metaContent ? { content: opts.metaContent } : null
     }
   };
@@ -106,8 +114,10 @@ t("does not throw when PostHog key is absent", (() => {
 section("Event names");
 
 const EXPECTED_EVENTS = [
-  "landing_viewed", "free_account_created", "onboarding_completed",
-  "data_connection_completed", "first_plan_generated",
+  "landing_viewed", "signup_cta_clicked", "auth_screen_viewed",
+  "google_signup_clicked", "email_signup_clicked", "login_clicked",
+  "registration_completed", "onboarding_started", "onboarding_completed",
+  "data_connection_started", "data_connection_completed", "first_plan_generated",
   "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
   "paid_subscription_activated", "readiness_prompt_shown",
   "readiness_prompt_dismissed", "readiness_check_completed",
@@ -138,6 +148,15 @@ t("different events each fire once", (() => {
   api.trackAthlevoEvent("landing_viewed");
   api.trackAthlevoEvent("upgrade_clicked");
   return captured.length === 2;
+})());
+
+t("behavioural CTA clicks are not collapsed into one event", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("signup_cta_clicked", { cta_location: "hero" });
+  api.trackAthlevoEvent("signup_cta_clicked", { cta_location: "footer" });
+  return captured.length === 2 &&
+    captured[0].props.cta_location === "hero" &&
+    captured[1].props.cta_location === "footer";
 })());
 
 t("reset clears dedup state so events can fire again", (() => {
@@ -178,8 +197,9 @@ section("Property sanitization");
 
 t("only SAFE_PROPS pass through", (() => {
   const { api, captured } = makeAnalytics({ key: "phc_test" });
-  api.trackAthlevoEvent("free_account_created", {
-    auth_method: "google",
+  api.trackAthlevoEvent("registration_completed", {
+    signup_method: "google",
+    user_id: "user-123",
     source: "landing",
     email: "user@test.com",         // prohibited
     token: "secret123",             // prohibited
@@ -188,7 +208,8 @@ t("only SAFE_PROPS pass through", (() => {
     some_random_field: "dropped"    // not in SAFE_PROPS
   });
   const props = captured[0].props;
-  return props.auth_method === "google"
+  return props.signup_method === "google"
+    && props.user_id === "user-123"
     && props.source === "landing"
     && !("email" in props)
     && !("token" in props)
@@ -199,7 +220,7 @@ t("only SAFE_PROPS pass through", (() => {
 
 t("boolean and number values pass through for safe keys", (() => {
   const { api, captured } = makeAnalytics({ key: "phc_test" });
-  api.trackAthlevoEvent("free_account_created", {
+  api.trackAthlevoEvent("registration_completed", {
     is_first_time: true,
     source: "test"
   });
@@ -209,7 +230,7 @@ t("boolean and number values pass through for safe keys", (() => {
 
 t("overly long strings are dropped", (() => {
   const { api, captured } = makeAnalytics({ key: "phc_test" });
-  api.trackAthlevoEvent("free_account_created", {
+  api.trackAthlevoEvent("registration_completed", {
     source: "a".repeat(100)   // > 80 chars
   });
   return !("source" in captured[0].props) || captured[0].props.source !== "a".repeat(100);
@@ -234,6 +255,28 @@ t("premium events contain only categorical feature and surface", (() => {
     props.surface === "today";
 })());
 
+t("CTA text is limited to the approved public acquisition label", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("signup_cta_clicked", {
+    cta_text: "private athlete note",
+    cta_location: "hero",
+    destination: "screen-welcome"
+  });
+  return !("cta_text" in captured[0].props) &&
+    captured[0].props.cta_location === "hero";
+})());
+
+t("caller-supplied analytics URLs cannot carry OAuth or email query data", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("landing_viewed", {
+    page_url: "https://athlevo.org/?utm_source=meta&code=secret&email=a@example.com",
+    referrer: "https://example.com/path?token=secret"
+  });
+  const props = captured[0].props;
+  return props.page_url === "https://athlevo.org/?utm_source=meta" &&
+    props.referrer === "https://example.com/path";
+})());
+
 /* ─────────────── UTM capture and persistence ─────────────────────── */
 section("UTM parameters");
 
@@ -249,6 +292,25 @@ t("captures UTM from URL and includes in events", (() => {
     && props.utm_campaign === "beta";
 })());
 
+t("captures the complete approved attribution set", (() => {
+  const { api, captured } = makeAnalytics({
+    key: "phc_test",
+    search: "?utm_source=meta&utm_medium=paid_social&utm_campaign=launch" +
+      "&utm_content=video_a&utm_term=marathon&fbclid=fb-click-123"
+  });
+  api.trackAthlevoEvent("registration_completed", {
+    signup_method: "google",
+    user_id: "user-123"
+  });
+  const props = captured[0].props;
+  return props.utm_source === "meta" &&
+    props.utm_medium === "paid_social" &&
+    props.utm_campaign === "launch" &&
+    props.utm_content === "video_a" &&
+    props.utm_term === "marathon" &&
+    props.fbclid === "fb-click-123";
+})());
+
 t("persists UTM in sessionStorage and restores", (() => {
   // First "page load" — capture UTMs
   const { win } = makeAnalytics({
@@ -258,6 +320,123 @@ t("persists UTM in sessionStorage and restores", (() => {
   const stored = win.sessionStorage.getItem("athlevo_utm");
   const parsed = JSON.parse(stored);
   return parsed && parsed.utm_source === "twitter" && parsed.utm_medium === "social";
+})());
+
+t("landing context strips non-attribution query values and referrer queries", (() => {
+  const { api } = makeAnalytics({
+    search: "?utm_source=meta&code=oauth-secret&email=private@example.com",
+    pathname: "/campaign",
+    referrer: "https://facebook.com/ad?private_id=123#profile"
+  });
+  const props = api.landingProps();
+  return props.page_path === "/campaign" &&
+    props.page_url.includes("utm_source=meta") &&
+    !props.page_url.includes("oauth-secret") &&
+    !props.page_url.includes("private%40example.com") &&
+    props.referrer === "https://facebook.com/ad";
+})());
+
+/* ─────────────── registration and milestone guards ───────────────── */
+section("Registration and milestone guards");
+
+t("registration_completed requires an explicitly confirmed new account", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  const existing = api.completeRegistration(
+    { id: "existing-user" }, "email", false
+  );
+  const created = api.completeRegistration(
+    { id: "new-user" }, "email", true
+  );
+  return existing === false && created === true &&
+    captured.length === 1 &&
+    captured[0].name === "registration_completed" &&
+    captured[0].props.signup_method === "email" &&
+    captured[0].props.user_id === "new-user";
+})());
+
+t("registration completion is not repeated for the same user", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.completeRegistration({ id: "new-user" }, "email", true);
+  api.completeRegistration({ id: "new-user" }, "email", true);
+  return captured.filter(event => event.name === "registration_completed").length === 1;
+})());
+
+t("registration completion remains deduplicated after a refresh", (() => {
+  const first = makeAnalytics({ key: "phc_test" });
+  first.api.completeRegistration({ id: "new-user" }, "email", true);
+  const refreshed = makeAnalytics({
+    key: "phc_test",
+    sessionStore: first.win.sessionStorage._store
+  });
+  const repeated = refreshed.api.completeRegistration(
+    { id: "new-user" }, "email", true
+  );
+  return repeated === false &&
+    !refreshed.captured.some(event => event.name === "registration_completed");
+})());
+
+t("Google completion accepts a recent new account and rejects an existing one", (() => {
+  const now = Date.now();
+  const freshStore = {
+    athlevo_signup_intent_v1: JSON.stringify({
+      method: "google",
+      started_at: now - 1000
+    })
+  };
+  const fresh = makeAnalytics({
+    key: "phc_test",
+    sessionStore: freshStore
+  });
+  const freshResult = fresh.api.completeOAuthRegistration({
+    id: "google-new",
+    created_at: new Date(now - 900).toISOString(),
+    last_sign_in_at: new Date(now - 500).toISOString()
+  });
+
+  const old = makeAnalytics({
+    key: "phc_test",
+    sessionStore: {
+      athlevo_signup_intent_v1: JSON.stringify({
+        method: "google",
+        started_at: now - 1000
+      })
+    }
+  });
+  const oldResult = old.api.completeOAuthRegistration({
+    id: "google-existing",
+    created_at: new Date(now - 86400000).toISOString(),
+    last_sign_in_at: new Date(now - 500).toISOString()
+  });
+  return freshResult === true &&
+    fresh.captured.some(event => event.name === "registration_completed") &&
+    oldResult === false &&
+    !old.captured.some(event => event.name === "registration_completed");
+})());
+
+t("user milestones survive rerenders within the signup session", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackUserMilestone("onboarding_started", "user-1");
+  api.trackUserMilestone("onboarding_started", "user-1");
+  api.trackUserMilestone("onboarding_completed", "user-1");
+  api.trackUserMilestone("onboarding_completed", "user-1");
+  return captured.filter(event => event.name === "onboarding_started").length === 1 &&
+    captured.filter(event => event.name === "onboarding_completed").length === 1;
+})());
+
+t("user milestones remain deduplicated after a refresh", (() => {
+  const first = makeAnalytics({ key: "phc_test" });
+  first.api.trackUserMilestone("data_connection_completed", "user-1", {
+    provider: "intervals"
+  });
+  const refreshed = makeAnalytics({
+    key: "phc_test",
+    sessionStore: first.win.sessionStorage._store
+  });
+  refreshed.api.trackUserMilestone("data_connection_completed", "user-1", {
+    provider: "intervals"
+  });
+  return !refreshed.captured.some(event =>
+    event.name === "data_connection_completed");
 })());
 
 /* ─────────────── app_returned logic ──────────────────────────────── */

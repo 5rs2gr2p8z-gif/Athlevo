@@ -513,7 +513,7 @@ section("13. A pending return issues exactly one finalize, before any diagnose")
   t("checkIntervalsReturn is driven by the snapshot too",
     /const snap = window\.__athlevoOAuthReturn;\n      if \(snap && snap\.state\)/.test(html));
   t("the token is stripped only AFTER finalize resolves",
-    /await AthlevoBrain\.finalizeIntervals\(completion\);[\s\S]{0,300}stripIntervalsParams\(\);/.test(pending));
+    /await AthlevoBrain\.finalizeIntervals\(completion\);[\s\S]{0,900}stripIntervalsParams\(\);/.test(pending));
   t("finalize is attempted BEFORE any diagnose can run",
     html.indexOf("athlevoFinalizeInFlight") <
       html.indexOf("window.AthlevoConnect.resumeAfterConnect(); return;"));

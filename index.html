@@ -2817,7 +2817,7 @@ body.landing-active #tabbar{display:none!important}
       </div>
       <div class="lp-nav-cta">
         <button class="lp-link" onclick="landingSignIn()">Sign In</button>
-        <button class="lp-btn sm" onclick="landingStartFree()">Build My Training Plan</button>
+        <button class="lp-btn sm" data-cta-location="navigation" onclick="landingStartFree(this)">Build My Training Plan</button>
       </div>
     </div>
   </nav>
@@ -2830,7 +2830,7 @@ body.landing-active #tabbar{display:none!important}
         <h1 class="lp-h1 lp-reveal">Your training plan should change when your life does.</h1>
         <p class="lp-lead lp-reveal">Athlevo builds your personalized endurance plan, analyzes completed workouts, and adjusts what comes next based on your goals, training history, and daily readiness.</p>
         <div class="lp-cta lp-reveal">
-          <button class="lp-btn" onclick="landingStartFree()">Build My Training Plan</button>
+          <button class="lp-btn" data-cta-location="hero" onclick="landingStartFree(this)">Build My Training Plan</button>
           <a class="lp-btn ghost" href="#lp-how">See how Athlevo works</a>
         </div>
       </div>
@@ -3119,7 +3119,7 @@ body.landing-active #tabbar{display:none!important}
             <li>AI coach conversations</li>
             <li>Continued product improvements while subscribed</li>
           </ul>
-          <button class="lp-btn" style="width:100%" onclick="landingStartFree()">Build My Training Plan</button>
+          <button class="lp-btn" style="width:100%" data-cta-location="mid_page" onclick="landingStartFree(this)">Build My Training Plan</button>
           <p class="lp-price-note">Start free with your initial plan, training calendar, readiness, basic Trends, and 3 Coach messages per week. Upgrade to Athlevo Performance for ongoing adaptive coaching.</p>
           <p class="lp-price-cancel">Cancel anytime.</p>
         </div>
@@ -3194,7 +3194,7 @@ body.landing-active #tabbar{display:none!important}
       <h2 class="lp-h2 big">Stop guessing what your training needs next.</h2>
       <p class="lp-body" style="color:rgba(255,255,255,.65);max-width:36ch;margin:18px auto 0">Build your plan, complete your readiness check and let every workout inform what comes after it.</p>
       <div class="lp-cta" style="margin-top:36px">
-        <button class="lp-btn light" onclick="landingStartFree()">Build My Training Plan</button>
+        <button class="lp-btn light" data-cta-location="footer" onclick="landingStartFree(this)">Build My Training Plan</button>
         <a class="lp-btn ghost-light" href="#lp-pricing">View pricing</a>
       </div>
     </div>
@@ -3229,8 +3229,8 @@ body.landing-active #tabbar{display:none!important}
   <div class="w-btns">
     <!-- Answers beta pain #1 ("Google or create an account?") before it's asked:
          any option creates the account; Google/Apple are the one-tap path. -->
-    <button class="w-btn primary" onclick="openSignup()">Create account</button>
-    <button class="w-btn" onclick="openLogin()">Log in</button>
+    <button class="w-btn primary" onclick="openSignup(true)">Create account</button>
+    <button class="w-btn" onclick="openLogin(true)">Log in</button>
     <div class="w-or"><span>or continue in one tap</span></div>
     <button class="w-btn" id="authBtnApple" onclick="continueWithApple()"> Continue with Apple</button>
     <button class="w-btn" id="authBtnGoogle" onclick="continueWithGoogle()">G&ensp;Continue with Google</button>
@@ -4621,14 +4621,32 @@ function pushAuthState() {
     athlevoAuthPushed = true;
   }
 }
-function openSignup() {
+function trackAuthChoice(name, properties) {
+  try {
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.trackAthlevoEvent(name, properties || null);
+    }
+  } catch (e) {}
+}
+function beginEmailSignupIntent() {
+  try {
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.beginSignupIntent("email");
+    }
+  } catch (e) {}
+}
+function openSignup(userChoseSignup) {
   document.getElementById('authModal').style.display = 'flex';
-  showSignupForm();
+  if (userChoseSignup === true && !athlevoSessionUserId) {
+    trackAuthChoice("email_signup_clicked");
+    beginEmailSignupIntent();
+  }
+  showSignupForm(false);
   pushAuthState();
 }
-function openLogin() {
+function openLogin(userChoseLogin, entrySource) {
   document.getElementById('authModal').style.display = 'flex';
-  showLoginForm();
+  showLoginForm(userChoseLogin === true, entrySource);
   pushAuthState();
 }
 // Hide the modal only. History is intentionally NOT touched here so existing
@@ -4637,14 +4655,23 @@ function openLogin() {
 function closeAuth() {
   document.getElementById('authModal').style.display = 'none';
 }
-function showSignupForm() {
+function showSignupForm(userChoseSignup) {
   document.getElementById('signupForm').style.display = 'block';
   document.getElementById('loginForm').style.display = 'none';
+  if (userChoseSignup === true && !athlevoSessionUserId) {
+    trackAuthChoice("email_signup_clicked");
+    beginEmailSignupIntent();
+  }
   if (typeof validateSignupPassword === 'function') validateSignupPassword();
 }
-function showLoginForm() {
+function showLoginForm(userChoseLogin, entrySource) {
   document.getElementById('signupForm').style.display = 'none';
   document.getElementById('loginForm').style.display = 'block';
+  if (userChoseLogin === true && !athlevoSessionUserId) {
+    trackAuthChoice("login_clicked", {
+      entry_source: entrySource || "auth_screen"
+    });
+  }
 }
 
 /* ══════════════ APP ENTRY (welcome) — landing CTA destination ══════════════
@@ -4665,10 +4692,47 @@ window.openAppEntry = openAppEntry;
 
 // Landing CTAs. Logged in → straight into the app (never asked to create a
 // second account). Logged out → the app entry screen.
-function landingOpenApp()    { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); } }
-function landingStartFree()  { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); } }
-function landingStartBeta()  { landingStartFree(); }
-function landingSignIn()     { if (athlevoSessionUserId) { openAthlevoApp(); } else { openAppEntry(); openLogin(); } }
+function rememberLandingAuthEntry(entrySource) {
+  try {
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.rememberAuthEntry({
+        entry_source: entrySource,
+        previous_page: window.location.href
+      });
+    }
+  } catch (e) {}
+}
+function landingOpenApp()    {
+  if (athlevoSessionUserId) { openAthlevoApp(); }
+  else {
+    rememberLandingAuthEntry("landing_open_app");
+    openAppEntry();
+  }
+}
+function landingStartFree(trigger)  {
+  if (athlevoSessionUserId) { openAthlevoApp(); return; }
+  var locationName = trigger && trigger.dataset
+    ? trigger.dataset.ctaLocation
+    : "landing";
+  rememberLandingAuthEntry(locationName);
+  trackAuthChoice("signup_cta_clicked", {
+    cta_text: trigger && trigger.textContent
+      ? trigger.textContent.trim()
+      : "Build My Training Plan",
+    cta_location: locationName,
+    destination: "screen-welcome"
+  });
+  openAppEntry();
+}
+function landingStartBeta(trigger)  { landingStartFree(trigger); }
+function landingSignIn()     {
+  if (athlevoSessionUserId) { openAthlevoApp(); }
+  else {
+    rememberLandingAuthEntry("navigation_login");
+    openAppEntry();
+    openLogin(true, "landing");
+  }
+}
 window.landingOpenApp = landingOpenApp;
 window.landingStartFree = landingStartFree;
 window.landingStartBeta = landingStartBeta;
@@ -4815,7 +4879,11 @@ async function doSignup(bypassEmbeddedWarning) {
   msg.textContent = 'Creating account...';
 
   try {
-    trackFunnel("signup_started");
+    try {
+      if (window.AthlevoProductAnalytics) {
+        AthlevoProductAnalytics.beginSignupIntent("email");
+      }
+    } catch (e) {}
 
     const { data, error } = await withTimeout(supabaseClient.auth.signUp({
       email,
@@ -4828,6 +4896,7 @@ async function doSignup(bypassEmbeddedWarning) {
     }), 15000, 'Signup timed out');
 
     if (error) {
+      try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.clearSignupIntent(); } catch(e){}
       msg.style.color = 'var(--red)';
       msg.textContent = friendlyAuthError(error, 'signup');
       return;
@@ -4840,11 +4909,32 @@ async function doSignup(bypassEmbeddedWarning) {
       Array.isArray(data.user.identities) &&
       data.user.identities.length === 0
     ) {
+      try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.clearSignupIntent(); } catch(e){}
       msg.style.color = 'var(--red)';
       msg.textContent = 'An account already exists for this email. Log in instead.';
       showLoginForm();
       return;
     }
+
+    // A non-empty identities array is Supabase's authoritative signal that
+    // this signUp call created a genuinely new auth account. Existing emails
+    // return an empty array above and never reach this event.
+    let registrationTracked = false;
+    try {
+      if (window.AthlevoProductAnalytics && data?.user) {
+        registrationTracked = AthlevoProductAnalytics.completeRegistration(
+          data.user,
+          "email",
+          Array.isArray(data.user.identities) && data.user.identities.length > 0
+        );
+      }
+      if (registrationTracked && window.AthlevoAnalytics) {
+        AthlevoAnalytics.track("registration_completed", {
+          signup_method: "email",
+          user_id: data.user.id
+        });
+      }
+    } catch(e){}
 
     // "Confirm email" OFF: a session is returned immediately. Confirm it is
     // actually persisted before entering authenticated onboarding.
@@ -4859,8 +4949,7 @@ async function doSignup(bypassEmbeddedWarning) {
       }
       msg.style.color = 'var(--good)';
       msg.textContent = 'Account created!';
-      trackFunnel("signup_completed");
-      try { if (window.AthlevoProductAnalytics) { AthlevoProductAnalytics.identifyAthlete(user); AthlevoProductAnalytics.trackAthlevoEvent('free_account_created', { auth_method: 'email' }); } } catch(e){}
+      try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
       closeAuth();
       startOnboarding();
       return;
@@ -4881,8 +4970,7 @@ async function doSignup(bypassEmbeddedWarning) {
       if (user) {
         msg.style.color = 'var(--good)';
         msg.textContent = 'Account created!';
-        trackFunnel("signup_completed");
-        try { if (window.AthlevoProductAnalytics) { AthlevoProductAnalytics.identifyAthlete(user); AthlevoProductAnalytics.trackAthlevoEvent('free_account_created', { auth_method: 'email' }); } } catch(e){}
+        try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
         closeAuth();
         startOnboarding();
         return;
@@ -4892,6 +4980,7 @@ async function doSignup(bypassEmbeddedWarning) {
     msg.style.color = 'var(--good)';
     msg.textContent = 'Check your email to confirm your account, then log in.';
   } catch (e) {
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.clearSignupIntent(); } catch(_){}
     // e may be a timeout/network error — map it, never log the password.
     msg.style.color = 'var(--red)';
     msg.textContent = friendlyAuthError(e, 'signup');
@@ -5210,7 +5299,18 @@ function showScreen(id){
   // Landing is the only full-width marketing screen; everything else runs
   // inside the phone-framed app shell.
   document.body.classList.toggle('landing-active', id==='screen-landing');
-  if(id==='screen-landing' && window.AthlevoProductAnalytics) try { AthlevoProductAnalytics.trackAthlevoEvent('landing_viewed'); } catch(e){}
+  if(id==='screen-landing' && window.AthlevoProductAnalytics) try {
+    AthlevoProductAnalytics.trackAthlevoEvent(
+      'landing_viewed',
+      AthlevoProductAnalytics.landingProps()
+    );
+  } catch(e){}
+  if(id==='screen-welcome' && window.AthlevoProductAnalytics) try {
+    AthlevoProductAnalytics.trackAthlevoEvent(
+      'auth_screen_viewed',
+      AthlevoProductAnalytics.authEntryProps()
+    );
+  } catch(e){}
   if(id!=='screen-landing') window.scrollTo(0,0);
   if (id === "screen-today" && typeof window.refreshTodayAfterPlanChange === "function"){
     window.refreshTodayAfterPlanChange("screen-enter").catch(function(){});
@@ -6574,6 +6674,15 @@ async function restoreSession(opts) {
     try {
       if (window.AthlevoProductAnalytics) {
         AthlevoProductAnalytics.identifyAthlete(session.user);
+        var newOAuthRegistration =
+          AthlevoProductAnalytics.completeOAuthRegistration(session.user);
+        if (newOAuthRegistration && window.AthlevoAnalytics) {
+          AthlevoAnalytics.identifySafe(session.user.id);
+          AthlevoAnalytics.track("registration_completed", {
+            signup_method: "google",
+            user_id: session.user.id
+          });
+        }
         if (AthlevoProductAnalytics.checkAppReturned()) {
           AthlevoProductAnalytics.trackAthlevoEvent('app_returned');
         }
@@ -6655,7 +6764,7 @@ setTimeout(function () {
         <a onclick="openLegal('terms')">Terms of Service</a> and
         <a onclick="openLegal('privacy')">Privacy Policy</a>.</p>
       <p class="auth-switch">Already have an account?
-        <a onclick="showLoginForm()">Log in</a></p>
+        <a onclick="showLoginForm(true)">Log in</a></p>
     </div>
 
     <!-- Login -->
@@ -6666,7 +6775,7 @@ setTimeout(function () {
       <button id="liBtn" onclick="doLogin()">Log In</button>
       <p class="auth-msg" id="liMsg"></p>
       <p class="auth-switch">No account yet?
-        <a onclick="showSignupForm()">Create one</a></p>
+        <a onclick="showSignupForm(true)">Create one</a></p>
     </div>
   </div>
 </div>
@@ -6726,13 +6835,13 @@ setTimeout(function () {
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
 <script src="js/trendsAnalytics.js?v=69"></script>
-<script src="js/socialAuth.js?v=67"></script>
-<script src="js/analyticsRegistry.js?v=69"></script>
+<script src="js/socialAuth.js?v=68"></script>
+<script src="js/analyticsRegistry.js?v=70"></script>
 <script src="js/metaPixel.js?v=67"></script>
-<script src="js/analytics.js?v=69"></script>
+<script src="js/analytics.js?v=70"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=67"></script>
-<script src="js/onboardingConnect.js?v=67"></script>
+<script src="js/onboardingConnect.js?v=68"></script>
 <script src="js/productionVerify.js?v=67"></script>
 <script src="js/athlevoScore.js?v=69"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
@@ -6755,13 +6864,13 @@ setTimeout(function () {
 <script src="js/trainCalendar.js?v=67"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
 <script src="js/accessGuard.js?v=69"></script>
-<script src="js/planSetup.js?v=67"></script>
+<script src="js/planSetup.js?v=68"></script>
 <script src="js/feedback.js?v=67"></script>
 <script src="js/readiness.js?v=68"></script>
 <script src="js/morningCheckIn.js?v=68"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=67"></script>
-<script src="js/onboarding.js?v=67"></script>
+<script src="js/onboarding.js?v=68"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's
@@ -7242,7 +7351,15 @@ setTimeout(function () {
               await AthlevoBrain.finalizeIntervals(completion);     // exactly once on success
               __finalizeSettled = true;
               stage("finalize_response", { ok: true });
-              try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('data_connection_completed', { provider: 'intervals' }); } catch(e){}
+              try {
+                if (window.AthlevoProductAnalytics) {
+                  AthlevoProductAnalytics.trackUserMilestone(
+                    "data_connection_completed",
+                    session.user.id,
+                    { provider: "intervals" }
+                  );
+                }
+              } catch(e){}
               consumeReturnSnapshot();
               stripIntervalsParams();
               window.__athlevoFinalizePending = false;

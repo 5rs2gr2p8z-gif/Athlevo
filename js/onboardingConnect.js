@@ -56,6 +56,16 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
   const FLAG = "athlevo_guided_setup";
   const WEARABLE_KEY = "athlevo_guided_wearable";
 
+  async function analyticsUserId() {
+    try {
+      if (typeof supabaseClient === "undefined") return null;
+      const { data } = await supabaseClient.auth.getSession();
+      return data && data.session && data.session.user
+        ? data.session.user.id
+        : null;
+    } catch (e) { return null; }
+  }
+
   function markActive(on) {
     state.active = on;
     try {
@@ -449,7 +459,15 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
 
     markActive(true);
     A().track("intervals_connected", { wearable: state.wearable || null });
-    try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.trackAthlevoEvent('data_connection_completed', { provider: 'intervals' }); } catch(e){}
+    try {
+      if (root.AthlevoProductAnalytics) {
+        root.AthlevoProductAnalytics.trackUserMilestone(
+          "data_connection_completed",
+          await analyticsUserId(),
+          { provider: "intervals" }
+        );
+      }
+    } catch(e){}
     beginDetection();
   }
 

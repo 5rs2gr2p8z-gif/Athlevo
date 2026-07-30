@@ -18,6 +18,7 @@
   let buildInFlight = false;
   let lastHasPlan = null;         // cache of the most recent get-week result
   let dismissedThisSession = false;
+  let currentProfile = null;
 
   function esc(v) {
     return String(v == null ? "" : v)
@@ -29,6 +30,52 @@
       const { data: { session } } = await supabaseClient.auth.getSession();
       return session ? session.access_token : null;
     } catch (e) { return null; }
+  }
+
+  async function analyticsUserId() {
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      return session && session.user ? session.user.id : null;
+    } catch (e) { return null; }
+  }
+
+  function analyticsGoalDistance(value) {
+    const normalized = String(value || "").toLowerCase();
+    if (/\b5\s*k\b|5000/.test(normalized)) return "5k";
+    if (/\b10\s*k\b|10000/.test(normalized)) return "10k";
+    if (/half[\s_-]*marathon|21\.?1\s*k/.test(normalized)) return "half_marathon";
+    if (/marathon|42\.?2\s*k/.test(normalized)) return "marathon";
+    if (/ultra/.test(normalized)) return "ultramarathon";
+    if (/general|fitness|endurance/.test(normalized)) return "general_endurance";
+    return null;
+  }
+
+  function firstPlanAnalytics(data) {
+    const plan = data && data.plan;
+    const sessions = data && Array.isArray(data.sessions) ? data.sessions : [];
+    const usableSavedPlan = Boolean(
+      data &&
+      data.success === true &&
+      plan &&
+      plan.id &&
+      sessions.some(session => session && session.session_date)
+    );
+    if (!usableSavedPlan) return { usableSavedPlan: false, props: {} };
+
+    const props = {};
+    const goal = analyticsGoalDistance(
+      (currentProfile && (
+        currentProfile.goal_distance ||
+        currentProfile.goal ||
+        currentProfile.target_distance
+      )) ||
+      plan.goal_distance ||
+      plan.target_race
+    );
+    const start = String(plan.week_start || "").slice(0, 10);
+    if (goal) props.goal_distance = goal;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(start)) props.plan_start_date = start;
+    return { usableSavedPlan: true, props };
   }
 
   // True/false whether the athlete already has a generated plan. Never throws.
@@ -124,6 +171,7 @@
   async function start() {
     let profile = null;
     try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
+    currentProfile = profile;
 
     /*
      * ONE authoritative connection source, shared with the Today card. Asking
@@ -328,6 +376,7 @@
             signal: controller.signal
           });
           const data = await res.json().catch(() => ({}));
+          const firstPlan = firstPlanAnalytics(data);
           const freePlanActive =
             res.status === 402 &&
             (
@@ -336,7 +385,12 @@
               data.feature === "additional_plan_generation"
             );
           outcome = res.ok
-            ? { ok: true, alreadyExists: data.alreadyExists === true }
+            ? {
+                ok: true,
+                alreadyExists: data.alreadyExists === true,
+                firstUsableSaved: firstPlan.usableSavedPlan,
+                analyticsProps: firstPlan.props
+              }
             : {
                 ok: false,
                 code: freePlanActive ? "FREE_PLAN_ACTIVE" : (data.code || "PLAN_FAILED"),
@@ -377,10 +431,26 @@
 
     if (outcome.ok) {
       buildInFlight = false;
-      try {
-        if (window.AthlevoAnalytics && outcome.alreadyExists !== true) AthlevoAnalytics.track("first_plan_generated");
-      } catch (e) {}
-      if (outcome.alreadyExists !== true) { try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('first_plan_generated'); } catch(e){} }
+      if (outcome.alreadyExists !== true && outcome.firstUsableSaved === true) {
+        try {
+          const userId = await analyticsUserId();
+          const eventProps = Object.assign(
+            {},
+            outcome.analyticsProps || {},
+            userId ? { user_id: userId } : {}
+          );
+          if (window.AthlevoAnalytics) {
+            AthlevoAnalytics.track("first_plan_generated", eventProps);
+          }
+          if (window.AthlevoProductAnalytics) {
+            AthlevoProductAnalytics.trackUserMilestone(
+              "first_plan_generated",
+              userId,
+              eventProps
+            );
+          }
+        } catch (e) {}
+      }
       completeFinalStep();
       await refreshTodayAfterPlanChange();
       showSuccess(outcome.alreadyExists !== true);   // first plan → milestone state

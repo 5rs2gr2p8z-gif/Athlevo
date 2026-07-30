@@ -931,8 +931,16 @@ async function obFinish() {
     console.error("Could not refresh athlete UI after onboarding:", error);
   }
 
-  if (window.AthlevoAnalytics) window.AthlevoAnalytics.track("profile_completed");
-  try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('onboarding_completed'); } catch(e){}
+  if (window.AthlevoAnalytics) window.AthlevoAnalytics.track("onboarding_completed");
+  try {
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.trackUserMilestone(
+        "onboarding_completed",
+        obProfile && obProfile.id,
+        null
+      );
+    }
+  } catch(e){}
 
   /*
    * Freemium flow: profile → training-data connection → free app. Payment is
@@ -1009,14 +1017,9 @@ async function obLoadProfile() {
     .single();
 
   if (!createError) {
-    // First profile creation — covers both email and OAuth signup paths.
-    // For email signups this is a harmless duplicate (deduped in analytics.js).
-    try {
-      if (window.AthlevoProductAnalytics) {
-        var method = (user.app_metadata && user.app_metadata.provider) || 'email';
-        AthlevoProductAnalytics.trackAthlevoEvent('free_account_created', { auth_method: method, is_first_time: true });
-      }
-    } catch(e){}
+    // Non-persisted marker used only to distinguish a first onboarding start
+    // from a later resume when the auth redirect opened in a new tab.
+    if (created) created.__athlevoNewProfile = true;
     return created;
   }
 
@@ -1103,6 +1106,29 @@ async function startAthlevoOnboarding() {
       showScreen("screen-today");
       return;
     }
+
+    // Starts only after the authenticated athlete's incomplete profile has
+    // loaded successfully. The user-scoped milestone guard prevents refresh,
+    // resume, and rerender duplicates.
+    try {
+      const newlyRegistered = Boolean(
+        obProfile.__athlevoNewProfile ||
+        (
+          window.AthlevoProductAnalytics &&
+          window.AthlevoProductAnalytics.isNewRegistration(obProfile.id)
+        )
+      );
+      if (newlyRegistered && window.AthlevoAnalytics) {
+        window.AthlevoAnalytics.track("onboarding_started");
+      }
+      if (newlyRegistered && window.AthlevoProductAnalytics) {
+        window.AthlevoProductAnalytics.trackUserMilestone(
+          "onboarding_started",
+          obProfile && obProfile.id,
+          null
+        );
+      }
+    } catch (e) {}
 
     obData = obPrefillFromProfile(obProfile);
     obStepIndex = obFirstIncompleteStep();

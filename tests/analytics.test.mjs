@@ -42,6 +42,9 @@ function makeClient(opts = {}) {
   return { A: g.AthlevoAnalytics, R: g.AthlevoAnalyticsRegistry, inserted, g };
 }
 const REQUIRED = [
+  "landing_viewed", "signup_cta_clicked", "auth_screen_viewed",
+  "google_signup_clicked", "email_signup_clicked", "login_clicked",
+  "registration_completed", "onboarding_started", "data_connection_started",
   "free_account_created", "onboarding_completed", "data_connection_completed",
   "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
   "paid_subscription_activated",
