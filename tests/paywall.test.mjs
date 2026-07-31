@@ -130,8 +130,8 @@ section("Explicit paid upgrade");
     /athlevo-preview\.vercel\.app/.test(decodeURIComponent(w.opened[0].url)));
   test("upgrade click is tracked",
     w.product.some(event => event.name === "upgrade_clicked"));
-  test("checkout opening is tracked",
-    w.product.some(event => event.name === "checkout_opened"));
+  test("confirmed checkout handoff is tracked",
+    w.product.some(event => event.name === "checkout_started"));
   test("checkout goes directly to the configured paid Whop plan",
     /whop\.com\/checkout\/plan_/.test(w.opened[0].url));
   test("checkout sends no timed-trial parameter",

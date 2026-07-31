@@ -219,11 +219,13 @@ section("Reusable upgrade sheet, focus, and checkout");
     handlers: {},
     hidden: false,
     setAttribute(key, value) { this.attrs[key] = value; },
+    getAttribute(key) { return this.attrs[key] ?? null; },
     addEventListener(name, handler) { this.handlers[name] = handler; },
     querySelectorAll() { return [primary, secondary]; }
   };
   const document = {
     activeElement: trigger,
+    visibilityState: "visible",
     getElementById(id) {
       return id === "performanceUpgradeModal" ? modal : null;
     }
@@ -240,13 +242,23 @@ section("Reusable upgrade sheet, focus, and checkout");
       entitlement: () => ({ accessState: "free", tier: 0 })
     },
     location: { origin: "https://preview.vercel.app", pathname: "/app" },
-    open(url) { opened.push(url); },
+    open(url) { opened.push(url); return { closed: false }; },
     URL
   };
   root.window = root;
-  vm.runInNewContext(accessSource, { window: root, document, URL, console });
+  const supabaseClient = {
+    auth: {
+      async getUser() {
+        return { data: { user: { id: "verified-user" } }, error: null };
+      }
+    }
+  };
+  vm.runInNewContext(accessSource, {
+    window: root, document, supabaseClient, URL, console
+  });
 
   root.AthlevoAccessGuard.showUpgradeSheet("recovery", "today");
+  await new Promise(resolve => setTimeout(resolve, 0));
   test("feature click opens only the sheet and focuses its first action",
     modal.classList.contains("show") &&
     modal.attrs["aria-hidden"] === "false" &&
@@ -254,6 +266,12 @@ section("Reusable upgrade sheet, focus, and checkout");
     opened.length === 0);
   test("opening the sheet does not synthesize a premium feature impression",
     !events.some(event => event.name === "premium_feature_viewed"));
+  test("authenticated visible sheet emits the canonical categorical impression",
+    events.some(event =>
+      event.name === "upgrade_sheet_viewed" &&
+      event.props.feature === "recovery" &&
+      event.props.surface === "upgrade_sheet" &&
+      event.props.access_tier === "free"));
 
   let tabPrevented = false;
   modal.handlers.keydown({
@@ -288,7 +306,7 @@ section("Reusable upgrade sheet, focus, and checkout");
       event.props.feature === "trends" &&
       event.props.surface === "upgrade_sheet") &&
     events.some(event =>
-      event.name === "checkout_opened" &&
+      event.name === "checkout_started" &&
       event.props.feature === "trends" &&
       event.props.surface === "upgrade_sheet"));
   test("checkout opening does not alter entitlement",

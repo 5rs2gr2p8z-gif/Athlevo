@@ -199,8 +199,9 @@ test("all production renderers register the actual locked element",
     premiumEvents(value).length === 0);
   test("landing rendering does not consume a session deduplication key",
     value.sessionStorage.values.size === 0);
-  test("production landing routing explicitly emits landing_viewed",
-    /id==='screen-landing'[\s\S]{0,180}trackAthlevoEvent\(\s*'landing_viewed'/.test(indexSource));
+  test("production landing routing emits only after visible-screen confirmation",
+    /id==='screen-landing'[\s\S]{0,240}trackScreenWhenVisible\([\s\S]{0,120}'landing_viewed'/.test(indexSource) &&
+    /trackVisibleScreenView/.test(indexSource));
   test("hidden Today shell is registered but cannot emit",
     value.observers.some(observer => observer.targets.has(value.targets.trainingLoad)) &&
     premiumEvents(value).length === 0);

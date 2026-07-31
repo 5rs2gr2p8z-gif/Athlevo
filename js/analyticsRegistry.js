@@ -33,15 +33,24 @@
     external_signup_continuation_viewed:{ kind: "behavioural", props: ["browser", "intent", "source_surface"] },
     registration_completed:      { kind: "milestone",   props: ["signup_method", "user_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     onboarding_started:          { kind: "milestone",   props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
-    data_connection_started:     { kind: "behavioural", props: ["provider", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    data_connection_started:     { kind: "behavioural", props: ["provider", "source_surface", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    provider_skipped:             { kind: "milestone",   props: ["source_surface"] },
     free_account_created:          { kind: "milestone",   props: ["auth_method", "source"] },
     onboarding_completed:         { kind: "milestone",   props: ["experience_level"] },
     data_connection_completed:    { kind: "milestone",   props: ["provider"] },
+    first_value_viewed:           { kind: "milestone",   props: ["value_type", "source_surface", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    activation_completed:         { kind: "milestone",   props: ["value_type", "source_surface", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    signup_failed:                { kind: "behavioural", props: ["stage", "failure_category", "provider", "source_surface"] },
+    onboarding_failed:            { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
+    data_connection_failed:       { kind: "behavioural", props: ["stage", "failure_category", "provider", "source_surface"] },
+    activation_failed:            { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
     free_limit_reached:           { kind: "behavioural", props: ["feature", "limit_period", "source"] },
     premium_feature_viewed:       { kind: "behavioural", props: ["feature", "surface"] },
     upgrade_clicked:              { kind: "behavioural", props: ["feature", "surface"] },
-    checkout_opened:              { kind: "behavioural", props: ["feature", "surface"] },
-    paid_subscription_activated:  { kind: "milestone",   props: ["source"] },
+    upgrade_sheet_viewed:         { kind: "behavioural", props: ["feature", "surface", "access_tier"] },
+    checkout_started:             { kind: "behavioural", props: ["feature", "surface"] },
+    checkout_failed:              { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
+    subscription_activated:       { kind: "milestone",   props: ["source"] },
     account_created:               { kind: "milestone",   props: ["method", "source"] },
     email_verified:                { kind: "milestone",   props: [] },
     athlete_onboarding_started:    { kind: "milestone",   props: [] },
@@ -57,19 +66,19 @@
     first_workout_analysis_viewed: { kind: "milestone",   props: ["workout_type"] },
     plan_generation_started:       { kind: "behavioural", props: ["plan_goal_type"] },
     first_plan_generated:          { kind: "milestone",   props: ["plan_goal_type", "user_id", "goal_distance", "plan_start_date"] },
-    plan_generation_failed:        { kind: "behavioural", props: ["failure_category"] },
+    plan_generation_failed:        { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
     coach_opened:                  { kind: "behavioural", props: ["screen_name"] },
     first_coach_message_sent:      { kind: "milestone",   props: [] },
     coach_message_submitted:       { kind: "behavioural", props: ["access_tier", "source_surface"] },
     coach_message_completed:       { kind: "behavioural", props: ["access_tier", "source_surface"] },
     coach_weekly_limit_reached:    { kind: "behavioural", props: ["access_tier", "source_surface"] },
-    coach_upgrade_sheet_viewed:    { kind: "behavioural", props: ["access_tier", "source_surface"] },
     coach_request_failed:          { kind: "behavioural", props: ["access_tier", "failure_category", "source_surface"] },
     adaptive_plan_reviewed:        { kind: "behavioural", props: [] },
     adaptive_plan_applied:         { kind: "behavioural", props: ["change_count_bucket"] },
     readiness_prompt_shown:        { kind: "behavioural", props: ["source"] },
     readiness_prompt_dismissed:    { kind: "behavioural", props: ["source"] },
     readiness_check_completed:     { kind: "behavioural", props: ["source", "completion_status"] },
+    app_returned:                   { kind: "behavioural", props: [] },
     app_session_started:           { kind: "behavioural", props: ["source"] },
     primary_tab_viewed:            { kind: "behavioural", props: ["screen_name"] }
   };
@@ -82,6 +91,9 @@
     profile_completed:    "onboarding_completed",
     connect_step_viewed:  "wearable_setup_started",
     intervals_connected:  "data_connection_completed",
+    checkout_opened:      "checkout_started",
+    paid_subscription_activated: "subscription_activated",
+    coach_upgrade_sheet_viewed: "upgrade_sheet_viewed",
     initial_sync_started: "first_sync_started",
     initial_sync_completed:"first_activity_imported",
     activities_detected:  "first_sync_started",
@@ -96,13 +108,37 @@
   var APPROVED_HANDOFF_VALUES = {
     browser: { facebook: true, instagram: true },
     intent: { signup: true, login: true },
-    source_surface: { landing: true, auth: true, coach: true },
+    source_surface: {
+      landing: true, auth: true, coach: true, onboarding: true,
+      provider_connection: true, plan_generation: true, train: true,
+      today: true, trends: true, upgrade_sheet: true
+    },
     access_tier: {
       free: true,
       paid_active: true,
       paid_inactive: true,
       unknown: true
-    }
+    },
+    provider: {
+      google: true, email: true, strava: true, intervals: true, whop: true,
+      garmin: true, coros: true, polar: true, apple: true, suunto: true,
+      other: true
+    },
+    stage: {
+      auth_start: true, registration: true, session_restore: true,
+      profile_load: true, profile_save: true, provider_authorization: true,
+      provider_callback: true, provider_sync: true, plan_generation: true,
+      first_value: true, checkout_open: true, webhook: true
+    },
+    failure_category: {
+      auth: true, browser: true, cancelled: true, configuration: true,
+      conflict: true, existing_account: true, invalid_state: true,
+      network: true, not_connected: true, permission: true,
+      popup_blocked: true, provider: true, rate_limit: true, server: true,
+      session: true, timeout: true, unavailable: true, validation: true,
+      unknown: true
+    },
+    value_type: { training_plan: true }
   };
 
   function canonicalName(name) {

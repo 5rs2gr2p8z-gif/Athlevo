@@ -35,6 +35,19 @@
     apple:  { enabled: false, label: "Apple" }
   };
 
+  function trackSignupFailure(category) {
+    try {
+      if (root.AthlevoProductAnalytics) {
+        root.AthlevoProductAnalytics.trackAthlevoEvent("signup_failed", {
+          stage: "auth_start",
+          failure_category: category || "unknown",
+          provider: "google",
+          source_surface: "auth"
+        });
+      }
+    } catch (e) {}
+  }
+
   /*
    * Where Supabase sends the athlete back to.
    *
@@ -80,6 +93,7 @@
 
     if (!client) {
       try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
+      if (loggedOut) trackSignupFailure("unavailable");
       return { ok: false, message: "Sign-in is unavailable right now. Please try again." };
     }
 
@@ -127,15 +141,23 @@
 
       if (error) {
         try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
+        if (loggedOut) {
+          const detail = String(error && error.message || "").toLowerCase();
+          trackSignupFailure(
+            detail.includes("redirect") ? "configuration" : "provider"
+          );
+        }
         console.warn("OAuth start failed:", error.name || "error");
         return { ok: false, message: describeStartFailure(error) };
       }
       if (nativeIOS) {
         if (!data || !data.url || !root.AthlevoRuntime.openOAuth) {
+          if (loggedOut) trackSignupFailure("unavailable");
           return { ok: false, message: "We couldn't open Google sign-in. Please try again." };
         }
         const opened = await root.AthlevoRuntime.openOAuth(data.url);
         if (!opened || opened.ok !== true) {
+          if (loggedOut) trackSignupFailure("browser");
           return { ok: false, message: "We couldn't open Google sign-in. Please try again." };
         }
       }
@@ -143,6 +165,7 @@
       return { ok: true, redirecting: true };
     } catch (error) {
       try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
+      if (loggedOut) trackSignupFailure("network");
       console.warn("OAuth start threw:", error && error.name);
       return { ok: false, message: "We couldn't reach the sign-in service. Check your connection and try again." };
     }
@@ -190,18 +213,34 @@
 
     // The athlete changed their mind. Not an error — don't treat it as one.
     if (/access_denied|cancel|user_denied/.test(raw)) {
-      return { cancelled: true, message: "Sign-in cancelled." };
+      return {
+        cancelled: true,
+        failureCategory: "cancelled",
+        message: "Sign-in cancelled."
+      };
     }
     if (/server_error|temporarily/.test(raw)) {
-      return { message: "Google is having trouble right now. Please try again in a moment." };
+      return {
+        failureCategory: "provider",
+        message: "Google is having trouble right now. Please try again in a moment."
+      };
     }
     if (/redirect|invalid_request|bad_oauth/.test(raw)) {
-      return { message: "Sign-in isn't configured for this address. Please open athlevo.org and try again." };
+      return {
+        failureCategory: "configuration",
+        message: "Sign-in isn't configured for this address. Please open athlevo.org and try again."
+      };
     }
     if (/expired|invalid_grant|otp_expired/.test(raw)) {
-      return { message: "That sign-in link expired. Please try signing in again." };
+      return {
+        failureCategory: "invalid_state",
+        message: "That sign-in link expired. Please try signing in again."
+      };
     }
-    return { message: "We couldn't complete sign-in. Please try again, or use email and password." };
+    return {
+      failureCategory: "unknown",
+      message: "We couldn't complete sign-in. Please try again, or use email and password."
+    };
   }
 
   // Remove auth parameters from the address bar without touching app state.

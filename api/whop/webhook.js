@@ -194,7 +194,7 @@ export default async function handler(req, res) {
     // Paid activation is authoritative only after signature verification and
     // the idempotent subscription write above.
     if (mapped.effect === "activate" && mapped.patch.status === "active") {
-      await captureServerEvent(userId, "paid_subscription_activated", {
+      await captureServerEvent(userId, "subscription_activated", {
         source: "whop_webhook"
       });
     }

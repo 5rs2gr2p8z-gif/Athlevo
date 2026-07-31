@@ -54,7 +54,7 @@
     "previous_page", "signup_method", "user_id", "goal_distance",
     "plan_start_date",
     "browser", "intent", "source_surface", "access_tier",
-    "failure_category",
+    "failure_category", "stage", "value_type",
     "utm_source", "utm_medium", "utm_campaign", "utm_content",
     "utm_term", "fbclid"
   ];
@@ -69,19 +69,45 @@
   var APPROVED_HANDOFF_VALUES = {
     browser: { facebook: true, instagram: true },
     intent: { signup: true, login: true },
-    source_surface: { landing: true, auth: true, coach: true },
+    source_surface: {
+      landing: true, auth: true, coach: true, onboarding: true,
+      provider_connection: true, plan_generation: true, train: true,
+      today: true, trends: true, upgrade_sheet: true
+    },
     access_tier: {
       free: true,
       paid_active: true,
       paid_inactive: true,
       unknown: true
-    }
+    },
+    provider: {
+      google: true, email: true, strava: true, intervals: true, whop: true,
+      garmin: true, coros: true, polar: true, apple: true, suunto: true,
+      other: true
+    },
+    stage: {
+      auth_start: true, registration: true, session_restore: true,
+      profile_load: true, profile_save: true, provider_authorization: true,
+      provider_callback: true, provider_sync: true, plan_generation: true,
+      first_value: true, checkout_open: true, webhook: true
+    },
+    failure_category: {
+      auth: true, browser: true, cancelled: true, configuration: true,
+      conflict: true, existing_account: true, invalid_state: true,
+      network: true, not_connected: true, permission: true,
+      popup_blocked: true, provider: true, rate_limit: true, server: true,
+      session: true, timeout: true, unavailable: true, validation: true,
+      unknown: true
+    },
+    value_type: { training_plan: true }
   };
 
   /* ═══════════════════ attribution persistence ═════════════════════ */
 
   var _utmParams = null;
   var ATTRIBUTION_KEY = "athlevo_utm";
+  var ATTRIBUTION_LOCAL_KEY = "athlevo_utm_persistent_v1";
+  var ATTRIBUTION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   var ATTRIBUTION_KEYS = [
     "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"
   ];
@@ -89,12 +115,34 @@
   var SIGNUP_INTENT_KEY = "athlevo_signup_intent_v1";
   var NEW_REGISTRATION_KEY = "athlevo_new_registration_v1";
   var MILESTONE_PREFIX = "athlevo_product_milestone_v1:";
+  var REGISTRATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
   function shortValue(value, max) {
     if (typeof value !== "string") return null;
     var clean = value.trim();
     if (!clean || clean.length > max) return null;
     return clean;
+  }
+
+  function safeStoredAttribution(saved) {
+    if (!saved || typeof saved !== "object") return null;
+    var capturedAt = Number(saved.captured_at || 0);
+    if (capturedAt && Date.now() - capturedAt > ATTRIBUTION_TTL_MS) return null;
+    var source = saved.values && typeof saved.values === "object"
+      ? saved.values
+      : saved;
+    var result = {};
+    ATTRIBUTION_KEYS.forEach(function (key) {
+      var value = shortValue(source[key], key === "fbclid" ? 500 : 160);
+      if (value) result[key] = value;
+    });
+    return Object.keys(result).length ? result : null;
+  }
+
+  function persistAttribution(values) {
+    var record = Object.assign({ captured_at: Date.now() }, values || {});
+    try { sessionStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(record)); } catch (e) {}
+    try { localStorage.setItem(ATTRIBUTION_LOCAL_KEY, JSON.stringify(record)); } catch (e) {}
   }
 
   function captureUtm() {
@@ -107,16 +155,20 @@
       });
       if (Object.keys(current).length) {
         _utmParams = current;
-        try { sessionStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(_utmParams)); } catch (e) {}
+        persistAttribution(_utmParams);
       } else {
         try {
-          var saved = JSON.parse(sessionStorage.getItem(ATTRIBUTION_KEY) || "null");
-          if (saved && typeof saved === "object") {
-            _utmParams = {};
-            ATTRIBUTION_KEYS.forEach(function (key) {
-              var value = shortValue(saved[key], key === "fbclid" ? 500 : 160);
-              if (value) _utmParams[key] = value;
-            });
+          var saved = safeStoredAttribution(
+            JSON.parse(sessionStorage.getItem(ATTRIBUTION_KEY) || "null")
+          );
+          if (!saved) {
+            saved = safeStoredAttribution(
+              JSON.parse(localStorage.getItem(ATTRIBUTION_LOCAL_KEY) || "null")
+            );
+          }
+          if (saved) {
+            _utmParams = saved;
+            persistAttribution(saved);
           }
         } catch (e) {}
       }
@@ -309,27 +361,37 @@
 
   /* ═══════════════════════ public API ══════════════════════════════ */
 
-  function trackAthlevoEvent(name, properties) {
+  function trackAthlevoEvent(name, properties, internal) {
     try {
-      if (VIEW_EVENTS[name] && _fired[name]) return;
-      if (VIEW_EVENTS[name]) _fired[name] = true;
+      var eventRegistry = root.AthlevoAnalyticsRegistry || null;
+      if (eventRegistry) {
+        if (!eventRegistry.isKnown(name)) return false;
+        name = eventRegistry.canonicalName(name);
+      }
+      if (VIEW_EVENTS[name] && _fired[name]) return false;
 
       initPostHog();
       var ph = posthog();
-      if (!ph || typeof ph.capture !== "function") return;
+      if (!ph || typeof ph.capture !== "function") return false;
 
       var safe = sanitize(properties);
       var premiumCategorical = name === "premium_feature_viewed" ||
         name === "upgrade_clicked" ||
-        name === "checkout_opened";
+        name === "checkout_started";
       var handoffCategorical = name === "in_app_browser_signup_blocked" ||
         name === "external_signup_link_copied" ||
         name === "external_signup_continuation_viewed";
       var coachCategorical = name === "coach_message_submitted" ||
         name === "coach_message_completed" ||
         name === "coach_weekly_limit_reached" ||
-        name === "coach_upgrade_sheet_viewed" ||
         name === "coach_request_failed";
+      var failureCategorical = name === "signup_failed" ||
+        name === "onboarding_failed" ||
+        name === "data_connection_failed" ||
+        name === "plan_generation_failed" ||
+        name === "activation_failed" ||
+        name === "checkout_failed";
+      var upgradeSheetCategorical = name === "upgrade_sheet_viewed";
       if (premiumCategorical) {
         safe = {
           ...(safe.feature ? { feature: safe.feature } : {}),
@@ -351,6 +413,24 @@
             ? { source_surface: safe.source_surface }
             : {})
         };
+      } else if (failureCategorical) {
+        safe = {
+          ...(safe.stage ? { stage: safe.stage } : {}),
+          ...(safe.failure_category
+            ? { failure_category: safe.failure_category }
+            : {}),
+          ...(safe.provider ? { provider: safe.provider } : {}),
+          ...(safe.source_surface
+            ? { source_surface: safe.source_surface }
+            : {}),
+          ...(safe.access_tier ? { access_tier: safe.access_tier } : {})
+        };
+      } else if (upgradeSheetCategorical) {
+        safe = {
+          ...(safe.feature ? { feature: safe.feature } : {}),
+          ...(safe.surface ? { surface: safe.surface } : {}),
+          ...(safe.access_tier ? { access_tier: safe.access_tier } : {})
+        };
       } else {
         // Acquisition and device context belong on general funnel events.
         // Premium feature events intentionally carry feature/surface only.
@@ -363,8 +443,13 @@
         }
       }
 
+      if (internal && internal.insert_id) {
+        safe.$insert_id = internal.insert_id;
+      }
       ph.capture(name, safe);
-    } catch (e) { /* silent */ }
+      if (VIEW_EVENTS[name]) _fired[name] = true;
+      return true;
+    } catch (e) { return false; }
   }
 
   function milestoneStorageKey(name, scope) {
@@ -373,18 +458,96 @@
     return MILESTONE_PREFIX + safeName + ":" + safeScope;
   }
 
+  // A deterministic, non-reversible insertion key lets PostHog collapse the
+  // same user milestone when two tabs pass their localStorage checks at the
+  // same instant. It contains no UUID or profile value.
+  function milestoneInsertId(name, scope) {
+    var input = String(name || "") + ":" + String(scope || "");
+    var hashA = 2166136261;
+    var hashB = 2246822519;
+    for (var i = 0; i < input.length; i += 1) {
+      hashA ^= input.charCodeAt(i);
+      hashA = Math.imul(hashA, 16777619);
+      hashB ^= input.charCodeAt(input.length - 1 - i);
+      hashB = Math.imul(hashB, 3266489917);
+    }
+    return "athlevo-milestone-v1-" +
+      (hashA >>> 0).toString(16) + "-" + (hashB >>> 0).toString(16);
+  }
+
+  function milestoneSeen(key) {
+    try {
+      if (localStorage.getItem(key) === "1") return true;
+    } catch (e) {}
+    try {
+      return sessionStorage.getItem(key) === "1";
+    } catch (e) { return false; }
+  }
+
+  function rememberMilestone(key) {
+    try { localStorage.setItem(key, "1"); } catch (e) {}
+    try { sessionStorage.setItem(key, "1"); } catch (e) {}
+  }
+
   function trackUserMilestone(name, userId, properties) {
     try {
-      var scope = userId || "anonymous";
+      if (!userId || typeof userId !== "string") return false;
+      var scope = userId;
       var key = milestoneStorageKey(name, scope);
-      if (sessionStorage.getItem(key) === "1") return false;
-      trackAthlevoEvent(name, properties);
-      sessionStorage.setItem(key, "1");
+      if (milestoneSeen(key)) return false;
+      var captured = trackAthlevoEvent(name, properties, {
+        insert_id: milestoneInsertId(name, scope)
+      });
+      if (!captured) return false;
+      rememberMilestone(key);
       return true;
     } catch (e) {
-      trackAthlevoEvent(name, properties);
-      return true;
+      return trackAthlevoEvent(name, properties);
     }
+  }
+
+  function screenIsVisible(screenId) {
+    try {
+      if (document.visibilityState && document.visibilityState !== "visible") {
+        return false;
+      }
+      if (document.body && document.body.classList &&
+          document.body.classList.contains("booting")) {
+        return false;
+      }
+      var screen = document.getElementById(screenId);
+      if (!screen || !screen.classList || !screen.classList.contains("active")) {
+        return false;
+      }
+      if (screen.hidden ||
+          (typeof screen.getAttribute === "function" &&
+            screen.getAttribute("aria-hidden") === "true")) {
+        return false;
+      }
+      if (typeof screen.getBoundingClientRect === "function") {
+        var rect = screen.getBoundingClientRect();
+        var width = window.innerWidth ||
+          (document.documentElement && document.documentElement.clientWidth) || 0;
+        var height = window.innerHeight ||
+          (document.documentElement && document.documentElement.clientHeight) || 0;
+        if (!rect || rect.width <= 0 || rect.height <= 0 ||
+            rect.bottom <= 0 || rect.right <= 0 ||
+            rect.top >= height || rect.left >= width) {
+          return false;
+        }
+      }
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function trackVisibleScreenView(name, screenId, properties) {
+    if (!VIEW_EVENTS[name] || !screenIsVisible(screenId)) return false;
+    return trackAthlevoEvent(name, properties);
+  }
+
+  function trackVisibleUserMilestone(name, userId, screenId, properties) {
+    if (!screenIsVisible(screenId)) return false;
+    return trackUserMilestone(name, userId, properties);
   }
 
   function completeRegistration(user, method, confirmedNew) {
@@ -393,20 +556,25 @@
       var safeMethod = method === "google" ? "google" : (method === "email" ? "email" : null);
       if (!safeMethod) return false;
       var registrationKey = milestoneStorageKey("registration_completed", user.id);
-      if (sessionStorage.getItem(registrationKey) === "1") {
+      if (milestoneSeen(registrationKey)) {
         clearSignupIntent();
         return false;
       }
       identifyAthlete(user);
-      trackAthlevoEvent("registration_completed", {
+      var registrationCaptured = trackAthlevoEvent("registration_completed", {
         signup_method: safeMethod,
         user_id: user.id
+      }, {
+        insert_id: milestoneInsertId("registration_completed", user.id)
       });
-      sessionStorage.setItem(registrationKey, "1");
-      sessionStorage.setItem(NEW_REGISTRATION_KEY, JSON.stringify({
+      if (registrationCaptured) rememberMilestone(registrationKey);
+      var registration = JSON.stringify({
         user_id: user.id,
-        signup_method: safeMethod
-      }));
+        signup_method: safeMethod,
+        created_at: Date.now()
+      });
+      try { sessionStorage.setItem(NEW_REGISTRATION_KEY, registration); } catch (e) {}
+      try { localStorage.setItem(NEW_REGISTRATION_KEY, registration); } catch (e) {}
       clearSignupIntent();
       return true;
     } catch (e) { return false; }
@@ -439,8 +607,18 @@
 
   function isNewRegistration(userId) {
     try {
-      var saved = JSON.parse(sessionStorage.getItem(NEW_REGISTRATION_KEY) || "null");
-      return Boolean(saved && saved.user_id && saved.user_id === userId);
+      var saved = JSON.parse(
+        sessionStorage.getItem(NEW_REGISTRATION_KEY) ||
+        localStorage.getItem(NEW_REGISTRATION_KEY) ||
+        "null"
+      );
+      var createdAt = Number(saved && saved.created_at || 0);
+      return Boolean(
+        saved &&
+        saved.user_id &&
+        saved.user_id === userId &&
+        (!createdAt || Date.now() - createdAt <= REGISTRATION_TTL_MS)
+      );
     } catch (e) { return false; }
   }
 
@@ -460,6 +638,17 @@
   function resetAthleteAnalytics() {
     try {
       _fired = {};
+      clearSignupIntent();
+      try {
+        sessionStorage.removeItem(NEW_REGISTRATION_KEY);
+        sessionStorage.removeItem(AUTH_ENTRY_KEY);
+        sessionStorage.removeItem(ATTRIBUTION_KEY);
+      } catch (e) {}
+      try {
+        localStorage.removeItem(NEW_REGISTRATION_KEY);
+        localStorage.removeItem(ATTRIBUTION_LOCAL_KEY);
+      } catch (e) {}
+      _utmParams = null;
       var ph = posthog();
       if (ph && typeof ph.reset === "function") ph.reset();
     } catch (e) { /* silent */ }
@@ -486,6 +675,9 @@
     completeOAuthRegistration: completeOAuthRegistration,
     isNewRegistration: isNewRegistration,
     trackUserMilestone: trackUserMilestone,
+    trackVisibleScreenView: trackVisibleScreenView,
+    trackVisibleUserMilestone: trackVisibleUserMilestone,
+    screenIsVisible: screenIsVisible,
     // Exposed for tests only — not part of the public contract.
     _fired: _fired,
     _utmParams: function () { return _utmParams; },

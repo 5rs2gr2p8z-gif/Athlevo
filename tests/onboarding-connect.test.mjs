@@ -160,11 +160,13 @@ section("STEP 4–5 — waiting, then success in the athlete's own numbers");
 
   const f = funnel(g);
   t("funnel order is correct",
-    f.indexOf("connect_step_viewed") < f.indexOf("intervals_connected") &&
-    f.indexOf("intervals_connected") < f.indexOf("activities_detected") &&
+    f.indexOf("connect_step_viewed") < f.indexOf("data_connection_started") &&
+    f.indexOf("data_connection_started") < f.indexOf("activities_detected") &&
     f.indexOf("activities_detected") < f.indexOf("initial_sync_started") &&
     f.indexOf("initial_sync_started") < f.indexOf("initial_sync_completed") &&
     f.indexOf("initial_sync_completed") < f.indexOf("dashboard_opened"), f.join(" → "));
+  t("already-connected wizard rendering does not claim a new connection completion",
+    !f.includes("data_connection_completed"));
 }
 
 /* ══════════════════════════ PERSONAS (Part 7) ══════════════════════════ */

@@ -4735,6 +4735,42 @@ function trackAuthChoice(name, properties) {
     }
   } catch (e) {}
 }
+function trackCategoricalFailure(name, properties) {
+  try {
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.trackAthlevoEvent(name, properties || null);
+    }
+  } catch (e) {}
+  try {
+    if (athlevoSessionUserId && window.AthlevoAnalytics) {
+      AthlevoAnalytics.track(name, properties || null);
+    }
+  } catch (e) {}
+}
+function authFailureCategory(error) {
+  const mapped = (window.AthlevoAuthErrors && window.AthlevoAuthErrors.map)
+    ? window.AthlevoAuthErrors.map(error, "signup")
+    : { code: "AUTH_UNKNOWN" };
+  const categories = {
+    AUTH_NETWORK: "network",
+    AUTH_EMAIL_EXISTS: "existing_account",
+    AUTH_RATE_LIMIT: "rate_limit",
+    AUTH_CONFIRM_EMAIL: "validation",
+    AUTH_INVALID_LOGIN: "auth",
+    AUTH_UNKNOWN: "unknown"
+  };
+  return categories[mapped.code] || "unknown";
+}
+function trackEmailSignupFailure(error, stage) {
+  trackCategoricalFailure("signup_failed", {
+    stage: stage || "registration",
+    failure_category: stage === "session_restore"
+      ? "session"
+      : authFailureCategory(error),
+    provider: "email",
+    source_surface: "auth"
+  });
+}
 function beginEmailSignupIntent() {
   try {
     if (window.AthlevoProductAnalytics) {
@@ -5042,6 +5078,7 @@ async function doSignup(bypassEmbeddedWarning) {
 
     if (error) {
       try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.clearSignupIntent(); } catch(e){}
+      trackEmailSignupFailure(error, "registration");
       msg.style.color = 'var(--red)';
       msg.textContent = friendlyAuthError(error, 'signup');
       return;
@@ -5055,6 +5092,10 @@ async function doSignup(bypassEmbeddedWarning) {
       data.user.identities.length === 0
     ) {
       try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.clearSignupIntent(); } catch(e){}
+      trackEmailSignupFailure(
+        { message: "already exists" },
+        "registration"
+      );
       msg.style.color = 'var(--red)';
       msg.textContent = 'An account already exists for this email. Log in instead.';
       showLoginForm();
@@ -5074,6 +5115,7 @@ async function doSignup(bypassEmbeddedWarning) {
         );
       }
       if (registrationTracked && window.AthlevoAnalytics) {
+        AthlevoAnalytics.identifySafe(data.user.id);
         AthlevoAnalytics.track("registration_completed", {
           signup_method: "email",
           user_id: data.user.id
@@ -5088,6 +5130,10 @@ async function doSignup(bypassEmbeddedWarning) {
         ? await window.AthlevoSession.waitForValidUser(supabaseClient, { timeoutMs: 6000 })
         : data.user;
       if (!user) {
+        trackEmailSignupFailure(
+          { message: "session unavailable" },
+          "session_restore"
+        );
         msg.style.color = 'var(--red)';
         msg.textContent = 'Your account was created but this browser couldn’t keep you signed in. Please open Athlevo in Safari or Chrome and log in.';
         return;
@@ -5126,6 +5172,7 @@ async function doSignup(bypassEmbeddedWarning) {
     msg.textContent = 'Check your email to confirm your account, then log in.';
   } catch (e) {
     try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.clearSignupIntent(); } catch(_){}
+    trackEmailSignupFailure(e, "registration");
     // e may be a timeout/network error — map it, never log the password.
     msg.style.color = 'var(--red)';
     msg.textContent = friendlyAuthError(e, 'signup');
@@ -5186,6 +5233,16 @@ async function doLogin(bypassEmbeddedWarning) {
       return;
     }
 
+    // Login is not registration, but the verified Supabase user must become
+    // the PostHog/Supabase analytics identity before authenticated app events.
+    try {
+      if (window.AthlevoProductAnalytics) {
+        AthlevoProductAnalytics.identifyAthlete(user);
+      }
+      if (window.AthlevoAnalytics) {
+        AthlevoAnalytics.identifySafe(user.id);
+      }
+    } catch (e) {}
     closeAuth();
 
     // Single authoritative post-auth routing flow (Today/Train/Trends/…).
@@ -5208,6 +5265,7 @@ async function doLogout() {
   }
   AthlevoBrain.resetAthleteUI();
   try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
+  try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
 
   // Never let a signed-out athlete's cached activities survive into the next
   // session (or another athlete on a shared device).
@@ -5253,6 +5311,68 @@ function trackFunnel(name, meta) {
   if (window.AthlevoAnalytics) window.AthlevoAnalytics.track(name, meta || null);
 }
 window.trackFunnel = trackFunnel;
+
+function providerFailureCategory(error) {
+  const value = String(error && (error.code || error.name || error.message) || "")
+    .toLowerCase();
+  if (/cancel|denied/.test(value)) return "cancelled";
+  if (/state|expired|missing_code/.test(value)) return "invalid_state";
+  if (/401|auth|session|sign in|log in/.test(value)) return "auth";
+  if (/403|permission|forbidden/.test(value)) return "permission";
+  if (/429|rate/.test(value)) return "rate_limit";
+  if (/timeout|abort/.test(value)) return "timeout";
+  if (/network|fetch|load failed/.test(value)) return "network";
+  if (/not.connected|unavailable/.test(value)) return "not_connected";
+  return "provider";
+}
+function trackDataConnectionStarted(provider) {
+  const props = {
+    provider,
+    source_surface: "provider_connection"
+  };
+  try {
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.trackAthlevoEvent(
+        "data_connection_started",
+        props
+      );
+    }
+  } catch (e) {}
+  try {
+    if (window.AthlevoAnalytics) {
+      AthlevoAnalytics.track("data_connection_started", props);
+    }
+  } catch (e) {}
+}
+async function trackDataConnectionCompleted(provider) {
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    const userId = data && data.session && data.session.user
+      ? data.session.user.id
+      : null;
+    if (!userId) return false;
+    const props = { provider };
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.trackUserMilestone(
+        "data_connection_completed",
+        userId,
+        props
+      );
+    }
+    if (window.AthlevoAnalytics) {
+      AthlevoAnalytics.track("data_connection_completed", props);
+    }
+    return true;
+  } catch (e) { return false; }
+}
+function trackDataConnectionFailure(provider, category, stageName) {
+  trackCategoricalFailure("data_connection_failed", {
+    stage: stageName || "provider_authorization",
+    failure_category: category || "unknown",
+    provider,
+    source_surface: "provider_connection"
+  });
+}
 
 async function connectStrava() {
   // Strava's OAuth page does not render inside in-app browsers (it opens a
@@ -5300,13 +5420,20 @@ async function connectStrava() {
       throw new Error("Strava authorization URL was not returned.");
     }
 
+    trackDataConnectionStarted("strava");
     if (window.AthlevoRuntime && window.AthlevoRuntime.startOAuth) {
       await window.AthlevoRuntime.startOAuth(data.authorizationUrl);
     } else {
       window.location.href = data.authorizationUrl;
     }
   } catch (error) {
-    console.error("Strava connection failed:", error);
+    const category = providerFailureCategory(error);
+    console.warn("Strava connection failed:", category);
+    trackDataConnectionFailure(
+      "strava",
+      category,
+      "provider_authorization"
+    );
 
     if (typeof toast === "function") {
       toast(error.message || "Could not connect to Strava.");
@@ -5449,6 +5576,33 @@ function decide(btn,msg){
    Garmin/COROS connectRow() handler was also removed. */
 
 /* ══════════════ SCREEN SWITCH ══════════════ */
+const pendingVisibleScreenAnalytics = new Map();
+function trackScreenWhenVisible(screenId, eventName, properties) {
+  if (!window.AthlevoProductAnalytics) return;
+  const key = `${eventName}:${screenId}`;
+  const attempt = function () {
+    if (!window.AthlevoProductAnalytics) return false;
+    const fired = AthlevoProductAnalytics.trackVisibleScreenView(
+      eventName,
+      screenId,
+      properties || null
+    );
+    if (fired) pendingVisibleScreenAnalytics.delete(key);
+    return fired;
+  };
+  pendingVisibleScreenAnalytics.set(key, attempt);
+  if (window.requestAnimationFrame) requestAnimationFrame(attempt);
+  else setTimeout(attempt, 0);
+}
+window.addEventListener("athlevo:app-ready", function () {
+  pendingVisibleScreenAnalytics.forEach(attempt => attempt());
+});
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "visible") {
+    pendingVisibleScreenAnalytics.forEach(attempt => attempt());
+  }
+});
+
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -5462,13 +5616,15 @@ function showScreen(id){
   // inside the phone-framed app shell.
   document.body.classList.toggle('landing-active', id==='screen-landing');
   if(id==='screen-landing' && window.AthlevoProductAnalytics) try {
-    AthlevoProductAnalytics.trackAthlevoEvent(
+    trackScreenWhenVisible(
+      'screen-landing',
       'landing_viewed',
       AthlevoProductAnalytics.landingProps()
     );
   } catch(e){}
   if(id==='screen-welcome' && window.AthlevoProductAnalytics) try {
-    AthlevoProductAnalytics.trackAthlevoEvent(
+    trackScreenWhenVisible(
+      'screen-welcome',
       'auth_screen_viewed',
       AthlevoProductAnalytics.authEntryProps()
     );
@@ -6824,6 +6980,8 @@ async function restoreSession(opts) {
         console.warn("Session user no longer exists — signing out.", userError && userError.message);
         session = null;
         try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
+        try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
+        try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
         try {
           sessionStorage.removeItem("athlevo_oauth_return");
           sessionStorage.removeItem("athlevo_oauth_trail");
@@ -6847,7 +7005,7 @@ async function restoreSession(opts) {
   // routeAfterAuth is onboarding-aware, so a first-time athlete still gets
   // onboarding rather than being dropped into an empty Today.
   if (session) {
-    console.log("Session restored:", session.user.email);
+    console.log("Session restored.");
     try {
       if (window.AthlevoProductAnalytics) {
         AthlevoProductAnalytics.identifyAthlete(session.user);
@@ -7031,13 +7189,13 @@ setTimeout(function () {
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
 <script src="js/trendsAnalytics.js?v=70"></script>
-<script src="js/socialAuth.js?v=71"></script>
-<script src="js/analyticsRegistry.js?v=72"></script>
+<script src="js/socialAuth.js?v=72"></script>
+<script src="js/analyticsRegistry.js?v=73"></script>
 <script src="js/metaPixel.js?v=67"></script>
-<script src="js/analytics.js?v=72"></script>
+<script src="js/analytics.js?v=73"></script>
 <script src="js/betaDashboard.js?v=67"></script>
-<script src="js/activation.js?v=67"></script>
-<script src="js/onboardingConnect.js?v=68"></script>
+<script src="js/activation.js?v=68"></script>
+<script src="js/onboardingConnect.js?v=69"></script>
 <script src="js/productionVerify.js?v=67"></script>
 <script src="js/athlevoScore.js?v=70"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
@@ -7052,21 +7210,21 @@ setTimeout(function () {
 <script src="js/memory.js?v=67"></script>
 <script src="js/dailyBrief.js?v=67"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
-<script src="js/coach.js?v=69"></script>
+<script src="js/coach.js?v=70"></script>
 <script src="js/features.js?v=68"></script>
 <script src="js/train.js?v=67"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
-<script src="js/accessGuard.js?v=71"></script>
-<script src="js/planSetup.js?v=68"></script>
+<script src="js/accessGuard.js?v=72"></script>
+<script src="js/planSetup.js?v=69"></script>
 <script src="js/feedback.js?v=67"></script>
 <script src="js/readiness.js?v=68"></script>
 <script src="js/morningCheckIn.js?v=68"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=67"></script>
-<script src="js/onboarding.js?v=68"></script>
+<script src="js/onboarding.js?v=69"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's
@@ -7364,6 +7522,17 @@ setTimeout(function () {
     if (!pendingAuthProblem) return;
     const problem = pendingAuthProblem;
     pendingAuthProblem = null;
+    trackCategoricalFailure("signup_failed", {
+      stage: "registration",
+      failure_category: problem.failureCategory || "unknown",
+      provider: "google",
+      source_surface: "auth"
+    });
+    try {
+      if (window.AthlevoProductAnalytics) {
+        AthlevoProductAnalytics.clearSignupIntent();
+      }
+    } catch (e) {}
     if (typeof toast === "function") toast(problem.message);
     if (!athlevoSessionUserId && typeof openAppEntry === "function") openAppEntry();
   }
@@ -7508,6 +7677,11 @@ setTimeout(function () {
         __finalizeSettled = true;
         consumeReturnSnapshot();
         stripIntervalsParams();
+        trackDataConnectionFailure(
+          "intervals",
+          "invalid_state",
+          "provider_callback"
+        );
         showFinalizeFailure("COMPLETION_MISSING", null);
         return;
       }
@@ -7547,15 +7721,6 @@ setTimeout(function () {
               await AthlevoBrain.finalizeIntervals(completion);     // exactly once on success
               __finalizeSettled = true;
               stage("finalize_response", { ok: true });
-              try {
-                if (window.AthlevoProductAnalytics) {
-                  AthlevoProductAnalytics.trackUserMilestone(
-                    "data_connection_completed",
-                    session.user.id,
-                    { provider: "intervals" }
-                  );
-                }
-              } catch(e){}
               consumeReturnSnapshot();
               stripIntervalsParams();
               window.__athlevoFinalizePending = false;
@@ -7573,6 +7738,11 @@ setTimeout(function () {
               consumeReturnSnapshot();
               stripIntervalsParams();
               window.__athlevoFinalizePending = false;
+              trackDataConnectionFailure(
+                "intervals",
+                providerFailureCategory({ code: lastCode }),
+                "provider_callback"
+              );
               showFinalizeFailure(lastCode, e && e.message);
               return { ok: false, code: lastCode };
             }
@@ -7587,6 +7757,11 @@ setTimeout(function () {
            */
           window.__athlevoFinalizePending = false;
           stripIntervalsParams();
+          trackDataConnectionFailure(
+            "intervals",
+            lastCode === "UNAUTHENTICATED" ? "auth" : "timeout",
+            "provider_callback"
+          );
           showFinalizeRetry(lastCode);
           return { ok: false, code: lastCode };
         } finally {
@@ -7597,6 +7772,7 @@ setTimeout(function () {
     }
 
     if (state === "connected") {
+      await trackDataConnectionCompleted("intervals");
       /*
        * If the athlete is mid-onboarding, hand straight back to the guided
        * flow: it detects activities and imports automatically, so they never
@@ -7633,6 +7809,11 @@ setTimeout(function () {
         }
       }
     } else if (state === "cancelled") {
+      trackDataConnectionFailure(
+        "intervals",
+        "cancelled",
+        "provider_callback"
+      );
       if (typeof toast === "function") toast("Intervals.icu connection was cancelled");
       if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
         window.AthlevoConnect.showConnectFailure("cancelled", message);
@@ -7647,6 +7828,11 @@ setTimeout(function () {
        * to the flow instead.
        */
       const reason = (window.__athlevoOAuthReturn && window.__athlevoOAuthReturn.reason) || "";
+      trackDataConnectionFailure(
+        "intervals",
+        providerFailureCategory({ code: reason || state }),
+        "provider_callback"
+      );
       if (window.AthlevoConnect && window.AthlevoConnect.isActive()) {
         window.AthlevoConnect.showConnectFailure(reason, message);
       } else if (typeof toast === "function") {
@@ -7702,7 +7888,7 @@ setTimeout(function () {
 
   // Surfaces the Strava OAuth outcome as a calm toast. Never exposes
   // tokens or raw error details.
-  function handleStravaResult(state) {
+  async function handleStravaResult(state) {
     const messages = {
       connected: "Strava connected",
       cancelled: "Strava connection was cancelled",
@@ -7718,6 +7904,15 @@ setTimeout(function () {
 
     if (message && typeof toast === "function") {
       toast(message);
+    }
+    if (state === "connected") {
+      await trackDataConnectionCompleted("strava");
+    } else if (state) {
+      trackDataConnectionFailure(
+        "strava",
+        providerFailureCategory({ code: state }),
+        "provider_callback"
+      );
     }
   }
 
@@ -7754,7 +7949,7 @@ setTimeout(function () {
     // strip the parameter from the URL. The authenticated session is
     // left untouched.
     if (stravaResult) {
-      handleStravaResult(stravaResult);
+      await handleStravaResult(stravaResult);
       url.searchParams.delete("strava");
       window.history.replaceState({}, "", url.pathname + url.search);
       try {

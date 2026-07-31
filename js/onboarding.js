@@ -232,6 +232,38 @@ let obData = {};          // { fieldId: value }
 let obProfile = null;
 let obBusy = false;
 
+function obFailureCategory(error) {
+  const value = String(error && (error.code || error.name || error.message) || "")
+    .toLowerCase();
+  if (/rls|permission|forbidden/.test(value)) return "permission";
+  if (/no_session|auth|session/.test(value)) return "auth";
+  if (/timeout|abort/.test(value)) return "timeout";
+  if (/network|fetch|profile_read/.test(value)) return "network";
+  if (/validation|required/.test(value)) return "validation";
+  return "server";
+}
+
+function obTrackFailure(stage, error) {
+  const props = {
+    stage,
+    failure_category: obFailureCategory(error),
+    source_surface: "onboarding"
+  };
+  try {
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.trackAthlevoEvent(
+        "onboarding_failed",
+        props
+      );
+    }
+  } catch (e) {}
+  try {
+    if (window.AthlevoAnalytics) {
+      AthlevoAnalytics.track("onboarding_failed", props);
+    }
+  } catch (e) {}
+}
+
 /* ───────────────────────────── helpers ──────────────────────────────── */
 
 function obEscape(value) {
@@ -831,7 +863,8 @@ async function obContinue() {
     obStepIndex += 1;
     obRenderStep();
   } catch (error) {
-    console.error("Could not save onboarding step:", error);
+    obTrackFailure("profile_save", error);
+    console.warn("Could not save onboarding step:", obFailureCategory(error));
     obMessage("Couldn't save that — check your connection and try again.");
     if (cont) {
       cont.textContent = lastStep ? "Finish setup" : "Continue";
@@ -1080,6 +1113,8 @@ function obRenderProfileError(code) {
 
 async function obLogInAgain() {
   try { await supabaseClient.auth.signOut(); } catch (error) { /* ignore */ }
+  try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch (error) {}
+  try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch (error) {}
   const tabbar = document.getElementById("tabbar");
   if (tabbar) tabbar.style.display = "none";
   if (typeof showScreen === "function") showScreen("screen-welcome");
@@ -1136,6 +1171,7 @@ async function startAthlevoOnboarding() {
   } catch (error) {
     // Log the safe internal code only — never tokens, email, or RLS details.
     const code = (error && error.code) ? error.code : "PROFILE_READ";
+    obTrackFailure("profile_load", { code });
     console.warn("Onboarding profile load failed:", code);
     obRenderProfileError(code);
   }

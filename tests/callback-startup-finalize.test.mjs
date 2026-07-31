@@ -42,10 +42,16 @@ function loadHandler(deps) {
 
   const factory = new Function(
     "supabaseClient", "AthlevoBrain", "toast", "window", "sessionStorage", "console",
+    "trackDataConnectionCompleted", "trackDataConnectionFailure",
+    "providerFailureCategory",
     `${block}\n return { handleIntervalsResult, waitForSession };`
   );
   return factory(
-    deps.supabaseClient, deps.AthlevoBrain, deps.toast, deps.window, deps.sessionStorage, deps.console
+    deps.supabaseClient, deps.AthlevoBrain, deps.toast, deps.window,
+    deps.sessionStorage, deps.console,
+    deps.trackDataConnectionCompleted || (async () => true),
+    deps.trackDataConnectionFailure || (() => {}),
+    deps.providerFailureCategory || (() => "provider")
   );
 }
 

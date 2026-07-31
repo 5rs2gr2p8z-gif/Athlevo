@@ -47,7 +47,8 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
 
   const state = {
     step: null, wearable: null, detectStartedAt: 0, detectTimer: null,
-    result: null, active: false, running: false, failed: false
+    result: null, active: false, running: false, failed: false,
+    failureTracked: false
   };
 
   const $ = (id) => document.getElementById(id);
@@ -64,6 +65,57 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
         ? data.session.user.id
         : null;
     } catch (e) { return null; }
+  }
+
+  function connectionFailureCategory(error, fallback) {
+    const value = String(
+      error && (error.code || error.name || error.message) || fallback || ""
+    ).toLowerCase();
+    if (/cancel|denied/.test(value)) return "cancelled";
+    if (/state|expired|missing/.test(value)) return "invalid_state";
+    if (/401|auth|session|reconnect/.test(value)) return "auth";
+    if (/403|permission|forbidden/.test(value)) return "permission";
+    if (/429|rate/.test(value)) return "rate_limit";
+    if (/timeout|abort/.test(value)) return "timeout";
+    if (/network|fetch|load failed/.test(value)) return "network";
+    if (/not.connected|disconnected/.test(value)) return "not_connected";
+    return "provider";
+  }
+
+  function trackConnectionFailure(stage, error, fallback) {
+    if (state.failureTracked) return false;
+    state.failureTracked = true;
+    const props = {
+      stage,
+      failure_category: connectionFailureCategory(error, fallback),
+      provider: "intervals",
+      source_surface: "provider_connection"
+    };
+    try {
+      if (root.AthlevoProductAnalytics) {
+        root.AthlevoProductAnalytics.trackAthlevoEvent(
+          "data_connection_failed",
+          props
+        );
+      }
+    } catch (e) {}
+    try { if (A()) A().track("data_connection_failed", props); } catch (e) {}
+    return true;
+  }
+
+  async function trackProviderSkipped() {
+    const userId = await analyticsUserId();
+    const props = { source_surface: "onboarding" };
+    try {
+      if (root.AthlevoProductAnalytics) {
+        root.AthlevoProductAnalytics.trackUserMilestone(
+          "provider_skipped",
+          userId,
+          props
+        );
+      }
+    } catch (e) {}
+    try { if (A()) A().track("provider_skipped", props); } catch (e) {}
   }
 
   function markActive(on) {
@@ -433,13 +485,29 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
   const stage = (s, d) => { try { if (root.__athlevoOAuthStage) root.__athlevoOAuthStage(s, d); } catch (e) {} };
 
   async function authorize() {
+    state.failureTracked = false;
     stage("connect_button_clicked");
-    try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.trackAthlevoEvent('data_connection_started', { provider: 'intervals' }); } catch(e){}
+    const props = {
+      provider: "intervals",
+      source_surface: "provider_connection"
+    };
+    try {
+      if (root.AthlevoProductAnalytics) {
+        root.AthlevoProductAnalytics.trackAthlevoEvent(
+          "data_connection_started",
+          props
+        );
+      }
+    } catch(e){}
+    try { if (A()) A().track("data_connection_started", props); } catch (e) {}
     try {
       stage("authorize_entered", { hasDataSource: Boolean(DS()) });
       await DS().connect();
     } catch (error) {
-      stage("authorize_failed", { message: (error && error.message) || "unknown" });
+      stage("authorize_failed", {
+        category: connectionFailureCategory(error)
+      });
+      trackConnectionFailure("provider_authorization", error);
       stepProblem(ACT().humanError(error));
     }
   }
@@ -458,20 +526,15 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
 
     if (!status || status.connected !== true) {
       state.running = false;
+      trackConnectionFailure(
+        "provider_callback",
+        null,
+        status ? "disconnected" : "unavailable"
+      );
       return notConnectedYet(status ? "disconnected" : "unknown");
     }
 
     markActive(true);
-    A().track("intervals_connected", { wearable: state.wearable || null });
-    try {
-      if (root.AthlevoProductAnalytics) {
-        root.AthlevoProductAnalytics.trackUserMilestone(
-          "data_connection_completed",
-          await analyticsUserId(),
-          { provider: "intervals" }
-        );
-      }
-    } catch(e){}
     beginDetection();
   }
 
@@ -495,6 +558,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
     const found = await DS().detectActivities();
     if (found.authProblem) {
       A().track("sync_failed", { reason: "auth" });
+      trackConnectionFailure("provider_sync", { code: "auth" });
       return stepProblem(ACT().humanError({ code: "RECONNECT_REQUIRED" }));
     }
     if (found.ok) {
@@ -516,7 +580,11 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
     stepImporting(1);
     let result = null;
     try { result = await DS().sync(); }
-    catch (error) { A().track("sync_failed", { reason: "sync" }); return stepProblem(ACT().humanError(error)); }
+    catch (error) {
+      A().track("sync_failed", { reason: "sync" });
+      trackConnectionFailure("provider_sync", error);
+      return stepProblem(ACT().humanError(error));
+    }
 
     stepImporting(3, result && result.imported ? `${result.imported} workouts imported` : null);
     try {
@@ -617,6 +685,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
 
     async skipConnection() {
       A().track("no_activities", { reason: "skipped" });
+      await trackProviderSkipped();
       show(`
         <div class="cf-step center">
           <div class="cf-pulse"></div>
@@ -662,11 +731,13 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
       const tabbar = document.getElementById("tabbar");
       if (tabbar) tabbar.style.display = "none";
       A().track("sync_failed", { reason: reason || "connect_failed" });
+      trackConnectionFailure("provider_callback", { code: reason });
       stepConnectFailed(reason, message);
     },
 
     retryConnect() {
       state.failed = false;
+      state.failureTracked = false;
       state.running = false;
       go("account");                        // back to the account step, not a cold login
     },

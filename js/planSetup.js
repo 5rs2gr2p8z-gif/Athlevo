@@ -17,6 +17,7 @@
 
   let buildInFlight = false;
   let lastHasPlan = null;         // cache of the most recent get-week result
+  let lastPlanSnapshot = null;
   let dismissedThisSession = false;
   let currentProfile = null;
 
@@ -39,6 +40,73 @@
     } catch (e) { return null; }
   }
 
+  function planFailureCategory(code) {
+    const value = String(code || "").toUpperCase();
+    if (/AUTH|SESSION/.test(value)) return "auth";
+    if (/TIMEOUT|ABORT/.test(value)) return "timeout";
+    if (/NETWORK|FETCH|TYPEERROR/.test(value)) return "network";
+    if (/PROFILE|VALID|INPUT/.test(value)) return "validation";
+    if (/LIMIT|FREE_PLAN|PERFORMANCE/.test(value)) return "conflict";
+    if (/PROVIDER|OPENAI|UNAVAILABLE/.test(value)) return "provider";
+    if (/FAILED|SERVER|DATABASE|PERSIST|PGRST|POSTGREST/.test(value)) return "server";
+    return "unknown";
+  }
+
+  function trackPlanFailure(outcome, activationAttempt) {
+    const props = {
+      stage: "plan_generation",
+      failure_category: planFailureCategory(outcome && outcome.code),
+      source_surface: "plan_generation"
+    };
+    try {
+      if (window.AthlevoAnalytics) {
+        AthlevoAnalytics.track("plan_generation_failed", props);
+        if (activationAttempt) {
+          AthlevoAnalytics.track("activation_failed", props);
+        }
+      }
+    } catch (e) {}
+    try {
+      if (window.AthlevoProductAnalytics) {
+        AthlevoProductAnalytics.trackAthlevoEvent(
+          "plan_generation_failed",
+          props
+        );
+        if (activationAttempt) {
+          AthlevoProductAnalytics.trackAthlevoEvent(
+            "activation_failed",
+            props
+          );
+        }
+      }
+    } catch (e) {}
+  }
+
+  async function trackFirstPlanGenerated(properties) {
+    const userId = await analyticsUserId();
+    if (!userId) return false;
+    const eventProps = Object.assign(
+      {},
+      properties || {},
+      { user_id: userId }
+    );
+    try {
+      if (window.AthlevoAnalytics) {
+        AthlevoAnalytics.track("first_plan_generated", eventProps);
+      }
+    } catch (e) {}
+    try {
+      if (window.AthlevoProductAnalytics) {
+        return AthlevoProductAnalytics.trackUserMilestone(
+          "first_plan_generated",
+          userId,
+          eventProps
+        );
+      }
+    } catch (e) {}
+    return false;
+  }
+
   function analyticsGoalDistance(value) {
     const normalized = String(value || "").toLowerCase();
     if (/\b5\s*k\b|5000/.test(normalized)) return "5k";
@@ -55,7 +123,7 @@
     const sessions = data && Array.isArray(data.sessions) ? data.sessions : [];
     const usableSavedPlan = Boolean(
       data &&
-      data.success === true &&
+      (data.success === true || data.hasPlan === true) &&
       plan &&
       plan.id &&
       sessions.some(session => session && session.session_date)
@@ -85,9 +153,13 @@
     try {
       const res = await fetch("/api/training/get-week", { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
+      lastPlanSnapshot = data && typeof data === "object" ? data : null;
       lastHasPlan = !!data.hasPlan;
       return lastHasPlan;
-    } catch (e) { return null; }
+    } catch (e) {
+      lastPlanSnapshot = null;
+      return null;
+    }
   }
 
   // Plan persistence and Today previously kept separate in-memory answers.
@@ -95,6 +167,7 @@
   // authoritative get-week read for its context, workout, and CTA.
   async function refreshTodayAfterPlanChange() {
     lastHasPlan = null;
+    lastPlanSnapshot = null;
     if (typeof window.refreshTodayAfterPlanChange === "function") {
       try { return await window.refreshTodayAfterPlanChange("plan-change"); }
       catch (e) { return null; }
@@ -328,6 +401,12 @@
     buildInFlight = true;
     if (typeof showScreen === "function") showScreen("screen-plangen");
     renderGen();
+    const funnelUserId = await analyticsUserId();
+    const activationAttempt = Boolean(
+      funnelUserId &&
+      window.AthlevoProductAnalytics &&
+      AthlevoProductAnalytics.isNewRegistration(funnelUserId)
+    );
 
     const token = await authToken();
     const minAnim = runStepAnimation();
@@ -433,22 +512,7 @@
       buildInFlight = false;
       if (outcome.alreadyExists !== true && outcome.firstUsableSaved === true) {
         try {
-          const userId = await analyticsUserId();
-          const eventProps = Object.assign(
-            {},
-            outcome.analyticsProps || {},
-            userId ? { user_id: userId } : {}
-          );
-          if (window.AthlevoAnalytics) {
-            AthlevoAnalytics.track("first_plan_generated", eventProps);
-          }
-          if (window.AthlevoProductAnalytics) {
-            AthlevoProductAnalytics.trackUserMilestone(
-              "first_plan_generated",
-              userId,
-              eventProps
-            );
-          }
+          await trackFirstPlanGenerated(outcome.analyticsProps || {});
         } catch (e) {}
       }
       completeFinalStep();
@@ -456,11 +520,6 @@
       showSuccess(outcome.alreadyExists !== true);   // first plan → milestone state
       return;
     }
-    try {
-      if (window.AthlevoAnalytics) AthlevoAnalytics.track("plan_generation_failed",
-        { failure_category: (outcome && outcome.code) || "unknown" });
-    } catch (e) {}
-
     /*
      * RECOVERY. A client timeout does not mean generation failed — the server
      * may have finished and stored the plan after we stopped waiting. Before
@@ -477,6 +536,10 @@
       try { stored = await hasPlan(); } catch (e) {}
       if (stored === true) {
         buildInFlight = false;
+        const recovered = firstPlanAnalytics(lastPlanSnapshot || {});
+        if (recovered.usableSavedPlan) {
+          await trackFirstPlanGenerated(recovered.props);
+        }
         completeFinalStep();
         await refreshTodayAfterPlanChange();
         showSuccess(true);
@@ -484,6 +547,7 @@
       }
     }
 
+    trackPlanFailure(outcome, activationAttempt);
     buildInFlight = false;
     showBuildProblem(outcome);
   }
@@ -540,13 +604,107 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function enterTrain() {
+  async function confirmedOnboardingComplete(userId) {
+    try {
+      if (
+        currentProfile &&
+        String(currentProfile.id || "") === String(userId) &&
+        currentProfile.onboarding_complete === true
+      ) {
+        return { complete: true, failureCategory: null };
+      }
+      const { data, error } = await supabaseClient
+        .from("profiles")
+        .select("onboarding_complete")
+        .eq("id", userId)
+        .maybeSingle();
+      if (error) {
+        return {
+          complete: false,
+          failureCategory: planFailureCategory(error.code || error.name)
+        };
+      }
+      return {
+        complete: Boolean(data && data.onboarding_complete === true),
+        failureCategory: "validation"
+      };
+    } catch (e) {
+      return {
+        complete: false,
+        failureCategory: planFailureCategory(e && (e.code || e.name))
+      };
+    }
+  }
+
+  async function trackVisibleFirstValue() {
+    const userId = await analyticsUserId();
+    if (
+      !userId ||
+      !window.AthlevoProductAnalytics ||
+      !AthlevoProductAnalytics.isNewRegistration(userId)
+    ) {
+      return false;
+    }
+    const validPlan = lastHasPlan === true ? true : await hasPlan();
+    if (validPlan !== true) return false;
+    const props = {
+      value_type: "training_plan",
+      source_surface: "train"
+    };
+    const visible = AthlevoProductAnalytics.screenIsVisible("screen-train");
+    if (!visible) return false;
+
+    const firstValueTracked = AthlevoProductAnalytics.trackVisibleUserMilestone(
+      "first_value_viewed",
+      userId,
+      "screen-train",
+      props
+    );
+    try {
+      if (firstValueTracked && window.AthlevoAnalytics) {
+        AthlevoAnalytics.track("first_value_viewed", props);
+      }
+    } catch (e) {}
+
+    const onboarding = await confirmedOnboardingComplete(userId);
+    if (!onboarding.complete) {
+      try {
+        AthlevoProductAnalytics.trackAthlevoEvent("activation_failed", {
+          stage: "first_value",
+          failure_category: onboarding.failureCategory || "unknown",
+          source_surface: "train"
+        });
+      } catch (e) {}
+      return false;
+    }
+
+    const activationTracked = AthlevoProductAnalytics.trackVisibleUserMilestone(
+      "activation_completed",
+      userId,
+      "screen-train",
+      props
+    );
+    try {
+      if (activationTracked && window.AthlevoAnalytics) {
+        AthlevoAnalytics.track("activation_completed", props);
+      }
+    } catch (e) {}
+    return activationTracked;
+  }
+
+  async function enterTrain() {
     const btn = document.querySelector('.tab[data-screen="screen-train"]');
     const tabbar = document.getElementById("tabbar");
     if (tabbar) tabbar.style.display = "flex";
-    if (btn && typeof go === "function") { go(btn); return; }
-    if (typeof showScreen === "function") showScreen("screen-train");
-    if (typeof window.loadWeeklyPlan === "function") window.loadWeeklyPlan();
+    if (btn && typeof go === "function") {
+      await go(btn);
+    } else {
+      if (typeof showScreen === "function") showScreen("screen-train");
+      if (typeof window.loadWeeklyPlan === "function") {
+        await window.loadWeeklyPlan();
+      }
+    }
+    await trackVisibleFirstValue();
   }
 
   async function viewCurrentPlan() {

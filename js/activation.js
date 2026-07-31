@@ -54,7 +54,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_ACTIVATION
   // Kept in memory so the funnel is inspectable even before the migration has
   // run, and so tests can assert ordering without a database.
   const buffer = [];
-  const firedMilestones = new Set();            // once-only guard (mirrors the DB unique index)
+  const firedMilestones = new Set();            // user + event guard (mirrors the DB unique index)
   const A_STATE = { userId: null, sessionStarted: false, sessionCount: 0, pending: [] };
 
   function registry() { return root.AthlevoAnalyticsRegistry || null; }
@@ -90,10 +90,6 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_ACTIVATION
       canonical = R.canonicalName(eventName);
       kind = R.kindOf(eventName);
       safe = R.sanitizeProps(eventName, props);
-      if (R.isMilestone(eventName)) {
-        if (firedMilestones.has(canonical)) return entry;   // one-time milestone → fire once
-        firedMilestones.add(canonical);
-      }
     }
 
     let userId = A_STATE.userId;
@@ -106,6 +102,11 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_ACTIVATION
       } catch (e) { /* pre-auth */ }
     }
     if (!userId) { A_STATE.pending.push({ canonical, kind, safe }); return entry; }
+    if (R && R.isMilestone(eventName)) {
+      const milestoneKey = `${userId}:${canonical}`;
+      if (firedMilestones.has(milestoneKey)) return entry;
+      firedMilestones.add(milestoneKey);
+    }
     await persistEvent(userId, canonical, kind, safe);
     return entry;
   }
@@ -113,9 +114,29 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_ACTIVATION
   // Attach a real user id and flush any anonymous, pre-auth events safely.
   function identifySafe(userId) {
     if (!userId || typeof userId !== "string") return;
+    if (A_STATE.userId && A_STATE.userId !== userId) {
+      A_STATE.pending = [];
+      A_STATE.sessionStarted = false;
+      A_STATE.sessionCount = 0;
+    }
     A_STATE.userId = userId;
     const queued = A_STATE.pending.splice(0);
-    queued.forEach(e => persistEvent(userId, e.canonical, e.kind, e.safe));
+    queued.forEach(e => {
+      if (e.kind === "milestone") {
+        const milestoneKey = `${userId}:${e.canonical}`;
+        if (firedMilestones.has(milestoneKey)) return;
+        firedMilestones.add(milestoneKey);
+      }
+      persistEvent(userId, e.canonical, e.kind, e.safe);
+    });
+  }
+
+  function resetIdentity() {
+    A_STATE.userId = null;
+    A_STATE.sessionStarted = false;
+    A_STATE.sessionCount = 0;
+    A_STATE.pending = [];
+    firedMilestones.clear();
   }
 
   // Start (once) an app session. Survives the anonymous → authenticated jump.
@@ -330,7 +351,10 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_ACTIVATION
     };
   }
 
-  root.AthlevoAnalytics = { track, identifySafe, session, buffer, FUNNEL_EVENTS, _state: A_STATE };
+  root.AthlevoAnalytics = {
+    track, identifySafe, resetIdentity, session, buffer, FUNNEL_EVENTS,
+    _state: A_STATE
+  };
   root.AthlevoDataSource = DataSource;
   root.AthlevoActivation = { humanError, noActivitiesMessage, withRetry, WEARABLES };
 })(typeof window !== "undefined" ? window : globalThis);

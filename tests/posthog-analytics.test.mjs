@@ -27,7 +27,7 @@ function makeAnalytics(opts = {}) {
     console: { log() {}, warn() {}, error() {}, debug() {} },
     navigator: { userAgent: opts.userAgent || "Mozilla/5.0 (Macintosh)" },
     localStorage: (() => {
-      const store = {};
+      const store = Object.assign({}, opts.localStore || {});
       return {
         getItem: k => store[k] || null,
         setItem: (k, v) => { store[k] = String(v); },
@@ -54,9 +54,23 @@ function makeAnalytics(opts = {}) {
     },
     document: {
       referrer: opts.referrer || "",
-      querySelector: () => opts.metaContent ? { content: opts.metaContent } : null
+      visibilityState: opts.visibilityState || "visible",
+      body: { classList: { contains: value => value === "booting" && opts.booting === true } },
+      documentElement: { clientWidth: 390, clientHeight: 844 },
+      querySelector: () => opts.metaContent ? { content: opts.metaContent } : null,
+      getElementById: id => {
+        if (id !== opts.screenId) return null;
+        return {
+          hidden: false,
+          classList: { contains: value => value === "active" && opts.screenActive === true },
+          getAttribute: () => null,
+          getBoundingClientRect: () => ({ top: 0, left: 0, right: 390, bottom: 700, width: 390, height: 700 })
+        };
+      }
     }
   };
+  win.innerWidth = 390;
+  win.innerHeight = 844;
 
   // Inject a mock PostHog if a key is set
   if (opts.key) {
@@ -78,6 +92,8 @@ function makeAnalytics(opts = {}) {
       "})(window);"
     )
   );
+  const registryCode = readFileSync("./js/analyticsRegistry.js", "utf8");
+  new Function("window", registryCode)(win);
   fn(win, win.document, win.navigator, win.localStorage, win.sessionStorage);
 
   return {
@@ -119,13 +135,17 @@ const EXPECTED_EVENTS = [
   "in_app_browser_signup_blocked", "external_signup_link_copied",
   "external_signup_continuation_viewed",
   "registration_completed", "onboarding_started", "onboarding_completed",
-  "data_connection_started", "data_connection_completed", "first_plan_generated",
-  "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
-  "paid_subscription_activated", "readiness_prompt_shown",
+  "data_connection_started", "provider_skipped", "data_connection_completed",
+  "first_plan_generated", "first_value_viewed", "activation_completed",
+  "signup_failed", "onboarding_failed", "data_connection_failed",
+  "plan_generation_failed", "activation_failed",
+  "free_limit_reached", "premium_feature_viewed", "upgrade_clicked",
+  "upgrade_sheet_viewed", "checkout_started", "checkout_failed",
+  "subscription_activated", "readiness_prompt_shown",
   "readiness_prompt_dismissed", "readiness_check_completed",
-  "coach_message_sent", "coach_message_submitted",
+  "coach_message_submitted",
   "coach_message_completed", "coach_weekly_limit_reached",
-  "coach_upgrade_sheet_viewed", "coach_request_failed", "app_returned"
+  "coach_request_failed", "app_returned"
 ];
 
 EXPECTED_EVENTS.forEach(name => {
@@ -135,6 +155,21 @@ EXPECTED_EVENTS.forEach(name => {
     return captured.length === 1 && captured[0].name === name;
   })());
 });
+
+t("obsolete aliases capture only their canonical event name", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("checkout_opened", {
+    feature: "trends",
+    surface: "upgrade_sheet"
+  });
+  return captured.length === 1 && captured[0].name === "checkout_started";
+})());
+
+t("unknown event names are rejected before PostHog capture", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  return api.trackAthlevoEvent("made_up_conversion") === false &&
+    captured.length === 0;
+})());
 
 /* ─────────────── duplicate protection ────────────────────────────── */
 section("Duplicate protection");
@@ -169,6 +204,23 @@ t("reset clears dedup state so events can fire again", (() => {
   api.resetAthleteAnalytics();
   api.trackAthlevoEvent("landing_viewed");
   return captured.length === 2;
+})());
+
+t("behavioural events may fire again in a new browser session", (() => {
+  const first = makeAnalytics({ key: "phc_test" });
+  first.api.trackAthlevoEvent("data_connection_started", {
+    provider: "strava",
+    source_surface: "provider_connection"
+  });
+  const next = makeAnalytics({
+    key: "phc_test",
+    localStore: first.win.localStorage._store
+  });
+  next.api.trackAthlevoEvent("data_connection_started", {
+    provider: "strava",
+    source_surface: "provider_connection"
+  });
+  return first.captured.length === 1 && next.captured.length === 1;
 })());
 
 /* ─────────────── identity / reset ────────────────────────────────── */
@@ -373,6 +425,27 @@ t("persists UTM in sessionStorage and restores", (() => {
   return parsed && parsed.utm_source === "twitter" && parsed.utm_medium === "social";
 })());
 
+t("UTM and fbclid restore after app close clears sessionStorage", (() => {
+  const first = makeAnalytics({
+    key: "phc_test",
+    search: "?utm_source=meta&utm_medium=paid_social&utm_campaign=launch&fbclid=fb-123"
+  });
+  const reopened = makeAnalytics({
+    key: "phc_test",
+    localStore: first.win.localStorage._store
+  });
+  reopened.api.trackAthlevoEvent("activation_completed", {
+    value_type: "training_plan",
+    source_surface: "train"
+  });
+  const props = reopened.captured[0] && reopened.captured[0].props;
+  return props &&
+    props.utm_source === "meta" &&
+    props.utm_medium === "paid_social" &&
+    props.utm_campaign === "launch" &&
+    props.fbclid === "fb-123";
+})());
+
 t("landing context strips non-attribution query values and referrer queries", (() => {
   const { api } = makeAnalytics({
     search: "?utm_source=meta&code=oauth-secret&email=private@example.com",
@@ -417,7 +490,8 @@ t("registration completion remains deduplicated after a refresh", (() => {
   first.api.completeRegistration({ id: "new-user" }, "email", true);
   const refreshed = makeAnalytics({
     key: "phc_test",
-    sessionStore: first.win.sessionStorage._store
+    sessionStore: first.win.sessionStorage._store,
+    localStore: first.win.localStorage._store
   });
   const repeated = refreshed.api.completeRegistration(
     { id: "new-user" }, "email", true
@@ -481,13 +555,97 @@ t("user milestones remain deduplicated after a refresh", (() => {
   });
   const refreshed = makeAnalytics({
     key: "phc_test",
-    sessionStore: first.win.sessionStorage._store
+    sessionStore: first.win.sessionStorage._store,
+    localStore: first.win.localStorage._store
   });
   refreshed.api.trackUserMilestone("data_connection_completed", "user-1", {
     provider: "intervals"
   });
   return !refreshed.captured.some(event =>
     event.name === "data_connection_completed");
+})());
+
+t("user milestones remain deduplicated after sessionStorage is cleared", (() => {
+  const first = makeAnalytics({ key: "phc_test" });
+  first.api.trackUserMilestone("first_plan_generated", "user-1", {
+    user_id: "user-1"
+  });
+  const reopened = makeAnalytics({
+    key: "phc_test",
+    localStore: first.win.localStorage._store
+  });
+  const repeated = reopened.api.trackUserMilestone(
+    "first_plan_generated",
+    "user-1",
+    { user_id: "user-1" }
+  );
+  return repeated === false && reopened.captured.length === 0;
+})());
+
+t("milestones use the same anonymous insertion key across simultaneous tabs", (() => {
+  const one = makeAnalytics({ key: "phc_test" });
+  const two = makeAnalytics({ key: "phc_test" });
+  one.api.trackUserMilestone("activation_completed", "user-1", {
+    value_type: "training_plan",
+    source_surface: "train"
+  });
+  two.api.trackUserMilestone("activation_completed", "user-1", {
+    value_type: "training_plan",
+    source_surface: "train"
+  });
+  const a = one.captured[0] && one.captured[0].props.$insert_id;
+  const b = two.captured[0] && two.captured[0].props.$insert_id;
+  return typeof a === "string" && a === b && !a.includes("user-1");
+})());
+
+t("first value requires an active visible personalized screen", (() => {
+  const hidden = makeAnalytics({
+    key: "phc_test",
+    screenId: "screen-train",
+    screenActive: false
+  });
+  const hiddenResult = hidden.api.trackVisibleUserMilestone(
+    "first_value_viewed",
+    "user-1",
+    "screen-train",
+    { value_type: "training_plan", source_surface: "train" }
+  );
+  const visible = makeAnalytics({
+    key: "phc_test",
+    screenId: "screen-train",
+    screenActive: true
+  });
+  const visibleResult = visible.api.trackVisibleUserMilestone(
+    "first_value_viewed",
+    "user-1",
+    "screen-train",
+    { value_type: "training_plan", source_surface: "train" }
+  );
+  return hiddenResult === false && hidden.captured.length === 0 &&
+    visibleResult === true &&
+    visible.captured.some(event => event.name === "first_value_viewed");
+})());
+
+t("boot-hidden and background screens do not emit viewed events", (() => {
+  const booting = makeAnalytics({
+    key: "phc_test",
+    screenId: "screen-landing",
+    screenActive: true,
+    booting: true
+  });
+  const background = makeAnalytics({
+    key: "phc_test",
+    screenId: "screen-landing",
+    screenActive: true,
+    visibilityState: "hidden"
+  });
+  return booting.api.trackVisibleScreenView(
+    "landing_viewed", "screen-landing", booting.api.landingProps()
+  ) === false &&
+    background.api.trackVisibleScreenView(
+      "landing_viewed", "screen-landing", background.api.landingProps()
+    ) === false &&
+    booting.captured.length === 0 && background.captured.length === 0;
 })());
 
 /* ─────────────── app_returned logic ──────────────────────────────── */

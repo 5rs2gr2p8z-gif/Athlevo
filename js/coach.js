@@ -923,7 +923,6 @@ function showCoachLimitUpgrade(accessTier) {
     secondary: "Not now",
     hideBenefits: true
   });
-  trackCoachEvent("coach_upgrade_sheet_viewed", accessTier);
   return true;
 }
 

@@ -119,8 +119,8 @@ section("Upgrade and safety");
     e.name === "upgrade_clicked" && e.props.surface === "upgrade_sheet"));
   test("explicit upgrade click opens Whop once",
     opened.length === 1 && /whop\.com/.test(opened[0].url));
-  test("checkout opening is tracked",
-    analytics.some(e => e.name === "checkout_opened"));
+  test("confirmed checkout handoff is tracked",
+    analytics.some(e => e.name === "checkout_started"));
   test("upgrade UI shows the exact price",
     /Athlevo Performance/.test(guardSource) && /₱597\/month/.test(guardSource));
   test("checkout keeps a current-origin return URL",

@@ -46,10 +46,11 @@ const REQUIRED = [
   "google_signup_clicked", "email_signup_clicked", "login_clicked",
   "registration_completed", "onboarding_started", "data_connection_started",
   "free_account_created", "onboarding_completed", "data_connection_completed",
-  "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
+  "free_limit_reached", "premium_feature_viewed", "upgrade_clicked",
+  "upgrade_sheet_viewed", "checkout_started", "checkout_failed",
   "in_app_browser_signup_blocked", "external_signup_link_copied",
   "external_signup_continuation_viewed",
-  "paid_subscription_activated",
+  "subscription_activated",
   "account_created", "email_verified", "athlete_onboarding_started", "athlete_onboarding_completed",
   "wearable_setup_started", "sync_account_step_viewed", "wearable_provider_step_viewed",
   "wearable_connection_succeeded", "wearable_connection_failed", "first_sync_started",
@@ -57,7 +58,7 @@ const REQUIRED = [
   "plan_generation_started", "first_plan_generated", "plan_generation_failed",
   "coach_opened", "first_coach_message_sent", "coach_message_submitted",
   "coach_message_completed", "coach_weekly_limit_reached",
-  "coach_upgrade_sheet_viewed", "coach_request_failed",
+  "coach_request_failed",
   "adaptive_plan_reviewed", "adaptive_plan_applied",
   "readiness_prompt_shown", "readiness_prompt_dismissed", "readiness_check_completed",
   "app_session_started", "primary_tab_viewed"
@@ -228,7 +229,7 @@ section("14. No raw workout / token / email / name / message enters analytics");
 {
   const { A, inserted } = makeClient({ user: "u1" });
   await (A.track("wearable_connection_failed",
-    { provider_type: "garmin", failure_category: "expired",
+    { provider_type: "garmin", failure_category: "auth",
       raw_workout: { gps: [[1, 2]] }, oauth_token: "abc", athlete_name: "Dean", chat_message: "help" }));
   const md = inserted.find(r => r.event_name === "wearable_connection_failed").metadata;
   t("only categorical provider_type + failure_category survive",

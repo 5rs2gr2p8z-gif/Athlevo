@@ -202,7 +202,7 @@ section("6. Implementation detail does not leak");
 section("No OAuth / provider code was touched by this UX sprint");
 {
   t("Continue still routes through authorize() → connect()",
-    /async function authorize\(\)[\s\S]{0,400}DS\(\)\.connect\(\)/.test(connect));
+    /async function authorize\(\)[\s\S]{0,900}DS\(\)\.connect\(\)/.test(connect));
   t("openSyncPartner opens the existing connections URL, no OAuth",
     /function openSyncPartner[\s\S]{0,220}connectionsUrl/.test(brainSrc) &&
     !/action=connect|oauth\/token/.test(brainSrc.slice(brainSrc.indexOf("function openSyncPartner"),

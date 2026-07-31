@@ -423,13 +423,11 @@ section("Client mapping, draft preservation, and duplicate taps");
     copy.secondary === "Not now");
   test("typed question remains after the sheet is dismissed",
     input.value === "Should I run today?");
-  test("upgrade-sheet analytics are categorical only",
-    analytics.length === 1 &&
-    analytics[0].name === "coach_upgrade_sheet_viewed" &&
-    JSON.stringify(analytics[0].props) === JSON.stringify({
-      access_tier: "free",
-      source_surface: "coach"
-    }));
+  test("Coach delegates upgrade-sheet analytics to the visible sheet",
+    analytics.length === 0 &&
+    !/coach_upgrade_sheet_viewed/.test(
+      extractFunction(coachSource, "showCoachLimitUpgrade")
+    ));
 
   const claimCoachRequest = new Function(
     `${extractFunction(coachSource, "claimCoachRequest")}
@@ -475,7 +473,7 @@ section("Entitlement loading and analytics privacy");
     "coach_message_submitted",
     "coach_message_completed",
     "coach_weekly_limit_reached",
-    "coach_upgrade_sheet_viewed",
+    "upgrade_sheet_viewed",
     "coach_request_failed"
   ];
   test("all categorical Coach events are registered",

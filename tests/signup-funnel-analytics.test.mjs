@@ -30,6 +30,10 @@ const social = readFileSync("./js/socialAuth.js", "utf8");
 const onboarding = readFileSync("./js/onboarding.js", "utf8");
 const connect = readFileSync("./js/onboardingConnect.js", "utf8");
 const plan = readFileSync("./js/planSetup.js", "utf8");
+const migration = readFileSync(
+  "./migrations/2026-07-31_acquisition_activation_events.sql",
+  "utf8"
+);
 const allRelevant = [
   html, analytics, registry, social, onboarding, connect, plan
 ].join("\n");
@@ -49,9 +53,20 @@ const required = [
   "registration_completed",
   "onboarding_started",
   "onboarding_completed",
+  "provider_skipped",
   "first_plan_generated",
+  "first_value_viewed",
+  "activation_completed",
   "data_connection_started",
-  "data_connection_completed"
+  "data_connection_completed",
+  "signup_failed",
+  "onboarding_failed",
+  "data_connection_failed",
+  "plan_generation_failed",
+  "activation_failed",
+  "upgrade_sheet_viewed",
+  "checkout_started",
+  "subscription_activated"
 ];
 
 required.forEach(name => {
@@ -87,6 +102,14 @@ test("auth screen view uses remembered entry source and previous page",
 test("email signup and login intent use separate event names",
   /trackAuthChoice\("email_signup_clicked"\)/.test(html) &&
   /trackAuthChoice\("login_clicked"/.test(html));
+test("verified existing-user login identifies analytics without registration",
+  /if \(!user\)[\s\S]*?identifyAthlete\(user\)[\s\S]*?identifySafe\(user\.id\)[\s\S]*?routeAfterAuth\(user\.id\)/.test(html) &&
+  !/async function doLogin[\s\S]*?completeRegistration\(/.test(
+    html.slice(
+      html.indexOf("async function doLogin"),
+      html.indexOf("async function doLogout")
+    )
+  ));
 test("Google signup is gated by a logged-out Supabase session",
   /loggedOut = !\(data && data\.session && data\.session\.user\)/.test(social) &&
   /providerKey === "google" && loggedOut/.test(social));
@@ -131,25 +154,55 @@ const authorizeIndex = connect.indexOf("async function authorize()");
 test("connection start fires before provider OAuth begins",
   connect.indexOf("'data_connection_started'", authorizeIndex) <
   connect.indexOf("await DS().connect()", authorizeIndex));
-test("connection completion follows a confirmed connected status",
-  connect.indexOf("status.connected !== true") <
-  connect.indexOf('"data_connection_completed"'));
-test("OAuth finalize completion follows successful server confirmation",
+test("opening an already-connected onboarding step does not claim a new completion",
+  !/data_connection_completed/.test(connect));
+test("Intervals completion follows the confirmed connected callback state",
+  html.indexOf('if (state === "connected")') <
+  html.indexOf('await trackDataConnectionCompleted("intervals")'));
+test("OAuth finalize reaches the confirmed connected state before completion",
   html.indexOf("await AthlevoBrain.finalizeIntervals(completion)") <
-  html.indexOf('"data_connection_completed"', html.indexOf("await AthlevoBrain.finalizeIntervals(completion)")));
+  html.indexOf('await handleIntervalsResult("connected", null)') &&
+  html.indexOf('await handleIntervalsResult("connected", null)') <
+  html.indexOf('await trackDataConnectionCompleted("intervals")'));
+test("Strava completion is limited to a confirmed connected callback",
+  /if \(state === "connected"\) \{\s*await trackDataConnectionCompleted\("strava"\)/.test(html));
+test("provider cancellation and failure emit only categorical failure events",
+  /state === "cancelled"/.test(html) ||
+  /providerFailureCategory\(\{ code: state \}\)/.test(html) &&
+  /data_connection_failed/.test(html));
 
 section("Attribution, deduplication, and privacy");
 
-test("all requested attribution keys are captured and session-persisted",
+test("all requested attribution keys are captured and persist across app reopen",
   ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"]
     .every(key => analytics.includes(`"${key}"`)) &&
-  /sessionStorage\.setItem\(ATTRIBUTION_KEY/.test(analytics));
+  /sessionStorage\.setItem\(ATTRIBUTION_KEY/.test(analytics) &&
+  /localStorage\.setItem\(ATTRIBUTION_LOCAL_KEY/.test(analytics));
 test("landing URL keeps only approved attribution query keys",
   /ATTRIBUTION_KEYS\.indexOf\(key\) === -1\) url\.searchParams\.delete\(key\)/.test(analytics));
 test("view rerenders and user milestones have distinct duplicate guards",
   /VIEW_EVENTS/.test(analytics) &&
   /trackUserMilestone/.test(analytics) &&
   /MILESTONE_PREFIX/.test(analytics));
+test("milestones use a deterministic insertion key for cross-tab deduplication",
+  /milestoneInsertId/.test(analytics) &&
+  /\$insert_id/.test(analytics));
+test("first value and activation require the active visible Train screen",
+  /screenIsVisible\("screen-train"\)/.test(plan) &&
+  /trackVisibleUserMilestone\(\s*"first_value_viewed"/.test(plan) &&
+  /trackVisibleUserMilestone\(\s*"activation_completed"/.test(plan));
+test("logout resets both PostHog and the Supabase analytics identity",
+  /resetAthleteAnalytics\(\)/.test(html) &&
+  /AthlevoAnalytics\.resetIdentity\(\)/.test(html));
+test("obsolete conversion event names are aliases only, never production calls",
+  !/trackAthlevoEvent\(["'](?:checkout_opened|paid_subscription_activated|coach_upgrade_sheet_viewed)/.test(allRelevant));
+test("analytics migration accepts every canonical event and retains old rows",
+  required.every(name => migration.includes(`'${name}'`)) &&
+  [
+    "checkout_opened",
+    "paid_subscription_activated",
+    "coach_upgrade_sheet_viewed"
+  ].every(name => migration.includes(`'${name}'`)));
 test("behavioural CTA events are not configured as once-per-view",
   !/VIEW_EVENTS\s*=\s*\{[^}]*signup_cta_clicked/.test(analytics));
 test("analytics property sanitizer rejects secret-bearing keys",

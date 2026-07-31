@@ -240,15 +240,16 @@ section("Privacy-safe analytics");
   [
     "free_account_created", "onboarding_completed",
     "data_connection_completed", "first_plan_generated",
-    "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
-    "paid_subscription_activated"
+    "free_limit_reached", "premium_feature_viewed", "upgrade_clicked",
+    "upgrade_sheet_viewed", "checkout_started", "checkout_failed",
+    "subscription_activated"
   ].forEach(event => {
     test(`analytics registry includes ${event}`, registry.includes(event));
   });
   test("paid activation comes from verified Whop webhook",
-    webhook.includes('captureServerEvent(userId, "paid_subscription_activated"') &&
+    webhook.includes('captureServerEvent(userId, "subscription_activated"') &&
     webhook.indexOf("verifyWhopSignature") <
-      webhook.indexOf('captureServerEvent(userId, "paid_subscription_activated"'));
+      webhook.indexOf('captureServerEvent(userId, "subscription_activated"'));
   test("analytics registry prohibits sensitive content",
     /email/.test(registry) && /token/.test(registry) &&
     /workout/.test(registry) && /message/.test(registry));

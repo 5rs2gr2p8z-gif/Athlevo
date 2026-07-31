@@ -258,13 +258,33 @@
     const surface = PREMIUM_SURFACES.has(input.surface)
       ? input.surface
       : surfaceFallback;
-    return { feature, surface };
+    const tier = input.access_tier === "free" ||
+      input.access_tier === "paid_active" ||
+      input.access_tier === "paid_inactive" ||
+      input.access_tier === "unknown"
+      ? input.access_tier
+      : null;
+    return { feature, surface, access_tier: tier };
   }
 
   function trackCategorical(name, context) {
     const safe = categoricalContext(context, "upgrade_sheet");
-    const props = { surface: safe.surface };
-    if (safe.feature) props.feature = safe.feature;
+    const props = name === "checkout_failed"
+      ? {
+          stage: "checkout_open",
+          failure_category:
+            context && context.failure_category === "popup_blocked"
+              ? "popup_blocked"
+              : "browser",
+          source_surface: "upgrade_sheet"
+        }
+      : { surface: safe.surface };
+    if (name !== "checkout_failed" && safe.feature) {
+      props.feature = safe.feature;
+    }
+    if (name !== "checkout_failed" && safe.access_tier) {
+      props.access_tier = safe.access_tier;
+    }
     try {
       if (window.AthlevoAnalytics) {
         window.AthlevoAnalytics.track(name, props);
@@ -491,14 +511,41 @@
     }
   }
 
-  function checkout(context) {
+  async function checkout(context) {
     const safe = categoricalContext(context, "upgrade_sheet");
     trackCategorical("upgrade_clicked", safe);
-    trackCategorical("checkout_opened", safe);
-    if (window.AthlevoRuntime && window.AthlevoRuntime.openExternal) {
-      window.AthlevoRuntime.openExternal(checkoutUrl());
-    } else {
-      window.open(checkoutUrl(), "_blank", "noopener");
+    try {
+      let opened = null;
+      if (window.AthlevoRuntime && window.AthlevoRuntime.openExternal) {
+        opened = await window.AthlevoRuntime.openExternal(checkoutUrl());
+        if (!opened || opened.ok !== true) {
+          trackCategorical("checkout_failed", {
+            surface: "upgrade_sheet",
+            failure_category: "browser",
+            stage: "checkout_open"
+          });
+          return false;
+        }
+      } else {
+        opened = window.open(checkoutUrl(), "_blank", "noopener");
+        if (!opened) {
+          trackCategorical("checkout_failed", {
+            surface: "upgrade_sheet",
+            failure_category: "popup_blocked",
+            stage: "checkout_open"
+          });
+          return false;
+        }
+      }
+      trackCategorical("checkout_started", safe);
+      return true;
+    } catch (e) {
+      trackCategorical("checkout_failed", {
+        surface: "upgrade_sheet",
+        failure_category: "browser",
+        stage: "checkout_open"
+      });
+      return false;
     }
   }
 
@@ -569,7 +616,14 @@
   function showUpgradeSheet(feature, surface, copy) {
     const modal = document.getElementById("performanceUpgradeModal");
     if (!modal) return;
-    const safe = categoricalContext({ feature, surface }, "today");
+    const wasOpen = modal.classList.contains("show") &&
+      modal.getAttribute("aria-hidden") === "false";
+    const accessTier = cachedAccessState();
+    const safe = categoricalContext({
+      feature,
+      surface,
+      access_tier: accessTier
+    }, "today");
     upgradeContext = {
       feature: safe.feature || "trends",
       surface: "upgrade_sheet"
@@ -578,6 +632,28 @@
     restoreFocusTo = document.activeElement;
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
+    if (
+      !wasOpen &&
+      document.visibilityState === "visible" &&
+      (accessTier === "free" || accessTier === "paid_inactive")
+    ) {
+      authenticatedUserId().then(userId => {
+        const stillOpen = modal.classList.contains("show") &&
+          modal.getAttribute("aria-hidden") === "false";
+        if (
+          userId &&
+          stillOpen &&
+          document.visibilityState === "visible" &&
+          cachedAccessState() === accessTier
+        ) {
+          trackCategorical("upgrade_sheet_viewed", {
+            feature: safe.feature,
+            surface: "upgrade_sheet",
+            access_tier: accessTier
+          });
+        }
+      }).catch(() => {});
+    }
     if (modal.dataset.focusBound !== "true") {
       modal.addEventListener("keydown", onUpgradeKeydown);
       modal.dataset.focusBound = "true";
@@ -586,8 +662,8 @@
     if (nodes.length && typeof nodes[0].focus === "function") nodes[0].focus();
   }
 
-  function checkoutFromUpgrade() {
-    checkout(upgradeContext);
+  async function checkoutFromUpgrade() {
+    await checkout(upgradeContext);
     closeUpgradeSheet();
   }
 
