@@ -123,7 +123,9 @@ const EXPECTED_EVENTS = [
   "free_limit_reached", "premium_feature_viewed", "upgrade_clicked", "checkout_opened",
   "paid_subscription_activated", "readiness_prompt_shown",
   "readiness_prompt_dismissed", "readiness_check_completed",
-  "coach_message_sent", "app_returned"
+  "coach_message_sent", "coach_message_submitted",
+  "coach_message_completed", "coach_weekly_limit_reached",
+  "coach_upgrade_sheet_viewed", "coach_request_failed", "app_returned"
 ];
 
 EXPECTED_EVENTS.forEach(name => {
@@ -272,6 +274,24 @@ t("handoff events contain only allowlisted categorical properties", (() => {
       browser: "facebook",
       intent: "signup",
       source_surface: "landing"
+    });
+})());
+
+t("Coach events contain only access/failure/surface categories", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("coach_request_failed", {
+    access_tier: "free",
+    failure_category: "timeout",
+    source_surface: "coach",
+    message: "private Coach question",
+    page_url: "https://athlevo.org/?private=1",
+    score: 72
+  });
+  return captured.length === 1 &&
+    JSON.stringify(captured[0].props) === JSON.stringify({
+      access_tier: "free",
+      failure_category: "timeout",
+      source_surface: "coach"
     });
 })());
 

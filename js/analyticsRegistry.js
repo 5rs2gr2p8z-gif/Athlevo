@@ -60,6 +60,11 @@
     plan_generation_failed:        { kind: "behavioural", props: ["failure_category"] },
     coach_opened:                  { kind: "behavioural", props: ["screen_name"] },
     first_coach_message_sent:      { kind: "milestone",   props: [] },
+    coach_message_submitted:       { kind: "behavioural", props: ["access_tier", "source_surface"] },
+    coach_message_completed:       { kind: "behavioural", props: ["access_tier", "source_surface"] },
+    coach_weekly_limit_reached:    { kind: "behavioural", props: ["access_tier", "source_surface"] },
+    coach_upgrade_sheet_viewed:    { kind: "behavioural", props: ["access_tier", "source_surface"] },
+    coach_request_failed:          { kind: "behavioural", props: ["access_tier", "failure_category", "source_surface"] },
     adaptive_plan_reviewed:        { kind: "behavioural", props: [] },
     adaptive_plan_applied:         { kind: "behavioural", props: ["change_count_bucket"] },
     readiness_prompt_shown:        { kind: "behavioural", props: ["source"] },
@@ -91,7 +96,13 @@
   var APPROVED_HANDOFF_VALUES = {
     browser: { facebook: true, instagram: true },
     intent: { signup: true, login: true },
-    source_surface: { landing: true, auth: true }
+    source_surface: { landing: true, auth: true, coach: true },
+    access_tier: {
+      free: true,
+      paid_active: true,
+      paid_inactive: true,
+      unknown: true
+    }
   };
 
   function canonicalName(name) {

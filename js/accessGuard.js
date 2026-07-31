@@ -18,9 +18,11 @@
 
   const WHOP_CHECKOUT_URL = "https://whop.com/checkout/plan_F5PftzWCJCQVw";
   const PREMIUM_FEATURES = new Set([
-    "training_load", "recovery", "athlevo_score", "trends"
+    "training_load", "recovery", "athlevo_score", "trends", "coach_message"
   ]);
-  const PREMIUM_SURFACES = new Set(["today", "trends", "upgrade_sheet"]);
+  const PREMIUM_SURFACES = new Set([
+    "today", "trends", "coach", "upgrade_sheet"
+  ]);
   const PREMIUM_SCREEN_IDS = {
     today: "screen-today",
     trends: "screen-trends"
@@ -33,6 +35,13 @@
   let premiumRefreshQueued = false;
   let upgradeContext = { feature: "trends", surface: "upgrade_sheet" };
   let restoreFocusTo = null;
+  const DEFAULT_UPGRADE_COPY = Object.freeze({
+    title: "See the full picture behind your training.",
+    body: "",
+    primary: "Upgrade to Athlevo Performance",
+    secondary: "Not now",
+    hideBenefits: false
+  });
 
   /* ─────────────── entitlement helpers ───────────────────────────── */
 
@@ -67,9 +76,9 @@
         await window.AthlevoPlan.load();
       }
       const state = cachedAccessState();
-      return state === "unknown" ? "free" : state;
+      return state;
     } catch (e) {
-      return "free";
+      return "unknown";
     }
   }
 
@@ -533,7 +542,31 @@
     }
   }
 
-  function showUpgradeSheet(feature, surface) {
+  function configureUpgradeSheet(copy) {
+    const input = copy && typeof copy === "object" ? copy : {};
+    const resolved = {
+      title: input.title || DEFAULT_UPGRADE_COPY.title,
+      body: input.body || DEFAULT_UPGRADE_COPY.body,
+      primary: input.primary || DEFAULT_UPGRADE_COPY.primary,
+      secondary: input.secondary || DEFAULT_UPGRADE_COPY.secondary,
+      hideBenefits: input.hideBenefits === true
+    };
+    const title = document.getElementById("performanceUpgradeTitle");
+    const body = document.getElementById("performanceUpgradeBody");
+    const benefits = document.getElementById("performanceUpgradeBenefits");
+    const primary = document.getElementById("performanceUpgradePrimary");
+    const secondary = document.getElementById("performanceUpgradeSecondary");
+    if (title) title.textContent = resolved.title;
+    if (body) {
+      body.textContent = resolved.body;
+      body.hidden = !resolved.body;
+    }
+    if (benefits) benefits.hidden = resolved.hideBenefits;
+    if (primary) primary.textContent = resolved.primary;
+    if (secondary) secondary.textContent = resolved.secondary;
+  }
+
+  function showUpgradeSheet(feature, surface, copy) {
     const modal = document.getElementById("performanceUpgradeModal");
     if (!modal) return;
     const safe = categoricalContext({ feature, surface }, "today");
@@ -541,6 +574,7 @@
       feature: safe.feature || "trends",
       surface: "upgrade_sheet"
     };
+    configureUpgradeSheet(copy || DEFAULT_UPGRADE_COPY);
     restoreFocusTo = document.activeElement;
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");

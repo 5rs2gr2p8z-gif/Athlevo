@@ -187,8 +187,10 @@ function canUseWith(featureName, subscription, now) {
 
 let currentSubscription = null;
 let subscriptionLoaded = false;
+let subscriptionLoadFailed = false;
 
 async function loadSubscription() {
+  subscriptionLoadFailed = false;
   try {
     const {
       data: { user }
@@ -208,18 +210,20 @@ async function loadSubscription() {
       .maybeSingle();
 
     if (error) {
-      console.warn("Subscription load failed; defaulting to Free:", error.message);
+      console.warn("Subscription load failed; access remains unresolved.");
       currentSubscription = null;
+      subscriptionLoaded = false;
+      subscriptionLoadFailed = true;
     } else {
       currentSubscription = data || null;
+      subscriptionLoaded = true;
     }
-
-    subscriptionLoaded = true;
     return currentSubscription;
   } catch (error) {
-    console.warn("Subscription load error; defaulting to Free:", error);
+    console.warn("Subscription load error; access remains unresolved.");
     currentSubscription = null;
-    subscriptionLoaded = true;
+    subscriptionLoaded = false;
+    subscriptionLoadFailed = true;
     return null;
   }
 }
@@ -262,6 +266,10 @@ window.AthlevoPlan = {
 
   isLoaded() {
     return subscriptionLoaded;
+  },
+
+  loadFailed() {
+    return subscriptionLoadFailed;
   },
 
   // Exposed for tests/parity only.

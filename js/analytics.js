@@ -53,7 +53,8 @@
     "cta_text", "cta_location", "destination", "entry_source",
     "previous_page", "signup_method", "user_id", "goal_distance",
     "plan_start_date",
-    "browser", "intent", "source_surface",
+    "browser", "intent", "source_surface", "access_tier",
+    "failure_category",
     "utm_source", "utm_medium", "utm_campaign", "utm_content",
     "utm_term", "fbclid"
   ];
@@ -68,7 +69,13 @@
   var APPROVED_HANDOFF_VALUES = {
     browser: { facebook: true, instagram: true },
     intent: { signup: true, login: true },
-    source_surface: { landing: true, auth: true }
+    source_surface: { landing: true, auth: true, coach: true },
+    access_tier: {
+      free: true,
+      paid_active: true,
+      paid_inactive: true,
+      unknown: true
+    }
   };
 
   /* ═══════════════════ attribution persistence ═════════════════════ */
@@ -318,6 +325,11 @@
       var handoffCategorical = name === "in_app_browser_signup_blocked" ||
         name === "external_signup_link_copied" ||
         name === "external_signup_continuation_viewed";
+      var coachCategorical = name === "coach_message_submitted" ||
+        name === "coach_message_completed" ||
+        name === "coach_weekly_limit_reached" ||
+        name === "coach_upgrade_sheet_viewed" ||
+        name === "coach_request_failed";
       if (premiumCategorical) {
         safe = {
           ...(safe.feature ? { feature: safe.feature } : {}),
@@ -328,6 +340,16 @@
           ...(safe.browser ? { browser: safe.browser } : {}),
           ...(safe.intent ? { intent: safe.intent } : {}),
           ...(safe.source_surface ? { source_surface: safe.source_surface } : {})
+        };
+      } else if (coachCategorical) {
+        safe = {
+          ...(safe.access_tier ? { access_tier: safe.access_tier } : {}),
+          ...(safe.failure_category
+            ? { failure_category: safe.failure_category }
+            : {}),
+          ...(safe.source_surface
+            ? { source_surface: safe.source_surface }
+            : {})
         };
       } else {
         // Acquisition and device context belong on general funnel events.

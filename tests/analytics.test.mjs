@@ -55,7 +55,10 @@ const REQUIRED = [
   "wearable_connection_succeeded", "wearable_connection_failed", "first_sync_started",
   "first_activity_imported", "activity_imported", "first_workout_analysis_viewed",
   "plan_generation_started", "first_plan_generated", "plan_generation_failed",
-  "coach_opened", "first_coach_message_sent", "adaptive_plan_reviewed", "adaptive_plan_applied",
+  "coach_opened", "first_coach_message_sent", "coach_message_submitted",
+  "coach_message_completed", "coach_weekly_limit_reached",
+  "coach_upgrade_sheet_viewed", "coach_request_failed",
+  "adaptive_plan_reviewed", "adaptive_plan_applied",
   "readiness_prompt_shown", "readiness_prompt_dismissed", "readiness_check_completed",
   "app_session_started", "primary_tab_viewed"
 ];

@@ -3483,6 +3483,8 @@ body.landing-active #tabbar{display:none!important}
     letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--red)}
   .performance-upgrade-sheet h2{margin:7px 0 12px;font-family:var(--serif);
     font-size:var(--fs-h1);font-weight:500;line-height:var(--lh-heading);color:var(--text)}
+  .performance-upgrade-body{margin:0 0 14px;font-size:var(--fs-body);
+    line-height:var(--lh-body);color:var(--ink2)}
   .performance-upgrade-benefits{margin:0;padding:0;list-style:none;border-top:1px solid var(--line)}
   .performance-upgrade-benefits li{position:relative;padding:9px 0 9px 17px;
     border-bottom:1px solid var(--line);font-size:var(--fs-body-sm);color:var(--ink2)}
@@ -4584,7 +4586,8 @@ body.landing-active #tabbar{display:none!important}
   <div class="performance-upgrade-sheet">
     <span class="performance-upgrade-eyebrow">Athlevo Performance</span>
     <h2 id="performanceUpgradeTitle">See the full picture behind your training.</h2>
-    <ul class="performance-upgrade-benefits">
+    <p class="performance-upgrade-body" id="performanceUpgradeBody" hidden></p>
+    <ul class="performance-upgrade-benefits" id="performanceUpgradeBenefits">
       <li>Recovery and Training Load insights</li>
       <li>Fitness, Fatigue, Form, and Load trends</li>
       <li>Adaptive plan changes</li>
@@ -4593,9 +4596,9 @@ body.landing-active #tabbar{display:none!important}
     </ul>
     <p class="performance-upgrade-price">₱597/month</p>
     <div class="performance-upgrade-actions">
-      <button class="performance-upgrade-primary" type="button"
+      <button class="performance-upgrade-primary" id="performanceUpgradePrimary" type="button"
         onclick="AthlevoAccessGuard.checkoutFromUpgrade()">Upgrade to Athlevo Performance</button>
-      <button class="performance-upgrade-secondary" type="button"
+      <button class="performance-upgrade-secondary" id="performanceUpgradeSecondary" type="button"
         onclick="AthlevoAccessGuard.closeUpgradeSheet()">Not now</button>
     </div>
   </div>
@@ -7029,9 +7032,9 @@ setTimeout(function () {
 <script src="js/trends.js?v=67"></script>
 <script src="js/trendsAnalytics.js?v=70"></script>
 <script src="js/socialAuth.js?v=71"></script>
-<script src="js/analyticsRegistry.js?v=71"></script>
+<script src="js/analyticsRegistry.js?v=72"></script>
 <script src="js/metaPixel.js?v=67"></script>
-<script src="js/analytics.js?v=71"></script>
+<script src="js/analytics.js?v=72"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=67"></script>
 <script src="js/onboardingConnect.js?v=68"></script>
@@ -7049,14 +7052,14 @@ setTimeout(function () {
 <script src="js/memory.js?v=67"></script>
 <script src="js/dailyBrief.js?v=67"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
-<script src="js/coach.js?v=68"></script>
-<script src="js/features.js?v=67"></script>
+<script src="js/coach.js?v=69"></script>
+<script src="js/features.js?v=68"></script>
 <script src="js/train.js?v=67"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
-<script src="js/accessGuard.js?v=70"></script>
+<script src="js/accessGuard.js?v=71"></script>
 <script src="js/planSetup.js?v=68"></script>
 <script src="js/feedback.js?v=67"></script>
 <script src="js/readiness.js?v=68"></script>

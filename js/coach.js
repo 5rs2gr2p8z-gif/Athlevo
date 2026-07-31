@@ -610,6 +610,12 @@ function buildCoachContextSummary(context) {
 
 let coachRequestInFlight = false;
 
+function claimCoachRequest() {
+  if (coachRequestInFlight) return false;
+  coachRequestInFlight = true;
+  return true;
+}
+
 /* Track the last question so retry can replay it. */
 var _coachLastQuestion = null;
 var _coachRetryInFlight = false;
@@ -808,7 +814,120 @@ function renderFollowUpActions(answer) {
 
 /* ══════════════ Inline error + retry ════════════════════════════ */
 
-function renderCoachError(container, question) {
+function trackCoachEvent(name, accessTier, failureCategory) {
+  var props = {
+    access_tier: accessTier || "unknown",
+    source_surface: "coach"
+  };
+  if (failureCategory) props.failure_category = failureCategory;
+  try {
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.trackAthlevoEvent(name, props);
+    }
+  } catch (e) {}
+}
+
+async function resolveCoachAccessState() {
+  if (!window.AthlevoAccessGuard) return "unknown";
+  var cached = typeof AthlevoAccessGuard.cachedAccessState === "function"
+    ? AthlevoAccessGuard.cachedAccessState()
+    : "unknown";
+  if (cached !== "unknown") return cached;
+  if (typeof toast === "function") toast("Checking your Athlevo access…");
+  if (typeof AthlevoAccessGuard.accessState !== "function") return "unknown";
+  var resolved = await AthlevoAccessGuard.accessState();
+  return resolved === "free" ||
+    resolved === "paid_active" ||
+    resolved === "paid_inactive"
+    ? resolved
+    : "unknown";
+}
+
+function classifyCoachFailure(code, status) {
+  var value = String(code || "");
+  var map = {
+    COACH_WEEKLY_LIMIT_REACHED: {
+      category: "weekly_limit", upgrade: true,
+      message: "You’ve used your 3 free Coach messages for this week."
+    },
+    PERFORMANCE_REQUIRED: {
+      category: "premium_required", upgrade: true,
+      message: "This coaching feature requires Athlevo Performance."
+    },
+    AUTH_REQUIRED: {
+      category: "auth", retryable: false,
+      message: "Please sign in again."
+    },
+    RATE_LIMITED: {
+      category: "rate_limit",
+      message: "Coach has received too many requests. Try again shortly."
+    },
+    COACH_TIMEOUT: {
+      category: "timeout",
+      message: "Athlevo Coach is taking too long to respond. Try again."
+    },
+    COACH_PROVIDER_UNAVAILABLE: {
+      category: "provider_unavailable",
+      message: "Coach is temporarily unavailable."
+    },
+    INVALID_COACH_MESSAGE: {
+      category: "invalid_input", retryable: false,
+      message: "Ask a more specific training question."
+    },
+    COACH_CONTEXT_UNAVAILABLE: {
+      category: "context_unavailable", retryable: false,
+      message: "Coach needs your athlete profile before answering."
+    },
+    ACCESS_UNAVAILABLE: {
+      category: "access_unavailable",
+      message: "We couldn't verify your access. Try again."
+    },
+    COACH_REQUEST_FAILED: {
+      category: "server",
+      message: "Coach couldn't complete that request. Try again."
+    }
+  };
+  if (map[value]) return map[value];
+  if (status === 401) return map.AUTH_REQUIRED;
+  if (status === 429) return map.RATE_LIMITED;
+  if (status >= 500) return map.COACH_REQUEST_FAILED;
+  return {
+    category: "network",
+    message: "Coach couldn't complete that request. Try again."
+  };
+}
+
+function restoreCoachDraft(question, userMessage, loadingMessage) {
+  if (userMessage && typeof userMessage.remove === "function") {
+    userMessage.remove();
+  }
+  if (loadingMessage && typeof loadingMessage.remove === "function") {
+    loadingMessage.remove();
+  }
+  var input = document.getElementById("chatInput");
+  if (input && !input.value.trim()) {
+    input.value = question;
+    if (input.tagName === "TEXTAREA") autoGrowComposer();
+  }
+}
+
+function showCoachLimitUpgrade(accessTier) {
+  if (!window.AthlevoAccessGuard ||
+      typeof AthlevoAccessGuard.showUpgradeSheet !== "function") {
+    return false;
+  }
+  AthlevoAccessGuard.showUpgradeSheet("coach_message", "coach", {
+    title: "Keep coaching with Athlevo Performance",
+    body: "You’ve used your 3 free Coach messages for this week. Upgrade for unlimited questions, deeper training analysis, and ongoing coaching guidance.",
+    primary: "Upgrade to Performance",
+    secondary: "Not now",
+    hideBenefits: true
+  });
+  trackCoachEvent("coach_upgrade_sheet_viewed", accessTier);
+  return true;
+}
+
+function renderCoachError(container, question, failure) {
   if (!container) return;
   container.innerHTML = "";
   container.classList.add("coach-rich-response");
@@ -819,8 +938,14 @@ function renderCoachError(container, question) {
 
   var msg = document.createElement("p");
   msg.className = "coach-error-msg";
-  msg.textContent = "I couldn't finish that response. Your message is still here — try again.";
+  msg.textContent = failure?.message ||
+    "Coach couldn't complete that request. Try again.";
   wrap.appendChild(msg);
+
+  if (failure?.retryable === false) {
+    container.appendChild(wrap);
+    return;
+  }
 
   var retryBtn = document.createElement("button");
   retryBtn.type = "button";
@@ -870,15 +995,44 @@ async function askCoach(question) {
 
   // Prevent duplicate submissions (double-tap / repeated Enter) from
   // creating duplicate stored messages.
-  if (coachRequestInFlight) return;
-  coachRequestInFlight = true;
+  if (!claimCoachRequest()) return;
   _coachLastQuestion = cleanQuestion;
   setCoachSendingState(true);
+  var coachAccessTier = "unknown";
+  var userMessage = null;
+  var loadingMessage = null;
 
-  // Analytics (best-effort): first_coach_message_sent is a once-only milestone;
-  // the registry dedupes it. The message text itself is NEVER recorded.
-  try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("first_coach_message_sent"); } catch (e) {}
-  try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent('coach_message_sent'); } catch (e) {}
+  // Do not classify unresolved entitlement as Free. Keep the duplicate-submit
+  // guard active while the verified subscription state loads.
+  try {
+    coachAccessTier = await resolveCoachAccessState();
+  } catch (error) {
+    coachAccessTier = "unknown";
+  }
+  if (coachAccessTier === "unknown") {
+    trackCoachEvent(
+      "coach_request_failed",
+      "unknown",
+      "access_unavailable"
+    );
+    if (typeof toast === "function") {
+      toast("We couldn't verify your access. Try again.");
+    }
+    coachRequestInFlight = false;
+    setCoachSendingState(false);
+    return;
+  }
+
+  // Analytics is categorical only. The question is never included.
+  trackCoachEvent("coach_message_submitted", coachAccessTier);
+
+  // The composer is cleared only after entitlement resolves. A blocked limit
+  // response restores this exact draft without creating a duplicate message.
+  var composerInput = document.getElementById("chatInput");
+  if (composerInput && composerInput.value.trim() === cleanQuestion) {
+    composerInput.value = "";
+    if (composerInput.tagName === "TEXTAREA") composerInput.style.height = "auto";
+  }
 
   // ──────────────────────────────────────────────────────────────────
   // INSTANT FEEDBACK PHASE
@@ -888,11 +1042,11 @@ async function askCoach(question) {
   //   2. the open "coach is thinking" status appears
   //   3. the send button flips to its sending state
   // ──────────────────────────────────────────────────────────────────
-  addChatMessage("user", cleanQuestion);
+  userMessage = addChatMessage("user", cleanQuestion);
 
   // Quiet thinking indicator — small Athlevo mark with a breathing pulse
   // and a rotating contextual label. Replaces the bouncing dots.
-  const loadingMessage = addChatMessage("ai", "");
+  loadingMessage = addChatMessage("ai", "");
   {
     const changeEl = loadingMessage && loadingMessage.querySelector(".change");
     if (changeEl) {
@@ -903,11 +1057,6 @@ async function askCoach(question) {
       startThinkingLabelRotation(labelEl);
     }
   }
-
-  // Fire-and-forget: history logging has zero downstream dependency and
-  // its errors are already handled inside the function. Moving it off the
-  // critical path removes a Supabase round-trip from the perceived wait.
-  saveConversationMessage("user", cleanQuestion).catch(() => {});
 
   try {
     // Memory extraction MUST stay awaited because loadAthleteMemory()
@@ -921,9 +1070,9 @@ async function askCoach(question) {
   await AthlevoBrain.loadAthleteProfile();
 
 if (!profile) {
-  throw new Error(
-    "No athlete profile was found."
-  );
+  var profileError = new Error("Coach needs your athlete profile before answering.");
+  profileError.coachCode = "COACH_CONTEXT_UNAVAILABLE";
+  throw profileError;
 }
 
 const activities =
@@ -943,9 +1092,9 @@ const context =
   );
 
 if (!context) {
-  throw new Error(
-    "The athlete coaching context could not be created."
-  );
+  var contextError = new Error("Coach needs your athlete profile before answering.");
+  contextError.coachCode = "COACH_CONTEXT_UNAVAILABLE";
+  throw contextError;
 }
 
 // Durable athlete memory — concise, active facts only. Internal fields
@@ -988,7 +1137,9 @@ context.recentConversation = (await loadRecentConversationForCoach())
     // budget), so send the Supabase access token like every other endpoint.
     const { data: { session: coachSession } } = await supabaseClient.auth.getSession();
     if (!coachSession) {
-      throw new Error("Your session expired. Please sign in again.");
+      var authError = new Error("Please sign in again.");
+      authError.coachCode = "AUTH_REQUIRED";
+      throw authError;
     }
 
     const response = await fetch("/api/coach", {
@@ -1003,50 +1154,45 @@ context.recentConversation = (await loadRecentConversationForCoach())
       })
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      // Weekly free allowance reached: keep conversation history visible and
-      // offer an upgrade without losing the athlete's draft/context.
-      if (response.status === 402 && data.code === "FREE_LIMIT_REACHED") {
-        try {
-          if (window.AthlevoProductAnalytics) {
-            AthlevoProductAnalytics.trackAthlevoEvent("free_limit_reached", {
-              feature: data.feature || "coach_message",
-              limit_period: data.period || "week"
-            });
-          }
-        } catch (e) {}
-        stopThinkingLabelRotation();
-        const container = loadingMessage.querySelector(".change");
-        if (container) {
-          container.innerHTML =
-            '<p style="margin-bottom:12px"><b>You’ve used your 3 free Coach messages this week.</b></p>' +
-            '<p style="margin-bottom:14px">Your previous conversations stay available. Upgrade to continue coaching now.</p>' +
-            '<button onclick="if(window.AthlevoAccessGuard)AthlevoAccessGuard.checkout()" ' +
-            'style="background:var(--red);color:#fff;border:none;border-radius:var(--r-pill);padding:14px 24px;font-weight:700;font-size:var(--fs-body);cursor:pointer;font-family:var(--sans)">' +
-            'Upgrade to Athlevo Performance</button>';
-        }
-        coachRequestInFlight = false;
-        setCoachSendingState(false);
-        return;
-      }
-      throw new Error(data.error || "Coach request failed.");
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      var responseParseError = new Error(
+        "Coach couldn't complete that request. Try again."
+      );
+      responseParseError.coachCode = "COACH_REQUEST_FAILED";
+      responseParseError.coachStatus = response.status || 500;
+      throw responseParseError;
     }
 
-    const answer =
-  data.answer || {
-    response_type: "standard",
-    headline: null,
-    direct_answer:
-      "I could not generate a response.",
-    compliment: null,
-    sections: [],
-    mission: null,
-    confidence: null,
-    closing: null,
-    suggested_replies: []
-  };
+    if (!response.ok) {
+      const failure = classifyCoachFailure(data.code, response.status);
+      if (failure.upgrade === true) {
+        stopThinkingLabelRotation();
+        restoreCoachDraft(cleanQuestion, userMessage, loadingMessage);
+        if (failure.category === "weekly_limit") {
+          trackCoachEvent(
+            "coach_weekly_limit_reached",
+            coachAccessTier
+          );
+        }
+        showCoachLimitUpgrade(coachAccessTier);
+        return;
+      }
+      var responseError = new Error(failure.message);
+      responseError.coachCode = data.code || "COACH_REQUEST_FAILED";
+      responseError.coachStatus = response.status;
+      throw responseError;
+    }
+
+    if (!data.answer || typeof data.answer !== "object") {
+      var malformedError = new Error("Coach couldn't complete that request. Try again.");
+      malformedError.coachCode = "COACH_REQUEST_FAILED";
+      malformedError.coachStatus = 500;
+      throw malformedError;
+    }
+    const answer = data.answer;
 
 // Attach the truthful Coach Context summary so it renders above the
 // reply and persists with the saved conversation history.
@@ -1073,7 +1219,8 @@ if (Array.isArray(answer.suggested_replies) && answer.suggested_replies.length >
 }
 
 // Analytics: successful response.
-try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent("coach_response_received", { response_status: "success", source: "coach" }); } catch (e) {}
+try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("first_coach_message_sent"); } catch (e) {}
+trackCoachEvent("coach_message_completed", coachAccessTier);
 
 // Smart-scroll after response renders.
 coachSmartScroll(wasAtLatestBeforeResponse);
@@ -1082,21 +1229,29 @@ coachSmartScroll(wasAtLatestBeforeResponse);
 // the model call did not produce a real structured response, so we show
 // the fallback but do NOT store it as a successful coaching message.
 if (data.answer) {
+  await saveConversationMessage("user", cleanQuestion);
   await saveConversationMessage(
     "assistant",
     JSON.stringify(answer)
   );
 }
   } catch (error) {
-    console.error("Athlevo Coach error:", error);
+    console.error("Athlevo Coach request failed.");
     stopThinkingLabelRotation();
 
-    // Analytics: failed response.
-    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.trackAthlevoEvent("coach_response_failed", { response_status: "error", source: "coach" }); } catch (e) {}
+    const failure = classifyCoachFailure(
+      error?.coachCode,
+      error?.coachStatus || 0
+    );
+    trackCoachEvent(
+      "coach_request_failed",
+      coachAccessTier,
+      failure.category
+    );
 
     // Inline error with retry button (preserves the user's message above).
     const errorContainer = loadingMessage.querySelector(".change");
-    renderCoachError(errorContainer, cleanQuestion);
+    renderCoachError(errorContainer, cleanQuestion, failure);
   } finally {
     coachRequestInFlight = false;
     setCoachSendingState(false);
@@ -1133,12 +1288,8 @@ function sendMsg() {
 
   if (!question) return;
 
-  // Clear and reset the composer BEFORE the async work so the input
-  // feels emptied in the same frame the tap registers.
-  input.value = "";
-  if (input.tagName === "TEXTAREA") {
-    input.style.height = "auto";
-  }
+  // askCoach clears the composer only after entitlement resolves, so a
+  // loading/error state cannot erase the athlete's draft.
   askCoach(question);
 }
 

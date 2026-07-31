@@ -103,12 +103,12 @@ section("Onboarding and limits");
     !/AthlevoPaywall|maybeLaunchAfterOnboarding|checkout/.test(finish));
   test("Coach uses the atomic server free-usage helper",
     /consumeFreeUsage\(\s*authenticatedUser\.id,\s*"coach_message"\s*\)/.test(coachServerSource));
-  test("Coach client handles free-limit 402",
-    /response\.status === 402/.test(coachClientSource) &&
-    /FREE_LIMIT_REACHED/.test(coachClientSource));
-  test("Coach client offers Performance upgrade",
-    /Upgrade to Athlevo Performance/.test(coachClientSource) &&
-    /AthlevoAccessGuard.*checkout/.test(coachClientSource));
+  test("Coach client handles the categorical weekly-limit response",
+    /COACH_WEEKLY_LIMIT_REACHED/.test(coachClientSource) &&
+    /classifyCoachFailure/.test(coachClientSource));
+  test("Coach client uses the reusable Performance upgrade sheet",
+    /Keep coaching with Athlevo Performance/.test(coachClientSource) &&
+    /AthlevoAccessGuard\.showUpgradeSheet/.test(coachClientSource));
 }
 
 section("Upgrade and safety");

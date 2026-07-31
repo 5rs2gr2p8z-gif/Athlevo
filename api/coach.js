@@ -3,8 +3,11 @@ import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { checkAiRateLimit, rateLimitResponse } from "../lib/server/rateLimit.js";
 import {
   accessResponse,
-  consumeFreeUsage
+  consumeFreeUsage,
+  releaseFreeUsage
 } from "../lib/server/freemium.js";
+
+export const maxDuration = 60;
 
 /*
  * Authentication gate (same pattern as every other Athlevo endpoint).
@@ -207,19 +210,29 @@ export default async function handler(req, res) {
       event: "ai_auth_failed", endpoint: "coach", correlationId: randomUUID()
     }));
     return res.status(401).json({
-      error: "Your Athlevo session is invalid or expired. Please sign in again."
+      error: "Please sign in again.",
+      code: "AUTH_REQUIRED"
     });
   }
 
   const { question, context } = req.body || {};
-  if (!question) {
+  const cleanQuestion = typeof question === "string" ? question.trim() : "";
+  if (!cleanQuestion || cleanQuestion.length > 2000) {
     return res.status(400).json({
-      error: "Question is required"
+      error: "Ask a more specific training question.",
+      code: "INVALID_COACH_MESSAGE"
+    });
+  }
+  if (!context || typeof context !== "object" || Array.isArray(context)) {
+    return res.status(422).json({
+      error: "Coach needs your athlete profile before answering.",
+      code: "COACH_CONTEXT_UNAVAILABLE"
     });
   }
   if (!process.env.OPENAI_API_KEY) {
     return res.status(503).json({
-      error: "Your coach is unavailable right now. Please try again shortly."
+      error: "Coach is temporarily unavailable.",
+      code: "COACH_PROVIDER_UNAVAILABLE"
     });
   }
 
@@ -241,42 +254,55 @@ export default async function handler(req, res) {
     "coach_message"
   );
   if (!freeUsage.allowed) {
-    return accessResponse(res, freeUsage, authenticatedUser.id);
+    if (freeUsage.serviceUnavailable) {
+      return accessResponse(res, freeUsage, authenticatedUser.id);
+    }
+    return accessResponse(res, {
+      ...freeUsage,
+      code: "COACH_WEEKLY_LIMIT_REACHED",
+      title: "Keep coaching with Athlevo Performance",
+      error: "You’ve used your 3 free Coach messages for this week."
+    }, authenticatedUser.id);
   }
 
+  let usageCommitted = freeUsage.paid === true;
   try {
     const athlevoMethodPrompt = buildAthlevoMethodPrompt();
-
-    const openAIResponse = await fetch(
-      "https://api.openai.com/v1/responses",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-5.5",
-          reasoning: {
-            effort: "low"
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 50_000);
+    let openAIResponse;
+    try {
+      openAIResponse = await fetch(
+        "https://api.openai.com/v1/responses",
+        {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
           },
-          input: [
-            {
+          body: JSON.stringify({
+            model: "gpt-5.5",
+            reasoning: {
+              effort: "low"
+            },
+            input: [
+              {
     role: "developer",
     content: `${athlevoMethodPrompt}\n\n${COACH_CHAT_STYLE}\n\n${COACH_ACTIONS_INSTRUCTION}`
 },
-            {
-              role: "user",
-              content: `
+              {
+                role: "user",
+                content: `
 ATHLETE CONTEXT:
 ${JSON.stringify(context, null, 2)}
 
 ATHLETE QUESTION:
-${question}
+${cleanQuestion}
               `.trim()
-            }
-          ],
-          text: {
+              }
+            ],
+            text: {
   format: {
     type: "json_schema",
     name: "athlevo_coaching_response",
@@ -529,32 +555,64 @@ ${question}
     }
   }
 }
-        })
-      }
-    );
+          })
+        }
+      );
+    } catch (error) {
+      const timedOut = error?.name === "AbortError";
+      console.warn(JSON.stringify({
+        event: "coach_request_failed",
+        endpoint: "coach",
+        category: timedOut ? "timeout" : "provider_unavailable",
+        correlationId: randomUUID()
+      }));
+      return res.status(timedOut ? 504 : 503).json({
+        error: timedOut
+          ? "Athlevo Coach is taking too long to respond. Try again."
+          : "Coach is temporarily unavailable.",
+        code: timedOut
+          ? "COACH_TIMEOUT"
+          : "COACH_PROVIDER_UNAVAILABLE"
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
-    const data = await openAIResponse.json();
+    let data;
+    try {
+      data = await openAIResponse.json();
+    } catch (error) {
+      data = {};
+    }
 
     if (!openAIResponse.ok) {
-      console.error("OpenAI error:", data);
-
-      const answer =
-  data.output_text ||
-  data.output?.[0]?.content?.[0]?.text ||
-  "No response generated";
-
-return res.status(200).json({
-  answer
-});
+      console.warn(JSON.stringify({
+        event: "coach_request_failed",
+        endpoint: "coach",
+        category: "provider_unavailable",
+        providerStatus: openAIResponse.status,
+        correlationId: randomUUID()
+      }));
+      return res.status(503).json({
+        error: "Coach is temporarily unavailable.",
+        code: "COACH_PROVIDER_UNAVAILABLE"
+      });
     }
 
     const answer =
-  data.output_text ||
-  data.output
-    ?.flatMap(item => item.content || [])
-    .find(content => content.type === "output_text")
-    ?.text ||
-  "No response generated";
+      data.output_text ||
+      data.output
+        ?.flatMap(item => item.content || [])
+        .find(content => content.type === "output_text")
+        ?.text ||
+      null;
+
+    if (!answer) {
+      return res.status(503).json({
+        error: "Coach is temporarily unavailable.",
+        code: "COACH_PROVIDER_UNAVAILABLE"
+      });
+    }
 
 let structuredAnswer;
 
@@ -584,15 +642,30 @@ structuredAnswer.actions = validateProposedActions(
   structuredAnswer.actions
 ).map(action => ({ ...action, id: randomUUID() }));
 
+usageCommitted = true;
 return res.status(200).json({
   answer: structuredAnswer
 });
 
   } catch (error) {
-    console.error("Coach API error:", error);
+    console.error(JSON.stringify({
+      event: "coach_request_failed",
+      endpoint: "coach",
+      category: "server_error",
+      correlationId: randomUUID()
+    }));
 
     return res.status(500).json({
-      error: "Internal server error"
+      error: "Coach couldn't complete that request. Try again.",
+      code: "COACH_REQUEST_FAILED"
     });
+  } finally {
+    if (!usageCommitted && freeUsage.allowed && freeUsage.paid !== true) {
+      await releaseFreeUsage(
+        authenticatedUser.id,
+        "coach_message",
+        freeUsage
+      );
+    }
   }
 }
