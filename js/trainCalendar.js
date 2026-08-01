@@ -129,7 +129,25 @@
   const STATUS_LABEL = { done: "Completed", mod: "Modified", skip: "Skipped", planned: "Planned", rest: "Rest day", activity: "Activity" };
   function section(label, inner) { return `<div class="tcp-sec"><div class="tcp-sec-label">${esc(label)}</div>${inner}</div>`; }
   function listOr(label, arr) { const items = (Array.isArray(arr) ? arr : []).map(x => x == null ? "" : String(x)).filter(Boolean); return items.length ? section(label, `<ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`) : ""; }
-  const sportLabel = a => { const s = String(a.sport_type || a.activity_type || "").toLowerCase(); if (/ride|bike|cycl/.test(s)) return "Ride"; if (/swim/.test(s)) return "Swim"; if (/weight|gym|strength/.test(s)) return "Gym"; if (/brick/.test(s)) return "Brick"; if (/walk|hike/.test(s)) return "Walk"; return "Run"; };
+  // Canonical sport → short display label (authoritative when the classifier
+  // is loaded; falls back to a small heuristic so the UI never breaks).
+  const CANON_SPORT_LABEL = {
+    run: "Run", ride: "Ride", strength: "Strength", swim: "Swim",
+    walk: "Walk", hike: "Hike", mobility: "Mobility",
+    cross_training: "Cross-train", rest: "Rest", other: "Activity"
+  };
+  const canonSport = a => {
+    const SC = window.SportClassification;
+    if (SC) return SC.canonicalSportOf(a);
+    const s = String(a.sport_type || a.activity_type || "").toLowerCase();
+    if (/ride|bike|cycl/.test(s)) return "ride";
+    if (/swim/.test(s)) return "swim";
+    if (/weight|gym|strength/.test(s)) return "strength";
+    if (/walk/.test(s)) return "walk";
+    if (/hike/.test(s)) return "hike";
+    return "run";
+  };
+  const sportLabel = a => CANON_SPORT_LABEL[canonSport(a)] || "Activity";
 
   function renderPanel() {
     const el = document.getElementById("trainDayPanel");
@@ -363,19 +381,45 @@
         html += `</div>`;
       }
 
-      // 5. Raw metrics — near the bottom.
+      // 5. Raw metrics — near the bottom. Units are SPORT-AWARE: a ride shows
+      // speed (km/h) and power, never running pace; strength shows duration and
+      // category rather than distance/pace. Only runs show min/km pace.
       html += `<div class="twm-block"><div class="twm-block-h">Metrics</div>`;
+      const sport = act ? canonSport(act) : "run";
+      const rawData = (act && act.raw_data && typeof act.raw_data === "object") ? act.raw_data : {};
       const km = act && act.distance_meters ? (act.distance_meters / 1000).toFixed(1) + " km" : (ex && ex.actual_distance_km ? ex.actual_distance_km + " km" : null);
       const min = act && act.moving_time_seconds ? Math.round(act.moving_time_seconds / 60) + " min" : (ex && ex.actual_duration_minutes ? Math.round(ex.actual_duration_minutes) + " min" : null);
       const avgHr = act && act.average_heartrate ? Math.round(act.average_heartrate) + " bpm" : (ex && ex.actual_average_hr ? ex.actual_average_hr + " bpm" : null);
       const maxHr = act && act.max_heartrate ? Math.round(act.max_heartrate) + " bpm" : null;
       const pace = ex && ex.actual_average_pace ? ex.actual_average_pace + "/km" : (act && act.distance_meters && act.moving_time_seconds ? fmtPace(act.moving_time_seconds / (act.distance_meters / 1000)) : null);
-      const cadence = act && act.average_cadence ? Math.round(act.average_cadence) + " spm" : null;
+      const speedKph = act && act.distance_meters && act.moving_time_seconds ? ((act.distance_meters / act.moving_time_seconds) * 3.6).toFixed(1) + " km/h" : null;
+      const powerW = Number(rawData.average_power_watts) > 0 ? Math.round(Number(rawData.average_power_watts)) + " W" : null;
+      const cadence = act && act.average_cadence ? Math.round(act.average_cadence) + (sport === "ride" ? " rpm" : " spm") : null;
       const elev = act && act.elevation_gain_meters ? Math.round(act.elevation_gain_meters) + " m" : null;
       html += planRow("Status", ex ? (ex.status === "completed" ? "Completed" : ex.status === "modified" ? "Modified" : "Skipped") : "Imported");
-      html += planRow("Distance", km) + planRow("Duration", min) + planRow("Average pace", pace) +
-        planRow("Average HR", avgHr) + planRow("Max HR", maxHr) + planRow("Cadence", cadence) + planRow("Elevation", elev) +
-        planRow("Athlete RPE", ex && ex.actual_rpe ? String(ex.actual_rpe) : null) +
+      html += planRow("Sport", CANON_SPORT_LABEL[sport] || "Activity");
+      if (sport === "ride") {
+        // Ride: duration + distance + speed + power/cadence. No running pace.
+        html += planRow("Duration", min) + planRow("Distance", km) +
+          planRow("Average speed", speedKph) + planRow("Average power", powerW) +
+          planRow("Average HR", avgHr) + planRow("Max HR", maxHr) +
+          planRow("Cadence", cadence) + planRow("Elevation", elev);
+      } else if (sport === "strength" || sport === "mobility") {
+        // Strength/mobility: duration + training category. No distance/pace.
+        html += planRow("Duration", min) +
+          planRow("Category", CANON_SPORT_LABEL[sport]) +
+          planRow("Average HR", avgHr) + planRow("Max HR", maxHr);
+      } else if (sport === "run") {
+        // Run: distance + pace (min/km).
+        html += planRow("Distance", km) + planRow("Duration", min) + planRow("Average pace", pace) +
+          planRow("Average HR", avgHr) + planRow("Max HR", maxHr) + planRow("Cadence", cadence) + planRow("Elevation", elev);
+      } else {
+        // Swim/walk/hike/cross-train/other: duration-first, distance if any,
+        // but never running pace.
+        html += planRow("Duration", min) + planRow("Distance", km) +
+          planRow("Average HR", avgHr) + planRow("Max HR", maxHr) + planRow("Elevation", elev);
+      }
+      html += planRow("Athlete RPE", ex && ex.actual_rpe ? String(ex.actual_rpe) : null) +
         planRow("Feeling", ex && ex.overall_feeling ? String(ex.overall_feeling) : null);
       html += `</div>`;
 

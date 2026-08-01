@@ -157,10 +157,46 @@ function buildCoachingContext(
           ? Math.round(movingTimeSeconds / 60)
           : null;
 
-      const averagePacePerKilometer = formatPacePerKm(
-        distanceMeters,
-        movingTimeSeconds
-      );
+      // Canonical sport classification (authoritative). Falls back safely if
+      // the classifier isn't loaded. Pace is a RUNNING metric — never present
+      // a per-km pace for a ride/strength/etc. The coach must see a ride as a
+      // ride, not a run.
+      const SC = window.SportClassification;
+      const canonicalSport = SC ? SC.canonicalSportOf(activity) : null;
+      const classification = SC
+        ? SC.classifyActivity({
+            provider: activity.source,
+            providerActivityType:
+              activity.activity_type || activity.sport_type,
+            name: activity.name,
+            trainer: activity.trainer
+          })
+        : null;
+      const dq = SC ? SC.activityDataQuality(activity) : null;
+      const isRun = canonicalSport ? canonicalSport === "run" : true;
+
+      const averagePacePerKilometer = isRun
+        ? formatPacePerKm(distanceMeters, movingTimeSeconds)
+        : null;
+
+      // Speed (km/h) is the ride-family headline metric.
+      const averageSpeedKph =
+        !isRun && distanceMeters > 0 && movingTimeSeconds > 0
+          ? Number(((distanceMeters / movingTimeSeconds) * 3.6).toFixed(1))
+          : null;
+
+      const rawData =
+        activity.raw_data && typeof activity.raw_data === "object"
+          ? activity.raw_data
+          : {};
+      const averagePowerWatts =
+        Number(rawData.average_power_watts) > 0
+          ? Math.round(Number(rawData.average_power_watts))
+          : null;
+      const trainingLoad =
+        Number(rawData.training_load) > 0
+          ? Math.round(Number(rawData.training_load))
+          : null;
 
       return {
         // Exposed so the coach can target this activity in a correction
@@ -173,6 +209,11 @@ function buildCoachingContext(
           activity.activity_type ||
           "Activity",
 
+        // Authoritative canonical sport + provenance, plus the raw provider
+        // string kept for transparency/debugging.
+        sport: canonicalSport || "unknown",
+        subtype: classification ? classification.subtype : null,
+        indoor: classification ? classification.indoor : Boolean(activity.trainer),
         sportType:
           activity.sport_type ||
           activity.activity_type ||
@@ -182,6 +223,14 @@ function buildCoachingContext(
         distanceKilometers,
         durationMinutes,
         averagePacePerKilometer,
+        averageSpeedKph,
+        averagePowerWatts,
+        averageCadence:
+          Number(activity.average_cadence) > 0
+            ? Math.round(Number(activity.average_cadence))
+            : null,
+        trainingLoad,
+        dataQuality: dq,
 
         averageHeartRate:
           Number(activity.average_heartrate) > 0
@@ -257,6 +306,13 @@ function buildCoachingContext(
       raceType: profile.race_type || "Not provided",
       targetRace: profile.target_race || null,
       targetRaceDate: profile.target_race_date || null,
+
+      // Athlete sport profile. primary_sport already exists; secondary/goal
+      // sport are surfaced when present (schema expansion tracked separately).
+      // Athlevo is running-first today, so these default accordingly.
+      primarySport: profile.primary_sport || "Running",
+      secondarySport: profile.secondary_sport || null,
+      goalSport: profile.goal_sport || profile.primary_sport || "Running",
 
       injuryHistory:
         profile.injury_history || "None reported",
@@ -2371,13 +2427,33 @@ function buildActivitySummary(activities = []) {
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(now.getDate() - 7);
 
+  // Canonical sport gate. `sevenDayDistanceKilometers` and weekly volumes are
+  // presented as RUNNING mileage, so cycling / walking / strength distance must
+  // never be folded in. Falls back to "treat as run" only when the classifier
+  // is unavailable (keeps legacy behaviour rather than dropping data).
+  const SC = window.SportClassification;
+  const isRun = activity => (SC ? SC.isRunRow(activity) : true);
+  const isRide = activity => (SC ? SC.isRideRow(activity) : false);
+  const metersOf = activity => Number(activity.distance_meters) || 0;
+
   const recentActivities = sortedActivities.filter(
     activity => new Date(activity.start_date) >= sevenDaysAgo
   );
+  const recentRuns = recentActivities.filter(isRun);
+  const recentRides = recentActivities.filter(isRide);
 
-  const sevenDayDistanceMeters = recentActivities.reduce(
-    (total, activity) =>
-      total + (Number(activity.distance_meters) || 0),
+  // Run-only mileage (authoritative running distance).
+  const sevenDayDistanceMeters = recentRuns.reduce(
+    (total, a) => total + metersOf(a),
+    0
+  );
+  // Kept separately so nothing conflates them.
+  const sevenDayRideDistanceMeters = recentRides.reduce(
+    (total, a) => total + metersOf(a),
+    0
+  );
+  const sevenDayTotalDistanceMeters = recentActivities.reduce(
+    (total, a) => total + metersOf(a),
     0
   );
 
@@ -2416,9 +2492,15 @@ function buildActivitySummary(activities = []) {
       return activityDate >= weekStart && activityDate < weekEnd;
     });
 
-    const distanceMeters = weekActivities.reduce(
-      (total, activity) =>
-        total + (Number(activity.distance_meters) || 0),
+    // Run-only distance is the "weekly mileage" figure; ride/total kept apart.
+    const runMeters = weekActivities
+      .filter(isRun)
+      .reduce((total, a) => total + metersOf(a), 0);
+    const rideMeters = weekActivities
+      .filter(isRide)
+      .reduce((total, a) => total + metersOf(a), 0);
+    const totalMeters = weekActivities.reduce(
+      (total, a) => total + metersOf(a),
       0
     );
 
@@ -2426,14 +2508,22 @@ function buildActivitySummary(activities = []) {
       startDate: weekStart.toISOString(),
       endDate: weekEnd.toISOString(),
       activityCount: weekActivities.length,
-      distanceKilometers: distanceMeters / 1000
+      distanceKilometers: runMeters / 1000,
+      rideDistanceKilometers: rideMeters / 1000,
+      totalDistanceKilometers: totalMeters / 1000
     });
   }
 
   return {
     latestActivity,
     sevenDayActivityCount: recentActivities.length,
+    sevenDayRunCount: recentRuns.length,
+    sevenDayRideCount: recentRides.length,
+    // Authoritative running mileage (run-only).
     sevenDayDistanceKilometers: sevenDayDistanceMeters / 1000,
+    // Sport-separated companions so nothing conflates cycling with running.
+    sevenDayRideDistanceKilometers: sevenDayRideDistanceMeters / 1000,
+    sevenDayTotalDistanceKilometers: sevenDayTotalDistanceMeters / 1000,
     sevenDayTrainingHours: sevenDayMovingSeconds / 3600,
     sevenDayAverageHeartRate,
     weeklyVolumes

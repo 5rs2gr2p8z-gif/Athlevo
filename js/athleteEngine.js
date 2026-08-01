@@ -54,6 +54,20 @@
     const t = String(a?.activity_type || a?.sport_type || a?.type || "").toLowerCase();
     return /run|jog|tempo|interval|threshold|long|track/.test(t);
   }
+  // Canonical sport resolver (authoritative when SportClassification is loaded).
+  function sportOf(a) {
+    const SC = window.SportClassification;
+    if (SC) return SC.canonicalSportOf(a);
+    return isRunActivity(a) ? "run" : "other";
+  }
+  function loadBucketForSport(sport) {
+    const SC = window.SportClassification;
+    if (SC) return SC.loadBucketForSport(sport);
+    if (sport === "run") return "run";
+    if (sport === "ride") return "ride";
+    if (sport === "strength") return "strength";
+    return "other";
+  }
   function formatPaceSec(secPerKm) {
     if (secPerKm == null || !Number.isFinite(secPerKm) || secPerKm <= 0) return null;
     const total = Math.round(secPerKm);
@@ -117,6 +131,7 @@
         status: e.status,
         performed,
         isRun: isRunActivity({ activity_type: snap.session_type || (linked && (linked.sport_type || linked.activity_type)) }),
+        sport: linked ? sportOf(linked) : sportOf({ activity_type: snap.session_type, name: snap.title }),
         distanceKm: km || 0,
         durationMin: durMin || 0,
         elapsedMin: linked && num(linked.elapsed_time_seconds) != null ? num(linked.elapsed_time_seconds) / 60 : (durMin || 0),
@@ -144,6 +159,7 @@
         status: "activity",
         performed: true,
         isRun: isRunActivity(a),
+        sport: sportOf(a),
         distanceKm: km || 0,
         durationMin: durMin || 0,
         elapsedMin: num(a.elapsed_time_seconds) != null ? num(a.elapsed_time_seconds) / 60 : (durMin || 0),
@@ -262,6 +278,18 @@
       daily[idx] += ci.load;
     }
 
+    // Per-sport 7-day load breakdown (mirror of the server engine). Total
+    // systemic load is preserved; this splits it so ride load is never
+    // mislabeled as run load.
+    const loadBySport = { run: 0, ride: 0, strength: 0, other: 0 };
+    for (const ci of classifiedItems) {
+      const age = ageDays(ci.item.timestamp, nowMs);
+      if (age < 0 || age >= 7) continue;
+      const bucket = loadBucketForSport(ci.item.sport || "other");
+      loadBySport[bucket] += ci.load;
+    }
+    Object.keys(loadBySport).forEach(k => { loadBySport[k] = Math.round(loadBySport[k]); });
+
     const last7 = daily.slice(DAYS - 7);
     const prev7 = daily.slice(DAYS - 14, DAYS - 7);
 
@@ -292,6 +320,11 @@
 
     return {
       weekly_training_load: weeklyLoad,
+      weekly_load_run: loadBySport.run,
+      weekly_load_ride: loadBySport.ride,
+      weekly_load_strength: loadBySport.strength,
+      weekly_load_other: loadBySport.other,
+      weekly_load_by_sport: loadBySport,
       acute_load: Math.round(acute),
       chronic_load: Math.round(chronic),
       acwr: acwr != null ? Math.round(acwr * 100) / 100 : null,

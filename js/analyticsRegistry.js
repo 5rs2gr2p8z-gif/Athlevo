@@ -63,6 +63,11 @@
     first_sync_started:            { kind: "milestone",   props: ["provider_type"] },
     first_activity_imported:       { kind: "milestone",   props: ["activity_type", "activity_count_bucket"] },
     activity_imported:             { kind: "behavioural", props: ["activity_type"] },
+    // Multi-sport classification taxonomy. Categorical only — never distance,
+    // power, HR, titles, athlete ids, or raw payloads.
+    activity_classified:           { kind: "behavioural", props: ["canonical_sport", "provider", "classification_source", "mapping_status"] },
+    activity_type_unmapped:        { kind: "behavioural", props: ["provider", "classification_source", "mapping_status"] },
+    sport_filter_viewed:           { kind: "behavioural", props: ["canonical_sport"] },
     first_workout_analysis_viewed: { kind: "milestone",   props: ["workout_type"] },
     plan_generation_started:       { kind: "behavioural", props: ["plan_goal_type"] },
     first_plan_generated:          { kind: "milestone",   props: ["plan_goal_type", "user_id", "goal_distance", "plan_start_date"] },

@@ -362,6 +362,42 @@ function mapStravaActivity(userId, activity) {
   return row;
 }
 
+/*
+ * Emit categorical classification analytics for a batch of normalized rows.
+ * Only canonical sport + mapping status counts (and, for unmapped rows, the
+ * raw provider TYPE string — a low-cardinality category, not user content) are
+ * logged. No athlete identifier, distance, power, HR, title or payload.
+ */
+function logClassificationSummary(provider, rows) {
+  const bySport = {};
+  const unmappedTypes = {};
+  let unmapped = 0;
+  for (const row of rows || []) {
+    const c = (row && row.raw_data && row.raw_data.classification) || {};
+    const sport = c.canonical_sport || "other";
+    bySport[sport] = (bySport[sport] || 0) + 1;
+    if (c.status === "unmapped") {
+      unmapped += 1;
+      const t = c.providerActivityType || "unknown";
+      unmappedTypes[t] = (unmappedTypes[t] || 0) + 1;
+    }
+  }
+  console.log(JSON.stringify({
+    event: "activity_classified",
+    provider,
+    classified: (rows || []).length,
+    by_sport: bySport
+  }));
+  if (unmapped > 0) {
+    console.log(JSON.stringify({
+      event: "activity_type_unmapped",
+      provider,
+      unmapped_count: unmapped,
+      unmapped_types: unmappedTypes
+    }));
+  }
+}
+
 async function saveActivities(activities) {
   if (!activities.length) {
     return [];
@@ -504,6 +540,12 @@ export default async function handler(request, response) {
     const mappedActivities = stravaActivities.map(activity =>
       mapStravaActivity(authenticatedUser.id, activity)
     );
+
+    // Privacy-safe categorical classification analytics. Aggregates by
+    // canonical sport + mapping status only — NEVER titles, distance, power,
+    // HR, ids or raw payloads. Unmapped provider types are surfaced (by their
+    // categorical type string alone) so the mapping table can be extended.
+    logClassificationSummary("strava", mappedActivities);
 
     const savedActivities = await saveActivities(mappedActivities);
 
