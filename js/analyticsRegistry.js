@@ -68,6 +68,19 @@
     activity_classified:           { kind: "behavioural", props: ["canonical_sport", "provider", "classification_source", "mapping_status"] },
     activity_type_unmapped:        { kind: "behavioural", props: ["provider", "classification_source", "mapping_status"] },
     sport_filter_viewed:           { kind: "behavioural", props: ["canonical_sport"] },
+    // Coach dashboard taxonomy. Categorical only — never athlete name, email,
+    // UUID, workout titles, pain notes, readiness values, distance, or power.
+    coach_dashboard_viewed:        { kind: "behavioural", props: ["dashboard_surface", "roster_size_band"] },
+    coach_roster_athlete_opened:   { kind: "behavioural", props: ["dashboard_surface", "athlete_sport"] },
+    coach_attention_item_viewed:   { kind: "behavioural", props: ["attention_reason", "attention_severity", "athlete_sport"] },
+    coach_attention_item_reviewed: { kind: "behavioural", props: ["attention_reason", "attention_severity", "athlete_sport"] },
+    // Managed athlete mode taxonomy. Categorical only — never coach email,
+    // athlete UUID, workout content, pain/injury notes, or provider payloads.
+    athlete_coaching_mode_resolved: { kind: "behavioural", props: ["coaching_mode"] },
+    assigned_coach_viewed:          { kind: "behavioural", props: [] },
+    coach_managed_plan_viewed:      { kind: "behavioural", props: [] },
+    coach_adjustment_requested:     { kind: "behavioural", props: ["request_type"] },
+    managed_coach_tab_viewed:       { kind: "behavioural", props: [] },
     first_workout_analysis_viewed: { kind: "milestone",   props: ["workout_type"] },
     plan_generation_started:       { kind: "behavioural", props: ["plan_goal_type"] },
     first_plan_generated:          { kind: "milestone",   props: ["plan_goal_type", "user_id", "goal_distance", "plan_start_date"] },
@@ -143,7 +156,9 @@
       session: true, timeout: true, unavailable: true, validation: true,
       unknown: true
     },
-    value_type: { training_plan: true }
+    value_type: { training_plan: true },
+    coaching_mode: { self_guided: true, human_coached: true },
+    request_type: { adjustment: true, unable_to_complete: true, move: true, feedback: true, availability: true }
   };
 
   function canonicalName(name) {

@@ -12,6 +12,7 @@ import {
 } from "../../lib/server/coachActions.js";
 
 import { buildProposal } from "../../lib/server/adaptivePlanAdapter.js";
+import { guardPlanWrite } from "../../lib/server/managedPlan.js";
 import {
   accessResponse,
   requirePaidAccess,
@@ -638,6 +639,29 @@ async function handleApplyAction(response, user, body) {
 
   const savedProposalId =
     (savedProposalRow && savedProposalRow.id) || proposalId || null;
+
+  /*
+   * MANAGED-ATHLETE SAFETY: for a human-coached athlete, an AI coach-action
+   * must not directly mutate a coach-owned session. The proposal is kept
+   * (recorded above) as pending, but the mutation is skipped so the coach's
+   * authored session is never silently overwritten. Self-guided athletes are
+   * unaffected — the guard allows the mutation and behaviour is unchanged.
+   */
+  const applyGuard = await guardPlanWrite({
+    userId: user.id,
+    targetDates: [targetSession && targetSession.session_date, action && action.to_date].filter(Boolean),
+    origin: "ai"
+  });
+  if (!applyGuard.allowed) {
+    return sendJson(response, 200, {
+      applied: false,
+      proposal_id: savedProposalId,
+      coaching_mode: applyGuard.mode,
+      status: "pending_coach_approval",
+      message:
+        "Your coach manages your plan, so this suggestion has been sent for coach review rather than applied automatically."
+    });
+  }
 
   // 2) Perform the actual mutation. If it fails, roll the proposal back so
   //    it is not falsely left "applied" and the athlete can retry.

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
+import { guardPlanWrite } from "../../lib/server/managedPlan.js";
 import {
   accessResponse,
   checkAccess,
@@ -2022,6 +2023,30 @@ const weekEnd =
       generatedPlan.sessions,
       weekStart
     );
+
+    /*
+     * MANAGED-ATHLETE SAFETY: for a human-coached athlete, AI generation must
+     * never silently overwrite coach-owned sessions. If any target date is
+     * coach-owned, we refuse the direct write and return a proposal-pending
+     * state instead. Self-guided athletes are unaffected (guard allows the
+     * write) so existing behaviour is unchanged.
+     */
+    const planGuard = await guardPlanWrite({
+      userId: user.id,
+      targetDates: (generatedPlan.sessions || []).map(s => s && s.session_date),
+      origin: "ai"
+    });
+    if (!planGuard.allowed) {
+      return sendJson(response, 409, {
+        success: false,
+        code: "COACH_OWNED_PLAN",
+        coaching_mode: planGuard.mode,
+        error:
+          "Your coach manages your plan. Athlevo can suggest changes, but only your coach can update coach-authored sessions.",
+        proposal_pending: true,
+        coach_owned_dates: planGuard.coachOwnedDates
+      });
+    }
 
     const savedPlan =
       await saveTrainingPlan({

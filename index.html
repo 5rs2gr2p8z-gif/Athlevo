@@ -6871,6 +6871,30 @@ async function routeAfterAuth(userId) {
     }
   } catch (e) {}
 
+  /*
+   * Coach dashboard (role-gated). init() is a no-op for athletes — it injects
+   * no entry and registers no route unless the caller's own profile.role is
+   * coach/admin. Never blocks athlete routing.
+   */
+  try {
+    if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.init) {
+      window.AthlevoCoachDashboard.init();
+    }
+  } catch (e) {}
+
+  /*
+   * Managed Athlete Mode (role-gated). init() fetches the authoritative
+   * coaching mode from the server. For self_guided athletes (the majority)
+   * it is a no-op after a single lightweight GET. For human_coached athletes
+   * it configures Today labels, Coach-tab shell, Train permissions, and the
+   * You Assigned Coach section. Never blocks athlete routing.
+   */
+  try {
+    if (window.AthlevoAthleteMode && window.AthlevoAthleteMode.init) {
+      window.AthlevoAthleteMode.init();
+    }
+  } catch (e) {}
+
   // The boot gate is lifted immediately after authenticated routing returns.
   // Evaluate on the next task so Today is populated and visible first.
   setTimeout(function(){
@@ -7217,6 +7241,8 @@ setTimeout(function () {
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
+<script src="js/athleteMode.js?v=74"></script>
+<script src="js/coachDashboard.js?v=74"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
 <script src="js/accessGuard.js?v=72"></script>
 <script src="js/planSetup.js?v=69"></script>
