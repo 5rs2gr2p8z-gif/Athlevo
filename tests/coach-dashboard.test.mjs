@@ -63,7 +63,7 @@ t("isCoach/isAdmin helpers correct", isCoach({ role: "coach" }) && isAdmin({ rol
 // Client-side role spoofing: the API reads role from the caller's OWN profile
 // (loadCoachProfile), never from the request body/query.
 {
-  const src = readFileSync(join(root, "api/coach-dashboard.js"), "utf8");
+  const src = readFileSync(join(root, "api/providers/index.js"), "utf8");
   t("API derives role from server-loaded profile, not client input", /loadCoachProfile\(user\.id\)/.test(src) && /canAccessCoachDashboard\(profile\)/.test(src));
   t("API never trusts a client-supplied role field", !/req\.body\.role|req\.query\.role/.test(src));
 }
@@ -97,7 +97,7 @@ section("RLS / API SECURITY");
   const leak = clientFiles.some(f => /SERVICE_ROLE|service_role|serviceRole/.test(readFileSync(join(root, f), "utf8")));
   t("service-role key absent from browser bundle", leak === false);
 
-  const api = readFileSync(join(root, "api/coach-dashboard.js"), "utf8");
+  const api = readFileSync(join(root, "api/providers/index.js"), "utf8");
   t("API authorizes athlete_id against active assignments before loading data", /canCoachAccessAthlete\(assignments, user\.id, athleteId\)/.test(api));
   t("API never SELECTs provider tokens", !/select=[^`'"]*(access_token|refresh_token)/.test(api));
   t("API provider read is limited to last_sync fields", /provider_accounts\?[^`]*select=provider,last_sync_at,last_sync_status/.test(api));
@@ -218,7 +218,7 @@ t("review does not erase the underlying condition (classifier is review-independ
 })());
 {
   const mig = readFileSync(join(root, "migrations/2026-08-01_coach_dashboard.sql"), "utf8");
-  t("reviewed alert remains historically traceable (upsert, not per-render insert)", /coach_attention_reviews_unique/.test(mig) && /on_conflict=coach_id,athlete_id,alert_key/.test(readFileSync(join(root, "api/coach-dashboard.js"), "utf8")));
+  t("reviewed alert remains historically traceable (upsert, not per-render insert)", /coach_attention_reviews_unique/.test(mig) && /on_conflict=coach_id,athlete_id,alert_key/.test(readFileSync(join(root, "api/providers/index.js"), "utf8")));
 }
 
 /* ═══════════════════════════ ATHLETE OVERVIEW ═════════════════════════ */

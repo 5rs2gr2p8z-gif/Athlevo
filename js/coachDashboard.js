@@ -6,7 +6,7 @@
  *  A SEPARATE coach workspace layered over the existing SPA. It is role-gated:
  *  athletes never see the entry and are redirected if they force the route.
  *  The browser UI is NOT the security boundary — every data read goes through
- *  /api/coach-dashboard, which re-checks role + active assignment server-side.
+ *  /api/providers?action=coaching_dashboard_*, which re-checks role + active assignment server-side.
  *
  *  · Route: hash '#coach' (PWA/back/refresh safe). Athlete bottom nav is
  *    untouched; a Coach entry is injected into the You screen only for
@@ -57,7 +57,7 @@
     opts = opts || {};
     var t = await token();
     if (!t) return { ok: false, status: 401, body: { error: "No session" } };
-    var url = "/api/coach-dashboard?action=" + encodeURIComponent(action);
+    var url = "/api/providers?action=coaching_dashboard_" + encodeURIComponent(action);
     if (opts.query) Object.keys(opts.query).forEach(function (k) {
       url += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(opts.query[k]);
     });

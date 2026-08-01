@@ -3,7 +3,7 @@
  *  Athlevo — Managed Athlete Mode (client)   ·   window.AthlevoAthleteMode
  * ══════════════════════════════════════════════════════════════════════
  *
- *  The client-side counterpart to /api/athlete-mode. The browser NEVER decides
+ *  The client-side counterpart to /api/providers?action=athlete_*. The browser NEVER decides
  *  the coaching mode — it fetches the authoritative answer from the server and
  *  then configures the UI accordingly.
  *
@@ -89,7 +89,7 @@
         _fetching = false;
         return;
       }
-      var resp = await fetch("/api/athlete-mode?action=mode", {
+      var resp = await fetch("/api/providers?action=athlete_coaching_mode", {
         headers: { Authorization: "Bearer " + t }
       });
       if (!resp.ok) {
@@ -338,7 +338,7 @@
     try {
       var t = await token();
       if (!t) return { ok: false, error: "Not authenticated" };
-      var resp = await fetch("/api/athlete-mode?action=request_adjustment", {
+      var resp = await fetch("/api/providers?action=athlete_request_adjustment", {
         method: "POST",
         headers: {
           Authorization: "Bearer " + t,

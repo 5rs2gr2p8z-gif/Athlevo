@@ -31,6 +31,31 @@ import crypto from "node:crypto";
 import {
   buildFunnel, computeRetention, activeUsers, classifySegments, topline, recentFailures
 } from "../../lib/server/analyticsAggregation.js";
+
+/* ──────────────────── Coach Dashboard imports ─────────────────────────
+ * Consolidated from the former api/coach-dashboard.js (removed to stay
+ * within the Vercel Hobby 12-function limit). Actions are namespaced as
+ * coaching_dashboard_roster, coaching_dashboard_athlete, coaching_dashboard_review.
+ */
+import { canAccessCoachDashboard, resolveRole } from "../../lib/server/coachRoles.js";
+import {
+  assignedAthleteIds,
+  canCoachAccessAthlete
+} from "../../lib/server/coachAssignments.js";
+import { classifyAttention } from "../../lib/server/attentionClassifier.js";
+import {
+  buildRosterEntry,
+  buildAthleteOverview,
+  deriveLastActiveAt
+} from "../../lib/server/coachSanitize.js";
+
+/* ──────────────────── Athlete Mode imports ─────────────────────────────
+ * Consolidated from the former api/athlete-mode.js (removed to stay
+ * within the Vercel Hobby 12-function limit). Actions are namespaced as
+ * athlete_coaching_mode, athlete_request_adjustment.
+ */
+import { resolveCoachingMode, buildSafeCoachProfile } from "../../lib/server/coachingMode.js";
+import { stripClientAuthorityFields } from "../../lib/server/planAuthority.js";
 import { mapIntervals, normalizeIntervalLaps, toActivityRow, buildRecognitionFromRow, RECOGNITION_VERSION, isCurrentRecognitionVersion } from "../../lib/server/wearable/normalizer.js";
 import { resolveDuplicates, mapProviderError, isIntervalsEnabled } from "../../lib/server/wearable/providers.js";
 import {
@@ -1810,6 +1835,384 @@ async function actionReanalyze(request, response, cid) {
   });
 }
 
+/* ═══════════════════ COACH DASHBOARD actions ═══════════════════════ */
+
+/*
+ * Consolidated from the former api/coach-dashboard.js. All three actions
+ * reuse the gateway's existing auth helpers (requireUser, sbHeaders) and
+ * Supabase URL/key from env. Security invariants are IDENTICAL to the
+ * standalone file: role is read from the caller's own profile (service
+ * role), athlete_id is authorized against ACTIVE assignments, provider
+ * tokens and payment rows are never selected, the service-role key never
+ * leaves the server.
+ */
+
+function enc(v) { return encodeURIComponent(String(v)); }
+
+async function sbSelect(path) {
+  try {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const r = await fetch(`${url}/rest/v1/${path}`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` }
+    });
+    if (!r.ok) return [];
+    const data = await r.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+async function loadCoachProfile(userId) {
+  const rows = await sbSelect(
+    `profiles?id=eq.${enc(userId)}&select=id,role,full_name`
+  );
+  return rows[0] || null;
+}
+
+async function loadActiveAssignments(coachId) {
+  return sbSelect(
+    `coach_athlete_assignments?coach_id=eq.${enc(coachId)}&status=eq.active` +
+      `&select=id,coach_id,athlete_id,status,permission_level,assigned_at`
+  );
+}
+
+async function loadAthleteBundle(athleteId) {
+  const idf = enc(athleteId);
+  const [profile, metrics, weekly, readiness, today, latestAct, provider] =
+    await Promise.all([
+      sbSelect(`profiles?id=eq.${idf}&select=id,full_name,primary_sport,goal,target_race,target_race_date,race_type,experience_level`),
+      sbSelect(`athlete_metrics?user_id=eq.${idf}&select=weekly_training_load,weekly_distance,fatigue_score,fitness_score,last_updated`),
+      sbSelect(`weekly_progress_summaries?user_id=eq.${idf}&select=planned_duration_minutes,completed_duration_minutes,planned_distance_km,completed_distance_km,recovery_status,consistency_status,injury_risk_status,trajectory_status,week_start&order=week_start.desc&limit=1`),
+      sbSelect(`daily_readiness?user_id=eq.${idf}&select=readiness_date,sleep_quality,energy,muscle_soreness,mental_stress,pain_present,pain_severity&order=readiness_date.desc&limit=1`),
+      sbSelect(`training_sessions?user_id=eq.${idf}&select=title,session_type,session_date,duration_minutes,distance_km,sport,status&order=session_date.asc&limit=50`),
+      sbSelect(`activities?user_id=eq.${idf}&select=start_date,sport_type,activity_type,source,distance_meters,moving_time_seconds,average_cadence,trainer,raw_data&order=start_date.desc&limit=8`),
+      sbSelect(`provider_accounts?user_id=eq.${idf}&select=provider,last_sync_at,last_sync_status`)
+    ]);
+  return {
+    profile: profile[0] || {},
+    metrics: metrics[0] || {},
+    weeklySummary: weekly[0] || {},
+    readiness: readiness[0] || {},
+    trainingSessions: today,
+    activities: latestAct,
+    providerAccount: provider[0] || {}
+  };
+}
+
+function readinessScoreFrom(rd) {
+  if (!rd) return null;
+  const energy = Number(rd.energy);
+  const soreness = Number(rd.muscle_soreness);
+  const stress = Number(rd.mental_stress);
+  const sleep = Number(rd.sleep_quality);
+  const parts = [];
+  if (Number.isFinite(energy)) parts.push((energy / 10) * 100);
+  if (Number.isFinite(soreness)) parts.push(((11 - soreness) / 10) * 100);
+  if (Number.isFinite(stress)) parts.push(((11 - stress) / 10) * 100);
+  if (Number.isFinite(sleep)) parts.push((sleep / 5) * 100);
+  if (!parts.length) return null;
+  return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
+}
+
+function todaySession(sessions, nowIso) {
+  const today = String(nowIso).slice(0, 10);
+  return (sessions || []).find(s => String(s.session_date || "").slice(0, 10) === today) || null;
+}
+
+function buildSnapshot(bundle, nowIso) {
+  const rd = bundle.readiness || {};
+  const w = bundle.weeklySummary || {};
+  const prov = bundle.providerAccount || {};
+  const acts = bundle.activities || [];
+  const lastActivityAt = acts.length ? acts[0].start_date : null;
+  const lastReadinessAt = rd.readiness_date ? rd.readiness_date + "T12:00:00Z" : null;
+  const lastSyncAt = prov.last_sync_at || null;
+  const lastActiveAt = deriveLastActiveAt([lastActivityAt, lastReadinessAt, lastSyncAt]);
+
+  return {
+    lastActivityAt,
+    lastReadinessAt,
+    lastActiveAt,
+    lastSyncAt,
+    readiness: {
+      painPresent: rd.pain_present === true,
+      painDate: rd.readiness_date || null,
+      readinessScore: readinessScoreFrom(rd),
+      checkInDate: rd.readiness_date || null
+    },
+    recoveryStatus: w.recovery_status || "unknown",
+    targetEventDate: (bundle.profile && bundle.profile.target_race_date) || null,
+    syncFailed: String(prov.last_sync_status || "").toLowerCase() === "failed",
+    planMissing: !(bundle.trainingSessions && bundle.trainingSessions.length),
+    hasAnyData: Boolean(lastActivityAt || lastReadinessAt || (bundle.metrics && bundle.metrics.last_updated))
+  };
+}
+
+function sendJson(res, code, body) { return res.status(code).json(body); }
+
+function bearer(req) {
+  const h = req.headers.authorization || req.headers.Authorization || "";
+  return h.startsWith("Bearer ") ? h.slice(7).trim() : null;
+}
+
+async function getCoachingUser(token) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const r = await fetch(`${url}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: key }
+  });
+  if (!r.ok) return null;
+  return r.json();
+}
+
+async function actionCoachingDashboardRoster(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  const profile = await loadCoachProfile(user.id);
+  if (!canAccessCoachDashboard(profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(profile) });
+  }
+  const assignments = await loadActiveAssignments(user.id);
+  const nowIso = new Date().toISOString();
+
+  try {
+    const ids = assignedAthleteIds(assignments, user.id);
+    if (!ids.length) {
+      return sendJson(response, 200, { role: resolveRole(profile), athletes: [], roster_size: 0 });
+    }
+    const reviews = await sbSelect(
+      `coach_attention_reviews?coach_id=eq.${enc(user.id)}&select=athlete_id,alert_key,reviewed_at`
+    );
+    const athletes = [];
+    for (const athleteId of ids) {
+      const bundle = await loadAthleteBundle(athleteId);
+      const snapshot = buildSnapshot(bundle, nowIso);
+      const attention = classifyAttention(snapshot, { now: nowIso });
+      const entry = buildRosterEntry({
+        profile: bundle.profile,
+        metrics: bundle.metrics,
+        weeklySummary: bundle.weeklySummary,
+        readiness: { readinessScore: snapshot.readiness.readinessScore, pain_present: snapshot.readiness.painPresent },
+        todaySession: todaySession(bundle.trainingSessions, nowIso),
+        latestActivity: (bundle.activities || [])[0] || null,
+        providerAccount: { last_sync_at: bundle.providerAccount.last_sync_at, last_sync_status: bundle.providerAccount.last_sync_status },
+        attention,
+        lastActiveAt: snapshot.lastActiveAt
+      });
+      entry.reviewed_alert_keys = reviews
+        .filter(r => String(r.athlete_id) === String(athleteId))
+        .map(r => r.alert_key);
+      athletes.push(entry);
+    }
+    return sendJson(response, 200, { role: resolveRole(profile), athletes, roster_size: athletes.length });
+  } catch (err) {
+    return sendJson(response, 500, { error: "The coach dashboard could not load." });
+  }
+}
+
+async function actionCoachingDashboardAthlete(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  const profile = await loadCoachProfile(user.id);
+  if (!canAccessCoachDashboard(profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(profile) });
+  }
+  const assignments = await loadActiveAssignments(user.id);
+  const nowIso = new Date().toISOString();
+
+  try {
+    const athleteId = request.query && (request.query.athlete_id || request.query.athleteId);
+    if (!athleteId) return sendJson(response, 400, { error: "athlete_id is required." });
+    if (!canCoachAccessAthlete(assignments, user.id, athleteId)) {
+      return sendJson(response, 403, { error: "You are not assigned to this athlete." });
+    }
+    const bundle = await loadAthleteBundle(athleteId);
+    const snapshot = buildSnapshot(bundle, nowIso);
+    const attention = classifyAttention(snapshot, { now: nowIso });
+    const overview = buildAthleteOverview({
+      profile: bundle.profile,
+      readiness: { readinessScore: snapshot.readiness.readinessScore, pain_present: snapshot.readiness.painPresent, readiness_date: bundle.readiness.readiness_date },
+      weeklySummary: bundle.weeklySummary,
+      recentActivities: bundle.activities,
+      todaySession: todaySession(bundle.trainingSessions, nowIso),
+      attention,
+      lastSyncAt: snapshot.lastSyncAt,
+      lastActiveAt: snapshot.lastActiveAt
+    });
+    return sendJson(response, 200, { athlete: overview });
+  } catch (err) {
+    return sendJson(response, 500, { error: "The coach dashboard could not load." });
+  }
+}
+
+async function actionCoachingDashboardReview(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+
+  if (request.method !== "POST") return sendJson(response, 405, { error: "Method not allowed." });
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  const profile = await loadCoachProfile(user.id);
+  if (!canAccessCoachDashboard(profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(profile) });
+  }
+  const assignments = await loadActiveAssignments(user.id);
+  const nowIso = new Date().toISOString();
+
+  try {
+    const body = request.body || {};
+    const athleteId = body.athlete_id;
+    const alertKey = body.alert_key;
+    if (!athleteId || !alertKey) return sendJson(response, 400, { error: "athlete_id and alert_key are required." });
+    if (!canCoachAccessAthlete(assignments, user.id, athleteId)) {
+      return sendJson(response, 403, { error: "You are not assigned to this athlete." });
+    }
+    const r = await fetch(
+      `${url}/rest/v1/coach_attention_reviews?on_conflict=coach_id,athlete_id,alert_key`,
+      {
+        method: "POST",
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal"
+        },
+        body: JSON.stringify({
+          coach_id: user.id,
+          athlete_id: athleteId,
+          alert_key: String(alertKey),
+          reviewed_at: nowIso
+        })
+      }
+    );
+    if (!r.ok) return sendJson(response, 500, { error: "Could not record the review." });
+    return sendJson(response, 200, { reviewed: true });
+  } catch (err) {
+    return sendJson(response, 500, { error: "The coach dashboard could not load." });
+  }
+}
+
+/* ═══════════════════ ATHLETE MODE actions ══════════════════════════ */
+
+/*
+ * Consolidated from the former api/athlete-mode.js. Actions are namespaced
+ * as athlete_coaching_mode and athlete_request_adjustment. Security
+ * invariants are IDENTICAL: the athlete may only see their own assignment,
+ * scoped to user.id; coach email/tokens/business fields are never returned.
+ */
+
+async function actionAthleteCoachingMode(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  const assignments = await sbSelect(
+    `coach_athlete_assignments?athlete_id=eq.${enc(user.id)}` +
+      `&select=id,coach_id,athlete_id,status,assigned_at`
+  );
+  const resolved = resolveCoachingMode(assignments, user.id);
+
+  try {
+    let coach = null;
+    let transition = null;
+    if (resolved.mode === "human_coached" && resolved.coachId) {
+      const rows = await sbSelect(
+        `profiles?id=eq.${enc(resolved.coachId)}&select=full_name,coaching_title`
+      );
+      coach = buildSafeCoachProfile(rows[0] || {}, resolved.assignment);
+      const tr = await sbSelect(
+        `coaching_transitions?athlete_id=eq.${enc(user.id)}&coach_id=eq.${enc(resolved.coachId)}` +
+          `&state=neq.resolved&select=state,effective_date,ai_plan_detected&limit=1`
+      );
+      transition = tr[0] || null;
+    }
+    return sendJson(response, 200, {
+      coaching_mode: resolved.mode,
+      assignment_status: resolved.assignment ? resolved.assignment.status : "none",
+      ambiguous: resolved.ambiguous,
+      coach,
+      transition
+    });
+  } catch (err) {
+    return sendJson(response, 500, { error: "Could not load your coaching status." });
+  }
+}
+
+async function actionAthleteRequestAdjustment(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+
+  if (request.method !== "POST") return sendJson(response, 405, { error: "Method not allowed." });
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  const assignments = await sbSelect(
+    `coach_athlete_assignments?athlete_id=eq.${enc(user.id)}` +
+      `&select=id,coach_id,athlete_id,status,assigned_at`
+  );
+  const resolved = resolveCoachingMode(assignments, user.id);
+
+  try {
+    if (resolved.mode !== "human_coached") {
+      return sendJson(response, 400, { error: "Adjustment requests are only available when a coach manages your plan." });
+    }
+    const body = stripClientAuthorityFields(request.body || {});
+    const requestType = String(body.request_type || "adjustment");
+    const allowed = ["adjustment", "unable_to_complete", "move", "feedback", "availability"];
+    const safeType = allowed.includes(requestType) ? requestType : "adjustment";
+    const row = {
+      athlete_id: user.id,
+      coach_id: resolved.coachId,
+      session_date: body.session_date || null,
+      origin: "athlete_request",
+      request_type: safeType,
+      status: "pending",
+      payload: body.payload && typeof body.payload === "object" ? body.payload : null,
+      created_by: user.id
+    };
+    const r = await fetch(`${url}/rest/v1/managed_plan_change_requests`, {
+      method: "POST",
+      headers: {
+        apikey: key, Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json", Prefer: "return=minimal"
+      },
+      body: JSON.stringify(row)
+    });
+    if (!r.ok) return sendJson(response, 500, { error: "Your request could not be sent. Please try again." });
+    return sendJson(response, 200, { requested: true, request_type: safeType });
+  } catch (err) {
+    return sendJson(response, 500, { error: "Could not load your coaching status." });
+  }
+}
+
 /* ═══════════════════════════════ router ══════════════════════════════ */
 
 /* ─────────────────── admin: beta analytics (GET) ─────────────────────
@@ -1851,10 +2254,34 @@ export default async function handler(request, response) {
   const action = String((request.query && request.query.action) || "").toLowerCase();
 
   try {
-    // Provider-independent admin route (folded in to save a serverless slot).
+    // Provider-independent routes (folded in to save serverless slots).
     if (action === "admin_analytics") {
       if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionAdminAnalytics(request, response);
+    }
+
+    // Coach Dashboard actions (consolidated from api/coach-dashboard.js).
+    if (action === "coaching_dashboard_roster") {
+      if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingDashboardRoster(request, response);
+    }
+    if (action === "coaching_dashboard_athlete") {
+      if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingDashboardAthlete(request, response);
+    }
+    if (action === "coaching_dashboard_review") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingDashboardReview(request, response);
+    }
+
+    // Athlete Mode actions (consolidated from api/athlete-mode.js).
+    if (action === "athlete_coaching_mode") {
+      if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionAthleteCoachingMode(request, response);
+    }
+    if (action === "athlete_request_adjustment") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionAthleteRequestAdjustment(request, response);
     }
 
     /*
@@ -1903,7 +2330,10 @@ export default async function handler(request, response) {
       provider: provider === "intervals" ? "intervals" : "unsupported",
       action: [
         "connect", "callback", "finalize", "sync", "trends", "diagnose",
-        "reanalyze", "status", "disconnect", "admin_analytics"
+        "reanalyze", "status", "disconnect", "admin_analytics",
+        "coaching_dashboard_roster", "coaching_dashboard_athlete",
+        "coaching_dashboard_review", "athlete_coaching_mode",
+        "athlete_request_adjustment"
       ].includes(action) ? action : "unsupported"
     });
     return response.status(500).json({ error: "Something went wrong. Please try again." });

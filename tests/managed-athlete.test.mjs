@@ -464,14 +464,14 @@ t("sanitizeProps validates request_type values", (() => {
 /* ═══════════════════════ SERVER SOURCE CHECKS ═════════════════════════ */
 section("SERVER SOURCE CHECKS");
 
-const athleteModeApi = readFileSync(join(root, "api/athlete-mode.js"), "utf8");
+const athleteModeApi = readFileSync(join(root, "api/providers/index.js"), "utf8");
 const generatePlan = readFileSync(join(root, "api/training/generate-plan.js"), "utf8");
 const getWeek = readFileSync(join(root, "api/training/get-week.js"), "utf8");
 
 t("athlete-mode.js scopes assignments to user.id", athleteModeApi.includes("athlete_id=eq.${enc(user.id)}"));
 t("athlete-mode.js sets origin server-side", athleteModeApi.includes('origin: "athlete_request"'));
 t("athlete-mode.js uses stripClientAuthorityFields", athleteModeApi.includes("stripClientAuthorityFields"));
-t("athlete-mode.js never returns email", !athleteModeApi.includes("email:") && athleteModeApi.includes("Never returns coach email"));
+t("athlete-mode.js never returns email", !athleteModeApi.includes("email:") && athleteModeApi.includes("coach email/tokens/business fields are never returned"));
 
 t("generate-plan.js imports guardPlanWrite", generatePlan.includes("guardPlanWrite"));
 t("generate-plan.js blocks COACH_OWNED_PLAN", generatePlan.includes("COACH_OWNED_PLAN"));
