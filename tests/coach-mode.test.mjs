@@ -501,6 +501,155 @@ describe("Coach Mode — analytics registry has new events", () => {
 });
 
 /* ═══════════════════════════════════════════════════════════════════
+ *  LAYOUT / MOUNTING (static source analysis)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  These tests verify the coach-mode mounting fix by inspecting the
+ *  source code.  They ensure coach screens are inserted inside the
+ *  existing .device shell and never appended to document.body.
+ */
+
+describe("Coach Mode — layout / mounting", () => {
+  const coachModeSource = readFileSync(resolve(import.meta.dirname, "..", "js", "coachMode.js"), "utf-8");
+  const indexSource = readFileSync(resolve(import.meta.dirname, "..", "index.html"), "utf-8");
+
+  it("Coach screens mount inside .device, not .app-shell or document.body", () => {
+    // ensureCoachScreens must target .device
+    assert.ok(
+      coachModeSource.includes('document.querySelector(".device")'),
+      "ensureCoachScreens should select .device"
+    );
+    // Must NOT fall back to document.body for screen creation
+    assert.ok(
+      !coachModeSource.includes('.app-shell') ||
+        !coachModeSource.match(/var host.*app-shell.*document\.body/),
+      "ensureCoachScreens must not fall back to document.body"
+    );
+  });
+
+  it("No coach screen is appended directly to document.body", () => {
+    // The only document.body usage should be for the overlay/drawer (fixed-position modals),
+    // not for .screen section elements.
+    const lines = coachModeSource.split("\n");
+    const bodyAppends = lines.filter(l =>
+      l.includes("document.body.appendChild") || l.includes("document.body.append(")
+    );
+    // Overlay + drawer are the only allowed body appends (both are fixed-position modals)
+    for (const line of bodyAppends) {
+      assert.ok(
+        line.includes("overlay") || line.includes("drawer"),
+        `Unexpected document.body.appendChild: ${line.trim().slice(0, 100)}`
+      );
+    }
+  });
+
+  it("Only one .device shell exists in index.html", () => {
+    const deviceMatches = indexSource.match(/class="device"/g) || [];
+    assert.equal(deviceMatches.length, 1, "There must be exactly one .device shell");
+  });
+
+  it("Only one #tabbar exists in index.html", () => {
+    const tabbarMatches = indexSource.match(/id="tabbar"/g) || [];
+    assert.equal(tabbarMatches.length, 1, "There must be exactly one #tabbar");
+  });
+
+  it("Coach Today replaces athlete Today — coachGo deactivates all .screen elements", () => {
+    // coachGo must remove .active from every .screen before activating the target
+    assert.ok(
+      coachModeSource.includes('querySelectorAll(".screen").forEach'),
+      "coachGo must deactivate all screens"
+    );
+    assert.ok(
+      coachModeSource.includes('s.classList.remove("active")'),
+      "coachGo must remove .active class from every screen"
+    );
+  });
+
+  it("Athlete go() also deactivates all screens (including coach)", () => {
+    assert.ok(
+      indexSource.includes(".querySelectorAll('.screen').forEach(s=>s.classList.remove('active'))"),
+      "athlete go() must deactivate all screens including coach screens"
+    );
+  });
+
+  it("Tab switching leaves exactly one active screen (coachGo pattern)", () => {
+    // Pattern: remove all .active, then add .active to one
+    const removeAll = coachModeSource.includes('s.classList.remove("active")');
+    const addOne = coachModeSource.includes('screenEl.classList.add("active")');
+    assert.ok(removeAll && addOne, "coachGo must deactivate all then activate one");
+  });
+
+  it("Coach screens use insertBefore(tabbar) not appendChild to .device", () => {
+    assert.ok(
+      coachModeSource.includes("host.insertBefore(el, tabbar)"),
+      "Coach screens must be inserted before the tabbar, not appended after it"
+    );
+  });
+
+  it("No horizontal overflow — coach wrap uses max-width + auto margins", () => {
+    assert.ok(
+      coachModeSource.includes("max-width:720px;margin:0 auto"),
+      "Coach content wraps should be constrained to prevent overflow"
+    );
+  });
+
+  it("Coach screens scroll internally, not via window.scrollTo", () => {
+    // coachGo should use screenEl.scrollTop, not window.scrollTo
+    assert.ok(
+      coachModeSource.includes("screenEl.scrollTop = 0"),
+      "coachGo should scroll the screen element, not the window"
+    );
+    // window.scrollTo should NOT appear in coachGo
+    assert.ok(
+      !coachModeSource.includes("window.scrollTo"),
+      "coachMode.js must not use window.scrollTo (screens scroll internally)"
+    );
+  });
+
+  it("rewriteNavigation replaces tab content, does not create a second nav", () => {
+    // rewriteNavigation must clear then populate the existing #tabbar
+    assert.ok(
+      coachModeSource.includes('tabbar.innerHTML = ""'),
+      "rewriteNavigation must clear existing tabbar contents"
+    );
+    // Must NOT create a new nav element
+    assert.ok(
+      !coachModeSource.includes('createElement("nav")'),
+      "coachMode.js must not create a second navigation element"
+    );
+  });
+
+  it("No coach content appears after the closing .device div in index.html", () => {
+    // Find the closing </div> for .device (the one right before the first <script>)
+    const deviceOpen = indexSource.indexOf('class="device"');
+    const tabbarClose = indexSource.indexOf("</nav>", indexSource.indexOf('id="tabbar"'));
+    const deviceClose = indexSource.indexOf("</div>", tabbarClose);
+    const afterDevice = indexSource.slice(deviceClose);
+    // No coach screen IDs should appear after the device closes
+    const coachScreenIds = [
+      "screen-coach-today", "screen-coach-messaging",
+      "screen-coach-train", "screen-coach-trends", "screen-coach-you"
+    ];
+    for (const id of coachScreenIds) {
+      assert.ok(
+        !afterDevice.includes(`id="${id}"`),
+        `${id} must not appear after the .device container in static HTML`
+      );
+    }
+  });
+
+  it("Athlete screens remain unchanged — standard screen IDs exist in .device", () => {
+    const athleteScreens = ["screen-today", "screen-train", "screen-trends", "screen-you", "screen-coachai"];
+    for (const id of athleteScreens) {
+      assert.ok(
+        indexSource.includes(`id="${id}"`),
+        `Athlete screen ${id} must still exist in index.html`
+      );
+    }
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
  *  JAVASCRIPT SYNTAX CHECK
  * ═══════════════════════════════════════════════════════════════════ */
 

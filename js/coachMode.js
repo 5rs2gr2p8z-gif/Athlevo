@@ -219,14 +219,24 @@
 
   function ensureCoachScreens() {
     if (document.getElementById("screen-coach-today")) return;
-    var host = document.querySelector(".app-shell") || document.body;
+    // Mount inside the existing .device shell so coach screens share
+    // the same viewport, safe-area layout, and bottom nav as athlete
+    // screens.  Insert before #tabbar so they sit alongside the other
+    // <section class="screen"> elements and never after the nav.
+    var host = document.querySelector(".device");
+    if (!host) return;                                   // safety — no shell yet
+    var tabbar = document.getElementById("tabbar");      // insert point
     COACH_SCREENS.forEach(function (id) {
       var el = document.createElement("section");
       el.id = id;
       el.className = "screen";
       el.setAttribute("role", "region");
       el.setAttribute("aria-label", id.replace("screen-coach-", "Coach "));
-      host.appendChild(el);
+      if (tabbar) {
+        host.insertBefore(el, tabbar);
+      } else {
+        host.appendChild(el);
+      }
     });
   }
 
@@ -283,8 +293,10 @@
     btn.classList.add("on");
     document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
     var screenEl = document.getElementById(screenId);
-    if (screenEl) screenEl.classList.add("active");
-    window.scrollTo(0, 0);
+    if (screenEl) {
+      screenEl.classList.add("active");
+      screenEl.scrollTop = 0;
+    }
 
     // Analytics
     var TAB_EVENTS = {
