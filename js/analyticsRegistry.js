@@ -74,6 +74,15 @@
     coach_roster_athlete_opened:   { kind: "behavioural", props: ["dashboard_surface", "athlete_sport"] },
     coach_attention_item_viewed:   { kind: "behavioural", props: ["attention_reason", "attention_severity", "athlete_sport"] },
     coach_attention_item_reviewed: { kind: "behavioural", props: ["attention_reason", "attention_severity", "athlete_sport"] },
+    // Coach Mode events (Phase 15 — categorical only, never name/email/UUID)
+    coach_mode_resolved:           { kind: "behavioural", props: ["coach_mode"] },
+    coach_today_viewed:            { kind: "behavioural", props: ["coach_mode", "source_surface", "roster_size_band"] },
+    coach_today_attention_opened:  { kind: "behavioural", props: ["coach_mode", "source_surface", "attention_reason", "attention_severity"] },
+    coach_today_athlete_opened:    { kind: "behavioural", props: ["coach_mode", "source_surface"] },
+    coach_tab_viewed:              { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
+    coach_train_viewed:            { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
+    coach_trends_viewed:           { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
+    coach_you_viewed:              { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
     // Managed athlete mode taxonomy. Categorical only — never coach email,
     // athlete UUID, workout content, pain/injury notes, or provider payloads.
     athlete_coaching_mode_resolved: { kind: "behavioural", props: ["coaching_mode"] },

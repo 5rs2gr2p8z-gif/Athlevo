@@ -56,7 +56,10 @@
     "browser", "intent", "source_surface", "access_tier",
     "failure_category", "stage", "value_type",
     "utm_source", "utm_medium", "utm_campaign", "utm_content",
-    "utm_term", "fbclid"
+    "utm_term", "fbclid",
+    // Coach Mode categorical-only properties (Phase 15 — never name/email/UUID)
+    "coach_mode", "dashboard_surface", "attention_reason", "attention_severity",
+    "athlete_sport", "roster_size_band", "tab_name"
   ];
 
   /*
@@ -72,7 +75,9 @@
     source_surface: {
       landing: true, auth: true, coach: true, onboarding: true,
       provider_connection: true, plan_generation: true, train: true,
-      today: true, trends: true, upgrade_sheet: true
+      today: true, trends: true, upgrade_sheet: true,
+      coach_init: true, coach_today: true, coach_navigation: true,
+      coach_roster: true, coach_attention: true
     },
     access_tier: {
       free: true,
@@ -99,7 +104,34 @@
       session: true, timeout: true, unavailable: true, validation: true,
       unknown: true
     },
-    value_type: { training_plan: true }
+    value_type: { training_plan: true },
+    // Coach Mode approved values (categorical only)
+    coach_mode: {
+      athlete_mode: true, coach_mode: true, unknown: true
+    },
+    dashboard_surface: {
+      coach_dashboard: true, coach_today: true
+    },
+    attention_reason: {
+      pain_reported: true, illness_reported: true, missed_key_workout: true,
+      very_low_readiness: true, low_recovery: true, multiple_missed_sessions: true,
+      high_recent_load: true, provider_sync_failed: true, no_active_plan: true,
+      no_recent_activity: true, no_readiness_checkin: true, no_recent_app_activity: true,
+      event_approaching: true, no_recent_data: true, reviewed: true, unknown: true
+    },
+    attention_severity: {
+      high: true, medium: true, low: true, none: true
+    },
+    athlete_sport: {
+      run: true, ride: true, strength: true, swim: true, walk: true, hike: true,
+      mobility: true, cross_training: true, rest: true, other: true, unknown: true
+    },
+    roster_size_band: {
+      "0": true, "1-5": true, "6-15": true, "16-40": true, "40+": true
+    },
+    tab_name: {
+      today: true, coach: true, train: true, trends: true, you: true, unknown: true
+    }
   };
 
   /* ═══════════════════ attribution persistence ═════════════════════ */
