@@ -44,6 +44,7 @@
   var _search = "";
   var _initialized = false;
   var _resolving = false;
+  var _athleteTodayHTML = null;   // saved athlete Today innerHTML for restore
 
   /* ═══════════════════════ HELPERS ═════════════════════════════════ */
 
@@ -209,8 +210,14 @@
 
   /* ═══════════════════════ COACH SCREENS (DOM) ═════════════════════ */
 
+  /*
+   * Coach Today reuses the existing #screen-today element (the same one
+   * athlete mode uses) so it inherits the correct position in the .device
+   * flex layout.  The remaining four coach tabs get dynamically created
+   * sections inserted before #tabbar — the same approach that already
+   * works for Coach You, Train, Trends, and Messaging.
+   */
   var COACH_SCREENS = [
-    "screen-coach-today",
     "screen-coach-messaging",
     "screen-coach-train",
     "screen-coach-trends",
@@ -218,7 +225,7 @@
   ];
 
   function ensureCoachScreens() {
-    if (document.getElementById("screen-coach-today")) return;
+    if (document.getElementById("screen-coach-you")) return;  // already created
     // Mount inside the existing .device shell so coach screens share
     // the same viewport, safe-area layout, and bottom nav as athlete
     // screens.  Insert before #tabbar so they sit alongside the other
@@ -238,12 +245,15 @@
         host.appendChild(el);
       }
     });
+    // Remove any orphaned screen-coach-today from a previous init
+    var orphan = document.getElementById("screen-coach-today");
+    if (orphan) orphan.remove();
   }
 
   /* ═══════════════════════ NAVIGATION ══════════════════════════════ */
 
   var COACH_TABS = [
-    { screen: "screen-coach-today",     label: "Today",  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>' },
+    { screen: "screen-today",            label: "Today",  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>' },
     { screen: "screen-coach-messaging", label: "Coach",  icon: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>' },
     { screen: "screen-coach-train",     label: "Train",  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' },
     { screen: "screen-coach-trends",    label: "Trends", icon: '<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>' },
@@ -263,6 +273,14 @@
       tabbar.appendChild(btn);
     });
     tabbar.style.display = "flex";
+  }
+
+  /* Restore the original athlete Today markup saved before coach render */
+  function restoreAthleteToday() {
+    if (_athleteTodayHTML === null) return;
+    var el = document.getElementById("screen-today");
+    if (el) el.innerHTML = _athleteTodayHTML;
+    _athleteTodayHTML = null;
   }
 
   function restoreAthleteNavigation() {
@@ -300,14 +318,14 @@
 
     // Analytics
     var TAB_EVENTS = {
-      "screen-coach-today": "coach_today_viewed",
+      "screen-today": "coach_today_viewed",
       "screen-coach-messaging": "coach_tab_viewed",
       "screen-coach-train": "coach_train_viewed",
       "screen-coach-trends": "coach_trends_viewed",
       "screen-coach-you": "coach_you_viewed"
     };
     var TAB_NAMES = {
-      "screen-coach-today": "today",
+      "screen-today": "today",
       "screen-coach-messaging": "coach",
       "screen-coach-train": "train",
       "screen-coach-trends": "trends",
@@ -323,7 +341,7 @@
     }
 
     // Render content on demand
-    if (screenId === "screen-coach-today") renderCoachToday();
+    if (screenId === "screen-today") renderCoachToday();
     if (screenId === "screen-coach-messaging") renderCoachMessaging();
     if (screenId === "screen-coach-train") renderCoachTrain();
     if (screenId === "screen-coach-trends") renderCoachTrends();
@@ -333,8 +351,14 @@
   /* ═══════════════════════ COACH TODAY ═════════════════════════════ */
 
   function renderCoachToday() {
-    var el = document.getElementById("screen-coach-today");
+    var el = document.getElementById("screen-today");
     if (!el) return;
+
+    // Save the athlete Today markup on first coach render so it can be
+    // restored if the user logs out or switches back to athlete mode.
+    if (_athleteTodayHTML === null) {
+      _athleteTodayHTML = el.innerHTML;
+    }
 
     var sorted = sortRoster(_roster);
     var needsAttn = sorted.filter(function (a) { return a.attention_status === "needs_attention"; });
@@ -1003,9 +1027,11 @@
     ensureCoachScreens();
     rewriteNavigation();
 
-    // Hide all athlete screens, show Coach Today
+    // Hide all athlete screens, show Coach Today inside the existing
+    // #screen-today element (same position in the .device flex layout).
     document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
-    document.getElementById("screen-coach-today").classList.add("active");
+    var todayEl = document.getElementById("screen-today");
+    if (todayEl) todayEl.classList.add("active");
     renderCoachToday();
 
     trackCoach("coach_today_viewed", {
