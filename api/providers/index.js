@@ -1880,7 +1880,7 @@ async function loadAthleteBundle(athleteId) {
   const idf = enc(athleteId);
   const [profile, metrics, weekly, readiness, today, latestAct, provider] =
     await Promise.all([
-      sbSelect(`profiles?id=eq.${idf}&select=id,full_name,primary_sport,goal,target_race,target_race_date,race_type,experience_level`),
+      sbSelect(`profiles?id=eq.${idf}&select=id,full_name,primary_sport,goal,target_race`),
       sbSelect(`athlete_metrics?user_id=eq.${idf}&select=weekly_training_load,weekly_distance,fatigue_score,fitness_score,last_updated`),
       sbSelect(`weekly_progress_summaries?user_id=eq.${idf}&select=planned_duration_minutes,completed_duration_minutes,planned_distance_km,completed_distance_km,recovery_status,consistency_status,injury_risk_status,trajectory_status,week_start&order=week_start.desc&limit=1`),
       sbSelect(`daily_readiness?user_id=eq.${idf}&select=readiness_date,sleep_quality,energy,muscle_soreness,mental_stress,pain_present,pain_severity&order=readiness_date.desc&limit=1`),
@@ -1941,7 +1941,7 @@ function buildSnapshot(bundle, nowIso) {
       checkInDate: rd.readiness_date || null
     },
     recoveryStatus: w.recovery_status || "unknown",
-    targetEventDate: (bundle.profile && bundle.profile.target_race_date) || null,
+    targetEventDate: null,
     syncFailed: String(prov.last_sync_status || "").toLowerCase() === "failed",
     planMissing: !(bundle.trainingSessions && bundle.trainingSessions.length),
     hasAnyData: Boolean(lastActivityAt || lastReadinessAt || (bundle.metrics && bundle.metrics.last_updated))

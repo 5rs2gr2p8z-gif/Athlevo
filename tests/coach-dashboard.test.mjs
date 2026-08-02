@@ -131,7 +131,7 @@ section("RLS / API SECURITY");
 section("ROSTER");
 
 const baseRaw = {
-  profile: { id: A1, full_name: "Dana Ruiz", primary_sport: "Cycling", goal: "Gran Fondo", target_race: "Alpine Fondo", target_race_date: "2026-08-20" },
+  profile: { id: A1, full_name: "Dana Ruiz", primary_sport: "Cycling", goal: "Gran Fondo", target_race: "Alpine Fondo" },
   metrics: { weekly_training_load: 410 },
   weeklySummary: { recovery_status: "good", planned_duration_minutes: 300, completed_duration_minutes: 240 },
   readiness: { readinessScore: 70, pain_present: false },
@@ -172,6 +172,91 @@ t("server compareByAttention prioritizes needs-attention then severity", (() => 
   const arr = [{ status: "monitor", severity: "medium" }, { status: "needs_attention", severity: "high" }];
   return arr.slice().sort(compareByAttention)[0].status === "needs_attention";
 })());
+
+/* ═══════════════════════════ PROFILE MAPPING ════════════════════════════ */
+section("PROFILE MAPPING");
+
+{
+  // Populated profile renders real name, sport, goal
+  const populated = buildRosterEntry({
+    profile: { id: "pm-1", full_name: "Jordan Bell", primary_sport: "Running", goal: "BQ", target_race: "Boston Marathon" },
+    attention: { status: "no_recent_data", severity: "low", reasons: [] }
+  });
+  t("populated profile renders real name", populated.name === "Jordan Bell");
+  t("populated profile renders correct initials", populated.initials === "JB");
+  t("primary sport renders canonical key (run)", populated.primary_sport === "run");
+  t("goal renders from profile.goal", populated.goal === "BQ");
+  t("target_event renders from profile.target_race", populated.target_event === "Boston Marathon");
+}
+{
+  // No activities still shows "No recent data" for readiness
+  const noActs = buildRosterEntry({
+    profile: { id: "pm-2", full_name: "Lin Sato", primary_sport: "Cycling", goal: "Century ride" },
+    readiness: {},
+    latestActivity: null,
+    attention: { status: "no_recent_data", severity: "low", reasons: [] },
+    lastActiveAt: null
+  });
+  t("no activities: readiness shows 'No recent data'", noActs.readiness_status === "No recent data");
+  t("no activities: latest_activity is null", noActs.latest_activity === null);
+  t("no activities: last_active_at is null", noActs.last_active_at === null);
+  t("no activities: name still renders from profile", noActs.name === "Lin Sato");
+}
+{
+  // Missing profile safely falls back to "Athlete"
+  const missing = buildRosterEntry({
+    profile: {},
+    attention: { status: "no_recent_data", severity: "low", reasons: [] }
+  });
+  t("missing profile falls back to 'Athlete'", missing.name === "Athlete");
+  t("missing profile: initials fallback to 'A'", missing.initials === "A");
+  t("missing profile: primary_sport is null", missing.primary_sport === null);
+  t("missing profile: goal is null", missing.goal === null);
+  t("missing profile: target_event is null", missing.target_event === null);
+}
+{
+  // Sensitive fields from profile never reach the response
+  const withSecrets = buildRosterEntry({
+    profile: {
+      id: "pm-3", full_name: "Test User", email: "secret@example.com",
+      access_token: "BEARER_TOKEN", refresh_token: "REFRESH",
+      strava_id: "12345", provider_user_id: "ext-999",
+      password: "hunter2", secret: "shhh", apikey: "key123",
+      primary_sport: "Running", goal: "5K PR"
+    },
+    attention: { status: "on_track", severity: "none", reasons: [] }
+  });
+  const sensitiveFound = findSensitiveKeys(withSecrets);
+  t("sensitive profile fields never reach roster response", sensitiveFound.length === 0,
+    sensitiveFound.join(", "));
+  // Also verify the overview path
+  const overviewSecrets = buildAthleteOverview({
+    profile: {
+      id: "pm-3", full_name: "Test User", email: "secret@example.com",
+      access_token: "BEARER_TOKEN", refresh_token: "REFRESH",
+      provider_user_id: "ext-999", primary_sport: "Running", goal: "5K PR"
+    },
+    attention: { status: "on_track", severity: "none", reasons: [] }
+  });
+  t("sensitive profile fields never reach overview response", findSensitiveKeys(overviewSecrets).length === 0);
+}
+{
+  // The overview uses the same profile mapping as the roster
+  const profile = { id: "pm-4", full_name: "Kai Rivera", primary_sport: "Cycling", goal: "Everesting", target_race: "Mt. Ventoux" };
+  const rEntry = buildRosterEntry({ profile, attention: { status: "on_track", severity: "none", reasons: [] } });
+  const oEntry = buildAthleteOverview({ profile, attention: { status: "on_track", severity: "none", reasons: [] } });
+  t("overview matches roster: name", rEntry.name === oEntry.name && rEntry.name === "Kai Rivera");
+  t("overview matches roster: sport", rEntry.primary_sport === oEntry.primary_sport && rEntry.primary_sport === "ride");
+  t("overview matches roster: goal", rEntry.goal === oEntry.goal && rEntry.goal === "Everesting");
+  t("overview matches roster: target_event", rEntry.target_event === oEntry.target_event && rEntry.target_event === "Mt. Ventoux");
+}
+{
+  // API profiles query must not include nonexistent fields
+  const apiSrc = readFileSync(join(root, "api/providers/index.js"), "utf8");
+  const profileQuery = apiSrc.match(/profiles\?id=eq\.\$\{idf\}&select=([^\)]+)\)/);
+  t("profiles query does not include target_race_date", profileQuery && !profileQuery[1].includes("target_race_date"));
+  t("profiles query includes full_name,primary_sport,goal,target_race", profileQuery && /full_name/.test(profileQuery[1]) && /primary_sport/.test(profileQuery[1]) && /goal/.test(profileQuery[1]) && /target_race/.test(profileQuery[1]));
+}
 
 /* ═══════════════════════════════ ATTENTION ════════════════════════════ */
 section("ATTENTION");
@@ -226,7 +311,7 @@ section("ATHLETE OVERVIEW");
 
 {
   const raw = {
-    profile: { id: A1, full_name: "Dana Ruiz", primary_sport: "Running", goal: "Sub-3", target_race_date: "2026-09-01" },
+    profile: { id: A1, full_name: "Dana Ruiz", primary_sport: "Running", goal: "Sub-3", target_race: "Fall Marathon" },
     readiness: { readinessScore: 65, pain_present: false, readiness_date: "2026-07-31" },
     weeklySummary: { planned_duration_minutes: 300, completed_duration_minutes: 280, recovery_status: "fair" },
     recentActivities: [

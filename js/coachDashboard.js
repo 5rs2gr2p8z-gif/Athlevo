@@ -191,7 +191,7 @@
         '        <span style="flex:0 0 auto;font-size:11px;font-weight:600;color:#fff;background:' + meta.color + ';border-radius:999px;padding:2px 8px;">' + esc(meta.label) + '</span>' +
         '      </div>' +
         '      <div style="font-size:12px;color:var(--ink3,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">' +
-                esc(sport) + ' · ' + fmtVal(a.goal) + (a.target_event_date ? ' · ' + esc(a.target_event_date) : '') + '</div>' +
+                esc(sport) + ' · ' + fmtVal(a.goal) + '</div>' +
         (reasons ? '      <div style="font-size:12px;color:' + meta.color + ';margin-top:3px;">' + reasons + '</div>' : '') +
         '    </div>' +
         '  </div>' +
@@ -278,7 +278,7 @@
       (reasons ? '<div style="margin-bottom:14px;"><div style="font-weight:600;font-size:13px;margin-bottom:6px;">Needs attention</div><ul style="margin:0;padding-left:18px;font-size:13px;">' + reasons + '</ul>' +
         '<button id="cdReview" style="margin-top:8px;padding:7px 12px;border-radius:10px;border:1px solid var(--line,#ddd);background:transparent;cursor:pointer;font-size:13px;">Mark reviewed</button></div>' : '') +
       '  <div style="font-size:13px;line-height:1.7;">' +
-      '    <div><b>Event:</b> ' + pv(ath.target_event) + (ath.target_event_date ? ' (' + esc(ath.target_event_date) + ')' : '') + '</div>' +
+      '    <div><b>Event:</b> ' + pv(ath.target_event) + '</div>' +
       '    <div><b>Plan phase:</b> ' + pv(ath.plan_phase) + '</div>' +
       '    <div><b>Today:</b> ' + (ath.today_planned ? esc(ath.today_planned.title || "Planned session") : "—") + '</div>' +
       '    <div><b>This week:</b> ' + pv(wk.completed_minutes, " min") + ' completed of ' + pv(wk.planned_minutes, " min") + ' planned</div>' +
