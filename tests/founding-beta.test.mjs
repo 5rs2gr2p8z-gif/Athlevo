@@ -46,7 +46,7 @@ test("verified Whop row unlocks Performance features",
 
 const client = readFileSync("./js/features.js", "utf8");
 const index = readFileSync("./index.html", "utf8");
-test("client also requires provider whop", /provider === "whop"/.test(client));
+test("client uses PAID_PROVIDERS allowlist", /PAID_PROVIDERS/.test(client));
 test("timed founding access banner is removed",
   !/foundingBetaBanner|Full access until/.test(index + client));
 

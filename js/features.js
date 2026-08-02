@@ -3,8 +3,9 @@ console.log("Athlevo Plan/Features Loaded");
 /*
  * Client mirror of lib/server/features.js. PLAN_TIERS, FEATURE_REGISTRY,
  * resolveEntitlement, and canUse are kept byte-for-byte identical to the
- * server so UI gating matches server enforcement. Paid access comes only
- * from an active Whop subscription; all other users retain the free tier.
+ * server so UI gating matches server enforcement. Paid access comes from
+ * recognised paid providers (Whop or admin-managed GCash manual); all
+ * other users retain the free tier.
  *
  * Usage:
  *   await AthlevoPlan.load();                 // fetch the subscription
@@ -20,6 +21,14 @@ const PLAN_TIERS = {
 };
 
 const PLAN_ORDER = ["free", "essentials", "performance", "founding_beta", "elite"];
+
+/*
+ * Providers whose subscription rows may grant paid access.
+ * "whop"         — Whop webhook writes these rows automatically.
+ * "gcash_manual" — Admin-managed GCash payments; period_end enforced at read time.
+ * Any provider NOT in this set is treated as free regardless of plan_id.
+ */
+const PAID_PROVIDERS = new Set(["whop", "gcash_manual"]);
 
 const ACCESS_STATES = Object.freeze({
   FREE: "free",
@@ -96,8 +105,9 @@ function resolveEntitlement(subscription, now) {
 
   const storedPlanId = String(subscription.plan_id || "free").toLowerCase();
   const provider = String(subscription.provider || "").toLowerCase();
-  const whopPaidRow = provider === "whop" && storedPlanId !== "free";
-  const planId = whopPaidRow ? "performance" : storedPlanId;
+  const recognisedPaid = PAID_PROVIDERS.has(provider) && storedPlanId !== "free";
+  // Whop rows always map to "performance"; other providers use the stored plan.
+  const planId = (provider === "whop" && recognisedPaid) ? "performance" : storedPlanId;
   const paidTier = tierOf(planId);
   const status = String(subscription.status || "active").toLowerCase();
   const isFounder = subscription.is_founder === true;
@@ -105,7 +115,7 @@ function resolveEntitlement(subscription, now) {
   if (
     planId === "free" ||
     paidTier === 0 ||
-    !whopPaidRow
+    !recognisedPaid
   ) {
     return Object.assign({}, free, { planId: planId, isFounder: isFounder });
   }
