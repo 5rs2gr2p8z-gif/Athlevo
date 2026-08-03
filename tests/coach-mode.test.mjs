@@ -446,8 +446,8 @@ describe("Coach Mode — client module structure", () => {
     assert.ok(indexSource.includes("AthlevoCoachMode.init"));
   });
 
-  it("index.html skips athlete UI when Coach Mode is active", () => {
-    assert.ok(indexSource.includes("AthlevoCoachMode.isCoachMode()"));
+  it("index.html skips athlete UI when Coach Workspace is active", () => {
+    assert.ok(indexSource.includes("AthlevoCoachMode.isCoachWorkspace()"));
   });
 
   it("coachMode.js has three valid app modes", () => {

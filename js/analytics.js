@@ -59,7 +59,9 @@
     "utm_term", "fbclid",
     // Coach Mode categorical-only properties (Phase 15 — never name/email/UUID)
     "coach_mode", "dashboard_surface", "attention_reason", "attention_severity",
-    "athlete_sport", "roster_size_band", "tab_name"
+    "athlete_sport", "roster_size_band", "tab_name",
+    // Workspace switcher (categorical only — never name/email/UUID)
+    "from_workspace", "to_workspace"
   ];
 
   /*
@@ -77,7 +79,14 @@
       provider_connection: true, plan_generation: true, train: true,
       today: true, trends: true, upgrade_sheet: true,
       coach_init: true, coach_today: true, coach_navigation: true,
-      coach_roster: true, coach_attention: true
+      coach_roster: true, coach_attention: true,
+      coach_you: true, athlete_you: true, workspace_switcher: true
+    },
+    from_workspace: {
+      coach_workspace: true, athlete_workspace: true
+    },
+    to_workspace: {
+      coach_workspace: true, athlete_workspace: true
     },
     access_tier: {
       free: true,

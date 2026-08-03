@@ -83,6 +83,9 @@
     coach_train_viewed:            { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
     coach_trends_viewed:           { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
     coach_you_viewed:              { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
+    // Workspace switcher events (categorical only — never name/email/UUID)
+    workspace_switcher_viewed:     { kind: "behavioural", props: ["source_surface"] },
+    workspace_switched:            { kind: "behavioural", props: ["from_workspace", "to_workspace", "source_surface"] },
     // Managed athlete mode taxonomy. Categorical only — never coach email,
     // athlete UUID, workout content, pain/injury notes, or provider payloads.
     athlete_coaching_mode_resolved: { kind: "behavioural", props: ["coaching_mode"] },

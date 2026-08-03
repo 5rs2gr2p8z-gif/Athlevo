@@ -46,6 +46,11 @@
   var _resolving = false;
   var _athleteTodayHTML = null;   // saved athlete Today innerHTML for restore
 
+  /* ─── Workspace state ─── */
+  var WORKSPACE_KEY = "athlevo_workspace";       // localStorage key
+  var _workspace = null;   // "coach_workspace" | "athlete_workspace" | null (not yet resolved)
+  var _athleteUIInitialized = false;  // tracks whether athlete screens have been populated
+
   /* ═══════════════════════ HELPERS ═════════════════════════════════ */
 
   function sb() { return typeof supabaseClient !== "undefined" ? supabaseClient : null; }
@@ -302,6 +307,185 @@
       btn.innerHTML = tab.icon + "<span>" + tab.label + "</span>" + '<div class="dotmark"></div>';
       tabbar.appendChild(btn);
     });
+  }
+
+  /* ═══════════════════════ WORKSPACE SWITCHER ═══════════════════════ */
+
+  /*
+   * Read the saved workspace preference. Falls back to coach_workspace
+   * for coach/admin, silently ignores stale coach_workspace for athletes.
+   */
+  function readWorkspacePref() {
+    try {
+      var v = localStorage.getItem(WORKSPACE_KEY);
+      if (v === "coach_workspace" || v === "athlete_workspace") return v;
+    } catch (e) {}
+    return null;
+  }
+
+  function writeWorkspacePref(ws) {
+    try { localStorage.setItem(WORKSPACE_KEY, ws); } catch (e) {}
+  }
+
+  function clearWorkspacePref() {
+    try { localStorage.removeItem(WORKSPACE_KEY); } catch (e) {}
+  }
+
+  /*
+   * Resolve which workspace to show. Only coach/admin users may access
+   * coach_workspace. If a stale pref says coach but the user is no longer
+   * coach/admin, fall back to athlete_workspace.
+   */
+  function resolveWorkspace() {
+    var isCoach = _role === "coach" || _role === "admin";
+    if (!isCoach) {
+      // Safety: clear any stale coach pref
+      if (readWorkspacePref() === "coach_workspace") clearWorkspacePref();
+      return "athlete_workspace";
+    }
+    var pref = readWorkspacePref();
+    if (pref) return pref;
+    // Default coach/admin to coach_workspace on first use
+    return "coach_workspace";
+  }
+
+  /*
+   * Activate Coach Workspace — show coach screens, hide athlete screens.
+   * Idempotent: calling when already in coach_workspace is a no-op.
+   */
+  function activateCoachWorkspace() {
+    if (_workspace === "coach_workspace") return;
+    var fromWs = _workspace;
+    _workspace = "coach_workspace";
+    writeWorkspacePref("coach_workspace");
+
+    // Hide athlete screens that Coach Mode replaces
+    var athleteOnly = ["screen-coachai", "screen-train", "screen-trends", "screen-you"];
+    athleteOnly.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+
+    ensureCoachScreens();
+    // Show coach-only screens
+    COACH_SCREENS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = "";
+    });
+
+    rewriteNavigation();
+
+    // Show Coach Today
+    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+    var todayEl = document.getElementById("screen-today");
+    if (todayEl) todayEl.classList.add("active");
+    renderCoachToday();
+
+    if (fromWs) {
+      trackCoach("workspace_switched", {
+        from_workspace: fromWs,
+        to_workspace: "coach_workspace",
+        source_surface: "workspace_switcher"
+      });
+    }
+  }
+
+  /*
+   * Activate Athlete Workspace — restore athlete screens, hide coach screens.
+   * Triggers the athlete data load if not yet done.
+   */
+  function activateAthleteWorkspace() {
+    if (_workspace === "athlete_workspace") return;
+    var fromWs = _workspace;
+    _workspace = "athlete_workspace";
+    writeWorkspacePref("athlete_workspace");
+
+    // Hide coach-only screens
+    COACH_SCREENS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+
+    // Show athlete screens
+    var athleteOnly = ["screen-coachai", "screen-train", "screen-trends", "screen-you"];
+    athleteOnly.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = "";
+    });
+
+    // Restore athlete Today if coach had overwritten it
+    restoreAthleteToday();
+    restoreAthleteNavigation();
+
+    // Show athlete Today
+    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+    var todayEl = document.getElementById("screen-today");
+    if (todayEl) todayEl.classList.add("active");
+
+    // Initialize athlete UI data if not already done
+    if (!_athleteUIInitialized) {
+      _athleteUIInitialized = true;
+      // Call the global athlete data loader (async, best-effort)
+      if (window.AthlevoBrain && typeof window.AthlevoBrain.refreshAthleteUI === "function") {
+        window.AthlevoBrain.refreshAthleteUI().catch(function () {});
+      }
+      if (window.AthlevoSyncStatus && typeof window.AthlevoSyncStatus.refresh === "function") {
+        window.AthlevoSyncStatus.refresh();
+      }
+    }
+
+    // Inject the workspace switcher into athlete You screen
+    injectAthleteYouSwitcher();
+
+    if (fromWs) {
+      trackCoach("workspace_switched", {
+        from_workspace: fromWs,
+        to_workspace: "athlete_workspace",
+        source_surface: "workspace_switcher"
+      });
+    }
+  }
+
+  /*
+   * Inject a "Switch to Coach Workspace" button into the athlete You screen.
+   * Only for confirmed coach/admin users. Idempotent — checks for existing.
+   */
+  function injectAthleteYouSwitcher() {
+    var youEl = document.getElementById("screen-you");
+    if (!youEl) return;
+    if (youEl.querySelector("#cmAthleteSwitcher")) return; // already injected
+    if (_role !== "coach" && _role !== "admin") return;
+
+    var switcher = document.createElement("div");
+    switcher.id = "cmAthleteSwitcher";
+    switcher.style.cssText = "max-width:720px;margin:0 auto;padding:0 14px;";
+    switcher.innerHTML =
+      '<button id="cmSwitchToCoach" style="width:100%;padding:14px;border:1px solid var(--accent,#3b82f6);border-radius:12px;background:transparent;color:var(--accent,#3b82f6);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;">' +
+        'Switch to Coach Workspace' +
+      '</button>';
+
+    // Insert before the logout button
+    var logoutBtn = youEl.querySelector('button[onclick="doLogout()"]');
+    if (logoutBtn) {
+      logoutBtn.parentNode.insertBefore(switcher, logoutBtn);
+    } else {
+      youEl.appendChild(switcher);
+    }
+
+    document.getElementById("cmSwitchToCoach").addEventListener("click", function () {
+      trackCoach("workspace_switcher_viewed", { source_surface: "athlete_you" });
+      activateCoachWorkspace();
+    });
+  }
+
+  /*
+   * Render the workspace switcher inside the Coach You tab.
+   * Called by renderCoachYou (adds it to the coach profile screen).
+   */
+  function renderCoachYouSwitcher() {
+    return '<button id="cmSwitchToAthlete" style="width:100%;padding:14px;border:1px solid var(--accent,#3b82f6);border-radius:12px;background:transparent;color:var(--accent,#3b82f6);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;">' +
+      'Switch to My Training' +
+    '</button>';
   }
 
   /* Coach tab switching — replaces the athlete `go()` for coach screens */
@@ -968,12 +1152,24 @@
     });
 
     html += '</div>' +
+      renderCoachYouSwitcher() +
       '<button id="cmLogout" style="width:100%;padding:14px;border:1px solid #c0392b;border-radius:12px;background:transparent;color:#c0392b;font-size:14px;font-weight:600;cursor:pointer;">Log out</button>' +
     '</div>';
     el.innerHTML = html;
+
+    // Bind workspace switcher
+    var switchBtn = document.getElementById("cmSwitchToAthlete");
+    if (switchBtn) {
+      switchBtn.addEventListener("click", function () {
+        trackCoach("workspace_switcher_viewed", { source_surface: "coach_you" });
+        activateAthleteWorkspace();
+      });
+    }
+
     var logoutBtn = document.getElementById("cmLogout");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", async function () {
+        clearWorkspacePref();
         var c = sb();
         if (c) { try { await c.auth.signOut(); } catch (e) {} }
         location.reload();
@@ -1023,7 +1219,22 @@
       }
     } catch (e) {}
 
-    // Enter Coach Mode
+    // Resolve workspace preference
+    var ws = resolveWorkspace();
+
+    if (ws === "athlete_workspace") {
+      // Coach/admin chose athlete workspace — skip coach UI, let athlete
+      // init run in index.html (isCoachMode() returns true but
+      // isAthleteWorkspace() tells the caller to continue athlete flow)
+      _workspace = "athlete_workspace";
+      writeWorkspacePref("athlete_workspace");
+      return;
+    }
+
+    // Enter Coach Workspace (default for coach/admin)
+    _workspace = "coach_workspace";
+    writeWorkspacePref("coach_workspace");
+
     ensureCoachScreens();
     rewriteNavigation();
 
@@ -1032,6 +1243,14 @@
     document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
     var todayEl = document.getElementById("screen-today");
     if (todayEl) todayEl.classList.add("active");
+
+    // Hide athlete-only screens so they don't appear in coach workspace
+    var athleteOnly = ["screen-coachai", "screen-train", "screen-trends", "screen-you"];
+    athleteOnly.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+
     renderCoachToday();
 
     trackCoach("coach_today_viewed", {
@@ -1048,8 +1267,15 @@
     go: coachGo,
     getMode: function () { return _appMode; },
     isCoachMode: function () { return _appMode === "coach_mode"; },
+    isCoachWorkspace: function () { return _appMode === "coach_mode" && _workspace === "coach_workspace"; },
+    isAthleteWorkspace: function () { return _workspace === "athlete_workspace"; },
+    getWorkspace: function () { return _workspace; },
+    switchToCoachWorkspace: activateCoachWorkspace,
+    switchToAthleteWorkspace: activateAthleteWorkspace,
+    clearWorkspaceOnLogout: clearWorkspacePref,
+    injectAthleteYouSwitcher: injectAthleteYouSwitcher,
     _roster: function () { return _roster; },
-    _state: function () { return { mode: _appMode, role: _role, coachName: _coachName, rosterSize: _roster.length }; },
-    COACH_MODE_VERSION: "coach-mode-v1"
+    _state: function () { return { mode: _appMode, role: _role, coachName: _coachName, rosterSize: _roster.length, workspace: _workspace }; },
+    COACH_MODE_VERSION: "coach-mode-v2"
   };
 })();
