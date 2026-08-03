@@ -1,5 +1,5 @@
 /*
- * Athlevo landing-page performance identity and integration rail.
+ * Athlevo landing-page performance identity.
  *
  * These source-level checks protect the marketing-page presentation without
  * coupling the signup funnel to a browser implementation.
@@ -14,9 +14,6 @@ const landing = html.slice(
   html.indexOf('<section class="screen lp" id="screen-landing">'),
   html.indexOf("<!-- ══════════════ WELCOME")
 );
-const integration = (landing.match(
-  /<section class="lp-integrations"[\s\S]*?<\/section>/
-) || [""])[0];
 
 let passed = 0;
 let failed = 0;
@@ -30,34 +27,28 @@ function test(name, condition, detail = "") {
   }
 }
 
-console.log("\n──── Integration truth and placement ────");
-test("connected-training rail exists", integration.length > 0);
-test("integration rail follows the hero preview",
-  landing.indexOf('class="lp-integrations"') > landing.indexOf("</header>"));
-test("integration rail precedes the longer athlete proof",
-  landing.indexOf('class="lp-integrations"') <
-    landing.indexOf("lp-athlete-results"));
-[
-  "YOUR TRAINING, CONNECTED",
-  "Bring your training with you.",
-  "Connect directly through Strava or bring data from compatible watches and platforms through Intervals.icu.",
-  "Availability depends on the data each platform shares with Intervals.icu."
-].forEach(copy => test(`exact copy: ${copy}`, integration.includes(copy)));
-test("Strava is marked Direct",
-  /Strava<\/span>\s*<span class="lp-integration-status direct">Direct/.test(integration));
-test("Intervals.icu is marked Direct",
-  /Intervals\.icu<\/span>\s*<span class="lp-integration-status direct">Direct/.test(integration));
-["Garmin", "COROS", "Polar", "Suunto", "WHOOP", "Oura"].forEach(platform =>
-  test(`${platform} is marked Via Intervals.icu`,
-    integration.includes(
-      `<span class="lp-integration-name">${platform}</span>\n` +
-      '            <span class="lp-integration-status">Via Intervals.icu</span>'
-    ))
-);
-test("supported platforms are not marked Coming soon",
-  !integration.includes("Coming soon"));
-test("no unapproved platform logos are fabricated",
-  !/<img\b/.test(integration) && !/<svg\b/.test(integration));
+console.log("\n──── Section ordering and removed content ────");
+test("phone mockup markup is removed",
+  !landing.includes('class="lp-phone"') &&
+  !landing.includes('class="lp-coach-peek"'));
+test("phone mockup CSS is removed",
+  !html.includes('.lp-phone{') && !html.includes('.lp-coach-peek{'));
+test("integrations section is removed",
+  !landing.includes('class="lp-integrations"') &&
+  !landing.includes("Bring your training with you"));
+test("integrations CSS is removed",
+  !html.includes('.lp-integrations{') &&
+  !html.includes('.lp-integration-list{'));
+test("athlete results follows immediately after the hero",
+  landing.indexOf("lp-athlete-results") > landing.indexOf("</header>") &&
+  !landing.slice(landing.indexOf("</header>"), landing.indexOf("lp-athlete-results"))
+    .includes('<section class="lp-integrations"'));
+
+console.log("\n──── Athlete identity ────");
+test("Frances Patawaran replaces Carl Zita",
+  landing.includes("Frances Patawaran") && !landing.includes("Carl Zita"));
+test("Frances Patawaran testimonial image path is correct",
+  landing.includes("assets/testimonials/frances-patawaran.jpeg"));
 
 console.log("\n──── Funnel and analytics wiring remain intact ────");
 {
@@ -93,17 +84,8 @@ test("feature descriptors use ruled rows rather than rounded pills",
 console.log("\n──── Narrow viewport and accessibility safeguards ────");
 test("the landing screen clips accidental horizontal overflow",
   /#screen-landing\{[^}]*overflow-x:hidden/.test(html));
-test("integration columns can shrink without overflow",
-  /\.lp-integration-list\{[^}]*minmax\(0,1fr\)/.test(html) &&
-  /\.lp-integration-item\{[^}]*min-width:0/.test(html) &&
-  /\.lp-integration-name\{[^}]*overflow-wrap:anywhere/.test(html));
-test("narrow viewports receive a readable two-column platform rail",
-  /@media \(max-width:560px\)\{[\s\S]*?\.lp-integration-list\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(html));
 test("mobile CTAs remain full-width and visible",
   /@media \(max-width:560px\)\{[\s\S]*?\.lp-cta\{flex-direction:column;align-items:stretch\}/.test(html));
-test("integration route is exposed as text, not color alone",
-  integration.includes(">Direct</span>") &&
-  integration.includes(">Via Intervals.icu</span>"));
 test("landing reveal honors reduced-motion preferences",
   /@media \(prefers-reduced-motion:reduce\)\{\.lp-reveal\{opacity:1;transform:none;transition:none\}\}/.test(html));
 

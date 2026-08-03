@@ -2536,77 +2536,6 @@ body.landing-active #tabbar{display:none!important}
   .lp-hero-visual{margin-top:var(--s-7)}
 }
 
-/* ── product phone frame ── */
-.lp-phone{position:relative;width:280px;max-width:100%;border-radius:32px;background:var(--paper);border:1px solid var(--line);box-shadow:var(--elev-3);overflow:visible;flex-shrink:0}
-.lp-phone-notch{height:28px;display:flex;align-items:center;justify-content:center;background:var(--paper);position:relative;border-radius:32px 32px 0 0}
-.lp-phone-notch::after{content:"";width:80px;height:5px;border-radius:var(--r-pill);background:var(--line)}
-.lp-phone-body{padding:0 0 16px;overflow:hidden;border-radius:0 0 32px 32px}
-/* greeting inside phone */
-.lp-phone .ph-greet{padding:6px 16px 0}
-.lp-phone .ph-greet h2{font-family:var(--serif);font-weight:500;font-size:18px;line-height:1.15;letter-spacing:-.01em;color:var(--text);margin:0}
-.lp-phone .ph-greet p{font-size:11px;color:var(--ink2);margin:2px 0 0}
-/* recommendation card inside phone */
-.lp-phone .ph-rec{margin:10px 12px 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px 10px;position:relative}
-.lp-phone .ph-rec::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red);border-radius:14px 0 0 14px}
-.lp-phone .ph-rec-eye{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:4px}
-.lp-phone .ph-rec-body{display:flex;align-items:center;gap:10px}
-.lp-phone .ph-rec-text{flex:1;min-width:0}
-.lp-phone .ph-rec-text b{display:block;font-family:var(--serif);font-size:13.5px;font-weight:500;line-height:1.2;letter-spacing:-.01em;color:var(--text);margin-bottom:2px}
-.lp-phone .ph-rec-text small{font-size:10px;line-height:1.4;color:var(--ink2);display:block}
-.lp-phone .ph-status{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;min-width:58px;background:var(--good-soft);border:1px solid rgba(31,157,91,.18);border-radius:10px;text-align:center}
-.lp-phone .ph-status-dot{width:9px;height:9px;border-radius:50%;background:var(--good)}
-.lp-phone .ph-status-label{font-size:8.5px;font-weight:700;color:var(--text);line-height:1.1}
-/* glance tiles inside phone */
-.lp-phone .ph-glance{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 12px 0}
-.lp-phone .ph-tile{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:7px 7px 8px;position:relative;overflow:hidden}
-.lp-phone .ph-tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--tile-accent,var(--line))}
-.lp-phone .ph-tile-val{font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--text);line-height:1.1}
-.lp-phone .ph-tile-label{font-size:8px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);margin-top:1px}
-.lp-phone .ph-tile--dist{--tile-accent:#3a6df0}
-.lp-phone .ph-tile--load{--tile-accent:var(--warn)}
-.lp-phone .ph-tile--hr{--tile-accent:var(--good)}
-/* score card inside phone */
-.lp-phone .ph-score{margin:10px 12px 0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
-.lp-phone .ph-score-eye{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
-.lp-phone .ph-score-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 6px}
-.lp-phone .ph-score-num{font-family:var(--serif);font-size:36px;font-weight:500;letter-spacing:-.03em;line-height:.9;color:var(--text)}
-.lp-phone .ph-score-max{font-size:13px;font-weight:600;color:var(--ink3)}
-.lp-phone .ph-score-delta{font-size:10px;font-weight:800;color:var(--good);background:var(--good-soft);padding:4px 8px;border-radius:var(--r-pill)}
-.lp-phone .ph-score-track{height:10px;border-radius:var(--r-pill);background:var(--card);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
-.lp-phone .ph-score-fill{height:100%;border-radius:var(--r-pill);background:linear-gradient(90deg,#e0575d 0%,var(--red) 55%,#9d1f24 100%)}
-/* coach overlay (small, overlapping bottom-right) */
-.lp-coach-peek{position:absolute;bottom:8px;right:-16px;width:160px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:10px 12px;box-shadow:var(--elev-2);z-index:1}
-@media (max-width:859px){.lp-coach-peek{right:0;bottom:4px}}
-.lp-coach-peek-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.lp-coach-peek-head img{width:20px;height:20px;border-radius:5px}
-.lp-coach-peek-head span{font-size:9px;font-weight:700;color:var(--text)}
-.lp-coach-peek-msg{font-size:9px;line-height:1.4;color:var(--ink2)}
-.lp-coach-peek-msg b{color:var(--text);font-weight:650}
-/* phone entrance animation */
-@media (prefers-reduced-motion:no-preference){
-  .lp-phone{animation:phoneIn var(--dur-slow) var(--ease-emphasized) both;animation-delay:.15s}
-  .lp-coach-peek{animation:phoneIn var(--dur-slow) var(--ease-emphasized) both;animation-delay:.35s}
-  @keyframes phoneIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-}
-@media (prefers-reduced-motion:reduce){
-  .lp-phone,.lp-coach-peek{animation:none}
-}
-
-/* connected training data — compact proof rail, not a feature-card block */
-.lp-integrations{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:var(--s-8) 0;background:var(--paper)}
-.lp-integrations-layout{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(0,1.35fr);gap:clamp(32px,6vw,80px);align-items:end}
-.lp-integrations-copy .lp-kicker{text-align:left;margin-bottom:var(--s-2)}
-.lp-integrations-copy h2{font-family:var(--sans);font-size:var(--fs-h1);font-weight:700;line-height:var(--lh-heading);letter-spacing:-.02em;color:var(--text);margin:0}
-.lp-integrations-copy p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);max-width:45ch;margin:var(--s-3) 0 0}
-.lp-integration-list{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0;padding:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.lp-integration-item{min-width:0;padding:var(--s-4);border-left:1px solid var(--line)}
-.lp-integration-item:nth-child(4n+1){border-left:0}
-.lp-integration-item:nth-child(n+5){border-top:1px solid var(--line)}
-.lp-integration-name{display:block;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;letter-spacing:-.01em;color:var(--text);overflow-wrap:anywhere}
-.lp-integration-status{display:flex;align-items:flex-start;gap:7px;margin-top:var(--s-2);font-size:var(--fs-caption);font-weight:650;line-height:var(--lh-caption);color:var(--ink2);overflow-wrap:anywhere}
-.lp-integration-status::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ink3);flex:none}
-.lp-integration-status.direct::before{background:var(--good)}
-.lp-integration-note{font-size:var(--fs-caption);color:var(--ink3);margin:var(--s-2) 0 0;text-align:right}
 
 /* generic section */
 .lp-section{padding:clamp(48px,7vw,80px) 0;border-top:1px solid var(--line)}
@@ -2803,7 +2732,6 @@ body.landing-active #tabbar{display:none!important}
   .lp-mockrow{grid-template-columns:1fr}
   .lp-showcase{grid-template-columns:1fr 1fr}
   .lp-subgrid{grid-template-columns:1fr 1fr}
-  .lp-integrations-layout{grid-template-columns:1fr;align-items:start}
 }
 @media (max-width:560px){
   .lp-hero{padding-top:var(--s-7)}
@@ -2813,11 +2741,6 @@ body.landing-active #tabbar{display:none!important}
   .lp-grid{grid-template-columns:1fr}
   .lp-showcase{grid-template-columns:1fr}
   .lp-subgrid{grid-template-columns:1fr 1fr}
-  .lp-integrations{padding:var(--s-7) 0}
-  .lp-integration-list{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .lp-integration-item:nth-child(odd){border-left:0}
-  .lp-integration-item:nth-child(n+3){border-top:1px solid var(--line)}
-  .lp-integration-note{text-align:left}
   .lp-use-cases{grid-template-columns:1fr}
   .lp-footer-in{flex-direction:column;text-align:center}
   .lp-nav-cta .lp-link{display:none}
@@ -2884,115 +2807,8 @@ body.landing-active #tabbar{display:none!important}
         </div>
       </div>
 
-      <!-- product visual column -->
-      <div class="lp-hero-visual lp-reveal" aria-label="Athlevo Today screen preview" role="img">
-        <div class="lp-phone" aria-hidden="true">
-          <div class="lp-phone-notch"></div>
-          <div class="lp-phone-body">
-            <!-- greeting -->
-            <div class="ph-greet">
-              <h2>Good morning,<br>Athlete.</h2>
-              <p>Your athlete profile is ready.</p>
-            </div>
-            <!-- recommendation card -->
-            <div class="ph-rec">
-              <div class="ph-rec-eye">Today's recommendation</div>
-              <div class="ph-rec-body">
-                <div class="ph-rec-text">
-                  <b>Easy Recovery Run</b>
-                  <small>40 min at conversational pace. Keep effort gentle.</small>
-                </div>
-                <div class="ph-status">
-                  <span class="ph-status-dot"></span>
-                  <span class="ph-status-label">Good<br>to go</span>
-                </div>
-              </div>
-            </div>
-            <!-- glance tiles -->
-            <div class="ph-glance">
-              <div class="ph-tile ph-tile--dist">
-                <div class="ph-tile-val">32.4</div>
-                <div class="ph-tile-label">7-day km</div>
-              </div>
-              <div class="ph-tile ph-tile--load">
-                <div class="ph-tile-val">4.2h</div>
-                <div class="ph-tile-label">Load</div>
-              </div>
-              <div class="ph-tile ph-tile--hr">
-                <div class="ph-tile-val">142</div>
-                <div class="ph-tile-label">Avg HR</div>
-              </div>
-            </div>
-            <!-- athlevo score -->
-            <div class="ph-score">
-              <div class="ph-score-eye">Athlevo Score</div>
-              <div class="ph-score-row">
-                <div><span class="ph-score-num">72</span><span class="ph-score-max"> / 100</span></div>
-                <span class="ph-score-delta">▲ 4</span>
-              </div>
-              <div class="ph-score-track"><div class="ph-score-fill" style="width:72%"></div></div>
-            </div>
-          </div>
-          <!-- overlapping coach peek -->
-          <div class="lp-coach-peek">
-            <div class="lp-coach-peek-head">
-              <img src="assets/athlevo-icon.png" alt="" width="20" height="20">
-              <span>Athlevo Coach</span>
-            </div>
-            <div class="lp-coach-peek-msg"><b>Morning.</b> I trimmed today's run to 40 min — stable HRV but short sleep.</div>
-          </div>
-        </div>
-      </div>
     </div>
   </header>
-
-  <!-- CONNECTED TRAINING DATA -->
-  <section class="lp-integrations" aria-labelledby="lp-integrations-title">
-    <div class="lp-wrap lp-integrations-layout">
-      <div class="lp-integrations-copy lp-reveal">
-        <span class="lp-kicker">YOUR TRAINING, CONNECTED</span>
-        <h2 id="lp-integrations-title">Bring your training with you.</h2>
-        <p>Connect directly through Strava or bring data from compatible watches and platforms through Intervals.icu.</p>
-      </div>
-      <div class="lp-reveal">
-        <ul class="lp-integration-list" aria-label="Training platform connection routes">
-          <li class="lp-integration-item">
-            <span class="lp-integration-name">Strava</span>
-            <span class="lp-integration-status direct">Direct</span>
-          </li>
-          <li class="lp-integration-item">
-            <span class="lp-integration-name">Intervals.icu</span>
-            <span class="lp-integration-status direct">Direct</span>
-          </li>
-          <li class="lp-integration-item">
-            <span class="lp-integration-name">Garmin</span>
-            <span class="lp-integration-status">Via Intervals.icu</span>
-          </li>
-          <li class="lp-integration-item">
-            <span class="lp-integration-name">COROS</span>
-            <span class="lp-integration-status">Via Intervals.icu</span>
-          </li>
-          <li class="lp-integration-item">
-            <span class="lp-integration-name">Polar</span>
-            <span class="lp-integration-status">Via Intervals.icu</span>
-          </li>
-          <li class="lp-integration-item">
-            <span class="lp-integration-name">Suunto</span>
-            <span class="lp-integration-status">Via Intervals.icu</span>
-          </li>
-          <li class="lp-integration-item">
-            <span class="lp-integration-name">WHOOP</span>
-            <span class="lp-integration-status">Via Intervals.icu</span>
-          </li>
-          <li class="lp-integration-item">
-            <span class="lp-integration-name">Oura</span>
-            <span class="lp-integration-status">Via Intervals.icu</span>
-          </li>
-        </ul>
-        <p class="lp-integration-note">Availability depends on the data each platform shares with Intervals.icu.</p>
-      </div>
-    </div>
-  </section>
 
   <!-- 2. ATHLETE RESULTS -->
   <section class="lp-section lp-alt lp-athlete-results">
@@ -3028,14 +2844,14 @@ body.landing-active #tabbar{display:none!important}
           </div>
         </article>
         <article class="lp-card lp-athlete-card">
-          <!-- APPROVED ATHLETE IMAGE — CARL ZITA -->
-          <div class="lp-athlete-photo">
-            <img src="assets/testimonials/carl-zita.jpg" alt="Carl Zita seated outdoors" loading="lazy" decoding="async">
+          <!-- APPROVED ATHLETE IMAGE — FRANCES PATAWARAN -->
+          <div class=”lp-athlete-photo”>
+            <img src=”assets/testimonials/frances-patawaran.jpeg” alt=”Frances Patawaran seated outdoors” loading=”lazy” decoding=”async”>
           </div>
-          <div class="lp-athlete-content">
-            <blockquote class="lp-athlete-quote">“Effective program, quality sessions, and very informative coaching.”</blockquote>
-            <footer class="lp-athlete-meta">
-              <strong class="lp-athlete-name">Carl Zita</strong>
+          <div class=”lp-athlete-content”>
+            <blockquote class=”lp-athlete-quote”>”Effective program, quality sessions, and very informative coaching.”</blockquote>
+            <footer class=”lp-athlete-meta”>
+              <strong class=”lp-athlete-name”>Frances Patawaran</strong>
               <span class="lp-athlete-context">Recreational Runner</span>
             </footer>
           </div>
