@@ -30,6 +30,114 @@ console.log("Athlevo Onboarding v2 loaded");
  *  Legal pages.
  */
 
+/* ─────────────────── role-selection (athlete vs coach) ─────────────── */
+
+/*
+ * The very first onboarding screen asks "What brings you to Athlevo?"
+ * with two cards: Athlete and Coach.
+ *
+ * SECURITY: this is a client-side INTENT indicator only.
+ *  · Selecting "I'm a coach" does NOT set profiles.role.
+ *  · It does NOT unlock Coach Workspace.
+ *  · It does NOT grant any server-side permissions.
+ *  · The server-authoritative role (profiles.role) is unchanged.
+ *  · Coach access requires admin approval via a separate reviewed path.
+ *
+ * Intent is stored in sessionStorage (transient — clears on tab close
+ * and explicit logout). Never in localStorage or profiles.
+ */
+const OB_ROLE_KEY = "athlevo_onboarding_intent";
+
+function obReadIntent() {
+  try { return sessionStorage.getItem(OB_ROLE_KEY) || null; } catch (e) { return null; }
+}
+function obWriteIntent(intent) {
+  try { sessionStorage.setItem(OB_ROLE_KEY, intent); } catch (e) {}
+}
+function obClearIntent() {
+  try { sessionStorage.removeItem(OB_ROLE_KEY); } catch (e) {}
+}
+
+/* ─── Current flow flag (athlete | coach) ─── */
+let _obCurrentFlow = "athlete";
+
+/* ─── Coach onboarding step definitions ─── */
+
+const COACH_OB_STEPS = [
+  {
+    key: "coach_name",
+    eyebrow: "Step 1 · About you",
+    title: "Tell us about yourself",
+    sub: "The basics for your coaching profile.",
+    fields: [
+      { id: "coachName", type: "text", label: "Full name",
+        placeholder: "e.g. Jane Smith", required: true }
+    ]
+  },
+  {
+    key: "coach_brand",
+    eyebrow: "Step 2 · Your coaching",
+    title: "Your coaching practice",
+    sub: "Help us understand your coaching background.",
+    fields: [
+      { id: "coachBrand", type: "text", label: "Coaching brand or business name",
+        optional: true, placeholder: "e.g. Smith Endurance Coaching" },
+      {
+        id: "coachSports", type: "multichips",
+        label: "Primary coaching sports", required: true,
+        options: [
+          { label: "Running",   value: "Running" },
+          { label: "Cycling",   value: "Cycling" },
+          { label: "Triathlon", value: "Triathlon" },
+          { label: "Strength",  value: "Strength" },
+          { label: "Other",     value: "Other" }
+        ]
+      },
+      {
+        id: "coachExperience", type: "chips",
+        label: "Coaching experience", required: true,
+        options: [
+          { label: "New coach",       value: "new" },
+          { label: "Under 2 years",   value: "under_2" },
+          { label: "2–5 years",       value: "2_5" },
+          { label: "5+ years",        value: "5_plus" }
+        ]
+      }
+    ]
+  },
+  {
+    key: "coach_setup",
+    eyebrow: "Step 3 · Your setup",
+    title: "How you coach",
+    sub: "So we can tailor Athlevo to your workflow.",
+    fields: [
+      {
+        id: "coachAthleteCount", type: "chips",
+        label: "Approximate current athlete count", required: true,
+        options: [
+          { label: "0",     value: "0" },
+          { label: "1–5",   value: "1_5" },
+          { label: "6–15",  value: "6_15" },
+          { label: "16–30", value: "16_30" },
+          { label: "31+",   value: "31_plus" }
+        ]
+      },
+      {
+        id: "coachSetup", type: "chips",
+        label: "Preferred coaching setup", required: true,
+        options: [
+          { label: "Online",    value: "online" },
+          { label: "In person", value: "in_person" },
+          { label: "Hybrid",    value: "hybrid" }
+        ]
+      }
+    ]
+  }
+];
+
+let coachObStepIndex = 0;
+let coachObData = {};
+
 /* ─────────────────────────── step definitions ───────────────────────── */
 
 const WEEK_DAYS = [
@@ -1121,6 +1229,517 @@ async function obLogInAgain() {
   if (typeof window.openLogin === "function") window.openLogin();
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+ *  Role-choice screen, coach flow, and dispatcher logic
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Categorical-only analytics helper ─── */
+
+const OB_ALLOWED_ANALYTICS_KEYS = {
+  selected_role: { athlete: true, coach: true },
+  application_status: { pending: true },
+  source_surface: { onboarding: true }
+};
+
+function obTrackOnboardingEvent(eventName, props) {
+  try {
+    const safe = {};
+    if (props && typeof props === "object") {
+      for (const key of Object.keys(props)) {
+        const whitelist = OB_ALLOWED_ANALYTICS_KEYS[key];
+        if (!whitelist) continue;
+        const val = String(props[key] || "").trim();
+        if (whitelist[val]) safe[key] = val;
+      }
+    }
+    if (window.AthlevoAnalytics) {
+      window.AthlevoAnalytics.track(eventName, safe);
+    }
+    if (window.AthlevoProductAnalytics) {
+      window.AthlevoProductAnalytics.trackAthlevoEvent(eventName, safe);
+    }
+  } catch (e) {}
+}
+
+/* ─── Role-choice rendering ─── */
+
+function obRenderRoleChoice() {
+  const body = document.getElementById("ob2Body");
+  if (!body) return;
+
+  // Hide progress bar and footer during role choice
+  const progress = document.getElementById("ob2Progress");
+  const foot = document.getElementById("ob2-foot");
+  if (progress) progress.style.display = "none";
+  if (foot) foot.style.display = "none";
+
+  body.innerHTML = `
+    <div class="ob2-step" style="text-align:center">
+      <h2 class="ob2-title">What brings you to Athlevo?</h2>
+      <p class="ob2-sub">Choose how you'll use the app.</p>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:28px;max-width:340px;margin-left:auto;margin-right:auto">
+        <button type="button" id="obRoleAthlete" class="ob2-role-card" style="
+          display:flex;align-items:center;gap:14px;padding:20px 22px;
+          border-radius:14px;border:2px solid var(--ink1,#e0e0e0);
+          background:var(--bg2,#fff);cursor:pointer;text-align:left;
+          transition:border-color .15s,box-shadow .15s;font-family:inherit">
+          <span style="font-size:28px" aria-hidden="true">&#127939;</span>
+          <span>
+            <span style="display:block;font-weight:700;font-size:16px;color:var(--ink5,#111)">I'm an athlete</span>
+            <span style="display:block;font-size:13px;color:var(--ink3,#666);margin-top:2px">Get a personalised training plan</span>
+          </span>
+        </button>
+        <button type="button" id="obRoleCoach" class="ob2-role-card" style="
+          display:flex;align-items:center;gap:14px;padding:20px 22px;
+          border-radius:14px;border:2px solid var(--ink1,#e0e0e0);
+          background:var(--bg2,#fff);cursor:pointer;text-align:left;
+          transition:border-color .15s,box-shadow .15s;font-family:inherit">
+          <span style="font-size:28px" aria-hidden="true">&#128203;</span>
+          <span>
+            <span style="display:block;font-weight:700;font-size:16px;color:var(--ink5,#111)">I'm a coach</span>
+            <span style="display:block;font-size:13px;color:var(--ink3,#666);margin-top:2px">Apply to manage athletes on Athlevo</span>
+          </span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  obTrackOnboardingEvent("onboarding_role_choice_viewed", {
+    source_surface: "onboarding"
+  });
+
+  body.querySelector("#obRoleAthlete").addEventListener("click", () => {
+    obTrackOnboardingEvent("onboarding_role_selected", {
+      selected_role: "athlete", source_surface: "onboarding"
+    });
+    obWriteIntent("athlete");
+    obStartAthleteFlow();
+  });
+
+  body.querySelector("#obRoleCoach").addEventListener("click", () => {
+    obTrackOnboardingEvent("onboarding_role_selected", {
+      selected_role: "coach", source_surface: "onboarding"
+    });
+    obWriteIntent("coach");
+    obStartCoachFlow();
+  });
+}
+
+/* ─── Restore progress bar + footer after role choice ─── */
+
+function obRestoreChrome() {
+  const progress = document.getElementById("ob2Progress");
+  const foot = document.getElementById("ob2-foot");
+  if (progress) progress.style.display = "";
+  if (foot) foot.style.display = "";
+}
+
+/* ─── Athlete flow entry ─── */
+
+function obStartAthleteFlow() {
+  _obCurrentFlow = "athlete";
+  obRestoreChrome();
+  obData = obPrefillFromProfile(obProfile);
+  obStepIndex = obFirstIncompleteStep();
+  obRenderStep();
+}
+
+/* ─── Coach flow ─── */
+
+function obStartCoachFlow() {
+  _obCurrentFlow = "coach";
+  obRestoreChrome();
+  coachObStepIndex = 0;
+  coachObData = {};
+
+  // Prefill name from profile if available
+  if (obProfile && obProfile.full_name) {
+    coachObData.coachName = obProfile.full_name;
+  }
+
+  obTrackOnboardingEvent("coach_application_started", {
+    source_surface: "onboarding"
+  });
+
+  obRenderCoachStep();
+}
+
+function obRenderCoachStep() {
+  const step = COACH_OB_STEPS[coachObStepIndex];
+  const body = document.getElementById("ob2Body");
+  if (!step || !body) return;
+
+  // Render using the same field rendering as athlete flow
+  const visibleFields = (step.fields || []).filter(f => {
+    if (!f.showWhen) return true;
+    return Object.keys(f.showWhen).every(k => coachObData[k] === f.showWhen[k]);
+  });
+
+  body.innerHTML = `
+    <div class="ob2-step">
+      <span class="ob2-eyebrow">${obEscape(step.eyebrow)}</span>
+      <h2 class="ob2-title">${obEscape(step.title)}</h2>
+      <p class="ob2-sub">${obEscape(step.sub)}</p>
+      ${obGroupCoachFields(visibleFields)}
+    </div>
+  `;
+  body.scrollTop = 0;
+
+  // Progress
+  const fill = document.getElementById("ob2ProgressFill");
+  if (fill) fill.style.width = `${((coachObStepIndex + 1) / COACH_OB_STEPS.length) * 100}%`;
+
+  const count = document.getElementById("ob2Count");
+  if (count) count.innerHTML = `${coachObStepIndex + 1}&nbsp;/&nbsp;${COACH_OB_STEPS.length}`;
+
+  const back = document.getElementById("ob2Back");
+  if (back) back.disabled = false; // Back always enabled — goes to role choice from step 0
+
+  const cont = document.getElementById("ob2Continue");
+  if (cont) {
+    const last = coachObStepIndex === COACH_OB_STEPS.length - 1;
+    cont.textContent = last ? "Submit application" : "Continue";
+    cont.classList.toggle("done", last);
+  }
+
+  obMessage("");
+  obWireCoachStep();
+}
+
+/* Render a single coach field — reuses obRenderField but sources from coachObData */
+function obRenderCoachField(field) {
+  const optTag = field.optional
+    ? ` <span class="opt">· optional</span>`
+    : "";
+  const label = `<label class="ob2-label" for="obf-${field.id}">${obEscape(field.label)}${optTag}</label>`;
+
+  if (field.type === "text" || field.type === "number") {
+    const value = coachObData[field.id] != null ? obEscape(coachObData[field.id]) : "";
+    const input = `<input class="ob2-input" id="obf-${field.id}" type="${
+      field.type === "number" ? "number" : "text"
+    }" inputmode="${field.type === "number" ? "decimal" : "text"}" placeholder="${
+      obEscape(field.placeholder || "")
+    }" value="${value}" autocomplete="off">`;
+    return `<div class="ob2-field${field.half ? " half" : ""}">${label}${input}</div>`;
+  }
+
+  if (field.type === "chips" || field.type === "multichips") {
+    const selected = coachObData[field.id];
+    const chips = field.options.map(opt => {
+      const isSel =
+        field.type === "multichips"
+          ? Array.isArray(selected) && selected.includes(opt.value)
+          : selected != null && String(selected) === String(opt.value);
+      return `<button type="button" class="ob2-chip${isSel ? " sel" : ""}" data-field="${field.id}" data-value="${obEscape(opt.value)}" data-multi="${field.type === "multichips" ? "1" : "0"}">${obEscape(opt.label)}</button>`;
+    }).join("");
+    return `<div class="ob2-field">${label}<div class="ob2-chips">${chips}</div></div>`;
+  }
+
+  return "";
+}
+
+function obGroupCoachFields(fields) {
+  const out = [];
+  let i = 0;
+  while (i < fields.length) {
+    const f = fields[i];
+    const next = fields[i + 1];
+    if (f.half && next && next.half) {
+      out.push(`<div class="ob2-row">${obRenderCoachField(f)}${obRenderCoachField(next)}</div>`);
+      i += 2;
+    } else {
+      out.push(obRenderCoachField(f));
+      i += 1;
+    }
+  }
+  return out.join("");
+}
+
+/* Chip handling for coach fields — writes into coachObData */
+function obWireCoachStep() {
+  const body = document.getElementById("ob2Body");
+  if (!body) return;
+
+  body.querySelectorAll("[data-field]").forEach(el => {
+    if (!el.dataset || (!el.dataset.value && el.dataset.value !== "0")) return;
+    if (el.tagName !== "BUTTON") return;
+
+    el.addEventListener("click", () => {
+      const fieldId = el.dataset.field;
+      const raw = el.dataset.value;
+
+      if (el.dataset.multi === "1") {
+        const cur = Array.isArray(coachObData[fieldId]) ? coachObData[fieldId].slice() : [];
+        coachObData[fieldId] = cur.includes(raw)
+          ? cur.filter(v => v !== raw)
+          : cur.concat(raw);
+      } else {
+        coachObData[fieldId] = coachObData[fieldId] === raw ? null : raw;
+      }
+
+      // Refresh chip selection states
+      const value = coachObData[fieldId];
+      body.querySelectorAll(`[data-field="${fieldId}"]`).forEach(btn => {
+        const v = btn.dataset.value;
+        let on;
+        if (Array.isArray(value)) on = value.includes(v);
+        else on = value != null && String(value) === v;
+        btn.classList.toggle("sel", on);
+      });
+    });
+  });
+}
+
+/* Collect text/number inputs from coach step */
+function obCollectCoachInputs() {
+  const step = COACH_OB_STEPS[coachObStepIndex];
+  step.fields.forEach(field => {
+    if (["text", "number"].includes(field.type)) {
+      const el = document.getElementById(`obf-${field.id}`);
+      if (el) coachObData[field.id] = el.value;
+    }
+  });
+}
+
+/* Validate current coach step */
+function obValidateCoachStep() {
+  const step = COACH_OB_STEPS[coachObStepIndex];
+
+  for (const field of step.fields) {
+    if (field.optional) continue;
+    const value = coachObData[field.id];
+
+    if (field.required) {
+      const empty =
+        value == null ||
+        value === "" ||
+        (Array.isArray(value) && value.length === 0);
+      if (empty) {
+        return `Please complete "${field.label}" to continue.`;
+      }
+    }
+  }
+  return null;
+}
+
+/* Coach continue */
+async function obCoachContinue() {
+  if (obBusy) return;
+
+  obCollectCoachInputs();
+
+  const problem = obValidateCoachStep();
+  if (problem) {
+    obMessage(problem);
+    return;
+  }
+
+  obBusy = true;
+  const cont = document.getElementById("ob2Continue");
+  const lastStep = coachObStepIndex === COACH_OB_STEPS.length - 1;
+
+  if (cont) {
+    cont.disabled = true;
+    cont.textContent = lastStep ? "Submitting…" : "Saving…";
+  }
+
+  try {
+    if (lastStep) {
+      await obSubmitCoachApplication();
+      return;
+    }
+    coachObStepIndex += 1;
+    obRenderCoachStep();
+  } catch (error) {
+    obTrackFailure("profile_save", error);
+    console.warn("Coach onboarding error:", obFailureCategory(error));
+    obMessage("Couldn't save that — check your connection and try again.");
+    if (cont) {
+      cont.textContent = lastStep ? "Submit application" : "Continue";
+    }
+  } finally {
+    obBusy = false;
+    const c = document.getElementById("ob2Continue");
+    if (c) c.disabled = false;
+  }
+}
+
+/* Coach back */
+function obCoachBack() {
+  if (obBusy) return;
+  obCollectCoachInputs();
+
+  if (coachObStepIndex === 0) {
+    // Go back to role choice
+    _obCurrentFlow = "athlete"; // reset
+    obClearIntent();
+    obRenderRoleChoice();
+    return;
+  }
+  coachObStepIndex -= 1;
+  obRenderCoachStep();
+}
+
+/* ─── Coach application submission ─── */
+
+async function obSubmitCoachApplication() {
+  const user = await obUser();
+
+  // 1. Save the coach's name to profiles (never touches role)
+  const coachName = obClean(coachObData.coachName);
+  if (coachName) {
+    try {
+      await supabaseClient
+        .from("profiles")
+        .update({
+          full_name: coachName,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", user.id);
+    } catch (e) {
+      console.warn("Could not save coach name:", e?.message || e);
+    }
+  }
+
+  // 2. Build the application row.
+  //    SECURITY: user_id comes from auth session, NOT from client payload.
+  //    Status is always "pending" — the DB CHECK + RLS enforce this, but we
+  //    also set it explicitly for defence-in-depth.
+  const applicationRow = {
+    user_id: user.id,
+    status: "pending",
+    coaching_brand: obClean(coachObData.coachBrand) || null,
+    coaching_sports: Array.isArray(coachObData.coachSports)
+      ? coachObData.coachSports.join(", ")
+      : null,
+    experience_band: coachObData.coachExperience || null,
+    athlete_count_band: coachObData.coachAthleteCount || null,
+    coaching_setup: coachObData.coachSetup || null
+  };
+
+  // 3. Upsert-safe insertion: unique partial index on (user_id) WHERE
+  //    status = 'pending' prevents duplicates. On conflict, update the
+  //    application data (idempotent resubmission).
+  const { error } = await supabaseClient
+    .from("coach_applications")
+    .upsert(applicationRow, {
+      onConflict: "user_id",
+      ignoreDuplicates: false
+    });
+
+  if (error) {
+    // If it's a duplicate key (fallback if upsert isn't available),
+    // update instead.
+    if (obIsDuplicateError(error)) {
+      const { error: updateError } = await supabaseClient
+        .from("coach_applications")
+        .update({
+          coaching_brand: applicationRow.coaching_brand,
+          coaching_sports: applicationRow.coaching_sports,
+          experience_band: applicationRow.experience_band,
+          athlete_count_band: applicationRow.athlete_count_band,
+          coaching_setup: applicationRow.coaching_setup
+        })
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+
+      if (updateError) throw updateError;
+    } else {
+      throw error;
+    }
+  }
+
+  // 4. Mark profiles.onboarding_complete so the user isn't prompted again.
+  //    NEVER sets profiles.role.
+  try {
+    await supabaseClient
+      .from("profiles")
+      .update({
+        onboarding_complete: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", user.id);
+  } catch (e) {
+    console.warn("Could not mark onboarding complete:", e?.message || e);
+  }
+
+  obTrackOnboardingEvent("coach_application_submitted", {
+    application_status: "pending",
+    source_surface: "onboarding"
+  });
+
+  obRenderCoachPending();
+}
+
+/* ─── Pending approval screen ─── */
+
+function obRenderCoachPending() {
+  const body = document.getElementById("ob2Body");
+  if (!body) return;
+
+  // Hide progress bar
+  const progress = document.getElementById("ob2Progress");
+  const foot = document.getElementById("ob2-foot");
+  if (progress) progress.style.display = "none";
+  if (foot) foot.style.display = "none";
+
+  body.innerHTML = `
+    <div class="ob2-step" style="text-align:center">
+      <div style="font-size:48px;margin-bottom:16px" aria-hidden="true">&#9993;</div>
+      <h2 class="ob2-title">Application submitted</h2>
+      <p class="ob2-sub" style="margin-bottom:24px">
+        Your coach application is under review. We'll notify you once it's approved.
+        In the meantime, you can explore Athlevo as an athlete.
+      </p>
+      <button type="button" id="obCoachPendingContinue" class="ob2-continue done"
+        style="max-width:300px;margin:0 auto">
+        Continue to My Training
+      </button>
+    </div>
+  `;
+
+  body.querySelector("#obCoachPendingContinue").addEventListener("click", async () => {
+    obClearIntent();
+    const tabbar = document.getElementById("tabbar");
+    if (tabbar) tabbar.style.display = "flex";
+    try { await AthlevoBrain.refreshAthleteUI(); } catch (e) {}
+    showScreen("screen-today");
+  });
+}
+
+/* ─── Dispatchers — route Continue/Back based on current flow ─── */
+
+function obContinueDispatch() {
+  if (_obCurrentFlow === "coach") {
+    obCoachContinue();
+  } else {
+    obContinue();
+  }
+}
+
+function obBackDispatch() {
+  if (_obCurrentFlow === "coach") {
+    obCoachBack();
+  } else {
+    if (obBusy || obStepIndex === 0) {
+      // Back from athlete step 0 → role choice
+      if (obStepIndex === 0 && !obBusy) {
+        _obCurrentFlow = "athlete";
+        obClearIntent();
+        obRenderRoleChoice();
+      }
+      return;
+    }
+    obCollectInputs();
+    obStepIndex -= 1;
+    obRenderStep();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ *  Entry point (replaces original startAthlevoOnboarding)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
 async function startAthlevoOnboarding() {
   showScreen("screen-onboard");
   obMessage("");
@@ -1134,7 +1753,29 @@ async function startAthlevoOnboarding() {
   try {
     obProfile = await obLoadProfile();
 
+    // ── Coach/admin bypass: already-onboarded users skip entirely ──
     if (obProfile.onboarding_complete) {
+      const tabbar = document.getElementById("tabbar");
+      if (tabbar) tabbar.style.display = "flex";
+      await AthlevoBrain.refreshAthleteUI();
+      showScreen("screen-today");
+      return;
+    }
+
+    // ── Coach/admin role bypass: existing coaches/admins skip athlete
+    //    onboarding (their role was granted server-side) ──
+    const role = obProfile.role;
+    if (role === "coach" || role === "admin") {
+      // Mark onboarding complete so they don't see this again
+      try {
+        await supabaseClient
+          .from("profiles")
+          .update({
+            onboarding_complete: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", obProfile.id);
+      } catch (e) {}
       const tabbar = document.getElementById("tabbar");
       if (tabbar) tabbar.style.display = "flex";
       await AthlevoBrain.refreshAthleteUI();
@@ -1165,9 +1806,24 @@ async function startAthlevoOnboarding() {
       }
     } catch (e) {}
 
-    obData = obPrefillFromProfile(obProfile);
-    obStepIndex = obFirstIncompleteStep();
-    obRenderStep();
+    // ── Check saved intent and resume the right flow ──
+    const savedIntent = obReadIntent();
+
+    if (savedIntent === "coach") {
+      // Resume coach flow
+      obStartCoachFlow();
+      return;
+    }
+
+    if (savedIntent === "athlete") {
+      // Resume athlete flow
+      obStartAthleteFlow();
+      return;
+    }
+
+    // ── No saved intent → show role choice ──
+    obRenderRoleChoice();
+
   } catch (error) {
     // Log the safe internal code only — never tokens, email, or RLS details.
     const code = (error && error.code) ? error.code : "PROFILE_READ";
@@ -1182,14 +1838,16 @@ async function startAthlevoOnboarding() {
 function setupOnboardingInterface() {
   const cont = document.getElementById("ob2Continue");
   const back = document.getElementById("ob2Back");
-  if (cont) cont.addEventListener("click", obContinue);
-  if (back) back.addEventListener("click", obBack);
+  // Use dispatchers so the same buttons work for both flows
+  if (cont) cont.addEventListener("click", obContinueDispatch);
+  if (back) back.addEventListener("click", obBackDispatch);
 }
 
 window.startOnboarding = startAthlevoOnboarding;
 window.startAthlevoOnboarding = startAthlevoOnboarding;
 window.AthlevoOnboarding = { setUnits: obSetUnits, units: obUnits,
-  normalizeDistance: obNormalizeDistance, convert: OB_CONVERT };
+  normalizeDistance: obNormalizeDistance, convert: OB_CONVERT,
+  clearIntent: obClearIntent };
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", setupOnboardingInterface);

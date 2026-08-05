@@ -5102,7 +5102,13 @@ async function doLogout() {
   try {
     sessionStorage.removeItem('athlevo_guided_setup');
     sessionStorage.removeItem('athlevo_guided_wearable');
+    sessionStorage.removeItem('athlevo_onboarding_intent');
   } catch (e) { /* private mode — nothing persisted anyway */ }
+
+  // Also clear via the onboarding module's API if available.
+  if (window.AthlevoOnboarding && window.AthlevoOnboarding.clearIntent) {
+    try { window.AthlevoOnboarding.clearIntent(); } catch (e) {}
+  }
 
   // Clear workspace preference so a different user on this device does
   // not inherit a stale coach workspace selection.
@@ -6612,13 +6618,23 @@ async function routeAfterAuth(userId) {
   athlevoSessionUserId = userId;
   const { data: profile, error } = await supabaseClient
     .from("profiles")
-    .select("onboarding_complete, goal, device")
+    .select("onboarding_complete, goal, device, role")
     .eq("id", userId)
     .maybeSingle();
 
   if (error) {
     console.error("Profile lookup failed:", error.message);
     startOnboarding();
+    return;
+  }
+
+  // Coach/admin bypass: existing coaches and admins whose role was granted
+  // server-side skip athlete onboarding entirely. Their onboarding_complete
+  // flag is set by js/onboarding.js on first visit so this path only fires
+  // once, and the role is NEVER set by the client.
+  if (profile && (profile.role === "coach" || profile.role === "admin") &&
+      !profile.onboarding_complete) {
+    startOnboarding(); // onboarding.js detects the role and auto-completes
     return;
   }
 

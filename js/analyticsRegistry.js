@@ -83,6 +83,12 @@
     coach_train_viewed:            { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
     coach_trends_viewed:           { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
     coach_you_viewed:              { kind: "behavioural", props: ["coach_mode", "source_surface", "tab_name"] },
+    // Onboarding role choice & coach application events (categorical only —
+    // never name, email, UUID, coaching brand, sports arrays, or free text)
+    onboarding_role_choice_viewed: { kind: "behavioural", props: ["source_surface"] },
+    onboarding_role_selected:      { kind: "behavioural", props: ["selected_role", "source_surface"] },
+    coach_application_started:     { kind: "milestone",   props: ["source_surface"] },
+    coach_application_submitted:   { kind: "milestone",   props: ["application_status", "source_surface"] },
     // Workspace switcher events (categorical only — never name/email/UUID)
     workspace_switcher_viewed:     { kind: "behavioural", props: ["source_surface"] },
     workspace_switched:            { kind: "behavioural", props: ["from_workspace", "to_workspace", "source_surface"] },
@@ -170,7 +176,9 @@
     },
     value_type: { training_plan: true },
     coaching_mode: { self_guided: true, human_coached: true },
-    request_type: { adjustment: true, unable_to_complete: true, move: true, feedback: true, availability: true }
+    request_type: { adjustment: true, unable_to_complete: true, move: true, feedback: true, availability: true },
+    selected_role: { athlete: true, coach: true },
+    application_status: { pending: true }
   };
 
   function canonicalName(name) {
