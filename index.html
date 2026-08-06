@@ -1098,6 +1098,11 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
    or unreachable. */
 .modal-back{position:absolute;inset:0;background:rgba(20,20,22,.45);z-index:1200;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
 .modal-back.show{display:flex;animation:fadeIn var(--dur-base)}
+/* Delete Account */
+.rowlink-danger b{color:var(--danger,#d93025)}
+.rowlink-danger small{color:var(--danger,#d93025);opacity:.7}
+.delete-account-sheet{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--dur-slow) var(--ease-standard)}
+.delete-account-btn:disabled{opacity:.4;cursor:not-allowed}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .lesson{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--dur-slow) var(--ease-standard)}
 @keyframes slideUp{from{transform:translateY(60px)}to{transform:none}}
@@ -4341,6 +4346,13 @@ body.landing-active #tabbar{display:none!important}
     Log Out
 </button>
 
+<div class="spacer-lg"></div>
+
+  <div class="pad"><div class="section-title serif">Account</div></div>
+  <div class="rowlink rowlink-danger" onclick="openDeleteAccount()">
+    <div><b>Delete Account</b><small>Permanently delete your account and all data.</small></div><span class="arr">→</span>
+  </div>
+
 <div class="app-version">
   <div>Athlevo</div>
   <div id="appVersionDisplay">Version 0.6.0</div>
@@ -4452,6 +4464,43 @@ body.landing-active #tabbar{display:none!important}
 
 <!-- ══════════════ ATHLEVO SCORE DETAIL MODAL ══════════════ -->
 <div class="modal-back" id="scoreDetailModal"></div>
+
+<!-- ══════════════ DELETE ACCOUNT MODAL ══════════════ -->
+<div class="modal-back" id="deleteAccountModal" onclick="if(event.target===this)closeDeleteAccount()">
+  <div class="modal-sheet delete-account-sheet">
+    <div class="modal-handle"></div>
+    <div id="deleteAccountContent">
+      <h3 class="serif" style="color:var(--danger,#d93025);margin:0 0 12px">Delete your account</h3>
+      <p style="font-size:var(--fs-body-sm);color:var(--ink2);margin:0 0 16px;line-height:1.5">
+        This will <b>permanently delete</b> your Athlevo account, all training data, plans,
+        activity history, coach memory, and provider connections. This action cannot be undone.
+      </p>
+      <label style="display:block;font-size:var(--fs-body-sm);color:var(--ink2);margin-bottom:6px">
+        Type <b>DELETE</b> to confirm
+      </label>
+      <input type="text" id="deleteAccountConfirmInput" autocomplete="off" spellcheck="false"
+             placeholder="DELETE" aria-label="Type DELETE to confirm"
+             style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:var(--fs-body);background:var(--bg);color:var(--text);margin-bottom:16px">
+      <button type="button" class="primary delete-account-btn" id="deleteAccountBtn"
+              onclick="confirmDeleteAccount()" disabled
+              style="width:100%;background:var(--danger,#d93025);border-color:var(--danger,#d93025)">
+        Delete my account
+      </button>
+      <button type="button" class="secondary" onclick="closeDeleteAccount()"
+              style="width:100%;margin-top:8px">
+        Cancel
+      </button>
+    </div>
+    <div id="deleteAccountLoading" style="display:none;text-align:center;padding:32px 0">
+      <div class="spinner" style="margin:0 auto 16px"></div>
+      <p style="color:var(--ink2);font-size:var(--fs-body-sm)">Deleting your account…</p>
+    </div>
+    <div id="deleteAccountSuccess" style="display:none;text-align:center;padding:32px 0">
+      <p style="font-size:var(--fs-h2);margin:0 0 8px">Account deleted</p>
+      <p style="color:var(--ink2);font-size:var(--fs-body-sm);margin:0">Your account and all data have been permanently removed.</p>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════ LEGAL PAGES ══════════════ -->
 <section class="screen" id="screen-privacy">
@@ -5135,6 +5184,108 @@ async function doLogout() {
   showScreen('screen-welcome');
 }
 window.doLogout = doLogout;
+
+/* ══════════════ ACCOUNT DELETION ══════════════ */
+
+function openDeleteAccount() {
+  const modal = document.getElementById('deleteAccountModal');
+  const input = document.getElementById('deleteAccountConfirmInput');
+  const btn = document.getElementById('deleteAccountBtn');
+  document.getElementById('deleteAccountContent').style.display = '';
+  document.getElementById('deleteAccountLoading').style.display = 'none';
+  document.getElementById('deleteAccountSuccess').style.display = 'none';
+  input.value = '';
+  btn.disabled = true;
+  modal.classList.add('show');
+  input.focus();
+}
+window.openDeleteAccount = openDeleteAccount;
+
+function closeDeleteAccount() {
+  document.getElementById('deleteAccountModal').classList.remove('show');
+}
+window.closeDeleteAccount = closeDeleteAccount;
+
+// Enable the delete button only when the user types DELETE exactly
+document.addEventListener('input', function(e) {
+  if (e.target.id === 'deleteAccountConfirmInput') {
+    document.getElementById('deleteAccountBtn').disabled =
+      e.target.value.trim() !== 'DELETE';
+  }
+});
+
+async function confirmDeleteAccount() {
+  const input = document.getElementById('deleteAccountConfirmInput');
+  if (input.value.trim() !== 'DELETE') return;
+
+  // Show loading state
+  document.getElementById('deleteAccountContent').style.display = 'none';
+  document.getElementById('deleteAccountLoading').style.display = '';
+
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      toast('Please sign in to delete your account.');
+      closeDeleteAccount();
+      return;
+    }
+
+    const res = await fetch('/api/providers?action=delete_account', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token
+      },
+      body: JSON.stringify({})
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      document.getElementById('deleteAccountLoading').style.display = 'none';
+      document.getElementById('deleteAccountContent').style.display = '';
+      toast(data.error || 'Account deletion failed. Please try again.');
+      return;
+    }
+
+    // Show success state
+    document.getElementById('deleteAccountLoading').style.display = 'none';
+    document.getElementById('deleteAccountSuccess').style.display = '';
+
+    // Clean up local state
+    try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
+    AthlevoBrain.resetAthleteUI();
+    try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
+    try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
+    if (typeof AthlevoBrain.invalidateActivityCache === "function") {
+      AthlevoBrain.invalidateActivityCache();
+    }
+    athlevoSessionUserId = null;
+    try {
+      sessionStorage.clear();
+      localStorage.clear();
+    } catch (e) { /* private mode */ }
+    if (window.AthlevoOnboarding && window.AthlevoOnboarding.clearIntent) {
+      try { window.AthlevoOnboarding.clearIntent(); } catch (e) {}
+    }
+    if (window.AthlevoCoachMode && window.AthlevoCoachMode.clearWorkspaceOnLogout) {
+      try { window.AthlevoCoachMode.clearWorkspaceOnLogout(); } catch (e) {}
+    }
+
+    // After a brief pause, redirect to welcome screen
+    setTimeout(function() {
+      closeDeleteAccount();
+      document.getElementById('tabbar').style.display = 'none';
+      showScreen('screen-welcome');
+    }, 2000);
+
+  } catch (e) {
+    document.getElementById('deleteAccountLoading').style.display = 'none';
+    document.getElementById('deleteAccountContent').style.display = '';
+    toast('Something went wrong. Please try again.');
+  }
+}
+window.confirmDeleteAccount = confirmDeleteAccount;
 
 function trackFunnel(name, meta) {
   if (window.AthlevoAnalytics) window.AthlevoAnalytics.track(name, meta || null);

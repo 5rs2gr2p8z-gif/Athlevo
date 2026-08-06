@@ -71,6 +71,7 @@ import {
   createOAuthState,
   verifyOAuthState
 } from "../../lib/server/oauthState.js";
+import { makeWhopClient } from "../../lib/server/whopClient.js";
 import {
   buildProviderTrendsResponse,
   dateRangeForTrends
@@ -2248,6 +2249,278 @@ async function actionAdminAnalytics(request, response) {
   });
 }
 
+/* ═══════════════════════ ACTION: delete_account ════════════════════════
+ *
+ * Permanently deletes the authenticated user's account and ALL associated
+ * data. Identity is resolved exclusively from the verified bearer token —
+ * any user_id, email, or profile ID in the request body is ignored.
+ *
+ * Deletion order:
+ *   1. Revoke external provider tokens (Strava, Intervals.icu)
+ *   2. Remove stored provider credentials
+ *   3. Delete relationship rows (coach_athlete_assignments, etc.)
+ *   4. Delete user-owned rows from every data table
+ *   5. Delete public.profiles
+ *   6. Delete auth.users entry (last — only if all above succeeded)
+ *
+ * Idempotent: missing rows count as already deleted, not failures.
+ * If a critical stage fails, the Auth account is NOT deleted so the
+ * operation can be retried.
+ */
+
+async function actionDeleteAccount(request, response) {
+  const user = await requireUser(request);
+  if (!user?.id) return response.status(401).json({ error: "Authentication is required." });
+
+  const userId = user.id;
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return response.status(500).json({ error: "Server configuration error." });
+
+  const errors = [];
+
+  /* ── Helper: delete rows from a table by a column ────────────────── */
+  async function deleteFrom(table, column, value) {
+    try {
+      const res = await fetch(
+        `${url}/rest/v1/${encodeURIComponent(table)}?${encodeURIComponent(column)}=eq.${encodeURIComponent(value)}`,
+        { method: "DELETE", headers: { ...sbHeaders(), Prefer: "return=minimal" } }
+      );
+      if (!res.ok && res.status !== 404) {
+        errors.push({ table, column, status: res.status });
+      }
+    } catch (e) {
+      errors.push({ table, column, error: e.message });
+    }
+  }
+
+  /* ── Helper: SET NULL a column where it matches userId ───────────── */
+  async function setNullWhere(table, column, value) {
+    try {
+      const res = await fetch(
+        `${url}/rest/v1/${encodeURIComponent(table)}?${encodeURIComponent(column)}=eq.${encodeURIComponent(value)}`,
+        {
+          method: "PATCH",
+          headers: { ...sbHeaders(), Prefer: "return=minimal" },
+          body: JSON.stringify({ [column]: null })
+        }
+      );
+      if (!res.ok && res.status !== 404) {
+        errors.push({ table, column, status: res.status, op: "set_null" });
+      }
+    } catch (e) {
+      errors.push({ table, column, error: e.message, op: "set_null" });
+    }
+  }
+
+  /* ── Stage 1: Revoke external provider tokens ────────────────────── */
+  const stage1Errors = [];
+
+  // 1a. Revoke Strava
+  try {
+    const stravaRes = await fetch(
+      `${url}/rest/v1/strava_accounts?user_id=eq.${encodeURIComponent(userId)}&select=access_token,refresh_token&limit=1`,
+      { headers: sbHeaders() }
+    );
+    if (stravaRes.ok) {
+      const rows = await stravaRes.json();
+      const sa = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      if (sa && sa.access_token) {
+        // Attempt Strava deauthorization
+        try {
+          await fetch("https://www.strava.com/oauth/deauthorize", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: `access_token=${encodeURIComponent(sa.access_token)}`
+          });
+          // Best-effort: do not block deletion on Strava API failures
+        } catch { /* Strava unreachable — continue */ }
+      }
+    }
+  } catch (e) {
+    stage1Errors.push({ provider: "strava", error: e.message });
+  }
+
+  // 1b. Revoke Intervals.icu (clear stored tokens — no revoke endpoint)
+  try {
+    const intRes = await fetch(
+      `${url}/rest/v1/provider_accounts?user_id=eq.${encodeURIComponent(userId)}&provider=eq.intervals&select=id,access_token&limit=1`,
+      { headers: sbHeaders() }
+    );
+    if (intRes.ok) {
+      const rows = await intRes.json();
+      const ia = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      if (ia) {
+        await patchProviderAccount(ia.id, {
+          access_token: null, refresh_token: null, status: "disconnected",
+          provider_athlete_id: null
+        });
+      }
+    }
+  } catch (e) {
+    stage1Errors.push({ provider: "intervals", error: e.message });
+  }
+
+  // Provider revocation is best-effort — failures do not block deletion.
+  if (stage1Errors.length) {
+    log("delete_account_provider_revoke_warnings", { count: stage1Errors.length });
+  }
+
+  /* ── Stage 1c: Cancel active Whop subscription ───────────────────── */
+  try {
+    const subRes = await fetch(
+      `${url}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}` +
+      `&select=provider,provider_subscription_id,status&limit=1`,
+      { headers: sbHeaders() }
+    );
+    if (subRes.ok) {
+      const rows = await subRes.json();
+      const sub = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      if (
+        sub &&
+        sub.provider === "whop" &&
+        sub.provider_subscription_id &&
+        /^active|past_due$/.test(sub.status || "")
+      ) {
+        const whop = makeWhopClient();
+        if (whop.isConfigured()) {
+          const membershipId = sub.provider_subscription_id;
+          const cancelRes = await whop.request(
+            `/api/v5/app/memberships/${encodeURIComponent(membershipId)}/cancel`,
+            { method: "POST" }
+          );
+          log("delete_account_whop_cancelled", { status: "ok" });
+        }
+        // If WHOP_API_KEY is not configured, log and continue — manual
+        // GCash subscriptions or unconfigured environments skip this.
+      }
+    }
+  } catch (e) {
+    log("delete_account_whop_cancel_failed", { reason: e.message });
+    return response.status(500).json({
+      error: "Account deletion failed while cancelling your subscription. Your account has NOT been deleted. Please try again.",
+      stage: "subscription_cancellation",
+      retryable: true
+    });
+  }
+
+  /* ── Stage 2: Delete relationship rows ───────────────────────────── */
+  // coach_athlete_assignments: athlete_id, coach_id, created_by
+  await deleteFrom("coach_athlete_assignments", "athlete_id", userId);
+  await deleteFrom("coach_athlete_assignments", "coach_id", userId);
+  await deleteFrom("coach_athlete_assignments", "created_by", userId);
+
+  // coach_attention_reviews: athlete_id, coach_id
+  await deleteFrom("coach_attention_reviews", "athlete_id", userId);
+  await deleteFrom("coach_attention_reviews", "coach_id", userId);
+
+  // coaching_transitions: athlete_id, coach_id
+  await deleteFrom("coaching_transitions", "athlete_id", userId);
+  await deleteFrom("coaching_transitions", "coach_id", userId);
+
+  // managed_plan_change_requests: athlete_id, coach_id, created_by, reviewed_by
+  await deleteFrom("managed_plan_change_requests", "athlete_id", userId);
+  await deleteFrom("managed_plan_change_requests", "coach_id", userId);
+  await deleteFrom("managed_plan_change_requests", "created_by", userId);
+  await setNullWhere("managed_plan_change_requests", "reviewed_by", userId);
+
+  // training_sessions: created_by, updated_by
+  await deleteFrom("training_sessions", "created_by", userId);
+  // Rows where updated_by = userId but created_by != userId: null the column
+  await setNullWhere("training_sessions", "updated_by", userId);
+
+  // coach_applications: reviewed_by → SET NULL (other accounts' applications)
+  await setNullWhere("coach_applications", "reviewed_by", userId);
+
+  if (errors.length) {
+    log("delete_account_stage2_errors", { count: errors.length });
+    return response.status(500).json({
+      error: "Account deletion failed during relationship cleanup. Your account has NOT been deleted. Please try again.",
+      stage: "relationships",
+      retryable: true
+    });
+  }
+
+  /* ── Stage 3: Delete user-owned rows from every data table ───────── */
+  const userDataTables = [
+    "activation_events",
+    "activities",
+    "activity_data_overrides",
+    "activity_sync_logs",
+    "athlete_memory",
+    "athlevo_score_history",
+    "beta_feedback",
+    "coach_action_proposals",
+    "coach_applications",
+    "coach_conversations",
+    "daily_coach_briefings",
+    "daily_readiness",
+    "pending_provider_connections",
+    "provider_accounts",
+    "race_results",
+    "strava_accounts",
+    "subscription_events",
+    "subscriptions",
+    "training_plans",
+    "training_sessions",
+    "trial_usage",
+    "weekly_check_ins",
+    "weekly_progress_summaries",
+    "workout_execution_records",
+  ];
+
+  for (const table of userDataTables) {
+    await deleteFrom(table, "user_id", userId);
+  }
+
+  if (errors.length) {
+    log("delete_account_stage3_errors", { count: errors.length });
+    return response.status(500).json({
+      error: "Account deletion failed during data cleanup. Your account has NOT been deleted. Please try again.",
+      stage: "user_data",
+      retryable: true
+    });
+  }
+
+  /* ── Stage 4: Delete public.profiles ─────────────────────────────── */
+  await deleteFrom("profiles", "id", userId);
+
+  if (errors.length) {
+    log("delete_account_stage4_profile_error", { count: errors.length });
+    return response.status(500).json({
+      error: "Account deletion failed during profile cleanup. Your account has NOT been deleted. Please try again.",
+      stage: "profile",
+      retryable: true
+    });
+  }
+
+  /* ── Stage 5: Delete auth.users entry (LAST) ─────────────────────── */
+  try {
+    const authRes = await fetch(
+      `${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey } }
+    );
+    if (!authRes.ok && authRes.status !== 404) {
+      log("delete_account_auth_delete_failed", { httpStatus: authRes.status });
+      return response.status(500).json({
+        error: "Account deletion failed at the authentication stage. Your data has been removed but your login still exists. Please contact support.",
+        stage: "auth",
+        retryable: true
+      });
+    }
+  } catch (e) {
+    log("delete_account_auth_delete_error", { reason: e.message });
+    return response.status(500).json({
+      error: "Account deletion failed at the authentication stage. Please try again.",
+      stage: "auth",
+      retryable: true
+    });
+  }
+
+  log("delete_account_complete", { status: "ok" });
+  return response.status(200).json({ success: true, deleted: true });
+}
+
 export default async function handler(request, response) {
   const cid = newCorrelationId();
   const provider = String((request.query && request.query.provider) || "").toLowerCase();
@@ -2255,6 +2528,11 @@ export default async function handler(request, response) {
 
   try {
     // Provider-independent routes (folded in to save serverless slots).
+    if (action === "delete_account") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionDeleteAccount(request, response);
+    }
+
     if (action === "admin_analytics") {
       if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionAdminAnalytics(request, response);
@@ -2333,7 +2611,7 @@ export default async function handler(request, response) {
         "reanalyze", "status", "disconnect", "admin_analytics",
         "coaching_dashboard_roster", "coaching_dashboard_athlete",
         "coaching_dashboard_review", "athlete_coaching_mode",
-        "athlete_request_adjustment"
+        "athlete_request_adjustment", "delete_account"
       ].includes(action) ? action : "unsupported"
     });
     return response.status(500).json({ error: "Something went wrong. Please try again." });
