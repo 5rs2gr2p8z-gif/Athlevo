@@ -10,6 +10,7 @@
 import { readFileSync } from "node:fs";
 
 const html = readFileSync("./index.html", "utf8");
+const landingContent = readFileSync("./js/landingContent.js", "utf8");
 const landing = html.slice(
   html.indexOf('<section class="screen lp" id="screen-landing">'),
   html.indexOf("<!-- ══════════════ WELCOME")
@@ -27,41 +28,58 @@ function test(name, condition, detail = "") {
   }
 }
 
-console.log("\n──── Section ordering and removed content ────");
-test("phone mockup markup is removed",
-  !landing.includes('class="lp-phone"') &&
-  !landing.includes('class="lp-coach-peek"'));
-test("phone mockup CSS is removed",
-  !html.includes('.lp-phone{') && !html.includes('.lp-coach-peek{'));
-test("integrations section is removed",
-  !landing.includes('class="lp-integrations"') &&
-  !landing.includes("Bring your training with you"));
-test("integrations CSS is removed",
-  !html.includes('.lp-integrations{') &&
-  !html.includes('.lp-integration-list{'));
-test("athlete results follows immediately after the hero",
-  landing.indexOf("lp-athlete-results") > landing.indexOf("</header>") &&
-  !landing.slice(landing.indexOf("</header>"), landing.indexOf("lp-athlete-results"))
-    .includes('<section class="lp-integrations"'));
-
-console.log("\n──── Athlete identity ────");
-test("Frances Patawaran replaces Carl Zita",
-  landing.includes("Frances Patawaran") && !landing.includes("Carl Zita"));
-test("Frances Patawaran testimonial image path is correct",
-  landing.includes("assets/testimonials/frances-patawaran.jpeg"));
+console.log("\n──── Institutional brand structure ────");
+test("brand navigation names both coaching paths and the method",
+  ["Coaching", "AI", "Method", "Athletes", "About"].every(label =>
+    landing.includes(`>${label}</a>`)));
+test("global brand CTA is Train With Athlevo",
+  /<a class="lp-btn sm" href="#train-with-athlevo">Train With Athlevo<\/a>/.test(landing));
+test("hero is editorial photography-first rather than an app mockup",
+  landing.includes("FOUNDER_OR_ATHLETE_HERO_IMAGE") &&
+  !landing.slice(landing.indexOf('<header class="lp-hero"'), landing.indexOf("</header>"))
+    .includes("landingStartFree"));
+test("the athlete-first philosophy follows the hero",
+  landing.indexOf("THE ATHLETE COMES FIRST") > landing.indexOf("</header>") &&
+  landing.indexOf("THE ATHLETE COMES FIRST") < landing.indexOf("TRAIN WITH ATHLEVO"));
+test("AI and human coaching are presented as two paths",
+  landing.includes("One coaching philosophy. Different levels of support.") &&
+  landing.includes("ATHLEVO AI") && landing.includes("HUMAN COACHING"));
+test("founder story keeps its editorial photo slot",
+  landing.includes("DEAN_FOUNDER_EDITORIAL_IMAGE") &&
+  landing.includes("Founder &amp; Head Coach"));
+test("athlete story, tier, method, and FAQ collection roots exist",
+  ["landingAthleteStories", "landingCoachingTiers", "landingMethodPrinciples", "landingFaq"]
+    .every(id => landing.includes(`id="${id}"`)));
+test("three athlete stories remain clearly marked content placeholders",
+  ["ATHLETE_STORY_01", "ATHLETE_STORY_02", "ATHLETE_STORY_03"]
+    .every(slot => landingContent.includes(slot)) &&
+  (landingContent.match(/Approved athlete quote to be supplied/g) || []).length === 3);
+test("coaching tiers, method principles, and FAQs are editable data collections",
+  /coachingTiers:\s*\[/.test(landingContent) &&
+  /methodPrinciples:\s*\[/.test(landingContent) &&
+  /faq:\s*\[/.test(landingContent));
+test("all approved tier prices, five method principles, and ten FAQs are present",
+  ["₱1,998/month", "₱4,998/month", "₱7,998/month"].every(price =>
+    landingContent.includes(price)) &&
+  (landingContent.match(/\{ name: /g) || []).length >= 5 &&
+  (landingContent.match(/\{ question: /g) || []).length === 10);
+test("content renderer writes text safely rather than injecting HTML",
+  /\.textContent = text/.test(landingContent) && !/innerHTML/.test(landingContent));
 
 console.log("\n──── Funnel and analytics wiring remain intact ────");
 {
   const ctas = [...landing.matchAll(
     /<button[^>]*data-cta-location="([^"]+)"[^>]*onclick="landingStartFree\(this\)"[^>]*>Build My Training Plan<\/button>/g
   )].map(match => match[1]).sort();
-  const expected = ["footer", "hero", "mid_page", "navigation"].sort();
-  test("all four signup CTAs retain their handler and labels",
+  const expected = ["ai_product"];
+  test("only the dedicated AI CTA enters the signup funnel",
     JSON.stringify(ctas) === JSON.stringify(expected),
     ctas.join(", "));
 }
-test("secondary hero CTA keeps its destination",
-  /<a class="lp-btn ghost" href="#lp-how">See how Athlevo works<\/a>/.test(landing));
+test("brand CTAs route separately from the AI signup funnel",
+  /Explore Athlevo<\/a>/.test(landing) &&
+  /See how we coach<\/a>/.test(landing) &&
+  !/data-cta-location="(?:navigation|hero|footer)"/.test(landing));
 test("landing CTA analytics still use the existing entry point",
   /function landingStartFree\(trigger\)[\s\S]*?signup_cta_clicked/.test(html));
 
@@ -72,20 +90,25 @@ test("hero no longer uses a decorative startup gradient",
 test("landing CTAs use compact card geometry rather than pill geometry",
   /\.lp-btn\{[^}]*border-radius:var\(--r-sm\)/.test(html) &&
   !/\.lp-btn\{[^}]*border-radius:var\(--r-pill\)/.test(html));
-test("supporting headings use sans-serif by default",
-  /\.lp-h2\{font-family:var\(--sans\)/.test(html));
-test("serif remains available for selected editorial statements",
-  /\.lp-h2\.lp-h2--editorial\{font-family:var\(--serif\)/.test(html) &&
-  (landing.match(/lp-h2--editorial/g) || []).length >= 3);
-test("feature descriptors use ruled rows rather than rounded pills",
-  /\.lp-subgrid span\{[^}]*border-top:1px solid var\(--line\)/.test(html) &&
-  !/\.lp-subgrid span\{[^}]*border-radius/.test(html));
+test("product labels use the existing sans-serif hierarchy",
+  /\.lp-path-label,[\s\S]*font-size:11px/.test(html));
+test("editorial statements retain the existing serif family",
+  /#screen-landing \.lp-h2\{font-family:var\(--serif\)/.test(html));
+test("coaching tiers and method use ruled editorial grids",
+  /\.lp-tier-grid\{[^}]*border-top:1px solid var\(--text\)/.test(html) &&
+  /\.lp-principle\{[^}]*border-bottom:1px solid var\(--line\)/.test(html));
+test("landing design adds no gradients or glass card treatment",
+  !landing.includes("gradient") && !landing.includes("glass"));
 
 console.log("\n──── Narrow viewport and accessibility safeguards ────");
 test("the landing screen clips accidental horizontal overflow",
   /#screen-landing\{[^}]*overflow-x:hidden/.test(html));
 test("mobile CTAs remain full-width and visible",
-  /@media \(max-width:560px\)\{[\s\S]*?\.lp-cta\{flex-direction:column;align-items:stretch\}/.test(html));
+  /@media \(max-width:560px\)\{[\s\S]*?\.lp-cta\{flex-direction:column;align-items:stretch\}/.test(html) &&
+  /@media \(max-width:700px\)\{[\s\S]*?\.lp-nav-cta \.lp-btn\{[^}]*white-space:nowrap/.test(html));
+test("AI/Human and story layouts collapse for narrow screens",
+  /@media \(max-width:700px\)\{[\s\S]*?\.lp-path-grid\{grid-template-columns:1fr\}/.test(html) &&
+  /\.lp-story-grid\{grid-template-columns:1fr\}/.test(html));
 test("landing reveal honors reduced-motion preferences",
   /@media \(prefers-reduced-motion:reduce\)\{\.lp-reveal\{opacity:1;transform:none;transition:none\}\}/.test(html));
 

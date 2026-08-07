@@ -84,11 +84,11 @@ section("Landing and auth intent");
 const ctaTags = Array.from(html.matchAll(
   /<button[^>]*data-cta-location="([^"]+)"[^>]*onclick="landingStartFree\(this\)"[^>]*>Build My Training Plan<\/button>/g
 ));
-test("all four public signup CTAs carry an explicit location",
-  ctaTags.length === 4);
-test("CTA locations cover navigation, hero, mid-page, and footer",
-  ["navigation", "hero", "mid_page", "footer"].every(location =>
-    ctaTags.some(match => match[1] === location)));
+test("the dedicated Athlevo AI signup CTA carries an explicit location",
+  ctaTags.length === 1 && ctaTags[0][1] === "ai_product");
+test("parent-brand CTAs do not masquerade as signup intent",
+  /Train With Athlevo/.test(html) &&
+  !/data-cta-location="(?:navigation|hero|footer)"/.test(html));
 test("signup CTA captures text, location, and auth destination",
   /trackAuthChoice\("signup_cta_clicked",\s*\{[\s\S]*?cta_text:[\s\S]*?cta_location:[\s\S]*?destination:\s*"screen-welcome"/.test(html));
 test("logged-in landing users bypass signup intent analytics",

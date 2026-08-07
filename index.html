@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
 <!-- ══════════════ SEO ══════════════ -->
-<title>Athlevo — Adaptive AI Endurance Coach for Runners</title>
-<meta name="description" content="Build a personalized endurance plan, analyze every workout and adjust training based on your goals, readiness and progress with Athlevo.">
+<title>Athlevo — Personalized Endurance Coaching</title>
+<meta name="description" content="Personalized endurance coaching for runners and hybrid athletes through Athlevo AI and dedicated human coaching.">
 <link rel="canonical" href="https://athlevo.org/">
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="light dark">
@@ -162,8 +162,8 @@
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Athlevo">
-<meta property="og:title" content="Athlevo — Adaptive AI Endurance Coach for Runners">
-<meta property="og:description" content="Build a personalized endurance plan, analyze every workout and adjust training based on your goals, readiness and progress with Athlevo.">
+<meta property="og:title" content="Athlevo — Personalized Endurance Coaching">
+<meta property="og:description" content="One coaching philosophy, with adaptive Athlevo AI and dedicated human coaching for endurance athletes.">
 <meta property="og:url" content="https://athlevo.org/">
 <meta property="og:image" content="https://athlevo.org/assets/pwa/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -171,8 +171,8 @@
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Athlevo — Adaptive AI Endurance Coach for Runners">
-<meta name="twitter:description" content="Build a personalized endurance plan, analyze every workout and adjust training based on your goals, readiness and progress.">
+<meta name="twitter:title" content="Athlevo — Personalized Endurance Coaching">
+<meta name="twitter:description" content="One coaching philosophy, with adaptive Athlevo AI and dedicated human coaching for endurance athletes.">
 <meta name="twitter:image" content="https://athlevo.org/assets/pwa/og-image.png">
 
 <meta name="posthog-key" content="phc_psZuWzfdwxidRxUVYED4djBssNDE5L2GYismfmFgYAqt">
@@ -184,13 +184,16 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
+  "@type": "Organization",
   "name": "Athlevo",
-  "applicationCategory": "HealthApplication",
-  "operatingSystem": "iOS, Android, Web",
   "url": "https://athlevo.org/",
-  "description": "An adaptive AI endurance coaching platform that creates personalized training plans, analyzes completed workouts, tracks readiness and adjusts future training.",
-  "offers": { "@type": "AggregateOffer", "lowPrice": "0", "highPrice": "597", "priceCurrency": "PHP", "description": "Free training tools with an optional Athlevo Performance subscription" }
+  "logo": "https://athlevo.org/assets/athlevo-logo.png",
+  "description": "A personalized endurance coaching company offering Athlevo AI and dedicated human coaching.",
+  "founder": { "@type": "Person", "name": "Dean Castro" },
+  "makesOffer": [
+    { "@type": "Offer", "name": "Athlevo AI", "price": "597", "priceCurrency": "PHP" },
+    { "@type": "Offer", "name": "Human Coaching", "price": "1998", "priceCurrency": "PHP" }
+  ]
 }
 </script>
 
@@ -2757,6 +2760,181 @@ body.landing-active #tabbar{display:none!important}
   .lp-nav-cta .lp-link{display:none}
   .lp-nav-links{display:none}
 }
+
+/* ══════════════ ATHLEVO INSTITUTIONAL LANDING ══════════════
+   The public homepage is an editorial brand surface. Product controls keep
+   the existing app styling; these rules apply only within screen-landing. */
+#screen-landing [id]{scroll-margin-top:76px}
+#screen-landing .lp-wrap{max-width:1200px}
+#screen-landing .lp-nav{background:var(--nav-glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#screen-landing .lp-nav-in{height:66px;gap:24px}
+#screen-landing .lp-nav-links{margin-left:auto;gap:2px}
+#screen-landing .lp-nav-links a{font-size:13px;letter-spacing:.01em;padding:10px}
+#screen-landing .lp-nav-cta{margin-left:10px}
+#screen-landing .lp-btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border-radius:6px;min-height:44px;padding:12px 22px}
+#screen-landing .lp-btn.sm{min-height:40px;padding:9px 16px;font-size:13px}
+#screen-landing .lp-btn.ghost{border-width:1px}
+
+#screen-landing .lp-hero{padding:clamp(34px,5vw,68px) 0 clamp(54px,7vw,88px)}
+#screen-landing .lp-hero .lp-wrap{display:block}
+.lp-hero-grid{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);align-items:center;gap:clamp(34px,6vw,84px)}
+.lp-hero-copy{padding:clamp(8px,2vw,24px) 0}
+#screen-landing .lp-h1{max-width:9.5ch;font-size:clamp(46px,6.6vw,80px);line-height:.98;font-weight:500}
+#screen-landing .lp-lead{max-width:42ch;margin-top:24px}
+.lp-categories{margin:20px 0 0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);line-height:1.7}
+.lp-photo-slot{position:relative;display:grid;place-items:center;overflow:hidden;background:var(--card);border:1px solid var(--line);color:var(--ink3);isolation:isolate}
+.lp-photo-slot::before,.lp-photo-slot::after{content:"";position:absolute;background:var(--line);z-index:-1}
+.lp-photo-slot::before{width:140%;height:1px;transform:rotate(31deg)}
+.lp-photo-slot::after{width:1px;height:140%;transform:rotate(31deg)}
+.lp-photo-label{max-width:90%;padding:9px 12px;background:var(--paper);border:1px solid var(--line);font-size:10px;font-weight:750;letter-spacing:.09em;text-align:center;text-transform:uppercase;color:var(--ink2)}
+.lp-photo-hero{aspect-ratio:4/5;max-height:680px;min-height:480px}
+.lp-photo-landscape{aspect-ratio:4/3;min-height:340px}
+.lp-photo-portrait{aspect-ratio:4/5;min-height:520px}
+
+#screen-landing .lp-section{padding:clamp(58px,7vw,92px) 0}
+#screen-landing .lp-kicker{margin-bottom:14px}
+#screen-landing .lp-h2{font-family:var(--serif);font-weight:500;font-size:clamp(34px,4.6vw,56px);max-width:18ch;line-height:1.02}
+#screen-landing .lp-body{font-size:clamp(16px,1.7vw,19px);max-width:52ch}
+.lp-editorial-split{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:clamp(40px,7vw,100px);align-items:center}
+.lp-editorial-split.reverse{grid-template-columns:minmax(300px,.85fr) minmax(0,1.15fr)}
+.lp-editorial-copy{max-width:520px}
+.lp-life-list{margin:28px 0 24px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 24px;font-family:var(--sans);font-size:15px;font-weight:650;color:var(--text)}
+
+.lp-section-head{display:flex;align-items:end;justify-content:space-between;gap:32px;margin-bottom:clamp(34px,5vw,58px)}
+.lp-section-head .lp-body{margin:0;max-width:34ch}
+.lp-path-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--text);border-bottom:1px solid var(--line)}
+.lp-path{min-width:0;padding:clamp(28px,4vw,48px) clamp(0px,3.5vw,44px) 40px;display:flex;flex-direction:column}
+.lp-path:first-child{padding-left:0;padding-right:clamp(28px,4vw,52px)}
+.lp-path+.lp-path{border-left:1px solid var(--line);padding-right:0}
+.lp-path-label,.lp-tier-name,.lp-principle-name,.lp-audience-name{font-size:11px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--red)}
+.lp-path h3{font-family:var(--serif);font-size:clamp(28px,3vw,40px);font-weight:500;line-height:1.06;letter-spacing:-.02em;margin:12px 0 14px;color:var(--text)}
+.lp-path>p{font-size:15px;line-height:1.6;color:var(--ink2);margin:0;max-width:42ch}
+.lp-path-list{list-style:none;padding:0;margin:24px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
+.lp-path-list li{padding:10px 0;border-top:1px solid var(--line);font-size:13px;font-weight:650;color:var(--text)}
+.lp-path-price{font-family:var(--serif);font-size:24px;color:var(--text);margin:4px 0 20px}
+.lp-path-media{margin-top:auto;margin-bottom:26px}
+.lp-human-media{aspect-ratio:16/10;min-height:240px}
+.lp-ai-mini{background:#111216;color:#f6f3ee;min-height:240px;padding:26px;display:grid;grid-template-rows:auto 1fr auto;border:1px solid rgba(255,255,255,.1)}
+.lp-ai-mini-top{display:flex;justify-content:space-between;font-size:10px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.58)}
+.lp-ai-mini-main{align-self:center;border-left:3px solid var(--red);padding-left:20px}
+.lp-ai-mini-main strong{display:block;font-family:var(--serif);font-size:28px;font-weight:500}
+.lp-ai-mini-main span{display:block;margin-top:8px;color:rgba(255,255,255,.62);font-size:13px}
+.lp-ai-mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;border-top:1px solid rgba(255,255,255,.13);padding-top:16px;font-size:11px;color:rgba(255,255,255,.62)}
+
+.lp-founder-quote{margin:26px 0 0;font-family:var(--serif);font-size:clamp(20px,2.2vw,28px);line-height:1.42;color:var(--text)}
+.lp-founder-quote p{margin:0 0 16px}
+.lp-signature{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:14px;font-weight:750;color:var(--text)}
+.lp-signature span{display:block;margin-top:4px;font-size:12px;font-weight:500;color:var(--ink3)}
+
+.lp-story-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(20px,3vw,36px)}
+.lp-story{min-width:0;border-top:1px solid var(--text);padding-top:16px}
+.lp-story-image{aspect-ratio:4/5;min-height:0;margin-bottom:22px}
+img.lp-story-image{display:block;width:100%;object-fit:cover}
+.lp-story h3{font-family:var(--serif);font-size:24px;font-weight:500;margin:0;color:var(--text)}
+.lp-story-goal{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:6px 0 18px}
+.lp-story dl{margin:0;display:grid;gap:12px}
+.lp-story dt{font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.lp-story dd{font-size:14px;line-height:1.5;color:var(--ink2);margin:3px 0 0}
+.lp-story blockquote{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line);font-family:var(--serif);font-size:18px;line-height:1.45;color:var(--text)}
+
+.lp-tier-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:42px;border-top:1px solid var(--text);border-bottom:1px solid var(--line)}
+.lp-tier{position:relative;padding:30px clamp(20px,3vw,38px) 34px;min-width:0}
+.lp-tier:first-child{padding-left:0}
+.lp-tier:last-child{padding-right:0}
+.lp-tier+.lp-tier{border-left:1px solid var(--line)}
+.lp-tier.is-core::before{content:"";position:absolute;left:0;right:0;top:-1px;height:3px;background:var(--red)}
+.lp-tier-price{font-family:var(--serif);font-size:28px;margin:15px 0;color:var(--text)}
+.lp-tier-copy,.lp-tier-best{font-size:14px;line-height:1.58;color:var(--ink2);margin:0}
+.lp-tier-best{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.lp-tier-best strong{display:block;margin-bottom:5px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text)}
+.lp-section-action{margin-top:32px}
+
+.lp-principles{margin-top:42px;border-top:1px solid var(--text)}
+.lp-principle{display:grid;grid-template-columns:42px minmax(180px,.7fr) minmax(0,1.3fr);gap:22px;align-items:baseline;padding:22px 0;border-bottom:1px solid var(--line)}
+.lp-principle-index{font-family:var(--serif);font-size:14px;color:var(--ink3)}
+.lp-principle p{margin:0;font-size:15px;line-height:1.55;color:var(--ink2)}
+.lp-audience-layout{display:grid;grid-template-columns:.75fr 1.25fr;gap:clamp(40px,8vw,110px);align-items:start}
+.lp-audiences{border-top:1px solid var(--text)}
+.lp-audience{display:grid;grid-template-columns:160px 1fr;gap:24px;padding:21px 0;border-bottom:1px solid var(--line)}
+.lp-audience p{margin:0;font-size:14px;line-height:1.55;color:var(--ink2)}
+
+.lp-ai-section{background:var(--card)}
+.lp-ai-layout{display:grid;grid-template-columns:minmax(0,.78fr) minmax(360px,1.22fr);gap:clamp(42px,7vw,90px);align-items:center}
+.lp-ai-copy .lp-price{font-family:var(--serif);font-size:28px;color:var(--text);margin:24px 0 20px}
+.lp-product-window{background:#111216;color:#fff;border:1px solid #292b30;padding:22px;box-shadow:var(--elev-3)}
+.lp-product-bar{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.12);font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.lp-product-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}
+.lp-product-panel{min-height:164px;padding:18px;border:1px solid rgba(255,255,255,.12)}
+.lp-product-panel small{font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+.lp-product-panel strong{display:block;margin-top:30px;font-family:var(--serif);font-size:24px;font-weight:500}
+.lp-product-panel p{margin:8px 0 0;font-size:12px;line-height:1.45;color:rgba(255,255,255,.58)}
+.lp-product-panel.wide{grid-column:1/-1;min-height:auto;display:grid;grid-template-columns:1fr repeat(3,auto);gap:20px;align-items:center}
+.lp-product-panel.wide strong{margin:0;font-family:var(--sans);font-size:14px}
+.lp-product-panel.wide span{font-size:11px;color:rgba(255,255,255,.6)}
+
+#screen-landing .lp-faq{max-width:820px;margin:42px 0 0}
+#screen-landing .lp-faq summary{padding:20px 0;font-size:15px}
+#screen-landing .lp-faq .lp-faq-body{padding-left:0;padding-right:0;max-width:68ch}
+.lp-final-brand{position:relative;min-height:680px;display:grid;align-items:end;background:#161719;color:#fff;overflow:hidden}
+.lp-final-image{position:absolute;inset:0;border:0;background:#25262a;color:rgba(255,255,255,.58)}
+.lp-final-image::before,.lp-final-image::after{background:rgba(255,255,255,.12)}
+.lp-final-image .lp-photo-label{background:#18191c;border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.75)}
+.lp-final-overlay{position:relative;z-index:1;width:min(100%,1200px);margin:0 auto;padding:clamp(44px,7vw,88px) clamp(20px,5vw,40px);background:rgba(14,15,17,.82)}
+.lp-final-overlay .lp-h2{color:#fff;max-width:13ch}
+.lp-final-overlay .lp-body{color:rgba(255,255,255,.72);max-width:44ch}
+.lp-final-overlay .lp-cta{margin-top:28px}
+.lp-enrollment{margin:18px 0 0;font-size:12px;color:rgba(255,255,255,.65)}
+.lp-enrollment a{color:#fff;text-underline-offset:3px}
+
+#screen-landing .lp-footer-links{flex-wrap:wrap}
+
+@media (max-width:900px){
+  .lp-hero-grid,.lp-editorial-split,.lp-editorial-split.reverse,.lp-ai-layout,.lp-audience-layout{grid-template-columns:1fr}
+  .lp-hero-grid{gap:38px}
+  .lp-photo-hero{aspect-ratio:16/10;min-height:360px}
+  .lp-photo-portrait{aspect-ratio:16/10;min-height:380px}
+  .lp-editorial-split.reverse .lp-editorial-copy{order:-1}
+  .lp-section-head{align-items:start;flex-direction:column}
+  .lp-section-head .lp-body{margin-top:-16px}
+  .lp-story-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lp-story:last-child{grid-column:1/-1;max-width:calc(50% - 10px)}
+  .lp-tier-grid{grid-template-columns:1fr}
+  .lp-tier,.lp-tier:first-child,.lp-tier:last-child{padding:26px 0}
+  .lp-tier+.lp-tier{border-left:0;border-top:1px solid var(--line)}
+  .lp-tier.is-core::before{right:auto;width:74px}
+}
+
+@media (max-width:700px){
+  #screen-landing .lp-nav-in{height:60px;gap:10px}
+  #screen-landing .lp-brand{font-size:20px}
+  #screen-landing .lp-brand img{width:26px;height:26px}
+  #screen-landing .lp-nav-links{display:none}
+  #screen-landing .lp-nav-cta{margin-left:auto}
+  #screen-landing .lp-nav-cta .lp-btn{padding:9px 12px;font-size:12px;white-space:nowrap}
+  #screen-landing .lp-h1{font-size:clamp(44px,13vw,62px)}
+  .lp-photo-hero,.lp-photo-landscape,.lp-photo-portrait{min-height:300px}
+  .lp-path-grid{grid-template-columns:1fr}
+  .lp-path,.lp-path:first-child,.lp-path+.lp-path{padding:28px 0 34px;border-left:0}
+  .lp-path+.lp-path{border-top:1px solid var(--line)}
+  .lp-story-grid{grid-template-columns:1fr}
+  .lp-story:last-child{grid-column:auto;max-width:none}
+  .lp-story-image{aspect-ratio:4/3}
+  .lp-principle{grid-template-columns:30px 1fr;gap:10px 14px}
+  .lp-principle p{grid-column:2}
+  .lp-audience{grid-template-columns:1fr;gap:7px}
+  .lp-product-grid{grid-template-columns:1fr}
+  .lp-product-panel.wide{grid-column:auto;grid-template-columns:1fr;gap:8px}
+  .lp-final-brand{min-height:590px}
+  .lp-final-overlay{width:calc(100% - 24px);margin:0 12px 12px;padding:32px 22px}
+  #screen-landing .lp-footer-in{align-items:flex-start;text-align:left}
+  #screen-landing .lp-footer-links{gap:12px 18px}
+}
+
+@media (max-width:380px){
+  #screen-landing .lp-nav-cta .lp-btn{font-size:11px;padding:8px 10px}
+  #screen-landing .lp-brand{gap:6px}
+  .lp-life-list,.lp-path-list{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body class="booting">
@@ -2793,344 +2971,237 @@ body.landing-active #tabbar{display:none!important}
     <div class="lp-wrap lp-nav-in">
       <a class="lp-brand" href="#lp-top"><img src="/assets/athlevo-icon.png" alt="Athlevo logo" width="30" height="30"><span>Athlevo<i>.</i></span></a>
       <div class="lp-nav-links">
-        <a href="#lp-how">How it works</a>
-        <a href="#lp-product">Product</a>
-        <a href="#lp-reviews">Reviews</a>
-        <a href="#lp-pricing">Pricing</a>
+        <a href="#coaching">Coaching</a>
+        <a href="#ai">AI</a>
+        <a href="#method">Method</a>
+        <a href="#athletes">Athletes</a>
+        <a href="#about">About</a>
       </div>
       <div class="lp-nav-cta">
-        <button class="lp-link" onclick="landingSignIn()">Sign In</button>
-        <button class="lp-btn sm" data-cta-location="navigation" onclick="landingStartFree(this)">Build My Training Plan</button>
+        <a class="lp-btn sm" href="#train-with-athlevo">Train With Athlevo</a>
       </div>
     </div>
   </nav>
 
   <!-- 1. HERO -->
   <header class="lp-hero" id="lp-top">
-    <div class="lp-wrap">
-      <!-- copy column -->
+    <div class="lp-wrap lp-hero-grid">
       <div class="lp-hero-copy">
-        <h1 class="lp-h1 lp-reveal">Your training plan should change when your life does.</h1>
-        <p class="lp-lead lp-reveal">Athlevo builds your personalized endurance plan, analyzes completed workouts, and adjusts what comes next based on your goals, training history, and daily readiness.</p>
+        <h1 class="lp-h1 lp-reveal">Your training plan<br>should change<br>when your life<br>does.</h1>
+        <p class="lp-lead lp-reveal">Personalized endurance coaching built around your goals, training history, recovery, and the life you actually have to live.</p>
+        <p class="lp-categories lp-reveal">Running · Marathon · Hybrid · Strength · Performance</p>
         <div class="lp-cta lp-reveal">
-          <button class="lp-btn" data-cta-location="hero" onclick="landingStartFree(this)">Build My Training Plan</button>
-          <a class="lp-btn ghost" href="#lp-how">See how Athlevo works</a>
+          <a class="lp-btn" href="#train-with-athlevo">Explore Athlevo</a>
+          <a class="lp-btn ghost" href="#method">See how we coach</a>
         </div>
       </div>
-
+      <!-- PHOTO REPLACEMENT: FOUNDER_OR_ATHLETE_HERO_IMAGE -->
+      <div class="lp-photo-slot lp-photo-hero lp-reveal" role="img" aria-label="Founder or Athlevo athlete hero photo placeholder">
+        <span class="lp-photo-label">FOUNDER_OR_ATHLETE_HERO_IMAGE</span>
+      </div>
     </div>
   </header>
 
-  <!-- 2. ATHLETE RESULTS -->
-  <section class="lp-section lp-alt lp-athlete-results">
-    <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">ATHLETE RESULTS</span>
-      <h2 class="lp-h2 lp-h2--editorial lp-reveal">Built from real coaching experience.</h2>
-      <p class="lp-body lp-reveal">Athlevo is shaped by the same personalized coaching principles used to guide real athletes toward stronger, more consistent performance.</p>
-      <div class="lp-grid lp-reveal">
-        <article class="lp-card lp-athlete-card">
-          <!-- APPROVED ATHLETE IMAGE — CHRISTIAN FRANCIA -->
-          <div class="lp-athlete-photo">
-            <img src="assets/testimonials/christian-francia.jpg" alt="Christian Francia running in a race" loading="lazy" decoding="async">
-          </div>
-          <div class="lp-athlete-content">
-            <blockquote class="lp-athlete-quote">“100% mai-improve ang fitness level mo at mas maaabot mo ang goals mo with the help of Athlevo Coaching.”</blockquote>
-            <footer class="lp-athlete-meta">
-              <strong class="lp-athlete-name">Christian Francia</strong>
-              <span class="lp-athlete-context">Marathon Runner</span>
-            </footer>
-          </div>
-        </article>
-        <article class="lp-card lp-athlete-card">
-          <!-- APPROVED ATHLETE IMAGE — RODEL MARK -->
-          <div class="lp-athlete-photo">
-            <img src="assets/testimonials/rodel-mark.jpg" alt="Rodel Mark standing on a running track" loading="lazy" decoding="async">
-          </div>
-          <div class="lp-athlete-content">
-            <blockquote class="lp-athlete-quote">“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”</blockquote>
-            <footer class="lp-athlete-meta">
-              <strong class="lp-athlete-name">Rodel Mark</strong>
-              <span class="lp-athlete-context">Athlete · Sub-19 5K</span>
-            </footer>
-          </div>
-        </article>
-        <article class="lp-card lp-athlete-card">
-          <!-- APPROVED ATHLETE IMAGE — FRANCES PATAWARAN -->
-          <div class=”lp-athlete-photo”>
-            <img src=”assets/testimonials/frances-patawaran.jpeg” alt=”Frances Patawaran seated outdoors” loading=”lazy” decoding=”async”>
-          </div>
-          <div class=”lp-athlete-content”>
-            <blockquote class=”lp-athlete-quote”>”Effective program, quality sessions, and very informative coaching.”</blockquote>
-            <footer class=”lp-athlete-meta”>
-              <strong class=”lp-athlete-name”>Frances Patawaran</strong>
-              <span class="lp-athlete-context">Recreational Runner</span>
-            </footer>
-          </div>
-        </article>
-        <article class="lp-card lp-athlete-card">
-          <!-- APPROVED ATHLETE IMAGE — AMIR PAULE -->
-          <div class="lp-athlete-photo">
-            <img src="assets/testimonials/amir-paule.jpg" alt="Amir Paule holding a race bib on a running track" loading="lazy" decoding="async">
-          </div>
-          <div class="lp-athlete-content">
-            <blockquote class="lp-athlete-quote">“Solid Athlevo! Mag-i-improve ka talaga.”</blockquote>
-            <footer class="lp-athlete-meta">
-              <strong class="lp-athlete-name">Amir Paule</strong>
-              <span class="lp-athlete-context">Athlete</span>
-            </footer>
-          </div>
-        </article>
-        <article class="lp-card lp-athlete-card">
-          <!-- APPROVED ATHLETE IMAGE — JB LUNA -->
-          <div class="lp-athlete-photo">
-            <img src="assets/testimonials/jb-luna.jpg" alt="JB Luna holding a race medal outdoors" loading="lazy" decoding="async">
-          </div>
-          <div class="lp-athlete-content">
-            <blockquote class="lp-athlete-quote">“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”</blockquote>
-            <footer class="lp-athlete-meta">
-              <strong class="lp-athlete-name">JB Luna</strong>
-              <span class="lp-athlete-context">Recreational Runner</span>
-            </footer>
-          </div>
-        </article>
-        <article class="lp-card lp-athlete-card">
-          <!-- APPROVED ATHLETE IMAGE — MIGUEL BULADO -->
-          <div class="lp-athlete-photo">
-            <img src="assets/testimonials/miguel-bulado.jpg" alt="Miguel Bulado holding his second-place award" loading="lazy" decoding="async">
-          </div>
-          <div class="lp-athlete-content">
-            <blockquote class="lp-athlete-quote">“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”</blockquote>
-            <footer class="lp-athlete-meta">
-              <strong class="lp-athlete-name">Miguel Bulado</strong>
-              <span class="lp-athlete-context">Student Athlete</span>
-            </footer>
-          </div>
-        </article>
+  <!-- 2. ATHLETE PHILOSOPHY -->
+  <section class="lp-section lp-alt" id="athlete-first">
+    <div class="lp-wrap lp-editorial-split">
+      <!-- PHOTO REPLACEMENT: ATHLETE_TRAINING_IMAGE_01 -->
+      <div class="lp-photo-slot lp-photo-landscape lp-reveal" role="img" aria-label="Athlevo athlete training photo placeholder">
+        <span class="lp-photo-label">ATHLETE_TRAINING_IMAGE_01</span>
       </div>
-    </div>
-  </section>
-
-  <!-- 3. HOW IT WORKS -->
-  <section class="lp-section" id="lp-how">
-    <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">HOW IT WORKS</span>
-      <h2 class="lp-h2 lp-reveal">Every workout shapes what comes next.</h2>
-      <div class="lp-flow lp-reveal">
-        <div class="lp-flow-step"><span class="lp-flow-n">01</span><b>You train</b><small>Complete the planned session or sync what you actually did.</small></div>
-        <span class="lp-flow-arrow">↓</span>
-        <div class="lp-flow-step"><span class="lp-flow-n">02</span><b>Athlevo reviews it</b><small>The workout is compared with your plan, recent training and current phase.</small></div>
-        <span class="lp-flow-arrow">↓</span>
-        <div class="lp-flow-step"><span class="lp-flow-n">03</span><b>You get clear feedback</b><small>See what went well, what needs attention and what the session means.</small></div>
-        <span class="lp-flow-arrow">↓</span>
-        <div class="lp-flow-step"><span class="lp-flow-n">04</span><b>Your training responds</b><small>Upcoming guidance can adjust when your readiness, execution or schedule changes.</small></div>
-        <span class="lp-flow-arrow">↓</span>
-        <div class="lp-flow-step accent"><span class="lp-flow-n">05</span><b>You keep progressing</b><small>Each session becomes part of one connected training journey.</small></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 4. REAL PRODUCT SHOWCASE (dark) -->
-  <section class="lp-dark" id="lp-product">
-    <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">INSIDE ATHLEVO</span>
-      <h2 class="lp-h2 lp-reveal">One place to know what to do, why it matters and what comes next.</h2>
-      <div class="lp-showcase lp-reveal">
-        <div class="lp-showcase-card">
-          <div class="lp-showcase-label">TODAY</div>
-          <h3>Today's view</h3>
-          <p>See today's recommendation, readiness and the most important training context.</p>
+      <div class="lp-editorial-copy">
+        <span class="lp-kicker lp-reveal">THE ATHLETE COMES FIRST</span>
+        <h2 class="lp-h2 lp-reveal">Training doesn’t happen in isolation.</h2>
+        <div class="lp-life-list lp-reveal" aria-label="Real-life training context">
+          <span>Work.</span><span>Sleep.</span><span>Strength training.</span><span>Family.</span>
+          <span>Other sports.</span><span>Fatigue.</span><span>Missed sessions.</span>
         </div>
-        <div class="lp-showcase-card">
-          <div class="lp-showcase-label">TRAIN</div>
-          <h3>Your training week</h3>
-          <p>Follow your planned week and understand how each session fits the larger goal.</p>
-        </div>
-        <div class="lp-showcase-card">
-          <div class="lp-showcase-label">COACH</div>
-          <h3>Ask your coach</h3>
-          <p>Ask questions without explaining your entire training history again.</p>
-        </div>
+        <p class="lp-body lp-reveal">All of them affect what training should look like next.</p>
+        <p class="lp-body lp-reveal">Athlevo builds around the whole athlete — not just the workout written on the calendar.</p>
       </div>
     </div>
   </section>
 
-  <!-- 5. THREE CORE BENEFITS -->
-  <section class="lp-section">
+  <!-- 3. TWO WAYS TO TRAIN -->
+  <section class="lp-section" id="train-with-athlevo">
     <div class="lp-wrap">
-      <h2 class="lp-h2 lp-reveal">A coach that understands more than one workout.</h2>
-      <div class="lp-grid lp-reveal">
-        <div class="lp-card"><h3>A plan that adapts</h3><p>Training guidance can respond when your schedule, readiness or completed work changes.</p></div>
-        <div class="lp-card"><h3>Feedback that explains</h3><p>Review the purpose, execution and training impact of completed sessions.</p></div>
-        <div class="lp-card"><h3>A coach that remembers</h3><p>Your goals, history, preferences and progress stay connected across the training journey.</p></div>
-      </div>
-      <div class="lp-subgrid lp-reveal">
-        <span>Daily readiness</span>
-        <span>Workout analysis</span>
-        <span>Personalized paces</span>
-        <span>Athlete development</span>
-        <span>AI coach conversations</span>
-        <span>Adaptive plan guidance</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- 6. DIFFERENTIATION FROM GENERIC AI -->
-  <section class="lp-section lp-alt">
-    <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">BUILT FOR CONTINUITY</span>
-      <h2 class="lp-h2 lp-reveal">Not another one-off AI answer.</h2>
-      <p class="lp-body lp-reveal">Generic AI responds to the prompt in front of it. Athlevo connects your goals, recent training, readiness, completed workouts and plan so recommendations have ongoing context.</p>
-      <div class="lp-diff-points lp-reveal">
-        <div class="lp-diff-point">
-          <b>It remembers your goal</b>
-          <p>Race targets, availability and training preferences remain part of the picture.</p>
+      <div class="lp-section-head">
+        <div>
+          <span class="lp-kicker lp-reveal">TRAIN WITH ATHLEVO</span>
+          <h2 class="lp-h2 lp-reveal">One Athlevo.<br>Two ways to train.</h2>
         </div>
-        <div class="lp-diff-point">
-          <b>It sees what you actually did</b>
-          <p>Completed, shortened and missed sessions can influence future guidance.</p>
-        </div>
-        <div class="lp-diff-point">
-          <b>It follows the training block</b>
-          <p>Workouts are treated as connected decisions, not isolated suggestions.</p>
-        </div>
+        <p class="lp-body lp-reveal">One coaching philosophy. Different levels of support.</p>
       </div>
-    </div>
-  </section>
-
-  <!-- 7. TESTIMONIAL / EARLY USER PROOF -->
-  <section class="lp-section" id="lp-reviews">
-    <div class="lp-wrap">
-      <div class="lp-testimonial lp-reveal">
-        <p class="lp-quote">Mas naging organized ang training ko. Nagagamit ko ang Daily Readiness kapag sore o pagod ako, at nakakatulong din ang coach sa running at gym sessions.</p>
-        <p class="lp-attribution">Van — early Athlevo athlete</p>
-        <p class="lp-translation">"My training has become more organized. I use Daily Readiness when I feel sore or tired, and the coach also helps with my running and gym sessions."</p>
-        <p class="lp-proof-note">Built and refined with feedback from early endurance athletes.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 8. CURRENT USE CASES / SUPPORT -->
-  <section class="lp-section lp-alt">
-    <div class="lp-wrap">
-      <h2 class="lp-h2 lp-reveal">Built around endurance training.</h2>
-      <div class="lp-use-cases lp-reveal">
-        <span>Road running</span>
-        <span>5K to marathon preparation</span>
-        <span>General endurance development</span>
-        <span>Running with strength and cross-training</span>
-      </div>
-      <p class="lp-body lp-reveal">Athlevo can account for additional endurance and gym activity where that context is available. Deeper sport-specific support will continue to expand.</p>
-    </div>
-  </section>
-
-  <!-- 9. PRICING -->
-  <section class="lp-section" id="lp-pricing">
-    <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">FREE TO START</span>
-      <h2 class="lp-h2 lp-reveal">Build your first plan free. Upgrade when you need ongoing adaptation.</h2>
-      <div class="lp-pricing-wrap lp-reveal">
-        <div class="lp-price-card">
-          <div class="lp-price-name">Athlevo Performance</div>
-          <div class="lp-price-amount">₱597</div>
-          <div class="lp-price-period">per month</div>
-          <ul class="lp-price-features">
-            <li>Adaptive endurance plan</li>
-            <li>Daily training recommendation</li>
-            <li>Readiness-based guidance</li>
-            <li>Ongoing AI workout analysis</li>
-            <li>Personalized training paces</li>
-            <li>Athlete development tracking</li>
-            <li>AI coach conversations</li>
-            <li>Continued product improvements while subscribed</li>
+      <div class="lp-path-grid lp-reveal">
+        <article class="lp-path">
+          <span class="lp-path-label">ATHLEVO AI</span>
+          <h3>Coaching that moves with you.</h3>
+          <p>For athletes who want personalized structure and adaptive training without hiring a dedicated coach.</p>
+          <ul class="lp-path-list">
+            <li>Personalized training</li><li>Adaptive planning</li>
+            <li>Progress tracking</li><li>Built for independent athletes</li>
           </ul>
-          <button class="lp-btn" style="width:100%" data-cta-location="mid_page" onclick="landingStartFree(this)">Build My Training Plan</button>
-          <p class="lp-price-note">Start free with your initial plan, training calendar, readiness, basic Trends, and 3 Coach messages per week. Upgrade to Athlevo Performance for ongoing adaptive coaching.</p>
-          <p class="lp-price-cancel">Cancel anytime.</p>
+          <div class="lp-path-price">₱597/month</div>
+          <div class="lp-path-media lp-ai-mini" aria-label="Athlevo AI product interface preview">
+            <div class="lp-ai-mini-top"><span>Athlevo AI</span><span>Today</span></div>
+            <div class="lp-ai-mini-main"><strong>Training that responds.</strong><span>Plan · Readiness · Progress</span></div>
+            <div class="lp-ai-mini-row"><span>Today</span><span>Train</span><span>Trends</span></div>
+          </div>
+          <a class="lp-btn ghost" href="#ai">Explore Athlevo AI</a>
+        </article>
+        <article class="lp-path">
+          <span class="lp-path-label">HUMAN COACHING</span>
+          <h3>A coach in your corner.</h3>
+          <p>For athletes who want a person assessing the training, reviewing progress, making decisions, and guiding the process.</p>
+          <ul class="lp-path-list">
+            <li>Individual assessment</li><li>Running + strength programming</li>
+            <li>Human feedback</li><li>Training adjustments</li>
+            <li>Race preparation</li><li>Accountability</li>
+          </ul>
+          <div class="lp-path-price">From ₱1,998/month</div>
+          <!-- PHOTO REPLACEMENT: HUMAN_COACHING_PANEL_IMAGE -->
+          <div class="lp-path-media lp-photo-slot lp-human-media" role="img" aria-label="Athlevo human coaching photo placeholder">
+            <span class="lp-photo-label">HUMAN_COACHING_PANEL_IMAGE</span>
+          </div>
+          <a class="lp-btn ghost" href="#coaching">Explore Human Coaching</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. FOUNDER STORY -->
+  <section class="lp-section lp-alt" id="about">
+    <div class="lp-wrap lp-editorial-split reverse">
+      <div class="lp-editorial-copy">
+        <span class="lp-kicker lp-reveal">WHY ATHLEVO EXISTS</span>
+        <h2 class="lp-h2 lp-reveal">Built by an athlete who got tired of guessing too.</h2>
+        <blockquote class="lp-founder-quote lp-reveal">
+          <p>“Athlevo started from a problem I experienced myself: having workouts wasn’t the same as knowing what decision to make next.</p>
+          <p>Training changes when recovery changes.<br>When life changes.<br>When performance changes.</p>
+          <p>I wanted coaching that accounted for the athlete in front of it — not just the schedule on paper.</p>
+          <p>That idea became Athlevo.”</p>
+        </blockquote>
+        <div class="lp-signature lp-reveal">Dean Castro<span>Founder &amp; Head Coach</span></div>
+      </div>
+      <!-- PHOTO REPLACEMENT: DEAN_FOUNDER_EDITORIAL_IMAGE -->
+      <div class="lp-photo-slot lp-photo-portrait lp-reveal" role="img" aria-label="Dean Castro founder editorial photo placeholder">
+        <span class="lp-photo-label">DEAN_FOUNDER_EDITORIAL_IMAGE</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. ATHLETE STORIES — rendered from js/landingContent.js -->
+  <section class="lp-section" id="athletes">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">ATHLETE STORIES</span>
+      <h2 class="lp-h2 lp-reveal">The work shows up on race day.</h2>
+      <div class="lp-story-grid lp-reveal" id="landingAthleteStories" aria-label="Athlevo athlete stories"></div>
+    </div>
+  </section>
+
+  <!-- 6. HUMAN COACHING — rendered from js/landingContent.js -->
+  <section class="lp-section lp-alt" id="coaching">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">HUMAN COACHING</span>
+      <h2 class="lp-h2 lp-reveal">Choose how closely you want to be coached.</h2>
+      <div class="lp-tier-grid lp-reveal" id="landingCoachingTiers" aria-label="Athlevo human coaching options"></div>
+      <div class="lp-section-action lp-reveal"><a class="lp-btn" href="mailto:support@athlevo.org?subject=Athlevo%20Human%20Coaching">Talk to Athlevo</a></div>
+    </div>
+  </section>
+
+  <!-- 7. ATHLEVO METHOD — rendered from js/landingContent.js -->
+  <section class="lp-section" id="method">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">THE ATHLEVO METHOD</span>
+      <h2 class="lp-h2 lp-reveal">Better training starts with better decisions.</h2>
+      <div class="lp-principles lp-reveal" id="landingMethodPrinciples" aria-label="Athlevo Method principles"></div>
+    </div>
+  </section>
+
+  <!-- 8. WHO WE COACH -->
+  <section class="lp-section lp-alt">
+    <div class="lp-wrap lp-audience-layout">
+      <div>
+        <span class="lp-kicker lp-reveal">WHO WE COACH</span>
+        <h2 class="lp-h2 lp-reveal">Built for athletes with real lives.</h2>
+      </div>
+      <div class="lp-audiences lp-reveal">
+        <div class="lp-audience"><span class="lp-audience-name">BEGINNERS</span><p>Build consistency and endurance properly instead of guessing.</p></div>
+        <div class="lp-audience"><span class="lp-audience-name">BUSY RUNNERS</span><p>Make limited training time count through better structure.</p></div>
+        <div class="lp-audience"><span class="lp-audience-name">RACE-FOCUSED RUNNERS</span><p>Prepare specifically for 5K, 10K, half marathon, marathon, and other endurance goals.</p></div>
+        <div class="lp-audience"><span class="lp-audience-name">HYBRID ATHLETES</span><p>Balance running, strength, conditioning, tennis, cycling, gym work, or other sports without blindly stacking fatigue.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. ATHLEVO AI -->
+  <section class="lp-section lp-ai-section" id="ai">
+    <div class="lp-wrap lp-ai-layout">
+      <div class="lp-ai-copy">
+        <span class="lp-kicker lp-reveal">ATHLEVO AI</span>
+        <h2 class="lp-h2 lp-reveal">The Athlevo Method, built to scale.</h2>
+        <p class="lp-body lp-reveal">Athlevo AI gives independent athletes a lower-cost way to access personalized endurance training and ongoing adaptation.</p>
+        <div class="lp-price lp-reveal">₱597/month</div>
+        <button class="lp-btn lp-reveal" data-cta-location="ai_product" onclick="landingStartFree(this)">Build My Training Plan</button>
+      </div>
+      <div class="lp-product-window lp-reveal" aria-label="Athlevo AI product interface preview">
+        <div class="lp-product-bar"><span>Athlevo</span><span>Training overview</span></div>
+        <div class="lp-product-grid">
+          <div class="lp-product-panel">
+            <small>Today</small>
+            <strong>Know what to do next.</strong>
+            <p>Readiness and today’s training direction in one place.</p>
+          </div>
+          <div class="lp-product-panel">
+            <small>Train</small>
+            <strong>Your week.</strong>
+            <p>See how each planned session supports the larger goal.</p>
+          </div>
+          <div class="lp-product-panel wide">
+            <strong>Plan · Readiness · Progress · Adaptation</strong>
+            <span>Today</span><span>Train</span><span>Trends</span>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 10. FOUNDER / ACCOUNTABILITY -->
-  <section class="lp-section lp-alt">
-    <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">WHY WE BUILT IT</span>
-      <h2 class="lp-h2 lp-h2--editorial lp-reveal">Built by a coach who wanted better training decisions, too.</h2>
-      <div class="lp-founder lp-reveal">
-        <p>Athlevo began as a way to combine real endurance coaching principles with the continuity and speed of AI. It is being developed alongside the athletes using it, with every release shaped by real training problems.</p>
-        <div class="lp-founder-attr">Dean Castro<small>Founder and endurance coach</small></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 11. FAQ -->
+  <!-- 10. FAQ — rendered from js/landingContent.js -->
   <section class="lp-section">
     <div class="lp-wrap">
-      <h2 class="lp-h2 lp-reveal">Frequently asked questions</h2>
-      <div class="lp-faq lp-reveal">
-        <details>
-          <summary>What does Athlevo include?</summary>
-          <div class="lp-faq-body">Athlevo includes an adaptive endurance training plan, daily training recommendations, readiness-based guidance, workout analysis, personalized training paces, athlete development tracking and AI coach conversations — all in one platform.</div>
-        </details>
-        <details>
-          <summary>What can I use for free?</summary>
-          <div class="lp-faq-body">The free version includes onboarding, activity syncing, Today, readiness, your training calendar, basic Trends, one initial training plan and 3 Coach messages per week.</div>
-        </details>
-        <details>
-          <summary>When will I be charged?</summary>
-          <div class="lp-faq-body">The free version does not require payment. You are charged only when you choose Athlevo Performance through Whop, at ₱597 per month.</div>
-        </details>
-        <details>
-          <summary>Can I cancel anytime?</summary>
-          <div class="lp-faq-body">Yes. You can cancel Athlevo Performance at any time. You retain paid access until the end of your current billing period, then return to the free version.</div>
-        </details>
-        <details>
-          <summary>Do I need a sports watch?</summary>
-          <div class="lp-faq-body">No. Athlevo works without a sports watch. You can log workouts manually. If you do have a compatible device, connecting it allows Athlevo to automatically sync your activity data for more detailed analysis.</div>
-        </details>
-        <details>
-          <summary>How does activity syncing work?</summary>
-          <div class="lp-faq-body">Athlevo can sync completed workouts from compatible platforms such as Strava and other supported services. Once connected, your activities are imported automatically and analyzed as part of your training context.</div>
-        </details>
-        <details>
-          <summary>Can I use Athlevo without connected activity data?</summary>
-          <div class="lp-faq-body">Yes. You can use Athlevo with manual workout logging and the daily readiness check. Connecting activity data adds richer analysis, but it is not required.</div>
-        </details>
-        <details>
-          <summary>Which athletes is Athlevo currently best suited for?</summary>
-          <div class="lp-faq-body">Athlevo is currently best suited for runners training for distances from 5K to marathon, and athletes building general endurance. It can also account for strength and cross-training activity alongside running.</div>
-        </details>
-        <details>
-          <summary>How is Athlevo different from a static plan or generic AI chatbot?</summary>
-          <div class="lp-faq-body">A static plan does not change when your life does. A generic AI chatbot answers one question at a time without remembering your history. Athlevo connects your goals, training history, readiness and completed workouts so every recommendation reflects your full context.</div>
-        </details>
-        <details>
-          <summary>Is Athlevo medical or injury-treatment advice?</summary>
-          <div class="lp-faq-body">Athlevo provides training guidance and educational information. It does not diagnose injuries or replace medical care from a qualified professional.</div>
-        </details>
-      </div>
+      <span class="lp-kicker lp-reveal">QUESTIONS</span>
+      <h2 class="lp-h2 lp-reveal">Before you start.</h2>
+      <div class="lp-faq lp-reveal" id="landingFaq"></div>
     </div>
   </section>
 
-  <!-- 12. FINAL CTA -->
-  <section class="lp-final">
-    <div class="lp-wrap lp-reveal">
-      <h2 class="lp-h2 lp-h2--editorial big">Stop guessing what your training needs next.</h2>
-      <p class="lp-body" style="color:rgba(255,255,255,.65);max-width:36ch;margin:18px auto 0">Build your plan, complete your readiness check and let every workout inform what comes after it.</p>
-      <div class="lp-cta" style="margin-top:36px">
-        <button class="lp-btn light" data-cta-location="footer" onclick="landingStartFree(this)">Build My Training Plan</button>
-        <a class="lp-btn ghost-light" href="#lp-pricing">View pricing</a>
+  <!-- 11. FINAL CTA -->
+  <section class="lp-final-brand">
+    <!-- PHOTO REPLACEMENT: FINAL_RACE_IMAGE -->
+    <div class="lp-photo-slot lp-final-image" role="img" aria-label="Athlevo athlete race photo placeholder">
+      <span class="lp-photo-label">FINAL_RACE_IMAGE</span>
+    </div>
+    <div class="lp-final-overlay lp-reveal">
+      <h2 class="lp-h2">Your training should make sense.</h2>
+      <p class="lp-body">Whether you want an adaptive system you can follow independently or a coach actively guiding the process, there is a place to start with Athlevo.</p>
+      <div class="lp-cta">
+        <a class="lp-btn light" href="#train-with-athlevo">Train With Athlevo</a>
+        <a class="lp-btn ghost-light" href="mailto:support@athlevo.org?subject=Athlevo%20Human%20Coaching">Talk to a Coach</a>
       </div>
+      <p class="lp-enrollment">Already speaking with an Athlevo coach? <a href="mailto:support@athlevo.org?subject=Continue%20Athlevo%20Enrollment">Continue your enrollment.</a></p>
     </div>
   </section>
 
-  <!-- 13. FOOTER -->
+  <!-- FOOTER -->
   <footer class="lp-footer">
     <div class="lp-wrap lp-footer-in">
       <div class="lp-brand"><img src="/assets/athlevo-icon.png" alt="Athlevo logo" width="24" height="24"><span>Athlevo<i>.</i></span></div>
       <div class="lp-footer-links">
-        <a href="#lp-product">Product</a>
-        <a href="#lp-pricing">Pricing</a>
+        <a href="#coaching">Coaching</a>
+        <a href="#ai">AI</a>
+        <a href="#method">Method</a>
+        <a href="#athletes">Athletes</a>
+        <a href="#about">About</a>
         <a onclick="landingSignIn()" style="cursor:pointer">Sign In</a>
         <a onclick="openLegal('privacy')" style="cursor:pointer">Privacy Policy</a>
         <a onclick="openLegal('terms')" style="cursor:pointer">Terms of Service</a>
@@ -7205,6 +7276,7 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
+<script src="js/landingContent.js?v=75"></script>
 <script src="js/authSupport.js?v=71"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>

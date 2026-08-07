@@ -216,8 +216,10 @@ section("Freemium onboarding, upgrade UI, and removed trial copy");
     /screen-coachai/.test(accessGuard) &&
     /screen-train/.test(accessGuard) &&
     /screen-trends/.test(accessGuard));
-  test("landing primary CTA is Build My Training Plan",
-    (index.match(/Build My Training Plan/g) || []).length >= 3);
+  test("Build My Training Plan remains on the dedicated AI signup CTA",
+    /id="ai"[\s\S]*data-cta-location="ai_product"[\s\S]*Build My Training Plan/.test(index));
+  test("global brand CTA is separate from the AI signup funnel",
+    /href="#train-with-athlevo">Train With Athlevo<\/a>/.test(index));
   const inAppUi = [onboarding, connect, planSetup, accessGuard].join("\n");
   test("in-app UI contains no timed free-trial messaging",
     !/start\s+(?:my\s+)?(?:\d+[-\s]day\s+)?free\s+trial|3\s+days\s+free|after\s+(?:the\s+)?trial|trial\s+ends/i.test(inAppUi));
