@@ -47,6 +47,12 @@ test("AI and human coaching are presented as two paths",
 test("founder story keeps its editorial photo slot",
   landing.includes("DEAN_FOUNDER_EDITORIAL_IMAGE") &&
   landing.includes("Founder &amp; Head Coach"));
+test("image slots are semantic hooks with no visible placeholder labels",
+  ["FOUNDER_OR_ATHLETE_HERO_IMAGE", "ATHLETE_TRAINING_IMAGE_01",
+   "DEAN_FOUNDER_EDITORIAL_IMAGE", "FINAL_RACE_IMAGE"].every(slot =>
+    landing.includes(`data-image-slot="${slot}"`)) &&
+  !landing.includes("lp-photo-label") &&
+  !landingContent.includes('node("span", "lp-photo-label"'));
 test("athlete story, tier, method, and FAQ collection roots exist",
   ["landingAthleteStories", "landingCoachingTiers", "landingMethodPrinciples", "landingFaq"]
     .every(id => landing.includes(`id="${id}"`)));
@@ -99,6 +105,17 @@ test("coaching tiers and method use ruled editorial grids",
   /\.lp-principle\{[^}]*border-bottom:1px solid var\(--line\)/.test(html));
 test("landing design adds no gradients or glass card treatment",
   !landing.includes("gradient") && !landing.includes("glass"));
+test("editorial media is borderless and real images use cover cropping",
+  /\.lp-editorial-media\{[^}]*overflow:hidden[^}]*background:var\(--line\)/.test(html) &&
+  /\.lp-editorial-media>img,[^}]*object-fit:cover/.test(html) &&
+  !/\.lp-editorial-media\{[^}]*border/.test(html));
+test("athlete stories use alternating image-and-copy compositions",
+  /\.lp-story\{display:grid;grid-template-columns:/.test(html) &&
+  /\.lp-story:nth-child\(even\) \.lp-story-image\{order:2\}/.test(html) &&
+  /lp-story-copy/.test(landingContent));
+test("final race media fills the CTA section behind a contrast layer",
+  /\.lp-final-image\{position:absolute;inset:0/.test(html) &&
+  /\.lp-final-overlay\{[^}]*background:rgba\(14,15,17,\.82\)/.test(html));
 
 console.log("\n──── Narrow viewport and accessibility safeguards ────");
 test("the landing screen clips accidental horizontal overflow",
@@ -108,7 +125,9 @@ test("mobile CTAs remain full-width and visible",
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-nav-cta \.lp-btn\{[^}]*white-space:nowrap/.test(html));
 test("AI/Human and story layouts collapse for narrow screens",
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-path-grid\{grid-template-columns:1fr\}/.test(html) &&
-  /\.lp-story-grid\{grid-template-columns:1fr\}/.test(html));
+  /\.lp-story,\.lp-story:nth-child\(even\)\{grid-template-columns:1fr/.test(html));
+test("hero media becomes full-width directly below copy on mobile",
+  /\.lp-photo-hero\{width:100vw;margin-left:calc\(50% - 50vw\)/.test(html));
 test("landing reveal honors reduced-motion preferences",
   /@media \(prefers-reduced-motion:reduce\)\{\.lp-reveal\{opacity:1;transform:none;transition:none\}\}/.test(html));
 

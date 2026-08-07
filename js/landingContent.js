@@ -120,18 +120,18 @@
         image.loading = "lazy";
         image.decoding = "async";
       } else {
-        image = node("div", "lp-photo-slot lp-story-image");
-        image.setAttribute("role", "img");
-        image.setAttribute("aria-label", `${story.imageSlot} athlete photo placeholder`);
-        image.append(node("span", "lp-photo-label", story.imageSlot));
+        image = node("div", "lp-editorial-media lp-story-image");
+        image.dataset.imageSlot = story.imageSlot;
+        image.setAttribute("aria-hidden", "true");
       }
 
-      article.append(image, node("h3", "", story.name), node("p", "lp-story-goal", story.goal));
+      const copy = node("div", "lp-story-copy");
+      copy.append(node("h3", "", story.name), node("p", "lp-story-goal", story.goal));
       const details = node("dl");
       appendDefinition(details, "Starting point", story.startingPoint);
       appendDefinition(details, "What Athlevo worked on", story.focus);
       appendDefinition(details, "Result", story.result);
-      article.append(details, node("blockquote", "", story.quote));
+      copy.append(details, node("blockquote", "", story.quote));
 
       if (story.resultImage) {
         const resultImage = node("img", "lp-story-result-image");
@@ -139,8 +139,9 @@
         resultImage.alt = story.resultImage.alt;
         resultImage.loading = "lazy";
         resultImage.decoding = "async";
-        article.append(resultImage);
+        copy.append(resultImage);
       }
+      article.append(image, copy);
       root.append(article);
     });
     root.dataset.rendered = "true";
