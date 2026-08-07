@@ -456,24 +456,29 @@
     if (youEl.querySelector("#cmAthleteSwitcher")) return; // already injected
     if (_role !== "coach" && _role !== "admin") return;
 
+    var section = document.getElementById("youWorkspaceSection");
+    if (!section) return;
+
     var switcher = document.createElement("div");
     switcher.id = "cmAthleteSwitcher";
-    switcher.style.cssText = "max-width:720px;margin:0 auto;padding:0 14px;";
     switcher.innerHTML =
-      '<button id="cmSwitchToCoach" style="width:100%;padding:14px;border:1px solid var(--accent,#3b82f6);border-radius:12px;background:transparent;color:var(--accent,#3b82f6);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;">' +
-        'Switch to Coach Workspace' +
-      '</button>';
+      '<div class="pad"><div class="section-title serif">Workspace</div></div>' +
+      '<div class="rowlink" id="cmSwitchToCoach" style="cursor:pointer">' +
+        '<div><b>Switch to Coach Workspace</b><small>Open your coaching tools.</small></div><span class="arr">→</span>' +
+      '</div>' +
+      '<div class="spacer-md" style="height:8px"></div>' +
+      '<div class="rowlink" id="cmOpenDashboard" style="cursor:pointer">' +
+        '<div><b>Open Coach Dashboard</b><small>View and manage your athletes.</small></div><span class="arr">→</span>' +
+      '</div>';
 
-    // Insert before the logout button
-    var logoutBtn = youEl.querySelector('button[onclick="doLogout()"]');
-    if (logoutBtn) {
-      logoutBtn.parentNode.insertBefore(switcher, logoutBtn);
-    } else {
-      youEl.appendChild(switcher);
-    }
+    section.appendChild(switcher);
 
     document.getElementById("cmSwitchToCoach").addEventListener("click", function () {
       trackCoach("workspace_switcher_viewed", { source_surface: "athlete_you" });
+      activateCoachWorkspace();
+    });
+
+    document.getElementById("cmOpenDashboard").addEventListener("click", function () {
       activateCoachWorkspace();
     });
   }
@@ -1113,49 +1118,103 @@
     if (!el) return;
     var name = _coachName || "Coach";
     var role = _role || "coach";
-    var html = '<div style="max-width:720px;margin:0 auto;padding:16px 14px 96px;">' +
+    var html = '<div style="max-width:720px;margin:0 auto;padding:16px 0 96px;">' +
       // Profile header
-      '<div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">' +
-        '<div style="width:56px;height:56px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;">' + esc(name.split(" ").map(function(w){return w[0];}).join("").toUpperCase().slice(0,2) || "C") + '</div>' +
+      '<div class="profilehead">' +
+        '<div class="pfp serif" style="width:56px;height:56px;font-size:20px;">' + esc(name.split(" ").map(function(w){return w[0];}).join("").toUpperCase().slice(0,2) || "C") + '</div>' +
         '<div>' +
-          '<h1 style="font-size:20px;font-weight:700;margin:0;">' + esc(name) + '</h1>' +
-          '<p style="font-size:13px;color:var(--ink3,#888);margin:2px 0 0;text-transform:capitalize;">' + esc(role) + '</p>' +
+          '<h1 class="serif" style="font-size:var(--fs-h1);font-weight:500;margin:0;">' + esc(name) + '</h1>' +
+          '<p style="font-size:var(--fs-body-sm);color:var(--ink2);margin:2px 0 0;text-transform:capitalize;">' + esc(role) + '</p>' +
         '</div>' +
       '</div>' +
       // Stats
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px;">' +
-        '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:12px;padding:14px;text-align:center;">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 22px 20px;">' +
+        '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:var(--r-lg);padding:14px;text-align:center;">' +
           '<div style="font-size:24px;font-weight:700;">' + _roster.length + '</div>' +
-          '<div style="font-size:12px;color:var(--ink3,#888);">Active athletes</div>' +
+          '<div style="font-size:var(--fs-caption);color:var(--ink3);">Active athletes</div>' +
         '</div>' +
-        '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:12px;padding:14px;text-align:center;">' +
-          '<div style="font-size:24px;font-weight:700;color:var(--ink3,#aaa);">—</div>' +
-          '<div style="font-size:12px;color:var(--ink3,#888);">Athlete capacity</div>' +
+        '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:var(--r-lg);padding:14px;text-align:center;">' +
+          '<div style="font-size:24px;font-weight:700;color:var(--ink3);">—</div>' +
+          '<div style="font-size:var(--fs-caption);color:var(--ink3);">Athlete capacity</div>' +
         '</div>' +
       '</div>' +
-      // Links
-      '<div style="margin-bottom:24px;">';
 
-    var links = [
-      { label: "Pending invitations", sub: "Coming soon", action: null },
-      { label: "Offers", sub: "Coming soon", action: null },
-      { label: "Notification settings", sub: "Coming soon", action: null },
-      { label: "Account settings", sub: "Manage your coach account", action: null },
-      { label: "Support", sub: "Get help with Athlevo", action: null }
-    ];
-    links.forEach(function (l) {
-      html += '<div style="padding:14px 0;border-bottom:1px solid var(--line,#eee);display:flex;justify-content:space-between;align-items:center;">' +
-        '<div><div style="font-size:14px;font-weight:600;">' + esc(l.label) + '</div>' +
-        '<div style="font-size:12px;color:var(--ink3,#888);">' + esc(l.sub) + '</div></div>' +
-        '<span style="color:var(--ink3,#aaa);">›</span>' +
-      '</div>';
-    });
+      // ── Workspace ──
+      '<div class="pad"><div class="section-title serif">Workspace</div></div>' +
+      '<div class="rowlink" id="cmSwitchToAthlete" style="cursor:pointer">' +
+        '<div><b>Switch to Athlete Workspace</b><small>Return to your athlete workspace.</small></div><span class="arr">→</span>' +
+      '</div>' +
+      '<div class="spacer-md" style="height:8px"></div>' +
+      '<div class="rowlink" id="cmOpenDashboardCoachYou" style="cursor:pointer">' +
+        '<div><b>Open Coach Dashboard</b><small>View and manage your athletes.</small></div><span class="arr">→</span>' +
+      '</div>' +
 
-    html += '</div>' +
-      renderCoachYouSwitcher() +
-      '<button id="cmLogout" style="width:100%;padding:14px;border:1px solid #c0392b;border-radius:12px;background:transparent;color:#c0392b;font-size:14px;font-weight:600;cursor:pointer;">Log out</button>' +
+      '<div class="spacer-md"></div>' +
+
+      // ── Preferences ──
+      '<div class="pad"><div class="section-title serif">Preferences</div></div>' +
+      '<div class="appearance appearance-row">' +
+        '<span class="appearance-label">Appearance</span>' +
+        '<div class="seg" id="coachThemeSeg" role="group" aria-label="Theme">' +
+          '<button type="button" class="seg-btn" data-theme-choice="system" onclick="setAthlevoTheme(\'system\')">System</button>' +
+          '<button type="button" class="seg-btn" data-theme-choice="light" onclick="setAthlevoTheme(\'light\')">Light</button>' +
+          '<button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme(\'dark\')">Dark</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="spacer-md" style="height:8px"></div>' +
+      '<div class="rowlink" id="coachYouInstallRow" onclick="typeof athlevoInstall===\'function\'?athlevoInstall():void 0">' +
+        '<div><b>Install Athlevo</b><small>Add Athlevo to your home screen.</small></div><span class="arr">→</span>' +
+      '</div>' +
+      '<div class="spacer-md" style="height:8px"></div>' +
+      '<div class="rowlink" onclick="toast(\'Notification settings coming soon\')">' +
+        '<div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>' +
+      '</div>' +
+
+      '<div class="spacer-md"></div>' +
+
+      // ── Support & Legal ──
+      '<div class="pad"><div class="section-title serif">Support &amp; Legal</div></div>' +
+      '<div class="rowlink" onclick="typeof openBetaFeedback===\'function\'?openBetaFeedback():toast(\'Coming soon\')">' +
+        '<div><b>Support</b><small>Get help with Athlevo.</small></div><span class="arr">→</span>' +
+      '</div>' +
+      '<div class="spacer-md" style="height:8px"></div>' +
+      '<div class="rowlink" onclick="openLegal(\'privacy\')">' +
+        '<div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>' +
+      '</div>' +
+      '<div class="spacer-md" style="height:8px"></div>' +
+      '<div class="rowlink" onclick="openLegal(\'terms\')">' +
+        '<div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>' +
+      '</div>' +
+
+      '<div class="spacer-md"></div>' +
+
+      // ── Account ──
+      '<div class="pad"><div class="section-title serif">Account</div></div>' +
+      '<div class="rowlink" onclick="toast(\'Account settings coming soon\')">' +
+        '<div><b>Account Settings</b><small>Manage your account details.</small></div><span class="arr">→</span>' +
+      '</div>' +
+      '<div class="spacer-md" style="height:8px"></div>' +
+      '<div class="rowlink" id="cmLogout" style="cursor:pointer">' +
+        '<div><b>Log Out</b><small>Sign out of your Athlevo account.</small></div><span class="arr">→</span>' +
+      '</div>' +
+      '<div class="you-delete-divider"></div>' +
+      '<div class="rowlink rowlink-danger-subtle" onclick="openDeleteAccount()">' +
+        '<div><b>Delete Account</b><small>Permanently delete your account and all data.</small></div><span class="arr">→</span>' +
+      '</div>' +
+
+      '<div class="app-version"><div>Athlevo</div><div id="coachAppVersionDisplay">Version 0.6.0</div></div>' +
+      '<div class="spacer-md"></div>' +
     '</div>';
     el.innerHTML = html;
+
+    // Sync the theme segmented control to match current theme
+    var currentTheme = localStorage.getItem("athlevo_theme") || "system";
+    var coachThemeSeg = document.getElementById("coachThemeSeg");
+    if (coachThemeSeg) {
+      coachThemeSeg.querySelectorAll(".seg-btn").forEach(function (btn) {
+        btn.classList.toggle("on", btn.getAttribute("data-theme-choice") === currentTheme);
+      });
+    }
 
     // Bind workspace switcher
     var switchBtn = document.getElementById("cmSwitchToAthlete");
@@ -1163,6 +1222,15 @@
       switchBtn.addEventListener("click", function () {
         trackCoach("workspace_switcher_viewed", { source_surface: "coach_you" });
         activateAthleteWorkspace();
+      });
+    }
+
+    // Open Coach Dashboard navigates to the Coach Today tab
+    var dashBtn = document.getElementById("cmOpenDashboardCoachYou");
+    if (dashBtn) {
+      dashBtn.addEventListener("click", function () {
+        var todayTab = document.querySelector('.tab[data-screen="screen-today"]');
+        if (todayTab) coachGo(todayTab);
       });
     }
 

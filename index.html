@@ -1101,6 +1101,12 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 /* Delete Account */
 .rowlink-danger b{color:var(--danger,#d93025)}
 .rowlink-danger small{color:var(--danger,#d93025);opacity:.7}
+.rowlink-danger-subtle b{color:var(--danger,#d93025);font-weight:600}
+.rowlink-danger-subtle small{color:var(--ink2)}
+.rowlink-danger-subtle .arr{color:var(--danger,#d93025);opacity:.5}
+.you-delete-divider{height:1px;background:var(--line,#e5e5e5);margin:16px 22px}
+.appearance-row{background:var(--card);border-radius:var(--r-lg);padding:16px 20px}
+#youWorkspaceSection:empty+.spacer-md{display:none}
 .delete-account-sheet{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--dur-slow) var(--ease-standard)}
 .delete-account-btn:disabled{opacity:.4;cursor:not-allowed}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -4256,13 +4262,11 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </div>
 </div>
-  <div class="spacer-lg"></div>
+  <div class="spacer-md"></div>
 
-  <div class="pad"><div class="section-title serif">Daily readiness</div></div>
   <button class="rowlink rd-settings-link" type="button" onclick="openReadinessCheck()">
     <div><b>Open today’s check-in</b><small>Update how you’re feeling whenever you need to.</small></div><span class="arr">→</span>
   </button>
-  <div class="spacer-lg"></div>
 
  <div class="integ">
   <!--
@@ -4270,7 +4274,7 @@ body.landing-active #tabbar{display:none!important}
 
     Athlevo aggregates through a provider layer, so separate Strava /
     Intervals.icu / Garmin / COROS rows described our plumbing rather than the
-    athlete's decision — and three of the four could not actually be connected.
+    athlete’s decision — and three of the four could not actually be connected.
     The athlete connects "training data" once; which service carries it is an
     implementation detail, disclosed but not sold.
   -->
@@ -4279,7 +4283,7 @@ body.landing-active #tabbar{display:none!important}
     a read-only presentation layer that answers "is my watch connected?" and
     "did my workout arrive?". All actions delegate to the existing frozen
     handlers (connect / reconnect / disconnect / open partner). The legacy
-    hidden hooks below keep brain.js's status writes harmless no-ops.
+    hidden hooks below keep brain.js’s status writes harmless no-ops.
   -->
   <div id="syncStatusCard"></div>
   <div id="trainingDataRow" data-state="idle" hidden aria-hidden="true">
@@ -4287,69 +4291,63 @@ body.landing-active #tabbar{display:none!important}
   </div>
 </div>
 
-  <div class="pad"><div class="section-title serif">Learn the method</div></div>
-  <div class="edu-scroll">
-    <div class="edu-card" onclick="openLesson()"><span class="eyebrow">Zones</span><h4>Why Threshold works — and why more isn't better</h4><small>6 min · Norwegian model</small></div>
-    <!-- Lessons that are not written yet are marked, not faked. A card that
-         opens a toast promising content we don't have is a dead end. -->
-    <div class="edu-card soon"><span class="eyebrow">Philosophy · Coming soon</span><h4>Total Cost Accounting: training is not your only load</h4><small>In writing</small></div>
-    <div class="edu-card soon"><span class="eyebrow">Environment · Coming soon</span><h4>Heat is an invisible interval</h4><small>In writing</small></div>
-    <div class="edu-card soon"><span class="eyebrow">Science · Coming soon</span><h4>LT1 vs LT2 — the two doors of endurance</h4><small>In writing</small></div>
-  </div>
-  <div class="spacer-lg"></div>
+  <div class="spacer-md"></div>
 
-  <div class="pad"><div class="section-title serif">Community</div></div>
-  <div class="rowlink disabled" aria-disabled="true">
-    <div><b>Athlevo Athletes</b><small>Questions, discussion &amp; leaderboards</small></div><span class="arr">→</span>
+  <!-- ── Workspace ── -->
+  <div id="youWorkspaceSection">
+    <!-- Coach/admin: workspace switcher + dashboard injected here by coachMode.js -->
   </div>
-  <div class="spacer-md" style="height:12px"></div>
-  <div class="rowlink" onclick="toast('Office hours: Sunday 8 PM')">
-    <div><b>Coach office hours</b><small>Live Q&amp;A every Sunday evening</small></div><span class="arr">→</span>
-  </div>
-  <div class="spacer-lg"></div>
+  <div class="spacer-md"></div>
 
-  <div class="pad"><div class="section-title serif">Feedback</div></div>
-  <div class="rowlink" onclick="openBetaFeedback()">
-    <div><b>Feedback &amp; Suggestions</b><small>Report a bug, share an idea, or tell us what felt confusing.</small></div><span class="arr">→</span>
-  </div>
-  <div class="spacer-lg"></div>
-
-  <div class="pad"><div class="section-title serif">Legal</div></div>
-  <div class="rowlink" onclick="openLegal('privacy')">
-    <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
-  </div>
-  <div class="spacer-md" style="height:12px"></div>
-  <div class="rowlink" onclick="openLegal('terms')">
-    <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
-  </div>
-  <div class="spacer-lg"></div>
-
-  <div class="appearance">
+  <!-- ── Preferences ── -->
+  <div class="pad"><div class="section-title serif">Preferences</div></div>
+  <div class="appearance appearance-row">
     <span class="appearance-label">Appearance</span>
     <div class="seg" id="themeSeg" role="group" aria-label="Theme">
-      <button type="button" class="seg-btn" data-theme-choice="system" onclick="setAthlevoTheme('system')">System</button>
-      <button type="button" class="seg-btn" data-theme-choice="light" onclick="setAthlevoTheme('light')">Light</button>
-      <button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme('dark')">Dark</button>
+      <button type="button" class="seg-btn" data-theme-choice="system" onclick="setAthlevoTheme(‘system’)">System</button>
+      <button type="button" class="seg-btn" data-theme-choice="light" onclick="setAthlevoTheme(‘light’)">Light</button>
+      <button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme(‘dark’)">Dark</button>
     </div>
   </div>
-
-  <div class="spacer-lg"></div>
-
-  <div class="lp-install-row" id="youInstallRow" onclick="athlevoInstall()">
+  <div class="spacer-md" style="height:8px"></div>
+  <div class="rowlink" id="youInstallRow" onclick="athlevoInstall()">
     <div><b>Install Athlevo</b><small id="youInstallSub">Add Athlevo to your home screen</small></div>
     <span class="arr">→</span>
   </div>
+  <div class="spacer-md" style="height:8px"></div>
+  <div class="rowlink" onclick="toast(‘Notification settings coming soon’)">
+    <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
+  </div>
 
-<div class="spacer-lg"></div>
+  <div class="spacer-md"></div>
 
-<button class="primary" onclick="doLogout()">
-    Log Out
-</button>
+  <!-- ── Support & Legal ── -->
+  <div class="pad"><div class="section-title serif">Support &amp; Legal</div></div>
+  <div class="rowlink" onclick="openBetaFeedback()">
+    <div><b>Support</b><small>Report a bug, share an idea, or get help.</small></div><span class="arr">→</span>
+  </div>
+  <div class="spacer-md" style="height:8px"></div>
+  <div class="rowlink" onclick="openLegal(‘privacy’)">
+    <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
+  </div>
+  <div class="spacer-md" style="height:8px"></div>
+  <div class="rowlink" onclick="openLegal(‘terms’)">
+    <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
+  </div>
 
-<div class="spacer-lg"></div>
+  <div class="spacer-md"></div>
 
+  <!-- ── Account ── -->
   <div class="pad"><div class="section-title serif">Account</div></div>
-  <div class="rowlink rowlink-danger" onclick="openDeleteAccount()">
+  <div class="rowlink" onclick="toast(‘Account settings coming soon’)">
+    <div><b>Account Settings</b><small>Manage your account details.</small></div><span class="arr">→</span>
+  </div>
+  <div class="spacer-md" style="height:8px"></div>
+  <div class="rowlink" onclick="doLogout()">
+    <div><b>Log Out</b><small>Sign out of your Athlevo account.</small></div><span class="arr">→</span>
+  </div>
+  <div class="you-delete-divider"></div>
+  <div class="rowlink rowlink-danger-subtle" onclick="openDeleteAccount()">
     <div><b>Delete Account</b><small>Permanently delete your account and all data.</small></div><span class="arr">→</span>
   </div>
 
@@ -4358,7 +4356,7 @@ body.landing-active #tabbar{display:none!important}
   <div id="appVersionDisplay">Version 0.6.0</div>
 </div>
 
-<div class="spacer-lg"></div>
+<div class="spacer-md"></div>
 </section>
 
 <!-- ══════════════ COACH MODE ══════════════
