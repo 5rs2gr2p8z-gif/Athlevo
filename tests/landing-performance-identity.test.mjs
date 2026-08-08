@@ -110,7 +110,8 @@ test("editorial media is borderless and real images use cover cropping",
   /\.lp-editorial-media>img,[^}]*object-fit:cover/.test(html) &&
   !/\.lp-editorial-media\{[^}]*border/.test(html));
 test("hero crop removes source bars while preserving the athlete group",
-  /\.lp-photo-hero>img\{object-fit:cover;object-position:center 46%\}/.test(html));
+  /\.lp-photo-hero>img\{object-fit:cover;object-position:center 46%\}/.test(html) &&
+  /@media \(max-width:700px\)\{[\s\S]*?\.lp-photo-hero>img\{object-position:center 42%\}/.test(html));
 test("athlete stories use alternating image-and-copy compositions",
   /\.lp-story\{display:grid;grid-template-columns:/.test(html) &&
   /\.lp-story:nth-child\(even\) \.lp-story-image\{order:2\}/.test(html) &&
@@ -128,8 +129,14 @@ test("mobile CTAs remain full-width and visible",
 test("AI/Human and story layouts collapse for narrow screens",
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-path-grid\{grid-template-columns:1fr\}/.test(html) &&
   /\.lp-story,\.lp-story:nth-child\(even\)\{grid-template-columns:1fr/.test(html));
-test("hero media becomes full-width directly below copy on mobile",
-  /\.lp-photo-hero\{width:100vw;height:clamp\(500px,135vw,820px\);margin-left:calc\(50% - 50vw\)/.test(html));
+test("mobile hero composes copy and actions over one full-width image canvas",
+  /\.lp-hero-grid\{position:relative;display:block;height:clamp\(560px,175vw,700px\);overflow:hidden\}/.test(html) &&
+  /\.lp-photo-hero\{position:absolute;inset:0;width:100%;height:100%;margin:0\}/.test(html) &&
+  /\.lp-hero-copy\{position:relative;z-index:2;display:flex;flex-direction:column;height:100%/.test(html));
+test("mobile hero uses a restrained contrast overlay and keeps both CTAs tappable",
+  /\.lp-photo-hero::after\{[^}]*background:rgba\(8,10,13,\.34\)/.test(html) &&
+  /#screen-landing \.lp-hero \.lp-cta\{[^}]*flex-direction:row[^}]*margin-top:auto/.test(html) &&
+  /#screen-landing \.lp-hero \.lp-cta \.lp-btn\{[^}]*flex:1[^}]*font-size:12px/.test(html));
 test("landing reveal honors reduced-motion preferences",
   /@media \(prefers-reduced-motion:reduce\)\{\.lp-reveal\{opacity:1;transform:none;transition:none\}\}/.test(html));
 
