@@ -2784,7 +2784,8 @@ body.landing-active #tabbar{display:none!important}
 .lp-categories{margin:20px 0 0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);line-height:1.7}
 .lp-editorial-media{position:relative;display:block;overflow:hidden;background:var(--line)}
 .lp-editorial-media>img,.lp-editorial-media.lp-final-image{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
-.lp-photo-hero{min-height:560px}
+.lp-photo-hero{height:clamp(680px,68vw,860px);min-height:0}
+.lp-photo-hero>img{object-fit:cover;object-position:center 46%}
 .lp-photo-landscape{aspect-ratio:4/3;min-height:340px}
 .lp-photo-portrait{aspect-ratio:4/5;min-height:520px}
 
@@ -2888,7 +2889,7 @@ body.landing-active #tabbar{display:none!important}
 @media (max-width:900px){
   .lp-hero-grid,.lp-editorial-split,.lp-editorial-split.reverse,.lp-ai-layout,.lp-audience-layout{grid-template-columns:1fr}
   .lp-hero-grid{gap:38px}
-  .lp-photo-hero{aspect-ratio:16/10;min-height:360px}
+  .lp-photo-hero{aspect-ratio:auto;height:min(116vw,860px);min-height:0}
   .lp-photo-portrait{aspect-ratio:16/10;min-height:380px}
   .lp-editorial-split.reverse .lp-editorial-copy{order:-1}
   .lp-section-head{align-items:start;flex-direction:column}
@@ -2908,8 +2909,9 @@ body.landing-active #tabbar{display:none!important}
   #screen-landing .lp-nav-cta{margin-left:auto}
   #screen-landing .lp-nav-cta .lp-btn{padding:9px 12px;font-size:12px;white-space:nowrap}
   #screen-landing .lp-h1{font-size:clamp(44px,13vw,62px)}
-  .lp-photo-hero,.lp-photo-landscape,.lp-photo-portrait{min-height:300px}
-  .lp-photo-hero{width:100vw;margin-left:calc(50% - 50vw);min-height:clamp(340px,112vw,520px)}
+  .lp-photo-landscape,.lp-photo-portrait{min-height:300px}
+  .lp-photo-hero{width:100vw;height:clamp(500px,135vw,820px);margin-left:calc(50% - 50vw)}
+  .lp-photo-hero>img{object-position:center 46%}
   .lp-path-grid{grid-template-columns:1fr}
   .lp-path,.lp-path:first-child,.lp-path+.lp-path{padding:28px 0 34px;border-left:0}
   .lp-path+.lp-path{border-top:1px solid var(--line)}
@@ -2992,8 +2994,9 @@ body.landing-active #tabbar{display:none!important}
           <a class="lp-btn ghost" href="#method">See how we coach</a>
         </div>
       </div>
-      <!-- PHOTO REPLACEMENT: add <img src="…" alt="…" fetchpriority="high" decoding="async"> for FOUNDER_OR_ATHLETE_HERO_IMAGE here, then remove aria-hidden. -->
-      <div class="lp-editorial-media lp-photo-hero lp-reveal" data-image-slot="FOUNDER_OR_ATHLETE_HERO_IMAGE" aria-hidden="true"></div>
+      <div class="lp-editorial-media lp-photo-hero lp-reveal">
+        <img src="assets/landing/hero-athlevo.png" alt="Athlevo athletes together after a training session." width="1206" height="2622" loading="eager" fetchpriority="high" decoding="async">
+      </div>
     </div>
   </header>
 

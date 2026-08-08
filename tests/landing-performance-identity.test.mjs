@@ -35,7 +35,7 @@ test("brand navigation names both coaching paths and the method",
 test("global brand CTA is Train With Athlevo",
   /<a class="lp-btn sm" href="#train-with-athlevo">Train With Athlevo<\/a>/.test(landing));
 test("hero is editorial photography-first rather than an app mockup",
-  landing.includes("FOUNDER_OR_ATHLETE_HERO_IMAGE") &&
+  /<img src="assets\/landing\/hero-athlevo\.png"[^>]*alt="Athlevo athletes together after a training session\."[^>]*loading="eager"[^>]*fetchpriority="high"/.test(landing) &&
   !landing.slice(landing.indexOf('<header class="lp-hero"'), landing.indexOf("</header>"))
     .includes("landingStartFree"));
 test("the athlete-first philosophy follows the hero",
@@ -48,8 +48,8 @@ test("founder story keeps its editorial photo slot",
   landing.includes("DEAN_FOUNDER_EDITORIAL_IMAGE") &&
   landing.includes("Founder &amp; Head Coach"));
 test("image slots are semantic hooks with no visible placeholder labels",
-  ["FOUNDER_OR_ATHLETE_HERO_IMAGE", "ATHLETE_TRAINING_IMAGE_01",
-   "DEAN_FOUNDER_EDITORIAL_IMAGE", "FINAL_RACE_IMAGE"].every(slot =>
+  ["ATHLETE_TRAINING_IMAGE_01", "DEAN_FOUNDER_EDITORIAL_IMAGE",
+   "FINAL_RACE_IMAGE"].every(slot =>
     landing.includes(`data-image-slot="${slot}"`)) &&
   !landing.includes("lp-photo-label") &&
   !landingContent.includes('node("span", "lp-photo-label"'));
@@ -109,6 +109,8 @@ test("editorial media is borderless and real images use cover cropping",
   /\.lp-editorial-media\{[^}]*overflow:hidden[^}]*background:var\(--line\)/.test(html) &&
   /\.lp-editorial-media>img,[^}]*object-fit:cover/.test(html) &&
   !/\.lp-editorial-media\{[^}]*border/.test(html));
+test("hero crop removes source bars while preserving the athlete group",
+  /\.lp-photo-hero>img\{object-fit:cover;object-position:center 46%\}/.test(html));
 test("athlete stories use alternating image-and-copy compositions",
   /\.lp-story\{display:grid;grid-template-columns:/.test(html) &&
   /\.lp-story:nth-child\(even\) \.lp-story-image\{order:2\}/.test(html) &&
@@ -127,7 +129,7 @@ test("AI/Human and story layouts collapse for narrow screens",
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-path-grid\{grid-template-columns:1fr\}/.test(html) &&
   /\.lp-story,\.lp-story:nth-child\(even\)\{grid-template-columns:1fr/.test(html));
 test("hero media becomes full-width directly below copy on mobile",
-  /\.lp-photo-hero\{width:100vw;margin-left:calc\(50% - 50vw\)/.test(html));
+  /\.lp-photo-hero\{width:100vw;height:clamp\(500px,135vw,820px\);margin-left:calc\(50% - 50vw\)/.test(html));
 test("landing reveal honors reduced-motion preferences",
   /@media \(prefers-reduced-motion:reduce\)\{\.lp-reveal\{opacity:1;transform:none;transition:none\}\}/.test(html));
 
