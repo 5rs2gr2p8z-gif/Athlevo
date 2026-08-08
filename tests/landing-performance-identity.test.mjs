@@ -44,11 +44,25 @@ test("the athlete-first philosophy follows the hero",
 test("AI and human coaching are presented as two paths",
   landing.includes("One coaching philosophy. Different levels of support.") &&
   landing.includes("ATHLEVO AI") && landing.includes("HUMAN COACHING"));
-test("founder story keeps its editorial photo slot",
-  landing.includes("DEAN_FOUNDER_EDITORIAL_IMAGE") &&
-  landing.includes("Founder &amp; Head Coach"));
+test("founder story uses its approved editorial portrait",
+  /<img src="assets\/landing\/dean-founder\.png"[^>]*alt="Dean Castro at an endurance race\."[^>]*loading="lazy"[^>]*decoding="async"/.test(landing) &&
+  landing.includes("Founder &amp; Head Coach") &&
+  landing.includes("He started questioning what runners were told was difficult."));
+test("founder profile presents the supplied experience and institution story",
+  landing.includes("Dean Castro was 19, a student-athlete, runner, and coach") &&
+  landing.includes("coached more than 300 runners") &&
+  landing.includes("foundation of the Athlevo Method") &&
+  landing.includes("So Dean began building the software himself.") &&
+  landing.includes("Athlete · Coach · Developer"));
+test("founder pull quote is integrated as editorial text rather than a card",
+  landing.includes('<blockquote class="lp-founder-pullquote lp-reveal">“Having workouts isn’t the same as knowing what decision to make next.”</blockquote>') &&
+  /\.lp-founder-pullquote\{[^}]*border-left:3px solid var\(--red\)/.test(html) &&
+  !/\.lp-founder-pullquote\{[^}]*background/.test(html));
+test("founder layout places the image between introduction and story on mobile",
+  /\.lp-founder-layout\{[^}]*grid-template-areas:"media intro" "media story"/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-founder-layout\{[^}]*grid-template-areas:"intro" "media" "story"/.test(html));
 test("image slots are semantic hooks with no visible placeholder labels",
-  ["DEAN_FOUNDER_EDITORIAL_IMAGE", "FINAL_RACE_IMAGE"].every(slot =>
+  ["FINAL_RACE_IMAGE"].every(slot =>
     landing.includes(`data-image-slot="${slot}"`)) &&
   !landing.includes("lp-photo-label") &&
   !landingContent.includes('node("span", "lp-photo-label"'));

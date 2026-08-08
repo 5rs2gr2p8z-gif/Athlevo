@@ -2821,10 +2821,23 @@ body.landing-active #tabbar{display:none!important}
 .lp-ai-mini-main span{display:block;margin-top:8px;color:rgba(255,255,255,.62);font-size:13px}
 .lp-ai-mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;border-top:1px solid rgba(255,255,255,.13);padding-top:16px;font-size:11px;color:rgba(255,255,255,.62)}
 
-.lp-founder-quote{margin:26px 0 0;font-family:var(--serif);font-size:clamp(20px,2.2vw,28px);line-height:1.42;color:var(--text)}
-.lp-founder-quote p{margin:0 0 16px}
-.lp-signature{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:14px;font-weight:750;color:var(--text)}
-.lp-signature span{display:block;margin-top:4px;font-size:12px;font-weight:500;color:var(--ink3)}
+.lp-founder-layout{display:grid;grid-template-columns:minmax(340px,1.08fr) minmax(0,.92fr);
+  grid-template-areas:"media intro" "media story";column-gap:clamp(40px,7vw,100px);row-gap:30px;align-items:start}
+.lp-founder-intro{grid-area:intro;max-width:590px}
+.lp-founder-media{grid-area:media;position:sticky;top:90px;height:clamp(680px,72vw,860px);min-height:0}
+.lp-founder-media>img{object-fit:cover;object-position:58% 50%}
+.lp-founder-story{grid-area:story;max-width:590px}
+.lp-founder-story>p{margin:0 0 19px;font-size:16px;line-height:1.72;color:var(--ink2)}
+.lp-founder-observations{margin:28px 0;border-top:1px solid var(--text);border-bottom:1px solid var(--line)}
+.lp-founder-observations p{margin:0;padding:10px 0;border-bottom:1px solid var(--line);
+  font-size:14px;font-weight:650;line-height:1.45;color:var(--text)}
+.lp-founder-observations p:last-child{border-bottom:0}
+.lp-founder-pullquote{margin:32px 0;padding:5px 0 5px 24px;border-left:3px solid var(--red);
+  font-family:var(--serif);font-size:clamp(22px,2.4vw,30px);font-weight:500;line-height:1.36;color:var(--text)}
+.lp-founder-conclusion{font-family:var(--serif);font-size:clamp(23px,2.5vw,31px);font-weight:500;
+  line-height:1.3;color:var(--text);margin:5px 0 0}
+.lp-signature{margin-top:34px;padding-top:18px;border-top:1px solid var(--text);font-size:15px;font-weight:750;color:var(--text)}
+.lp-signature span{display:block;margin-top:4px;font-size:12px;font-weight:600;color:var(--ink3)}
 
 .lp-story-grid{display:flex;flex-direction:column;margin-top:clamp(34px,5vw,58px)}
 .lp-story{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(280px,.82fr);gap:clamp(30px,6vw,78px);align-items:center;min-width:0;border-top:1px solid var(--text);padding:clamp(28px,5vw,58px) 0}
@@ -2901,6 +2914,10 @@ body.landing-active #tabbar{display:none!important}
   .lp-tier,.lp-tier:first-child,.lp-tier:last-child{padding:26px 0}
   .lp-tier+.lp-tier{border-left:0;border-top:1px solid var(--line)}
   .lp-tier.is-core::before{right:auto;width:74px}
+  .lp-founder-layout{grid-template-columns:1fr;grid-template-areas:"intro" "media" "story";gap:28px}
+  .lp-founder-intro,.lp-founder-story{max-width:none}
+  .lp-founder-media{position:relative;top:auto;width:100%;height:auto;min-height:0;aspect-ratio:4/5}
+  .lp-founder-media>img{object-position:56% 50%}
 }
 
 @media (max-width:700px){
@@ -2928,8 +2945,14 @@ body.landing-active #tabbar{display:none!important}
   #screen-landing .lp-hero .lp-cta .lp-btn.ghost{background:rgba(12,13,15,.28);color:#fff;
     border-color:rgba(255,255,255,.72)}
   .lp-photo-landscape,.lp-photo-portrait{min-height:300px}
+  #athlete-first .lp-editorial-split{gap:18px}
   .lp-photo-philosophy{min-height:0}
   .lp-photo-philosophy>img{object-position:center 28%}
+  .lp-founder-layout{gap:24px}
+  .lp-founder-story>p{margin-bottom:17px;font-size:15.5px;line-height:1.68}
+  .lp-founder-observations{margin:24px 0}
+  .lp-founder-pullquote{margin:27px 0;padding-left:18px;font-size:23px}
+  .lp-signature{margin-top:28px}
   .lp-photo-hero{position:absolute;inset:0;width:100%;height:100%;margin:0}
   .lp-photo-hero::after{content:"";position:absolute;inset:0;background:rgba(8,10,13,.34);pointer-events:none}
   .lp-photo-hero>img{object-position:center 42%}
@@ -3087,20 +3110,41 @@ body.landing-active #tabbar{display:none!important}
 
   <!-- 4. FOUNDER STORY -->
   <section class="lp-section lp-alt" id="about">
-    <div class="lp-wrap lp-editorial-split reverse">
-      <div class="lp-editorial-copy">
+    <div class="lp-wrap lp-founder-layout">
+      <div class="lp-founder-intro">
         <span class="lp-kicker lp-reveal">WHY ATHLEVO EXISTS</span>
-        <h2 class="lp-h2 lp-reveal">Built by an athlete who got tired of guessing too.</h2>
-        <blockquote class="lp-founder-quote lp-reveal">
-          <p>“Athlevo started from a problem I experienced myself: having workouts wasn’t the same as knowing what decision to make next.</p>
-          <p>Training changes when recovery changes.<br>When life changes.<br>When performance changes.</p>
-          <p>I wanted coaching that accounted for the athlete in front of it — not just the schedule on paper.</p>
-          <p>That idea became Athlevo.”</p>
-        </blockquote>
-        <div class="lp-signature lp-reveal">Dean Castro<span>Founder &amp; Head Coach</span></div>
+        <h2 class="lp-h2 lp-reveal">He started questioning what runners were told was difficult.</h2>
       </div>
-      <!-- PHOTO REPLACEMENT: add <img src="…" alt="…" loading="lazy" decoding="async"> for DEAN_FOUNDER_EDITORIAL_IMAGE here, then remove aria-hidden. -->
-      <div class="lp-editorial-media lp-photo-portrait lp-reveal" data-image-slot="DEAN_FOUNDER_EDITORIAL_IMAGE" aria-hidden="true"></div>
+      <div class="lp-editorial-media lp-photo-portrait lp-founder-media lp-reveal">
+        <img src="assets/landing/dean-founder.png" alt="Dean Castro at an endurance race." width="1145" height="1374" loading="lazy" decoding="async">
+      </div>
+      <div class="lp-founder-story">
+        <p class="lp-reveal">Dean Castro was 19, a student-athlete, runner, and coach, when the idea behind Athlevo began taking shape.</p>
+        <p class="lp-reveal">The more athletes he worked with, the more often he saw the same problem: runners were treating performance as something mysterious.</p>
+
+        <div class="lp-founder-observations lp-reveal">
+          <p>A sub-20 5K was treated like an impossible benchmark.</p>
+          <p>A marathon was treated like a test of suffering.</p>
+          <p>More mileage was assumed to mean more progress.</p>
+          <p>Harder training was assumed to mean better training.</p>
+        </div>
+
+        <p class="lp-reveal">But the athletes who improved were rarely the ones who simply did the most.</p>
+        <p class="lp-reveal">They were the ones whose training made sense.</p>
+        <p class="lp-reveal">Enough aerobic work. Enough intensity. Strength where it mattered. Progression at the right time. Recovery when the cost became too high. And adjustments when work, sleep, injuries, other sports, or life changed the equation.</p>
+
+        <blockquote class="lp-founder-pullquote lp-reveal">“Having workouts isn’t the same as knowing what decision to make next.”</blockquote>
+
+        <p class="lp-reveal">By the time Dean had coached more than 300 runners, that idea had become the foundation of the Athlevo Method: individualize the training, account for the total load on the athlete, progress toward the actual demands of the goal, and keep adjusting based on what really happens.</p>
+        <p class="lp-reveal">But coaching athletes one by one created another problem.</p>
+        <p class="lp-reveal">Good coaching was difficult to scale.</p>
+        <p class="lp-reveal">So Dean began building the software himself.</p>
+        <p class="lp-reveal">Athlevo AI became a way to encode parts of that decision-making system for athletes who wanted to train independently. Human Coaching remained the deeper relationship for athletes who wanted a coach actively managing the process.</p>
+        <p class="lp-reveal">Today, both exist for the same reason:</p>
+        <p class="lp-founder-conclusion lp-reveal">Better training starts with better decisions.</p>
+
+        <div class="lp-signature lp-reveal">Dean Castro<span>Founder &amp; Head Coach</span><span>Athlete · Coach · Developer</span></div>
+      </div>
     </div>
   </section>
 
