@@ -2787,6 +2787,8 @@ body.landing-active #tabbar{display:none!important}
 .lp-photo-hero{height:clamp(680px,68vw,860px);min-height:0}
 .lp-photo-hero>img{object-fit:cover;object-position:center 46%}
 .lp-photo-landscape{aspect-ratio:4/3;min-height:340px}
+.lp-photo-philosophy{aspect-ratio:3/4;min-height:520px}
+.lp-photo-philosophy>img{object-fit:cover;object-position:center 30%}
 .lp-photo-portrait{aspect-ratio:4/5;min-height:520px}
 
 #screen-landing .lp-section{padding:clamp(58px,7vw,92px) 0}
@@ -2926,6 +2928,8 @@ body.landing-active #tabbar{display:none!important}
   #screen-landing .lp-hero .lp-cta .lp-btn.ghost{background:rgba(12,13,15,.28);color:#fff;
     border-color:rgba(255,255,255,.72)}
   .lp-photo-landscape,.lp-photo-portrait{min-height:300px}
+  .lp-photo-philosophy{min-height:0}
+  .lp-photo-philosophy>img{object-position:center 28%}
   .lp-photo-hero{position:absolute;inset:0;width:100%;height:100%;margin:0}
   .lp-photo-hero::after{content:"";position:absolute;inset:0;background:rgba(8,10,13,.34);pointer-events:none}
   .lp-photo-hero>img{object-position:center 42%}
@@ -3020,8 +3024,9 @@ body.landing-active #tabbar{display:none!important}
   <!-- 2. ATHLETE PHILOSOPHY -->
   <section class="lp-section lp-alt" id="athlete-first">
     <div class="lp-wrap lp-editorial-split">
-      <!-- PHOTO REPLACEMENT: add <img src="…" alt="…" loading="lazy" decoding="async"> for ATHLETE_TRAINING_IMAGE_01 here, then remove aria-hidden. -->
-      <div class="lp-editorial-media lp-photo-landscape lp-reveal" data-image-slot="ATHLETE_TRAINING_IMAGE_01" aria-hidden="true"></div>
+      <div class="lp-editorial-media lp-photo-landscape lp-photo-philosophy lp-reveal">
+        <img src="assets/landing/athlete-philosophy-training.png" alt="Athlevo athlete running during a training session." width="1206" height="2622" loading="lazy" decoding="async">
+      </div>
       <div class="lp-editorial-copy">
         <span class="lp-kicker lp-reveal">THE ATHLETE COMES FIRST</span>
         <h2 class="lp-h2 lp-reveal">Training doesn’t happen in isolation.</h2>

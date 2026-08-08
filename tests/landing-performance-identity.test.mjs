@@ -48,11 +48,12 @@ test("founder story keeps its editorial photo slot",
   landing.includes("DEAN_FOUNDER_EDITORIAL_IMAGE") &&
   landing.includes("Founder &amp; Head Coach"));
 test("image slots are semantic hooks with no visible placeholder labels",
-  ["ATHLETE_TRAINING_IMAGE_01", "DEAN_FOUNDER_EDITORIAL_IMAGE",
-   "FINAL_RACE_IMAGE"].every(slot =>
+  ["DEAN_FOUNDER_EDITORIAL_IMAGE", "FINAL_RACE_IMAGE"].every(slot =>
     landing.includes(`data-image-slot="${slot}"`)) &&
   !landing.includes("lp-photo-label") &&
   !landingContent.includes('node("span", "lp-photo-label"'));
+test("athlete philosophy uses its approved lazy-loaded training image",
+  /<img src="assets\/landing\/athlete-philosophy-training\.png"[^>]*alt="Athlevo athlete running during a training session\."[^>]*loading="lazy"[^>]*decoding="async"/.test(landing));
 test("athlete story, tier, method, and FAQ collection roots exist",
   ["landingAthleteStories", "landingCoachingTiers", "landingMethodPrinciples", "landingFaq"]
     .every(id => landing.includes(`id="${id}"`)));
@@ -112,6 +113,10 @@ test("editorial media is borderless and real images use cover cropping",
 test("hero crop removes source bars while preserving the athlete group",
   /\.lp-photo-hero>img\{object-fit:cover;object-position:center 46%\}/.test(html) &&
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-photo-hero>img\{object-position:center 42%\}/.test(html));
+test("athlete philosophy crop preserves the runner and excludes source bars",
+  /\.lp-photo-philosophy\{aspect-ratio:3\/4;min-height:520px\}/.test(html) &&
+  /\.lp-photo-philosophy>img\{object-fit:cover;object-position:center 30%\}/.test(html) &&
+  /@media \(max-width:700px\)\{[\s\S]*?\.lp-photo-philosophy>img\{object-position:center 28%\}/.test(html));
 test("athlete stories use alternating image-and-copy compositions",
   /\.lp-story\{display:grid;grid-template-columns:/.test(html) &&
   /\.lp-story:nth-child\(even\) \.lp-story-image\{order:2\}/.test(html) &&
