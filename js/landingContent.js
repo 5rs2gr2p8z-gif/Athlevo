@@ -10,44 +10,57 @@
   "use strict";
 
   const content = {
-    // PHOTO/COPY REPLACEMENT: replace every ATHLETE_STORY_* placeholder only
-    // after the athlete has approved the name, image, result, and quote.
+    // Approved athlete feedback and photography recovered from the original
+    // Athlevo coaching-testimonial implementation (b6ba8d2 / a525584).
+    // Keep quotes verbatim and add no result unless it is present in this data.
     athleteStories: [
       {
-        imageSlot: "ATHLETE_STORY_01",
-        image: null,
-        imageAlt: "",
-        name: "Athlete name to be supplied",
-        goal: "Event / goal to be supplied",
-        startingPoint: "Starting point to be supplied",
-        focus: "Coaching focus to be supplied",
-        result: "Verified result to be supplied",
-        quote: "Approved athlete quote to be supplied",
-        resultImage: null
+        image: "assets/testimonials/christian-francia.jpg",
+        imageAlt: "Christian Francia running in a race",
+        imagePosition: "center 35%",
+        name: "Christian Francia",
+        context: "Marathon Runner",
+        quote: "“100% mai-improve ang fitness level mo at mas maaabot mo ang goals mo with the help of Athlevo Coaching.”"
       },
       {
-        imageSlot: "ATHLETE_STORY_02",
-        image: null,
-        imageAlt: "",
-        name: "Athlete name to be supplied",
-        goal: "Event / goal to be supplied",
-        startingPoint: "Starting point to be supplied",
-        focus: "Coaching focus to be supplied",
-        result: "Verified result to be supplied",
-        quote: "Approved athlete quote to be supplied",
-        resultImage: null
+        image: "assets/testimonials/rodel-mark.jpg",
+        imageAlt: "Rodel Mark standing on a running track",
+        imagePosition: "center 45%",
+        name: "Rodel Mark",
+        context: "Athlete · Sub-19 5K",
+        quote: "“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”"
       },
       {
-        imageSlot: "ATHLETE_STORY_03",
-        image: null,
-        imageAlt: "",
-        name: "Athlete name to be supplied",
-        goal: "Event / goal to be supplied",
-        startingPoint: "Starting point to be supplied",
-        focus: "Coaching focus to be supplied",
-        result: "Verified result to be supplied",
-        quote: "Approved athlete quote to be supplied",
-        resultImage: null
+        image: "assets/testimonials/carl-zita.jpg",
+        imageAlt: "Carl Zita seated outdoors",
+        imagePosition: "center 30%",
+        name: "Carl Zita",
+        context: "Recreational Runner",
+        quote: "“Effective program, quality sessions, and very informative coaching.”"
+      },
+      {
+        image: "assets/testimonials/amir-paule.jpg",
+        imageAlt: "Amir Paule holding a race bib on a running track",
+        imagePosition: "center 38%",
+        name: "Amir Paule",
+        context: "Athlete",
+        quote: "“Solid Athlevo! Mag-i-improve ka talaga.”"
+      },
+      {
+        image: "assets/testimonials/jb-luna.jpg",
+        imageAlt: "JB Luna holding a race medal outdoors",
+        imagePosition: "center 40%",
+        name: "JB Luna",
+        context: "Recreational Runner",
+        quote: "“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”"
+      },
+      {
+        image: "assets/testimonials/miguel-bulado.jpg",
+        imageAlt: "Miguel Bulado holding his second-place award",
+        imagePosition: "center 44%",
+        name: "Miguel Bulado",
+        context: "Student Athlete",
+        quote: "“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”"
       }
     ],
     coachingTiers: [
@@ -101,46 +114,24 @@
     return element;
   }
 
-  function appendDefinition(list, term, description) {
-    const group = node("div", "lp-story-detail");
-    group.append(node("dt", "", term), node("dd", "", description));
-    list.append(group);
-  }
-
   function renderStories() {
     const root = document.getElementById("landingAthleteStories");
     if (!root || root.dataset.rendered === "true") return;
     content.athleteStories.forEach(story => {
       const article = node("article", "lp-story");
-      let image;
-      if (story.image) {
-        image = node("img", "lp-story-image");
-        image.src = story.image;
-        image.alt = story.imageAlt;
-        image.loading = "lazy";
-        image.decoding = "async";
-      } else {
-        image = node("div", "lp-editorial-media lp-story-image");
-        image.dataset.imageSlot = story.imageSlot;
-        image.setAttribute("aria-hidden", "true");
-      }
+      const image = node("img", "lp-story-image");
+      image.src = story.image;
+      image.alt = story.imageAlt;
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.style.objectPosition = story.imagePosition;
 
       const copy = node("div", "lp-story-copy");
-      copy.append(node("h3", "", story.name), node("p", "lp-story-goal", story.goal));
-      const details = node("dl");
-      appendDefinition(details, "Starting point", story.startingPoint);
-      appendDefinition(details, "What Athlevo worked on", story.focus);
-      appendDefinition(details, "Result", story.result);
-      copy.append(details, node("blockquote", "", story.quote));
-
-      if (story.resultImage) {
-        const resultImage = node("img", "lp-story-result-image");
-        resultImage.src = story.resultImage.src;
-        resultImage.alt = story.resultImage.alt;
-        resultImage.loading = "lazy";
-        resultImage.decoding = "async";
-        copy.append(resultImage);
-      }
+      copy.append(
+        node("h3", "", story.name),
+        node("p", "lp-story-goal", story.context),
+        node("blockquote", "", story.quote)
+      );
       article.append(image, copy);
       root.append(article);
     });

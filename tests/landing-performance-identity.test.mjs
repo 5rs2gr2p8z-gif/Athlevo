@@ -7,7 +7,7 @@
  * Run: node tests/landing-performance-identity.test.mjs
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const html = readFileSync("./index.html", "utf8");
 const landingContent = readFileSync("./js/landingContent.js", "utf8");
@@ -71,10 +71,23 @@ test("athlete philosophy uses its approved lazy-loaded training image",
 test("athlete story, tier, method, and FAQ collection roots exist",
   ["landingAthleteStories", "landingCoachingTiers", "landingMethodPrinciples", "landingFaq"]
     .every(id => landing.includes(`id="${id}"`)));
-test("three athlete stories remain clearly marked content placeholders",
-  ["ATHLETE_STORY_01", "ATHLETE_STORY_02", "ATHLETE_STORY_03"]
-    .every(slot => landingContent.includes(slot)) &&
-  (landingContent.match(/Approved athlete quote to be supplied/g) || []).length === 3);
+test("all six approved athlete stories and images are restored",
+  ["Christian Francia", "Rodel Mark", "Carl Zita", "Amir Paule", "JB Luna", "Miguel Bulado"]
+    .every(name => landingContent.includes(`name: "${name}"`)) &&
+  ["christian-francia.jpg", "rodel-mark.jpg", "carl-zita.jpg", "amir-paule.jpg", "jb-luna.jpg", "miguel-bulado.jpg"]
+    .every(image => landingContent.includes(`assets/testimonials/${image}`) && existsSync(`assets/testimonials/${image}`)) &&
+  (landingContent.match(/quote:\s*"/g) || []).length === 6);
+test("athlete feedback remains verbatim and contains no invented story fields",
+  landingContent.includes("100% mai-improve ang fitness level mo") &&
+  landingContent.includes("Dahil sa coaching, nakuha ko ang sub-19") &&
+  landingContent.includes("Effective program, quality sessions, and very informative coaching.") &&
+  landingContent.includes("Solid Athlevo! Mag-i-improve ka talaga.") &&
+  landingContent.includes("The personalized training made a huge impact on my running journey.") &&
+  landingContent.includes("guidance during my final year as a student athlete at Pampanga State University.") &&
+  !/startingPoint|focus:|result:/.test(landingContent));
+test("Athlete Stories uses the approved proof-section introduction",
+  landing.includes("Built around the athlete. Proven with athletes.") &&
+  landing.includes("Athlevo has helped runners with different goals, backgrounds, and starting points train with more direction."));
 test("coaching tiers, method principles, and FAQs are editable data collections",
   /coachingTiers:\s*\[/.test(landingContent) &&
   /methodPrinciples:\s*\[/.test(landingContent) &&

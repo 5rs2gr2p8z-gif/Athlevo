@@ -2839,18 +2839,15 @@ body.landing-active #tabbar{display:none!important}
 .lp-signature{margin-top:34px;padding-top:18px;border-top:1px solid var(--text);font-size:15px;font-weight:750;color:var(--text)}
 .lp-signature span{display:block;margin-top:4px;font-size:12px;font-weight:600;color:var(--ink3)}
 
-.lp-story-grid{display:flex;flex-direction:column;margin-top:clamp(34px,5vw,58px)}
+.lp-story-grid{display:flex;flex-direction:column;margin-top:clamp(34px,5vw,58px);border-bottom:1px solid var(--line)}
 .lp-story{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(280px,.82fr);gap:clamp(30px,6vw,78px);align-items:center;min-width:0;border-top:1px solid var(--text);padding:clamp(28px,5vw,58px) 0}
 .lp-story:nth-child(even){grid-template-columns:minmax(280px,.82fr) minmax(0,1.18fr)}
 .lp-story:nth-child(even) .lp-story-image{order:2}
-.lp-story-copy{max-width:470px}
+.lp-story-copy{max-width:520px}
 .lp-story-image{display:block;width:100%;aspect-ratio:4/3;min-height:320px;object-fit:cover;background:var(--line)}
-.lp-story h3{font-family:var(--serif);font-size:24px;font-weight:500;margin:0;color:var(--text)}
-.lp-story-goal{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:6px 0 18px}
-.lp-story dl{margin:0;display:grid;gap:12px}
-.lp-story dt{font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
-.lp-story dd{font-size:14px;line-height:1.5;color:var(--ink2);margin:3px 0 0}
-.lp-story blockquote{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line);font-family:var(--serif);font-size:18px;line-height:1.45;color:var(--text)}
+.lp-story h3{font-family:var(--serif);font-size:clamp(24px,2.8vw,36px);font-weight:500;margin:0;color:var(--text)}
+.lp-story-goal{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin:7px 0 0}
+.lp-story blockquote{margin:24px 0 0;padding-top:20px;border-top:1px solid var(--line);font-family:var(--serif);font-size:clamp(18px,2vw,23px);line-height:1.5;color:var(--text)}
 
 .lp-tier-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:42px;border-top:1px solid var(--text);border-bottom:1px solid var(--line)}
 .lp-tier{position:relative;padding:30px clamp(20px,3vw,38px) 34px;min-width:0}
@@ -2959,9 +2956,10 @@ body.landing-active #tabbar{display:none!important}
   .lp-path-grid{grid-template-columns:1fr}
   .lp-path,.lp-path:first-child,.lp-path+.lp-path{padding:28px 0 34px;border-left:0}
   .lp-path+.lp-path{border-top:1px solid var(--line)}
-  .lp-story,.lp-story:nth-child(even){grid-template-columns:1fr;gap:24px;padding:32px 0}
+  .lp-story,.lp-story:nth-child(even){grid-template-columns:1fr;gap:18px;padding:36px 0}
   .lp-story:nth-child(even) .lp-story-image{order:0}
   .lp-story-image{aspect-ratio:4/3;min-height:0}
+  .lp-story blockquote{margin-top:18px;padding-top:16px}
   .lp-principle{grid-template-columns:30px 1fr;gap:10px 14px}
   .lp-principle p{grid-column:2}
   .lp-audience{grid-template-columns:1fr;gap:7px}
@@ -3152,7 +3150,8 @@ body.landing-active #tabbar{display:none!important}
   <section class="lp-section" id="athletes">
     <div class="lp-wrap">
       <span class="lp-kicker lp-reveal">ATHLETE STORIES</span>
-      <h2 class="lp-h2 lp-reveal">The work shows up on race day.</h2>
+      <h2 class="lp-h2 lp-reveal">Built around the athlete. Proven with athletes.</h2>
+      <p class="lp-body lp-reveal">Athlevo has helped runners with different goals, backgrounds, and starting points train with more direction.</p>
       <div class="lp-story-grid lp-reveal" id="landingAthleteStories" aria-label="Athlevo athlete stories"></div>
     </div>
   </section>
