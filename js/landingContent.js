@@ -12,86 +12,62 @@
   const content = {
     trainingOffers: [
       {
-        type: "ADAPTIVE SELF-GUIDED COACHING",
         name: "Athlevo AI",
-        headline: "Stop guessing. Start training toward something.",
+        headline: "Know what to train every day.",
         price: "₱597/month",
-        bestFor: "Athletes who want structure, adaptation, and daily direction without hiring a dedicated coach.",
-        description: "Whether you’re chasing your first 5K, a faster time, or your next marathon, Athlevo gives you a training plan built around where you are now — and adjusts the direction as your training, recovery, and life change.",
+        description: "A training system that builds your plan, adjusts when things change, and keeps your training pointed at your goal — whether that’s your first 5K or your next marathon PR.",
+        bestFor: "Runners who want daily direction without hiring a coach.",
         features: [
-          "Know exactly what to train today",
-          "Build toward your race or performance goal",
-          "Adjust when training doesn’t go to plan",
-          "Know when to push — and when not to",
-          "See whether your fitness is actually moving forward",
-          "Train with structure without hiring a coach"
+          "Adapts when you miss sessions or your schedule shifts",
+          "Tracks whether your fitness is actually moving forward",
+          "Running + strength structure built around your goal",
+          "Knows when to push and when to pull back"
         ],
-        note: "A coaching system for athletes who want direction, structure, and adaptation while still training independently.",
-        cta: "Build My Training Plan",
+        cta: "Start Training",
         href: "#ai"
       },
       {
-        type: "PROGRAM + MONTHLY EXPERT REVIEW",
         name: "Athlevo Plan",
-        headline: "A plan built for you.",
+        headline: "Your roadmap, built by a coach.",
         price: "₱1,998/month",
-        bestFor: "Athletes who can train independently but want personalized structure and monthly expert review.",
-        description: "An Athlevo coach learns your goal, current fitness, training history, schedule, and constraints, then builds your personalized running + strength plan. You follow the plan independently, with a monthly review and one plan update to keep the structure aligned with your progress.",
+        description: "A coach learns your goal, schedule, and training history, then builds your personalized running + strength plan. You train independently, with a monthly review to keep it on track.",
+        bestFor: "Runners who want expert programming but can execute on their own.",
         features: [
-          "Detailed athlete onboarding",
-          "One onboarding call",
-          "Personalized running + strength plan",
-          "Monthly progress review",
-          "One monthly plan update",
-          "Messenger support for plan clarifications",
-          "Programming built around your race, schedule, and current fitness"
+          "Personalized plan built after detailed onboarding",
+          "Monthly review + one plan update",
+          "Messenger access for plan questions",
+          "Programming built around your race and schedule"
         ],
-        note: "You follow the plan independently. Athlevo Plan gives you expert programming and a monthly check-in without ongoing coach management.",
-        cta: "Build My Plan",
+        cta: "Get My Plan",
         href: "#coaching"
       },
       {
-        type: "WEEKLY COACH INVOLVEMENT",
         name: "Athlevo Coaching",
-        headline: "A coach guiding the process.",
+        headline: "A coach in your corner every week.",
         price: "₱4,998/month",
-        bestFor: "Athletes who want weekly accountability, feedback, and ongoing adjustments.",
-        description: "For athletes who want an Athlevo coach actively involved in guiding their training and development. Your coach reviews how training is going, gives feedback, adjusts the plan when needed, and helps keep the build moving toward your race or performance goal.",
+        description: "Your coach reviews how your training is going, gives feedback on key sessions, adjusts the plan when needed, and helps guide the build toward race day.",
+        bestFor: "Runners who want weekly accountability, feedback, and a coach actively involved.",
         features: [
-          "Personalized running + strength programming",
-          "Weekly training review",
-          "Plan adjustments when needed",
-          "Feedback on key sessions",
-          "Direct Messenger access",
-          "Accountability and progress guidance",
-          "Schedule-change support",
+          "Weekly training review + adjustments",
+          "Direct communication with your coach",
           "Race pacing and strategy",
-          "Ongoing development across the training block"
+          "Ongoing support across the full training block"
         ],
-        note: "This is ongoing coaching — not just a plan. Your coach stays involved throughout the training block and helps make the decisions when training changes.",
-        cta: "Start My Coaching",
+        cta: "Start Coaching",
         href: "#coaching"
       },
       {
-        type: "FOUNDER-LED PERFORMANCE MANAGEMENT",
         name: "Athlevo Elite",
-        headline: "Personally coached by Dean.",
+        headline: "Dean manages the entire build.",
         price: "₱7,998/month",
-        bestFor: "Athletes who want close performance management and direct access to the founder and head coach.",
-        description: "Athlevo Elite is the highest-touch coaching service. Dean personally manages your training as an evolving performance project — reviewing how you respond, making decisions more frequently, and integrating your running, strength, recovery, and race preparation around the result you are chasing.",
+        description: "Athlevo’s founder personally coaches your training — reviewing more often, adjusting more frequently, and managing your running, strength, recovery, and race preparation together.",
+        bestFor: "Runners chasing a specific result who want the closest coaching Athlevo offers.",
         features: [
           "Personally coached by Dean Castro",
-          "More frequent training review",
-          "More frequent adjustments when needed",
-          "Deeper performance analysis",
-          "Direct priority communication",
-          "Calls as needed for important decisions",
-          "Integrated running + strength development",
-          "Recovery and fatigue considered in decision-making",
-          "Race-specific preparation and strategy",
-          "Closer management across the entire performance build"
+          "More frequent review and adjustment",
+          "Running + strength + recovery managed as one system",
+          "Priority communication, calls when needed"
         ],
-        note: "When useful and available, Dean may account for recent training, session performance, fatigue, sleep, HRV, soreness, recovery, heat and humidity, life stress, race demands, and response to previous training. Capacity is naturally limited because Dean personally manages these athletes.",
         cta: "Apply for Elite",
         href: "#coaching"
       }
@@ -189,15 +165,13 @@
       const bestFor = node("div", "lp-offer-best");
       bestFor.append(node("span", "", "BEST FOR"), node("p", "", offer.bestFor));
       article.append(
-        node("span", "lp-offer-type", offer.type),
         node("p", "lp-offer-name", offer.name),
         node("h3", "", offer.headline),
         node("p", "lp-offer-price", offer.price),
-        bestFor,
         node("p", "lp-offer-description", offer.description),
+        bestFor,
         cta,
-        features,
-        node("p", "lp-offer-note", offer.note)
+        features
       );
       root.append(article);
     });
