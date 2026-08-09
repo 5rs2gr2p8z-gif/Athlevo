@@ -53,7 +53,8 @@
           alt: "Athlevo athlete running during a training session.",
           width: 1206,
           height: 2622,
-          position: "center 30%"
+          position: "center 30%",
+          mobilePosition: "center 22%"
         }
       },
       {
@@ -82,7 +83,8 @@
           alt: "Athlevo athletes together after a training session.",
           width: 1206,
           height: 2622,
-          position: "center 46%"
+          position: "center 46%",
+          mobilePosition: "center 25%"
         }
       },
       {
@@ -109,7 +111,8 @@
           alt: "Dean Castro at an endurance race.",
           width: 1145,
           height: 1374,
-          position: "58% 50%"
+          position: "58% 50%",
+          mobilePosition: "58% 30%"
         }
       }
     ],
@@ -226,7 +229,8 @@
       image.height = offer.media.height;
       image.loading = "lazy";
       image.decoding = "async";
-      image.style.objectPosition = offer.media.position;
+      image.style.setProperty("--lp-offer-position", offer.media.position);
+      image.style.setProperty("--lp-offer-mobile-position", offer.media.mobilePosition);
       return image;
     }
 

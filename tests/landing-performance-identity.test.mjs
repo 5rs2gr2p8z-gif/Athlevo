@@ -113,7 +113,7 @@ test("Ways to Train uses a native horizontal snap rail",
   /\.lp-offer\{[^}]*scroll-snap-align:start/.test(html));
 test("mobile offer media and copy retain the full non-shrinking panel width",
   /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer>\*\{[^}]*max-width:100%[^}]*min-width:0/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-media\{[^}]*width:100%[^}]*aspect-ratio:4\/5/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-media\{[^}]*width:100%[^}]*aspect-ratio:4\/3/.test(html) &&
   !/@media \(max-width:(?:700|900)px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*grid-(?:template|auto)-columns/.test(html));
 test("375, 390, and 430px rails show one 86vw offer plus a restrained next-offer peek",
   [375, 390, 430].every(width => {
@@ -124,6 +124,21 @@ test("375, 390, and 430px rails show one 86vw offer plus a restrained next-offer
     return card > width * 0.82 && card < width * 0.9 && peek > 0 && peek < 32;
   }) &&
   /#screen-landing\{[^}]*overflow-x:hidden/.test(html));
+test("mobile offer media stays compact across target phone widths",
+  [375, 390, 430].every(width => {
+    const mediaHeight = width * 0.86 * 3 / 4;
+    return mediaHeight >= 240 && mediaHeight <= 280;
+  }) &&
+  /\.lp-offer-price\{[^}]*white-space:nowrap/.test(html));
+test("mobile coaching photography uses intentional product-specific focal points",
+  /name: "Athlevo Plan"[\s\S]*?mobilePosition: "center 22%"/.test(landingContent) &&
+  /name: "Athlevo Coaching"[\s\S]*?mobilePosition: "center 25%"/.test(landingContent) &&
+  /name: "Athlevo Elite"[\s\S]*?mobilePosition: "58% 30%"/.test(landingContent) &&
+  /--lp-offer-mobile-position/.test(html));
+test("mobile Athlevo AI overview is compact inside the product media",
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app\{padding:12px\}/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app-grid\{gap:6px;margin-top:8px\}/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app-screen\{min-height:0;padding:8px\}/.test(html));
 test("Athlevo AI overview uses only real app screen names without invented metrics",
   ["Today", "Train", "Trends", "Coach"].every(screen => landingContent.includes(`["${screen}",`)) &&
   /role", "img"/.test(landingContent) &&
