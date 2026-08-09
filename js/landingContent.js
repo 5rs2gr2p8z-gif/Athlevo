@@ -10,6 +10,109 @@
   "use strict";
 
   const content = {
+    trainingOffers: [
+      {
+        type: "INDEPENDENT COACHING",
+        name: "Athlevo AI",
+        headline: "Coaching that moves with you.",
+        price: "₱597/month",
+        description: "For athletes who want personalized structure, adaptive training, and ongoing guidance without hiring a dedicated human coach.",
+        features: [
+          "Personalized training",
+          "Adaptive planning",
+          "Readiness and recovery guidance",
+          "Progress tracking",
+          "Training adjustments based on your data",
+          "Built for independent athletes"
+        ],
+        note: "Athlevo AI is the Athlevo app: your plan, readiness, progress, and coaching guidance in one place.",
+        cta: "Explore Athlevo AI",
+        href: "#ai",
+        media: { type: "app" }
+      },
+      {
+        type: "COACH-BUILT PLAN",
+        name: "Athlevo Plan",
+        headline: "A plan built for you.",
+        price: "₱1,998/month",
+        description: "For athletes who want a real Athlevo coach to assess their goals, training history, schedule, and current fitness, then build a personalized plan for them to follow.",
+        features: [
+          "Complete onboarding and detailed training questions",
+          "Speak with an Athlevo coach through a call and Messenger",
+          "Coach reviews goals, experience, schedule, recent training, strengths, weaknesses, and constraints",
+          "Personalized running + strength plan",
+          "Built around your actual goal and available training time",
+          "Follow the plan independently"
+        ],
+        note: "A personalized coach-built plan — not ongoing daily coaching — for athletes who want expert programming and can execute independently.",
+        cta: "Get My Training Plan",
+        href: "#coaching",
+        media: {
+          type: "image",
+          src: "assets/landing/athlete-philosophy-training.png",
+          alt: "Athlevo athlete running during a training session.",
+          width: 1206,
+          height: 2622,
+          position: "center 30%"
+        }
+      },
+      {
+        type: "HUMAN COACHING",
+        name: "Athlevo Coaching",
+        headline: "A coach in your corner.",
+        price: "₱4,998/month",
+        description: "For athletes who want an Athlevo coach actively responsible for their training and development.",
+        features: [
+          "Individual athlete assessment",
+          "Personalized running + strength programming",
+          "Ongoing progress review",
+          "Human feedback",
+          "Training adjustments",
+          "Race preparation",
+          "Accountability",
+          "Coach-athlete communication",
+          "Development over time, not just a one-time plan"
+        ],
+        note: "An Athlevo coach manages your training process, reviews progress, and changes the plan when needed.",
+        cta: "Start Coaching",
+        href: "#coaching",
+        media: {
+          type: "image",
+          src: "assets/landing/hero-athlevo.png",
+          alt: "Athlevo athletes together after a training session.",
+          width: 1206,
+          height: 2622,
+          position: "center 46%"
+        }
+      },
+      {
+        type: "FOUNDER COACHING",
+        name: "Athlevo Elite",
+        headline: "Coached personally by Dean.",
+        price: "₱7,998/month",
+        description: "Athlevo’s highest-touch coaching service. You become one of Dean Castro’s personally coached athletes.",
+        features: [
+          "Personally coached by Dean Castro, Founder & Head Coach",
+          "Full individualized running + strength programming",
+          "Frequent review of every relevant training signal",
+          "Plan adjusted whenever necessary",
+          "Direct coach-athlete communication",
+          "Race strategy and performance development",
+          "Higher-touch accountability and decision-making"
+        ],
+        note: "When available, Dean considers recent training, session performance, fatigue, sleep, HRV, recovery, soreness, heat and humidity, schedule and life stress, race demands, and training response over time. Personally handled by Dean; availability is limited by coaching capacity.",
+        cta: "Apply for Elite Coaching",
+        href: "#coaching",
+        media: {
+          type: "image",
+          src: "assets/landing/dean-founder.png",
+          alt: "Dean Castro at an endurance race.",
+          width: 1145,
+          height: 1374,
+          position: "58% 50%"
+        }
+      }
+    ],
     // Approved athlete feedback and photography recovered from the original
     // Athlevo coaching-testimonial implementation (b6ba8d2 / a525584).
     // Keep quotes verbatim and add no result unless it is present in this data.
@@ -67,7 +170,7 @@
       {
         name: "Athlevo Plan",
         price: "₱1,998/month",
-        description: "Personalized running and strength structure with monthly human review.",
+        description: "Personalized running + strength plan built by an Athlevo coach after reviewing your goals, training history, schedule, and current fitness.",
         bestFor: "Athletes who mainly need a clear plan and can execute independently.",
         core: false
       },
@@ -112,6 +215,74 @@
     if (className) element.className = className;
     if (text !== undefined && text !== null) element.textContent = text;
     return element;
+  }
+
+  function renderOfferMedia(offer) {
+    if (offer.media.type === "image") {
+      const image = node("img", "lp-offer-media");
+      image.src = offer.media.src;
+      image.alt = offer.media.alt;
+      image.width = offer.media.width;
+      image.height = offer.media.height;
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.style.objectPosition = offer.media.position;
+      return image;
+    }
+
+    const media = node("div", "lp-offer-media lp-offer-app");
+    media.setAttribute("role", "img");
+    media.setAttribute("aria-label", "Athlevo app overview showing the Today, Train, Trends, and Coach screens");
+    const shell = node("div", "lp-offer-app-shell");
+    const head = node("div", "lp-offer-app-head");
+    const brand = node("div", "lp-offer-app-brand");
+    const logo = node("img");
+    logo.src = "assets/athlevo-icon.png";
+    logo.alt = "";
+    logo.width = 24;
+    logo.height = 24;
+    brand.append(logo, document.createTextNode("Athlevo"));
+    head.append(brand, node("span", "", "Training overview"));
+
+    const screens = node("div", "lp-offer-app-grid");
+    [
+      ["Today", "Direction and today’s workout"],
+      ["Train", "Your plan and weekly sessions"],
+      ["Trends", "Training status over time"],
+      ["Coach", "Guidance for your training"]
+    ].forEach(([name, description]) => {
+      const screen = node("div", "lp-offer-app-screen");
+      screen.append(node("b", "", name), node("span", "", description));
+      screens.append(screen);
+    });
+    shell.append(head, screens);
+    media.append(shell);
+    return media;
+  }
+
+  function renderTrainingOffers() {
+    const root = document.getElementById("landingTrainingOffers");
+    if (!root || root.dataset.rendered === "true") return;
+    content.trainingOffers.forEach(offer => {
+      const article = node("article", "lp-offer");
+      const features = node("ul", "lp-offer-features");
+      offer.features.forEach(feature => features.append(node("li", "", feature)));
+      const cta = node("a", "lp-btn ghost", offer.cta);
+      cta.href = offer.href;
+      article.append(
+        renderOfferMedia(offer),
+        node("span", "lp-offer-type", offer.type),
+        node("p", "lp-offer-name", offer.name),
+        node("h3", "", offer.headline),
+        node("p", "lp-offer-price", offer.price),
+        node("p", "lp-offer-description", offer.description),
+        features,
+        node("p", "lp-offer-note", offer.note),
+        cta
+      );
+      root.append(article);
+    });
+    root.dataset.rendered = "true";
   }
 
   function renderStories() {
@@ -183,6 +354,7 @@
   }
 
   function render() {
+    renderTrainingOffers();
     renderStories();
     renderTiers();
     renderMethod();

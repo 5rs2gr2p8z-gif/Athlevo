@@ -40,10 +40,11 @@ test("hero is editorial photography-first rather than an app mockup",
     .includes("landingStartFree"));
 test("the athlete-first philosophy follows the hero",
   landing.indexOf("THE ATHLETE COMES FIRST") > landing.indexOf("</header>") &&
-  landing.indexOf("THE ATHLETE COMES FIRST") < landing.indexOf("TRAIN WITH ATHLEVO"));
-test("AI and human coaching are presented as two paths",
-  landing.includes("One coaching philosophy. Different levels of support.") &&
-  landing.includes("ATHLEVO AI") && landing.includes("HUMAN COACHING"));
+  landing.indexOf("THE ATHLETE COMES FIRST") < landing.indexOf("WAYS TO TRAIN"));
+test("AI and human coaching are presented as four support levels",
+  landing.includes("One coaching philosophy.<br>Four levels of support.") &&
+  ["INDEPENDENT COACHING", "COACH-BUILT PLAN", "HUMAN COACHING", "FOUNDER COACHING"]
+    .every(type => landingContent.includes(`type: "${type}"`)));
 test("founder story uses its approved editorial portrait",
   /<img src="assets\/landing\/dean-founder\.png"[^>]*alt="Dean Castro at an endurance race\."[^>]*loading="lazy"[^>]*decoding="async"/.test(landing) &&
   landing.includes("Founder &amp; Head Coach") &&
@@ -69,7 +70,7 @@ test("image slots are semantic hooks with no visible placeholder labels",
 test("athlete philosophy uses its approved lazy-loaded training image",
   /<img src="assets\/landing\/athlete-philosophy-training\.png"[^>]*alt="Athlevo athlete running during a training session\."[^>]*loading="lazy"[^>]*decoding="async"/.test(landing));
 test("athlete story, tier, method, and FAQ collection roots exist",
-  ["landingAthleteStories", "landingCoachingTiers", "landingMethodPrinciples", "landingFaq"]
+  ["landingTrainingOffers", "landingAthleteStories", "landingCoachingTiers", "landingMethodPrinciples", "landingFaq"]
     .every(id => landing.includes(`id="${id}"`)));
 test("all six approved athlete stories and images are restored",
   ["Christian Francia", "Rodel Mark", "Carl Zita", "Amir Paule", "JB Luna", "Miguel Bulado"]
@@ -88,7 +89,33 @@ test("athlete feedback remains verbatim and contains no invented story fields",
 test("Athlete Stories uses the approved proof-section introduction",
   landing.includes("Built around the athlete. Proven with athletes.") &&
   landing.includes("Athlevo has helped runners with different goals, backgrounds, and starting points train with more direction."));
+test("Ways to Train presents all four services and exact prices",
+  landing.includes("WAYS TO TRAIN") &&
+  landing.includes("One coaching philosophy.<br>Four levels of support.") &&
+  ["Athlevo AI", "Athlevo Plan", "Athlevo Coaching", "Athlevo Elite"]
+    .every(name => landingContent.includes(`name: "${name}"`)) &&
+  ["₱597/month", "₱1,998/month", "₱4,998/month", "₱7,998/month"]
+    .every(price => landingContent.includes(`price: "${price}"`)) &&
+  !/TWO WAYS TO TRAIN|Two ways to train/i.test(landing));
+test("Athlevo Plan copy consistently describes a coach-built independent plan",
+  landingContent.includes("Personalized running + strength plan built by an Athlevo coach after reviewing your goals, training history, schedule, and current fitness.") &&
+  !landingContent.includes("Personalized running and strength structure with monthly human review."));
+test("offer CTAs retain existing AI and coaching destinations",
+  /cta: "Explore Athlevo AI",\s*href: "#ai"/.test(landingContent) &&
+  ["Get My Training Plan", "Start Coaching", "Apply for Elite Coaching"]
+    .every(cta => landingContent.includes(`cta: "${cta}"`)) &&
+  (landingContent.match(/href: "#coaching"/g) || []).length === 3);
+test("Ways to Train uses a native horizontal snap rail",
+  /class="lp-offer-rail lp-reveal"[^>]*id="landingTrainingOffers"/.test(landing) &&
+  /\.lp-offer-rail\{[^}]*grid-auto-flow:column[^}]*overflow-x:auto[^}]*scroll-snap-type:x proximity/.test(html) &&
+  /@media \(max-width:700px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*grid-auto-columns:minmax\(0,86vw\)[^}]*scroll-snap-type:x mandatory/.test(html) &&
+  /\.lp-offer\{[^}]*scroll-snap-align:start/.test(html));
+test("Athlevo AI overview uses only real app screen names without invented metrics",
+  ["Today", "Train", "Trends", "Coach"].every(screen => landingContent.includes(`["${screen}",`)) &&
+  /role", "img"/.test(landingContent) &&
+  !/Readiness \d|Score \d|HRV \d/.test(landingContent));
 test("coaching tiers, method principles, and FAQs are editable data collections",
+  /trainingOffers:\s*\[/.test(landingContent) &&
   /coachingTiers:\s*\[/.test(landingContent) &&
   /methodPrinciples:\s*\[/.test(landingContent) &&
   /faq:\s*\[/.test(landingContent));
@@ -125,7 +152,7 @@ test("landing CTAs use compact card geometry rather than pill geometry",
   /\.lp-btn\{[^}]*border-radius:var\(--r-sm\)/.test(html) &&
   !/\.lp-btn\{[^}]*border-radius:var\(--r-pill\)/.test(html));
 test("product labels use the existing sans-serif hierarchy",
-  /\.lp-path-label,[\s\S]*font-size:11px/.test(html));
+  /\.lp-offer-type,[\s\S]*font-size:11px/.test(html));
 test("editorial statements retain the existing serif family",
   /#screen-landing \.lp-h2\{font-family:var\(--serif\)/.test(html));
 test("coaching tiers and method use ruled editorial grids",
@@ -159,7 +186,7 @@ test("mobile CTAs remain full-width and visible",
   /@media \(max-width:560px\)\{[\s\S]*?\.lp-cta\{flex-direction:column;align-items:stretch\}/.test(html) &&
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-nav-cta \.lp-btn\{[^}]*white-space:nowrap/.test(html));
 test("AI/Human and story layouts collapse for narrow screens",
-  /@media \(max-width:700px\)\{[\s\S]*?\.lp-path-grid\{grid-template-columns:1fr\}/.test(html) &&
+  /@media \(max-width:700px\)\{[\s\S]*?\.lp-offer-rail\{grid-auto-columns:minmax\(0,86vw\)/.test(html) &&
   /\.lp-story,\.lp-story:nth-child\(even\)\{grid-template-columns:1fr/.test(html));
 test("mobile hero composes copy and actions over one full-width image canvas",
   /\.lp-hero-grid\{position:relative;display:block;height:clamp\(560px,175vw,700px\);overflow:hidden\}/.test(html) &&

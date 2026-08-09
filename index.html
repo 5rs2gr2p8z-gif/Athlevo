@@ -2802,24 +2802,32 @@ body.landing-active #tabbar{display:none!important}
 
 .lp-section-head{display:flex;align-items:end;justify-content:space-between;gap:32px;margin-bottom:clamp(34px,5vw,58px)}
 .lp-section-head .lp-body{margin:0;max-width:34ch}
-.lp-path-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--text);border-bottom:1px solid var(--line)}
-.lp-path{min-width:0;padding:clamp(28px,4vw,48px) clamp(0px,3.5vw,44px) 40px;display:flex;flex-direction:column}
-.lp-path:first-child{padding-left:0;padding-right:clamp(28px,4vw,52px)}
-.lp-path+.lp-path{border-left:1px solid var(--line);padding-right:0}
-.lp-path-label,.lp-tier-name,.lp-principle-name,.lp-audience-name{font-size:11px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--red)}
-.lp-path h3{font-family:var(--serif);font-size:clamp(28px,3vw,40px);font-weight:500;line-height:1.06;letter-spacing:-.02em;margin:12px 0 14px;color:var(--text)}
-.lp-path>p{font-size:15px;line-height:1.6;color:var(--ink2);margin:0;max-width:42ch}
-.lp-path-list{list-style:none;padding:0;margin:24px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
-.lp-path-list li{padding:10px 0;border-top:1px solid var(--line);font-size:13px;font-weight:650;color:var(--text)}
-.lp-path-price{font-family:var(--serif);font-size:24px;color:var(--text);margin:4px 0 20px}
-.lp-path-media{margin-top:auto;margin-bottom:26px}
-.lp-human-media{aspect-ratio:16/10;min-height:240px}
-.lp-ai-mini{background:#111216;color:#f6f3ee;min-height:240px;padding:26px;display:grid;grid-template-rows:auto 1fr auto;border:1px solid rgba(255,255,255,.1)}
-.lp-ai-mini-top{display:flex;justify-content:space-between;font-size:10px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.58)}
-.lp-ai-mini-main{align-self:center;border-left:3px solid var(--red);padding-left:20px}
-.lp-ai-mini-main strong{display:block;font-family:var(--serif);font-size:28px;font-weight:500}
-.lp-ai-mini-main span{display:block;margin-top:8px;color:rgba(255,255,255,.62);font-size:13px}
-.lp-ai-mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;border-top:1px solid rgba(255,255,255,.13);padding-top:16px;font-size:11px;color:rgba(255,255,255,.62)}
+.lp-offer-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(340px,calc((100% - 36px)/3));
+  gap:18px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;
+  padding:0 0 18px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;touch-action:pan-x pan-y}
+.lp-offer{display:flex;flex-direction:column;min-width:0;height:100%;padding-bottom:26px;
+  border-top:1px solid var(--text);border-bottom:1px solid var(--line);scroll-snap-align:start;scroll-snap-stop:normal}
+.lp-offer-media{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;overflow:hidden;background:var(--card);margin-bottom:24px}
+.lp-offer-type,.lp-tier-name,.lp-principle-name,.lp-audience-name{font-size:11px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--red)}
+.lp-offer-name{margin:9px 0 0;font-size:14px;font-weight:750;letter-spacing:.01em;color:var(--text)}
+.lp-offer h3{font-family:var(--serif);font-size:clamp(27px,2.7vw,36px);font-weight:500;line-height:1.06;letter-spacing:-.02em;margin:10px 0 0;color:var(--text)}
+.lp-offer-price{font-family:var(--serif);font-size:25px;color:var(--text);margin:18px 0 0}
+.lp-offer-description{font-size:14px;line-height:1.58;color:var(--ink2);margin:15px 0 0}
+.lp-offer-features{list-style:none;padding:0;margin:22px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.lp-offer-features li{padding:9px 0;border-top:1px solid var(--line);font-size:12.5px;font-weight:650;line-height:1.4;color:var(--text)}
+.lp-offer-note{margin:0 0 22px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;line-height:1.55;color:var(--ink2)}
+.lp-offer .lp-btn{align-self:flex-start;margin-top:auto}
+.lp-offer-swipe{display:none;margin:12px 0 0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.lp-offer-app{padding:20px;background:var(--paper);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.lp-offer-app-shell{height:100%;display:flex;flex-direction:column;border:1px solid var(--line);background:var(--paper);padding:18px}
+.lp-offer-app-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.lp-offer-app-brand{display:flex;align-items:center;gap:8px;font-family:var(--serif);font-size:17px;font-weight:600;color:var(--text)}
+.lp-offer-app-brand img{width:24px;height:24px;display:block;border-radius:6px}
+.lp-offer-app-head>span{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3)}
+.lp-offer-app-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;flex:1}
+.lp-offer-app-screen{display:flex;flex-direction:column;justify-content:flex-end;min-height:92px;padding:12px;border:1px solid var(--line);border-top:2px solid var(--red)}
+.lp-offer-app-screen b{font-size:13px;color:var(--text)}
+.lp-offer-app-screen span{margin-top:5px;font-size:10.5px;line-height:1.35;color:var(--ink3)}
 
 .lp-founder-layout{display:grid;grid-template-columns:minmax(340px,1.08fr) minmax(0,.92fr);
   grid-template-areas:"media intro" "media story";column-gap:clamp(40px,7vw,100px);row-gap:30px;align-items:start}
@@ -2953,9 +2961,11 @@ body.landing-active #tabbar{display:none!important}
   .lp-photo-hero{position:absolute;inset:0;width:100%;height:100%;margin:0}
   .lp-photo-hero::after{content:"";position:absolute;inset:0;background:rgba(8,10,13,.34);pointer-events:none}
   .lp-photo-hero>img{object-position:center 42%}
-  .lp-path-grid{grid-template-columns:1fr}
-  .lp-path,.lp-path:first-child,.lp-path+.lp-path{padding:28px 0 34px;border-left:0}
-  .lp-path+.lp-path{border-top:1px solid var(--line)}
+  .lp-offer-rail{grid-auto-columns:minmax(0,86vw);gap:14px;scroll-snap-type:x mandatory;padding-bottom:14px}
+  .lp-offer{padding-bottom:22px}
+  .lp-offer-media{margin-bottom:20px}
+  .lp-offer-swipe{display:block}
+  .lp-offer-features{gap:0 12px}
   .lp-story,.lp-story:nth-child(even){grid-template-columns:1fr;gap:18px;padding:36px 0}
   .lp-story:nth-child(even) .lp-story-image{order:0}
   .lp-story-image{aspect-ratio:4/3;min-height:0}
@@ -2974,7 +2984,9 @@ body.landing-active #tabbar{display:none!important}
 @media (max-width:380px){
   #screen-landing .lp-nav-cta .lp-btn{font-size:11px;padding:8px 10px}
   #screen-landing .lp-brand{gap:6px}
-  .lp-life-list,.lp-path-list{grid-template-columns:1fr}
+  .lp-life-list{grid-template-columns:1fr}
+  .lp-offer-rail{grid-auto-columns:minmax(0,88vw)}
+  .lp-offer-features{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -3061,48 +3073,18 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </section>
 
-  <!-- 3. TWO WAYS TO TRAIN -->
+  <!-- 3. WAYS TO TRAIN — rendered from js/landingContent.js -->
   <section class="lp-section" id="train-with-athlevo">
     <div class="lp-wrap">
       <div class="lp-section-head">
         <div>
-          <span class="lp-kicker lp-reveal">TRAIN WITH ATHLEVO</span>
-          <h2 class="lp-h2 lp-reveal">One Athlevo.<br>Two ways to train.</h2>
+          <span class="lp-kicker lp-reveal">WAYS TO TRAIN</span>
+          <h2 class="lp-h2 lp-reveal">One coaching philosophy.<br>Four levels of support.</h2>
         </div>
-        <p class="lp-body lp-reveal">One coaching philosophy. Different levels of support.</p>
+        <p class="lp-body lp-reveal">Choose how much guidance you want. Every Athlevo service follows the same performance-first coaching principles — from independent AI guidance to personal coaching with the founder.</p>
       </div>
-      <div class="lp-path-grid lp-reveal">
-        <article class="lp-path">
-          <span class="lp-path-label">ATHLEVO AI</span>
-          <h3>Coaching that moves with you.</h3>
-          <p>For athletes who want personalized structure and adaptive training without hiring a dedicated coach.</p>
-          <ul class="lp-path-list">
-            <li>Personalized training</li><li>Adaptive planning</li>
-            <li>Progress tracking</li><li>Built for independent athletes</li>
-          </ul>
-          <div class="lp-path-price">₱597/month</div>
-          <div class="lp-path-media lp-ai-mini" aria-label="Athlevo AI product interface preview">
-            <div class="lp-ai-mini-top"><span>Athlevo AI</span><span>Today</span></div>
-            <div class="lp-ai-mini-main"><strong>Training that responds.</strong><span>Plan · Readiness · Progress</span></div>
-            <div class="lp-ai-mini-row"><span>Today</span><span>Train</span><span>Trends</span></div>
-          </div>
-          <a class="lp-btn ghost" href="#ai">Explore Athlevo AI</a>
-        </article>
-        <article class="lp-path">
-          <span class="lp-path-label">HUMAN COACHING</span>
-          <h3>A coach in your corner.</h3>
-          <p>For athletes who want a person assessing the training, reviewing progress, making decisions, and guiding the process.</p>
-          <ul class="lp-path-list">
-            <li>Individual assessment</li><li>Running + strength programming</li>
-            <li>Human feedback</li><li>Training adjustments</li>
-            <li>Race preparation</li><li>Accountability</li>
-          </ul>
-          <div class="lp-path-price">From ₱1,998/month</div>
-          <!-- PHOTO REPLACEMENT: add <img src="…" alt="…" loading="lazy" decoding="async"> for HUMAN_COACHING_PANEL_IMAGE here, then remove aria-hidden. -->
-          <div class="lp-path-media lp-editorial-media lp-human-media" data-image-slot="HUMAN_COACHING_PANEL_IMAGE" aria-hidden="true"></div>
-          <a class="lp-btn ghost" href="#coaching">Explore Human Coaching</a>
-        </article>
-      </div>
+      <div class="lp-offer-rail lp-reveal" id="landingTrainingOffers" aria-label="Athlevo training options"></div>
+      <p class="lp-offer-swipe" aria-hidden="true">Swipe to explore</p>
     </div>
   </section>
 
@@ -7331,7 +7313,7 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/landingContent.js?v=75"></script>
+<script src="js/landingContent.js?v=76"></script>
 <script src="js/authSupport.js?v=71"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
