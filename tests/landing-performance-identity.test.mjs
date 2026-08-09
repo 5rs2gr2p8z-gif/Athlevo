@@ -43,7 +43,9 @@ test("the athlete-first philosophy follows the hero",
   landing.indexOf("THE ATHLETE COMES FIRST") < landing.indexOf("WAYS TO TRAIN"));
 test("AI and human coaching are presented as four support levels",
   landing.includes("One coaching philosophy.<br>Four levels of support.") &&
-  ["INDEPENDENT COACHING", "COACH-BUILT PLAN", "HUMAN COACHING", "FOUNDER COACHING"]
+  ["Athlevo AI", "Athlevo Plan", "Athlevo Coaching", "Athlevo Elite"]
+    .every(name => landingContent.includes(`name: "${name}"`)) &&
+  ["TRAIN WITH DIRECTION", "YOUR ROADMAP", "CHASE YOUR NEXT PR", "ALL IN"]
     .every(type => landingContent.includes(`type: "${type}"`)));
 test("founder story uses its approved editorial portrait",
   /<img src="assets\/landing\/dean-founder\.png"[^>]*alt="Dean Castro at an endurance race\."[^>]*loading="lazy"[^>]*decoding="async"/.test(landing) &&
@@ -98,13 +100,30 @@ test("Ways to Train presents all four services and exact prices",
     .every(price => landingContent.includes(`price: "${price}"`)) &&
   !/TWO WAYS TO TRAIN|Two ways to train/i.test(landing));
 test("Athlevo Plan copy consistently describes a coach-built independent plan",
-  landingContent.includes("Personalized running + strength plan built by an Athlevo coach after reviewing your goals, training history, schedule, and current fitness.") &&
-  !landingContent.includes("Personalized running and strength structure with monthly human review."));
+  landingContent.includes("An Athlevo coach studies it, talks with you, and builds the running + strength plan you should follow.") &&
+  landingContent.includes("comfortable executing the plan independently.") &&
+  !landingContent.includes("ongoing daily coaching"));
 test("offer CTAs retain existing AI and coaching destinations",
-  /cta: "Explore Athlevo AI",\s*href: "#ai"/.test(landingContent) &&
-  ["Get My Training Plan", "Start Coaching", "Apply for Elite Coaching"]
+  /cta: "Build My Training Plan",\s*href: "#ai"/.test(landingContent) &&
+  ["Build My Plan", "Start My Coaching", "Apply for Elite"]
     .every(cta => landingContent.includes(`cta: "${cta}"`)) &&
   (landingContent.match(/href: "#coaching"/g) || []).length === 3);
+test("offer categories and headlines lead with athlete outcomes",
+  [
+    ["TRAIN WITH DIRECTION", "Stop guessing. Start training toward something."],
+    ["YOUR ROADMAP", "Know exactly how to get from here to race day."],
+    ["CHASE YOUR NEXT PR", "Don’t just follow a plan. Have someone manage the process."],
+    ["ALL IN", "Make your goal the project."]
+  ].every(([type, headline]) => landingContent.includes(`type: "${type}"`) && landingContent.includes(`headline: "${headline}"`)) &&
+  !/["'](?:INDEPENDENT COACHING|HUMAN COACHING|FOUNDER COACHING)["']/.test(landingContent));
+test("offer benefits explain the four ascending levels of support",
+  [
+    "Know exactly what to train today",
+    "Start with a real assessment of where you are",
+    "Have someone accountable for the bigger picture",
+    "Build everything around one clear performance target"
+  ].every(copy => landingContent.includes(copy)) &&
+  landingContent.includes("Personally managed by Dean Castro, Athlevo Founder & Head Coach."));
 test("Ways to Train uses a native horizontal snap rail",
   /class="lp-offer-rail lp-reveal"[^>]*id="landingTrainingOffers"/.test(landing) &&
   /\.lp-offer-rail\{[^}]*grid-auto-flow:column[^}]*overflow-x:auto[^}]*scroll-snap-type:x proximity/.test(html) &&
