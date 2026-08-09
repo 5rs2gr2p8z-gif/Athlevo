@@ -2824,7 +2824,7 @@ body.landing-active #tabbar{display:none!important}
 .lp-offer-features{list-style:none;padding:0;margin:20px 0 18px;display:grid;grid-template-columns:1fr}
 .lp-offer-features li{padding:9px 0;border-top:1px solid var(--line);font-size:12.5px;font-weight:650;line-height:1.4;color:var(--text)}
 .lp-offer-note{margin:0;padding-top:13px;border-top:1px solid var(--line);font-size:11.75px;line-height:1.5;color:var(--ink2)}
-.lp-offer-swipe{display:none;margin:12px 0 0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.lp-offer-swipe,.lp-story-swipe{display:none;margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
 .lp-offer-reassurance{margin:12px 0 0;font-size:12.5px;line-height:1.5;color:var(--ink3)}
 
 .lp-founder-layout{display:grid;grid-template-columns:minmax(340px,1.08fr) minmax(0,.92fr);
@@ -2845,15 +2845,13 @@ body.landing-active #tabbar{display:none!important}
 .lp-signature{margin-top:34px;padding-top:18px;border-top:1px solid var(--text);font-size:15px;font-weight:750;color:var(--text)}
 .lp-signature span{display:block;margin-top:4px;font-size:12px;font-weight:600;color:var(--ink3)}
 
-.lp-story-grid{display:flex;flex-direction:column;margin-top:clamp(34px,5vw,58px);border-bottom:1px solid var(--line)}
-.lp-story{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(280px,.82fr);gap:clamp(30px,6vw,78px);align-items:center;min-width:0;border-top:1px solid var(--text);padding:clamp(28px,5vw,58px) 0}
-.lp-story:nth-child(even){grid-template-columns:minmax(280px,.82fr) minmax(0,1.18fr)}
-.lp-story:nth-child(even) .lp-story-image{order:2}
-.lp-story-copy{max-width:520px}
-.lp-story-image{display:block;width:100%;aspect-ratio:4/3;min-height:320px;object-fit:cover;background:var(--line)}
-.lp-story h3{font-family:var(--serif);font-size:clamp(24px,2.8vw,36px);font-weight:500;margin:0;color:var(--text)}
+.lp-story-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:clamp(30px,4vw,46px)}
+.lp-story{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.lp-story-copy{padding:18px}
+.lp-story-image{display:block;width:100%;height:210px;min-height:0;object-fit:cover;background:var(--line)}
+.lp-story h3{font-family:var(--serif);font-size:clamp(21px,2vw,27px);font-weight:500;margin:0;color:var(--text)}
 .lp-story-goal{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin:7px 0 0}
-.lp-story blockquote{margin:24px 0 0;padding-top:20px;border-top:1px solid var(--line);font-family:var(--serif);font-size:clamp(18px,2vw,23px);line-height:1.5;color:var(--text)}
+.lp-story blockquote{margin:16px 0 0;padding-top:14px;border-top:1px solid var(--line);font-family:var(--serif);font-size:16px;line-height:1.48;color:var(--text)}
 
 .lp-principles{margin-top:42px;border-top:1px solid var(--text)}
 .lp-principle{display:grid;grid-template-columns:42px minmax(180px,.7fr) minmax(0,1.3fr);gap:22px;align-items:baseline;padding:22px 0;border-bottom:1px solid var(--line)}
@@ -2909,7 +2907,18 @@ body.landing-active #tabbar{display:none!important}
   .lp-editorial-split.reverse .lp-editorial-copy{order:-1}
   .lp-section-head{align-items:start;flex-direction:column}
   .lp-section-head .lp-body{margin-top:-16px}
-  .lp-story,.lp-story:nth-child(even){grid-template-columns:minmax(0,1.08fr) minmax(260px,.92fr);gap:34px}
+  .lp-story-swipe,.lp-offer-swipe{display:block}
+  .lp-story-grid{display:flex;width:calc(100% + clamp(20px,5vw,40px));max-width:none;
+    margin-top:0;margin-right:calc(clamp(20px,5vw,40px) * -1);padding:0 clamp(20px,5vw,40px) 14px 0;
+    gap:14px;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;touch-action:pan-x pan-y}
+  .lp-story-swipe{margin-top:16px}
+  .lp-story{flex:0 0 82vw;width:82vw;min-width:82vw;max-width:82vw;height:auto;
+    box-sizing:border-box;scroll-snap-align:start;scroll-snap-stop:normal}
+  .lp-story-image{height:clamp(180px,52vw,220px)}
+  .lp-story-copy{padding:16px}
+  .lp-story h3{font-size:23px}
+  .lp-story blockquote{margin-top:14px;padding-top:12px;font-size:15.5px;line-height:1.46}
   .lp-founder-layout{grid-template-columns:1fr;grid-template-areas:"intro" "media" "story";gap:28px}
   .lp-founder-intro,.lp-founder-story{max-width:none}
   .lp-founder-media{position:relative;top:auto;width:100%;height:auto;min-height:0;aspect-ratio:4/5}
@@ -2918,17 +2927,18 @@ body.landing-active #tabbar{display:none!important}
     margin-right:calc(clamp(20px,5vw,40px) * -1);padding:0 clamp(20px,5vw,40px) 14px 0;
     gap:16px;overflow-x:auto;overflow-y:visible;scroll-snap-type:x mandatory;
     -webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;touch-action:pan-x pan-y}
-  .lp-offer{flex:0 0 86vw;width:86vw;min-width:86vw;max-width:86vw;height:auto;padding:22px;
+  .lp-offer{flex:0 0 80vw;width:80vw;min-width:80vw;max-width:80vw;height:auto;padding:18px;
     box-sizing:border-box;scroll-snap-align:start;scroll-snap-stop:normal}
   .lp-offer>*{max-width:100%;min-width:0;box-sizing:border-box}
-  .lp-offer-name{margin-top:8px}
-  .lp-offer h3{font-size:clamp(30px,8vw,38px);line-height:1;margin-top:12px}
-  .lp-offer-price{margin-top:16px}
+  .lp-offer-name{margin-top:6px}
+  .lp-offer h3{font-size:clamp(28px,7vw,34px);line-height:1;margin-top:8px}
+  .lp-offer-price{font-size:clamp(34px,9vw,40px);margin-top:12px}
+  .lp-offer-best{margin-top:14px;padding-top:10px}
   .lp-offer-description{margin-top:12px;font-size:13px;line-height:1.48}
-  .lp-offer .lp-offer-cta{margin-top:18px}
-  .lp-offer-features{margin:20px 0 18px}
-  .lp-offer-features li{padding:8px 0;font-size:12px;line-height:1.35}
-  .lp-offer-note{padding-top:12px;font-size:11.5px;line-height:1.45}
+  .lp-offer .lp-offer-cta{margin-top:16px}
+  .lp-offer-features{margin:16px 0 14px}
+  .lp-offer-features li{padding:9px 0;font-size:11.75px;line-height:1.34}
+  .lp-offer-note{padding-top:10px;font-size:11.25px;line-height:1.42}
 }
 
 @media (max-width:700px){
@@ -2965,12 +2975,6 @@ body.landing-active #tabbar{display:none!important}
   .lp-photo-hero{position:absolute;inset:0;width:100%;height:100%;margin:0}
   .lp-photo-hero::after{content:"";position:absolute;inset:0;background:rgba(8,10,13,.34);pointer-events:none}
   .lp-photo-hero>img{object-position:center 42%}
-  .lp-offer{padding-bottom:22px}
-  .lp-offer-swipe{display:block}
-  .lp-story,.lp-story:nth-child(even){grid-template-columns:1fr;gap:18px;padding:36px 0}
-  .lp-story:nth-child(even) .lp-story-image{order:0}
-  .lp-story-image{aspect-ratio:4/3;min-height:0}
-  .lp-story blockquote{margin-top:18px;padding-top:16px}
   .lp-principle{grid-template-columns:30px 1fr;gap:10px 14px}
   .lp-principle p{grid-column:2}
   .lp-audience{grid-template-columns:1fr;gap:7px}
@@ -3071,7 +3075,18 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </section>
 
-  <!-- 3. WAYS TO TRAIN — rendered from js/landingContent.js -->
+  <!-- 3. ATHLETE STORIES — rendered from js/landingContent.js -->
+  <section class="lp-section" id="athletes">
+    <div class="lp-wrap">
+      <span class="lp-kicker lp-reveal">ATHLETE STORIES</span>
+      <h2 class="lp-h2 lp-reveal">Built around the athlete. Proven with athletes.</h2>
+      <p class="lp-body lp-reveal">Athlevo has helped runners with different goals, backgrounds, and starting points train with more direction.</p>
+      <p class="lp-story-swipe" aria-hidden="true">Swipe for more stories →</p>
+      <div class="lp-story-grid lp-reveal" id="landingAthleteStories" aria-label="Athlevo athlete stories"></div>
+    </div>
+  </section>
+
+  <!-- 4. WAYS TO TRAIN — rendered from js/landingContent.js -->
   <section class="lp-section" id="train-with-athlevo">
     <div class="lp-wrap">
       <span id="coaching" aria-hidden="true"></span>
@@ -3082,13 +3097,13 @@ body.landing-active #tabbar{display:none!important}
         </div>
         <p class="lp-body lp-reveal">Choose how much guidance you want. Every Athlevo service follows the same performance-first coaching principles — from independent AI guidance to personal coaching with the founder.</p>
       </div>
+      <p class="lp-offer-swipe" aria-hidden="true">Swipe to compare →</p>
       <div class="lp-offer-rail lp-reveal" id="landingTrainingOffers" aria-label="Athlevo training options"></div>
-      <p class="lp-offer-swipe" aria-hidden="true">Swipe to explore</p>
       <p class="lp-offer-reassurance lp-reveal">Not sure which one fits? Start with Plan and upgrade anytime.</p>
     </div>
   </section>
 
-  <!-- 4. FOUNDER STORY -->
+  <!-- 5. FOUNDER STORY -->
   <section class="lp-section lp-alt" id="about">
     <div class="lp-wrap lp-founder-layout">
       <div class="lp-founder-intro">
@@ -3125,16 +3140,6 @@ body.landing-active #tabbar{display:none!important}
 
         <div class="lp-signature lp-reveal">Dean Castro<span>Founder &amp; Head Coach</span><span>Athlete · Coach · Developer</span></div>
       </div>
-    </div>
-  </section>
-
-  <!-- 5. ATHLETE STORIES — rendered from js/landingContent.js -->
-  <section class="lp-section" id="athletes">
-    <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">ATHLETE STORIES</span>
-      <h2 class="lp-h2 lp-reveal">Built around the athlete. Proven with athletes.</h2>
-      <p class="lp-body lp-reveal">Athlevo has helped runners with different goals, backgrounds, and starting points train with more direction.</p>
-      <div class="lp-story-grid lp-reveal" id="landingAthleteStories" aria-label="Athlevo athlete stories"></div>
     </div>
   </section>
 

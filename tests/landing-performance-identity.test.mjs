@@ -41,6 +41,15 @@ test("hero is editorial photography-first rather than an app mockup",
 test("the athlete-first philosophy follows the hero",
   landing.indexOf("THE ATHLETE COMES FIRST") > landing.indexOf("</header>") &&
   landing.indexOf("THE ATHLETE COMES FIRST") < landing.indexOf("WAYS TO TRAIN"));
+test("homepage proof and offer sections follow the approved sequence",
+  [
+    landing.indexOf("THE ATHLETE COMES FIRST"),
+    landing.indexOf("ATHLETE STORIES"),
+    landing.indexOf("WAYS TO TRAIN"),
+    landing.indexOf("WHY ATHLEVO EXISTS"),
+    landing.indexOf("THE ATHLEVO METHOD")
+  ].every((position, index, positions) => position >= 0 && (index === 0 || positions[index - 1] < position)) &&
+  (landing.match(/id="athletes"/g) || []).length === 1);
 test("the athlete-first philosophy uses the approved concise training context",
   ["Work.", "Sleep.", "Strength.", "Heat.", "Fatigue.", "Missed sessions.", "Life."]
     .every(factor => landing.includes(`<span>${factor}</span>`)) &&
@@ -162,20 +171,24 @@ test("Ways to Train uses a native horizontal snap rail",
   /class="lp-offer-rail lp-reveal"[^>]*id="landingTrainingOffers"/.test(landing) &&
   /\.lp-offer-rail\{[^}]*grid-auto-flow:column[^}]*overflow-x:auto[^}]*scroll-snap-type:x proximity/.test(html) &&
   /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*display:flex[^}]*overflow-x:auto[^}]*overflow-y:visible[^}]*scroll-snap-type:x mandatory/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer\{[^}]*flex:0 0 86vw[^}]*width:86vw[^}]*min-width:86vw[^}]*max-width:86vw/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer\{[^}]*flex:0 0 80vw[^}]*width:80vw[^}]*min-width:80vw[^}]*max-width:80vw/.test(html) &&
   /\.lp-offer\{[^}]*scroll-snap-align:start/.test(html));
 test("mobile offer copy retains the full non-shrinking panel width",
   /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer>\*\{[^}]*max-width:100%[^}]*min-width:0/.test(html) &&
   !/@media \(max-width:(?:700|900)px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*grid-(?:template|auto)-columns/.test(html));
-test("375, 390, and 430px rails show one 86vw offer plus a restrained next-offer peek",
+test("375, 390, and 430px rails show one 80vw offer plus a clear next-offer peek",
   [375, 390, 430].every(width => {
     const edge = Math.max(20, Math.min(width * 0.05, 40));
-    const card = width * 0.86;
+    const card = width * 0.8;
     const visibleRail = width - edge;
     const peek = visibleRail - card - 16;
-    return card > width * 0.82 && card < width * 0.9 && peek > 0 && peek < 32;
+    return card === width * 0.8 && peek >= 35 && peek < 64;
   }) &&
   /#screen-landing\{[^}]*overflow-x:hidden/.test(html));
+test("mobile rails show subtle swipe instructions above their content",
+  /<p class="lp-story-swipe"[^>]*>Swipe for more stories →<\/p>[\s\S]*?id="landingAthleteStories"/.test(landing) &&
+  /<p class="lp-offer-swipe"[^>]*>Swipe to compare →<\/p>[\s\S]*?id="landingTrainingOffers"/.test(landing) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-story-swipe,\.lp-offer-swipe\{display:block\}/.test(html));
 test("all offers begin with product information and contain no media markup",
   /article\.append\(\s*node\("span", "lp-offer-type", offer\.type\),\s*node\("p", "lp-offer-name", offer\.name\),\s*node\("h3", "", offer\.headline\),\s*node\("p", "lp-offer-price", offer\.price\)/.test(landingContent) &&
   !/lp-offer-media|lp-offer-app|renderOfferMedia|mobilePosition|\bmedia:\s*\{/.test(landingContent) &&
@@ -184,10 +197,10 @@ test("offers use restrained boxed product-card treatment",
   /\.lp-offer\{[^}]*padding:24px[^}]*border:1px solid var\(--line\)[^}]*border-radius:14px[^}]*background:var\(--paper\)/.test(html) &&
   !/\.lp-offer\{[^}]*box-shadow|\.lp-offer\{[^}]*gradient/.test(html));
 test("mobile offer identity follows the compact product-card rhythm",
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer\{[^}]*padding:22px/.test(html) &&
-  /\.lp-offer-name\{margin-top:8px/.test(html) &&
-  /\.lp-offer h3\{font-size:clamp\(30px,8vw,38px\);line-height:1;margin-top:12px/.test(html) &&
-  /\.lp-offer-price\{[^}]*font-size:28px[^}]*margin:16px 0 0[^}]*white-space:nowrap/.test(html));
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer\{[^}]*padding:18px/.test(html) &&
+  /\.lp-offer-name\{margin-top:6px/.test(html) &&
+  /\.lp-offer h3\{font-size:clamp\(28px,7vw,34px\);line-height:1;margin-top:8px/.test(html) &&
+  /\.lp-offer-price\{font-size:clamp\(34px,9vw,40px\);margin-top:12px/.test(html));
 test("each offer CTA appears before its organized feature list and secondary note",
   /node\("p", "lp-offer-price", offer\.price\),\s*bestFor,\s*node\("p", "lp-offer-description", offer\.description\),\s*cta,\s*features,\s*node\("p", "lp-offer-note", offer\.note\)/.test(landingContent) &&
   /node\("a", "lp-btn lp-offer-cta", offer\.cta\)/.test(landingContent));
@@ -200,10 +213,10 @@ test("offer CTAs are prominent full-width card actions",
   /\.lp-offer \.lp-offer-cta\{[^}]*width:100%[^}]*border-radius:8px[^}]*background:#141416[^}]*color:#fff[^}]*font-weight:750/.test(html));
 test("mobile offer details retain all content at compact density",
   /\.lp-offer-description\{[^}]*font-size:13px[^}]*line-height:1\.48/.test(html) &&
-  /\.lp-offer-features\{margin:20px 0 18px/.test(html) &&
+  /\.lp-offer-features\{margin:16px 0 14px/.test(html) &&
   /\.lp-offer-features\{[^}]*grid-template-columns:1fr/.test(html) &&
-  /\.lp-offer-features li\{padding:8px 0;font-size:12px;line-height:1\.35/.test(html) &&
-  /\.lp-offer-note\{[^}]*font-size:11\.5px[^}]*line-height:1\.45/.test(html));
+  /\.lp-offer-features li\{padding:9px 0;font-size:11\.75px;line-height:1\.34/.test(html) &&
+  /\.lp-offer-note\{[^}]*font-size:11\.25px[^}]*line-height:1\.42/.test(html));
 test("desktop cards remain comparison-width and size to their content",
   /\.lp-offer-rail\{[^}]*grid-auto-columns:minmax\(340px,calc\(\(100% - 36px\)\/3\)\)/.test(html) &&
   /\.lp-offer\{[^}]*align-self:start/.test(html) &&
@@ -276,10 +289,25 @@ test("athlete philosophy reads as one tight mobile editorial unit",
   /#athlete-first \.lp-life-list\+\.lp-body\{margin-top:0\}/.test(html) &&
   /#athlete-first \.lp-life-list\+\.lp-body\+\.lp-body\{margin-top:10px\}/.test(html) &&
   !/@media \(max-width:380px\)\{[\s\S]*?\.lp-life-list\{grid-template-columns:1fr\}/.test(html));
-test("athlete stories use alternating image-and-copy compositions",
-  /\.lp-story\{display:grid;grid-template-columns:/.test(html) &&
-  /\.lp-story:nth-child\(even\) \.lp-story-image\{order:2\}/.test(html) &&
-  /lp-story-copy/.test(landingContent));
+test("athlete stories use a compact three-column desktop grid",
+  /\.lp-story-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);gap:18px/.test(html) &&
+  /\.lp-story\{[^}]*border:1px solid var\(--line\)[^}]*border-radius:12px/.test(html) &&
+  /\.lp-story-image\{[^}]*height:210px[^}]*object-fit:cover/.test(html) &&
+  !/\.lp-story:nth-child\(even\)/.test(html));
+test("athlete stories become a compact mobile snap rail with a visible next card",
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-story-grid\{[^}]*display:flex[^}]*gap:14px[^}]*overflow-x:auto[^}]*scroll-snap-type:x mandatory/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-story\{[^}]*flex:0 0 82vw[^}]*width:82vw[^}]*min-width:82vw[^}]*max-width:82vw/.test(html) &&
+  [375, 390, 430].every(width => {
+    const edge = Math.max(20, Math.min(width * 0.05, 40));
+    const peek = width - edge - (width * 0.82) - 14;
+    return peek >= 30 && peek < 50;
+  }));
+test("mobile testimonial photography stays between 180 and 220px tall",
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-story-image\{height:clamp\(180px,52vw,220px\)\}/.test(html) &&
+  [375, 390, 430].every(width => {
+    const height = Math.min(220, Math.max(180, width * 0.52));
+    return height >= 180 && height <= 220;
+  }));
 test("final race media fills the CTA section behind a contrast layer",
   /\.lp-final-image\{position:absolute;inset:0/.test(html) &&
   /\.lp-final-overlay\{[^}]*background:rgba\(14,15,17,\.82\)/.test(html));
@@ -290,9 +318,9 @@ test("the landing screen clips accidental horizontal overflow",
 test("mobile CTAs remain full-width and visible",
   /@media \(max-width:560px\)\{[\s\S]*?\.lp-cta\{flex-direction:column;align-items:stretch\}/.test(html) &&
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-nav-cta \.lp-btn\{[^}]*white-space:nowrap/.test(html));
-test("AI/Human and story layouts collapse for narrow screens",
+test("offer and story layouts become touch rails on narrow screens",
   /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-rail\{display:flex/.test(html) &&
-  /\.lp-story,\.lp-story:nth-child\(even\)\{grid-template-columns:1fr/.test(html));
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-story-grid\{display:flex/.test(html));
 test("mobile hero composes copy and actions over one full-width image canvas",
   /\.lp-hero-grid\{position:relative;display:block;height:clamp\(560px,175vw,700px\);overflow:hidden\}/.test(html) &&
   /\.lp-photo-hero\{position:absolute;inset:0;width:100%;height:100%;margin:0\}/.test(html) &&
