@@ -108,8 +108,22 @@ test("offer CTAs retain existing AI and coaching destinations",
 test("Ways to Train uses a native horizontal snap rail",
   /class="lp-offer-rail lp-reveal"[^>]*id="landingTrainingOffers"/.test(landing) &&
   /\.lp-offer-rail\{[^}]*grid-auto-flow:column[^}]*overflow-x:auto[^}]*scroll-snap-type:x proximity/.test(html) &&
-  /@media \(max-width:700px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*grid-auto-columns:minmax\(0,86vw\)[^}]*scroll-snap-type:x mandatory/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*display:flex[^}]*overflow-x:auto[^}]*overflow-y:visible[^}]*scroll-snap-type:x mandatory/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer\{[^}]*flex:0 0 86vw[^}]*width:86vw[^}]*min-width:86vw[^}]*max-width:86vw/.test(html) &&
   /\.lp-offer\{[^}]*scroll-snap-align:start/.test(html));
+test("mobile offer media and copy retain the full non-shrinking panel width",
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer>\*\{[^}]*max-width:100%[^}]*min-width:0/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-media\{[^}]*width:100%[^}]*aspect-ratio:4\/5/.test(html) &&
+  !/@media \(max-width:(?:700|900)px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*grid-(?:template|auto)-columns/.test(html));
+test("375, 390, and 430px rails show one 86vw offer plus a restrained next-offer peek",
+  [375, 390, 430].every(width => {
+    const edge = Math.max(20, Math.min(width * 0.05, 40));
+    const card = width * 0.86;
+    const visibleRail = width - edge;
+    const peek = visibleRail - card - 16;
+    return card > width * 0.82 && card < width * 0.9 && peek > 0 && peek < 32;
+  }) &&
+  /#screen-landing\{[^}]*overflow-x:hidden/.test(html));
 test("Athlevo AI overview uses only real app screen names without invented metrics",
   ["Today", "Train", "Trends", "Coach"].every(screen => landingContent.includes(`["${screen}",`)) &&
   /role", "img"/.test(landingContent) &&
@@ -186,7 +200,7 @@ test("mobile CTAs remain full-width and visible",
   /@media \(max-width:560px\)\{[\s\S]*?\.lp-cta\{flex-direction:column;align-items:stretch\}/.test(html) &&
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-nav-cta \.lp-btn\{[^}]*white-space:nowrap/.test(html));
 test("AI/Human and story layouts collapse for narrow screens",
-  /@media \(max-width:700px\)\{[\s\S]*?\.lp-offer-rail\{grid-auto-columns:minmax\(0,86vw\)/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-rail\{display:flex/.test(html) &&
   /\.lp-story,\.lp-story:nth-child\(even\)\{grid-template-columns:1fr/.test(html));
 test("mobile hero composes copy and actions over one full-width image canvas",
   /\.lp-hero-grid\{position:relative;display:block;height:clamp\(560px,175vw,700px\);overflow:hidden\}/.test(html) &&
