@@ -54,7 +54,7 @@
           width: 1206,
           height: 2622,
           position: "center 30%",
-          mobilePosition: "center 22%"
+          mobilePosition: "center 38%"
         }
       },
       {
@@ -84,7 +84,7 @@
           width: 1206,
           height: 2622,
           position: "center 46%",
-          mobilePosition: "center 25%"
+          mobilePosition: "center 42%"
         }
       },
       {
@@ -112,7 +112,7 @@
           width: 1145,
           height: 1374,
           position: "58% 50%",
-          mobilePosition: "58% 30%"
+          mobilePosition: "58% 36%"
         }
       }
     ],

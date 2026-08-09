@@ -113,7 +113,7 @@ test("Ways to Train uses a native horizontal snap rail",
   /\.lp-offer\{[^}]*scroll-snap-align:start/.test(html));
 test("mobile offer media and copy retain the full non-shrinking panel width",
   /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer>\*\{[^}]*max-width:100%[^}]*min-width:0/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-media\{[^}]*width:100%[^}]*aspect-ratio:4\/3/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-media\{[^}]*width:100%[^}]*height:clamp\(170px,46vw,220px\)[^}]*aspect-ratio:auto/.test(html) &&
   !/@media \(max-width:(?:700|900)px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*grid-(?:template|auto)-columns/.test(html));
 test("375, 390, and 430px rails show one 86vw offer plus a restrained next-offer peek",
   [375, 390, 430].every(width => {
@@ -126,19 +126,29 @@ test("375, 390, and 430px rails show one 86vw offer plus a restrained next-offer
   /#screen-landing\{[^}]*overflow-x:hidden/.test(html));
 test("mobile offer media stays compact across target phone widths",
   [375, 390, 430].every(width => {
-    const mediaHeight = width * 0.86 * 3 / 4;
-    return mediaHeight >= 240 && mediaHeight <= 280;
+    const mediaHeight = Math.min(220, Math.max(170, width * 0.46));
+    return mediaHeight >= 170 && mediaHeight <= 220;
   }) &&
   /\.lp-offer-price\{[^}]*white-space:nowrap/.test(html));
+test("mobile offer identity follows the compact product-detail rhythm",
+  /\.lp-offer-media\{[^}]*margin-bottom:16px/.test(html) &&
+  /\.lp-offer-name\{margin-top:7px/.test(html) &&
+  /\.lp-offer h3\{font-size:clamp\(30px,8vw,38px\);line-height:1;margin-top:10px/.test(html) &&
+  /\.lp-offer-price\{margin-top:14px/.test(html));
+test("mobile offer details retain all content at compact density",
+  /\.lp-offer-description\{[^}]*font-size:13px[^}]*line-height:1\.48/.test(html) &&
+  /\.lp-offer-features\{margin:16px 0;gap:0 12px/.test(html) &&
+  /\.lp-offer-features li\{padding:8px 0;font-size:12px;line-height:1\.35/.test(html) &&
+  /\.lp-offer-note\{[^}]*font-size:11\.5px[^}]*line-height:1\.45/.test(html));
 test("mobile coaching photography uses intentional product-specific focal points",
-  /name: "Athlevo Plan"[\s\S]*?mobilePosition: "center 22%"/.test(landingContent) &&
-  /name: "Athlevo Coaching"[\s\S]*?mobilePosition: "center 25%"/.test(landingContent) &&
-  /name: "Athlevo Elite"[\s\S]*?mobilePosition: "58% 30%"/.test(landingContent) &&
+  /name: "Athlevo Plan"[\s\S]*?mobilePosition: "center 38%"/.test(landingContent) &&
+  /name: "Athlevo Coaching"[\s\S]*?mobilePosition: "center 42%"/.test(landingContent) &&
+  /name: "Athlevo Elite"[\s\S]*?mobilePosition: "58% 36%"/.test(landingContent) &&
   /--lp-offer-mobile-position/.test(html));
 test("mobile Athlevo AI overview is compact inside the product media",
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app\{padding:12px\}/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app-grid\{gap:6px;margin-top:8px\}/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app-screen\{min-height:0;padding:8px\}/.test(html));
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app\{padding:10px\}/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app-grid\{gap:5px;margin-top:6px\}/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app-screen\{min-height:0;padding:6px\}/.test(html));
 test("Athlevo AI overview uses only real app screen names without invented metrics",
   ["Today", "Train", "Trends", "Coach"].every(screen => landingContent.includes(`["${screen}",`)) &&
   /role", "img"/.test(landingContent) &&

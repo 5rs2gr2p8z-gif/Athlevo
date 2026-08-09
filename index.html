@@ -2931,21 +2931,26 @@ body.landing-active #tabbar{display:none!important}
   .lp-offer{flex:0 0 86vw;width:86vw;min-width:86vw;max-width:86vw;height:auto;
     box-sizing:border-box;scroll-snap-align:start;scroll-snap-stop:normal}
   .lp-offer>*{max-width:100%;min-width:0;box-sizing:border-box}
-  .lp-offer-media{display:block;width:100%;min-width:0;max-width:100%;aspect-ratio:4/3;margin-bottom:20px;
+  .lp-offer-media{display:block;width:100%;min-width:0;max-width:100%;height:clamp(170px,46vw,220px);
+    aspect-ratio:auto;margin-bottom:16px;
     object-position:var(--lp-offer-mobile-position,var(--lp-offer-position,center))}
-  .lp-offer-name{margin-top:8px}
-  .lp-offer h3{margin-top:12px}
-  .lp-offer-price{margin-top:18px;white-space:nowrap}
-  .lp-offer-description{margin-top:12px}
-  .lp-offer-app{padding:12px}
-  .lp-offer-app-shell{padding:12px}
-  .lp-offer-app-head{padding-bottom:8px}
-  .lp-offer-app-brand{font-size:15px}
-  .lp-offer-app-brand img{width:21px;height:21px}
-  .lp-offer-app-grid{gap:6px;margin-top:8px}
-  .lp-offer-app-screen{min-height:0;padding:8px}
-  .lp-offer-app-screen b{font-size:12px}
-  .lp-offer-app-screen span{margin-top:3px;font-size:9.5px;line-height:1.25}
+  .lp-offer-name{margin-top:7px}
+  .lp-offer h3{font-size:clamp(30px,8vw,38px);line-height:1;margin-top:10px}
+  .lp-offer-price{margin-top:14px;white-space:nowrap}
+  .lp-offer-description{margin-top:10px;font-size:13px;line-height:1.48}
+  .lp-offer-features{margin:16px 0;gap:0 12px}
+  .lp-offer-features li{padding:8px 0;font-size:12px;line-height:1.35}
+  .lp-offer-note{margin-bottom:18px;padding-top:10px;font-size:11.5px;line-height:1.45}
+  .lp-offer-app{padding:10px}
+  .lp-offer-app-shell{padding:10px}
+  .lp-offer-app-head{padding-bottom:6px}
+  .lp-offer-app-brand{font-size:14px}
+  .lp-offer-app-brand img{width:20px;height:20px}
+  .lp-offer-app-head>span{font-size:8.5px}
+  .lp-offer-app-grid{gap:5px;margin-top:6px}
+  .lp-offer-app-screen{min-height:0;padding:6px}
+  .lp-offer-app-screen b{font-size:11px}
+  .lp-offer-app-screen span{margin-top:2px;font-size:8.5px;line-height:1.2}
 }
 
 @media (max-width:700px){
@@ -2986,7 +2991,6 @@ body.landing-active #tabbar{display:none!important}
   .lp-photo-hero>img{object-position:center 42%}
   .lp-offer{padding-bottom:22px}
   .lp-offer-swipe{display:block}
-  .lp-offer-features{gap:0 12px}
   .lp-story,.lp-story:nth-child(even){grid-template-columns:1fr;gap:18px;padding:36px 0}
   .lp-story:nth-child(even) .lp-story-image{order:0}
   .lp-story-image{aspect-ratio:4/3;min-height:0}
