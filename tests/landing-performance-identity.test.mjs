@@ -41,6 +41,12 @@ test("hero is editorial photography-first rather than an app mockup",
 test("the athlete-first philosophy follows the hero",
   landing.indexOf("THE ATHLETE COMES FIRST") > landing.indexOf("</header>") &&
   landing.indexOf("THE ATHLETE COMES FIRST") < landing.indexOf("WAYS TO TRAIN"));
+test("the athlete-first philosophy uses the approved concise training context",
+  ["Work.", "Sleep.", "Strength.", "Heat.", "Fatigue.", "Missed sessions.", "Life."]
+    .every(factor => landing.includes(`<span>${factor}</span>`)) &&
+  landing.includes("Every one of them changes what the right training decision looks like.") &&
+  landing.includes("Athlevo coaches the athlete in front of us — not the perfect week written on paper.") &&
+  !/Strength training\.|Family\.|Other sports\.|All of them affect what training should look like next\./.test(landing));
 test("AI and human coaching are presented as four support levels",
   landing.includes("One coaching philosophy.<br>Four levels of support.") &&
   ["Athlevo AI", "Athlevo Plan", "Athlevo Coaching", "Athlevo Elite"]
@@ -243,7 +249,19 @@ test("hero crop removes source bars while preserving the athlete group",
 test("athlete philosophy crop preserves the runner and excludes source bars",
   /\.lp-photo-philosophy\{aspect-ratio:3\/4;min-height:520px\}/.test(html) &&
   /\.lp-photo-philosophy>img\{object-fit:cover;object-position:center 30%\}/.test(html) &&
-  /@media \(max-width:700px\)\{[\s\S]*?\.lp-photo-philosophy>img\{object-position:center 28%\}/.test(html));
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-photo-philosophy\{[^}]*height:clamp\(280px,82vw,350px\)[^}]*aspect-ratio:auto[^}]*min-height:0/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-photo-philosophy>img\{object-position:center 42%\}/.test(html));
+test("athlete philosophy mobile image stays compact at target phone widths",
+  [375, 390, 430].every(width => {
+    const height = Math.min(350, Math.max(280, width * 0.82));
+    return height >= 280 && height <= 350;
+  }));
+test("athlete philosophy reads as one tight mobile editorial unit",
+  /@media \(max-width:900px\)\{[\s\S]*?#athlete-first \.lp-editorial-split\{gap:20px\}/.test(html) &&
+  /#athlete-first \.lp-life-list\{margin:20px 0 16px;gap:6px 20px\}/.test(html) &&
+  /#athlete-first \.lp-life-list\+\.lp-body\{margin-top:0\}/.test(html) &&
+  /#athlete-first \.lp-life-list\+\.lp-body\+\.lp-body\{margin-top:10px\}/.test(html) &&
+  !/@media \(max-width:380px\)\{[\s\S]*?\.lp-life-list\{grid-template-columns:1fr\}/.test(html));
 test("athlete stories use alternating image-and-copy compositions",
   /\.lp-story\{display:grid;grid-template-columns:/.test(html) &&
   /\.lp-story:nth-child\(even\) \.lp-story-image\{order:2\}/.test(html) &&
