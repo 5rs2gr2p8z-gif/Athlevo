@@ -12,10 +12,11 @@
   const content = {
     trainingOffers: [
       {
-        type: "TRAIN WITH DIRECTION",
+        type: "ADAPTIVE SELF-GUIDED COACHING",
         name: "Athlevo AI",
         headline: "Stop guessing. Start training toward something.",
         price: "₱597/month",
+        bestFor: "Athletes who want structure, adaptation, and daily direction without hiring a dedicated coach.",
         description: "Whether you’re chasing your first 5K, a faster time, or your next marathon, Athlevo gives you a training plan built around where you are now — and adjusts the direction as your training, recovery, and life change.",
         features: [
           "Know exactly what to train today",
@@ -30,58 +31,67 @@
         href: "#ai"
       },
       {
-        type: "YOUR ROADMAP",
+        type: "PROGRAM + MONTHLY EXPERT REVIEW",
         name: "Athlevo Plan",
-        headline: "Know exactly how to get from here to race day.",
+        headline: "A plan built for you.",
         price: "₱1,998/month",
-        description: "Tell us the goal you’re chasing, where your fitness is now, how much time you can train, and what has or hasn’t worked before. An Athlevo coach studies it, talks with you, and builds the running + strength plan you should follow.",
+        bestFor: "Athletes who can train independently but want personalized structure and monthly expert review.",
+        description: "An Athlevo coach learns your goal, current fitness, training history, schedule, and constraints, then builds your personalized running + strength plan. You follow the plan independently, with a monthly review and one plan update to keep the structure aligned with your progress.",
         features: [
-          "Start with a real assessment of where you are",
-          "Build around the race or result you want",
-          "Know what to run, how hard, and when",
-          "Strength work that supports your running",
-          "Training that fits your actual schedule",
-          "Stop piecing together workouts from different sources"
+          "Detailed athlete onboarding",
+          "One onboarding call",
+          "Personalized running + strength plan",
+          "Monthly progress review",
+          "One monthly plan update",
+          "Messenger support for plan clarifications",
+          "Programming built around your race, schedule, and current fitness"
         ],
-        note: "For athletes who want expert programming and a clear roadmap, then are comfortable executing the plan independently.",
+        note: "You follow the plan independently. Athlevo Plan gives you expert programming and a monthly check-in without ongoing coach management.",
         cta: "Build My Plan",
         href: "#coaching"
       },
       {
-        type: "CHASE YOUR NEXT PR",
+        type: "WEEKLY COACH INVOLVEMENT",
         name: "Athlevo Coaching",
-        headline: "Don’t just follow a plan. Have someone manage the process.",
+        headline: "A coach guiding the process.",
         price: "₱4,998/month",
-        description: "Your goal might be finishing your first marathon, breaking 2 hours in the half, going sub-20 in the 5K, or reaching a level you’ve never hit before. Your Athlevo coach takes responsibility for guiding the training that gets you there — reviewing how you respond, making adjustments, and keeping the build moving toward race day.",
+        bestFor: "Athletes who want weekly accountability, feedback, and ongoing adjustments.",
+        description: "For athletes who want an Athlevo coach actively involved in guiding their training and development. Your coach reviews how training is going, gives feedback, adjusts the plan when needed, and helps keep the build moving toward your race or performance goal.",
         features: [
-          "Train specifically for the result you’re chasing",
-          "Know when training needs to change",
-          "Get feedback instead of second-guessing sessions",
-          "Adjust around missed workouts, fatigue, soreness, and life",
-          "Build fitness without blindly adding more work",
-          "Prepare your pacing and strategy for race day",
-          "Have someone accountable for the bigger picture"
+          "Personalized running + strength programming",
+          "Weekly training review",
+          "Plan adjustments when needed",
+          "Feedback on key sessions",
+          "Direct Messenger access",
+          "Accountability and progress guidance",
+          "Schedule-change support",
+          "Race pacing and strategy",
+          "Ongoing development across the training block"
         ],
-        note: "For athletes who do not just want a training schedule — they want a coach actively managing their development.",
+        note: "This is ongoing coaching — not just a plan. Your coach stays involved throughout the training block and helps make the decisions when training changes.",
         cta: "Start My Coaching",
         href: "#coaching"
       },
       {
-        type: "ALL IN",
+        type: "FOUNDER-LED PERFORMANCE MANAGEMENT",
         name: "Athlevo Elite",
-        headline: "Make your goal the project.",
+        headline: "Personally coached by Dean.",
         price: "₱7,998/month",
-        description: "For athletes chasing a result they genuinely care about. Your training is reviewed as an evolving performance problem — not a calendar that gets written once and followed blindly. Dean personally manages the process, looking at how you are responding and changing the training whenever the evidence says it should change.",
+        bestFor: "Athletes who want close performance management and direct access to the founder and head coach.",
+        description: "Athlevo Elite is the highest-touch coaching service. Dean personally manages your training as an evolving performance project — reviewing how you respond, making decisions more frequently, and integrating your running, strength, recovery, and race preparation around the result you are chasing.",
         features: [
-          "Build everything around one clear performance target",
-          "Have every phase of training managed toward that goal",
-          "Adjust sessions when your body or circumstances change",
-          "Use your recent training and recovery to guide the next decision",
-          "Prepare specifically for the demands of your race",
-          "Direct access when an important training decision needs to be made",
-          "Remove as much guesswork as possible from the process"
+          "Personally coached by Dean Castro",
+          "More frequent training review",
+          "More frequent adjustments when needed",
+          "Deeper performance analysis",
+          "Direct priority communication",
+          "Calls as needed for important decisions",
+          "Integrated running + strength development",
+          "Recovery and fatigue considered in decision-making",
+          "Race-specific preparation and strategy",
+          "Closer management across the entire performance build"
         ],
-        note: "Personally managed by Dean Castro, Athlevo Founder & Head Coach. When useful and available, decisions can account for recent training, session performance, fatigue, sleep, HRV, soreness, recovery, heat and humidity, life stress, and response to previous training. Capacity is naturally limited because Dean personally manages these athletes.",
+        note: "When useful and available, Dean may account for recent training, session performance, fatigue, sleep, HRV, soreness, recovery, heat and humidity, life stress, race demands, and response to previous training. Capacity is naturally limited because Dean personally manages these athletes.",
         cta: "Apply for Elite",
         href: "#coaching"
       }
@@ -199,11 +209,14 @@
       offer.features.forEach(feature => features.append(node("li", "", feature)));
       const cta = node("a", "lp-btn lp-offer-cta", offer.cta);
       cta.href = offer.href;
+      const bestFor = node("div", "lp-offer-best");
+      bestFor.append(node("span", "", "BEST FOR"), node("p", "", offer.bestFor));
       article.append(
         node("span", "lp-offer-type", offer.type),
         node("p", "lp-offer-name", offer.name),
         node("h3", "", offer.headline),
         node("p", "lp-offer-price", offer.price),
+        bestFor,
         node("p", "lp-offer-description", offer.description),
         cta,
         features,

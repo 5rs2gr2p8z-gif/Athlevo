@@ -45,7 +45,7 @@ test("AI and human coaching are presented as four support levels",
   landing.includes("One coaching philosophy.<br>Four levels of support.") &&
   ["Athlevo AI", "Athlevo Plan", "Athlevo Coaching", "Athlevo Elite"]
     .every(name => landingContent.includes(`name: "${name}"`)) &&
-  ["TRAIN WITH DIRECTION", "YOUR ROADMAP", "CHASE YOUR NEXT PR", "ALL IN"]
+  ["ADAPTIVE SELF-GUIDED COACHING", "PROGRAM + MONTHLY EXPERT REVIEW", "WEEKLY COACH INVOLVEMENT", "FOUNDER-LED PERFORMANCE MANAGEMENT"]
     .every(type => landingContent.includes(`type: "${type}"`)));
 test("founder story uses its approved editorial portrait",
   /<img src="assets\/landing\/dean-founder\.png"[^>]*alt="Dean Castro at an endurance race\."[^>]*loading="lazy"[^>]*decoding="async"/.test(landing) &&
@@ -100,9 +100,11 @@ test("Ways to Train presents all four services and exact prices",
     .every(price => landingContent.includes(`price: "${price}"`)) &&
   !/TWO WAYS TO TRAIN|Two ways to train/i.test(landing));
 test("Athlevo Plan copy consistently describes a coach-built independent plan",
-  landingContent.includes("An Athlevo coach studies it, talks with you, and builds the running + strength plan you should follow.") &&
-  landingContent.includes("comfortable executing the plan independently.") &&
-  !landingContent.includes("ongoing daily coaching"));
+  landingContent.includes("with a monthly review and one plan update") &&
+  landingContent.includes("One monthly plan update") &&
+  landingContent.includes("Messenger support for plan clarifications") &&
+  landingContent.includes("without ongoing coach management.") &&
+  !landingContent.includes("Speak with an Athlevo coach through a call and Messenger"));
 test("offer CTAs retain existing AI and coaching destinations",
   /cta: "Build My Training Plan",\s*href: "#ai"/.test(landingContent) &&
   ["Build My Plan", "Start My Coaching", "Apply for Elite"]
@@ -110,20 +112,31 @@ test("offer CTAs retain existing AI and coaching destinations",
   (landingContent.match(/href: "#coaching"/g) || []).length === 3);
 test("offer categories and headlines lead with athlete outcomes",
   [
-    ["TRAIN WITH DIRECTION", "Stop guessing. Start training toward something."],
-    ["YOUR ROADMAP", "Know exactly how to get from here to race day."],
-    ["CHASE YOUR NEXT PR", "Don’t just follow a plan. Have someone manage the process."],
-    ["ALL IN", "Make your goal the project."]
+    ["ADAPTIVE SELF-GUIDED COACHING", "Stop guessing. Start training toward something."],
+    ["PROGRAM + MONTHLY EXPERT REVIEW", "A plan built for you."],
+    ["WEEKLY COACH INVOLVEMENT", "A coach guiding the process."],
+    ["FOUNDER-LED PERFORMANCE MANAGEMENT", "Personally coached by Dean."]
   ].every(([type, headline]) => landingContent.includes(`type: "${type}"`) && landingContent.includes(`headline: "${headline}"`)) &&
   !/["'](?:INDEPENDENT COACHING|HUMAN COACHING|FOUNDER COACHING)["']/.test(landingContent));
-test("offer benefits explain the four ascending levels of support",
+test("offer best-for lines explain the four ascending levels of support",
   [
-    "Know exactly what to train today",
-    "Start with a real assessment of where you are",
-    "Have someone accountable for the bigger picture",
-    "Build everything around one clear performance target"
-  ].every(copy => landingContent.includes(copy)) &&
-  landingContent.includes("Personally managed by Dean Castro, Athlevo Founder & Head Coach."));
+    "Athletes who want structure, adaptation, and daily direction without hiring a dedicated coach.",
+    "Athletes who can train independently but want personalized structure and monthly expert review.",
+    "Athletes who want weekly accountability, feedback, and ongoing adjustments.",
+    "Athletes who want close performance management and direct access to the founder and head coach."
+  ].every(copy => landingContent.includes(`bestFor: "${copy}"`)));
+test("Coaching promises weekly involvement without taking Elite’s founder-led position",
+  landingContent.includes("Weekly training review") &&
+  landingContent.includes("actively involved in guiding their training and development") &&
+  landingContent.includes("Your coach stays involved throughout the training block") &&
+  !landingContent.includes("actively responsible for their training and development"));
+test("Elite distinguishes founder-led attention and deeper decision-making",
+  ["Personally coached by Dean Castro", "More frequent training review", "Deeper performance analysis", "Direct priority communication"]
+    .every(copy => landingContent.includes(copy)) &&
+  landingContent.includes("Dean personally manages your training as an evolving performance project"));
+test("Ways to Train includes the subtle Plan-first reassurance",
+  /<p class="lp-offer-reassurance lp-reveal">Not sure which one fits\? Start with Plan and upgrade anytime\.<\/p>/.test(landing) &&
+  /\.lp-offer-reassurance\{[^}]*font-size:12\.5px[^}]*color:var\(--ink3\)/.test(html));
 test("Ways to Train uses a native horizontal snap rail",
   /class="lp-offer-rail lp-reveal"[^>]*id="landingTrainingOffers"/.test(landing) &&
   /\.lp-offer-rail\{[^}]*grid-auto-flow:column[^}]*overflow-x:auto[^}]*scroll-snap-type:x proximity/.test(html) &&
@@ -155,8 +168,13 @@ test("mobile offer identity follows the compact product-card rhythm",
   /\.lp-offer h3\{font-size:clamp\(30px,8vw,38px\);line-height:1;margin-top:12px/.test(html) &&
   /\.lp-offer-price\{[^}]*font-size:28px[^}]*margin:16px 0 0[^}]*white-space:nowrap/.test(html));
 test("each offer CTA appears before its organized feature list and secondary note",
-  /node\("p", "lp-offer-description", offer\.description\),\s*cta,\s*features,\s*node\("p", "lp-offer-note", offer\.note\)/.test(landingContent) &&
+  /node\("p", "lp-offer-price", offer\.price\),\s*bestFor,\s*node\("p", "lp-offer-description", offer\.description\),\s*cta,\s*features,\s*node\("p", "lp-offer-note", offer\.note\)/.test(landingContent) &&
   /node\("a", "lp-btn lp-offer-cta", offer\.cta\)/.test(landingContent));
+test("best-for copy is restrained text rather than a badge",
+  /const bestFor = node\("div", "lp-offer-best"\)/.test(landingContent) &&
+  /bestFor\.append\(node\("span", "", "BEST FOR"\), node\("p", "", offer\.bestFor\)\)/.test(landingContent) &&
+  /\.lp-offer-best span\{[^}]*font-size:9\.5px[^}]*color:var\(--ink3\)/.test(html) &&
+  !/lp-offer-best[^\n]*(?:badge|border-radius|background)/.test(html));
 test("offer CTAs are prominent full-width card actions",
   /\.lp-offer \.lp-offer-cta\{[^}]*width:100%[^}]*border-radius:8px[^}]*background:#141416[^}]*color:#fff[^}]*font-weight:750/.test(html));
 test("mobile offer details retain all content at compact density",
