@@ -199,7 +199,7 @@
       const article = node("article", "lp-offer");
       const features = node("ul", "lp-offer-features");
       offer.features.forEach(feature => features.append(node("li", "", feature)));
-      const cta = node("a", "lp-btn ghost", offer.cta);
+      const cta = node("a", "lp-btn lp-offer-cta", offer.cta);
       cta.href = offer.href;
       article.append(
         node("span", "lp-offer-type", offer.type),
@@ -207,9 +207,9 @@
         node("h3", "", offer.headline),
         node("p", "lp-offer-price", offer.price),
         node("p", "lp-offer-description", offer.description),
+        cta,
         features,
-        node("p", "lp-offer-note", offer.note),
-        cta
+        node("p", "lp-offer-note", offer.note)
       );
       root.append(article);
     });

@@ -127,18 +127,28 @@ test("all offers begin with product information and contain no media markup",
   /article\.append\(\s*node\("span", "lp-offer-type", offer\.type\),\s*node\("p", "lp-offer-name", offer\.name\),\s*node\("h3", "", offer\.headline\),\s*node\("p", "lp-offer-price", offer\.price\)/.test(landingContent) &&
   !/lp-offer-media|lp-offer-app|renderOfferMedia|mobilePosition|\bmedia:\s*\{/.test(landingContent) &&
   !/\.lp-offer-media|\.lp-offer-app|--lp-offer-(?:mobile-)?position/.test(html));
-test("mobile offer identity follows the compact product-detail rhythm",
-  /\.lp-offer\{[^}]*padding:22px 0/.test(html) &&
+test("offers use restrained boxed product-card treatment",
+  /\.lp-offer\{[^}]*padding:24px[^}]*border:1px solid var\(--line\)[^}]*border-radius:14px[^}]*background:var\(--paper\)/.test(html) &&
+  !/\.lp-offer\{[^}]*box-shadow|\.lp-offer\{[^}]*gradient/.test(html));
+test("mobile offer identity follows the compact product-card rhythm",
+  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer\{[^}]*padding:22px/.test(html) &&
   /\.lp-offer-name\{margin-top:8px/.test(html) &&
   /\.lp-offer h3\{font-size:clamp\(30px,8vw,38px\);line-height:1;margin-top:12px/.test(html) &&
-  /\.lp-offer-price\{margin-top:16px[^}]*white-space:nowrap/.test(html));
+  /\.lp-offer-price\{[^}]*font-size:28px[^}]*margin:16px 0 0[^}]*white-space:nowrap/.test(html));
+test("each offer CTA appears before its organized feature list and secondary note",
+  /node\("p", "lp-offer-description", offer\.description\),\s*cta,\s*features,\s*node\("p", "lp-offer-note", offer\.note\)/.test(landingContent) &&
+  /node\("a", "lp-btn lp-offer-cta", offer\.cta\)/.test(landingContent));
+test("offer CTAs are prominent full-width card actions",
+  /\.lp-offer \.lp-offer-cta\{[^}]*width:100%[^}]*border-radius:8px[^}]*background:#141416[^}]*color:#fff[^}]*font-weight:750/.test(html));
 test("mobile offer details retain all content at compact density",
   /\.lp-offer-description\{[^}]*font-size:13px[^}]*line-height:1\.48/.test(html) &&
-  /\.lp-offer-features\{margin:20px 0;gap:0 12px/.test(html) &&
+  /\.lp-offer-features\{margin:20px 0 18px/.test(html) &&
+  /\.lp-offer-features\{[^}]*grid-template-columns:1fr/.test(html) &&
   /\.lp-offer-features li\{padding:8px 0;font-size:12px;line-height:1\.35/.test(html) &&
   /\.lp-offer-note\{[^}]*font-size:11\.5px[^}]*line-height:1\.45/.test(html));
-test("desktop offer sheets size to their content instead of a forced media height",
-  /\.lp-offer\{[^}]*align-self:start[^}]*padding:22px 0 26px/.test(html) &&
+test("desktop cards remain comparison-width and size to their content",
+  /\.lp-offer-rail\{[^}]*grid-auto-columns:minmax\(340px,calc\(\(100% - 36px\)\/3\)\)/.test(html) &&
+  /\.lp-offer\{[^}]*align-self:start/.test(html) &&
   !/\.lp-offer\{[^}]*height:100%/.test(html));
 test("coaching tiers, method principles, and FAQs are editable data collections",
   /trainingOffers:\s*\[/.test(landingContent) &&
