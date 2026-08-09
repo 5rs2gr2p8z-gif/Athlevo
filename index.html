@@ -192,7 +192,9 @@
   "founder": { "@type": "Person", "name": "Dean Castro" },
   "makesOffer": [
     { "@type": "Offer", "name": "Athlevo AI", "price": "597", "priceCurrency": "PHP" },
-    { "@type": "Offer", "name": "Human Coaching", "price": "1998", "priceCurrency": "PHP" }
+    { "@type": "Offer", "name": "Athlevo Plan", "price": "1998", "priceCurrency": "PHP" },
+    { "@type": "Offer", "name": "Athlevo Coaching", "price": "4998", "priceCurrency": "PHP" },
+    { "@type": "Offer", "name": "Athlevo Elite", "price": "7998", "priceCurrency": "PHP" }
   ]
 }
 </script>
@@ -2808,7 +2810,7 @@ body.landing-active #tabbar{display:none!important}
 .lp-offer{display:flex;flex-direction:column;align-self:start;min-width:0;padding:24px;
   border:1px solid var(--line);border-radius:14px;background:var(--paper);
   scroll-snap-align:start;scroll-snap-stop:normal}
-.lp-offer-type,.lp-tier-name,.lp-principle-name,.lp-audience-name{font-size:11px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--red)}
+.lp-offer-type,.lp-principle-name,.lp-audience-name{font-size:11px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;color:var(--red)}
 .lp-offer-name{margin:8px 0 0;font-size:15px;font-weight:750;letter-spacing:.01em;color:var(--text)}
 .lp-offer h3{font-family:var(--serif);font-size:clamp(27px,2.7vw,36px);font-weight:500;line-height:1.06;letter-spacing:-.02em;margin:10px 0 0;color:var(--text)}
 .lp-offer-price{font-family:var(--serif);font-size:28px;color:var(--text);margin:16px 0 0;white-space:nowrap}
@@ -2852,18 +2854,6 @@ body.landing-active #tabbar{display:none!important}
 .lp-story h3{font-family:var(--serif);font-size:clamp(24px,2.8vw,36px);font-weight:500;margin:0;color:var(--text)}
 .lp-story-goal{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin:7px 0 0}
 .lp-story blockquote{margin:24px 0 0;padding-top:20px;border-top:1px solid var(--line);font-family:var(--serif);font-size:clamp(18px,2vw,23px);line-height:1.5;color:var(--text)}
-
-.lp-tier-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:42px;border-top:1px solid var(--text);border-bottom:1px solid var(--line)}
-.lp-tier{position:relative;padding:30px clamp(20px,3vw,38px) 34px;min-width:0}
-.lp-tier:first-child{padding-left:0}
-.lp-tier:last-child{padding-right:0}
-.lp-tier+.lp-tier{border-left:1px solid var(--line)}
-.lp-tier.is-core::before{content:"";position:absolute;left:0;right:0;top:-1px;height:3px;background:var(--red)}
-.lp-tier-price{font-family:var(--serif);font-size:28px;margin:15px 0;color:var(--text)}
-.lp-tier-copy,.lp-tier-best{font-size:14px;line-height:1.58;color:var(--ink2);margin:0}
-.lp-tier-best{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
-.lp-tier-best strong{display:block;margin-bottom:5px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text)}
-.lp-section-action{margin-top:32px}
 
 .lp-principles{margin-top:42px;border-top:1px solid var(--text)}
 .lp-principle{display:grid;grid-template-columns:42px minmax(180px,.7fr) minmax(0,1.3fr);gap:22px;align-items:baseline;padding:22px 0;border-bottom:1px solid var(--line)}
@@ -2920,10 +2910,6 @@ body.landing-active #tabbar{display:none!important}
   .lp-section-head{align-items:start;flex-direction:column}
   .lp-section-head .lp-body{margin-top:-16px}
   .lp-story,.lp-story:nth-child(even){grid-template-columns:minmax(0,1.08fr) minmax(260px,.92fr);gap:34px}
-  .lp-tier-grid{grid-template-columns:1fr}
-  .lp-tier,.lp-tier:first-child,.lp-tier:last-child{padding:26px 0}
-  .lp-tier+.lp-tier{border-left:0;border-top:1px solid var(--line)}
-  .lp-tier.is-core::before{right:auto;width:74px}
   .lp-founder-layout{grid-template-columns:1fr;grid-template-areas:"intro" "media" "story";gap:28px}
   .lp-founder-intro,.lp-founder-story{max-width:none}
   .lp-founder-media{position:relative;top:auto;width:100%;height:auto;min-height:0;aspect-ratio:4/5}
@@ -3088,6 +3074,7 @@ body.landing-active #tabbar{display:none!important}
   <!-- 3. WAYS TO TRAIN — rendered from js/landingContent.js -->
   <section class="lp-section" id="train-with-athlevo">
     <div class="lp-wrap">
+      <span id="coaching" aria-hidden="true"></span>
       <div class="lp-section-head">
         <div>
           <span class="lp-kicker lp-reveal">WAYS TO TRAIN</span>
@@ -3151,17 +3138,7 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </section>
 
-  <!-- 6. HUMAN COACHING — rendered from js/landingContent.js -->
-  <section class="lp-section lp-alt" id="coaching">
-    <div class="lp-wrap">
-      <span class="lp-kicker lp-reveal">HUMAN COACHING</span>
-      <h2 class="lp-h2 lp-reveal">Choose how closely you want to be coached.</h2>
-      <div class="lp-tier-grid lp-reveal" id="landingCoachingTiers" aria-label="Athlevo human coaching options"></div>
-      <div class="lp-section-action lp-reveal"><a class="lp-btn" href="mailto:support@athlevo.org?subject=Athlevo%20Human%20Coaching">Talk to Athlevo</a></div>
-    </div>
-  </section>
-
-  <!-- 7. ATHLEVO METHOD — rendered from js/landingContent.js -->
+  <!-- 6. ATHLEVO METHOD — rendered from js/landingContent.js -->
   <section class="lp-section" id="method">
     <div class="lp-wrap">
       <span class="lp-kicker lp-reveal">THE ATHLEVO METHOD</span>
@@ -3170,7 +3147,7 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </section>
 
-  <!-- 8. WHO WE COACH -->
+  <!-- 7. WHO WE COACH -->
   <section class="lp-section lp-alt">
     <div class="lp-wrap lp-audience-layout">
       <div>
@@ -3186,7 +3163,7 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </section>
 
-  <!-- 9. ATHLEVO AI -->
+  <!-- 8. ATHLEVO AI -->
   <section class="lp-section lp-ai-section" id="ai">
     <div class="lp-wrap lp-ai-layout">
       <div class="lp-ai-copy">
@@ -3218,7 +3195,7 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </section>
 
-  <!-- 10. FAQ — rendered from js/landingContent.js -->
+  <!-- 9. FAQ — rendered from js/landingContent.js -->
   <section class="lp-section">
     <div class="lp-wrap">
       <span class="lp-kicker lp-reveal">QUESTIONS</span>
@@ -3227,7 +3204,7 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </section>
 
-  <!-- 11. FINAL CTA -->
+  <!-- 10. FINAL CTA -->
   <section class="lp-final-brand">
     <!-- PHOTO REPLACEMENT: add <img src="…" alt="…" loading="lazy" decoding="async"> for FINAL_RACE_IMAGE here, then remove aria-hidden. -->
     <div class="lp-editorial-media lp-final-image" data-image-slot="FINAL_RACE_IMAGE" aria-hidden="true"></div>

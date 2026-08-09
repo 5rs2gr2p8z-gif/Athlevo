@@ -149,29 +149,6 @@
         quote: "“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”"
       }
     ],
-    coachingTiers: [
-      {
-        name: "Athlevo Plan",
-        price: "₱1,998/month",
-        description: "Personalized running + strength plan built by an Athlevo coach after reviewing your goals, training history, schedule, and current fitness.",
-        bestFor: "Athletes who mainly need a clear plan and can execute independently.",
-        core: false
-      },
-      {
-        name: "Athlevo Coaching",
-        price: "₱4,998/month",
-        description: "Weekly human coaching, review, feedback, and adjustments.",
-        bestFor: "Athletes who want someone actively guiding the training process.",
-        core: true
-      },
-      {
-        name: "Athlevo Elite",
-        price: "₱7,998/month",
-        description: "Closer monitoring, more frequent adjustments, priority communication, and deeper performance management.",
-        bestFor: "Athletes who want high-touch coaching.",
-        core: false
-      }
-    ],
     methodPrinciples: [
       { name: "Individualization", description: "Training based on the athlete, not the template." },
       { name: "Specificity", description: "Training evolves toward what the goal actually requires." },
@@ -251,24 +228,6 @@
     root.dataset.rendered = "true";
   }
 
-  function renderTiers() {
-    const root = document.getElementById("landingCoachingTiers");
-    if (!root || root.dataset.rendered === "true") return;
-    content.coachingTiers.forEach(tier => {
-      const article = node("article", `lp-tier${tier.core ? " is-core" : ""}`);
-      article.append(
-        node("div", "lp-tier-name", tier.name),
-        node("div", "lp-tier-price", tier.price),
-        node("p", "lp-tier-copy", tier.description)
-      );
-      const best = node("p", "lp-tier-best");
-      best.append(node("strong", "", "Best for"), document.createTextNode(tier.bestFor));
-      article.append(best);
-      root.append(article);
-    });
-    root.dataset.rendered = "true";
-  }
-
   function renderMethod() {
     const root = document.getElementById("landingMethodPrinciples");
     if (!root || root.dataset.rendered === "true") return;
@@ -298,7 +257,6 @@
   function render() {
     renderTrainingOffers();
     renderStories();
-    renderTiers();
     renderMethod();
     renderFaq();
   }

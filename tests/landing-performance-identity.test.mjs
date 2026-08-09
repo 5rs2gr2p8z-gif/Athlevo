@@ -77,8 +77,8 @@ test("image slots are semantic hooks with no visible placeholder labels",
   !landingContent.includes('node("span", "lp-photo-label"'));
 test("athlete philosophy uses its approved lazy-loaded training image",
   /<img src="assets\/landing\/athlete-philosophy-training\.png"[^>]*alt="Athlevo athlete running during a training session\."[^>]*loading="lazy"[^>]*decoding="async"/.test(landing));
-test("athlete story, tier, method, and FAQ collection roots exist",
-  ["landingTrainingOffers", "landingAthleteStories", "landingCoachingTiers", "landingMethodPrinciples", "landingFaq"]
+test("athlete story, offer, method, and FAQ collection roots exist",
+  ["landingTrainingOffers", "landingAthleteStories", "landingMethodPrinciples", "landingFaq"]
     .every(id => landing.includes(`id="${id}"`)));
 test("all six approved athlete stories and images are restored",
   ["Christian Francia", "Rodel Mark", "Carl Zita", "Amir Paule", "JB Luna", "Miguel Bulado"]
@@ -116,6 +116,21 @@ test("offer CTAs retain existing AI and coaching destinations",
   ["Build My Plan", "Start My Coaching", "Apply for Elite"]
     .every(cta => landingContent.includes(`cta: "${cta}"`)) &&
   (landingContent.match(/href: "#coaching"/g) || []).length === 3);
+test("coaching routes resolve to WAYS TO TRAIN without a duplicate pricing section",
+  /<section class="lp-section" id="train-with-athlevo">[\s\S]*?<span id="coaching" aria-hidden="true"><\/span>[\s\S]*?id="landingTrainingOffers"/.test(landing) &&
+  !/id="landingCoachingTiers"|Choose how closely you want to be coached\.|<section[^>]*id="coaching"/.test(landing));
+test("only one primary homepage offer comparison remains",
+  (landing.match(/id="landingTrainingOffers"/g) || []).length === 1 &&
+  !/coachingTiers:\s*\[|renderTiers\(|lp-tier/.test(landingContent + html));
+test("structured offer data matches the retained four-card architecture",
+  [
+    ["Athlevo AI", "597"],
+    ["Athlevo Plan", "1998"],
+    ["Athlevo Coaching", "4998"],
+    ["Athlevo Elite", "7998"]
+  ].every(([name, price]) =>
+    html.includes(`{ "@type": "Offer", "name": "${name}", "price": "${price}", "priceCurrency": "PHP" }`)) &&
+  !html.includes(`"name": "Human Coaching", "price": "1998"`));
 test("offer categories and headlines lead with athlete outcomes",
   [
     ["ADAPTIVE SELF-GUIDED COACHING", "Stop guessing. Start training toward something."],
@@ -193,14 +208,13 @@ test("desktop cards remain comparison-width and size to their content",
   /\.lp-offer-rail\{[^}]*grid-auto-columns:minmax\(340px,calc\(\(100% - 36px\)\/3\)\)/.test(html) &&
   /\.lp-offer\{[^}]*align-self:start/.test(html) &&
   !/\.lp-offer\{[^}]*height:100%/.test(html));
-test("coaching tiers, method principles, and FAQs are editable data collections",
+test("offers, method principles, and FAQs are editable data collections",
   /trainingOffers:\s*\[/.test(landingContent) &&
-  /coachingTiers:\s*\[/.test(landingContent) &&
   /methodPrinciples:\s*\[/.test(landingContent) &&
   /faq:\s*\[/.test(landingContent));
-test("all approved tier prices, five method principles, and ten FAQs are present",
-  ["₱1,998/month", "₱4,998/month", "₱7,998/month"].every(price =>
-    landingContent.includes(price)) &&
+test("all approved offer prices, five method principles, and ten FAQs are present",
+  ["₱597/month", "₱1,998/month", "₱4,998/month", "₱7,998/month"].every(price =>
+    landingContent.includes(`price: "${price}"`)) &&
   (landingContent.match(/\{ name: /g) || []).length >= 5 &&
   (landingContent.match(/\{ question: /g) || []).length === 10);
 test("content renderer writes text safely rather than injecting HTML",
@@ -234,8 +248,8 @@ test("product labels use the existing sans-serif hierarchy",
   /\.lp-offer-type,[\s\S]*font-size:11px/.test(html));
 test("editorial statements retain the existing serif family",
   /#screen-landing \.lp-h2\{font-family:var\(--serif\)/.test(html));
-test("coaching tiers and method use ruled editorial grids",
-  /\.lp-tier-grid\{[^}]*border-top:1px solid var\(--text\)/.test(html) &&
+test("offer cards and method retain their structured editorial treatment",
+  /\.lp-offer\{[^}]*border:1px solid var\(--line\)/.test(html) &&
   /\.lp-principle\{[^}]*border-bottom:1px solid var\(--line\)/.test(html));
 test("landing design adds no gradients or glass card treatment",
   !landing.includes("gradient") && !landing.includes("glass"));
