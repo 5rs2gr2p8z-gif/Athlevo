@@ -27,8 +27,7 @@
         ],
         note: "Athlevo AI is the Athlevo app: your plan, readiness, progress, and coaching guidance in one place.",
         cta: "Explore Athlevo AI",
-        href: "#ai",
-        media: { type: "app" }
+        href: "#ai"
       },
       {
         type: "COACH-BUILT PLAN",
@@ -46,16 +45,7 @@
         ],
         note: "A personalized coach-built plan — not ongoing daily coaching — for athletes who want expert programming and can execute independently.",
         cta: "Get My Training Plan",
-        href: "#coaching",
-        media: {
-          type: "image",
-          src: "assets/landing/athlete-philosophy-training.png",
-          alt: "Athlevo athlete running during a training session.",
-          width: 1206,
-          height: 2622,
-          position: "center 30%",
-          mobilePosition: "center 38%"
-        }
+        href: "#coaching"
       },
       {
         type: "HUMAN COACHING",
@@ -76,16 +66,7 @@
         ],
         note: "An Athlevo coach manages your training process, reviews progress, and changes the plan when needed.",
         cta: "Start Coaching",
-        href: "#coaching",
-        media: {
-          type: "image",
-          src: "assets/landing/hero-athlevo.png",
-          alt: "Athlevo athletes together after a training session.",
-          width: 1206,
-          height: 2622,
-          position: "center 46%",
-          mobilePosition: "center 42%"
-        }
+        href: "#coaching"
       },
       {
         type: "FOUNDER COACHING",
@@ -104,16 +85,7 @@
         ],
         note: "When available, Dean considers recent training, session performance, fatigue, sleep, HRV, recovery, soreness, heat and humidity, schedule and life stress, race demands, and training response over time. Personally handled by Dean; availability is limited by coaching capacity.",
         cta: "Apply for Elite Coaching",
-        href: "#coaching",
-        media: {
-          type: "image",
-          src: "assets/landing/dean-founder.png",
-          alt: "Dean Castro at an endurance race.",
-          width: 1145,
-          height: 1374,
-          position: "58% 50%",
-          mobilePosition: "58% 36%"
-        }
+        href: "#coaching"
       }
     ],
     // Approved athlete feedback and photography recovered from the original
@@ -220,50 +192,6 @@
     return element;
   }
 
-  function renderOfferMedia(offer) {
-    if (offer.media.type === "image") {
-      const image = node("img", "lp-offer-media");
-      image.src = offer.media.src;
-      image.alt = offer.media.alt;
-      image.width = offer.media.width;
-      image.height = offer.media.height;
-      image.loading = "lazy";
-      image.decoding = "async";
-      image.style.setProperty("--lp-offer-position", offer.media.position);
-      image.style.setProperty("--lp-offer-mobile-position", offer.media.mobilePosition);
-      return image;
-    }
-
-    const media = node("div", "lp-offer-media lp-offer-app");
-    media.setAttribute("role", "img");
-    media.setAttribute("aria-label", "Athlevo app overview showing the Today, Train, Trends, and Coach screens");
-    const shell = node("div", "lp-offer-app-shell");
-    const head = node("div", "lp-offer-app-head");
-    const brand = node("div", "lp-offer-app-brand");
-    const logo = node("img");
-    logo.src = "assets/athlevo-icon.png";
-    logo.alt = "";
-    logo.width = 24;
-    logo.height = 24;
-    brand.append(logo, document.createTextNode("Athlevo"));
-    head.append(brand, node("span", "", "Training overview"));
-
-    const screens = node("div", "lp-offer-app-grid");
-    [
-      ["Today", "Direction and today’s workout"],
-      ["Train", "Your plan and weekly sessions"],
-      ["Trends", "Training status over time"],
-      ["Coach", "Guidance for your training"]
-    ].forEach(([name, description]) => {
-      const screen = node("div", "lp-offer-app-screen");
-      screen.append(node("b", "", name), node("span", "", description));
-      screens.append(screen);
-    });
-    shell.append(head, screens);
-    media.append(shell);
-    return media;
-  }
-
   function renderTrainingOffers() {
     const root = document.getElementById("landingTrainingOffers");
     if (!root || root.dataset.rendered === "true") return;
@@ -274,7 +202,6 @@
       const cta = node("a", "lp-btn ghost", offer.cta);
       cta.href = offer.href;
       article.append(
-        renderOfferMedia(offer),
         node("span", "lp-offer-type", offer.type),
         node("p", "lp-offer-name", offer.name),
         node("h3", "", offer.headline),

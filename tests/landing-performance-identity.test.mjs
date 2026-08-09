@@ -111,9 +111,8 @@ test("Ways to Train uses a native horizontal snap rail",
   /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*display:flex[^}]*overflow-x:auto[^}]*overflow-y:visible[^}]*scroll-snap-type:x mandatory/.test(html) &&
   /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer\{[^}]*flex:0 0 86vw[^}]*width:86vw[^}]*min-width:86vw[^}]*max-width:86vw/.test(html) &&
   /\.lp-offer\{[^}]*scroll-snap-align:start/.test(html));
-test("mobile offer media and copy retain the full non-shrinking panel width",
+test("mobile offer copy retains the full non-shrinking panel width",
   /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer>\*\{[^}]*max-width:100%[^}]*min-width:0/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-media\{[^}]*width:100%[^}]*height:clamp\(170px,46vw,220px\)[^}]*aspect-ratio:auto/.test(html) &&
   !/@media \(max-width:(?:700|900)px\)\{[\s\S]*?\.lp-offer-rail\{[^}]*grid-(?:template|auto)-columns/.test(html));
 test("375, 390, and 430px rails show one 86vw offer plus a restrained next-offer peek",
   [375, 390, 430].every(width => {
@@ -124,35 +123,23 @@ test("375, 390, and 430px rails show one 86vw offer plus a restrained next-offer
     return card > width * 0.82 && card < width * 0.9 && peek > 0 && peek < 32;
   }) &&
   /#screen-landing\{[^}]*overflow-x:hidden/.test(html));
-test("mobile offer media stays compact across target phone widths",
-  [375, 390, 430].every(width => {
-    const mediaHeight = Math.min(220, Math.max(170, width * 0.46));
-    return mediaHeight >= 170 && mediaHeight <= 220;
-  }) &&
-  /\.lp-offer-price\{[^}]*white-space:nowrap/.test(html));
+test("all offers begin with product information and contain no media markup",
+  /article\.append\(\s*node\("span", "lp-offer-type", offer\.type\),\s*node\("p", "lp-offer-name", offer\.name\),\s*node\("h3", "", offer\.headline\),\s*node\("p", "lp-offer-price", offer\.price\)/.test(landingContent) &&
+  !/lp-offer-media|lp-offer-app|renderOfferMedia|mobilePosition|\bmedia:\s*\{/.test(landingContent) &&
+  !/\.lp-offer-media|\.lp-offer-app|--lp-offer-(?:mobile-)?position/.test(html));
 test("mobile offer identity follows the compact product-detail rhythm",
-  /\.lp-offer-media\{[^}]*margin-bottom:16px/.test(html) &&
-  /\.lp-offer-name\{margin-top:7px/.test(html) &&
-  /\.lp-offer h3\{font-size:clamp\(30px,8vw,38px\);line-height:1;margin-top:10px/.test(html) &&
-  /\.lp-offer-price\{margin-top:14px/.test(html));
+  /\.lp-offer\{[^}]*padding:22px 0/.test(html) &&
+  /\.lp-offer-name\{margin-top:8px/.test(html) &&
+  /\.lp-offer h3\{font-size:clamp\(30px,8vw,38px\);line-height:1;margin-top:12px/.test(html) &&
+  /\.lp-offer-price\{margin-top:16px[^}]*white-space:nowrap/.test(html));
 test("mobile offer details retain all content at compact density",
   /\.lp-offer-description\{[^}]*font-size:13px[^}]*line-height:1\.48/.test(html) &&
-  /\.lp-offer-features\{margin:16px 0;gap:0 12px/.test(html) &&
+  /\.lp-offer-features\{margin:20px 0;gap:0 12px/.test(html) &&
   /\.lp-offer-features li\{padding:8px 0;font-size:12px;line-height:1\.35/.test(html) &&
   /\.lp-offer-note\{[^}]*font-size:11\.5px[^}]*line-height:1\.45/.test(html));
-test("mobile coaching photography uses intentional product-specific focal points",
-  /name: "Athlevo Plan"[\s\S]*?mobilePosition: "center 38%"/.test(landingContent) &&
-  /name: "Athlevo Coaching"[\s\S]*?mobilePosition: "center 42%"/.test(landingContent) &&
-  /name: "Athlevo Elite"[\s\S]*?mobilePosition: "58% 36%"/.test(landingContent) &&
-  /--lp-offer-mobile-position/.test(html));
-test("mobile Athlevo AI overview is compact inside the product media",
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app\{padding:10px\}/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app-grid\{gap:5px;margin-top:6px\}/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-offer-app-screen\{min-height:0;padding:6px\}/.test(html));
-test("Athlevo AI overview uses only real app screen names without invented metrics",
-  ["Today", "Train", "Trends", "Coach"].every(screen => landingContent.includes(`["${screen}",`)) &&
-  /role", "img"/.test(landingContent) &&
-  !/Readiness \d|Score \d|HRV \d/.test(landingContent));
+test("desktop offer sheets size to their content instead of a forced media height",
+  /\.lp-offer\{[^}]*align-self:start[^}]*padding:22px 0 26px/.test(html) &&
+  !/\.lp-offer\{[^}]*height:100%/.test(html));
 test("coaching tiers, method principles, and FAQs are editable data collections",
   /trainingOffers:\s*\[/.test(landingContent) &&
   /coachingTiers:\s*\[/.test(landingContent) &&
