@@ -112,8 +112,10 @@ section("P1. Automatic generation is BUILT but OFF");
 
 section("P1. The manual 'Build Training Plan' action still works");
 {
-  t("the Today CTA still exists", /Build Training Plan/.test(planSetup));
-  t("it still calls the real build", /onclick="AthlevoPlan\.start\(\)"/.test(planSetup));
+  t("the Today CTA still exists", /id="todayNoPlanAction"[\s\S]*?>Build My Plan<\/button>/.test(html));
+  t("it still calls the real build",
+    /onclick="todayStartPlan\(\)"/.test(html) &&
+    /function todayStartPlan\(\)[\s\S]*?window\.AthlevoPlan\.start\(\)/.test(html));
   t("build() is untouched and still posts to generate-plan",
     /\/api\/training\/generate-plan/.test(planSetup));
   t("the empty calendar still offers a route to a plan",

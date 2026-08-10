@@ -603,6 +603,9 @@ test("missing plan and profile do not invent training position",
 
 console.log("\n──── Workout and CTA behavior ────");
 const sessionTypeSource = extractFunction(html, "classifyPlannedSessionType");
+const firstSentenceSource = extractFunction(html, "firstSentence");
+const instructionSource = extractFunction(html, "firstTodayInstruction");
+const adjustedSource = extractFunction(html, "todaySessionWasAdjusted");
 const workoutCardSource = extractFunction(html, "buildTodayWorkoutCardView");
 const workoutHeadlines = html.slice(
   html.indexOf("var TODAY_REC_HEADLINES"),
@@ -612,10 +615,13 @@ const workoutHelpers = new Function(
   "formatSessionType",
   `${workoutHeadlines}
    ${sessionTypeSource}
+   ${firstSentenceSource}
+   ${instructionSource}
+   ${adjustedSource}
    function todayLocalKey(){ return "2026-07-29"; }
    ${workoutCardSource}
    return { buildTodayWorkoutCardView };`
-)(value => String(value || ""));
+)(value => value === "easy" ? "Easy Run" : String(value || ""));
 
 const noPlanView = workoutHelpers.buildTodayWorkoutCardView({
   hasPlan: false,
@@ -623,11 +629,11 @@ const noPlanView = workoutHelpers.buildTodayWorkoutCardView({
 });
 test("no plan produces the single Build plan action",
   noPlanView.action === "build" &&
-  noPlanView.actionLabel === "Build plan" &&
-  noPlanView.recommendationTitle === "No workout yet.");
+  noPlanView.actionLabel === "Build My Plan" &&
+  noPlanView.recommendationTitle === "Build your training plan.");
 test("no plan recommendation explains the truthful next step",
   noPlanView.recommendationBody ===
-    "Build your first plan so Athlevo can guide today’s training.");
+    "Tell Athlevo what you’re training for, how you currently train, and how much time you have. We’ll build the starting structure for you.");
 
 const workoutView = workoutHelpers.buildTodayWorkoutCardView({
   hasPlan: true,
@@ -635,13 +641,16 @@ const workoutView = workoutHelpers.buildTodayWorkoutCardView({
     session_date: "2026-07-29",
     session_type: "easy",
     duration_minutes: 35,
-    target_rpe: "2–3"
+    target_rpe: "2–3",
+    purpose: "Keep the aerobic effort controlled."
   }]
 });
-test("today's saved workout produces Open workout and an inline summary",
+test("today's saved workout produces the primary training card view",
   workoutView.action === "workout" &&
   workoutView.actionLabel === "Open workout" &&
-  workoutView.summary === "Easy Run · 35 min · RPE 2–3");
+  workoutView.title === "Easy Run" &&
+  workoutView.meta === "35 min · RPE 2–3" &&
+  workoutView.instruction === "Keep the aerobic effort controlled.");
 
 const noWorkoutView = workoutHelpers.buildTodayWorkoutCardView({
   hasPlan: true,
@@ -659,24 +668,42 @@ const restView = workoutHelpers.buildTodayWorkoutCardView({
 test("an explicit rest day produces View plan rather than Open workout",
   restView.action === "view" &&
   restView.actionLabel === "View plan" &&
-  restView.summary === "Rest day");
+  restView.title === "Recovery Day" &&
+  restView.meta === "No running today." &&
+  restView.instruction === "Recovery is part of the plan.");
+
+const adjustedView = workoutHelpers.buildTodayWorkoutCardView({
+  hasPlan: true,
+  sessions: [{
+    session_date: "2026-07-29",
+    session_type: "easy",
+    duration_minutes: 40,
+    adjusted_at: "2026-07-29T01:00:00Z"
+  }]
+});
+test("an explicitly adjusted saved session receives the subtle adjustment label",
+  adjustedView.adjusted === true);
 
 console.log("\n──── Markup, data wiring, and accessibility ────");
 const today = html.slice(
   html.indexOf('<section class="screen" id="screen-today">'),
   html.indexOf('<section class="screen"', html.indexOf('<section class="screen" id="screen-today">') + 1)
 );
-const directionMarkup = today.slice(
-  today.indexOf('<article class="direction-card"'),
-  today.indexOf("</article>", today.indexOf('<article class="direction-card"')) + "</article>".length
+const trainingMarkup = today.slice(
+  today.indexOf('<article class="today-training-card"'),
+  today.indexOf("</article>", today.indexOf('<article class="today-training-card"')) + "</article>".length
+);
+const statusMarkup = today.slice(
+  today.indexOf('<section class="today-status-card"'),
+  today.indexOf("</section>", today.indexOf('<section class="today-status-card"')) + "</section>".length
 );
 const directionCss = html.slice(
-  html.indexOf(".direction-card{"),
+  html.indexOf(".today-status-card{"),
   html.indexOf(".direction-why{")
 );
 const firstViewportMarkup = today.slice(
   0,
-  today.indexOf("</article>", today.indexOf('<article class="direction-card"')) + "</article>".length
+  today.indexOf('<div id="syncBanner"')
 );
 const firstViewportVisibleText = firstViewportMarkup
   .replace(/<[^>]*>/g, " ")
@@ -684,48 +711,61 @@ const firstViewportVisibleText = firstViewportMarkup
   .trim();
 const positions = [
   today.indexOf("brand-icon"),
-  today.indexOf("Good morning,"),
+  today.indexOf("todayGreeting"),
   today.indexOf("todayContextLine"),
-  today.indexOf("Athlevo Direction"),
+  today.indexOf("todayPlanLoadingState"),
+  today.indexOf("todayNoPlanState"),
+  today.indexOf("todayActivePlanState"),
+  today.indexOf("todayWorkoutTitle"),
   today.indexOf("todayDirectionAction"),
   today.indexOf('class="direction-signals"'),
   today.indexOf("todayPassiveStatusBlock"),
-  today.indexOf("todayWorkoutSummary")
+  today.indexOf("todayDirectionWhy")
 ];
-test("first viewport follows greeting → one-card action → signals → recommendation → workout summary",
+test("Today follows greeting → state boundary → training → status → coaching explanation",
   positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
-test("Direction is named for assistive technology without repeated live announcements",
-  /<article class="direction-card"[\s\S]*?aria-label="Athlevo Direction\. Training status is loading\."/.test(today) &&
-  !/role="(?:button|tab|status)"|aria-live=|aria-pressed=|aria-selected=/.test(directionMarkup));
+test("loading, no-plan, error, and active-plan states have distinct mounts",
+  /id="todayPlanLoadingState"[\s\S]*?aria-label="Loading today’s training"/.test(today) &&
+  /id="todayNoPlanState" hidden/.test(today) &&
+  /id="todayPlanErrorState" hidden/.test(today) &&
+  /id="todayActivePlanState" hidden/.test(today) &&
+  /function setTodayScreenState\(state\)/.test(html));
+test("the no-plan state is one clear plan-building card without empty signals",
+  /id="todayNoPlanState"[\s\S]*?<h2>Build your training plan\.<\/h2>[\s\S]*?Tell Athlevo what you’re training for, how you currently train, and how much time you have\. We’ll build the starting structure for you\.[\s\S]*?id="todayNoPlanAction"[\s\S]*?>Build My Plan<\/button>[\s\S]*?You can change your goal, schedule, or training availability later\./.test(today) &&
+  today.indexOf("todayNoPlanState") < today.indexOf("todayActivePlanState") &&
+  !/direction-signal/.test(today.slice(today.indexOf("todayNoPlanState"), today.indexOf("todayPlanErrorState"))));
+test("the active primary card exposes only real workout fields and one action",
+  /id="todayWorkoutTitle"/.test(trainingMarkup) &&
+  /id="todayWorkoutType" hidden/.test(trainingMarkup) &&
+  /id="todayWorkoutSummary" hidden/.test(trainingMarkup) &&
+  /id="todayWorkoutInstruction" hidden/.test(trainingMarkup) &&
+  /id="todayWorkoutAdjusted" hidden>Adjusted today/.test(trainingMarkup) &&
+  (trainingMarkup.match(/<button\b/g) || []).length === 1);
 test("classification words are absent from visible first-viewport text",
   !/\b(?:RECOVER|HOLD|PUSH)\b/.test(firstViewportVisibleText));
 test("interactive scale, slider, marker, tab, gauge, and needle markup are absent",
-  !/direction-band|direction-zone|direction-marker|direction-dial|direction-scale/.test(directionMarkup) &&
-  !/role="(?:slider|tab)"|type="range"|aria-valuenow/.test(directionMarkup));
-test("left state accent and its pseudo-element are removed",
-  !/\.direction-card::before/.test(directionCss) &&
-  !/--direction-accent|--direction-recover|--direction-hold|--direction-push/.test(directionCss));
+  !/direction-band|direction-zone|direction-marker|direction-dial|direction-scale/.test(statusMarkup) &&
+  !/role="(?:slider|tab)"|type="range"|aria-valuenow/.test(statusMarkup));
 test("controlled recommendation is concise and limited-data aware",
   /id="todayDirectionLabel">Keep today controlled\.<\/p>[\s\S]*?id="todayDirectionCoaching">Limited data means today should stay measured\.<\/p>/.test(today));
-test("Direction card keeps one workout action plus one explicit premium-insight action",
-  (directionMarkup.match(/<button\b/g) || []).length === 2 &&
-  /id="todayDirectionAction"[\s\S]*?onclick="todayDirectionPrimaryAction\(\)"/.test(directionMarkup) &&
-  /id="todayPremiumInsightTeaser"[\s\S]*?Unlock insights/.test(directionMarkup) &&
-  !/role="(?:tab|slider)"|onpointer|tabindex=/.test(directionMarkup));
+test("status remains separate from controls and keeps only the explicit premium action",
+  (statusMarkup.match(/<button\b/g) || []).length === 1 &&
+  /id="todayPremiumInsightTeaser"[\s\S]*?Unlock insights/.test(statusMarkup) &&
+  !/role="(?:tab|slider)"|onpointer|tabindex=/.test(statusMarkup));
 test("all three compact signal indicators have dynamic mounts",
   /id="todayDirectionCoaching"/.test(today) &&
   /id="todayReadinessSignalValue"/.test(today) &&
   /id="todayLoadSignalValue"/.test(today) &&
   /id="todayRecoverySignalValue"/.test(today) &&
-  (directionMarkup.match(/class="direction-signal-ring"/g) || []).length === 3);
+  (statusMarkup.match(/class="direction-signal-ring"/g) || []).length === 3);
 test("the third signal is visibly and accessibly named Recovery",
-  /id="todayRecoverySignal"[\s\S]{0,100}aria-label="Recovery access is loading"/.test(directionMarkup) &&
-  /class="direction-signal-name">Recovery<\/span>/.test(directionMarkup) &&
+  /id="todayRecoverySignal"[\s\S]{0,100}aria-label="Recovery access is loading"/.test(statusMarkup) &&
+  /class="direction-signal-name">Recovery<\/span>/.test(statusMarkup) &&
   /value\.signals\.recovery/.test(html) &&
-  !/class="direction-signal-name">Freshness<\/span>/.test(directionMarkup) &&
-  !/aria-label="Freshness:/.test(directionMarkup));
+  !/class="direction-signal-name">Freshness<\/span>/.test(statusMarkup) &&
+  !/aria-label="Freshness:/.test(statusMarkup));
 test("Recovery exposes quiet Full, Partial, or Limited data quality",
-  /id="todayRecoverySignalQuality">Limited data<\/span>/.test(directionMarkup) &&
+  /id="todayRecoverySignalQuality">Limited data<\/span>/.test(statusMarkup) &&
   /qualityNode\.textContent = signal\.quality \|\| "Limited data"/.test(html));
 test("missing signals render explicit dashes and honest labels",
   helpers.buildAthlevoDirectionView({}).signals.readiness.value === "—" &&
@@ -803,19 +843,20 @@ test("readiness and Recovery use normalized scores while load remains categorica
   helpers.buildAthlevoDirectionView({
     compositeRecovery: { available: true, score: 78, quality: "Partial data" }
   }).signals.recovery.progress === 78);
-test("three thin progress rings meet the standard size without gradients",
-  /\.direction-signal-ring\{[^}]*width:72px;height:72px/.test(html) &&
-  (directionMarkup.match(/class="direction-signal-progress"/g) || []).length === 3 &&
-  (directionMarkup.match(/pathLength="100"/g) || []).length === 6 &&
+test("three compact progress rings stay secondary and use no gradients",
+  /\.direction-signal-ring\{[^}]*width:54px;height:54px/.test(html) &&
+  (statusMarkup.match(/class="direction-signal-progress"/g) || []).length === 3 &&
+  (statusMarkup.match(/pathLength="100"/g) || []).length === 6 &&
   /\.direction-signal-progress\{[^}]*stroke-dasharray:var\(--signal-progress\) 100/.test(html) &&
   !/conic-gradient|radial-gradient|linear-gradient/.test(directionCss));
-test("Direction card remains compact enough for the first viewport",
-  /\.direction-card\{[^}]*min-height:252px[^}]*box-sizing:border-box/.test(html));
+test("the training card is visually primary while status uses the quieter surface",
+  /\.today-training-card\{[^}]*border-top:3px solid var\(--red\)[^}]*box-shadow:var\(--elev-2\)/.test(html) &&
+  /\.today-status-card\{[^}]*padding:15px 16px[^}]*border:1px solid var\(--line\)/.test(html));
 test("narrow phones reduce greeting size with the existing display token",
   /@media \(max-width:380px\)\{[\s\S]*?\.greet h1\{font-size:calc\(var\(--fs-display\) \* \.88\)/.test(html));
 test("narrow phones keep all three indicators in one responsive row",
   /\.direction-signals\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(html) &&
-  /@media \(max-width:360px\)\{[\s\S]*?\.direction-signal-ring\{width:64px;height:64px\}/.test(html));
+  /@media \(max-width:360px\)\{[\s\S]*?\.direction-signal-ring\{width:48px;height:48px\}/.test(html));
 test("semantic ring colors support light and dark mode without gradients",
   /\.direction-signal\[data-tone="readiness-low"\]\{--signal-color:var\(--bad\)\}/.test(html) &&
   /\.direction-signal\[data-tone="readiness-moderate"\]\{--signal-color:var\(--warn\)\}/.test(html) &&
@@ -826,24 +867,65 @@ test("semantic ring colors support light and dark mode without gradients",
   /\.direction-signal\[data-tone="recovery"\]\{--signal-color:#3970c8\}/.test(html) &&
   /\.direction-signal\[data-tone="positive"\]\{--signal-color:var\(--good\)\}/.test(html) &&
   /html\[data-theme="dark"\] \.direction-signal\[data-tone="recovery"\]\{--signal-color:#78a6ff\}/.test(html) &&
-  !/\.direction-card\{[^}]*gradient/.test(html));
-test("CTA dispatch keeps existing build and Train navigation",
+  !/\.today-status-card\{[^}]*gradient/.test(html));
+test("CTA dispatch keeps existing plan build and Train navigation",
   /button\.dataset\.action === "build"[\s\S]*?window\.AthlevoPlan\.start\(\)/.test(
     extractFunction(html, "todayDirectionPrimaryAction")) &&
+  /window\.AthlevoPlan\.start\(\)/.test(extractFunction(html, "todayStartPlan")) &&
   /todayGoToTrain\(\)/.test(extractFunction(html, "todayDirectionPrimaryAction")));
-test("separate workout and large Today plan cards are removed",
+test("there is no duplicate legacy workout or plan CTA",
   !/class="today-workout-card"|id="todayRecommendationHeadline"|id="todayWorkoutCta"/.test(today) &&
   !/id="todayPlanCta"|#todayPlanCta \.tpc-cta/.test(html));
-test("only the in-card workout summary remains",
-  /class="direction-workout-summary" id="todayWorkoutSummary" hidden/.test(directionMarkup));
-test("Why this is a native expandable disclosure immediately below the combined card",
-  today.indexOf('<details class="direction-why">') > today.indexOf("</article>") &&
-  /<details class="direction-why">\s*<summary>Why this\?<\/summary>/.test(today));
+test("Why this today is a native disclosure after status",
+  today.indexOf('<details class="direction-why">') > today.indexOf('<section class="today-status-card"') &&
+  /<details class="direction-why">\s*<summary>Why this today\?<\/summary>/.test(today));
 test("workout summary uses only saved session metadata",
   /Number\(session\.duration_minutes\)/.test(html) &&
   /Number\(session\.distance_km\)/.test(html) &&
   /session\.intensity/.test(html) &&
-  /session\.target_rpe/.test(html));
+  /session\.target_rpe/.test(html) &&
+  /s\.purpose, s\.description, s\.coach_reasoning, s\.notes/.test(html));
+test("Last 7 days is one real-only section and precedes the install utility",
+  /id="todayWeekSnapshot"[\s\S]*?<h2 id="todayWeekHeading">Last 7 days<\/h2>/.test(today) &&
+  ["Distance", "Training time", "Avg HR"].every(label => today.includes(`>${label}</span>`)) &&
+  /function refreshTodayWeekSnapshot\(\)[\s\S]*?section\.hidden = visible === 0/.test(html) &&
+  today.indexOf("todayWeekSnapshot") < today.indexOf("todayInstallCard"));
+test("seven-day presentation hides unavailable values and keeps real values", (() => {
+  const metric = text => ({
+    hidden: false,
+    dataset: {},
+    querySelector: selector => selector === ".today-week-value" ? { textContent: text } : null
+  });
+  const metrics = [metric("36.7 km"), metric("—"), metric("149 bpm")];
+  const grid = { dataset: {} };
+  const section = {
+    hidden: true,
+    querySelectorAll: () => metrics,
+    querySelector: selector => selector === ".today-week-grid" ? grid : null
+  };
+  const document = { getElementById: () => section };
+  const refresh = new Function("document", `${extractFunction(html, "refreshTodayWeekSnapshot")}; return refreshTodayWeekSnapshot;`)(document);
+  refresh();
+  const partial = section.hidden === false && metrics[0].hidden === false &&
+    metrics[1].hidden === true && metrics[2].hidden === false &&
+    grid.dataset.visibleMetrics === "2";
+  metrics[0].querySelector = () => ({ textContent: "—" });
+  metrics[2].querySelector = () => ({ textContent: "—" });
+  refresh();
+  return partial && section.hidden === true && grid.dataset.visibleMetrics === "0";
+})());
+test("install prompt is secondary and existing installed/unavailable hiding remains intact",
+  today.indexOf("todayInstallCard") > today.indexOf("todayWeekSnapshot") &&
+  /var today = document\.getElementById\('todayInstallCard'\);[\s\S]*?today\.style\.display = \(hide \|\| dismissedThisSession\) \? 'none' : 'flex'/.test(html));
+test("loading skeleton matches the workout-first layout without fake values",
+  /id="todayPlanLoadingState"[\s\S]*?today-skeleton-line--title[\s\S]*?today-skeleton-action/.test(today) &&
+  !/[>\s](?:0|100|No workout yet)[<\s]/.test(today.slice(
+    today.indexOf("todayPlanLoadingState"), today.indexOf("todayNoPlanState")
+  )));
+test("375, 390, and 430px retain a single-column screen without horizontal overflow",
+  [375, 390, 430].every(width => width > 0 && width <= 430) &&
+  /\.today-plan-loading,\.today-no-plan,\.today-plan-error,\.today-training-card,[\s\S]*?margin:0 22px/.test(html) &&
+  /#screen-today\{max-width:760px\}/.test(html));
 test("current-week data comes from the authenticated server endpoint",
   /fetch\("\/api\/training\/get-week"[\s\S]*?Authorization:\s*"Bearer "\s*\+\s*session\.access_token/.test(html));
 test("Today uses the server-selected valid plan and saved sessions",
@@ -854,9 +936,10 @@ test("signal collector exposes only real sleep, soreness, and pain check-in fiel
 test("greeting uses the athlete's first name without an email fallback",
   /fullName\.split\(\/\\s\+\/\)\[0\]/.test(brain) &&
     !/profile\.email\?\.split\("@"\)\[0\]/.test(extractFunction(brain, "updateTodayDashboard")));
-test("Direction uses a theme-aware editorial surface and no gradient",
-  /\.direction-card\{[^}]*background:var\(--paper\)/.test(html) &&
-    !/\.direction-card\{[^}]*gradient/.test(html));
+test("Today cards use theme-aware editorial surfaces and no gradient",
+  /\.today-training-card\{[^}]*background:var\(--paper\)/.test(html) &&
+  /\.today-status-card\{[^}]*background:var\(--paper\)/.test(html) &&
+  !/\.today-(?:training|status)-card\{[^}]*gradient/.test(html));
 test("only confirmed readiness transitions, using the calm 640ms ease-out treatment",
   !/\.direction-signal(?:-ring|-progress)?\{[^}]*animation:/.test(directionCss) &&
   /\.direction-signal\[data-animated="true"\] \.direction-signal-progress\{[^}]*transition:stroke-dasharray calc\(var\(--dur-slow\) \* 2\) var\(--ease-standard\),[\s\S]*?stroke calc\(var\(--dur-slow\) \* 2\) var\(--ease-standard\)/.test(directionCss) &&

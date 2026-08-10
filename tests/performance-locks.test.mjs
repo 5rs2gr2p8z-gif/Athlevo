@@ -56,16 +56,20 @@ section("Server authority and fail-closed ordering");
 
 section("Today free and paid presentation");
 {
-  const direction = html.slice(
-    html.indexOf('<article class="direction-card"'),
-    html.indexOf('<details class="direction-why"')
+  const today = html.slice(
+    html.indexOf('<section class="screen" id="screen-today">'),
+    html.indexOf('<section class="screen"', html.indexOf('<section class="screen" id="screen-today">') + 1)
+  );
+  const status = today.slice(
+    today.indexOf('<section class="today-status-card"'),
+    today.indexOf('<details class="direction-why"')
   );
   test("Readiness remains a normal visible signal",
-    /id="todayReadinessSignal"/.test(direction) &&
-    !/id="todayReadinessSignal"[^>]*data-premium-state/.test(direction));
+    /id="todayReadinessSignal"/.test(status) &&
+    !/id="todayReadinessSignal"[^>]*data-premium-state/.test(status));
   test("Training Load and Recovery fail closed while entitlement loads",
-    /id="todayLoadSignal" data-premium-state="loading"/.test(direction) &&
-    /id="todayRecoverySignal" data-premium-state="loading"/.test(direction));
+    /id="todayLoadSignal" data-premium-state="loading"/.test(status) &&
+    /id="todayRecoverySignal" data-premium-state="loading"/.test(status));
   test("locked signals contain only a mask, Performance copy, and safe aria text",
     /function setLockedSignal[\s\S]*?valueNode\.textContent = "••"[\s\S]*?noteNode\.textContent = "Performance"/.test(html) &&
     /name \+ ", available with Athlevo Performance"/.test(html) &&
@@ -75,12 +79,12 @@ section("Today free and paid presentation");
     /paid &&[\s\S]*?AthlevoRecovery\.calculateRecovery/.test(html) &&
     /premiumTeaser\.hidden = paid/.test(html));
   test("free users retain the recommendation and get one insight teaser",
-    /id="todayDirectionLabel"/.test(direction) &&
-    /See how recovery and recent training load shaped today’s recommendation\./.test(direction) &&
-    /Unlock insights/.test(direction));
+    /id="todayDirectionLabel"/.test(today) &&
+    /See how recovery and recent training load shaped today’s recommendation\./.test(status) &&
+    /Unlock insights/.test(status));
   test("locked metrics have neutral preview arcs and restrained lock icons",
     /\.direction-signal\[data-premium-state="locked"\][\s\S]*?stroke-dasharray:38 100/.test(html) &&
-    (direction.match(/class="direction-signal-lock"/g) || []).length === 2);
+    (status.match(/class="direction-signal-lock"/g) || []).length === 2);
 }
 
 section("Athlevo Score preview");
@@ -346,7 +350,7 @@ section("Analytics privacy and responsive styling");
   test("global reduced-motion protection remains active",
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html));
   const newUi = [
-    html.slice(html.indexOf("performance-upgrade-back"), html.indexOf("/* ═══════════ AT A GLANCE")),
+    html.slice(html.indexOf("performance-upgrade-back"), html.indexOf("/* Real-only seven-day context")),
     html.slice(html.indexOf('id="trendsPerformancePreview"'), html.indexOf('id="trendsContent"')),
     scoreSource.slice(scoreSource.indexOf("function renderLockedScoreCard"), scoreSource.indexOf("function renderScoreCard"))
   ].join("\n");

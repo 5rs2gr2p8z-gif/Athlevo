@@ -65,7 +65,11 @@ const stateSource = [
   extractFunction(html, "loadTodayPlanSnapshot"),
   extractFunction(html, "buildTodayTrainingContext"),
   extractFunction(html, "applyTodayTrainingContext"),
+  extractFunction(html, "firstSentence"),
+  extractFunction(html, "firstTodayInstruction"),
+  extractFunction(html, "todaySessionWasAdjusted"),
   extractFunction(html, "buildTodayWorkoutCardView"),
+  extractFunction(html, "setTodayScreenState"),
   extractFunction(html, "setTodayPlanLoadingState"),
   extractFunction(html, "applyTodayPlanSnapshot"),
   extractFunction(html, "refreshTodayAfterPlanChange")
@@ -97,9 +101,18 @@ function createWorld(initialSnapshot, initialFailure = false) {
     recommendationBody: "Limited data means today should stay measured."
   };
   [
+    "screen-today",
+    "todayPlanLoadingState",
+    "todayNoPlanState",
+    "todayPlanErrorState",
+    "todayActivePlanState",
     "todayDirectionLabel",
     "todayDirectionCoaching",
+    "todayWorkoutTitle",
+    "todayWorkoutType",
     "todayWorkoutSummary",
+    "todayWorkoutInstruction",
+    "todayWorkoutAdjusted",
     "todayDirectionAction",
     "todayContextLine"
   ].forEach(node);
@@ -142,9 +155,10 @@ function createWorld(initialSnapshot, initialFailure = false) {
 console.log("\n──── Authoritative Today revalidation ────");
 const world = createWorld({ hasPlan: false, sessions: [] });
 await world.api.refreshTodayAfterPlanChange("screen-enter");
-test("confirmed no-plan response renders Build plan",
-  world.elements.todayDirectionAction.textContent === "Build plan" &&
-  world.elements.todayDirectionAction.hidden === false);
+test("confirmed no-plan response renders only the dedicated no-plan state",
+  world.elements.todayNoPlanState.hidden === false &&
+  world.elements.todayActivePlanState.hidden === true &&
+  world.elements.todayDirectionAction.hidden === true);
 test("the first render reads the authoritative get-week endpoint once",
   world.fetchCount === 1);
 
@@ -166,7 +180,10 @@ await planRefresh;
 test("a successful plan change replaces stale no-plan state with Open workout",
   world.elements.todayDirectionAction.textContent === "Open workout" &&
   world.elements.todayDirectionAction.dataset.action === "workout" &&
-  world.elements.todayWorkoutSummary.textContent === "Easy Run · 35 min · RPE 2–3");
+  world.elements.todayWorkoutTitle.textContent === "Easy Run" &&
+  world.elements.todayWorkoutSummary.textContent === "35 min · RPE 2–3" &&
+  world.elements.todayActivePlanState.hidden === false &&
+  world.elements.todayNoPlanState.hidden === true);
 test("plan change performs a new authoritative fetch",
   world.fetchCount === 2);
 test("server plan context replaces the local no-plan context",
@@ -179,19 +196,22 @@ world.setSnapshot({
 await world.api.refreshTodayAfterPlanChange("screen-enter");
 test("an explicit rest day renders View plan and a rest-day summary",
   world.elements.todayDirectionAction.textContent === "View plan" &&
-  world.elements.todayWorkoutSummary.textContent === "Rest day");
+  world.elements.todayWorkoutTitle.textContent === "Recovery Day" &&
+  world.elements.todayWorkoutSummary.textContent === "No running today.");
 
 world.setFailure(true);
 await world.api.refreshTodayAfterPlanChange("app-resume");
 test("an API failure retains the last confirmed valid plan state",
   world.elements.todayDirectionAction.textContent === "View plan" &&
-  world.elements.todayWorkoutSummary.textContent === "Rest day");
+  world.elements.todayWorkoutSummary.textContent === "No running today." &&
+  world.elements.todayActivePlanState.hidden === false);
 
 const failedWorld = createWorld(null, true);
 await failedWorld.api.refreshTodayAfterPlanChange("screen-enter");
-test("an API failure without a valid state shows Retry, never Build plan",
-  failedWorld.elements.todayDirectionAction.textContent === "Retry" &&
-  failedWorld.elements.todayDirectionAction.dataset.action === "retry");
+test("an API failure without a valid state shows the error state, never no-plan",
+  failedWorld.elements.todayPlanErrorState.hidden === false &&
+  failedWorld.elements.todayNoPlanState.hidden === true &&
+  failedWorld.elements.todayDirectionAction.hidden === true);
 
 console.log("\n──── Persistence and lifecycle wiring ────");
 const goSource = extractFunction(html, "go");
@@ -214,14 +234,10 @@ const today = html.slice(
   html.indexOf('<section class="screen" id="screen-today">'),
   html.indexOf('<section class="screen"', html.indexOf('<section class="screen" id="screen-today">') + 1)
 );
-const directionMarkup = today.slice(
-  today.indexOf('<article class="direction-card"'),
-  today.indexOf("</article>", today.indexOf('<article class="direction-card"')) + "</article>".length
-);
-test("the first viewport keeps one plan/workout CTA and one explicit insight CTA",
-  (directionMarkup.match(/id="todayDirectionAction"/g) || []).length === 1 &&
-  (directionMarkup.match(/id="todayPremiumInsightTeaser"/g) || []).length === 1 &&
-  (directionMarkup.match(/<button\b/g) || []).length === 2);
+test("active state keeps one workout CTA and one explicit insight CTA",
+  (today.match(/id="todayDirectionAction"/g) || []).length === 1 &&
+  (today.match(/id="todayPremiumInsightTeaser"/g) || []).length === 1 &&
+  /id="todayActivePlanState"[\s\S]*?id="todayDirectionAction"[\s\S]*?id="todayPremiumInsightTeaser"/.test(today));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

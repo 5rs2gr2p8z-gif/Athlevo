@@ -3435,7 +3435,7 @@ body.landing-active #tabbar{display:none!important}
 </div>
   <div class="greet">
   <h1 class="serif">
-    Good morning, <span id="todayAthleteName">Athlete</span>
+    <span id="todayGreeting">Good morning</span>, <span id="todayAthleteName">Athlete</span>
   </h1>
 
   <p id="todayContextLine">
@@ -3445,24 +3445,65 @@ body.landing-active #tabbar{display:none!important}
 
   <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
   <style>
-    .today-install{display:none;align-items:center;gap:var(--s-3);margin:2px 22px 16px;
-      background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px}
+    .today-install{display:none;align-items:center;gap:var(--s-3);margin:18px 22px 0;
+      background:transparent;border-top:1px solid var(--line);padding:12px 2px 0}
     .today-install .ti-icon img{border-radius:9px;display:block}
     .today-install .ti-copy{flex:1;min-width:0}
-    .today-install .ti-copy b{display:block;font-size:var(--fs-body);font-weight:700;letter-spacing:-.01em;color:var(--text)}
+    .today-install .ti-copy b{display:block;font-size:var(--fs-body-sm);font-weight:700;letter-spacing:-.01em;color:var(--text)}
     .today-install .ti-copy small{display:block;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink3);margin-top:2px}
-    .today-install .ti-btn{flex-shrink:0;border:none;border-radius:var(--r-pill);background:var(--ink);color:#fff;
-      font-family:var(--sans);font-weight:650;font-size:var(--fs-body-sm);padding:9px 18px;cursor:pointer}
-    .today-install .ti-btn:hover{background:#000}
+    .today-install .ti-btn{flex-shrink:0;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--paper);color:var(--text);
+      font-family:var(--sans);font-weight:650;font-size:var(--fs-caption);padding:8px 14px;cursor:pointer}
+    .today-install .ti-btn:hover{background:#000;color:#fff}
 
-    /* ═══════════ ATHLEVO DIRECTION ═══════════
-       One compact, non-interactive status card. Signal arcs are data
-       presentation only; classification does not color the card edge. */
-    .direction-card{position:relative;overflow:hidden;margin:0 22px;background:var(--paper);
-      border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px 15px;
-      box-shadow:var(--elev-2);min-height:252px;box-sizing:border-box}
+    /* ═══════════ TODAY STATE + TRAINING PRIORITY ═══════════ */
+    .today-plan-loading,.today-no-plan,.today-plan-error,.today-training-card,
+    .today-status-card{margin:0 22px}
+    .today-plan-loading,.today-no-plan,.today-plan-error{border:1px solid var(--line);
+      border-radius:var(--r-lg);background:var(--paper);padding:20px;box-shadow:var(--elev-1)}
+    .today-plan-loading{display:grid;gap:12px;min-height:218px;box-sizing:border-box}
+    .today-plan-loading[hidden],.today-no-plan[hidden],.today-plan-error[hidden],
+    .today-active-plan[hidden]{display:none!important}
+    .today-skeleton-line{display:block;height:13px;border-radius:5px}
+    .today-skeleton-line--eyebrow{width:62px;height:9px}
+    .today-skeleton-line--title{width:min(76%,280px);height:30px;margin-top:8px}
+    .today-skeleton-line--meta{width:min(58%,220px)}
+    .today-skeleton-line--copy{width:94%}
+    .today-skeleton-action{height:46px;margin-top:auto;border-radius:var(--r-pill)}
+    .today-no-plan{padding:24px 20px 20px;border-top:3px solid var(--red)}
+    .today-state-eyebrow,.today-section-eyebrow{display:block;font-size:var(--fs-micro);
+      font-weight:750;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+    .today-no-plan h2,.today-plan-error h2{margin:9px 0 10px;font-family:var(--serif);
+      font-size:var(--fs-h1);font-weight:500;line-height:var(--lh-heading);color:var(--text)}
+    .today-no-plan p,.today-plan-error p{margin:0;font-size:var(--fs-body-sm);
+      line-height:var(--lh-body);color:var(--ink2)}
+    .today-no-plan .today-state-note{margin-top:12px;font-size:var(--fs-caption);color:var(--ink3)}
+    .today-primary-btn{width:100%;min-height:48px;margin-top:20px;border:1px solid var(--text);
+      border-radius:var(--r-pill);background:var(--text);color:var(--paper);font-family:var(--sans);
+      font-size:var(--fs-body-sm);font-weight:750;cursor:pointer}
+    .today-primary-btn:disabled{opacity:.5;cursor:default}
+    .today-active-plan{display:grid;gap:14px}
+    .today-training-card{position:relative;overflow:hidden;background:var(--paper);
+      border:1px solid var(--line);border-top:3px solid var(--red);border-radius:var(--r-lg);
+      padding:17px 18px 18px;box-shadow:var(--elev-2);box-sizing:border-box}
+    .today-training-topline{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3)}
+    .today-adjusted-label{font-size:var(--fs-micro);font-weight:700;color:var(--red)}
+    .today-workout-title{margin:11px 0 2px;font-family:var(--serif);font-size:clamp(27px,7vw,34px);
+      font-weight:500;line-height:1.08;color:var(--text);overflow-wrap:anywhere}
+    .today-workout-type{margin:0;font-size:var(--fs-caption);font-weight:700;
+      letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+    .today-workout-meta{margin:14px 0 0;font-size:var(--fs-body);font-weight:750;
+      line-height:var(--lh-compact);color:var(--text)}
+    .today-workout-meta[hidden],.today-workout-type[hidden],.today-workout-instruction[hidden],
+    .today-adjusted-label[hidden]{display:none}
+    .today-workout-instruction{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line);
+      font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
+    .today-training-card .direction-action{width:100%;min-height:46px;margin-top:16px}
+
+    /* Compact status: the existing signal calculations remain unchanged. */
+    .today-status-card{padding:15px 16px;background:var(--paper);border:1px solid var(--line);
+      border-radius:var(--r-md)}
     .direction-topline{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
-      margin-bottom:12px}
+      margin-bottom:10px}
     .direction-eyebrow{font-size:var(--fs-micro);font-weight:750;letter-spacing:.14em;
       text-transform:uppercase;color:var(--ink2)}
     .direction-action{flex-shrink:0;border:1px solid var(--line);border-radius:var(--r-pill);
@@ -3475,7 +3516,7 @@ body.landing-active #tabbar{display:none!important}
       gap:var(--s-2);align-items:start;margin-top:2px}
     .direction-signal{display:flex;min-width:0;flex-direction:column;align-items:center;
       text-align:center;--signal-progress:0;--signal-color:var(--line)}
-    .direction-signal-ring{position:relative;width:72px;height:72px;display:grid;
+    .direction-signal-ring{position:relative;width:54px;height:54px;display:grid;
       place-items:center;box-sizing:border-box}
     .direction-signal-ring svg{position:absolute;inset:0;width:100%;height:100%;
       display:block;overflow:visible;transform:rotate(-90deg)}
@@ -3503,8 +3544,8 @@ body.landing-active #tabbar{display:none!important}
       transition:stroke-dasharray calc(var(--dur-slow) * 2) var(--ease-standard),
         stroke calc(var(--dur-slow) * 2) var(--ease-standard);
       will-change:stroke-dasharray,stroke}
-    .direction-signal-value{position:relative;z-index:1;max-width:58px;padding:0 2px;
-      font-size:var(--fs-body);font-weight:750;line-height:1.05;color:var(--text);
+    .direction-signal-value{position:relative;z-index:1;max-width:48px;padding:0 2px;
+      font-size:var(--fs-body-sm);font-weight:750;line-height:1.05;color:var(--text);
       font-variant-numeric:tabular-nums}
     .direction-signal-value[data-long="true"]{font-size:var(--fs-micro)}
     .direction-signal-name{max-width:100%;margin-top:6px;font-size:var(--fs-micro);
@@ -3531,17 +3572,6 @@ body.landing-active #tabbar{display:none!important}
       letter-spacing:.12em;color:var(--ink3)}
     .direction-signal[data-premium-state="locked"] .direction-signal-lock{display:flex}
     .direction-signal[data-premium-state="locked"] .direction-signal-quality{display:none}
-    .direction-verdict{text-align:left}
-    .direction-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;
-      line-height:var(--lh-heading);color:var(--text);margin:13px 0 0;padding-top:11px;
-      border-top:1px solid var(--line)}
-    .direction-coaching{font-size:var(--fs-body-sm);font-weight:500;line-height:var(--lh-compact);
-      color:var(--ink2);margin:3px 0 0;white-space:nowrap;
-      overflow:hidden;text-overflow:ellipsis}
-    .direction-workout-summary{font-size:var(--fs-body-sm);font-weight:700;
-      line-height:var(--lh-compact);color:var(--text);margin:10px 0 0;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .direction-workout-summary[hidden]{display:none}
     .direction-premium-teaser{display:flex;align-items:center;justify-content:space-between;
       gap:var(--s-3);margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
     .direction-premium-teaser[hidden]{display:none}
@@ -3550,14 +3580,18 @@ body.landing-active #tabbar{display:none!important}
     .direction-premium-teaser button{flex:none;border:0;background:none;color:var(--red);
       font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:750;cursor:pointer;padding:7px 0}
 
-    .direction-why{margin:10px 22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .direction-why{margin:0 22px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
     .direction-why>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;
-      cursor:pointer;padding:12px 2px;font-size:var(--fs-body-sm);font-weight:650;color:var(--ink2)}
+      cursor:pointer;padding:13px 2px;font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
     .direction-why>summary::-webkit-details-marker{display:none}
     .direction-why>summary::after{content:"+";font-size:var(--fs-h3);font-weight:500;color:var(--ink3)}
     .direction-why[open]>summary::after{content:"−"}
-    .direction-why-copy{font-size:var(--fs-body-sm);line-height:var(--lh-body);
-      color:var(--ink2);padding:0 2px 12px}
+    .direction-verdict{padding:0 2px 10px}
+    .direction-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;
+      line-height:var(--lh-heading);color:var(--text);margin:0}
+    .direction-coaching,.direction-why-copy{font-size:var(--fs-body-sm);line-height:var(--lh-body);
+      color:var(--ink2);margin:5px 0 0}
+    .direction-why-copy{padding-bottom:12px}
     .rec-full{padding:0 2px 14px}
     .rec-full .daily-brief-section{margin-top:12px}
     .rec-full .daily-brief-section .f-name{display:block;font-size:var(--fs-micro);
@@ -3568,40 +3602,36 @@ body.landing-active #tabbar{display:none!important}
     .rec-full .daily-brief-details p{margin-top:8px;color:var(--ink2);line-height:var(--lh-body)}
     .rec-full .daily-brief-status{margin-top:10px;font-size:var(--fs-caption);color:var(--ink3)}
     @media (max-width:360px){
-      .direction-card{padding-left:14px;padding-right:14px}
+      .today-training-card,.today-status-card{padding-left:14px;padding-right:14px}
       .direction-action{padding-left:11px;padding-right:11px}
       .direction-signals{gap:var(--s-1)}
-      .direction-signal-ring{width:64px;height:64px}
+      .direction-signal-ring{width:48px;height:48px}
       .direction-signal-name,.direction-signal-note{font-size:var(--fs-micro)}
       .direction-premium-teaser{align-items:flex-start}
     }
 
-    /* ═══════════ AT A GLANCE — 4 semantic tiles ═══════════
-       Icon + value + label per tile. Real values only, no fake sparklines.
-       Semantic accent per category:
-         blue = distance, orange = load, green = HR, purple = readiness.
-       IDs still match the renderers in js/brain.js; only the readiness
-       tile is populated by a small DOM projection (see initTodayCompactWatchers). */
-    .glance{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s-2);margin:14px 22px 0}
-    .glance-tile{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);
-      padding:10px 10px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
-      min-width:0;position:relative;overflow:hidden}
-    .glance-tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--tile-accent,var(--line))}
-    .glance-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
-      color:var(--tile-accent,var(--ink3));margin-bottom:2px}
-    .glance-icon svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
-      stroke-linecap:round;stroke-linejoin:round;display:block}
-    .glance-value{font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:-.01em;
-      color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-    .glance-label{font-size:var(--fs-micro);font-weight:650;letter-spacing:.06em;
-      text-transform:uppercase;color:var(--ink3);line-height:1.2}
-    .glance-tile--distance{--tile-accent:#3a6df0}
-    .glance-tile--load{--tile-accent:var(--warn)}
-    .glance-tile--hr{--tile-accent:var(--good)}
-    .glance-tile--readiness{--tile-accent:#8b5cf6}
-    @media (max-width:360px){
-      .glance{grid-template-columns:repeat(2,1fr);row-gap:var(--s-2)}
+    /* Real-only seven-day context. Missing metrics are hidden by the
+       presentation observer below rather than rendered as fake values. */
+    .today-week{margin:18px 22px 0}
+    .today-week[hidden]{display:none}
+    .today-week h2{margin:0 0 10px;font-family:var(--sans);font-size:var(--fs-body);
+      font-weight:750;color:var(--text)}
+    .today-week-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+      border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .today-week-grid[data-visible-metrics="1"]{grid-template-columns:1fr}
+    .today-week-grid[data-visible-metrics="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .today-week-metric{min-width:0;padding:12px 10px 12px 0}
+    .today-week-metric+.today-week-metric{padding-left:10px;border-left:1px solid var(--line)}
+    .today-week-metric[data-first-visible="true"]{padding-left:0;border-left:0}
+    .today-week-metric[hidden]{display:none}
+    .today-week-value{display:block;font-size:var(--fs-body);font-weight:750;color:var(--text);
+      font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .today-week-label{display:block;margin-top:3px;font-size:var(--fs-micro);font-weight:650;
+      color:var(--ink3);line-height:1.2}
+    @media (min-width:700px){
+      #screen-today{max-width:760px}
+      .today-plan-loading,.today-no-plan,.today-plan-error,.today-training-card,
+      .today-status-card,.direction-why,.today-week,.today-install{margin-left:auto;margin-right:auto;width:min(100% - 44px,620px)}
     }
 
     /* ═══════════ HIDE VISIBLE CONFIDENCE LABELS ═══════════
@@ -3637,80 +3667,111 @@ body.landing-active #tabbar{display:none!important}
     .lwa-takeaway-label{display:block;font-size:var(--fs-micro);font-weight:700;
       letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
   </style>
-  <!-- ═══════════ ATHLEVO DIRECTION ═══════════ -->
-  <article class="direction-card" id="dailyBriefCard" data-direction="hold" data-score="missing"
-    data-plan-state="loading"
-    aria-label="Athlevo Direction. Training status is loading.">
-    <div class="direction-topline">
-      <span class="direction-eyebrow">Athlevo Direction</span>
-      <button type="button" class="direction-action" id="todayDirectionAction"
-        data-action="" onclick="todayDirectionPrimaryAction()" hidden disabled>Build plan</button>
-    </div>
+  <div class="today-plan-loading" id="todayPlanLoadingState" aria-label="Loading today’s training">
+    <span class="skel today-skeleton-line today-skeleton-line--eyebrow"></span>
+    <span class="skel today-skeleton-line today-skeleton-line--title"></span>
+    <span class="skel today-skeleton-line today-skeleton-line--meta"></span>
+    <span class="skel today-skeleton-line today-skeleton-line--copy"></span>
+    <span class="skel today-skeleton-action"></span>
+  </div>
 
-    <div class="direction-signals" aria-label="Today’s readiness signals">
-      <div class="direction-signal" id="todayReadinessSignal" aria-label="Readiness: no check-in">
-        <span class="direction-signal-ring" aria-hidden="true">
-          <svg viewBox="0 0 72 72" focusable="false">
-            <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
-            <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
-          </svg>
-          <strong class="direction-signal-value" id="todayReadinessSignalValue">—</strong>
-        </span>
-        <span class="direction-signal-name">Readiness</span>
-        <span class="direction-signal-note" id="todayReadinessSignalNote">No check-in</span>
-      </div>
-      <div class="direction-signal" id="todayLoadSignal" data-premium-state="loading"
-        aria-label="Training Load access is loading">
-        <span class="direction-signal-ring" aria-hidden="true">
-          <svg viewBox="0 0 72 72" focusable="false">
-            <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
-            <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
-          </svg>
-          <strong class="direction-signal-value" id="todayLoadSignalValue">—</strong>
-          <span class="direction-signal-lock">
-            <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
-          </span>
-        </span>
-        <span class="direction-signal-name">Training load</span>
-        <span class="direction-signal-note" id="todayLoadSignalNote">Unavailable</span>
-      </div>
-      <div class="direction-signal" id="todayRecoverySignal" data-premium-state="loading"
-        aria-label="Recovery access is loading">
-        <span class="direction-signal-ring" aria-hidden="true">
-          <svg viewBox="0 0 72 72" focusable="false">
-            <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
-            <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
-          </svg>
-          <strong class="direction-signal-value" id="todayRecoverySignalValue">—</strong>
-          <span class="direction-signal-lock">
-            <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
-          </span>
-        </span>
-        <span class="direction-signal-name">Recovery</span>
-        <span class="direction-signal-note" id="todayRecoverySignalNote">Not enough data</span>
-        <span class="direction-signal-quality" id="todayRecoverySignalQuality">Limited data</span>
-      </div>
-    </div>
-
-    <div class="direction-verdict" id="todayPassiveStatusBlock" data-direction="hold">
-      <p class="direction-label" id="todayDirectionLabel">Keep today controlled.</p>
-      <p class="direction-coaching" id="todayDirectionCoaching">Limited data means today should stay measured.</p>
-    </div>
-
-    <div class="direction-premium-teaser" id="todayPremiumInsightTeaser" hidden>
-      <p>See how recovery and recent training load shaped today’s recommendation.</p>
-      <button type="button"
-        onclick="AthlevoAccessGuard.showUpgradeSheet('recovery','today')">Unlock insights</button>
-    </div>
-
-    <p class="direction-workout-summary" id="todayWorkoutSummary" hidden></p>
+  <article class="today-no-plan" id="todayNoPlanState" hidden>
+    <span class="today-state-eyebrow">Your training</span>
+    <h2>Build your training plan.</h2>
+    <p>Tell Athlevo what you’re training for, how you currently train, and how much time you have. We’ll build the starting structure for you.</p>
+    <button type="button" class="today-primary-btn" id="todayNoPlanAction"
+      onclick="todayStartPlan()">Build My Plan</button>
+    <p class="today-state-note">You can change your goal, schedule, or training availability later.</p>
   </article>
 
-  <details class="direction-why">
-    <summary>Why this?</summary>
-    <p class="direction-why-copy" id="todayDirectionWhy">Athlevo needs a recent check-in and training-load history to explain today’s direction.</p>
+  <article class="today-plan-error" id="todayPlanErrorState" hidden>
+    <span class="today-state-eyebrow">Today</span>
+    <h2>We couldn’t load today’s training.</h2>
+    <p>Your saved plan has not been changed. Check your connection and try again.</p>
+    <button type="button" class="today-primary-btn" onclick="refreshTodayAfterPlanChange('retry')">Try again</button>
+  </article>
 
-    <div class="rec-full" id="dailyBriefFull">
+  <div class="today-active-plan" id="todayActivePlanState" hidden>
+    <article class="today-training-card" id="dailyBriefCard" data-direction="hold"
+      data-score="missing" data-plan-state="loading"
+      aria-label="Today’s training is loading.">
+      <div class="today-training-topline">
+        <span class="today-section-eyebrow">Today</span>
+        <span class="today-adjusted-label" id="todayWorkoutAdjusted" hidden>Adjusted today</span>
+      </div>
+      <h2 class="today-workout-title" id="todayWorkoutTitle">Checking your training plan…</h2>
+      <p class="today-workout-type" id="todayWorkoutType" hidden></p>
+      <p class="today-workout-meta" id="todayWorkoutSummary" hidden></p>
+      <p class="today-workout-instruction" id="todayWorkoutInstruction" hidden></p>
+      <button type="button" class="direction-action" id="todayDirectionAction"
+        data-action="" onclick="todayDirectionPrimaryAction()" hidden disabled>Open workout</button>
+    </article>
+
+    <section class="today-status-card" aria-labelledby="todayStatusHeading">
+      <div class="direction-topline">
+        <span class="direction-eyebrow" id="todayStatusHeading">Today’s status</span>
+      </div>
+      <div class="direction-signals" aria-label="Today’s readiness signals">
+        <div class="direction-signal" id="todayReadinessSignal" aria-label="Readiness: no check-in">
+          <span class="direction-signal-ring" aria-hidden="true">
+            <svg viewBox="0 0 72 72" focusable="false">
+              <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
+              <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
+            </svg>
+            <strong class="direction-signal-value" id="todayReadinessSignalValue">—</strong>
+          </span>
+          <span class="direction-signal-name">Readiness</span>
+          <span class="direction-signal-note" id="todayReadinessSignalNote">Not enough data</span>
+        </div>
+        <div class="direction-signal" id="todayLoadSignal" data-premium-state="loading"
+          aria-label="Training Load access is loading">
+          <span class="direction-signal-ring" aria-hidden="true">
+            <svg viewBox="0 0 72 72" focusable="false">
+              <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
+              <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
+            </svg>
+            <strong class="direction-signal-value" id="todayLoadSignalValue">—</strong>
+            <span class="direction-signal-lock">
+              <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
+            </span>
+          </span>
+          <span class="direction-signal-name">Training load</span>
+          <span class="direction-signal-note" id="todayLoadSignalNote">Not enough data</span>
+        </div>
+        <div class="direction-signal" id="todayRecoverySignal" data-premium-state="loading"
+          aria-label="Recovery access is loading">
+          <span class="direction-signal-ring" aria-hidden="true">
+            <svg viewBox="0 0 72 72" focusable="false">
+              <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
+              <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
+            </svg>
+            <strong class="direction-signal-value" id="todayRecoverySignalValue">—</strong>
+            <span class="direction-signal-lock">
+              <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
+            </span>
+          </span>
+          <span class="direction-signal-name">Recovery</span>
+          <span class="direction-signal-note" id="todayRecoverySignalNote">Not enough data</span>
+          <span class="direction-signal-quality" id="todayRecoverySignalQuality">Limited data</span>
+        </div>
+      </div>
+
+      <div class="direction-premium-teaser" id="todayPremiumInsightTeaser" hidden>
+        <p>See how recovery and recent training load shaped today’s recommendation.</p>
+        <button type="button"
+          onclick="AthlevoAccessGuard.showUpgradeSheet('recovery','today')">Unlock insights</button>
+      </div>
+    </section>
+
+    <details class="direction-why">
+      <summary>Why this today?</summary>
+      <div class="direction-verdict" id="todayPassiveStatusBlock" data-direction="hold">
+        <p class="direction-label" id="todayDirectionLabel">Keep today controlled.</p>
+        <p class="direction-coaching" id="todayDirectionCoaching">Limited data means today should stay measured.</p>
+      </div>
+      <p class="direction-why-copy" id="todayDirectionWhy">Athlevo needs a recent check-in and training-load history to explain today’s direction.</p>
+
+      <div class="rec-full" id="dailyBriefFull">
       <!-- The full Daily Coach Briefing lives here — its own headline,
            training summary, observation, recommendation, reasoning and
            limitations. dailyBrief.js writes into these IDs unchanged. -->
@@ -3756,54 +3817,40 @@ body.landing-active #tabbar{display:none!important}
         id="dailyBriefStatus"
         class="daily-brief-status"
       ></p>
-    </div>
-  </details>
+      </div>
+    </details>
+  </div>
 
-  <!-- Subtle import-success banner (js/syncStatus.js). Non-intrusive, auto-dismisses. -->
-  <div id="syncBanner" class="ss-banner-wrap"></div>
+  <section class="today-week" id="todayWeekSnapshot" aria-labelledby="todayWeekHeading" hidden>
+    <h2 id="todayWeekHeading">Last 7 days</h2>
+    <div class="today-week-grid">
+      <div class="today-week-metric" data-today-week-metric>
+        <span class="today-week-value num" id="todaySevenDayDistance">—</span>
+        <span class="today-week-label">Distance</span>
+      </div>
+      <div class="today-week-metric" data-today-week-metric>
+        <span class="today-week-value num" id="todaySevenDayHours">—</span>
+        <span class="today-week-label">Training time</span>
+      </div>
+      <div class="today-week-metric" data-today-week-metric>
+        <span class="today-week-value num" id="todaySevenDayHeartRate">—</span>
+        <span class="today-week-label">Avg HR</span>
+      </div>
+    </div>
+  </section>
 
   <div class="today-install" id="todayInstallCard">
-    <div class="ti-icon"><img src="assets/athlevo-icon-transparent.png" alt="" width="34" height="34"></div>
+    <div class="ti-icon"><img src="assets/athlevo-icon-transparent.png" alt="" width="30" height="30"></div>
     <div class="ti-copy">
       <b>Install Athlevo</b>
-      <small>Keep your coach one tap away and open Athlevo like a native app.</small>
+      <small>Keep your coach one tap away.</small>
     </div>
     <button class="ti-btn" onclick="athlevoInstall()">Install</button>
   </div>
 
-  <!-- ===== AUTOMATIC RACE DETECTION PROMPT ===== -->
+  <!-- Secondary utility surfaces follow the daily training hierarchy. -->
+  <div id="syncBanner" class="ss-banner-wrap"></div>
   <div id="raceDetectCard"></div>
-
-  <!-- ═══════════ AT A GLANCE — 4 semantic tiles, existing values only ═══════════
-       Icon + value + label per tile. IDs for distance/load/HR are unchanged
-       from js/brain.js. The readiness tile is populated by a small
-       presentation-only DOM projection so no data path changes. -->
-  <div class="glance" aria-label="At a glance">
-    <div class="glance-tile glance-tile--distance">
-      <span class="glance-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M3 17c3-8 6-2 9-6s4 6 9 2"/></svg>
-      </span>
-      <span class="glance-value num" id="todaySevenDayDistance">—</span>
-      <span class="glance-label">7-day km</span>
-    </div>
-    <div class="glance-tile glance-tile--load">
-      <span class="glance-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M13 3c1 4-3 5-3 9a4 4 0 0 0 8 0c0-2-1-3-2-4 1 4-2 6-3 4-1-3 3-5 0-9zM8 13a4 4 0 0 0 4 8"/></svg>
-      </span>
-      <span class="glance-value num" id="todaySevenDayHours">—</span>
-      <span class="glance-label">Load</span>
-    </div>
-    <div class="glance-tile glance-tile--hr">
-      <span class="glance-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>
-      </span>
-      <span class="glance-value num" id="todaySevenDayHeartRate">—</span>
-      <span class="glance-label">Avg HR</span>
-    </div>
-    <!-- The 4th readiness tile was removed: qualitative readiness now lives
-         in Athlevo Direction. Keeping a numeric tile here would
-         duplicate that status without providing a distinct metric. -->
-  </div>
 
   <!-- ═══════════ ATHLEVO SCORE / RADAR — moved up so the visual summary
        appears on the first viewport instead of below a wall of text. -->
@@ -5746,11 +5793,11 @@ function showScreen(id){
   } catch(e){}
 }
 
-/* ─── Compact Today recommendation — tiny presentation helpers ───
-   These support the above-the-fold rec card. Nothing here talks to
+/* ─── Today training — tiny presentation helpers ───
+   These support the workout-first card. Nothing here talks to
    data; they only project existing DOM state into the compact UI. */
 
-/* CTA on the compact rec card. Clicks the Train tab so the tabbar's
+/* CTA on Today’s Training. Clicks the Train tab so the tabbar's
    own active state stays in sync — no duplicated routing logic. */
 function todayGoToTrain(){
   var t = document.querySelector('.tab[data-screen="screen-train"]');
@@ -5771,6 +5818,23 @@ function todayDirectionPrimaryAction(){
     return;
   }
   todayGoToTrain();
+}
+
+function todayStartPlan(){
+  if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function"){
+    window.AthlevoPlan.start();
+  }
+}
+
+function updateTodayGreeting(){
+  var greeting = document.getElementById("todayGreeting");
+  if (!greeting) return;
+  var hour = new Date().getHours();
+  greeting.textContent = hour < 12
+    ? "Good morning"
+    : hour < 18
+      ? "Good afternoon"
+      : "Good evening";
 }
 
 /* ─────────────────────── TODAY'S RECOMMENDATION ───────────────────────
@@ -5941,12 +6005,51 @@ function firstSentence(str){
   return (m ? m[0] : t).trim();
 }
 
+function firstTodayInstruction(session){
+  var s = session && typeof session === "object" ? session : {};
+  var direct = [s.purpose, s.description, s.coach_reasoning, s.notes];
+  for (var i = 0; i < direct.length; i += 1){
+    var sentence = firstSentence(direct[i]);
+    if (sentence) return sentence;
+  }
+  var lists = [s.instructions, s.main_set];
+  for (var j = 0; j < lists.length; j += 1){
+    var list = Array.isArray(lists[j]) ? lists[j] : [];
+    for (var k = 0; k < list.length; k += 1){
+      var item = list[k];
+      var raw = typeof item === "string"
+        ? item
+        : item && typeof item === "object"
+          ? (item.instruction || item.description || item.label || "")
+          : "";
+      var itemSentence = firstSentence(raw);
+      if (itemSentence) return itemSentence;
+    }
+  }
+  return "";
+}
+
+function todaySessionWasAdjusted(session){
+  var s = session && typeof session === "object" ? session : {};
+  if (s.adjusted === true || s.is_adjusted === true || s.adjusted_at || s.adjustment_id){
+    return true;
+  }
+  var created = Date.parse(String(s.created_at || ""));
+  var updated = Date.parse(String(s.updated_at || ""));
+  return Number.isFinite(created) && Number.isFinite(updated) && updated - created > 60000;
+}
+
 function buildTodayWorkoutCardView(snapshot){
   if (!snapshot || typeof snapshot !== "object"){
     return {
       state: "unavailable",
       action: "retry",
       actionLabel: "Retry",
+      title: "We couldn’t load today’s training.",
+      workoutType: "",
+      meta: "",
+      instruction: "",
+      adjusted: false,
       summary: "",
       recommendationTitle: "Training status unavailable.",
       recommendationBody: "Check your connection and try again."
@@ -5956,10 +6059,15 @@ function buildTodayWorkoutCardView(snapshot){
     return {
       state: "no-plan",
       action: "build",
-      actionLabel: "Build plan",
+      actionLabel: "Build My Plan",
+      title: "Build your training plan.",
+      workoutType: "",
+      meta: "",
+      instruction: "",
+      adjusted: false,
       summary: "",
-      recommendationTitle: "No workout yet.",
-      recommendationBody: "Build your first plan so Athlevo can guide today’s training."
+      recommendationTitle: "Build your training plan.",
+      recommendationBody: "Tell Athlevo what you’re training for, how you currently train, and how much time you have. We’ll build the starting structure for you."
     };
   }
 
@@ -5970,11 +6078,19 @@ function buildTodayWorkoutCardView(snapshot){
   }) || null;
   var key = session ? classifyPlannedSessionType(session.session_type) : null;
   if (!session || key === "rest"){
+    var restInstruction = session
+      ? firstTodayInstruction(session) || "Recovery is part of the plan."
+      : "Nothing is scheduled for today.";
     return {
       state: "no-workout",
       action: "view",
       actionLabel: "View plan",
-      summary: key === "rest" ? "Rest day" : "",
+      title: key === "rest" ? "Recovery Day" : "No session scheduled",
+      workoutType: key === "rest" ? "Rest day" : "Current plan",
+      meta: key === "rest" ? "No running today." : "",
+      instruction: restInstruction,
+      adjusted: todaySessionWasAdjusted(session),
+      summary: key === "rest" ? "No running today." : "",
       recommendationTitle: "",
       recommendationBody: ""
     };
@@ -5984,13 +6100,13 @@ function buildTodayWorkoutCardView(snapshot){
     ? formatSessionType(session.session_type)
     : String(session.session_type || "")).trim();
 
-  var headline =
+  var fallbackHeadline =
     (key && TODAY_REC_HEADLINES[key]) ||
-    (session.title && String(session.title).trim()) ||
     title ||
     "Review today's training";
+  var headline = (session.title && String(session.title).trim()) || fallbackHeadline;
 
-  var summaryParts = [headline];
+  var summaryParts = [];
   var duration = Number(session.duration_minutes);
   var distance = Number(session.distance_km);
   if (Number.isFinite(duration) && duration > 0){
@@ -6008,19 +6124,34 @@ function buildTodayWorkoutCardView(snapshot){
     state: "workout",
     action: "workout",
     actionLabel: "Open workout",
+    title: headline,
+    workoutType: title && title !== headline ? title : "",
+    meta: summaryParts.join(" · "),
+    instruction: firstTodayInstruction(session),
+    adjusted: todaySessionWasAdjusted(session),
     summary: summaryParts.join(" · "),
     recommendationTitle: "",
     recommendationBody: ""
   };
 }
 
+function setTodayScreenState(state){
+  var screen = document.getElementById("screen-today");
+  var loading = document.getElementById("todayPlanLoadingState");
+  var noPlan = document.getElementById("todayNoPlanState");
+  var error = document.getElementById("todayPlanErrorState");
+  var active = document.getElementById("todayActivePlanState");
+  if (screen) screen.dataset.todayState = state;
+  if (loading) loading.hidden = state !== "loading";
+  if (noPlan) noPlan.hidden = state !== "no-plan";
+  if (error) error.hidden = state !== "unavailable";
+  if (active) active.hidden = state !== "active";
+}
+
 function setTodayPlanLoadingState(){
   var card = document.getElementById("dailyBriefCard");
-  var title = document.getElementById("todayDirectionLabel");
-  var body = document.getElementById("todayDirectionCoaching");
-  var summary = document.getElementById("todayWorkoutSummary");
   var action = document.getElementById("todayDirectionAction");
-  if (!card || !title || !body || !summary || !action) return;
+  if (!card || !action) return;
 
   action.dataset.action = "";
   action.hidden = true;
@@ -6033,21 +6164,21 @@ function setTodayPlanLoadingState(){
     : null;
   if (!safeSnapshot){
     card.dataset.planState = "loading";
-    summary.textContent = "";
-    summary.hidden = true;
-    title.textContent = "Checking your training plan…";
-    body.textContent = "Confirming today’s saved training.";
-    card.setAttribute("aria-label", "Athlevo Direction. Training status is loading.");
+    setTodayScreenState("loading");
+    card.setAttribute("aria-label", "Today’s training is loading.");
   }
 }
 
 function applyTodayPlanSnapshot(snapshot, requestFailed){
   var card = document.getElementById("dailyBriefCard");
-  var title = document.getElementById("todayDirectionLabel");
-  var body = document.getElementById("todayDirectionCoaching");
+  var workoutTitle = document.getElementById("todayWorkoutTitle");
+  var workoutType = document.getElementById("todayWorkoutType");
   var summary = document.getElementById("todayWorkoutSummary");
+  var instruction = document.getElementById("todayWorkoutInstruction");
+  var adjusted = document.getElementById("todayWorkoutAdjusted");
   var action = document.getElementById("todayDirectionAction");
-  if (!card || !title || !body || !summary || !action) return;
+  if (!card || !workoutTitle || !workoutType || !summary || !instruction ||
+      !adjusted || !action) return;
 
   var safeSnapshot = snapshot;
   if (!safeSnapshot && requestFailed === true &&
@@ -6058,26 +6189,37 @@ function applyTodayPlanSnapshot(snapshot, requestFailed){
   var view = buildTodayWorkoutCardView(safeSnapshot);
   card.dataset.refreshing = "false";
   card.dataset.planState = view.state;
-  action.dataset.action = view.action;
-  action.textContent = view.actionLabel;
-  action.hidden = !view.action;
-  action.disabled = !view.action;
-  summary.textContent = view.summary;
-  summary.hidden = !view.summary;
-
-  if (view.state === "no-plan" || view.state === "unavailable"){
-    title.textContent = view.recommendationTitle;
-    body.textContent = view.recommendationBody;
+  if (view.state === "no-plan"){
+    setTodayScreenState("no-plan");
+    action.dataset.action = "";
+    action.hidden = true;
+    action.disabled = true;
+  } else if (view.state === "unavailable"){
+    setTodayScreenState("unavailable");
+    action.dataset.action = "";
+    action.hidden = true;
+    action.disabled = true;
   } else {
-    title.textContent = card.dataset.recommendationTitle || "Keep today controlled.";
-    body.textContent = card.dataset.recommendationBody ||
-      "Limited data means today should stay measured.";
+    setTodayScreenState("active");
+    action.dataset.action = view.action;
+    action.textContent = view.actionLabel;
+    action.hidden = !view.action;
+    action.disabled = !view.action;
+    workoutTitle.textContent = view.title;
+    workoutType.textContent = view.workoutType;
+    workoutType.hidden = !view.workoutType;
+    summary.textContent = view.meta;
+    summary.hidden = !view.meta;
+    instruction.textContent = view.instruction;
+    instruction.hidden = !view.instruction;
+    adjusted.hidden = view.adjusted !== true;
+    card.setAttribute(
+      "aria-label",
+      "Today’s training. " + view.title +
+        (view.meta ? ". " + view.meta : "") +
+        (view.instruction ? ". " + view.instruction : "")
+    );
   }
-  card.setAttribute(
-    "aria-label",
-    "Athlevo Direction: " + String(card.dataset.direction || "hold").toUpperCase() +
-      ". " + title.textContent + " " + body.textContent
-  );
   applyTodayTrainingContext(safeSnapshot);
 }
 
@@ -6580,6 +6722,7 @@ async function renderTodayPassiveStatus(profile){
   var label = document.getElementById("todayDirectionLabel");
   var coaching = document.getElementById("todayDirectionCoaching");
   var card = document.getElementById("dailyBriefCard");
+  var statusCard = document.querySelector("#todayActivePlanState .today-status-card");
   var readinessSignal = document.getElementById("todayReadinessSignal");
   var readinessValue = document.getElementById("todayReadinessSignalValue");
   var readinessNote = document.getElementById("todayReadinessSignalNote");
@@ -6690,9 +6833,9 @@ async function renderTodayPassiveStatus(profile){
             : "Keep the effort measured.";
     }
     if (premiumTeaser) premiumTeaser.hidden = paid;
-    card.setAttribute(
+    if (statusCard) statusCard.setAttribute(
       "aria-label",
-      "Athlevo Direction: " + value.direction.state + ". " + label.textContent +
+      "Today’s status. " + label.textContent +
         " " + coaching.textContent + (value.quality ? " " + value.quality + "." : "")
     );
     if (why) {
@@ -6824,8 +6967,48 @@ window.refreshTodayAfterPlanChange = refreshTodayAfterPlanChange;
   });
 })();
 
+function refreshTodayWeekSnapshot(){
+  var section = document.getElementById("todayWeekSnapshot");
+  if (!section) return;
+  var metrics = section.querySelectorAll("[data-today-week-metric]");
+  var visible = 0;
+  metrics.forEach(function(metric){
+    var value = metric.querySelector(".today-week-value");
+    var text = String(value && value.textContent || "").trim();
+    var available = Boolean(text && text !== "—" && text !== "Not recorded");
+    metric.hidden = !available;
+    metric.dataset.firstVisible = "false";
+    if (available){
+      visible += 1;
+      if (visible === 1) metric.dataset.firstVisible = "true";
+    }
+  });
+  section.hidden = visible === 0;
+  var grid = section.querySelector(".today-week-grid");
+  if (grid) grid.dataset.visibleMetrics = String(visible);
+}
+
+(function initTodayWeekSnapshot(){
+  function attach(){
+    var section = document.getElementById("todayWeekSnapshot");
+    if (!section) return;
+    var values = section.querySelectorAll(".today-week-value");
+    if (window.MutationObserver){
+      var observer = new MutationObserver(refreshTodayWeekSnapshot);
+      values.forEach(function(value){
+        observer.observe(value, { childList: true, characterData: true, subtree: true });
+      });
+    }
+    refreshTodayWeekSnapshot();
+  }
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach);
+  } else { attach(); }
+})();
+
 (function initTodayCompactBoot(){
   function boot(){
+    updateTodayGreeting();
     try { renderTodayRecommendation(); } catch (e) {}
     try { renderTodayPassiveStatus(null); } catch (e) {}
   }

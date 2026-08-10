@@ -43,7 +43,7 @@ section("1. The obsolete Today setup card is removed");
 {
   t("the standalone Today plan-card mount is absent", !/id="todayPlanCta"/.test(html));
   t("the old dark-card CSS is absent", !/#todayPlanCta \.tpc-cta/.test(html));
-  t("Athlevo Direction owns the single contextual action",
+  t("Today’s Training owns the single active-plan action",
     /id="todayDirectionAction"/.test(html) &&
     /onclick="todayDirectionPrimaryAction\(\)"/.test(html));
   t("the contextual Build plan action uses the existing plan flow",
@@ -257,11 +257,18 @@ section("Today no longer duplicates connection or plan actions");
     html.indexOf('<section class="screen"',
       html.indexOf('<section class="screen" id="screen-today">') + 1)
   );
-  const card = today.slice(
-    today.indexOf('<article class="direction-card"'),
-    today.indexOf("</article>", today.indexOf('<article class="direction-card"'))
+  const trainingCard = today.slice(
+    today.indexOf('<article class="today-training-card"'),
+    today.indexOf("</article>", today.indexOf('<article class="today-training-card"'))
   );
-  t("Direction contains exactly one button", (card.match(/<button\b/g) || []).length === 1);
+  const noPlanCard = today.slice(
+    today.indexOf('<article class="today-no-plan"'),
+    today.indexOf("</article>", today.indexOf('<article class="today-no-plan"'))
+  );
+  t("each Today plan state contains one non-competing primary action",
+    (trainingCard.match(/<button\b/g) || []).length === 1 &&
+    (noPlanCard.match(/<button\b/g) || []).length === 1 &&
+    /function setTodayScreenState\(state\)[\s\S]*?noPlan\.hidden = state !== "no-plan"[\s\S]*?active\.hidden = state !== "active"/.test(html));
   t("Today contains no obsolete training-data confirmation card",
     !/Training data connected|Two steps to your plan|tpc-cta/.test(today));
   t("Today contains no standalone plan-card mount", !/todayPlanCta/.test(today));
