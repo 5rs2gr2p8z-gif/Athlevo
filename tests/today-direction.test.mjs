@@ -115,26 +115,26 @@ test("40–69 maps exactly to Moderate and the semantic amber tone",
       signal.tone === "readiness-moderate" &&
       signal.progress === score;
   }));
-test("70–100 maps exactly to Good and the semantic green tone",
+test("70–100 maps exactly to Ready and the semantic green tone",
   [70, 100].every(score => {
     const signal = helpers.buildReadinessSignalPresentation(score);
     return signal.value === String(score) &&
-      signal.note === "Good" &&
+      signal.note === "Ready" &&
       signal.tone === "readiness-good" &&
       signal.progress === score;
   }));
 test("missing readiness has no arc and no fabricated number",
   JSON.stringify(helpers.buildReadinessSignalPresentation(null)) ===
     JSON.stringify({
-      value: "—",
-      note: "No check-in",
+      value: "",
+      note: "Needs check-in",
       tone: "missing",
       progress: 0,
       progressKind: "missing"
     }) &&
   helpers.buildAthlevoDirectionView({
     readiness: { score: null }
-  }).signals.readiness.value === "—");
+  }).signals.readiness.value === "");
 test("score 61 stays Moderate even when source status metadata says good",
   helpers.buildAthlevoDirectionView({
     readiness: { score: 61, status: "good" }
@@ -162,7 +162,7 @@ console.log("\n──── Truthful contributors and confidence ────");
   test("missing readiness is not replaced with a fabricated score",
     partial.score === null && partial.readiness === "No recent check-in");
   test("missing load and pain are labelled honestly",
-    partial.load === "Load unavailable" &&
+    partial.load === "Building baseline" &&
     partial.pain === "Pain unavailable");
   test("incomplete signals show Limited data", partial.quality === "Limited data");
   test("missing signals retain the controlled-day coaching sentence",
@@ -191,28 +191,28 @@ test("RECOVER receives concise presentation copy without changing classification
   }).coaching === "Recovery signals suggest shortening or replacing the session.");
 
 console.log("\n──── Composite Recovery presentation ────");
-test("Recovery bands map exactly to Poor, Moderate, Good, and Excellent",
+test("Recovery bands preserve real scores across the existing thresholds",
   helpers.buildRecoverySignalPresentation({
     available: true, score: 39, quality: "Partial data"
-  }).value === "Poor" &&
+  }).value === "39" &&
   helpers.buildRecoverySignalPresentation({
     available: true, score: 40, quality: "Partial data"
-  }).value === "Moderate" &&
+  }).value === "40" &&
   helpers.buildRecoverySignalPresentation({
     available: true, score: 69, quality: "Partial data"
-  }).value === "Moderate" &&
+  }).value === "69" &&
   helpers.buildRecoverySignalPresentation({
     available: true, score: 70, quality: "Partial data"
-  }).value === "Good" &&
+  }).value === "70" &&
   helpers.buildRecoverySignalPresentation({
     available: true, score: 84, quality: "Partial data"
-  }).value === "Good" &&
+  }).value === "84" &&
   helpers.buildRecoverySignalPresentation({
     available: true, score: 85, quality: "Partial data"
-  }).value === "Excellent" &&
+  }).value === "85" &&
   helpers.buildRecoverySignalPresentation({
     available: true, score: 100, quality: "Partial data"
-  }).value === "Excellent");
+  }).value === "100");
 test("Recovery bands use the requested supporting copy and semantic tones",
   (() => {
     const poor = helpers.buildRecoverySignalPresentation({
@@ -228,9 +228,9 @@ test("Recovery bands use the requested supporting copy and semantic tones",
       available: true, score: 92, quality: "Full data"
     });
     return poor.note === "Recovery limited" && poor.tone === "recovery-poor" &&
-      moderate.note === "Some recovery" && moderate.tone === "recovery-moderate" &&
-      good.note === "Ready to train" && good.tone === "recovery-good" &&
-      excellent.note === "Very well recovered" &&
+      moderate.note === "Moderate" && moderate.tone === "recovery-moderate" &&
+      good.note === "On track" && good.tone === "recovery-good" &&
+      excellent.note === "Ready" &&
       excellent.tone === "recovery-excellent";
   })());
 test("insufficient Recovery stays neutral without a precise score or arc",
@@ -240,8 +240,8 @@ test("insufficient Recovery stays neutral without a precise score or arc",
       score: null,
       quality: "Limited data"
     });
-    return signal.value === "—" &&
-      signal.note === "Not enough data" &&
+    return signal.value === "" &&
+      signal.note === "Building baseline" &&
       signal.quality === "Limited data" &&
       signal.tone === "missing" &&
       signal.progress === 0 &&
@@ -275,7 +275,7 @@ test("Recovery does not duplicate the subjective readiness score directly",
       }
     });
     return view.signals.readiness.value === "72" &&
-      view.signals.recovery.value === "Excellent" &&
+      view.signals.recovery.value === "88" &&
       view.signals.recovery.score === 88;
   })());
 test("Today Recovery input uses real check-in and load fields without Form",
@@ -409,7 +409,7 @@ const readiness61 = {
 
   const readiness75 = {
     value: "75",
-    note: "Good",
+    note: "Ready",
     tone: "readiness-good",
     progress: 75,
     progressKind: "normalized"
@@ -444,17 +444,17 @@ const readiness61 = {
   const value = makeSignalNode();
   const note = makeSignalNode();
   runtime.api.renderTodayReadinessSignal(root, value, note, {
-    value: "—",
-    note: "No check-in",
+    value: "",
+    note: "Needs check-in",
     tone: "missing",
     progress: 0,
     progressKind: "missing"
   });
-  test("missing readiness is a neutral dash and never animates from fake zero",
+  test("missing readiness uses coaching copy and never animates from fake zero",
     runtime.frames.length === 0 &&
-    value.textContent === "—" &&
+    value.textContent === "" &&
     root.dataset.tone === "missing" &&
-    root.getAttribute("aria-label") === "Readiness, no check-in");
+    root.getAttribute("aria-label") === "Readiness, needs check-in");
 }
 
 console.log("\n──── Recovery ring transition behavior ────");
@@ -515,8 +515,8 @@ function makeRecoveryRingRuntime(reducedMotion = false) {
 }
 
 const recovery78 = {
-  value: "Good",
-  note: "Ready to train",
+  value: "78",
+  note: "On track",
   quality: "Partial data",
   tone: "recovery-good",
   progress: 78,
@@ -532,11 +532,11 @@ const recovery78 = {
   runtime.api.renderTodayRecoverySignal(root, value, note, quality, recovery78);
   test("initial confirmed Recovery animates once without showing fake zero",
     root.style.getPropertyValue("--signal-progress") === "0" &&
-    value.textContent === "Good" &&
+    value.textContent === "78" &&
     runtime.frames.length === 1);
   test("Recovery accessibility exposes score, band, and data quality",
     root.getAttribute("aria-label") ===
-      "Recovery 78 out of 100, Good. Partial data.");
+      "Recovery 78 out of 100, On track. Partial data.");
   runtime.runFrame();
   test("confirmed Recovery settles on its real score and semantic color",
     root.style.getPropertyValue("--signal-progress") === "78" &&
@@ -565,8 +565,8 @@ const recovery78 = {
   const note = makeSignalNode();
   const quality = makeSignalNode();
   runtime.api.renderTodayRecoverySignal(root, value, note, quality, {
-    value: "—",
-    note: "Not enough data",
+    value: "",
+    note: "Building baseline",
     quality: "Limited data",
     tone: "missing",
     progress: 0,
@@ -575,10 +575,10 @@ const recovery78 = {
   });
   test("Recovery loading and insufficient data never animate from fake zero",
     runtime.frames.length === 0 &&
-    value.textContent === "—" &&
+    value.textContent === "" &&
     root.dataset.tone === "missing" &&
     root.getAttribute("aria-label") ===
-      "Recovery, not enough data. Limited data.");
+      "Recovery, building baseline. Limited data.");
 }
 
 console.log("\n──── Training context ────");
@@ -630,10 +630,11 @@ const noPlanView = workoutHelpers.buildTodayWorkoutCardView({
 test("no plan produces the single Build plan action",
   noPlanView.action === "build" &&
   noPlanView.actionLabel === "Build My Plan" &&
-  noPlanView.recommendationTitle === "Build your training plan.");
+  noPlanView.recommendationTitle ===
+    "You’re already doing the work. Now give it a direction.");
 test("no plan recommendation explains the truthful next step",
   noPlanView.recommendationBody ===
-    "Tell Athlevo what you’re training for, how you currently train, and how much time you have. We’ll build the starting structure for you.");
+    "Tell us what you’re training for, and Athlevo will build a plan around where you are now, the time you have, and the goal you want to reach.");
 
 const workoutView = workoutHelpers.buildTodayWorkoutCardView({
   hasPlan: true,
@@ -730,10 +731,14 @@ test("loading, no-plan, error, and active-plan states have distinct mounts",
   /id="todayPlanErrorState" hidden/.test(today) &&
   /id="todayActivePlanState" hidden/.test(today) &&
   /function setTodayScreenState\(state\)/.test(html));
-test("the no-plan state is one clear plan-building card without empty signals",
-  /id="todayNoPlanState"[\s\S]*?<h2>Build your training plan\.<\/h2>[\s\S]*?Tell Athlevo what you’re training for, how you currently train, and how much time you have\. We’ll build the starting structure for you\.[\s\S]*?id="todayNoPlanAction"[\s\S]*?>Build My Plan<\/button>[\s\S]*?You can change your goal, schedule, or training availability later\./.test(today) &&
+test("the no-plan state uses the approved coaching voice and one plan action",
+  /id="todayNoPlanState"[\s\S]*?<h2>You’re already doing the work\. Now give it a direction\.<\/h2>[\s\S]*?id="todayNoPlanCopy">Tell us what you’re training for,[\s\S]*?id="todayNoPlanAction"[\s\S]*?>Build My Plan<\/button>[\s\S]*?First race, marathon, or a new PR — your starting point doesn’t matter\./.test(today) &&
   today.indexOf("todayNoPlanState") < today.indexOf("todayActivePlanState") &&
   !/direction-signal/.test(today.slice(today.indexOf("todayNoPlanState"), today.indexOf("todayPlanErrorState"))));
+test("the shared compact Athlete status follows both primary plan states",
+  /id="todayAthleteStatusCard"[\s\S]*?id="todayStatusHeading">Athlete status<\/span>/.test(today) &&
+  today.indexOf("todayAthleteStatusCard") > today.indexOf("todayActivePlanState") &&
+  /athleteStatus\.hidden = state !== "no-plan" && state !== "active"/.test(html));
 test("the active primary card exposes only real workout fields and one action",
   /id="todayWorkoutTitle"/.test(trainingMarkup) &&
   /id="todayWorkoutType" hidden/.test(trainingMarkup) &&
@@ -767,11 +772,13 @@ test("the third signal is visibly and accessibly named Recovery",
 test("Recovery exposes quiet Full, Partial, or Limited data quality",
   /id="todayRecoverySignalQuality">Limited data<\/span>/.test(statusMarkup) &&
   /qualityNode\.textContent = signal\.quality \|\| "Limited data"/.test(html));
-test("missing signals render explicit dashes and honest labels",
-  helpers.buildAthlevoDirectionView({}).signals.readiness.value === "—" &&
-  helpers.buildAthlevoDirectionView({}).signals.readiness.note === "No check-in" &&
-  helpers.buildAthlevoDirectionView({}).signals.load.note === "Load unavailable" &&
-  helpers.buildAthlevoDirectionView({}).signals.recovery.note === "Not enough data" &&
+test("missing signals avoid giant dashes and use coaching labels",
+  helpers.buildAthlevoDirectionView({}).signals.readiness.value === "" &&
+  helpers.buildAthlevoDirectionView({}).signals.readiness.note === "Needs check-in" &&
+  helpers.buildAthlevoDirectionView({}).signals.load.value === "" &&
+  helpers.buildAthlevoDirectionView({}).signals.load.note === "Building baseline" &&
+  helpers.buildAthlevoDirectionView({}).signals.recovery.value === "" &&
+  helpers.buildAthlevoDirectionView({}).signals.recovery.note === "Building baseline" &&
   helpers.buildAthlevoDirectionView({}).signals.load.progress === 0 &&
   helpers.buildAthlevoDirectionView({}).signals.recovery.progress === 0);
 test("real signal values remain dynamic",
@@ -792,7 +799,7 @@ test("real signal values remain dynamic",
     recovery: { acwr: 1.04 },
     checkIn: { recorded: true, soreness: 1, painPresent: false },
     compositeRecovery: { available: true, score: 78, quality: "Partial data" }
-  }).signals.recovery.value === "Good");
+  }).signals.recovery.value === "78");
 test("training-load display mapping remains categorical and unchanged", (() => {
   const missing = helpers.buildAthlevoDirectionView({}).signals.load;
   const below = helpers.buildAthlevoDirectionView({
@@ -807,8 +814,8 @@ test("training-load display mapping remains categorical and unchanged", (() => {
   const high = helpers.buildAthlevoDirectionView({
     recovery: { acwr: 1.5 }
   }).signals.load;
-  return missing.value === "—" &&
-    missing.note === "Load unavailable" &&
+  return missing.value === "" &&
+    missing.note === "Building baseline" &&
     missing.tone === "missing" &&
     below.value === "Low" &&
     below.note === "Below usual" &&
@@ -877,8 +884,8 @@ test("there is no duplicate legacy workout or plan CTA",
   !/class="today-workout-card"|id="todayRecommendationHeadline"|id="todayWorkoutCta"/.test(today) &&
   !/id="todayPlanCta"|#todayPlanCta \.tpc-cta/.test(html));
 test("Why this today is a native disclosure after status",
-  today.indexOf('<details class="direction-why">') > today.indexOf('<section class="today-status-card"') &&
-  /<details class="direction-why">\s*<summary>Why this today\?<\/summary>/.test(today));
+  today.indexOf('<details class="direction-why"') > today.indexOf('<section class="today-status-card"') &&
+  /<details class="direction-why" id="todayWhyToday" hidden>\s*<summary>Why this today\?<\/summary>/.test(today));
 test("workout summary uses only saved session metadata",
   /Number\(session\.duration_minutes\)/.test(html) &&
   /Number\(session\.distance_km\)/.test(html) &&
@@ -896,23 +903,40 @@ test("seven-day presentation hides unavailable values and keeps real values", ((
     dataset: {},
     querySelector: selector => selector === ".today-week-value" ? { textContent: text } : null
   });
-  const metrics = [metric("36.7 km"), metric("—"), metric("149 bpm")];
+  const metrics = [metric("74.8 km"), metric("—"), metric("149 bpm")];
   const grid = { dataset: {} };
+  const noPlanCopy = { textContent: "" };
+  const distance = { textContent: "74.8 km" };
   const section = {
     hidden: true,
     querySelectorAll: () => metrics,
     querySelector: selector => selector === ".today-week-grid" ? grid : null
   };
-  const document = { getElementById: () => section };
-  const refresh = new Function("document", `${extractFunction(html, "refreshTodayWeekSnapshot")}; return refreshTodayWeekSnapshot;`)(document);
+  const document = {
+    getElementById(id) {
+      if (id === "todayWeekSnapshot") return section;
+      if (id === "todayNoPlanCopy") return noPlanCopy;
+      if (id === "todaySevenDayDistance") return distance;
+      return null;
+    }
+  };
+  const refresh = new Function("document", `
+    ${extractFunction(html, "updateTodayNoPlanCopy")}
+    ${extractFunction(html, "refreshTodayWeekSnapshot")}
+    return refreshTodayWeekSnapshot;
+  `)(document);
   refresh();
   const partial = section.hidden === false && metrics[0].hidden === false &&
     metrics[1].hidden === true && metrics[2].hidden === false &&
-    grid.dataset.visibleMetrics === "2";
+    grid.dataset.visibleMetrics === "2" &&
+    noPlanCopy.textContent.startsWith("You logged 74.8 km over the last 7 days.");
+  distance.textContent = "—";
   metrics[0].querySelector = () => ({ textContent: "—" });
   metrics[2].querySelector = () => ({ textContent: "—" });
   refresh();
-  return partial && section.hidden === true && grid.dataset.visibleMetrics === "0";
+  return partial && section.hidden === true && grid.dataset.visibleMetrics === "0" &&
+    noPlanCopy.textContent ===
+      "Tell us what you’re training for, and Athlevo will build a plan around where you are now, the time you have, and the goal you want to reach.";
 })());
 test("install prompt is secondary and existing installed/unavailable hiding remains intact",
   today.indexOf("todayInstallCard") > today.indexOf("todayWeekSnapshot") &&

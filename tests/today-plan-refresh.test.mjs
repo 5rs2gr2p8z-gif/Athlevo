@@ -158,6 +158,8 @@ await world.api.refreshTodayAfterPlanChange("screen-enter");
 test("confirmed no-plan response renders only the dedicated no-plan state",
   world.elements.todayNoPlanState.hidden === false &&
   world.elements.todayActivePlanState.hidden === true &&
+  world.elements.todayAthleteStatusCard.hidden === false &&
+  world.elements.todayWhyToday.hidden === true &&
   world.elements.todayDirectionAction.hidden === true);
 test("the first render reads the authoritative get-week endpoint once",
   world.fetchCount === 1);
@@ -183,6 +185,8 @@ test("a successful plan change replaces stale no-plan state with Open workout",
   world.elements.todayWorkoutTitle.textContent === "Easy Run" &&
   world.elements.todayWorkoutSummary.textContent === "35 min · RPE 2–3" &&
   world.elements.todayActivePlanState.hidden === false &&
+  world.elements.todayAthleteStatusCard.hidden === false &&
+  world.elements.todayWhyToday.hidden === false &&
   world.elements.todayNoPlanState.hidden === true);
 test("plan change performs a new authoritative fetch",
   world.fetchCount === 2);
@@ -211,6 +215,8 @@ await failedWorld.api.refreshTodayAfterPlanChange("screen-enter");
 test("an API failure without a valid state shows the error state, never no-plan",
   failedWorld.elements.todayPlanErrorState.hidden === false &&
   failedWorld.elements.todayNoPlanState.hidden === true &&
+  failedWorld.elements.todayAthleteStatusCard.hidden === true &&
+  failedWorld.elements.todayWhyToday.hidden === true &&
   failedWorld.elements.todayDirectionAction.hidden === true);
 
 console.log("\n──── Persistence and lifecycle wiring ────");
