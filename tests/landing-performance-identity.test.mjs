@@ -15,6 +15,10 @@ const landing = html.slice(
   html.indexOf('<section class="screen lp" id="screen-landing">'),
   html.indexOf("<!-- ══════════════ WELCOME")
 );
+const philosophy = landing.slice(
+  landing.indexOf('<section class="lp-section lp-alt" id="athlete-first">'),
+  landing.indexOf("<!-- 3. WHO WE COACH")
+);
 
 let passed = 0;
 let failed = 0;
@@ -84,8 +88,19 @@ test("image slots are semantic hooks with no visible placeholder labels",
     landing.includes(`data-image-slot="${slot}"`)) &&
   !landing.includes("lp-photo-label") &&
   !landingContent.includes('node("span", "lp-photo-label"'));
-test("athlete philosophy uses its approved lazy-loaded training image",
-  /<img src="assets\/landing\/athlete-philosophy-training\.png"[^>]*alt="Athlevo athlete running during a training session\."[^>]*loading="lazy"[^>]*decoding="async"/.test(landing));
+test("athlete philosophy is text-only with no leftover media slot",
+  !/athlete-philosophy-training\.png|<img|lp-editorial-media|lp-photo-(?:landscape|philosophy)/.test(philosophy) &&
+  !/\.lp-photo-philosophy/.test(html) &&
+  /<div class="lp-wrap">\s*<div class="lp-editorial-copy">/.test(philosophy));
+test("athlete philosophy skeleton mirrors the text-only layout",
+  /<div class="lp-skel">/.test(philosophy) &&
+  /max-width:520px/.test(philosophy) &&
+  /grid-template-columns:1fr 1fr/.test(philosophy) &&
+  !/skel-block|height:420px/.test(philosophy));
+test("text-only philosophy keeps section-level skeleton and reveal behavior",
+  /<section class="lp-section lp-alt" id="athlete-first">/.test(philosophy) &&
+  /var imgs = sec\.querySelectorAll\('img'\)/.test(html) &&
+  /promises\.length \? Promise\.all\(promises\) : Promise\.resolve\(\)/.test(html));
 test("athlete story, offer, method, and FAQ collection roots exist",
   ["landingTrainingOffers", "landingAthleteStories", "landingMethodPrinciples", "landingFaq"]
     .every(id => landing.includes(`id="${id}"`)));
@@ -273,21 +288,14 @@ test("editorial media is borderless and real images use cover cropping",
 test("hero crop removes source bars while preserving the athlete group",
   /\.lp-photo-hero>img\{object-fit:cover;object-position:center 46%\}/.test(html) &&
   /@media \(max-width:700px\)\{[\s\S]*?\.lp-photo-hero>img\{object-position:center 42%\}/.test(html));
-test("athlete philosophy crop preserves the runner and excludes source bars",
-  /\.lp-photo-philosophy\{aspect-ratio:3\/4;min-height:520px\}/.test(html) &&
-  /\.lp-photo-philosophy>img\{object-fit:cover;object-position:center 30%\}/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-photo-philosophy\{[^}]*height:clamp\(280px,82vw,350px\)[^}]*aspect-ratio:auto[^}]*min-height:0/.test(html) &&
-  /@media \(max-width:900px\)\{[\s\S]*?\.lp-photo-philosophy>img\{object-position:center 42%\}/.test(html));
-test("athlete philosophy mobile image stays compact at target phone widths",
-  [375, 390, 430].every(width => {
-    const height = Math.min(350, Math.max(280, width * 0.82));
-    return height >= 280 && height <= 350;
-  }));
-test("athlete philosophy reads as one tight mobile editorial unit",
-  /@media \(max-width:900px\)\{[\s\S]*?#athlete-first \.lp-editorial-split\{gap:20px\}/.test(html) &&
+test("athlete philosophy uses compact text-only section spacing",
+  /#screen-landing #athlete-first\{padding:clamp\(48px,5vw,66px\) 0\}/.test(html) &&
+  /@media \(max-width:900px\)\{[\s\S]*?#screen-landing #athlete-first\{padding:42px 0 46px\}/.test(html) &&
   /#athlete-first \.lp-life-list\{margin:20px 0 16px;gap:6px 20px\}/.test(html) &&
   /#athlete-first \.lp-life-list\+\.lp-body\{margin-top:0\}/.test(html) &&
   /#athlete-first \.lp-life-list\+\.lp-body\+\.lp-body\{margin-top:10px\}/.test(html) &&
+  /\.lp-editorial-copy\{max-width:520px/.test(html) &&
+  /\.lp-life-list\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(html) &&
   !/@media \(max-width:380px\)\{[\s\S]*?\.lp-life-list\{grid-template-columns:1fr\}/.test(html));
 test("athlete stories use a compact three-column desktop grid",
   /\.lp-story-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);gap:18px/.test(html) &&
