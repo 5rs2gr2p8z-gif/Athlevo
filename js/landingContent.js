@@ -233,6 +233,12 @@
     renderStories();
     renderMethod();
     renderFaq();
+    /* Signal the skeleton system that dynamic content has been injected.
+       Each section's IntersectionObserver will wait for images to load
+       before setting section-ready=true. */
+    if (typeof global._athlevoLandingRecheck === "function") {
+      global._athlevoLandingRecheck();
+    }
   }
 
   global.ATHLEVO_LANDING_CONTENT = content;

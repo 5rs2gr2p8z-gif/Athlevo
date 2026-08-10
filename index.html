@@ -2507,10 +2507,55 @@ body.landing-active #tabbar{display:none!important}
 #screen-landing{padding:0;background:var(--paper);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased}
 #screen-landing .lp-wrap{max-width:1120px;margin:0 auto;padding:0 clamp(20px,5vw,40px);width:100%;box-sizing:border-box}
 
-/* reveal motion */
-.lp-reveal{opacity:0;transform:translateY(22px);transition:opacity .7s var(--ease-emphasized),transform .7s var(--ease-emphasized)}
-.lp-reveal.in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.lp-reveal{opacity:1;transform:none;transition:none}}
+/* ─── Skeleton utilities ─── */
+@keyframes skelShimmer{0%{background-position:200% 0}to{background-position:-200% 0}}
+.skel,.skel-line,.skel-block,.skel-circle{
+  background:linear-gradient(90deg,var(--line) 25%,var(--card) 50%,var(--line) 75%);
+  background-size:200% 100%;animation:skelShimmer 1.8s ease-in-out infinite}
+.skel{border-radius:6px}
+.skel-line{height:14px;border-radius:4px;margin:6px 0}
+.skel-line.sm{height:10px}.skel-line.md{height:16px}.skel-line.lg{height:20px}.skel-line.xl{height:32px}
+.skel-block{border-radius:8px}
+.skel-circle{border-radius:50%}
+
+/* ─── Skeleton overlay architecture ───
+   Without JS, .lp-skel stays display:none and all content is visible.
+   JS adds .lp-skeleton-active to #screen-landing to activate. */
+.lp-skel{display:none}
+.lp-hero,.lp-section,.lp-final-brand{position:relative}
+
+/* When skeleton is active: overlay skeleton, hide content visually but preserve geometry */
+.lp-skeleton-active .lp-hero:not(.lp-section-revealed) .lp-skel,
+.lp-skeleton-active .lp-section:not(.lp-section-revealed) .lp-skel,
+.lp-skeleton-active .lp-final-brand:not(.lp-section-revealed) .lp-skel{
+  display:block;position:absolute;inset:0;z-index:2;background:inherit;overflow:hidden;
+  padding:clamp(48px,7vw,80px) clamp(20px,5vw,40px)}
+.lp-skeleton-active .lp-hero:not(.lp-section-revealed) .lp-skel{
+  padding:clamp(40px,6vw,72px) clamp(20px,5vw,40px)}
+.lp-skeleton-active .lp-hero:not(.lp-section-revealed)>:not(.lp-skel),
+.lp-skeleton-active .lp-section:not(.lp-section-revealed)>:not(.lp-skel),
+.lp-skeleton-active .lp-final-brand:not(.lp-section-revealed)>:not(.lp-skel){visibility:hidden}
+
+/* Revealed: hide skeleton, show content */
+.lp-section-revealed .lp-skel{display:none}
+.lp-section-revealed>:not(.lp-skel){visibility:visible}
+
+/* ─── Section entrance motion ─── */
+@keyframes lpSectionIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.lp-hero.lp-section-revealed{animation:lpSectionIn 500ms var(--ease-standard) both}
+.lp-section.lp-section-revealed,
+.lp-final-brand.lp-section-revealed{animation:lpSectionIn 450ms var(--ease-standard) both}
+
+@media(prefers-reduced-motion:reduce){
+  .skel,.skel-line,.skel-block,.skel-circle{animation:none}
+  .lp-skel{display:none !important}
+  .lp-skeleton-active .lp-hero:not(.lp-section-revealed)>:not(.lp-skel),
+  .lp-skeleton-active .lp-section:not(.lp-section-revealed)>:not(.lp-skel),
+  .lp-skeleton-active .lp-final-brand:not(.lp-section-revealed)>:not(.lp-skel){visibility:visible}
+  .lp-hero.lp-section-revealed,
+  .lp-section.lp-section-revealed,
+  .lp-final-brand.lp-section-revealed{animation:none;opacity:1;transform:none}
+}
 
 /* nav */
 .lp-nav{position:sticky;top:0;z-index:50;background:var(--nav-glass);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid var(--line)}
@@ -3027,171 +3072,179 @@ body.landing-active #tabbar{display:none!important}
 
   <!-- 1. HERO -->
   <header class="lp-hero" id="lp-top">
+    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start"><div><div class="skel-line xl" style="width:70%"></div><div class="skel-line xl" style="width:55%"></div><div class="skel-line xl" style="width:65%"></div><div class="skel-line md" style="width:90%;margin-top:20px"></div><div class="skel-line md" style="width:75%"></div><div style="display:flex;gap:12px;margin-top:24px"><div class="skel-block" style="width:140px;height:48px"></div><div class="skel-block" style="width:150px;height:48px"></div></div></div><div class="skel-block" style="height:clamp(400px,50vw,700px)"></div></div></div>
     <div class="lp-wrap lp-hero-grid">
       <div class="lp-hero-copy">
-        <h1 class="lp-h1 lp-reveal">Your training plan<br>should change<br>when your life<br>does.</h1>
-        <p class="lp-lead lp-reveal">Personalized endurance coaching built around your goals, training history, recovery, and the life you actually have to live.</p>
-        <p class="lp-categories lp-reveal">Running · Marathon · Hybrid · Strength · Performance</p>
-        <div class="lp-cta lp-reveal">
+        <h1 class="lp-h1">Your training plan<br>should change<br>when your life<br>does.</h1>
+        <p class="lp-lead">Personalized endurance coaching built around your goals, training history, recovery, and the life you actually have to live.</p>
+        <p class="lp-categories">Running · Marathon · Hybrid · Strength · Performance</p>
+        <div class="lp-cta">
           <a class="lp-btn" href="#train-with-athlevo">Explore Athlevo</a>
           <a class="lp-btn ghost" href="#method">See how we coach</a>
         </div>
       </div>
-      <div class="lp-editorial-media lp-photo-hero lp-reveal">
+      <div class="lp-editorial-media lp-photo-hero">
         <img src="assets/landing/hero-athlevo.png" alt="Athlevo athletes together after a training session." width="1206" height="2622" loading="eager" fetchpriority="high" decoding="async">
       </div>
     </div>
   </header>
 
   <!-- 2. ATHLETE PHILOSOPHY -->
-  <section class=”lp-section lp-alt” id=”athlete-first”>
-    <div class=”lp-wrap lp-editorial-split”>
-      <div class=”lp-editorial-media lp-photo-landscape lp-photo-philosophy lp-reveal”>
-        <img src=”assets/landing/athlete-philosophy-training.png” alt=”Athlevo athlete running during a training session.” width=”1206” height=”2622” loading=”lazy” decoding=”async”>
+  <section class="lp-section lp-alt" id="athlete-first">
+    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,7vw,100px)"><div class="skel-block" style="height:420px"></div><div><div class="skel-line sm" style="width:40%"></div><div class="skel-line xl" style="width:80%;margin:12px 0"></div><div class="skel-line md" style="width:90%"></div><div class="skel-line md" style="width:70%"></div></div></div></div>
+    <div class="lp-wrap lp-editorial-split">
+      <div class="lp-editorial-media lp-photo-landscape lp-photo-philosophy">
+        <img src="assets/landing/athlete-philosophy-training.png" alt="Athlevo athlete running during a training session." width="1206" height="2622" loading="lazy" decoding="async">
       </div>
-      <div class=”lp-editorial-copy”>
-        <span class=”lp-kicker lp-reveal”>THE ATHLETE COMES FIRST</span>
-        <h2 class=”lp-h2 lp-reveal”>Training doesn’t happen in isolation.</h2>
-        <div class=”lp-life-list lp-reveal” aria-label=”Real-life training context”>
+      <div class="lp-editorial-copy">
+        <span class="lp-kicker">THE ATHLETE COMES FIRST</span>
+        <h2 class="lp-h2">Training doesn’t happen in isolation.</h2>
+        <div class="lp-life-list" aria-label="Real-life training context">
           <span>Work.</span><span>Sleep.</span><span>Strength.</span><span>Heat.</span>
           <span>Fatigue.</span><span>Missed sessions.</span><span>Life.</span>
         </div>
-        <p class=”lp-body lp-reveal”>Every one of them changes what the right training decision looks like.</p>
-        <p class=”lp-body lp-reveal”>Athlevo coaches the athlete in front of us — not the perfect week written on paper.</p>
+        <p class="lp-body">Every one of them changes what the right training decision looks like.</p>
+        <p class="lp-body">Athlevo coaches the athlete in front of us — not the perfect week written on paper.</p>
       </div>
     </div>
   </section>
 
   <!-- 3. WHO WE COACH -->
-  <section class=”lp-section”>
-    <div class=”lp-wrap lp-audience-layout”>
+  <section class="lp-section">
+    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:28%"></div><div class="skel-line xl" style="width:55%;margin:12px 0"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px"><div class="skel-block" style="height:90px"></div><div class="skel-block" style="height:90px"></div><div class="skel-block" style="height:90px"></div><div class="skel-block" style="height:90px"></div></div></div></div>
+    <div class="lp-wrap lp-audience-layout">
       <div>
-        <span class=”lp-kicker lp-reveal”>WHO WE COACH</span>
-        <h2 class=”lp-h2 lp-reveal”>Built for athletes with real lives.</h2>
+        <span class="lp-kicker">WHO WE COACH</span>
+        <h2 class="lp-h2">Built for athletes with real lives.</h2>
       </div>
-      <div class=”lp-audiences lp-reveal”>
-        <div class=”lp-audience”><span class=”lp-audience-name”>BEGINNERS</span><p>Build consistency and endurance properly instead of guessing.</p></div>
-        <div class=”lp-audience”><span class=”lp-audience-name”>BUSY RUNNERS</span><p>Make limited training time count through better structure.</p></div>
-        <div class=”lp-audience”><span class=”lp-audience-name”>RACE-FOCUSED RUNNERS</span><p>Prepare specifically for 5K, 10K, half marathon, marathon, and other endurance goals.</p></div>
-        <div class=”lp-audience”><span class=”lp-audience-name”>HYBRID ATHLETES</span><p>Balance running, strength, conditioning, tennis, cycling, gym work, or other sports without blindly stacking fatigue.</p></div>
+      <div class="lp-audiences">
+        <div class="lp-audience"><span class="lp-audience-name">BEGINNERS</span><p>Build consistency and endurance properly instead of guessing.</p></div>
+        <div class="lp-audience"><span class="lp-audience-name">BUSY RUNNERS</span><p>Make limited training time count through better structure.</p></div>
+        <div class="lp-audience"><span class="lp-audience-name">RACE-FOCUSED RUNNERS</span><p>Prepare specifically for 5K, 10K, half marathon, marathon, and other endurance goals.</p></div>
+        <div class="lp-audience"><span class="lp-audience-name">HYBRID ATHLETES</span><p>Balance running, strength, conditioning, tennis, cycling, gym work, or other sports without blindly stacking fatigue.</p></div>
       </div>
     </div>
   </section>
 
   <!-- 4. ATHLETE STORIES — rendered from js/landingContent.js -->
-  <section class=”lp-section lp-alt” id=”athletes”>
-    <div class=”lp-wrap”>
-      <span class=”lp-kicker lp-reveal”>ATHLETE STORIES</span>
-      <h2 class=”lp-h2 lp-reveal”>Built around the athlete. Proven with athletes.</h2>
-      <p class=”lp-body lp-reveal”>Athlevo has helped runners with different goals, backgrounds, and starting points train with more direction.</p>
-      <p class=”lp-story-swipe” aria-hidden=”true”>Swipe for more stories →</p>
-      <div class=”lp-story-grid lp-reveal” id=”landingAthleteStories” aria-label=”Athlevo athlete stories”></div>
+  <section class="lp-section lp-alt" id="athletes">
+    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:28%"></div><div class="skel-line xl" style="width:60%;margin:12px 0"></div><div class="skel-line md" style="width:80%"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px"><div class="skel-block" style="height:320px"></div><div class="skel-block" style="height:320px"></div><div class="skel-block" style="height:320px"></div></div></div></div>
+    <div class="lp-wrap">
+      <span class="lp-kicker">ATHLETE STORIES</span>
+      <h2 class="lp-h2">Built around the athlete. Proven with athletes.</h2>
+      <p class="lp-body">Athlevo has helped runners with different goals, backgrounds, and starting points train with more direction.</p>
+      <p class="lp-story-swipe" aria-hidden="true">Swipe for more stories →</p>
+      <div class="lp-story-grid" id="landingAthleteStories" aria-label="Athlevo athlete stories"></div>
     </div>
   </section>
 
   <!-- 5. FOUNDER STORY + METHOD -->
-  <section class=”lp-section” id=”about”>
-    <div class=”lp-wrap lp-founder-layout”>
-      <div class=”lp-founder-intro”>
-        <span class=”lp-kicker lp-reveal”>WHY ATHLEVO EXISTS</span>
-        <h2 class=”lp-h2 lp-reveal”>He started questioning what runners were told was difficult.</h2>
+  <section class="lp-section" id="about">
+    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:32%"></div><div class="skel-line xl" style="width:65%;margin:12px 0"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:24px"><div class="skel-block" style="height:480px"></div><div><div class="skel-line" style="width:95%"></div><div class="skel-line" style="width:85%"></div><div class="skel-line" style="width:90%"></div><div class="skel-line" style="width:60%"></div></div></div></div></div>
+    <div class="lp-wrap lp-founder-layout">
+      <div class="lp-founder-intro">
+        <span class="lp-kicker">WHY ATHLEVO EXISTS</span>
+        <h2 class="lp-h2">He started questioning what runners were told was difficult.</h2>
       </div>
-      <div class=”lp-editorial-media lp-photo-portrait lp-founder-media lp-reveal”>
-        <img src=”assets/landing/dean-founder.png” alt=”Dean Castro at an endurance race.” width=”1145” height=”1374” loading=”lazy” decoding=”async”>
+      <div class="lp-editorial-media lp-photo-portrait lp-founder-media">
+        <img src="assets/landing/dean-founder.png" alt="Dean Castro at an endurance race." width="1145" height="1374" loading="lazy" decoding="async">
       </div>
-      <div class=”lp-founder-story”>
-        <p class=”lp-reveal”>Dean Castro was 19, a student-athlete, runner, and coach, when the idea behind Athlevo began taking shape.</p>
-        <p class=”lp-reveal”>The more athletes he worked with, the more often he saw the same problem: runners were treating performance as something mysterious.</p>
+      <div class="lp-founder-story">
+        <p >Dean Castro was 19, a student-athlete, runner, and coach, when the idea behind Athlevo began taking shape.</p>
+        <p >The more athletes he worked with, the more often he saw the same problem: runners were treating performance as something mysterious.</p>
 
-        <div class=”lp-founder-observations lp-reveal”>
+        <div class="lp-founder-observations">
           <p>A sub-20 5K was treated like an impossible benchmark.</p>
           <p>A marathon was treated like a test of suffering.</p>
           <p>More mileage was assumed to mean more progress.</p>
           <p>Harder training was assumed to mean better training.</p>
         </div>
 
-        <p class=”lp-reveal”>But the athletes who improved were rarely the ones who simply did the most.</p>
-        <p class=”lp-reveal”>They were the ones whose training made sense.</p>
-        <p class=”lp-reveal”>Enough aerobic work. Enough intensity. Strength where it mattered. Progression at the right time. Recovery when the cost became too high. And adjustments when work, sleep, injuries, other sports, or life changed the equation.</p>
+        <p >But the athletes who improved were rarely the ones who simply did the most.</p>
+        <p >They were the ones whose training made sense.</p>
+        <p >Enough aerobic work. Enough intensity. Strength where it mattered. Progression at the right time. Recovery when the cost became too high. And adjustments when work, sleep, injuries, other sports, or life changed the equation.</p>
 
-        <blockquote class=”lp-founder-pullquote lp-reveal”>”Having workouts isn’t the same as knowing what decision to make next.”</blockquote>
+        <blockquote class="lp-founder-pullquote">”Having workouts isn’t the same as knowing what decision to make next.”</blockquote>
 
-        <p class=”lp-reveal”>By the time Dean had coached more than 300 runners, that idea had become the foundation of the Athlevo Method: individualize the training, account for the total load on the athlete, progress toward the actual demands of the goal, and keep adjusting based on what really happens.</p>
-        <p class=”lp-reveal”>But coaching athletes one by one created another problem.</p>
-        <p class=”lp-reveal”>Good coaching was difficult to scale.</p>
-        <p class=”lp-reveal”>So Dean began building the software himself.</p>
-        <p class=”lp-reveal”>Athlevo AI became a way to encode parts of that decision-making system for athletes who wanted to train independently. Human Coaching remained the deeper relationship for athletes who wanted a coach actively managing the process.</p>
-        <p class=”lp-reveal”>Today, both exist for the same reason:</p>
-        <p class=”lp-founder-conclusion lp-reveal”>Better training starts with better decisions.</p>
+        <p >By the time Dean had coached more than 300 runners, that idea had become the foundation of the Athlevo Method: individualize the training, account for the total load on the athlete, progress toward the actual demands of the goal, and keep adjusting based on what really happens.</p>
+        <p >But coaching athletes one by one created another problem.</p>
+        <p >Good coaching was difficult to scale.</p>
+        <p >So Dean began building the software himself.</p>
+        <p >Athlevo AI became a way to encode parts of that decision-making system for athletes who wanted to train independently. Human Coaching remained the deeper relationship for athletes who wanted a coach actively managing the process.</p>
+        <p >Today, both exist for the same reason:</p>
+        <p class="lp-founder-conclusion">Better training starts with better decisions.</p>
 
-        <div class=”lp-signature lp-reveal”>Dean Castro<span>Founder &amp; Head Coach</span><span>Athlete · Coach · Developer</span></div>
+        <div class="lp-signature">Dean Castro<span>Founder &amp; Head Coach</span><span>Athlete · Coach · Developer</span></div>
 
         <!-- THE ATHLEVO METHOD — merged from standalone section -->
-        <div class=”lp-method-merged lp-reveal” id=”method”>
-          <span class=”lp-kicker”>THE ATHLEVO METHOD</span>
-          <div class=”lp-principles” id=”landingMethodPrinciples” aria-label=”Athlevo Method principles”></div>
+        <div class="lp-method-merged" id="method">
+          <span class="lp-kicker">THE ATHLEVO METHOD</span>
+          <div class="lp-principles" id="landingMethodPrinciples" aria-label="Athlevo Method principles"></div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- 6. WAYS TO TRAIN — rendered from js/landingContent.js -->
-  <section class=”lp-section lp-alt” id=”train-with-athlevo”>
-    <div class=”lp-wrap”>
-      <span id=”coaching” aria-hidden=”true”></span>
-      <span id=”ai” aria-hidden=”true”></span>
-      <div class=”lp-section-head”>
+  <section class="lp-section lp-alt" id="train-with-athlevo">
+    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:26%"></div><div class="skel-line xl" style="width:55%;margin:12px 0"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px"><div class="skel-block" style="height:380px"></div><div class="skel-block" style="height:380px"></div><div class="skel-block" style="height:380px"></div></div></div></div>
+    <div class="lp-wrap">
+      <span id="coaching" aria-hidden="true"></span>
+      <span id="ai" aria-hidden="true"></span>
+      <div class="lp-section-head">
         <div>
-          <span class=”lp-kicker lp-reveal”>WAYS TO TRAIN</span>
-          <h2 class=”lp-h2 lp-reveal”>One coaching philosophy.<br>Four levels of support.</h2>
+          <span class="lp-kicker">WAYS TO TRAIN</span>
+          <h2 class="lp-h2">One coaching philosophy.<br>Four levels of support.</h2>
         </div>
-        <p class=”lp-body lp-reveal”>Choose how much guidance you want. Every Athlevo service follows the same performance-first coaching principles — from independent AI guidance to personal coaching with the founder.</p>
+        <p class="lp-body">Choose how much guidance you want. Every Athlevo service follows the same performance-first coaching principles — from independent AI guidance to personal coaching with the founder.</p>
       </div>
-      <p class=”lp-offer-swipe” aria-hidden=”true”>Swipe to compare →</p>
-      <div class=”lp-offer-rail lp-reveal” id=”landingTrainingOffers” aria-label=”Athlevo training options”></div>
-      <p class=”lp-offer-reassurance lp-reveal”>Not sure which one fits? Start with Plan and upgrade anytime.</p>
+      <p class="lp-offer-swipe" aria-hidden="true">Swipe to compare →</p>
+      <div class="lp-offer-rail" id="landingTrainingOffers" aria-label="Athlevo training options"></div>
+      <p class="lp-offer-reassurance">Not sure which one fits? Start with Plan and upgrade anytime.</p>
     </div>
   </section>
 
   <!-- 7. FAQ — rendered from js/landingContent.js -->
-  <section class=”lp-section”>
-    <div class=”lp-wrap”>
-      <span class=”lp-kicker lp-reveal”>QUESTIONS</span>
-      <h2 class=”lp-h2 lp-reveal”>Before you start.</h2>
-      <div class=”lp-faq lp-reveal” id=”landingFaq”></div>
+  <section class="lp-section">
+    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:22%"></div><div class="skel-line xl" style="width:38%;margin:12px 0"></div><div style="max-width:640px;margin-top:24px"><div class="skel-block" style="height:50px;margin-bottom:2px"></div><div class="skel-block" style="height:50px;margin-bottom:2px"></div><div class="skel-block" style="height:50px;margin-bottom:2px"></div><div class="skel-block" style="height:50px"></div></div></div></div>
+    <div class="lp-wrap">
+      <span class="lp-kicker">QUESTIONS</span>
+      <h2 class="lp-h2">Before you start.</h2>
+      <div class="lp-faq" id="landingFaq"></div>
     </div>
   </section>
 
   <!-- 8. FINAL CTA -->
-  <section class=”lp-final-brand”>
-    <!-- PHOTO REPLACEMENT: add <img src=”…” alt=”…” loading=”lazy” decoding=”async”> for FINAL_RACE_IMAGE here, then remove aria-hidden. -->
-    <div class=”lp-editorial-media lp-final-image” data-image-slot=”FINAL_RACE_IMAGE” aria-hidden=”true”></div>
-    <div class=”lp-final-overlay lp-reveal”>
-      <h2 class=”lp-h2”>Your training should make sense.</h2>
-      <p class=”lp-body”>Whether you want an adaptive system you can follow independently or a coach actively guiding the process, there is a place to start with Athlevo.</p>
-      <div class=”lp-cta”>
-        <a class=”lp-btn light” href=”#train-with-athlevo”>Train With Athlevo</a>
-        <a class=”lp-btn ghost-light” href=”mailto:support@athlevo.org?subject=Athlevo%20Human%20Coaching”>Talk to a Coach</a>
+  <section class="lp-final-brand">
+    <div class="lp-skel" style="background:#161719"><div style="max-width:1200px;margin:0 auto"><div class="skel-line xl" style="width:40%;background:rgba(255,255,255,.08)"></div><div class="skel-line md" style="width:70%;margin:16px 0;background:rgba(255,255,255,.06)"></div><div style="display:flex;gap:12px;margin-top:24px"><div class="skel-block" style="width:160px;height:48px;background:rgba(255,255,255,.08)"></div><div class="skel-block" style="width:140px;height:48px;background:rgba(255,255,255,.06)"></div></div></div></div>
+    <!-- PHOTO REPLACEMENT: add <img src="…" alt="…" loading="lazy" decoding="async"> for FINAL_RACE_IMAGE here, then remove aria-hidden. -->
+    <div class="lp-editorial-media lp-final-image" data-image-slot="FINAL_RACE_IMAGE" aria-hidden="true"></div>
+    <div class="lp-final-overlay">
+      <h2 class="lp-h2">Your training should make sense.</h2>
+      <p class="lp-body">Whether you want an adaptive system you can follow independently or a coach actively guiding the process, there is a place to start with Athlevo.</p>
+      <div class="lp-cta">
+        <a class="lp-btn light" href="#train-with-athlevo">Train With Athlevo</a>
+        <a class="lp-btn ghost-light" href="mailto:support@athlevo.org?subject=Athlevo%20Human%20Coaching">Talk to a Coach</a>
       </div>
-      <p class=”lp-enrollment”>Already speaking with an Athlevo coach? <a href=”mailto:support@athlevo.org?subject=Continue%20Athlevo%20Enrollment”>Continue your enrollment.</a></p>
+      <p class="lp-enrollment">Already speaking with an Athlevo coach? <a href="mailto:support@athlevo.org?subject=Continue%20Athlevo%20Enrollment">Continue your enrollment.</a></p>
     </div>
   </section>
 
   <!-- FOOTER -->
-  <footer class=”lp-footer”>
-    <div class=”lp-wrap lp-footer-in”>
-      <div class=”lp-brand”><img src=”/assets/athlevo-icon.png” alt=”Athlevo logo” width=”24” height=”24”><span>Athlevo<i>.</i></span></div>
-      <div class=”lp-footer-links”>
-        <a href=”#coaching”>Coaching</a>
-        <a href=”#ai”>AI</a>
-        <a href=”#method”>Method</a>
-        <a href=”#athletes”>Athletes</a>
-        <a href=”#about”>About</a>
-        <a onclick=”landingSignIn()” style=”cursor:pointer”>Sign In</a>
-        <a onclick=”openLegal(‘privacy’)” style=”cursor:pointer”>Privacy Policy</a>
-        <a onclick=”openLegal(‘terms’)” style=”cursor:pointer”>Terms of Service</a>
+  <footer class="lp-footer">
+    <div class="lp-wrap lp-footer-in">
+      <div class="lp-brand"><img src="/assets/athlevo-icon.png" alt="Athlevo logo" width="24" height="24"><span>Athlevo<i>.</i></span></div>
+      <div class="lp-footer-links">
+        <a href="#coaching">Coaching</a>
+        <a href="#ai">AI</a>
+        <a href="#method">Method</a>
+        <a href="#athletes">Athletes</a>
+        <a href="#about">About</a>
+        <a onclick="landingSignIn()" style="cursor:pointer">Sign In</a>
+        <a onclick="openLegal(‘privacy’)" style="cursor:pointer">Privacy Policy</a>
+        <a onclick="openLegal(‘terms’)" style="cursor:pointer">Terms of Service</a>
       </div>
-      <span class=”lp-footer-copy”>© Athlevo · athlevo.org</span>
+      <span class="lp-footer-copy">© Athlevo · athlevo.org</span>
     </div>
   </footer>
 
@@ -8308,24 +8361,98 @@ setTimeout(function () {
   window.addEventListener('load', confirmInstallOnce);
   if (document.readyState !== 'loading') confirmInstallOnce();
 
-  /* ─── Scroll-reveal for the landing page (.lp-reveal), reduced-motion safe */
-  function initReveal(){
-    var els = document.querySelectorAll('.lp-reveal');
-    if (!els.length) return;
+  /* ─── Landing skeleton + section-level motion ───
+   * Replaces the old per-element .lp-reveal stagger.
+   * Progressive enhancement: without JS, content is visible normally.
+   * JS adds .lp-skeleton-active and manages section reveals.
+   */
+  (function initLandingSkeleton(){
+    var landing = document.getElementById('screen-landing');
+    if (!landing) return;
+
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || !('IntersectionObserver' in window)) {
-      els.forEach(function(el){ el.classList.add('in'); });
-      return;
+    var hero = landing.querySelector('.lp-hero');
+    var sections = landing.querySelectorAll('.lp-section, .lp-final-brand');
+
+    /* Activate skeleton system — hides content, shows skeleton overlays.
+       Without this class, .lp-skel stays display:none and content is visible. */
+    if (!reduce) {
+      landing.classList.add('lp-skeleton-active');
     }
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(en){
-        if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+
+    function revealSection(el) {
+      el.classList.add('lp-section-revealed');
+    }
+
+    /* ── Hero: wait for image + fonts, then reveal ── */
+    function initHero() {
+      if (!hero) return;
+      if (reduce) { revealSection(hero); return; }
+
+      var heroImg = hero.querySelector('img');
+      var imgReady = !heroImg ? Promise.resolve() :
+        heroImg.complete ? Promise.resolve() :
+        new Promise(function(res) {
+          heroImg.addEventListener('load', res, {once:true});
+          heroImg.addEventListener('error', res, {once:true});
+        });
+      var fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
+
+      Promise.all([imgReady, fontsReady]).then(function() {
+        revealSection(hero);
+        if (document.body.classList.contains('booting') &&
+            landing.classList.contains('active')) {
+          if (typeof endBootGate === 'function') endBootGate();
+        }
       });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
-    els.forEach(function(el){ io.observe(el); });
-  }
-  if (document.readyState !== 'loading') initReveal();
-  else document.addEventListener('DOMContentLoaded', initReveal);
+
+      /* Safety: if hero doesn't load in 4s, reveal anyway */
+      setTimeout(function() {
+        if (!hero.classList.contains('lp-section-revealed')) revealSection(hero);
+      }, 4000);
+    }
+
+    /* ── Below-fold: IntersectionObserver + bounded image wait ── */
+    function initSections() {
+      if (reduce || !('IntersectionObserver' in window)) {
+        sections.forEach(revealSection);
+        return;
+      }
+
+      var sio = new IntersectionObserver(function(entries) {
+        entries.forEach(function(en) {
+          if (!en.isIntersecting) return;
+          var sec = en.target;
+          sio.unobserve(sec);
+
+          var imgs = sec.querySelectorAll('img');
+          var promises = [];
+          imgs.forEach(function(img) {
+            if (img.complete) return;
+            promises.push(new Promise(function(res) {
+              img.addEventListener('load', res, {once:true});
+              img.addEventListener('error', res, {once:true});
+            }));
+          });
+
+          /* Bounded wait: if images take >3s, reveal anyway */
+          var timeout = new Promise(function(res) { setTimeout(res, 3000); });
+          Promise.race([
+            promises.length ? Promise.all(promises) : Promise.resolve(),
+            timeout
+          ]).then(function() { revealSection(sec); });
+        });
+      }, { rootMargin: '0px 0px -6% 0px', threshold: 0.05 });
+
+      sections.forEach(function(sec) { sio.observe(sec); });
+    }
+
+    initHero();
+    initSections();
+
+    /* Expose for landingContent.js to call after dynamic render */
+    window._athlevoLandingRecheck = function() {};
+  })();
 })();
 </script>
 </html>
