@@ -480,12 +480,16 @@ body{
 .screen > * {
   flex-shrink: 0;
 }
-/* Navigation transitions — every tab/screen swap gets one consistent short
-   entrance so the user never sees an abrupt paint. Transform + opacity only,
-   so no layout shift, and the global prefers-reduced-motion rule below
-   collapses this to an instant paint for users who ask for less motion. */
-.screen.active{display:flex;animation:screenIn var(--dur-base) var(--ease-standard) both}
-@keyframes screenIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* Top-level tab motion is applied to the screen wrapper only. Cached screens
+   paint immediately; these classes exist solely during an actual tab change. */
+.screen.active{display:flex}
+.screen.tab-leaving{pointer-events:none;opacity:0;transform:translateY(-2px);
+  transition:opacity var(--dur-fast) var(--ease-standard),
+    transform var(--dur-fast) var(--ease-standard)}
+.screen.tab-entering{opacity:0;transform:translateY(7px)}
+.screen.tab-entering.tab-entering-active{opacity:1;transform:none;
+  transition:opacity var(--dur-base) var(--ease-standard),
+    transform var(--dur-base) var(--ease-standard)}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 .pad{padding:0 22px}
@@ -512,16 +516,24 @@ body{
   -webkit-backdrop-filter: blur(18px);
 
   border-top: 1px solid var(--line);
+  isolation:isolate;
 }
-.tab{background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink3);width:64px;padding:2px 0;transition:color var(--dur-base)}
+.tab{position:relative;z-index:1;background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink3);width:64px;padding:2px 0;opacity:.66;transition:color var(--dur-base) var(--ease-standard),opacity var(--dur-base) var(--ease-standard)}
 .tab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .tab span{font-size:var(--fs-micro);font-weight:600;letter-spacing:.02em}
-.tab.on{color:var(--text)}
-.tab.on .dotmark{opacity:1}
+.tab.on{color:var(--text);opacity:1}
+.tab.on span{font-weight:700}
 /* Instant press acknowledgment on the tab bar — the whole nav feels
    responsive even before the screen animates in. */
 .tab:active{opacity:.7;transition:opacity var(--dur-fast) var(--ease-standard)}
-.dotmark{width:4px;height:4px;border-radius:50%;background:var(--red);opacity:0;transition:opacity var(--dur-base);margin-top:1px}
+.dotmark{display:none}
+.nav-active-indicator{position:absolute;z-index:0;left:0;
+  bottom:calc(max(10px, env(safe-area-inset-bottom)) + 2px);height:2px;
+  width:24px;border-radius:var(--r-pill);background:var(--red);pointer-events:none;
+  transform:translate3d(0,0,0);transform-origin:left center;
+  transition:transform var(--dur-slow) var(--ease-standard),
+    width var(--dur-slow) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard)}
+.nav-active-indicator[data-ready="false"]{opacity:0;transition:none}
 .tab:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:8px}
 
 /* ---------- cards ---------- */
@@ -2474,31 +2486,55 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   .cf-pulse,.cf-stage.active .cf-stage-mark{animation:none}
 }
 
-/* ── Boot gate ──────────────────────────────────────────────────────────
-   A FIXED OVERLAY, not a screen in the normal flow. That distinction is what
-   removes layout shift: the destination surface (full-bleed landing or the
-   phone-framed app shell) is laid out underneath while the overlay is still
-   opaque, so the reveal is a fade, never a reflow.
-
-   The overlay is tied to body.booting rather than to .active, so it survives
-   until routing genuinely finishes — the athlete sees a populated Today, not
-   an empty one filling in.
-
-   The spinner is delayed ~450ms and fades in, so the normal fast restore
-   (session comes from localStorage) shows a still background and no spinner
-   at all — it reads as instant rather than as a flash of loading UI. */
+/* ── Boot shell ─────────────────────────────────────────────────────────
+   A fixed first-frame shell keeps layout stable while auth routing resolves.
+   It mirrors Today's real hierarchy and bottom navigation without presenting
+   fake values. The routed screen is laid out underneath and replaces this
+   shell in one opacity-only reveal. */
 #boot-gate{position:fixed;inset:0;z-index:9998;background:var(--paper);
-  display:flex;align-items:center;justify-content:center;
+  display:block;
   opacity:1;transition:opacity var(--dur-base) ease}
 body:not(.booting) #boot-gate{opacity:0;pointer-events:none;visibility:hidden}
 body.booting #tabbar{display:none!important}
-.boot-spinner{width:26px;height:26px;border-radius:50%;
-  border:2px solid var(--line);border-top-color:var(--ink2);
-  opacity:0;animation:bootFade .25s ease .45s forwards, bootSpin .7s linear infinite}
-@keyframes bootSpin{to{transform:rotate(360deg)}}
-@keyframes bootFade{to{opacity:1}}
+.boot-shell{position:relative;width:min(100%,430px);height:100dvh;margin:0 auto;
+  overflow:hidden;background:var(--paper)}
+.boot-content{height:100%;box-sizing:border-box;overflow:hidden;
+  padding:calc(22px + env(safe-area-inset-top)) 22px
+    calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom) + 22px)}
+.boot-mark{width:30px;height:30px;border-radius:8px;margin-bottom:17px}
+.boot-greeting{width:min(72%,260px);height:31px;margin-bottom:8px}
+.boot-context{width:min(48%,180px);height:12px;margin-bottom:24px}
+.boot-primary-card{height:214px;border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:20px;box-sizing:border-box;background:var(--paper)}
+.boot-primary-card .boot-line{height:12px;margin-bottom:13px}
+.boot-primary-card .boot-line--eyebrow{width:74px;height:9px}
+.boot-primary-card .boot-line--title{width:82%;height:30px;margin-top:19px}
+.boot-primary-card .boot-line--copy{width:94%}
+.boot-primary-card .boot-line--copy-short{width:68%}
+.boot-primary-card .boot-action{height:46px;margin-top:25px;border-radius:var(--r-pill)}
+.boot-section-title{width:108px;height:10px;margin:21px 0 12px}
+.boot-status-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-3);
+  padding:15px 14px;border:1px solid var(--line);border-radius:var(--r-md)}
+.boot-status-item{display:grid;justify-items:center;gap:7px}
+.boot-status-ring{width:54px;height:54px;border-radius:50%}
+.boot-status-label{width:62px;height:9px}
+.boot-week-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.boot-week-item{padding:13px 10px 12px 0}
+.boot-week-item+.boot-week-item{padding-left:10px;border-left:1px solid var(--line)}
+.boot-week-value{width:58px;height:13px;margin-bottom:7px}
+.boot-week-label{width:48px;height:8px}
+.boot-tabbar{position:absolute;left:0;right:0;bottom:0;min-height:var(--athlevo-tabbar-height);
+  box-sizing:border-box;display:flex;justify-content:space-around;align-items:center;
+  padding:10px 8px max(10px,env(safe-area-inset-bottom));background:var(--nav-glass);
+  border-top:1px solid var(--line)}
+.boot-tab{display:grid;justify-items:center;gap:5px;width:64px;color:var(--ink3);opacity:.52}
+.boot-tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.boot-tab span{font-size:var(--fs-micro);font-weight:600}
+@media(min-width:480px){.boot-shell{height:calc(100dvh - 56px);margin:28px auto;
+  border-radius:44px;box-shadow:0 0 0 1px rgba(0,0,0,.04),0 24px 80px rgba(0,0,0,.10)}}
 @media (prefers-reduced-motion:reduce){
-  .boot-spinner{animation:bootFade .25s ease .45s forwards}
   #boot-gate{transition:none}
 }
 body.landing-active{background:var(--paper)}
@@ -3028,12 +3064,43 @@ body.landing-active #tabbar{display:none!important}
   landing nor the app shell can appear until session restoration resolves.
   This is what stopped the landing page flashing inside the installed PWA.
 
-  Contentless by design: it inherits the theme background already applied by
-  the inline theme script in <head>, so it reads as "the app is opening"
-  rather than as a screen of its own.
+  The shell contains no fake athlete values; it only mirrors Today's layout
+  until authenticated routing and real data finish.
 -->
-<div id="boot-gate" aria-hidden="true">
-  <div class="boot-spinner"></div>
+<div id="boot-gate" role="status" aria-label="Loading Athlevo">
+  <div class="boot-shell" aria-hidden="true">
+    <div class="boot-content">
+      <div class="skel boot-mark"></div>
+      <div class="skel boot-greeting"></div>
+      <div class="skel boot-context"></div>
+      <div class="boot-primary-card">
+        <div class="skel boot-line boot-line--eyebrow"></div>
+        <div class="skel boot-line boot-line--title"></div>
+        <div class="skel boot-line boot-line--copy"></div>
+        <div class="skel boot-line boot-line--copy-short"></div>
+        <div class="skel boot-action"></div>
+      </div>
+      <div class="skel boot-section-title"></div>
+      <div class="boot-status-row">
+        <div class="boot-status-item"><div class="skel boot-status-ring"></div><div class="skel boot-status-label"></div></div>
+        <div class="boot-status-item"><div class="skel boot-status-ring"></div><div class="skel boot-status-label"></div></div>
+        <div class="boot-status-item"><div class="skel boot-status-ring"></div><div class="skel boot-status-label"></div></div>
+      </div>
+      <div class="skel boot-section-title"></div>
+      <div class="boot-week-row">
+        <div class="boot-week-item"><div class="skel boot-week-value"></div><div class="skel boot-week-label"></div></div>
+        <div class="boot-week-item"><div class="skel boot-week-value"></div><div class="skel boot-week-label"></div></div>
+        <div class="boot-week-item"><div class="skel boot-week-value"></div><div class="skel boot-week-label"></div></div>
+      </div>
+    </div>
+    <div class="boot-tabbar">
+      <div class="boot-tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg><span>Today</span></div>
+      <div class="boot-tab"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"></path></svg><span>Coach</span></div>
+      <div class="boot-tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg><span>Train</span></div>
+      <div class="boot-tab"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"></path></svg><span>Trends</span></div>
+      <div class="boot-tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg><span>You</span></div>
+    </div>
+  </div>
 </div>
 
 <div class="device">
@@ -3469,7 +3536,7 @@ body.landing-active #tabbar{display:none!important}
     .today-skeleton-line--meta{width:min(58%,220px)}
     .today-skeleton-line--copy{width:94%}
     .today-skeleton-action{height:46px;margin-top:auto;border-radius:var(--r-pill)}
-    .today-no-plan{padding:24px 20px 20px;border-top:3px solid var(--red)}
+    .today-no-plan{padding:24px 20px 20px}
     .today-state-eyebrow,.today-section-eyebrow{display:block;font-size:var(--fs-micro);
       font-weight:750;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
     .today-no-plan h2,.today-plan-error h2{margin:9px 0 10px;font-family:var(--serif);
@@ -3483,7 +3550,7 @@ body.landing-active #tabbar{display:none!important}
     .today-primary-btn:disabled{opacity:.5;cursor:default}
     .today-active-plan{display:grid}
     .today-training-card{position:relative;overflow:hidden;background:var(--paper);
-      border:1px solid var(--line);border-top:3px solid var(--red);border-radius:var(--r-lg);
+      border:1px solid var(--line);border-radius:var(--r-lg);
       padding:17px 18px 18px;box-shadow:var(--elev-2);box-sizing:border-box}
     .today-training-topline{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3)}
     .today-adjusted-label{font-size:var(--fs-micro);font-weight:700;color:var(--red)}
@@ -3537,6 +3604,7 @@ body.landing-active #tabbar{display:none!important}
     .direction-signal[data-tone="recovery-good"],
     .direction-signal[data-tone="recovery-excellent"]{--signal-color:var(--good)}
     .direction-signal[data-tone="missing"]{--signal-color:var(--line)}
+    .direction-signal[data-tone="missing"] .direction-signal-ring{border-radius:50%;background:var(--card)}
     html[data-theme="dark"] .direction-signal[data-tone="recovery"]{--signal-color:#78a6ff}
     @media (prefers-color-scheme: dark){
       html[data-theme="system"] .direction-signal[data-tone="recovery"]{--signal-color:#78a6ff}
@@ -5572,18 +5640,171 @@ async function connectStrava() {
 window.connectStrava = connectStrava;
 
 /* ---------- navigation ---------- */
+var athlevoScreenTransitionToken = 0;
+var athlevoNavSyncFrame = null;
+
+function athlevoPrefersReducedMotion(){
+  return Boolean(window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
+function ensureNavActiveIndicator(){
+  var tabbar = document.getElementById("tabbar");
+  if (!tabbar) return null;
+  var indicator = tabbar.querySelector(".nav-active-indicator");
+  if (!indicator){
+    indicator = document.createElement("span");
+    indicator.className = "nav-active-indicator";
+    indicator.dataset.ready = "false";
+    indicator.setAttribute("aria-hidden", "true");
+    tabbar.appendChild(indicator);
+  }
+  return indicator;
+}
+
+/* One layout measurement per selection. Transform and width do the rest; no
+   reads occur inside animation frames or loops. */
+function positionNavActiveIndicator(tab, animate){
+  var tabbar = document.getElementById("tabbar");
+  var indicator = ensureNavActiveIndicator();
+  if (!tabbar || !indicator || !tab || !tab.getBoundingClientRect) return;
+  var barRect = tabbar.getBoundingClientRect();
+  var tabRect = tab.getBoundingClientRect();
+  if (!barRect.width || !tabRect.width){
+    indicator.dataset.ready = "false";
+    return;
+  }
+  var width = Math.max(24, Math.min(32, Math.round(tabRect.width * .42)));
+  var offset = Math.round(tabRect.left - barRect.left + (tabRect.width - width) / 2);
+  var shouldAnimate = animate !== false && indicator.dataset.ready === "true" &&
+    !athlevoPrefersReducedMotion();
+  if (!shouldAnimate) indicator.style.transition = "none";
+  indicator.style.width = width + "px";
+  indicator.style.transform = "translate3d(" + offset + "px,0,0)";
+  indicator.dataset.ready = "true";
+  if (!shouldAnimate){
+    var release = function(){ indicator.style.transition = ""; };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(release);
+    else setTimeout(release, 0);
+  }
+}
+
+function selectAppTab(tab, animate){
+  if (!tab) return;
+  document.querySelectorAll("#tabbar .tab").forEach(function(item){
+    item.classList.remove("on");
+  });
+  tab.classList.add("on");
+  positionNavActiveIndicator(tab, animate);
+}
+
+function syncAppTabForScreen(screenId, animate){
+  var tab = document.querySelector('#tabbar .tab[data-screen="' + screenId + '"]');
+  if (tab) selectAppTab(tab, animate);
+}
+
+function clearAppScreenMotion(screen){
+  if (!screen) return;
+  screen.classList.remove("tab-leaving", "tab-entering", "tab-entering-active");
+}
+
+function showAppScreenImmediately(screenId){
+  athlevoScreenTransitionToken += 1;
+  document.querySelectorAll(".screen").forEach(function(screen){
+    clearAppScreenMotion(screen);
+    screen.classList.remove("active");
+  });
+  var target = document.getElementById(screenId);
+  if (target) target.classList.add("active");
+  return target;
+}
+
+function transitionTopLevelScreen(screenId){
+  var target = document.getElementById(screenId);
+  var current = document.querySelector(".screen.active");
+  if (!target || current === target || !current || athlevoPrefersReducedMotion()){
+    showAppScreenImmediately(screenId);
+    return Promise.resolve(target);
+  }
+
+  athlevoScreenTransitionToken += 1;
+  var token = athlevoScreenTransitionToken;
+  document.querySelectorAll(".screen").forEach(clearAppScreenMotion);
+  current.classList.add("tab-leaving");
+
+  return new Promise(function(resolve){
+    setTimeout(function(){
+      if (token !== athlevoScreenTransitionToken){ resolve(null); return; }
+      document.querySelectorAll(".screen").forEach(function(screen){
+        clearAppScreenMotion(screen);
+        screen.classList.remove("active");
+      });
+      target.classList.add("active", "tab-entering");
+      var enter = function(){
+        if (token !== athlevoScreenTransitionToken){ resolve(null); return; }
+        target.classList.add("tab-entering-active");
+        setTimeout(function(){
+          if (token === athlevoScreenTransitionToken) clearAppScreenMotion(target);
+          resolve(target);
+        }, 220);
+      };
+      if (window.requestAnimationFrame) window.requestAnimationFrame(enter);
+      else setTimeout(enter, 0);
+    }, 140);
+  });
+}
+
+function syncNavIndicatorToActiveTab(animate){
+  var active = document.querySelector("#tabbar .tab.on");
+  if (active) positionNavActiveIndicator(active, animate);
+}
+
+function initAthlevoAppMotion(){
+  var tabbar = document.getElementById("tabbar");
+  if (!tabbar || tabbar.dataset.motionReady === "true") return;
+  tabbar.dataset.motionReady = "true";
+  ensureNavActiveIndicator();
+  if (window.MutationObserver){
+    var observer = new MutationObserver(function(){
+      if (athlevoNavSyncFrame !== null) return;
+      var sync = function(){
+        athlevoNavSyncFrame = null;
+        ensureNavActiveIndicator();
+        syncNavIndicatorToActiveTab(false);
+      };
+      athlevoNavSyncFrame = window.requestAnimationFrame
+        ? window.requestAnimationFrame(sync)
+        : setTimeout(sync, 0);
+    });
+    observer.observe(tabbar, { childList: true });
+  }
+  window.addEventListener("resize", function(){ syncNavIndicatorToActiveTab(false); });
+  syncNavIndicatorToActiveTab(false);
+}
+
+window.AthlevoAppMotion = {
+  selectTab: selectAppTab,
+  selectScreen: syncAppTabForScreen,
+  transitionTo: transitionTopLevelScreen,
+  showImmediately: showAppScreenImmediately,
+  syncIndicator: syncNavIndicatorToActiveTab
+};
+
 async function go(btn){
   var screenId = btn.dataset.screen;
-
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  btn.classList.add('on');
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(screenId).classList.add('active');
+  selectAppTab(btn, true);
+  var screenTransition = transitionTopLevelScreen(screenId);
 
   // Entitlement gate: free users see locked previews on premium tabs.
   if (window.AthlevoAccessGuard && typeof window.AthlevoAccessGuard.guardTab === "function") {
     var blocked = await window.AthlevoAccessGuard.guardTab(screenId);
-    if (blocked) return;   // locked preview is already rendered
+    if (blocked) {
+      await screenTransition;
+      if (typeof window.AthlevoAccessGuard.refreshPremiumViews === "function") {
+        window.AthlevoAccessGuard.refreshPremiumViews();
+      }
+      return;   // locked preview is already rendered
+    }
   }
 
   if (screenId === "screen-train" && typeof window.loadWeeklyPlan === "function") {
@@ -5608,6 +5829,7 @@ async function go(btn){
       if (chatlog) chatlog.scrollTop = chatlog.scrollHeight;
     });
   }
+  await screenTransition;
   try {
     if (
       window.AthlevoAccessGuard &&
@@ -5617,6 +5839,7 @@ async function go(btn){
     }
   } catch (e) {}
 }
+initAthlevoAppMotion();
 function enterCoachMode(){
   // Coach Mode is disabled in the athlete-facing beta. Kept as a no-op
   // (rather than deleted) so the roster markup/logic can seed a future
@@ -5732,8 +5955,17 @@ document.addEventListener("visibilitychange", function () {
 });
 
 function showScreen(id){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  if (window.AthlevoAppMotion &&
+      typeof window.AthlevoAppMotion.showImmediately === "function") {
+    window.AthlevoAppMotion.showImmediately(id);
+  } else {
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  if (window.AthlevoAppMotion &&
+      typeof window.AthlevoAppMotion.selectScreen === "function") {
+    window.AthlevoAppMotion.selectScreen(id, false);
+  }
   /*
    * Deliberately does NOT lift the boot gate. Screens are laid out underneath
    * the opaque overlay so the reveal is a fade with no reflow — and so the
@@ -7424,6 +7656,10 @@ function endBootGate() {
   if (!anyVisible) {
     document.getElementById('tabbar').style.display = 'none';
     showScreen(isStandaloneMode() ? "screen-welcome" : "screen-landing");
+  }
+  if (window.AthlevoAppMotion &&
+      typeof window.AthlevoAppMotion.syncIndicator === "function") {
+    window.AthlevoAppMotion.syncIndicator(false);
   }
   document.body.classList.remove('booting');
   try {

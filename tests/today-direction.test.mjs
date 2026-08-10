@@ -857,7 +857,8 @@ test("three compact progress rings stay secondary and use no gradients",
   /\.direction-signal-progress\{[^}]*stroke-dasharray:var\(--signal-progress\) 100/.test(html) &&
   !/conic-gradient|radial-gradient|linear-gradient/.test(directionCss));
 test("the training card is visually primary while status uses the quieter surface",
-  /\.today-training-card\{[^}]*border-top:3px solid var\(--red\)[^}]*box-shadow:var\(--elev-2\)/.test(html) &&
+  /\.today-training-card\{[^}]*border:1px solid var\(--line\)[^}]*box-shadow:var\(--elev-2\)/.test(html) &&
+  !/\.today-training-card\{[^}]*border-top:[^}]*/.test(html) &&
   /\.today-status-card\{[^}]*padding:15px 16px[^}]*border:1px solid var\(--line\)/.test(html));
 test("narrow phones reduce greeting size with the existing display token",
   /@media \(max-width:380px\)\{[\s\S]*?\.greet h1\{font-size:calc\(var\(--fs-display\) \* \.88\)/.test(html));

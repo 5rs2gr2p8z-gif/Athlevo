@@ -496,14 +496,17 @@
   /* Coach tab switching — replaces the athlete `go()` for coach screens */
   function coachGo(btn) {
     var screenId = btn.dataset.screen;
-    document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("on"); });
-    btn.classList.add("on");
-    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
     var screenEl = document.getElementById(screenId);
-    if (screenEl) {
-      screenEl.classList.add("active");
-      screenEl.scrollTop = 0;
+    if (window.AthlevoAppMotion) {
+      window.AthlevoAppMotion.selectTab(btn, true);
+      window.AthlevoAppMotion.transitionTo(screenId);
+    } else {
+      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("on"); });
+      btn.classList.add("on");
+      document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+      if (screenEl) screenEl.classList.add("active");
     }
+    if (screenEl) screenEl.scrollTop = 0;
 
     // Analytics
     var TAB_EVENTS = {

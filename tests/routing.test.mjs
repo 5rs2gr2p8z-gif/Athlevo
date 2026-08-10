@@ -42,9 +42,16 @@ section("Static markup — nothing may paint before auth resolves");
     !/document\.body\.classList\.remove\('booting'\);/.test(extractEarly("showScreen")));
   t("6s safety valve so a slow load can't hold a blank overlay",
     /Boot gate released on timeout/.test(html));
-  t("spinner is delayed so a fast restore shows no loading UI",
-    /animation:bootFade \.25s ease \.45s forwards/.test(html));
-  t("reduced-motion users get no spin", /prefers-reduced-motion[\s\S]{0,120}boot-spinner/.test(html));
+  t("cold load shows a Today-shaped shell instead of a blank spinner",
+    /class="boot-content"/.test(html) &&
+    /class="boot-primary-card"/.test(html) &&
+    (html.match(/class="skel boot-status-ring"/g) || []).length === 3 &&
+    /class="boot-week-row"/.test(html) &&
+    /class="boot-tabbar"/.test(html) &&
+    !/boot-spinner|bootSpin/.test(html));
+  t("reduced motion leaves skeletons static",
+    /prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html) &&
+    /#boot-gate\{transition:none\}/.test(html));
 }
 
 /* ── extract the real routing functions ─────────────────────────────── */

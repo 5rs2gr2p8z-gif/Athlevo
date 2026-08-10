@@ -50,6 +50,22 @@ section("Entrance keyframes are GPU-friendly (no layout-shifting props)");
     shifty.map(s => s.slice(0, 30)).join(" | "));
 }
 
+section("Shared app-shell motion stays wrapper-level and restrained");
+{
+  t("one shared tab indicator replaces per-tab red dots",
+    /\.nav-active-indicator\{[^}]*height:2px/.test(html) &&
+    /\.dotmark\{display:none\}/.test(html) &&
+    /function positionNavActiveIndicator/.test(html));
+  t("tab indicator uses transform and width on the slow motion token",
+    /\.nav-active-indicator\{[\s\S]*?transition:transform var\(--dur-slow\) var\(--ease-standard\),[\s\S]*?width var\(--dur-slow\) var\(--ease-standard\)/.test(html));
+  t("screen transition animates one wrapper with short transform and opacity",
+    /\.screen\.tab-leaving\{[^}]*opacity:0;transform:translateY\(-2px\)/.test(html) &&
+    /\.screen\.tab-entering\{opacity:0;transform:translateY\(7px\)\}/.test(html) &&
+    /\.screen\.tab-entering\.tab-entering-active\{opacity:1;transform:none/.test(html));
+  t("cached tab navigation does not force a loading skeleton",
+    !/async function go\(btn\)[\s\S]{0,1200}(?:todayPlanLoadingState|boot-gate|setTodayScreenState\("loading"\))/.test(html));
+}
+
 /* ══════ Part 8 — reduced-motion coverage ════════════════════════════ */
 
 section("Reduced motion is covered globally");
