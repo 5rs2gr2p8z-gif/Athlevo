@@ -58,10 +58,10 @@
       },
       {
         name: "Athlevo Elite",
-        headline: "Dean manages the entire build.",
+        headline: "Train like your goal matters.",
         price: "₱7,998/month",
-        description: "Athlevo’s founder personally coaches your training — reviewing more often, adjusting more frequently, and managing your running, strength, recovery, and race preparation together.",
-        bestFor: "Runners chasing a specific result who want the closest coaching Athlevo offers.",
+        description: "You don’t need to be fast or experienced. Elite is for athletes who want the highest level of attention Athlevo offers — whether you’re preparing for your first race or chasing a serious PR.",
+        bestFor: "Athletes who want the closest coaching Athlevo offers, regardless of their starting point.",
         features: [
           "Personally coached by Dean Castro",
           "More frequent review and adjustment",
