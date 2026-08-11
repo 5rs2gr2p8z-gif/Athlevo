@@ -42,6 +42,11 @@
   var _rosterLoading = false;
   var _rosterError = null;
   var _search = "";
+  var _rosterFilter = "all";
+  var _athleteDetailId = null;
+  var _athleteDetail = null;
+  var _athleteDetailTab = "overview";
+  var _athleteWeekStart = null;
   var _initialized = false;
   var _resolving = false;
   var _athleteTodayHTML = null;   // saved athlete Today innerHTML for restore
@@ -257,7 +262,12 @@
       ".cm-roster-item .cm-row-meta{font-size:11px;line-height:1.45;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
       ".cm-roster-item .cm-chevron{margin-top:3px;}",
       ".cm-command--small-roster .cm-command-grid{gap:26px}.cm-command--small-roster .cm-section--roster{padding-top:2px;}",
+      ".cm-filter-row{display:flex;gap:14px;overflow-x:auto;padding:12px 0 2px;scrollbar-width:none}.cm-filter-row::-webkit-scrollbar{display:none}.cm-filter{border:0;border-bottom:1px solid transparent;background:transparent;padding:3px 0 6px;color:var(--ink3,#737373);font:700 11px/1 var(--sans,sans-serif);white-space:nowrap;cursor:pointer}.cm-filter.is-active{color:var(--ink1,#171717);border-bottom-color:var(--red,#b3292d)}",
+      ".cm-roster-state{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--ink3,#737373);max-width:92px;text-align:right}.cm-roster-state.attention{color:#a52a2f}",
+      ".cm-athlete-page{width:100%;max-width:920px;margin:0 auto;padding:16px 16px 108px;box-sizing:border-box;color:var(--ink1,var(--ink,#171717))}.cm-athlete-back{border:0;background:transparent;padding:7px 0;color:var(--ink2,#555);font:700 12px/1 var(--sans,sans-serif);cursor:pointer}.cm-athlete-head{display:flex;align-items:flex-start;gap:12px;margin:14px 0 18px}.cm-athlete-head .cm-avatar{width:44px;height:44px;flex-basis:44px}.cm-athlete-head-copy{min-width:0;flex:1}.cm-athlete-name{font-family:var(--serif,serif);font-size:26px;font-weight:520;line-height:1.08;margin:0;overflow-wrap:anywhere}.cm-athlete-context{margin:5px 0 0;color:var(--ink3,#737373);font-size:12px;line-height:1.4}.cm-athlete-tabs{display:flex;gap:18px;overflow-x:auto;border-bottom:1px solid var(--line,#e5e5e5);scrollbar-width:none}.cm-athlete-tab{border:0;border-bottom:2px solid transparent;background:transparent;padding:10px 0 9px;color:var(--ink3,#737373);font:700 12px/1 var(--sans,sans-serif);white-space:nowrap;cursor:pointer}.cm-athlete-tab.is-active{color:var(--ink1,#171717);border-bottom-color:var(--red,#b3292d)}.cm-athlete-panel{padding-top:20px}.cm-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line,#e5e5e5);border:1px solid var(--line,#e5e5e5)}.cm-detail-metric{min-height:82px;background:var(--bg,#fff);padding:14px}.cm-detail-label{display:block;color:var(--ink3,#737373);font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}.cm-detail-value{display:block;margin-top:7px;font-size:14px;font-weight:700;line-height:1.35}.cm-detail-sub{display:block;margin-top:3px;color:var(--ink3,#737373);font-size:11px;line-height:1.4}.cm-detail-section{margin-top:24px}.cm-detail-section h3{margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}.cm-detail-empty{padding:16px 0;border-block:1px solid var(--line,#e5e5e5);color:var(--ink3,#737373);font-size:13px}.cm-activity-list{margin:0;padding:0;list-style:none}.cm-activity-list li{padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5);font-size:13px}.cm-week-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.cm-week-title{font-size:14px;font-weight:750}.cm-week-actions{display:flex;gap:8px}.cm-week-btn{border:1px solid var(--line,#d9d9d9);background:transparent;color:inherit;border-radius:999px;padding:8px 11px;font:700 11px/1 var(--sans,sans-serif);cursor:pointer}.cm-week-btn--primary{border-color:var(--red,#b3292d);color:var(--red,#b3292d)}.cm-workout-list{border-top:1px solid var(--line,#e5e5e5)}.cm-workout-row{display:grid;grid-template-columns:45px minmax(0,1fr) auto;gap:11px;align-items:center;width:100%;padding:13px 0;border:0;border-bottom:1px solid var(--line,#e5e5e5);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-workout-date{font-size:10px;color:var(--ink3,#737373);text-transform:uppercase;line-height:1.35}.cm-workout-copy{min-width:0}.cm-workout-title{font-size:13px;font-weight:750;line-height:1.3}.cm-workout-meta{margin-top:4px;color:var(--ink3,#737373);font-size:11px;line-height:1.4}.cm-workout-status{font-size:10px;font-weight:750;text-transform:uppercase;color:var(--ink3,#737373)}.cm-workout-status.completed{color:#2e7d32}.cm-workout-status.modified{color:#9a6505}.cm-workout-status.skipped{color:#a52a2f}.cm-placeholder{padding:28px 0;color:var(--ink3,#737373);font-size:13px;line-height:1.5}.cm-workout-overlay{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.38);display:flex;align-items:flex-end;justify-content:center}.cm-workout-dialog{width:100%;max-width:620px;max-height:90vh;overflow:auto;background:var(--bg,#fff);border-radius:18px 18px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));box-sizing:border-box}.cm-workout-dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.cm-workout-dialog h2{margin:0;font-family:var(--serif,serif);font-size:22px}.cm-dialog-close{border:0;background:transparent;font-size:22px;cursor:pointer}.cm-workout-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cm-field{display:grid;gap:5px;min-width:0}.cm-field--full{grid-column:1/-1}.cm-field label{font-size:10px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#737373)}.cm-field input,.cm-field textarea,.cm-field select{width:100%;box-sizing:border-box;border:1px solid var(--line,#d9d9d9);border-radius:8px;background:var(--bg,#fff);color:inherit;padding:10px;font:13px/1.35 var(--sans,sans-serif)}.cm-field textarea{min-height:70px;resize:vertical}.cm-form-error{grid-column:1/-1;color:#a52a2f;font-size:12px}.cm-form-actions{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;margin-top:4px}.cm-form-actions-right{display:flex;gap:8px;margin-left:auto}.cm-danger{color:#a52a2f;border-color:#e5b7b9}.cm-readonly-note{padding:11px 0;color:var(--ink3,#737373);font-size:12px}",
+      "@media(min-width:760px){.cm-athlete-page{padding-inline:24px}.cm-detail-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.cm-workout-dialog{align-self:center;border-radius:14px}.cm-athlete-panel{padding-top:24px}}",
       "@media(min-width:760px){.cm-roster-item .cm-row{padding-block:17px}}",
+      "@media(min-width:900px){body.coach-workspace-active .device{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}",
       "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready{animation:none}.cm-row-name{transition:none}}"
     ].join("");
@@ -459,6 +469,7 @@
    * Idempotent: calling when already in coach_workspace is a no-op.
    */
   function activateCoachWorkspace() {
+    document.body.classList.add("coach-workspace-active");
     if (_workspace === "coach_workspace") return;
     var fromWs = _workspace;
     _workspace = "coach_workspace";
@@ -500,6 +511,7 @@
    * Triggers the athlete data load if not yet done.
    */
   function activateAthleteWorkspace() {
+    document.body.classList.remove("coach-workspace-active");
     if (_workspace === "athlete_workspace") return;
     var fromWs = _workspace;
     _workspace = "athlete_workspace";
@@ -672,7 +684,10 @@
       .sort(function (a, b) {
         return String((b.latest_activity || {}).date || "").localeCompare(String((a.latest_activity || {}).date || ""));
       }).slice(0, 8);
-    var raceGoals = sorted.filter(function (a) { return Boolean(a.target_event); });
+    var todayKey = new Date().toISOString().slice(0, 10);
+    var raceGoals = sorted.filter(function (a) {
+      return Boolean(a.target_event && a.target_date && String(a.target_date).slice(0, 10) >= todayKey);
+    }).sort(function (a, b) { return String(a.target_date).localeCompare(String(b.target_date)); });
 
     var liveSummary = attention.length
       ? attention.length + " athlete" + (attention.length === 1 ? " needs" : "s need") + " review today."
@@ -709,10 +724,10 @@
           renderAttentionSection(attention) +
           renderTrainingTodaySection(trainingToday) +
         '</div>' +
-        ((recentActs.length || raceGoals.length) ? '<div class="cm-command-pair">' +
+        '<div class="cm-command-pair">' +
           (recentActs.length ? renderRecentActivitySection(recentActs) : '') +
-          (raceGoals.length ? renderRaceGoalsSection(raceGoals) : '') +
-        '</div>' : '') +
+          renderRaceGoalsSection(raceGoals) +
+        '</div>' +
         renderRosterStatusSection(sorted) +
       '</div></div>';
 
@@ -775,11 +790,13 @@
     html += '<div class="cm-list">';
     athletes.forEach(function (a) {
       var s = a.today_planned || {};
-      var details = [s.title || "Planned session", SPORT_LABEL[s.sport || a.primary_sport]].filter(Boolean).join(" · ");
+      var amount = s.duration_minutes != null ? s.duration_minutes + " min" : s.distance_km != null ? s.distance_km + " km" : null;
+      var details = [s.title || "Planned session", amount].filter(Boolean).join(" · ");
+      var status = s.execution_status || "pending";
       html += '<button type="button" class="cm-open-row" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
         '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
         '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(details) + '</span></span>' +
-        '<span class="cm-row-status">Planned</span><span class="cm-chevron" aria-hidden="true">›</span>' +
+        '<span class="cm-row-status ' + (status === "skipped" ? "cm-status-attention" : status === "modified" ? "cm-status-monitor" : "") + '">' + esc(status.replace(/^./, function (c) { return c.toUpperCase(); })) + '</span><span class="cm-chevron" aria-hidden="true">›</span>' +
       '</span></button>';
     });
     return html + '</div></section>';
@@ -798,13 +815,15 @@
     return html + '</div></section>';
   }
 
-  /* The roster API exposes a real target-race name, but not a race date. */
   function renderRaceGoalsSection(athletes) {
-    var html = '<section class="cm-section cm-section--races">' + sectionHeader("Upcoming Races", athletes.length) + '<div class="cm-list">';
+    var html = '<section class="cm-section cm-section--races">' + sectionHeader("Upcoming Races", athletes.length);
+    if (!athletes.length) return html + '<div class="cm-quiet-state">No upcoming races scheduled.</div></section>';
+    html += '<div class="cm-list">';
     athletes.forEach(function (a) {
+      var days = Math.ceil((Date.parse(String(a.target_date).slice(0, 10) + "T00:00:00Z") - Date.now()) / 86400000);
       html += '<button type="button" class="cm-open-row" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
         '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
-        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(a.target_event) + '</span></span>' +
+        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(a.target_event) + '</span><span class="cm-row-meta">' + esc(String(a.target_date).slice(0, 10)) + ' · ' + esc(days) + ' days</span></span>' +
         '<span class="cm-chevron" aria-hidden="true">›</span>' +
       '</span></button>';
     });
@@ -815,22 +834,33 @@
   function renderRosterStatusSection(sorted) {
     return '<section class="cm-section cm-section--roster">' + sectionHeader("Athletes", sorted.length) +
       '<input class="cm-search" id="cmRosterSearch" type="search" placeholder="Search athletes" aria-label="Search athletes" value="' + esc(_search) + '" />' +
-      '<div id="cmRosterList" class="cm-list">' + renderRosterList(sorted, _search) + '</div></section>';
+      '<div class="cm-filter-row" aria-label="Filter athletes">' + [
+        ["all", "All"], ["attention", "Needs Attention"], ["training", "Training Today"], ["race", "Race Soon"]
+      ].map(function (item) { return '<button type="button" class="cm-filter' + (_rosterFilter === item[0] ? ' is-active' : '') + '" data-roster-filter="' + item[0] + '">' + item[1] + '</button>'; }).join("") + '</div>' +
+      '<div id="cmRosterList" class="cm-list">' + renderRosterList(sorted, _search, _rosterFilter) + '</div></section>';
   }
 
-  function renderRosterList(sorted, query) {
+  function renderRosterList(sorted, query, filter) {
     var q = (query || "").toLowerCase().trim();
     var visible = sorted.filter(function (a) {
-      return !q || String(a.name || "").toLowerCase().indexOf(q) !== -1;
+      var textMatches = !q || String(a.name || "").toLowerCase().indexOf(q) !== -1;
+      var raceDays = a.target_date ? Math.ceil((Date.parse(String(a.target_date).slice(0, 10) + "T00:00:00Z") - Date.now()) / 86400000) : null;
+      var filterMatches = filter === "attention" ? (a.attention_status === "needs_attention" || a.attention_status === "monitor")
+        : filter === "training" ? Boolean(a.today_planned)
+        : filter === "race" ? (raceDays != null && raceDays >= 0 && raceDays <= 21)
+        : true;
+      return textMatches && filterMatches;
     });
     if (!visible.length) {
       return '<div style="padding:16px;text-align:center;color:var(--ink3,#888);font-size:13px;">' +
         (q ? 'No athletes match "' + esc(q) + '".' : 'No athletes assigned yet.') + '</div>';
     }
     return visible.map(function (a) {
+      var raceDays = a.target_date ? Math.ceil((Date.parse(String(a.target_date).slice(0, 10) + "T00:00:00Z") - Date.now()) / 86400000) : null;
+      var state = a.attention_status === "needs_attention" ? "Needs review" : a.today_planned ? "Training today" : raceDays != null && raceDays >= 0 && raceDays <= 21 ? "Race soon" : a.attention_status === "on_track" ? "On track" : "No recent data";
       return '<button type="button" class="cm-open-row cm-roster-item" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
         '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
-        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(athleteContext(a)) + '</span><span class="cm-row-meta">' + esc(rosterStatusLine(a)) + '</span></span>' +
+        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(athleteContext(a)) + '</span><span class="cm-row-meta">' + esc(rosterStatusLine(a)) + '</span></span><span class="cm-roster-state' + (state === "Needs review" ? " attention" : "") + '">' + esc(state) + '</span>' +
         '<span class="cm-chevron" aria-hidden="true">›</span>' +
       '</span></button>';
     }).join("");
@@ -848,7 +878,7 @@
       btn.addEventListener("click", function (e) {
         e.stopPropagation();
         var id = btn.getAttribute("data-athlete");
-        openCoachAthleteDrawer(id);
+        openCoachAthletePage(id, "overview");
         trackCoach("coach_today_athlete_opened", { coach_mode: "coach_mode", source_surface: "coach_today" });
       });
     });
@@ -856,7 +886,7 @@
     container.querySelectorAll("[data-open-athlete]").forEach(function (item) {
       item.addEventListener("click", function () {
         var id = item.getAttribute("data-open-athlete");
-        openCoachAthleteDrawer(id);
+        openCoachAthletePage(id, item.closest(".cm-section--training") ? "training" : "overview");
         trackCoach("coach_today_athlete_opened", { coach_mode: "coach_mode", source_surface: "coach_roster" });
       });
     });
@@ -866,87 +896,206 @@
       searchInput.addEventListener("input", function (e) {
         _search = e.target.value || "";
         var listEl = document.getElementById("cmRosterList");
-        if (listEl) listEl.innerHTML = renderRosterList(sortRoster(_roster), _search);
+        if (listEl) listEl.innerHTML = renderRosterList(sortRoster(_roster), _search, _rosterFilter);
         var rosterItems = listEl ? listEl.querySelectorAll("[data-open-athlete]") : [];
         rosterItems.forEach(function (item) {
           item.addEventListener("click", function () {
-            openCoachAthleteDrawer(item.getAttribute("data-open-athlete"));
+            openCoachAthletePage(item.getAttribute("data-open-athlete"), "overview");
           });
         });
       });
     }
+    container.querySelectorAll("[data-roster-filter]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        _rosterFilter = btn.getAttribute("data-roster-filter") || "all";
+        renderCoachToday();
+      });
+    });
   }
 
-  /* ─── Athlete Drawer (reuses existing Coach Dashboard drawer logic) ─── */
-  function openCoachAthleteDrawer(athleteId) {
-    // Delegate to existing coach dashboard if available
-    if (window.AthlevoCoachDashboard && typeof window.AthlevoCoachDashboard._loadAndRender === "function") {
-      // Use the API directly
-    }
-    var entry = _roster.find(function (a) { return a.athlete_id === athleteId; });
-    showDrawer(entry, athleteId);
-  }
-
-  async function showDrawer(entry, athleteId) {
-    var overlay = document.createElement("div");
-    overlay.id = "cmOverlay";
-    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:60;";
-    var drawer = document.createElement("div");
-    drawer.id = "cmDrawer";
-    drawer.setAttribute("role", "dialog");
-    drawer.setAttribute("aria-label", "Athlete overview");
-    drawer.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:61;max-width:720px;margin:0 auto;background:var(--bg,#fff);border-radius:18px 18px 0 0;max-height:88vh;overflow:auto;padding:18px 16px 40px;";
-    drawer.innerHTML = '<div style="padding:24px;text-align:center;color:var(--ink3,#888);">Loading athlete…</div>';
-    document.body.appendChild(overlay);
-    document.body.appendChild(drawer);
-    overlay.addEventListener("click", closeDrawer);
-
-    var res = await api("athlete", { query: { athlete_id: athleteId } });
+  /* ─── Dedicated coach-facing Athlete Detail page ─── */
+  async function openCoachAthletePage(athleteId, tab, weekStart) {
+    _athleteDetailId = athleteId;
+    _athleteDetailTab = tab || _athleteDetailTab || "overview";
+    _athleteWeekStart = weekStart || _athleteWeekStart;
+    _athleteDetail = null;
+    renderAthletePageLoading();
+    var query = { athlete_id: athleteId };
+    if (_athleteWeekStart) query.week_start = _athleteWeekStart;
+    var res = await api("athlete", { query: query });
+    if (_athleteDetailId !== athleteId) return;
     if (!res.ok || !res.body || !res.body.athlete) {
-      drawer.innerHTML = '<div style="padding:24px;text-align:center;color:#c0392b;">' +
-        (res.status === 403 ? "You are not assigned to this athlete." : "Could not load this athlete.") +
-        '<br><button id="cmDrawerClose" style="margin-top:10px;padding:8px 14px;border-radius:10px;border:1px solid var(--line,#ddd);background:transparent;cursor:pointer;">Close</button></div>';
-      var cb = document.getElementById("cmDrawerClose"); if (cb) cb.addEventListener("click", closeDrawer);
+      renderAthletePageError(res.status === 403 ? "You are not assigned to this athlete." : "Could not load this athlete.");
       return;
     }
-    renderAthleteDrawer(drawer, res.body.athlete, entry);
+    _athleteDetail = res.body.athlete;
+    _athleteWeekStart = _athleteDetail.training_week && _athleteDetail.training_week.week_start;
+    renderAthletePage();
   }
 
-  function renderAthleteDrawer(drawer, ath, rosterEntry) {
-    var reasons = (ath.attention_reasons || []).map(function (r) {
-      return '<li style="margin-bottom:4px;">' + esc(r.explanation || r.key) + '</li>';
-    }).join("");
-    var acts = (ath.recent_activities || []).map(function (a) {
-      return '<li style="margin-bottom:4px;">' + esc(activityLine(a)) + (a.indoor ? ' · indoor' : '') + '</li>';
-    }).join("") || '<li style="color:var(--ink3,#888);">No recent data</li>';
+  function renderAthletePageLoading() {
+    var el = document.getElementById("screen-today");
+    if (!el) return;
+    el.innerHTML = '<div class="cm-athlete-page"><button class="cm-athlete-back" type="button">← Athletes</button><div class="cm-placeholder">Loading athlete…</div></div>';
+    el.querySelector(".cm-athlete-back").addEventListener("click", closeAthletePage);
+  }
+
+  function renderAthletePageError(message) {
+    var el = document.getElementById("screen-today");
+    if (!el) return;
+    el.innerHTML = '<div class="cm-athlete-page"><button class="cm-athlete-back" type="button">← Athletes</button><div class="cm-error">' + esc(message) + '<br><button type="button" class="cm-review" id="cmAthleteRetry">Try again</button></div></div>';
+    el.querySelector(".cm-athlete-back").addEventListener("click", closeAthletePage);
+    el.querySelector("#cmAthleteRetry").addEventListener("click", function () { openCoachAthletePage(_athleteDetailId, _athleteDetailTab, _athleteWeekStart); });
+  }
+
+  function closeAthletePage() {
+    _athleteDetailId = null;
+    _athleteDetail = null;
+    _athleteWeekStart = null;
+    renderCoachToday();
+  }
+
+  function renderAthletePage() {
+    var el = document.getElementById("screen-today");
+    var ath = _athleteDetail;
+    if (!el || !ath) return;
+    var tabs = ["overview", "training", "analytics", "check-ins", "notes"];
+    var labels = { overview: "Overview", training: "Training", analytics: "Analytics", "check-ins": "Check-ins", notes: "Notes" };
+    el.innerHTML = '<div class="cm-athlete-page">' +
+      '<button class="cm-athlete-back" type="button">← Athletes</button>' +
+      '<header class="cm-athlete-head"><span class="cm-avatar" aria-hidden="true">' + esc(ath.initials || "A") + '</span><div class="cm-athlete-head-copy"><h1 class="cm-athlete-name">' + esc(ath.name || "Athlete") + '</h1><p class="cm-athlete-context">' + esc([SPORT_LABEL[ath.primary_sport], ath.goal].filter(Boolean).join(" · ") || "Athlete") + '</p></div></header>' +
+      '<nav class="cm-athlete-tabs" aria-label="Athlete details">' + tabs.map(function (tab) { return '<button type="button" class="cm-athlete-tab' + (_athleteDetailTab === tab ? ' is-active' : '') + '" data-athlete-tab="' + tab + '">' + labels[tab] + '</button>'; }).join("") + '</nav>' +
+      '<div class="cm-athlete-panel">' + (_athleteDetailTab === "overview" ? renderAthleteOverview(ath) : _athleteDetailTab === "training" ? renderAthleteTraining(ath) : '<div class="cm-placeholder"><strong>' + esc(labels[_athleteDetailTab]) + '</strong><br>This workspace is not part of the current sprint yet.</div>') + '</div></div>';
+    el.querySelector(".cm-athlete-back").addEventListener("click", closeAthletePage);
+    el.querySelectorAll("[data-athlete-tab]").forEach(function (btn) { btn.addEventListener("click", function () { _athleteDetailTab = btn.getAttribute("data-athlete-tab"); renderAthletePage(); }); });
+    bindAthletePageActions(el, ath);
+  }
+
+  function metric(label, value, sub) {
+    return '<div class="cm-detail-metric"><span class="cm-detail-label">' + esc(label) + '</span><span class="cm-detail-value">' + esc(value || "—") + '</span>' + (sub ? '<span class="cm-detail-sub">' + esc(sub) + '</span>' : '') + '</div>';
+  }
+
+  function renderAthleteOverview(ath) {
     var wk = ath.week_planned_vs_completed || {};
-    var pv = function (v, s) { return v == null ? "—" : esc(v) + (s || ""); };
-
-    drawer.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-      '  <div style="display:flex;align-items:center;gap:10px;min-width:0;">' +
-      '    <div style="width:38px;height:38px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;">' + esc(ath.initials || "A") + '</div>' +
-      '    <div style="min-width:0;"><div style="font-weight:700;font-size:16px;">' + esc(ath.name) + '</div>' +
-      '    <div style="font-size:12px;color:var(--ink3,#888);">' + esc(SPORT_LABEL[ath.primary_sport] || "—") + (ath.goal ? ' · ' + esc(ath.goal) : '') + '</div></div>' +
-      '  </div>' +
-      '  <button id="cmDrawerClose" aria-label="Close" style="border:0;background:transparent;font-size:22px;cursor:pointer;">×</button>' +
+    var compliance = wk.planned_minutes > 0 && wk.completed_minutes != null ? Math.round((wk.completed_minutes / wk.planned_minutes) * 100) + "%" : null;
+    var race = ath.target_event || "No race scheduled";
+    var raceSub = ath.target_date ? String(ath.target_date).slice(0, 10) : null;
+    var upcoming = ath.upcoming_session;
+    var recent = (ath.recent_activities || []).map(function (a) { return '<li>' + esc(activityLine(a)) + (a.indoor ? ' · indoor' : '') + '</li>'; }).join("");
+    var plan = ath.plan_phase || ath.plan_week_focus;
+    var reasons = (ath.attention_reasons || []).map(function (r) { return '<li>' + esc(r.explanation || attentionReasonLabel(r.key)) + '</li>'; }).join("");
+    return '<div class="cm-detail-grid">' +
+      metric("Target event", race, raceSub) +
+      metric("Current block", plan || "No current block", ath.plan_phase && ath.plan_week_focus ? ath.plan_week_focus : null) +
+      metric("Recent volume", wk.completed_minutes != null ? wk.completed_minutes + " min" : "No recent training data", wk.completed_distance_km != null ? wk.completed_distance_km + " km this week" : null) +
+      metric("Compliance", compliance || "Not enough data", compliance ? wk.completed_minutes + " of " + wk.planned_minutes + " min" : null) +
+      metric("Upcoming", upcoming ? upcoming.title : "No upcoming session", upcoming && upcoming.date ? String(upcoming.date).slice(0, 10) : null) +
+      metric("Readiness", ath.readiness && ath.readiness.status || "No recent data", ath.readiness && ath.readiness.check_in_date ? String(ath.readiness.check_in_date).slice(0, 10) : null) +
+      metric("Last active", fmtLastActive(ath.last_active_at), null) +
+      metric("Plan access", ath.assignment_permission === "read_write" ? "Programming enabled" : "View only", null) +
       '</div>' +
-      (reasons ? '<div style="margin-bottom:14px;"><div style="font-weight:600;font-size:13px;margin-bottom:6px;">Needs attention</div><ul style="margin:0;padding-left:18px;font-size:13px;">' + reasons + '</ul>' +
-        '<button id="cmReview" data-athlete="' + esc(ath.athlete_id) + '" style="margin-top:8px;padding:7px 12px;border-radius:10px;border:1px solid var(--line,#ddd);background:transparent;cursor:pointer;font-size:13px;">Mark reviewed</button></div>' : '') +
-      '<div style="font-size:13px;line-height:1.7;">' +
-      '  <div><b>Event:</b> ' + pv(ath.target_event) + '</div>' +
-      '  <div><b>Plan phase:</b> ' + pv(ath.plan_phase) + '</div>' +
-      '  <div><b>Today:</b> ' + (ath.today_planned ? esc(ath.today_planned.title || "Planned session") : "—") + '</div>' +
-      '  <div><b>This week:</b> ' + pv(wk.completed_minutes, " min") + ' completed of ' + pv(wk.planned_minutes, " min") + ' planned</div>' +
-      '  <div><b>Readiness:</b> ' + pv(ath.readiness && ath.readiness.status) + (ath.readiness && ath.readiness.pain_present ? ' · pain reported' : '') + '</div>' +
-      '  <div><b>Recovery:</b> ' + pv(ath.recovery_status === "unknown" ? null : ath.recovery_status) + '</div>' +
-      '  <div><b>Last sync:</b> ' + esc(fmtLastActive(ath.last_sync_at)) + ' · <b>Last active:</b> ' + esc(fmtLastActive(ath.last_active_at)) + '</div>' +
-      '</div>' +
-      '<div style="margin-top:14px;"><div style="font-weight:600;font-size:13px;margin-bottom:6px;">Recent activities</div><ul style="margin:0;padding-left:18px;font-size:13px;">' + acts + '</ul></div>';
+      (reasons ? '<section class="cm-detail-section"><h3>Needs attention</h3><ul class="cm-activity-list">' + reasons + '</ul><button type="button" class="cm-review" id="cmDetailReview">Mark reviewed</button></section>' : '') +
+      '<section class="cm-detail-section"><h3>Recent activity</h3>' + (recent ? '<ul class="cm-activity-list">' + recent + '</ul>' : '<div class="cm-detail-empty">No recent training data</div>') + '</section>';
+  }
 
-    document.getElementById("cmDrawerClose").addEventListener("click", closeDrawer);
-    var rv = document.getElementById("cmReview");
-    if (rv) rv.addEventListener("click", function () { markAthleteReviewed(ath.athlete_id, rv); });
+  function workoutMeta(session) {
+    return [session.type, session.duration_minutes != null ? session.duration_minutes + " min" : null, session.distance_km != null ? session.distance_km + " km" : null, session.target_rpe ? "RPE " + session.target_rpe : session.intensity, session.pace_guidance].filter(Boolean).join(" · ");
+  }
+
+  function renderAthleteTraining(ath) {
+    var week = ath.training_week || { sessions: [] };
+    var canWrite = ath.assignment_permission === "read_write";
+    var rows = (week.sessions || []).map(function (session) {
+      var date = session.date ? new Date(session.date + "T00:00:00Z") : null;
+      var day = date ? date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", timeZone: "UTC" }) : "—";
+      return '<button type="button" class="cm-workout-row" data-workout-id="' + esc(session.id) + '"><span class="cm-workout-date">' + esc(day) + '</span><span class="cm-workout-copy"><span class="cm-workout-title">' + esc(session.title) + '</span><span class="cm-workout-meta">' + esc(workoutMeta(session) || "Prescription details unavailable") + '</span></span><span class="cm-workout-status ' + esc(session.execution_status) + '">' + esc(session.execution_status) + '</span></button>';
+    }).join("");
+    return '<div class="cm-week-head"><div><div class="cm-week-title">' + esc(week.week_start || "Current week") + ' – ' + esc(week.week_end || "") + '</div><div class="cm-detail-sub">Current training week</div></div><div class="cm-week-actions"><button type="button" class="cm-week-btn" data-week-shift="-7" aria-label="Previous week">←</button><button type="button" class="cm-week-btn" data-week-shift="7" aria-label="Next week">→</button>' + (canWrite ? '<button type="button" class="cm-week-btn cm-week-btn--primary" id="cmAddWorkout">Add workout</button>' : '') + '</div></div>' +
+      (!canWrite ? '<div class="cm-readonly-note">This assignment is view-only. A read-write assignment is required to change the plan.</div>' : '') +
+      (rows ? '<div class="cm-workout-list">' + rows + '</div>' : '<div class="cm-detail-empty">No workouts scheduled this week.</div>');
+  }
+
+  function bindAthletePageActions(el, ath) {
+    var review = el.querySelector("#cmDetailReview");
+    if (review) review.addEventListener("click", function () { markAthleteReviewed(ath.athlete_id, review); });
+    el.querySelectorAll("[data-week-shift]").forEach(function (btn) { btn.addEventListener("click", function () {
+      var base = _athleteWeekStart ? new Date(_athleteWeekStart + "T00:00:00Z") : new Date();
+      base.setUTCDate(base.getUTCDate() + Number(btn.getAttribute("data-week-shift")));
+      openCoachAthletePage(ath.athlete_id, "training", base.toISOString().slice(0, 10));
+    }); });
+    var add = el.querySelector("#cmAddWorkout");
+    if (add) add.addEventListener("click", function () { openWorkoutEditor(null); });
+    el.querySelectorAll("[data-workout-id]").forEach(function (row) { row.addEventListener("click", function () {
+      var session = ((ath.training_week || {}).sessions || []).find(function (item) { return String(item.id) === String(row.getAttribute("data-workout-id")); });
+      if (session) openWorkoutEditor(session);
+    }); });
+  }
+
+  function openWorkoutEditor(session) {
+    var ath = _athleteDetail;
+    if (!ath) return;
+    var canWrite = ath.assignment_permission === "read_write";
+    var editable = canWrite && (!session || session.can_edit);
+    var overlay = document.createElement("div");
+    overlay.className = "cm-workout-overlay";
+    overlay.id = "cmWorkoutOverlay";
+    var value = function (key) { return esc(session && session[key] != null ? session[key] : ""); };
+    overlay.innerHTML = '<div class="cm-workout-dialog" role="dialog" aria-modal="true" aria-label="' + (session ? "Workout details" : "Add workout") + '"><div class="cm-workout-dialog-head"><h2>' + (session ? "Workout details" : "Add workout") + '</h2><button type="button" class="cm-dialog-close" aria-label="Close">×</button></div><form class="cm-workout-form" id="cmWorkoutForm">' +
+      '<div class="cm-field"><label for="cmWorkoutDate">Date</label><input id="cmWorkoutDate" name="session_date" type="date" required value="' + value("date") + '" ' + (!editable || session && !session.can_reschedule ? "disabled" : "") + '></div>' +
+      '<div class="cm-field"><label for="cmWorkoutType">Type</label><input id="cmWorkoutType" name="session_type" value="' + value("type") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field"><label for="cmWorkoutSport">Sport</label><input id="cmWorkoutSport" name="sport" value="' + value("sport") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutTitle">Title</label><input id="cmWorkoutTitle" name="title" required value="' + value("title") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field"><label for="cmWorkoutDuration">Duration (min)</label><input id="cmWorkoutDuration" name="duration_minutes" type="number" min="0" max="1440" value="' + value("duration_minutes") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field"><label for="cmWorkoutDistance">Distance (km)</label><input id="cmWorkoutDistance" name="distance_km" type="number" min="0" max="1000" step="0.1" value="' + value("distance_km") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field"><label for="cmWorkoutRpe">Target RPE</label><input id="cmWorkoutRpe" name="target_rpe" value="' + value("target_rpe") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field"><label for="cmWorkoutIntensity">Intensity</label><input id="cmWorkoutIntensity" name="intensity" value="' + value("intensity") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutPace">Pace guidance</label><input id="cmWorkoutPace" name="pace_guidance" value="' + value("pace_guidance") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutDescription">Description</label><textarea id="cmWorkoutDescription" name="description" ' + (!editable ? "disabled" : "") + '>' + value("description") + '</textarea></div>' +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutNotes">Coach notes</label><textarea id="cmWorkoutNotes" name="notes" ' + (!editable ? "disabled" : "") + '>' + value("notes") + '</textarea></div>' +
+      '<div class="cm-form-error" id="cmWorkoutError" aria-live="polite"></div><div class="cm-form-actions">' + (session && session.can_remove && canWrite ? '<button type="button" class="cm-week-btn cm-danger" id="cmRemoveWorkout">Remove</button>' : '<span></span>') + '<div class="cm-form-actions-right"><button type="button" class="cm-week-btn cm-dialog-close">Close</button>' + (editable ? '<button type="submit" class="cm-week-btn cm-week-btn--primary">Save</button>' : '') + '</div></div></form></div>';
+    document.body.appendChild(overlay);
+    var previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    var onKey = function (event) { if (event.key === "Escape") close(); };
+    var close = function () {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      overlay.remove();
+    };
+    overlay._closeCoachWorkout = close;
+    document.addEventListener("keydown", onKey);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+    overlay.querySelectorAll(".cm-dialog-close").forEach(function (btn) { btn.addEventListener("click", close); });
+    var form = overlay.querySelector("#cmWorkoutForm");
+    if (form) form.addEventListener("submit", function (e) { e.preventDefault(); saveWorkoutForm(form, session, overlay); });
+    var remove = overlay.querySelector("#cmRemoveWorkout");
+    if (remove) remove.addEventListener("click", function () { removeWorkout(session, overlay); });
+  }
+
+  async function saveWorkoutForm(form, session, overlay) {
+    var error = form.querySelector("#cmWorkoutError");
+    var submit = form.querySelector('[type="submit"]');
+    var data = new FormData(form);
+    var workout = {};
+    data.forEach(function (value, key) { workout[key] = value; });
+    if (submit) { submit.disabled = true; submit.textContent = "Saving…"; }
+    var res = await api("workout", { method: session ? "PATCH" : "POST", body: { athlete_id: _athleteDetailId, session_id: session && session.id, workout: workout } });
+    if (!res.ok) {
+      if (error) error.textContent = res.body && res.body.error || "The workout could not be saved.";
+      if (submit) { submit.disabled = false; submit.textContent = "Save"; }
+      return;
+    }
+    if (overlay._closeCoachWorkout) overlay._closeCoachWorkout(); else overlay.remove();
+    openCoachAthletePage(_athleteDetailId, "training", _athleteWeekStart);
+  }
+
+  async function removeWorkout(session, overlay) {
+    if (!window.confirm("Remove this workout from the athlete's plan?")) return;
+    var error = overlay.querySelector("#cmWorkoutError");
+    var res = await api("workout", { method: "DELETE", body: { athlete_id: _athleteDetailId, session_id: session.id } });
+    if (!res.ok) { if (error) error.textContent = res.body && res.body.error || "The workout could not be removed."; return; }
+    if (overlay._closeCoachWorkout) overlay._closeCoachWorkout(); else overlay.remove();
+    openCoachAthletePage(_athleteDetailId, "training", _athleteWeekStart);
   }
 
   function activityLine(a) {
@@ -968,13 +1117,6 @@
       if (a.distance_km != null) bits.push(a.distance_km + " km");
     }
     return bits.join(" · ");
-  }
-
-  function closeDrawer() {
-    var overlay = document.getElementById("cmOverlay");
-    var drawer = document.getElementById("cmDrawer");
-    if (overlay) overlay.remove();
-    if (drawer) drawer.remove();
   }
 
   async function markAthleteReviewed(athleteId, btn) {
@@ -1088,7 +1230,7 @@
     // Bind clicks
     el.querySelectorAll(".cm-train-item").forEach(function (item) {
       item.addEventListener("click", function () {
-        openCoachAthleteDrawer(item.getAttribute("data-athlete"));
+        openCoachAthletePage(item.getAttribute("data-athlete"), "training");
       });
     });
   }

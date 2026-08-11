@@ -40,7 +40,8 @@ import {
 import { canAccessCoachDashboard, resolveRole } from "../../lib/server/coachRoles.js";
 import {
   assignedAthleteIds,
-  canCoachAccessAthlete
+  canCoachAccessAthlete,
+  canCoachManageAthlete
 } from "../../lib/server/coachAssignments.js";
 import { classifyAttention } from "../../lib/server/attentionClassifier.js";
 import {
@@ -55,7 +56,16 @@ import {
  * athlete_coaching_mode, athlete_request_adjustment.
  */
 import { resolveCoachingMode, buildSafeCoachProfile } from "../../lib/server/coachingMode.js";
-import { stripClientAuthorityFields } from "../../lib/server/planAuthority.js";
+import { stripClientAuthorityFields, stampOwnership } from "../../lib/server/planAuthority.js";
+import {
+  addDateDays,
+  buildCoachTrainingWeek,
+  canSafelyMutateCoachSession,
+  dateKey,
+  executionForSession,
+  recentSkippedCount,
+  sanitizeCoachWorkoutInput
+} from "../../lib/server/coachTraining.js";
 import { mapIntervals, normalizeIntervalLaps, toActivityRow, buildRecognitionFromRow, RECOGNITION_VERSION, isCurrentRecognitionVersion } from "../../lib/server/wearable/normalizer.js";
 import { resolveDuplicates, mapProviderError, isIntervalsEnabled } from "../../lib/server/wearable/providers.js";
 import {
@@ -1863,6 +1873,43 @@ async function sbSelect(path) {
   } catch { return []; }
 }
 
+async function sbCoachWrite(path, method, body) {
+  try {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const r = await fetch(`${url}/rest/v1/${path}`, {
+      method,
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      },
+      body: body == null ? undefined : JSON.stringify(body)
+    });
+    if (!r.ok) return { ok: false, status: r.status, rows: [] };
+    const data = await r.json().catch(() => []);
+    return { ok: true, status: r.status, rows: Array.isArray(data) ? data : [] };
+  } catch {
+    return { ok: false, status: 0, rows: [] };
+  }
+}
+
+async function sbCoachRead(path) {
+  try {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const r = await fetch(`${url}/rest/v1/${path}`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` }
+    });
+    if (!r.ok) return { ok: false, status: r.status, rows: [] };
+    const data = await r.json();
+    return { ok: true, status: r.status, rows: Array.isArray(data) ? data : [] };
+  } catch {
+    return { ok: false, status: 0, rows: [] };
+  }
+}
+
 async function loadCoachProfile(userId) {
   const rows = await sbSelect(
     `profiles?id=eq.${enc(userId)}&select=id,role,full_name`
@@ -1877,24 +1924,38 @@ async function loadActiveAssignments(coachId) {
   );
 }
 
-async function loadAthleteBundle(athleteId) {
+async function loadAthleteBundle(athleteId, nowIso) {
   const idf = enc(athleteId);
-  const [profile, metrics, weekly, readiness, today, latestAct, provider] =
+  const todayKey = String(nowIso || new Date().toISOString()).slice(0, 10);
+  const rangeStart = addDateDays(todayKey, -28);
+  const rangeEnd = addDateDays(todayKey, 56);
+  const [profile, metrics, weekly, readiness, sessions, latestAct, provider, plans] =
     await Promise.all([
-      sbSelect(`profiles?id=eq.${idf}&select=id,full_name,primary_sport,goal,target_race`),
+      sbSelect(`profiles?id=eq.${idf}&select=id,full_name,primary_sport,goal,target_race,race_date`),
       sbSelect(`athlete_metrics?user_id=eq.${idf}&select=weekly_training_load,weekly_distance,fatigue_score,fitness_score,last_updated`),
       sbSelect(`weekly_progress_summaries?user_id=eq.${idf}&select=planned_duration_minutes,completed_duration_minutes,planned_distance_km,completed_distance_km,recovery_status,consistency_status,injury_risk_status,trajectory_status,week_start&order=week_start.desc&limit=1`),
       sbSelect(`daily_readiness?user_id=eq.${idf}&select=readiness_date,sleep_quality,energy,muscle_soreness,mental_stress,pain_present,pain_severity&order=readiness_date.desc&limit=1`),
-      sbSelect(`training_sessions?user_id=eq.${idf}&select=title,session_type,session_date,duration_minutes,distance_km,sport,status&order=session_date.asc&limit=50`),
+      sbSelect(`training_sessions?user_id=eq.${idf}&session_date=gte.${enc(rangeStart)}&session_date=lte.${enc(rangeEnd)}&select=*&order=session_date.asc&limit=100`),
       sbSelect(`activities?user_id=eq.${idf}&select=start_date,sport_type,activity_type,source,distance_meters,moving_time_seconds,average_cadence,trainer,raw_data&order=start_date.desc&limit=8`),
-      sbSelect(`provider_accounts?user_id=eq.${idf}&select=provider,last_sync_at,last_sync_status`)
+      sbSelect(`provider_accounts?user_id=eq.${idf}&select=provider,last_sync_at,last_sync_status`),
+      sbSelect(`training_plans?user_id=eq.${idf}&status=in.(active,current)&select=id,status,week_start,week_end,target_race,race_date,phase,phase_week,phase_length_weeks,week_focus,planned_distance_km,planned_hours,updated_at&order=updated_at.desc&limit=4`)
     ]);
+  const sessionIds = sessions.map(row => row && row.id).filter(Boolean);
+  const executions = sessionIds.length
+    ? await sbSelect(
+        `workout_execution_records?user_id=eq.${idf}` +
+        `&training_session_id=in.(${sessionIds.map(enc).join(",")})` +
+        `&select=training_session_id,status,completed_at,actual_duration_minutes,actual_distance_km,actual_rpe,modification_reason,skip_reason`
+      )
+    : [];
   return {
     profile: profile[0] || {},
     metrics: metrics[0] || {},
     weeklySummary: weekly[0] || {},
     readiness: readiness[0] || {},
-    trainingSessions: today,
+    trainingSessions: sessions,
+    executions,
+    currentPlan: plans[0] || null,
     activities: latestAct,
     providerAccount: provider[0] || {}
   };
@@ -1929,6 +1990,14 @@ function buildSnapshot(bundle, nowIso) {
   const lastReadinessAt = rd.readiness_date ? rd.readiness_date + "T12:00:00Z" : null;
   const lastSyncAt = prov.last_sync_at || null;
   const lastActiveAt = deriveLastActiveAt([lastActivityAt, lastReadinessAt, lastSyncAt]);
+  const todayKey = String(nowIso).slice(0, 10);
+  const keySkipped = (bundle.trainingSessions || []).some(session => {
+    const sessionDate = String(session && session.session_date || "").slice(0, 10);
+    const execution = executionForSession(bundle.executions, session && session.id);
+    const ageDays = (Date.parse(todayKey + "T00:00:00Z") - Date.parse(sessionDate + "T00:00:00Z")) / 86400000;
+    return execution && execution.status === "skipped" && ageDays >= 0 && ageDays <= 7 &&
+      /threshold|tempo|interval|long|race|time.?trial|hill|speed/i.test(String(session.session_type || session.title || ""));
+  });
 
   return {
     lastActivityAt,
@@ -1942,7 +2011,9 @@ function buildSnapshot(bundle, nowIso) {
       checkInDate: rd.readiness_date || null
     },
     recoveryStatus: w.recovery_status || "unknown",
-    targetEventDate: null,
+    missedKeyWorkout: keySkipped,
+    targetEventDate: bundle.profile && bundle.profile.race_date || null,
+    missedSessionCount: recentSkippedCount(bundle.trainingSessions, bundle.executions, String(nowIso).slice(0, 10), 7),
     syncFailed: String(prov.last_sync_status || "").toLowerCase() === "failed",
     planMissing: !(bundle.trainingSessions && bundle.trainingSessions.length),
     hasAnyData: Boolean(lastActivityAt || lastReadinessAt || (bundle.metrics && bundle.metrics.last_updated))
@@ -1993,15 +2064,17 @@ async function actionCoachingDashboardRoster(request, response) {
     );
     const athletes = [];
     for (const athleteId of ids) {
-      const bundle = await loadAthleteBundle(athleteId);
+      const bundle = await loadAthleteBundle(athleteId, nowIso);
       const snapshot = buildSnapshot(bundle, nowIso);
       const attention = classifyAttention(snapshot, { now: nowIso });
+      const today = todaySession(bundle.trainingSessions, nowIso);
       const entry = buildRosterEntry({
         profile: bundle.profile,
         metrics: bundle.metrics,
         weeklySummary: bundle.weeklySummary,
         readiness: { readinessScore: snapshot.readiness.readinessScore, pain_present: snapshot.readiness.painPresent },
-        todaySession: todaySession(bundle.trainingSessions, nowIso),
+        todaySession: today,
+        todayExecution: today ? executionForSession(bundle.executions, today.id) : null,
         latestActivity: (bundle.activities || [])[0] || null,
         providerAccount: { last_sync_at: bundle.providerAccount.last_sync_at, last_sync_status: bundle.providerAccount.last_sync_status },
         attention,
@@ -2041,15 +2114,37 @@ async function actionCoachingDashboardAthlete(request, response) {
     if (!canCoachAccessAthlete(assignments, user.id, athleteId)) {
       return sendJson(response, 403, { error: "You are not assigned to this athlete." });
     }
-    const bundle = await loadAthleteBundle(athleteId);
+    const bundle = await loadAthleteBundle(athleteId, nowIso);
     const snapshot = buildSnapshot(bundle, nowIso);
     const attention = classifyAttention(snapshot, { now: nowIso });
+    const assignment = assignments.find(row =>
+      String(row.coach_id) === String(user.id) &&
+      String(row.athlete_id) === String(athleteId) &&
+      row.status === "active"
+    ) || null;
+    const todayKey = nowIso.slice(0, 10);
+    const upcoming = bundle.trainingSessions.find(session =>
+      String(session.session_date || "").slice(0, 10) >= todayKey
+    ) || null;
+    const currentPlan = bundle.currentPlan || {};
+    const planSession = bundle.trainingSessions.find(session => session && (session.phase || session.week_focus)) || {};
+    const trainingWeek = buildCoachTrainingWeek({
+      sessions: bundle.trainingSessions,
+      executions: bundle.executions,
+      weekStart: request.query && request.query.week_start || todayKey,
+      today: todayKey
+    });
     const overview = buildAthleteOverview({
       profile: bundle.profile,
       readiness: { readinessScore: snapshot.readiness.readinessScore, pain_present: snapshot.readiness.painPresent, readiness_date: bundle.readiness.readiness_date },
       weeklySummary: bundle.weeklySummary,
       recentActivities: bundle.activities,
       todaySession: todaySession(bundle.trainingSessions, nowIso),
+      upcomingSession: upcoming,
+      planPhase: currentPlan.phase || planSession.phase,
+      planWeekFocus: currentPlan.week_focus || planSession.week_focus,
+      assignmentPermission: assignment && assignment.permission_level,
+      trainingWeek,
       attention,
       lastSyncAt: snapshot.lastSyncAt,
       lastActiveAt: snapshot.lastActiveAt
@@ -2109,6 +2204,142 @@ async function actionCoachingDashboardReview(request, response) {
     return sendJson(response, 200, { reviewed: true });
   } catch (err) {
     return sendJson(response, 500, { error: "The coach dashboard could not load." });
+  }
+}
+
+async function actionCoachingDashboardWorkout(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  const profile = await loadCoachProfile(user.id);
+  if (!canAccessCoachDashboard(profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(profile) });
+  }
+
+  const body = stripClientAuthorityFields(request.body || {});
+  const athleteId = body && body.athlete_id;
+  if (!athleteId) return sendJson(response, 400, { error: "athlete_id is required." });
+
+  const assignments = await loadActiveAssignments(user.id);
+  if (!canCoachAccessAthlete(assignments, user.id, athleteId)) {
+    return sendJson(response, 403, { error: "You are not assigned to this athlete." });
+  }
+  if (!canCoachManageAthlete(assignments, user.id, athleteId)) {
+    return sendJson(response, 403, { error: "This assignment does not allow plan changes." });
+  }
+
+  const nowIso = new Date().toISOString();
+  const todayKey = nowIso.slice(0, 10);
+  const userFilter = `user_id=eq.${enc(athleteId)}`;
+  const ownership = stampOwnership({
+    mode: "human_coached",
+    actorRole: resolveRole(profile),
+    actorId: user.id
+  });
+
+  try {
+    if (request.method === "POST") {
+      const validated = sanitizeCoachWorkoutInput(body.workout);
+      if (!validated.ok) return sendJson(response, 400, { error: validated.error });
+      if (validated.value.session_date < todayKey) {
+        return sendJson(response, 409, { error: "Create workouts for today or a future date." });
+      }
+
+      const collisionLookup = await sbCoachRead(
+        `training_sessions?${userFilter}&session_date=eq.${enc(validated.value.session_date)}&select=id&limit=1`
+      );
+      if (!collisionLookup.ok) return sendJson(response, 503, { error: "The athlete's plan could not be verified. Please try again." });
+      if (collisionLookup.rows.length) {
+        return sendJson(response, 409, { error: "A workout is already scheduled on that date." });
+      }
+      const planLookup = await sbCoachRead(
+        `training_plans?${userFilter}&status=in.(active,current)&select=id&order=updated_at.desc&limit=1`
+      );
+      if (!planLookup.ok) return sendJson(response, 503, { error: "The athlete's plan could not be verified. Please try again." });
+      if (!planLookup.rows[0] || !planLookup.rows[0].id) {
+        return sendJson(response, 409, { error: "This athlete needs an active training plan before a workout can be added." });
+      }
+
+      const row = {
+        ...validated.value,
+        user_id: athleteId,
+        training_plan_id: planLookup.rows[0].id,
+        ...ownership,
+        created_by: user.id,
+        updated_at: nowIso
+      };
+      const saved = await sbCoachWrite("training_sessions", "POST", row);
+      if (!saved.ok || !saved.rows[0]) {
+        return sendJson(response, saved.status === 409 ? 409 : 500, {
+          error: saved.status === 409 ? "A workout is already scheduled on that date." : "The workout could not be saved."
+        });
+      }
+      return sendJson(response, 201, { saved: true, workout_id: saved.rows[0].id });
+    }
+
+    const sessionId = body.session_id;
+    if (!sessionId) return sendJson(response, 400, { error: "session_id is required." });
+    const sessionLookup = await sbCoachRead(
+      `training_sessions?${userFilter}&id=eq.${enc(sessionId)}&select=*&limit=1`
+    );
+    if (!sessionLookup.ok) return sendJson(response, 503, { error: "The workout could not be verified. Please try again." });
+    const session = sessionLookup.rows[0] || null;
+    if (!session) return sendJson(response, 404, { error: "Workout not found." });
+    const executionLookup = await sbCoachRead(
+      `workout_execution_records?${userFilter}&training_session_id=eq.${enc(sessionId)}` +
+      `&select=training_session_id,status,completed_at&limit=1`
+    );
+    if (!executionLookup.ok) return sendJson(response, 503, { error: "Workout completion could not be verified. Please try again." });
+    const execution = executionLookup.rows[0] || null;
+    if (!canSafelyMutateCoachSession(session, execution, todayKey)) {
+      return sendJson(response, 409, {
+        error: "Past or already recorded workouts cannot be changed from the coach calendar."
+      });
+    }
+
+    if (request.method === "DELETE") {
+      const removed = await sbCoachWrite(
+        `training_sessions?${userFilter}&id=eq.${enc(sessionId)}`,
+        "DELETE"
+      );
+      if (!removed.ok) return sendJson(response, 500, { error: "The workout could not be removed." });
+      return sendJson(response, 200, { removed: true });
+    }
+
+    if (request.method === "PATCH") {
+      const validated = sanitizeCoachWorkoutInput(body.workout);
+      if (!validated.ok) return sendJson(response, 400, { error: validated.error });
+      if (validated.value.session_date < todayKey) {
+        return sendJson(response, 409, { error: "Move workouts to today or a future date." });
+      }
+      if (validated.value.session_date !== dateKey(session.session_date)) {
+        const collisionLookup = await sbCoachRead(
+          `training_sessions?${userFilter}&session_date=eq.${enc(validated.value.session_date)}&id=neq.${enc(sessionId)}&select=id&limit=1`
+        );
+        if (!collisionLookup.ok) return sendJson(response, 503, { error: "The athlete's plan could not be verified. Please try again." });
+        if (collisionLookup.rows.length) {
+          return sendJson(response, 409, { error: "A workout is already scheduled on that date." });
+        }
+      }
+      const patch = { ...validated.value, ...ownership, updated_at: nowIso };
+      const saved = await sbCoachWrite(
+        `training_sessions?${userFilter}&id=eq.${enc(sessionId)}`,
+        "PATCH",
+        patch
+      );
+      if (!saved.ok || !saved.rows[0]) return sendJson(response, 500, { error: "The workout could not be saved." });
+      return sendJson(response, 200, { saved: true, workout_id: saved.rows[0].id });
+    }
+
+    return sendJson(response, 405, { error: "Method not allowed." });
+  } catch {
+    return sendJson(response, 500, { error: "The workout could not be saved." });
   }
 }
 
@@ -2551,6 +2782,13 @@ export default async function handler(request, response) {
       if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionCoachingDashboardReview(request, response);
     }
+    if (action === "coaching_dashboard_workout") {
+      if (!["POST", "PATCH", "DELETE"].includes(request.method)) {
+        response.setHeader("Allow", "POST, PATCH, DELETE");
+        return response.status(405).json({ error: "Method not allowed." });
+      }
+      return actionCoachingDashboardWorkout(request, response);
+    }
 
     // Athlete Mode actions (consolidated from api/athlete-mode.js).
     if (action === "athlete_coaching_mode") {
@@ -2610,7 +2848,7 @@ export default async function handler(request, response) {
         "connect", "callback", "finalize", "sync", "trends", "diagnose",
         "reanalyze", "status", "disconnect", "admin_analytics",
         "coaching_dashboard_roster", "coaching_dashboard_athlete",
-        "coaching_dashboard_review", "athlete_coaching_mode",
+        "coaching_dashboard_review", "coaching_dashboard_workout", "athlete_coaching_mode",
         "athlete_request_adjustment", "delete_account"
       ].includes(action) ? action : "unsupported"
     });

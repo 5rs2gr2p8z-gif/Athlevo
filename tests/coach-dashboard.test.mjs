@@ -20,8 +20,12 @@ import {
 } from "../lib/server/coachRoles.js";
 import {
   activeAssignmentsForCoach, assignedAthleteIds, canCoachAccessAthlete,
-  wouldDuplicateLiveAssignment, validateNewAssignment
+  canCoachManageAthlete, wouldDuplicateLiveAssignment, validateNewAssignment
 } from "../lib/server/coachAssignments.js";
+import {
+  buildCoachTrainingWeek, canSafelyMutateCoachSession, coachSessionStatus,
+  sanitizeCoachWorkoutInput
+} from "../lib/server/coachTraining.js";
 import {
   classifyAttention, compareByAttention, STATUS_SORT_ORDER
 } from "../lib/server/attentionClassifier.js";
@@ -72,12 +76,14 @@ t("isCoach/isAdmin helpers correct", isCoach({ role: "coach" }) && isAdmin({ rol
 section("ASSIGNMENTS");
 
 const assignments = [
-  { coach_id: COACH, athlete_id: A1, status: "active" },
+  { coach_id: COACH, athlete_id: A1, status: "active", permission_level: "read_write" },
   { coach_id: COACH, athlete_id: A2, status: "ended" },
   { coach_id: COACH2, athlete_id: A1, status: "active" }
 ];
 t("coach sees active assigned athlete", canCoachAccessAthlete(assignments, COACH, A1) === true);
 t("coach cannot see unassigned athlete", canCoachAccessAthlete(assignments, COACH, "ath-999") === false);
+t("read_write assignment permits coach programming", canCoachManageAthlete(assignments, COACH, A1) === true);
+t("read-only assignment cannot mutate programming", canCoachManageAthlete([{ coach_id: COACH, athlete_id: A1, status: "active", permission_level: "read" }], COACH, A1) === false);
 t("ended assignment grants no access", canCoachAccessAthlete(assignments, COACH, A2) === false);
 t("paused/invited assignment grants no access", canCoachAccessAthlete([{ coach_id: COACH, athlete_id: A1, status: "paused" }], COACH, A1) === false && canCoachAccessAthlete([{ coach_id: COACH, athlete_id: A1, status: "invited" }], COACH, A1) === false);
 t("assignedAthleteIds returns only active, deduped", JSON.stringify(assignedAthleteIds(assignments, COACH)) === JSON.stringify([A1]));
@@ -255,11 +261,45 @@ section("PROFILE MAPPING");
   t("overview matches roster: target_event", rEntry.target_event === oEntry.target_event && rEntry.target_event === "Mt. Ventoux");
 }
 {
-  // API profiles query must not include nonexistent fields
+  // The same race_date field already written by onboarding and read by the
+  // athlete planning APIs powers the coach target-date display.
   const apiSrc = readFileSync(join(root, "api/providers/index.js"), "utf8");
   const profileQuery = apiSrc.match(/profiles\?id=eq\.\$\{idf\}&select=([^\)]+)\)/);
   t("profiles query does not include target_race_date", profileQuery && !profileQuery[1].includes("target_race_date"));
-  t("profiles query includes full_name,primary_sport,goal,target_race", profileQuery && /full_name/.test(profileQuery[1]) && /primary_sport/.test(profileQuery[1]) && /goal/.test(profileQuery[1]) && /target_race/.test(profileQuery[1]));
+  t("profiles query includes identity, goal, target race, and real race_date", profileQuery && /full_name/.test(profileQuery[1]) && /primary_sport/.test(profileQuery[1]) && /goal/.test(profileQuery[1]) && /target_race/.test(profileQuery[1]) && /race_date/.test(profileQuery[1]));
+}
+
+/* ═══════════════════════════ COACH TRAINING ══════════════════════════ */
+section("COACH TRAINING");
+{
+  const sessions = [
+    { id: "s1", session_date: "2026-07-27", day: "Monday", title: "Easy Run", session_type: "easy", duration_minutes: 45, target_rpe: "3", owner_type: "human_coach" },
+    { id: "s2", session_date: "2026-07-29", day: "Wednesday", title: "Threshold", session_type: "threshold", distance_km: 10 },
+    { id: "s3", session_date: "2026-08-01", day: "Saturday", title: "Long Run", session_type: "long", duration_minutes: 100 }
+  ];
+  const executions = [
+    { training_session_id: "s1", status: "completed", actual_duration_minutes: 46 },
+    { training_session_id: "s2", status: "modified", actual_distance_km: 8 }
+  ];
+  const week = buildCoachTrainingWeek({ sessions, executions, weekStart: "2026-07-27", today: "2026-08-01" });
+  t("training week preserves prescriptions and execution statuses", week.sessions.length === 3 && week.sessions[0].execution_status === "completed" && week.sessions[1].execution_status === "modified" && week.sessions[2].execution_status === "pending");
+  t("completed workout is immutable from coach calendar", week.sessions[0].can_edit === false && week.sessions[0].can_remove === false);
+  t("today pending workout remains safely editable", week.sessions[2].can_edit === true && week.sessions[2].can_reschedule === true);
+  t("future workout status is upcoming", coachSessionStatus({ session_date: "2026-08-03" }, null, "2026-08-01") === "upcoming");
+  t("past prescription without execution is not falsely called missed", coachSessionStatus({ session_date: "2026-07-30" }, null, "2026-08-01") === "planned");
+  t("past and executed workouts cannot be removed", !canSafelyMutateCoachSession({ session_date: "2026-07-30" }, null, "2026-08-01") && !canSafelyMutateCoachSession({ session_date: "2026-08-02" }, { status: "skipped" }, "2026-08-01"));
+}
+{
+  const valid = sanitizeCoachWorkoutInput({ session_date: "2026-08-04", title: "Aerobic Run", duration_minutes: "50", distance_km: "8", target_rpe: "3" });
+  t("coach workout input is allowlisted and normalized", valid.ok && valid.value.duration_minutes === 50 && valid.value.distance_km === 8 && !("owner_type" in valid.value));
+  t("invalid workout date is rejected", sanitizeCoachWorkoutInput({ session_date: "2026-02-31", title: "Run" }).ok === false);
+}
+{
+  const apiSrc = readFileSync(join(root, "api/providers/index.js"), "utf8");
+  t("workout mutations re-check active assignment and read_write permission", /canCoachAccessAthlete\(assignments, user\.id, athleteId\)/.test(apiSrc) && /canCoachManageAthlete\(assignments, user\.id, athleteId\)/.test(apiSrc));
+  t("workout mutations scope session reads and writes to athlete", /training_sessions\?\$\{userFilter\}&id=eq\.\$\{enc\(sessionId\)\}/.test(apiSrc));
+  t("coach writes stamp existing human-coach authority", /stampOwnership\(\{[\s\S]*mode: "human_coached"/.test(apiSrc) && /created_by: user\.id/.test(apiSrc));
+  t("client authority fields are stripped before mutation", /stripClientAuthorityFields\(request\.body \|\| \{\}\)/.test(apiSrc));
 }
 
 /* ═══════════════════════════════ ATTENTION ════════════════════════════ */

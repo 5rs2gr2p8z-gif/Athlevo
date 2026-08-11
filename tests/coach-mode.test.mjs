@@ -492,7 +492,7 @@ describe("Coach Mode — coaching command center UI", () => {
 
   it("derives all summary metrics from the returned roster", () => {
     assert.ok(source.includes('sorted.filter(function (a) { return Boolean(a.today_planned); })'));
-    assert.ok(source.includes('sorted.filter(function (a) { return Boolean(a.target_event); })'));
+    assert.ok(source.includes('Boolean(a.target_event && a.target_date'));
     assert.ok(source.includes('{ label: "Athletes", value: total }'));
     assert.ok(source.includes('{ label: "Need attention", value: attn }'));
     assert.ok(source.includes('{ label: "Training today", value: training }'));
@@ -505,10 +505,10 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes('<div class="cm-quiet-state">No sessions planned today.</div>'));
   });
 
-  it("shows only roster-supported planned status for today's sessions", () => {
-    assert.ok(source.includes('<span class="cm-row-status">Planned</span>'));
-    assert.ok(!source.includes("completedToday"));
-    assert.ok(!source.includes("Completed today"));
+  it("shows execution-backed statuses for today's sessions", () => {
+    assert.ok(source.includes('var status = s.execution_status || "pending"'));
+    assert.ok(source.includes('status === "skipped"'));
+    assert.ok(source.includes('status === "modified"'));
   });
 
   it("recent activity is a who/what/when feed without sync events", () => {
@@ -559,12 +559,12 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok((source.match(/overflow-wrap:anywhere/g) || []).length >= 3);
   });
 
-  it("keeps the Coach Dashboard phone-like and stacked on desktop", () => {
+  it("keeps mobile phone-first and expands only the coach workspace on desktop", () => {
     assert.ok(source.includes(".cm-command{width:100%;max-width:430px"));
     assert.ok(source.includes(".cm-command-pair{display:grid;grid-template-columns:minmax(0,1fr)"));
-    assert.ok(!source.includes("body.coach-workspace-active .device"));
-    assert.ok(!source.includes("max-width:1180px"));
-    assert.ok(!source.includes("minmax(0,1.08fr)"));
+    assert.ok(source.includes("body.coach-workspace-active .device"));
+    assert.ok(source.includes("max-width:980px"));
+    assert.ok(source.includes('document.body.classList.remove("coach-workspace-active")'));
   });
 
   it("uses the shared skeleton and composition-level reduced motion", () => {
@@ -583,10 +583,20 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(refresh.indexOf("renderCoachToday()") < refresh.indexOf('api("roster")'));
   });
 
-  it("every command-center row opens the existing athlete drawer", () => {
+  it("every command-center row opens the dedicated athlete page", () => {
     assert.ok(source.includes('container.querySelectorAll("[data-open-athlete]")'));
-    assert.ok(source.includes("openCoachAthleteDrawer(id)"));
+    assert.ok(source.includes("openCoachAthletePage(id"));
+    assert.ok(source.includes('var tabs = ["overview", "training", "analytics", "check-ins", "notes"]'));
+    assert.ok(!source.includes("openCoachAthleteDrawer"));
     assert.ok(dashboardSource.includes("switchToCoachWorkspace"));
+  });
+
+  it("provides a real current-week programming workspace", () => {
+    assert.ok(source.includes("function renderAthleteTraining"));
+    assert.ok(source.includes("Add workout"));
+    assert.ok(source.includes('method: session ? "PATCH" : "POST"'));
+    assert.ok(source.includes('method: "DELETE"'));
+    assert.ok(source.includes("window.confirm"));
   });
 });
 
