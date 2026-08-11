@@ -500,8 +500,9 @@ describe("Coach Mode — coaching command center UI", () => {
   });
 
   it("renders a compact all-clear state instead of an empty attention panel", () => {
-    assert.ok(source.includes('<div class="cm-all-clear">All clear.</div>'));
-    assert.ok(source.includes(".cm-all-clear{display:flex"));
+    assert.ok(source.includes('<div class="cm-quiet-state cm-quiet-state--clear">All clear.</div>'));
+    assert.ok(source.includes(".cm-quiet-state{display:flex"));
+    assert.ok(source.includes('<div class="cm-quiet-state">No sessions planned today.</div>'));
   });
 
   it("shows only roster-supported planned status for today's sessions", () => {
@@ -535,8 +536,36 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes("No athletes assigned yet."));
     assert.ok(!source.includes("Invite Athlete"));
     assert.ok(source.includes("width:min(100%,1120px)"));
-    assert.ok(source.includes("@media(max-width:520px)"));
+    assert.ok(source.includes("@media(max-width:700px)"));
     assert.ok(source.includes("grid-template-columns:repeat(2,minmax(0,1fr))"));
+    assert.ok(source.includes('sorted.length <= 3 ? " cm-command--small-roster"'));
+    assert.ok(source.includes(".cm-command--small-roster .cm-command-grid{gap:32px}"));
+  });
+
+  it("keeps every summary label complete at 375, 390, and 430px", () => {
+    for (const label of ["Athletes", "Need attention", "Training today", "Upcoming races"]) {
+      assert.ok(source.includes(`label: "${label}"`));
+    }
+    assert.ok(source.includes("@media(max-width:700px)"));
+    assert.ok(source.includes("grid-template-columns:repeat(2,minmax(0,1fr))"));
+    assert.ok(source.includes("white-space:normal;overflow:visible"));
+    const metricRule = source.match(/\.cm-summary-metric span\{[^\"]+/)?.[0] || "";
+    assert.ok(metricRule && !metricRule.includes("text-overflow"));
+  });
+
+  it("renders roster name, context, and status as separate wrapping lines", () => {
+    assert.ok(source.includes(".cm-row-name,.cm-row-primary,.cm-row-meta{display:block;}"));
+    assert.ok(source.includes(".cm-roster-item .cm-row-name{font-size:15px"));
+    assert.ok(source.includes(".cm-roster-item .cm-row-primary{font-size:12px"));
+    assert.ok(source.includes(".cm-roster-item .cm-row-meta{font-size:11px"));
+    assert.ok((source.match(/overflow-wrap:anywhere/g) || []).length >= 3);
+  });
+
+  it("expands the Coach Workspace shell on desktop without changing athlete mode", () => {
+    assert.ok(source.includes("body.coach-workspace-active .device"));
+    assert.ok(source.includes("max-width:1180px"));
+    assert.ok(source.includes('document.body.classList.add("coach-workspace-active")'));
+    assert.ok(source.includes('document.body.classList.remove("coach-workspace-active")'));
   });
 
   it("uses the shared skeleton and composition-level reduced motion", () => {

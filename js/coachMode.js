@@ -207,34 +207,36 @@
       ".cm-refresh{border:0;background:transparent;color:var(--ink3,#737373);font:600 12px/1 var(--sans,sans-serif);padding:8px 0;cursor:pointer;flex:0 0 auto;}",
       ".cm-refresh:hover{color:var(--ink1,var(--ink,#171717));}",
       ".cm-refresh:focus-visible,.cm-open-row:focus-visible,.cm-review:focus-visible{outline:2px solid var(--red,#b3292d);outline-offset:3px;}",
-      ".cm-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid var(--line,#e5e5e5);margin-bottom:24px;}",
-      ".cm-summary-metric{min-width:0;padding:13px 14px 12px;border-right:1px solid var(--line,#e5e5e5);}",
+      ".cm-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid var(--line,#e5e5e5);margin-bottom:26px;}",
+      ".cm-summary-metric{min-width:0;padding:14px 16px 13px;border-right:1px solid var(--line,#e5e5e5);}",
       ".cm-summary-metric:first-child{padding-left:0}.cm-summary-metric:last-child{border-right:0;}",
       ".cm-summary-metric strong{display:block;font-size:21px;line-height:1;font-weight:700;letter-spacing:-.025em;}",
-      ".cm-summary-metric span{display:block;margin-top:5px;color:var(--ink3,#737373);font-size:10px;font-weight:700;letter-spacing:.075em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
-      ".cm-command-grid{display:grid;gap:24px;align-items:start;}",
-      ".cm-command-pair{display:grid;gap:24px;align-items:start;}",
+      ".cm-summary-metric span{display:block;margin-top:6px;color:var(--ink3,#737373);font-size:10px;font-weight:700;line-height:1.25;letter-spacing:.055em;text-transform:uppercase;white-space:normal;overflow:visible;}",
+      ".cm-command-grid{display:grid;gap:28px;align-items:start;}",
+      ".cm-command-pair{display:grid;gap:28px;align-items:start;}",
       ".cm-section{min-width:0;}",
-      ".cm-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 9px;}",
-      ".cm-section-title{font-family:var(--sans,sans-serif);font-size:13px;font-weight:750;letter-spacing:.075em;text-transform:uppercase;margin:0;}",
+      ".cm-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0;padding-bottom:10px;border-bottom:1px solid var(--line,#e5e5e5);}",
+      ".cm-section-title{font-family:var(--sans,sans-serif);font-size:13px;font-weight:760;letter-spacing:.065em;text-transform:uppercase;margin:0;}",
       ".cm-section-count{color:var(--ink3,#737373);font-size:11px;}",
-      ".cm-list{border-top:1px solid var(--line,#e5e5e5);}",
-      ".cm-row{display:flex;align-items:center;gap:11px;min-width:0;padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5);}",
+      ".cm-list{border-top:0;}",
+      ".cm-row{display:flex;align-items:center;gap:12px;min-width:0;padding:13px 2px;border-bottom:1px solid var(--line,#e5e5e5);}",
       ".cm-open-row{width:100%;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer;}",
       ".cm-open-row:hover .cm-row-name{color:var(--red,#b3292d);}",
       ".cm-avatar{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:var(--card2,var(--card,#f4f4f4));color:var(--ink2,#4f4f4f);font-size:11px;font-weight:750;letter-spacing:.02em;}",
-      ".cm-row-copy{min-width:0;flex:1;}",
-      ".cm-row-name{font-size:13px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color var(--dur-fast,140ms) var(--ease-standard,ease);}",
-      ".cm-row-primary{font-size:12px;line-height:1.35;color:var(--ink2,#555);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
-      ".cm-row-meta{font-size:11px;line-height:1.35;color:var(--ink3,#737373);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+      ".cm-row-copy{display:block;min-width:0;flex:1;}",
+      ".cm-row-name,.cm-row-primary,.cm-row-meta{display:block;}",
+      ".cm-row-name{font-size:13px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color var(--dur-fast,140ms) var(--ease-standard,ease);}",
+      ".cm-row-primary{font-size:12px;line-height:1.4;color:var(--ink2,#555);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+      ".cm-row-meta{font-size:11px;line-height:1.4;color:var(--ink3,#737373);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
       ".cm-row-status{flex:0 0 auto;max-width:110px;text-align:right;color:var(--ink3,#737373);font-size:11px;line-height:1.25;}",
       ".cm-status-attention{color:#a52a2f;font-weight:700;}",
       ".cm-status-monitor{color:#9a6505;font-weight:700;}",
       ".cm-chevron{flex:0 0 auto;color:var(--ink3,#737373);font-size:17px;line-height:1;}",
       ".cm-review{flex:0 0 auto;border:1px solid var(--line,#d9d9d9);border-radius:999px;background:transparent;color:var(--ink1,var(--ink,#171717));font:700 11px/1 var(--sans,sans-serif);padding:8px 11px;cursor:pointer;}",
       ".cm-review:hover{border-color:var(--ink2,#555);}",
-      ".cm-all-clear{display:flex;align-items:center;gap:9px;border-block:1px solid var(--line,#e5e5e5);padding:13px 0;color:var(--ink2,#555);font-size:13px;}",
-      ".cm-all-clear::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--good,#2e7d32);flex:0 0 auto;}",
+      ".cm-quiet-state{display:flex;align-items:center;gap:10px;margin-top:10px;padding:14px 15px;border-radius:10px;background:var(--card2,var(--card,#f5f5f5));color:var(--ink2,#555);font-size:13px;line-height:1.35;}",
+      ".cm-quiet-state::before{content:'';width:18px;height:1px;background:var(--ink3,#737373);opacity:.45;flex:0 0 auto;}",
+      ".cm-quiet-state--clear::before{width:7px;height:7px;border-radius:50%;background:var(--good,#2e7d32);opacity:1;}",
       ".cm-search{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--line,#e5e5e5);border-radius:0;background:transparent;color:inherit;padding:10px 0 11px;font:13px/1.3 var(--sans,sans-serif);margin:0;}",
       ".cm-search:focus{outline:0;border-bottom-color:var(--ink2,#555);}",
       ".cm-empty{padding:22px 0;border-block:1px solid var(--line,#e5e5e5);}",
@@ -249,8 +251,15 @@
       ".cm-skel-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;border-block:1px solid var(--line,#e5e5e5);padding:13px 0;margin-bottom:24px;}",
       ".cm-skel-stat{height:34px;margin-right:14px;border-radius:5px;}",
       ".cm-skel-grid{display:grid;gap:24px}.cm-skel-section{display:grid;gap:9px}.cm-skel-label{width:120px;height:11px;border-radius:4px}.cm-skel-row{height:57px;border-radius:7px;}",
-      "@media(min-width:760px){.cm-command,.cm-command-skeleton{padding:26px 28px 112px}.cm-command-pair{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)}.cm-skel-grid{grid-template-columns:1fr 1fr}.cm-section--roster{margin-top:4px}}",
-      "@media(max-width:520px){.cm-command,.cm-command-skeleton{padding-inline:16px}.cm-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-metric:nth-child(2){border-right:0}.cm-summary-metric:nth-child(-n+2){border-bottom:1px solid var(--line,#e5e5e5)}.cm-summary-metric:nth-child(3){padding-left:0}.cm-skel-summary{grid-template-columns:repeat(2,1fr);row-gap:10px}.cm-row-status{max-width:84px}.cm-review{padding:8px 9px}}",
+      ".cm-roster-item .cm-row{align-items:flex-start;padding:16px 2px;}",
+      ".cm-roster-item .cm-avatar{width:40px;height:40px;flex-basis:40px;margin-top:1px;font-size:12px;}",
+      ".cm-roster-item .cm-row-name{font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
+      ".cm-roster-item .cm-row-primary{font-size:12px;line-height:1.45;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
+      ".cm-roster-item .cm-row-meta{font-size:11px;line-height:1.45;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
+      ".cm-roster-item .cm-chevron{margin-top:3px;}",
+      ".cm-command--small-roster .cm-command-grid{gap:32px}.cm-command--small-roster .cm-section--roster{padding-top:2px;}",
+      "@media(min-width:760px){body.coach-workspace-active .device{width:min(calc(100% - 48px),1180px);max-width:1180px;border-radius:24px}.cm-command,.cm-command-skeleton{padding:28px 34px 112px}.cm-command-pair{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)}.cm-skel-grid{grid-template-columns:1fr 1fr}.cm-section--roster{margin-top:6px}.cm-roster-item .cm-row{padding-block:17px}}",
+      "@media(max-width:700px){.cm-command,.cm-command-skeleton{padding-inline:16px}.cm-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-metric{min-height:67px;padding:13px 12px}.cm-summary-metric:nth-child(2){border-right:0}.cm-summary-metric:nth-child(-n+2){border-bottom:1px solid var(--line,#e5e5e5)}.cm-summary-metric:nth-child(3){padding-left:0}.cm-summary-metric span{font-size:10px;letter-spacing:.035em}.cm-skel-summary{grid-template-columns:repeat(2,1fr);row-gap:10px}.cm-row-status{max-width:84px}.cm-review{padding:8px 9px}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready{animation:none}.cm-row-name{transition:none}}"
     ].join("");
     document.head.appendChild(style);
@@ -455,6 +464,7 @@
     var fromWs = _workspace;
     _workspace = "coach_workspace";
     writeWorkspacePref("coach_workspace");
+    document.body.classList.add("coach-workspace-active");
 
     // Hide athlete screens that Coach Mode replaces
     var athleteOnly = ["screen-coachai", "screen-train", "screen-trends", "screen-you"];
@@ -496,6 +506,7 @@
     var fromWs = _workspace;
     _workspace = "athlete_workspace";
     writeWorkspacePref("athlete_workspace");
+    document.body.classList.remove("coach-workspace-active");
 
     // Hide coach-only screens
     COACH_SCREENS.forEach(function (id) {
@@ -670,10 +681,11 @@
       ? attention.length + " athlete" + (attention.length === 1 ? " needs" : "s need") + " review today."
       : trainingToday.length
         ? trainingToday.length + " athlete" + (trainingToday.length === 1 ? " is" : "s are") + " training today."
-        : sorted.length ? "Roster is clear for today." : "No athletes are currently assigned.";
+        : sorted.length ? "No athletes need attention right now." : "No athletes are currently assigned.";
+    var rosterSizeClass = sorted.length > 0 && sorted.length <= 3 ? " cm-command--small-roster" : "";
 
     var content =
-      '<div class="cm-command cm-command--ready">' +
+      '<div class="cm-command cm-command--ready' + rosterSizeClass + '">' +
         '<header class="cm-command-head">' +
           '<div><h1>Coach Dashboard</h1><p class="cm-command-summary" aria-live="polite">' + esc(liveSummary) + '</p></div>' +
           '<button type="button" class="cm-refresh" id="cmRefresh">Refresh</button>' +
@@ -742,7 +754,7 @@
   /* ─── Needs Attention ─── */
   function renderAttentionSection(athletes) {
     var html = '<section class="cm-section cm-section--attention">' + sectionHeader("Needs Attention", athletes.length);
-    if (!athletes.length) return html + '<div class="cm-all-clear">All clear.</div></section>';
+    if (!athletes.length) return html + '<div class="cm-quiet-state cm-quiet-state--clear">All clear.</div></section>';
     html += '<div class="cm-list">';
     athletes.forEach(function (a) {
       var key = (a.attention_reason_keys || [])[0];
@@ -762,7 +774,7 @@
   /* ─── Training Today ─── */
   function renderTrainingTodaySection(athletes) {
     var html = '<section class="cm-section cm-section--training">' + sectionHeader("Training Today", athletes.length);
-    if (!athletes.length) return html + '<div class="cm-all-clear">No sessions planned today.</div></section>';
+    if (!athletes.length) return html + '<div class="cm-quiet-state">No sessions planned today.</div></section>';
     html += '<div class="cm-list">';
     athletes.forEach(function (a) {
       var s = a.today_planned || {};
@@ -1330,12 +1342,14 @@
       // isAthleteWorkspace() tells the caller to continue athlete flow)
       _workspace = "athlete_workspace";
       writeWorkspacePref("athlete_workspace");
+      document.body.classList.remove("coach-workspace-active");
       return;
     }
 
     // Enter Coach Workspace (default for coach/admin)
     _workspace = "coach_workspace";
     writeWorkspacePref("coach_workspace");
+    document.body.classList.add("coach-workspace-active");
 
     ensureCoachScreens();
     rewriteNavigation();
