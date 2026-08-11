@@ -1902,6 +1902,44 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .asc-est{font-size:var(--fs-caption);color:var(--ink3);margin-top:12px;line-height:var(--lh-caption)}
 .asc-empty .asc-empty-copy{font-size:var(--fs-body-sm);color:var(--ink2);line-height:var(--lh-body);margin-top:8px}
 
+/* Compact Today-header score summary. The full score experience is rendered
+   only inside #scoreDetailModal; this mount never expands the Today flow. */
+.today-header{display:grid;grid-template-columns:minmax(0,1fr) 104px;align-items:end;
+  gap:14px;padding:16px 22px 12px;min-width:0}
+.today-header-copy{min-width:0}
+.today-header .statusrow{justify-content:flex-start;padding:0 0 12px}
+.today-header .greet{min-width:0;padding:0}
+.today-header .greet h1{overflow-wrap:anywhere}
+.today-score-mount{width:104px;height:84px;align-self:end}
+.asc-compact{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 36px;
+  grid-template-rows:auto 1fr auto;width:104px;height:84px;box-sizing:border-box;
+  overflow:hidden;padding:9px 8px 8px;text-align:left;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:var(--paper);color:var(--text);box-shadow:var(--elev-1);
+  font-family:var(--sans);cursor:pointer;transition:border-color var(--dur-fast) var(--ease-standard),
+  transform var(--dur-fast) var(--ease-standard)}
+.asc-compact:hover{border-color:var(--ink3)}
+.asc-compact:active{transform:scale(.98)}
+.asc-compact:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.asc-compact-label{grid-column:1/-1;font-size:calc(var(--fs-micro) * .82);font-weight:750;line-height:1;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);white-space:nowrap}
+.asc-compact-score{grid-column:1;align-self:end;font-family:var(--serif);font-size:var(--fs-h1);
+  font-weight:500;line-height:.9;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.asc-compact-trend{grid-column:1/-1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;font-size:calc(var(--fs-micro) * .9);font-weight:650;line-height:1.15;color:var(--ink2)}
+.asc-compact-radar{grid-column:2;grid-row:2;align-self:end;width:34px;height:34px}
+.asc-compact-radar svg{display:block;width:100%;height:100%;overflow:visible}
+.asc-mini-grid{fill:none;stroke:var(--line);stroke-width:1.5}
+.asc-mini-area{fill:rgba(192,39,45,.1);stroke:var(--red);stroke-width:1.8;stroke-linejoin:round}
+.asc-compact-affordance{position:absolute;right:6px;top:6px;font-size:var(--fs-micro);line-height:1;color:var(--ink3)}
+.asc-compact--locked{grid-template-columns:1fr}
+.asc-compact--locked .asc-compact-score{font-family:var(--sans);font-size:var(--fs-h2);letter-spacing:.08em;color:var(--ink3)}
+.asc-compact--locked .asc-compact-trend{padding-right:12px}
+@media (max-width:380px){
+  .today-header{grid-template-columns:minmax(0,1fr) 96px;gap:10px}
+  .today-score-mount,.asc-compact{width:96px}
+  .today-header .greet h1{font-size:clamp(28px,8.5vw,34px)}
+}
+
 /* ---------- Today "Your current training paces" card (V2) ---------- */
 .tpc{margin:12px 22px 4px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5)}
 .tpc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-3);margin-bottom:14px}
@@ -1955,7 +1993,12 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .rd-eyebrow{display:block;font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
 
 /* ---------- Score detail sheet ---------- */
-.scd{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:24px 22px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--dur-slow) var(--ease-standard)}
+.score-detail-open{overflow:hidden}
+body.score-detail-open .screen.active{overflow:hidden}
+.scd{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding:10px 22px calc(28px + env(safe-area-inset-bottom));animation:scoreSheetIn 260ms var(--ease-standard)}
+.scd-handle{width:38px;height:4px;border-radius:var(--r-pill);background:var(--line);margin:0 auto 14px}
 .scd-header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-3)}
 .scd-overall{font-family:var(--serif);font-size:42px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-top:4px}
 .scd-quality{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em}
@@ -1987,6 +2030,19 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .scd-hist{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;font-size:var(--fs-body-sm)}
 .scd-hist-row{display:flex;justify-content:space-between;padding:6px 0;color:var(--ink2)}
 .scd-hist-row span:last-child{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.scd-scoreline{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--s-3);margin-top:4px}
+.scd-scoremeta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.scd .asc-radar-wrap{margin-top:14px}
+@keyframes scoreSheetIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@media (min-width:700px){
+  #scoreDetailModal{align-items:center;justify-content:center;padding:28px}
+  #scoreDetailModal .scd{max-width:600px;max-height:min(82vh,760px);border-radius:var(--r-lg);padding:22px 26px 28px}
+  #scoreDetailModal .scd-handle{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .scd{animation:none}
+  .asc-compact{transition:none}
+}
 
 /* ---------- graph-first Trends ---------- */
 #screen-trends{overflow-x:hidden}
@@ -3497,18 +3553,20 @@ body.landing-active #tabbar{display:none!important}
 
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
-  <div class="statusrow">
-  <img class="brand-icon" src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="30" height="30">
-</div>
-  <div class="greet">
-  <h1 class="serif">
-    <span id="todayGreeting">Good morning</span>, <span id="todayAthleteName">Athlete</span>
-  </h1>
-
-  <p id="todayContextLine">
-    Loading your current training week…
-  </p>
-</div>
+  <header class="today-header">
+    <div class="today-header-copy">
+      <div class="statusrow">
+        <img class="brand-icon" src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="30" height="30">
+      </div>
+      <div class="greet">
+        <h1 class="serif">
+          <span id="todayGreeting">Good morning</span>, <span id="todayAthleteName">Athlete</span>
+        </h1>
+        <p id="todayContextLine">Loading your current training week…</p>
+      </div>
+    </div>
+    <div class="today-score-mount" id="athlevoScoreCard" aria-live="polite"></div>
+  </header>
 
   <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
   <style>
@@ -3921,10 +3979,6 @@ body.landing-active #tabbar{display:none!important}
   <!-- Secondary utility surfaces follow the daily training hierarchy. -->
   <div id="syncBanner" class="ss-banner-wrap"></div>
   <div id="raceDetectCard"></div>
-
-  <!-- ═══════════ ATHLEVO SCORE / RADAR — moved up so the visual summary
-       appears on the first viewport instead of below a wall of text. -->
-  <div id="athlevoScoreCard"></div>
 
   <!-- ═══════════ TRAINING PACES (kept below the visual summary) ═══════════ -->
   <div id="trainingPacesCard"></div>
@@ -4679,7 +4733,8 @@ body.landing-active #tabbar{display:none!important}
 <div class="modal-back" id="readinessModal" aria-hidden="true"></div>
 
 <!-- ══════════════ ATHLEVO SCORE DETAIL MODAL ══════════════ -->
-<div class="modal-back" id="scoreDetailModal"></div>
+<div class="modal-back" id="scoreDetailModal" aria-hidden="true"
+  onclick="if(event.target===this)AthlevoScore.closeDetails()"></div>
 
 <!-- ══════════════ DELETE ACCOUNT MODAL ══════════════ -->
 <div class="modal-back" id="deleteAccountModal" onclick="if(event.target===this)closeDeleteAccount()">
@@ -7787,7 +7842,7 @@ setTimeout(function () {
 <script src="js/activation.js?v=68"></script>
 <script src="js/onboardingConnect.js?v=69"></script>
 <script src="js/productionVerify.js?v=67"></script>
-<script src="js/athlevoScore.js?v=70"></script>
+<script src="js/athlevoScore.js?v=71"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
 <script src="js/coachBrain.js?v=67"></script>

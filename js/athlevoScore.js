@@ -607,6 +607,34 @@
       </svg>`;
   }
 
+  // A deliberately tiny, label-free preview of the same five component
+  // values. It is visual context for the header tile, never a second score.
+  function buildRadarPreview(components) {
+    const cx = 20, cy = 20, radius = 15, count = RADAR_AXES.length;
+    const point = (index, value) => {
+      const angle = (-90 + index * (360 / count)) * Math.PI / 180;
+      const r = radius * value;
+      return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
+    };
+    const frame = RADAR_AXES.map((_, index) => point(index, 1)).join(" ");
+    const known = RADAR_AXES
+      .map(axis => (components || {})[axis.key] || {})
+      .filter(component => radarState(component) !== "missing")
+      .map(component => Number(component.score));
+    const fallback = known.length
+      ? known.reduce((sum, value) => sum + value, 0) / known.length
+      : 50;
+    const shape = RADAR_AXES.map((axis, index) => {
+      const component = (components || {})[axis.key] || {};
+      const value = radarState(component) === "missing" ? fallback : Number(component.score);
+      return point(index, Math.max(.08, Math.min(1, value / 100)));
+    }).join(" ");
+    return `<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+      <polygon class="asc-mini-grid" points="${frame}"></polygon>
+      <polygon class="asc-mini-area" points="${shape}"></polygon>
+    </svg>`;
+  }
+
   /*
    * One plain-language interpretation of the score, so the number reads as
    * supporting EVIDENCE rather than a headline (Feel Coached). Derived purely
@@ -638,24 +666,18 @@
     // Never place a personalized score, component, history value or hidden
     // accessibility value in the free preview.
     mount.innerHTML = `
-      <section class="asc-locked" aria-label="Athlevo Score, Athlevo Performance feature">
-        <div class="asc-locked-head">
-          <span class="asc-eyebrow">Athlevo Score</span>
-          <span class="asc-locked-mark" aria-hidden="true">
-            <strong class="asc-locked-value">••</strong>
-            <span class="asc-lock-icon">
-              <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>
-            </span>
-          </span>
-        </div>
-        <p>Track how your training is developing over time.</p>
-        <button type="button"
-          onclick="AthlevoAccessGuard.showUpgradeSheet('athlevo_score','today')">Unlock Athlevo Score</button>
-      </section>`;
+      <button class="asc-compact asc-compact--locked" type="button"
+        aria-label="Unlock Athlevo Score with Athlevo Performance"
+        onclick="AthlevoAccessGuard.showUpgradeSheet('athlevo_score','today')">
+        <span class="asc-compact-label">Athlevo Score</span>
+        <strong class="asc-compact-score" aria-hidden="true">••</strong>
+        <span class="asc-compact-trend">Performance</span>
+        <span class="asc-compact-affordance" aria-hidden="true">↗</span>
+      </button>`;
     try {
       if (window.AthlevoAccessGuard) {
         const lockedTarget = typeof mount.querySelector === "function"
-          ? mount.querySelector(".asc-locked")
+          ? mount.querySelector(".asc-compact--locked")
           : mount;
         window.AthlevoAccessGuard.trackPremiumView(
           "athlevo_score", "today", lockedTarget || mount
@@ -667,6 +689,7 @@
   function renderScoreCard(result) {
     const mount = document.getElementById("athlevoScoreCard");
     if (!mount) return;
+    lastResult = result;
     const o = result.overall;
 
     // Expose current component scores for the Development section (reuse —
@@ -686,100 +709,21 @@
     const genuineImprovement = o.status === "valid" && Number.isFinite(lastShown) && o.score > lastShown;
     const animate = genuineImprovement && !prefersReducedMotion();
 
-    const updated = o.lastUpdated
-      ? `<span class="asc-updated">Updated ${esc(o.lastUpdated)}</span>` : "";
-
     const valid = o.status === "valid";
-    const cur = valid ? Number(o.score) : null;
-
-    // Trend badges from real persisted history (calculations untouched):
-    // all-time "Highest ever", else "Best in 30 days", else the peak marker.
-    const histRows = (scoreHistory || [])
-      .filter(h => Number.isFinite(Number(h.overall_score)));
-    const hist = histRows.map(h => Number(h.overall_score));
-    const allVals = cur != null ? hist.concat(cur) : hist;
-    const peak = allVals.length ? Math.max(...allVals) : null;
-
-    // Highest score seen in the last 30 days (prior snapshots only).
-    const DAY = 86400000, now = Date.now();
-    const recent30 = histRows
-      .filter(h => {
-        const t = Date.parse(h.score_date);
-        return Number.isFinite(t) && (now - t) <= 30 * DAY;
-      })
-      .map(h => Number(h.overall_score));
-    const peak30 = recent30.length ? Math.max(...recent30) : null;
-
-    let peakBadge = "", peakMark = "";
-    if (valid && peak != null) {
-      if (cur >= peak && (hist.length > 1 || delta.improved)) {
-        peakBadge = `<span class="asc-peak best">✦ Highest ever</span>`;
-      } else if (peak30 != null && cur >= peak30 && recent30.length > 1) {
-        peakBadge = `<span class="asc-peak best">Best in 30 days</span>`;
-        if (peak > cur) peakMark = `<span class="asc-track-mark" style="left:${peak}%"></span>`;
-      } else if (peak > cur) {
-        peakBadge = `<span class="asc-peak">Best ${peak}</span>`;
-        peakMark = `<span class="asc-track-mark" style="left:${peak}%"></span>`;
-      }
-    }
-
-    // Component value list — label + number, "—" when data is insufficient
-    // (never 0). A coloured dot (not colour alone) marks verified/developing/
-    // missing so meaning survives colour-blindness and dark mode.
     const components = result.components || {};
-    const compList = RADAR_AXES.map(ax => {
-      const c = components[ax.key] || {};
-      const state = radarState(c);
-      const val = state === "missing" ? "—" : c.score;
-      return `
-        <div class="asc-crow ${state}">
-          <span class="asc-cdot" aria-hidden="true"></span>
-          <span class="asc-cname">${esc(ax.full)}</span>
-          <span class="asc-cval">${val}</span>
-        </div>`;
-    }).join("");
-
-    // Which axes still need data, and how to unlock them (truthful, generic).
-    const missingLabels = RADAR_AXES
-      .filter(ax => radarState(components[ax.key] || {}) === "missing")
-      .map(ax => ax.full);
-    const needNote = missingLabels.length
-      ? `<p class="asc-need">More data needed for ${esc(missingLabels.join(", "))}. Log a race or a threshold session to complete your profile.</p>`
-      : "";
-
     const arrow = deltaClass === "up" ? "▲ " : deltaClass === "down" ? "▼ " : "";
 
     mount.innerHTML = `
-      <div class="asc">
-        <div class="asc-head">
-          <div class="asc-head-l">
-            <span class="asc-eyebrow">Athlevo Score</span>
-            <span class="asc-sub-eyebrow">Long-term development</span>
-          </div>
-          <span class="asc-delta ${deltaClass}">${arrow}${esc(delta.text)}</span>
-        </div>
-
-        <p class="asc-interp">${esc(interpretationLine(result))}</p>
-
-        <div class="asc-hero">
-          <div class="asc-scorewrap">
-            <span class="asc-score-num" id="ascRingNum">${valid ? o.score : "—"}</span>
-            <span class="asc-score-max">/100</span>
-          </div>
-          ${peakBadge}
-        </div>
-
-        <div class="asc-radar-wrap${animate ? " animate" : ""}">${buildRadar(components)}</div>
-
-        <div class="asc-comp-list">${compList}</div>
-        ${needNote}
-
-        <p class="asc-explain">${esc(o.explanation)}</p>
-        <div class="asc-foot">
-          ${updated}
-          <button class="asc-details-btn" type="button" onclick="AthlevoScore.openDetails()">View details</button>
-        </div>
-      </div>`;
+      <button class="asc-compact" type="button" aria-haspopup="dialog"
+        aria-controls="scoreDetailModal"
+        aria-label="Athlevo Score ${valid ? o.score : "building baseline"}, ${esc(delta.text)}. View details."
+        onclick="AthlevoScore.openDetails()">
+        <span class="asc-compact-label">Athlevo Score</span>
+        <strong class="asc-compact-score" id="ascRingNum">${valid ? o.score : "—"}</strong>
+        <span class="asc-compact-radar">${buildRadarPreview(components)}</span>
+        <span class="asc-compact-trend">${arrow}${esc(delta.text)}</span>
+        <span class="asc-compact-affordance" aria-hidden="true">↗</span>
+      </button>`;
 
     if (valid) {
       try { window.localStorage.setItem("athlevo_score_last", String(o.score)); } catch (e) {}
@@ -817,6 +761,29 @@
       </div>`;
   }
 
+  function scorePeakBadge(result, delta) {
+    const overall = result && result.overall;
+    if (!overall || overall.status !== "valid") return "";
+    const current = Number(overall.score);
+    const rows = (scoreHistory || []).filter(row => Number.isFinite(Number(row.overall_score)));
+    const prior = rows.map(row => Number(row.overall_score));
+    const peak = Math.max(current, ...prior);
+    const cutoff = Date.now() - (30 * 86400000);
+    const recent = rows
+      .filter(row => Number.isFinite(Date.parse(row.score_date)) && Date.parse(row.score_date) >= cutoff)
+      .map(row => Number(row.overall_score));
+    const recentPeak = recent.length ? Math.max(...recent) : null;
+    if (current >= peak && (prior.length > 1 || delta.improved)) {
+      return `<span class="asc-peak best">✦ Highest ever</span>`;
+    }
+    if (recentPeak != null && current >= recentPeak && recent.length > 1) {
+      return `<span class="asc-peak best">Best in 30 days</span>`;
+    }
+    return peak > current ? `<span class="asc-peak">Best ${peak}</span>` : "";
+  }
+
+  let scoreDetailReturnFocus = null;
+
   function openDetails() {
     const modal = document.getElementById("scoreDetailModal");
     const result = lastResult;
@@ -824,6 +791,13 @@
 
     const o = result.overall;
     const order = ["aerobic", "threshold", "speed", "durability", "consistency", "level"];
+    const delta = computeDelta(scoreHistory, o.status === "valid" ? o.score : null);
+    const deltaClass =
+      delta.text === "Stable" ? "stable" :
+      delta.text === "Building baseline" ? "building" :
+      delta.improved ? "up" : "down";
+    const arrow = deltaClass === "up" ? "▲ " : deltaClass === "down" ? "▼ " : "";
+    const peakBadge = scorePeakBadge(result, delta);
 
     const strengths = result.strengths.length
       ? `<p class="scd-line"><b>Current strengths:</b> ${esc(result.strengths.join(", "))}</p>` : "";
@@ -842,22 +816,37 @@
     // pace service. The underlying data/calculator is unchanged.
 
     modal.innerHTML = `
-      <div class="scd">
+      <div class="scd" role="dialog" aria-modal="true" aria-labelledby="scoreDetailTitle" tabindex="-1">
+        <div class="scd-handle" aria-hidden="true"></div>
         <div class="scd-header">
           <div>
-            <span class="asc-eyebrow">Athlevo Score</span>
-            <div class="scd-overall">${o.status === "valid" ? o.score : "Building"}</div>
+            <span class="asc-eyebrow" id="scoreDetailTitle">Athlevo Score</span>
+            <span class="asc-sub-eyebrow">Long-term development</span>
+            <div class="scd-scoreline">
+              <div class="scd-overall">${o.status === "valid" ? o.score : "Building"}</div>
+              <div class="scd-scoremeta">
+                <span class="asc-delta ${deltaClass}">${arrow}${esc(delta.text)}</span>
+                ${peakBadge}
+              </div>
+            </div>
             <span class="scd-quality">${esc(o.dataQuality)}</span>
           </div>
           <button class="scd-close" type="button" onclick="AthlevoScore.closeDetails()" aria-label="Close">✕</button>
         </div>
+        <div class="asc-radar-wrap">${buildRadar(result.components || {})}</div>
+        <p class="asc-interp">${esc(interpretationLine(result))}</p>
         <p class="scd-explain">${esc(o.explanation)}</p>
         ${why}${strengths}${limiter}
         <div class="scd-comps">${order.map(k => componentRow(result.components[k])).join("")}</div>
         ${needed}
         ${history}
       </div>`;
+    scoreDetailReturnFocus = document.activeElement || null;
+    modal.setAttribute("aria-hidden", "false");
     modal.classList.add("show");
+    if (document.body && document.body.classList) document.body.classList.add("score-detail-open");
+    const sheet = typeof modal.querySelector === "function" ? modal.querySelector(".scd") : null;
+    if (sheet && typeof sheet.focus === "function") sheet.focus({ preventScroll: true });
   }
 
   function renderHistory() {
@@ -870,7 +859,15 @@
 
   function closeDetails() {
     const modal = document.getElementById("scoreDetailModal");
-    if (modal) { modal.classList.remove("show"); }
+    if (modal) {
+      modal.classList.remove("show");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    if (document.body && document.body.classList) document.body.classList.remove("score-detail-open");
+    if (scoreDetailReturnFocus && typeof scoreDetailReturnFocus.focus === "function") {
+      scoreDetailReturnFocus.focus({ preventScroll: true });
+    }
+    scoreDetailReturnFocus = null;
   }
 
   /* ─────────────────── history persistence (client) ────────────────── */
@@ -948,8 +945,10 @@
         const details = document.getElementById("scoreDetailModal");
         if (details) {
           details.classList.remove("show");
+          if (typeof details.setAttribute === "function") details.setAttribute("aria-hidden", "true");
           details.innerHTML = "";
         }
+        if (document.body && document.body.classList) document.body.classList.remove("score-detail-open");
         renderLockedScoreCard();
         return null;
       }
@@ -1040,5 +1039,29 @@
     renderScoreCard,
     renderLockedScoreCard
   };
+  if (document && typeof document.addEventListener === "function") {
+    document.addEventListener("keydown", event => {
+      const modal = document.getElementById("scoreDetailModal");
+      if (!modal || !modal.classList || !modal.classList.contains("show")) return;
+      if (event.key === "Escape") {
+        closeDetails();
+        return;
+      }
+      if (event.key !== "Tab" || typeof modal.querySelectorAll !== "function") return;
+      const focusable = Array.from(modal.querySelectorAll(
+        'button:not([disabled]),a[href],summary,[tabindex]:not([tabindex="-1"])'
+      ));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+  }
   window.renderAthlevoScoreCard = refresh; // repoint the existing hook
 })();

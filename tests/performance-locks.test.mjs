@@ -112,9 +112,10 @@ section("Athlevo Score preview");
     /Athlevo Score/.test(mount.innerHTML) &&
     /••/.test(mount.innerHTML) &&
     !/\/100|asc-cval|overall_score|score_date/.test(mount.innerHTML));
-  test("locked score uses the approved teaser and explicit sheet action",
-    /Track how your training is developing over time\./.test(mount.innerHTML) &&
-    /Unlock Athlevo Score/.test(mount.innerHTML) &&
+  test("locked score uses the compact Performance summary and explicit sheet action",
+    /asc-compact--locked/.test(mount.innerHTML) &&
+    /Performance/.test(mount.innerHTML) &&
+    /Unlock Athlevo Score with Athlevo Performance/.test(mount.innerHTML) &&
     /showUpgradeSheet\('athlevo_score','today'\)/.test(mount.innerHTML));
   test("free transition clears previously rendered score details",
     detail.innerHTML === "" && !detail.classList.contains("show"));
