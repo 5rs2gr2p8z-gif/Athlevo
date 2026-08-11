@@ -113,32 +113,42 @@ const today = html.slice(todayStart, todayEnd);
 test("score mount is in the Today header, before primary training state",
   /<header class="today-header">[\s\S]*?id="athlevoScoreCard"[\s\S]*?id="todayPlanLoadingState"/.test(today));
 test("Today contains only one score mount", (today.match(/id="athlevoScoreCard"/g) || []).length === 1);
-test("tile is 104 by 84px and narrows safely on the smallest phones",
-  /\.today-score-mount\{width:104px;height:84px/.test(html) &&
-  /\.asc-compact\{[\s\S]*?width:104px;height:84px/.test(html) &&
-  /@media \(max-width:380px\)[\s\S]*?\.today-score-mount,\.asc-compact\{width:96px\}/.test(html));
+test("radar summary is 90px square and narrows safely on the smallest phones",
+  /\.today-score-mount\{width:90px;height:90px/.test(html) &&
+  /\.asc-radar-summary\{[\s\S]*?width:90px;height:90px/.test(html) &&
+  /@media \(max-width:380px\)[\s\S]*?\.today-score-mount,\.asc-radar-summary\{width:78px;height:78px\}/.test(html));
 test("header grid and long-name copy cannot cause horizontal overflow",
-  /\.today-header\{[^}]*grid-template-columns:minmax\(0,1fr\) 104px[^}]*min-width:0/.test(html) &&
-  /\.today-header-copy\{min-width:0\}/.test(html) &&
+  /\.today-header\{[^}]*grid-template-columns:minmax\(0,1fr\) 90px[^}]*min-width:0/.test(html) &&
+  /\.today-header-copy\{[^}]*grid-template-columns:30px minmax\(0,1fr\)[^}]*min-width:0/.test(html) &&
   /\.today-header \.greet h1\{overflow-wrap:anywhere\}/.test(html) &&
   [375, 390, 430].every(width => {
     const compact = width <= 380;
-    return width - 44 - (compact ? 96 : 104) - (compact ? 10 : 14) > 0;
+    return width - 44 - (compact ? 78 : 90) - (compact ? 10 : 12) > 0;
   }));
+test("compact summary has no card shell",
+  /\.asc-radar-summary\{[^}]*border:0[^}]*border-radius:0[^}]*background:transparent[^}]*box-shadow:none/.test(html) &&
+  !/\.asc-radar-summary\{[^}]*border:1px/.test(html));
+test("boot and live loading states use compact pentagonal score placeholders",
+  /class="skel boot-score-radar"/.test(html) &&
+  /id="athlevoScoreCard"[\s\S]*?class="skel today-score-skeleton"/.test(today) &&
+  /\.boot-score-radar\{[^}]*clip-path:polygon/.test(html) &&
+  /\.today-score-skeleton\{[^}]*clip-path:polygon/.test(html));
 
 console.log("\n──── Paid summary and full drill-down ────");
 root.AthlevoScore.renderScoreCard(result);
-test("compact tile shows label, current score, trend and a five-point preview",
+test("compact radar shows current score, trend and the real five-axis shape",
   /Athlevo Score/.test(mount.innerHTML) &&
-  /asc-compact-score[^>]*>64</.test(mount.innerHTML) &&
-  /Building baseline/.test(mount.innerHTML) &&
+  /asc-radar-score[^>]*>64</.test(mount.innerHTML) &&
+  /asc-radar-trend[^>]*>Building</.test(mount.innerHTML) &&
+  (mount.innerHTML.match(/asc-mini-spoke/g) || []).length === 5 &&
   /asc-mini-area/.test(mount.innerHTML));
-test("compact tile omits the full dimension list and explanation",
+test("compact radar omits the full dimension list and explanation",
   !/asc-crow|Aerobic|Threshold|Your long-term development/.test(mount.innerHTML));
-test("tile is an accessible dialog affordance",
+test("native button supports pointer and keyboard activation with an accessible dialog label",
   /type="button"/.test(mount.innerHTML) &&
   /aria-haspopup="dialog"/.test(mount.innerHTML) &&
-  /aria-controls="scoreDetailModal"/.test(mount.innerHTML));
+  /aria-controls="scoreDetailModal"/.test(mount.innerHTML) &&
+  /aria-label="Open Athlevo Score details\./.test(mount.innerHTML));
 
 root.AthlevoScore.openDetails();
 test("open renders the full score, trend, radar and every existing dimension",
@@ -176,7 +186,10 @@ const missing = {
 };
 root.AthlevoScore.renderScoreCard(missing);
 test("missing score is represented honestly without a fabricated number",
-  /asc-compact-score[^>]*>—</.test(mount.innerHTML) && /Building baseline/.test(mount.innerHTML));
+  /asc-radar-score[^>]*>—</.test(mount.innerHTML) &&
+  /asc-radar-trend[^>]*>Building</.test(mount.innerHTML) &&
+  /asc-mini-grid/.test(mount.innerHTML) &&
+  !/asc-mini-area|asc-mini-dot/.test(mount.innerHTML));
 test("mobile sheet and centered desktop modal share the existing overlay",
   /\.scd\{[^}]*max-height:88vh/.test(html) &&
   /@media \(min-width:700px\)[\s\S]*?#scoreDetailModal\{align-items:center;justify-content:center/.test(html));

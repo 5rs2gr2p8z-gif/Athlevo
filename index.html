@@ -1902,41 +1902,42 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .asc-est{font-size:var(--fs-caption);color:var(--ink3);margin-top:12px;line-height:var(--lh-caption)}
 .asc-empty .asc-empty-copy{font-size:var(--fs-body-sm);color:var(--ink2);line-height:var(--lh-body);margin-top:8px}
 
-/* Compact Today-header score summary. The full score experience is rendered
-   only inside #scoreDetailModal; this mount never expands the Today flow. */
-.today-header{display:grid;grid-template-columns:minmax(0,1fr) 104px;align-items:end;
-  gap:14px;padding:16px 22px 12px;min-width:0}
-.today-header-copy{min-width:0}
-.today-header .statusrow{justify-content:flex-start;padding:0 0 12px}
+/* The compact score IS the radar: no panel, border, radius or shadow. The
+   full labeled model remains in #scoreDetailModal. */
+.today-header{display:grid;grid-template-columns:minmax(0,1fr) 90px;align-items:start;
+  gap:12px;padding:16px 22px 12px;min-width:0}
+.today-header-copy{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:start;
+  gap:10px;min-width:0}
+.today-header .statusrow{justify-content:flex-start;padding:0}
 .today-header .greet{min-width:0;padding:0}
 .today-header .greet h1{overflow-wrap:anywhere}
-.today-score-mount{width:104px;height:84px;align-self:end}
-.asc-compact{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 36px;
-  grid-template-rows:auto 1fr auto;width:104px;height:84px;box-sizing:border-box;
-  overflow:hidden;padding:9px 8px 8px;text-align:left;border:1px solid var(--line);
-  border-radius:var(--r-sm);background:var(--paper);color:var(--text);box-shadow:var(--elev-1);
-  font-family:var(--sans);cursor:pointer;transition:border-color var(--dur-fast) var(--ease-standard),
-  transform var(--dur-fast) var(--ease-standard)}
-.asc-compact:hover{border-color:var(--ink3)}
-.asc-compact:active{transform:scale(.98)}
-.asc-compact:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.asc-compact-label{grid-column:1/-1;font-size:calc(var(--fs-micro) * .82);font-weight:750;line-height:1;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);white-space:nowrap}
-.asc-compact-score{grid-column:1;align-self:end;font-family:var(--serif);font-size:var(--fs-h1);
-  font-weight:500;line-height:.9;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
-.asc-compact-trend{grid-column:1/-1;min-width:0;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;font-size:calc(var(--fs-micro) * .9);font-weight:650;line-height:1.15;color:var(--ink2)}
-.asc-compact-radar{grid-column:2;grid-row:2;align-self:end;width:34px;height:34px}
-.asc-compact-radar svg{display:block;width:100%;height:100%;overflow:visible}
-.asc-mini-grid{fill:none;stroke:var(--line);stroke-width:1.5}
-.asc-mini-area{fill:rgba(192,39,45,.1);stroke:var(--red);stroke-width:1.8;stroke-linejoin:round}
-.asc-compact-affordance{position:absolute;right:6px;top:6px;font-size:var(--fs-micro);line-height:1;color:var(--ink3)}
-.asc-compact--locked{grid-template-columns:1fr}
-.asc-compact--locked .asc-compact-score{font-family:var(--sans);font-size:var(--fs-h2);letter-spacing:.08em;color:var(--ink3)}
-.asc-compact--locked .asc-compact-trend{padding-right:12px}
+.today-score-mount{width:90px;height:90px;align-self:start}
+.asc-radar-summary{position:relative;display:block;width:90px;height:90px;box-sizing:border-box;
+  padding:0;border:0;border-radius:0;background:transparent;color:var(--text);box-shadow:none;
+  font-family:var(--sans);cursor:pointer;transition:transform var(--dur-fast) var(--ease-standard)}
+.asc-radar-summary:active{transform:scale(.98)}
+.asc-radar-summary:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.asc-radar-graphic{position:absolute;top:0;left:50%;width:82px;height:82px;transform:translateX(-50%)}
+.asc-radar-graphic svg{display:block;width:100%;height:100%;overflow:visible}
+.asc-mini-grid{fill:none;stroke:var(--line);stroke-width:1.1}
+.asc-mini-spoke{stroke:var(--line);stroke-width:.8}
+.asc-mini-area{fill:rgba(192,39,45,.11);stroke:var(--red);stroke-width:1.45;stroke-linejoin:round}
+.asc-mini-dot{fill:var(--red)}
+.asc-radar-score{position:absolute;z-index:1;top:31px;left:0;width:100%;font-family:var(--serif);
+  font-size:var(--fs-h2);font-weight:600;line-height:1;text-align:center;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--text)}
+.asc-radar-trend{position:absolute;z-index:1;left:0;right:0;bottom:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;font-size:calc(var(--fs-micro) * .9);font-weight:650;
+  line-height:1;color:var(--ink2);text-align:center}
+.asc-radar-summary--locked .asc-radar-score{font-family:var(--sans);font-size:var(--fs-body);
+  letter-spacing:.08em;color:var(--ink3)}
+.today-score-skeleton{display:block;width:82px;height:82px;margin:0 auto;
+  clip-path:polygon(50% 2%,98% 37%,80% 96%,20% 96%,2% 37%)}
 @media (max-width:380px){
-  .today-header{grid-template-columns:minmax(0,1fr) 96px;gap:10px}
-  .today-score-mount,.asc-compact{width:96px}
+  .today-header{grid-template-columns:minmax(0,1fr) 78px;gap:10px}
+  .today-score-mount,.asc-radar-summary{width:78px;height:78px}
+  .asc-radar-graphic,.today-score-skeleton{width:72px;height:72px}
+  .asc-radar-score{top:27px;font-size:var(--fs-h3)}
   .today-header .greet h1{font-size:clamp(28px,8.5vw,34px)}
 }
 
@@ -2041,7 +2042,7 @@ body.score-detail-open .screen.active{overflow:hidden}
 }
 @media (prefers-reduced-motion:reduce){
   .scd{animation:none}
-  .asc-compact{transition:none}
+  .asc-radar-summary{transition:none}
 }
 
 /* ---------- graph-first Trends ---------- */
@@ -2557,9 +2558,14 @@ body.booting #tabbar{display:none!important}
 .boot-content{height:100%;box-sizing:border-box;overflow:hidden;
   padding:calc(22px + env(safe-area-inset-top)) 22px
     calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom) + 22px)}
-.boot-mark{width:30px;height:30px;border-radius:8px;margin-bottom:17px}
-.boot-greeting{width:min(72%,260px);height:31px;margin-bottom:8px}
-.boot-context{width:min(48%,180px);height:12px;margin-bottom:24px}
+.boot-header{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:12px;align-items:start;
+  margin-bottom:12px}
+.boot-header-copy{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start}
+.boot-mark{width:30px;height:30px;border-radius:8px}
+.boot-greeting{width:min(86%,260px);height:31px;margin-bottom:8px}
+.boot-context{width:min(64%,180px);height:12px}
+.boot-score-radar{width:82px;height:82px;margin:0 auto;
+  clip-path:polygon(50% 2%,98% 37%,80% 96%,20% 96%,2% 37%)}
 .boot-primary-card{height:214px;border:1px solid var(--line);border-radius:var(--r-lg);
   padding:20px;box-sizing:border-box;background:var(--paper)}
 .boot-primary-card .boot-line{height:12px;margin-bottom:13px}
@@ -2588,6 +2594,10 @@ body.booting #tabbar{display:none!important}
 .boot-tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;
   stroke-linecap:round;stroke-linejoin:round}
 .boot-tab span{font-size:var(--fs-micro);font-weight:600}
+@media (max-width:380px){
+  .boot-header{grid-template-columns:minmax(0,1fr) 78px;gap:10px}
+  .boot-score-radar{width:72px;height:72px}
+}
 @media(min-width:480px){.boot-shell{height:calc(100dvh - 56px);margin:28px auto;
   border-radius:44px;box-shadow:0 0 0 1px rgba(0,0,0,.04),0 24px 80px rgba(0,0,0,.10)}}
 @media (prefers-reduced-motion:reduce){
@@ -3126,9 +3136,16 @@ body.landing-active #tabbar{display:none!important}
 <div id="boot-gate" role="status" aria-label="Loading Athlevo">
   <div class="boot-shell" aria-hidden="true">
     <div class="boot-content">
-      <div class="skel boot-mark"></div>
-      <div class="skel boot-greeting"></div>
-      <div class="skel boot-context"></div>
+      <div class="boot-header">
+        <div class="boot-header-copy">
+          <div class="skel boot-mark"></div>
+          <div>
+            <div class="skel boot-greeting"></div>
+            <div class="skel boot-context"></div>
+          </div>
+        </div>
+        <div class="skel boot-score-radar"></div>
+      </div>
       <div class="boot-primary-card">
         <div class="skel boot-line boot-line--eyebrow"></div>
         <div class="skel boot-line boot-line--title"></div>
@@ -3565,7 +3582,9 @@ body.landing-active #tabbar{display:none!important}
         <p id="todayContextLine">Loading your current training week…</p>
       </div>
     </div>
-    <div class="today-score-mount" id="athlevoScoreCard" aria-live="polite"></div>
+    <div class="today-score-mount" id="athlevoScoreCard" aria-live="polite">
+      <span class="skel today-score-skeleton" aria-hidden="true"></span>
+    </div>
   </header>
 
   <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
@@ -7842,7 +7861,7 @@ setTimeout(function () {
 <script src="js/activation.js?v=68"></script>
 <script src="js/onboardingConnect.js?v=69"></script>
 <script src="js/productionVerify.js?v=67"></script>
-<script src="js/athlevoScore.js?v=71"></script>
+<script src="js/athlevoScore.js?v=72"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
 <script src="js/coachBrain.js?v=67"></script>

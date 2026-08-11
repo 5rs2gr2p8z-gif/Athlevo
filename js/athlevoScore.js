@@ -607,31 +607,37 @@
       </svg>`;
   }
 
-  // A deliberately tiny, label-free preview of the same five component
-  // values. It is visual context for the header tile, never a second score.
-  function buildRadarPreview(components) {
-    const cx = 20, cy = 20, radius = 15, count = RADAR_AXES.length;
+  // The compact header instrument uses the same five component values as the
+  // full radar. Missing axes are omitted rather than filled with substitutes.
+  function buildRadarPreview(components, showData) {
+    const cx = 20, cy = 18.5, radius = 16, count = RADAR_AXES.length;
     const point = (index, value) => {
       const angle = (-90 + index * (360 / count)) * Math.PI / 180;
       const r = radius * value;
       return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
     };
-    const frame = RADAR_AXES.map((_, index) => point(index, 1)).join(" ");
-    const known = RADAR_AXES
-      .map(axis => (components || {})[axis.key] || {})
-      .filter(component => radarState(component) !== "missing")
-      .map(component => Number(component.score));
-    const fallback = known.length
-      ? known.reduce((sum, value) => sum + value, 0) / known.length
-      : 50;
-    const shape = RADAR_AXES.map((axis, index) => {
+    const frames = [.5, 1].map(level =>
+      `<polygon class="asc-mini-grid" points="${RADAR_AXES.map((_, index) => point(index, level)).join(" ")}"></polygon>`
+    ).join("");
+    const spokes = RADAR_AXES.map((_, index) => {
+      const [x, y] = point(index, 1).split(",");
+      return `<line class="asc-mini-spoke" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"></line>`;
+    }).join("");
+    const values = showData ? RADAR_AXES.map((axis, index) => {
       const component = (components || {})[axis.key] || {};
-      const value = radarState(component) === "missing" ? fallback : Number(component.score);
-      return point(index, Math.max(.08, Math.min(1, value / 100)));
-    }).join(" ");
+      if (radarState(component) === "missing") return null;
+      const value = Math.max(.08, Math.min(1, Number(component.score) / 100));
+      return { point: point(index, value) };
+    }).filter(Boolean) : [];
+    const shape = values.length >= 3
+      ? `<polygon class="asc-mini-area" points="${values.map(value => value.point).join(" ")}"></polygon>`
+      : "";
+    const dots = values.map(value => {
+      const [x, y] = value.point.split(",");
+      return `<circle class="asc-mini-dot" cx="${x}" cy="${y}" r="1.15"></circle>`;
+    }).join("");
     return `<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">
-      <polygon class="asc-mini-grid" points="${frame}"></polygon>
-      <polygon class="asc-mini-area" points="${shape}"></polygon>
+      ${frames}${spokes}${shape}${dots}
     </svg>`;
   }
 
@@ -666,18 +672,17 @@
     // Never place a personalized score, component, history value or hidden
     // accessibility value in the free preview.
     mount.innerHTML = `
-      <button class="asc-compact asc-compact--locked" type="button"
+      <button class="asc-radar-summary asc-radar-summary--locked" type="button"
         aria-label="Unlock Athlevo Score with Athlevo Performance"
         onclick="AthlevoAccessGuard.showUpgradeSheet('athlevo_score','today')">
-        <span class="asc-compact-label">Athlevo Score</span>
-        <strong class="asc-compact-score" aria-hidden="true">••</strong>
-        <span class="asc-compact-trend">Performance</span>
-        <span class="asc-compact-affordance" aria-hidden="true">↗</span>
+        <span class="asc-radar-graphic">${buildRadarPreview({}, false)}</span>
+        <strong class="asc-radar-score" aria-hidden="true">••</strong>
+        <span class="asc-radar-trend">Performance</span>
       </button>`;
     try {
       if (window.AthlevoAccessGuard) {
         const lockedTarget = typeof mount.querySelector === "function"
-          ? mount.querySelector(".asc-compact--locked")
+          ? mount.querySelector(".asc-radar-summary--locked")
           : mount;
         window.AthlevoAccessGuard.trackPremiumView(
           "athlevo_score", "today", lockedTarget || mount
@@ -712,17 +717,16 @@
     const valid = o.status === "valid";
     const components = result.components || {};
     const arrow = deltaClass === "up" ? "▲ " : deltaClass === "down" ? "▼ " : "";
+    const compactTrend = delta.text === "Building baseline" ? "Building" : delta.text;
 
     mount.innerHTML = `
-      <button class="asc-compact" type="button" aria-haspopup="dialog"
+      <button class="asc-radar-summary" type="button" aria-haspopup="dialog"
         aria-controls="scoreDetailModal"
-        aria-label="Athlevo Score ${valid ? o.score : "building baseline"}, ${esc(delta.text)}. View details."
+        aria-label="Open Athlevo Score details. ${valid ? `Score ${o.score}` : "Score building baseline"}, ${esc(delta.text)}."
         onclick="AthlevoScore.openDetails()">
-        <span class="asc-compact-label">Athlevo Score</span>
-        <strong class="asc-compact-score" id="ascRingNum">${valid ? o.score : "—"}</strong>
-        <span class="asc-compact-radar">${buildRadarPreview(components)}</span>
-        <span class="asc-compact-trend">${arrow}${esc(delta.text)}</span>
-        <span class="asc-compact-affordance" aria-hidden="true">↗</span>
+        <span class="asc-radar-graphic">${buildRadarPreview(components, valid)}</span>
+        <strong class="asc-radar-score" id="ascRingNum">${valid ? o.score : "—"}</strong>
+        <span class="asc-radar-trend">${arrow}${esc(compactTrend)}</span>
       </button>`;
 
     if (valid) {

@@ -113,7 +113,9 @@ section("Athlevo Score preview");
     /••/.test(mount.innerHTML) &&
     !/\/100|asc-cval|overall_score|score_date/.test(mount.innerHTML));
   test("locked score uses the compact Performance summary and explicit sheet action",
-    /asc-compact--locked/.test(mount.innerHTML) &&
+    /asc-radar-summary--locked/.test(mount.innerHTML) &&
+    /asc-mini-grid/.test(mount.innerHTML) &&
+    !/asc-mini-area/.test(mount.innerHTML) &&
     /Performance/.test(mount.innerHTML) &&
     /Unlock Athlevo Score with Athlevo Performance/.test(mount.innerHTML) &&
     /showUpgradeSheet\('athlevo_score','today'\)/.test(mount.innerHTML));
