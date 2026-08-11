@@ -532,21 +532,19 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(!render.includes("Adh:"));
   });
 
-  it("supports zero, small, and wide rosters without fake invite actions", () => {
+  it("supports zero, small, and larger rosters inside the phone-width shell", () => {
     assert.ok(source.includes("No athletes assigned yet."));
     assert.ok(!source.includes("Invite Athlete"));
-    assert.ok(source.includes("width:min(100%,1120px)"));
-    assert.ok(source.includes("@media(max-width:700px)"));
+    assert.ok(source.includes("width:100%;max-width:430px"));
     assert.ok(source.includes("grid-template-columns:repeat(2,minmax(0,1fr))"));
     assert.ok(source.includes('sorted.length <= 3 ? " cm-command--small-roster"'));
-    assert.ok(source.includes(".cm-command--small-roster .cm-command-grid{gap:32px}"));
+    assert.ok(source.includes(".cm-command--small-roster .cm-command-grid{gap:26px}"));
   });
 
   it("keeps every summary label complete at 375, 390, and 430px", () => {
     for (const label of ["Athletes", "Need attention", "Training today", "Upcoming races"]) {
       assert.ok(source.includes(`label: "${label}"`));
     }
-    assert.ok(source.includes("@media(max-width:700px)"));
     assert.ok(source.includes("grid-template-columns:repeat(2,minmax(0,1fr))"));
     assert.ok(source.includes("white-space:normal;overflow:visible"));
     const metricRule = source.match(/\.cm-summary-metric span\{[^\"]+/)?.[0] || "";
@@ -561,11 +559,12 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok((source.match(/overflow-wrap:anywhere/g) || []).length >= 3);
   });
 
-  it("expands the Coach Workspace shell on desktop without changing athlete mode", () => {
-    assert.ok(source.includes("body.coach-workspace-active .device"));
-    assert.ok(source.includes("max-width:1180px"));
-    assert.ok(source.includes('document.body.classList.add("coach-workspace-active")'));
-    assert.ok(source.includes('document.body.classList.remove("coach-workspace-active")'));
+  it("keeps the Coach Dashboard phone-like and stacked on desktop", () => {
+    assert.ok(source.includes(".cm-command{width:100%;max-width:430px"));
+    assert.ok(source.includes(".cm-command-pair{display:grid;grid-template-columns:minmax(0,1fr)"));
+    assert.ok(!source.includes("body.coach-workspace-active .device"));
+    assert.ok(!source.includes("max-width:1180px"));
+    assert.ok(!source.includes("minmax(0,1.08fr)"));
   });
 
   it("uses the shared skeleton and composition-level reduced motion", () => {

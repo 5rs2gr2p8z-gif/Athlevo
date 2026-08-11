@@ -198,22 +198,21 @@
     var style = document.createElement("style");
     style.id = "coachCommandCenterStyles";
     style.textContent = [
-      ".cm-command{width:min(100%,1120px);margin:0 auto;padding:18px 18px 104px;box-sizing:border-box;color:var(--ink1,var(--ink,#171717));}",
+      ".cm-command{width:100%;max-width:430px;margin:0 auto;padding:18px 16px 104px;box-sizing:border-box;color:var(--ink1,var(--ink,#171717));}",
       ".cm-command--ready{animation:cmCommandIn var(--dur-base,220ms) var(--ease-standard,ease-out) both;}",
       "@keyframes cmCommandIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}",
       ".cm-command-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px;}",
-      ".cm-command-head h1{font-family:var(--serif,serif);font-size:clamp(25px,4vw,34px);font-weight:520;letter-spacing:-.025em;line-height:1.05;margin:0;}",
+      ".cm-command-head h1{font-family:var(--serif,serif);font-size:26px;font-weight:520;letter-spacing:-.025em;line-height:1.08;margin:0;}",
       ".cm-command-summary{max-width:620px;margin:6px 0 0;color:var(--ink3,#737373);font-size:13px;line-height:1.4;}",
       ".cm-refresh{border:0;background:transparent;color:var(--ink3,#737373);font:600 12px/1 var(--sans,sans-serif);padding:8px 0;cursor:pointer;flex:0 0 auto;}",
       ".cm-refresh:hover{color:var(--ink1,var(--ink,#171717));}",
       ".cm-refresh:focus-visible,.cm-open-row:focus-visible,.cm-review:focus-visible{outline:2px solid var(--red,#b3292d);outline-offset:3px;}",
-      ".cm-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid var(--line,#e5e5e5);margin-bottom:26px;}",
-      ".cm-summary-metric{min-width:0;padding:14px 16px 13px;border-right:1px solid var(--line,#e5e5e5);}",
-      ".cm-summary-metric:first-child{padding-left:0}.cm-summary-metric:last-child{border-right:0;}",
+      ".cm-summary-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:26px;}",
+      ".cm-summary-metric{min-width:0;min-height:66px;padding:12px 13px;background:var(--card2,var(--card,#f5f5f5));border-radius:10px;}",
       ".cm-summary-metric strong{display:block;font-size:21px;line-height:1;font-weight:700;letter-spacing:-.025em;}",
       ".cm-summary-metric span{display:block;margin-top:6px;color:var(--ink3,#737373);font-size:10px;font-weight:700;line-height:1.25;letter-spacing:.055em;text-transform:uppercase;white-space:normal;overflow:visible;}",
-      ".cm-command-grid{display:grid;gap:28px;align-items:start;}",
-      ".cm-command-pair{display:grid;gap:28px;align-items:start;}",
+      ".cm-command-grid{display:grid;gap:26px;align-items:start;}",
+      ".cm-command-pair{display:grid;grid-template-columns:minmax(0,1fr);gap:26px;align-items:start;}",
       ".cm-section{min-width:0;}",
       ".cm-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0;padding-bottom:10px;border-bottom:1px solid var(--line,#e5e5e5);}",
       ".cm-section-title{font-family:var(--sans,sans-serif);font-size:13px;font-weight:760;letter-spacing:.065em;text-transform:uppercase;margin:0;}",
@@ -244,22 +243,22 @@
       ".cm-empty p{margin:5px 0 0;color:var(--ink3,#737373);font-size:13px;line-height:1.45;}",
       ".cm-error{padding:18px 0;border-block:1px solid var(--line,#e5e5e5);color:var(--ink2,#555);font-size:13px;}",
       ".cm-error button{margin-top:10px;}",
-      ".cm-command-skeleton{width:min(100%,1120px);margin:0 auto;padding:18px 18px 104px;box-sizing:border-box;}",
+      ".cm-command-skeleton{width:100%;max-width:430px;margin:0 auto;padding:18px 16px 104px;box-sizing:border-box;}",
       ".cm-skel-head{display:flex;justify-content:space-between;gap:20px;margin-bottom:18px;}",
       ".cm-skel-stack{display:grid;gap:8px;flex:1}.cm-skel-line{height:12px;border-radius:4px}.cm-skel-line--title{width:min(240px,70%);height:29px}.cm-skel-line--sub{width:min(360px,90%);}",
       ".cm-skel-refresh{width:48px;height:12px;border-radius:4px;}",
-      ".cm-skel-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;border-block:1px solid var(--line,#e5e5e5);padding:13px 0;margin-bottom:24px;}",
-      ".cm-skel-stat{height:34px;margin-right:14px;border-radius:5px;}",
-      ".cm-skel-grid{display:grid;gap:24px}.cm-skel-section{display:grid;gap:9px}.cm-skel-label{width:120px;height:11px;border-radius:4px}.cm-skel-row{height:57px;border-radius:7px;}",
+      ".cm-skel-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:26px;}",
+      ".cm-skel-stat{height:66px;border-radius:10px;}",
+      ".cm-skel-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:26px}.cm-skel-section{display:grid;gap:9px}.cm-skel-label{width:120px;height:11px;border-radius:4px}.cm-skel-row{height:57px;border-radius:7px;}",
       ".cm-roster-item .cm-row{align-items:flex-start;padding:16px 2px;}",
       ".cm-roster-item .cm-avatar{width:40px;height:40px;flex-basis:40px;margin-top:1px;font-size:12px;}",
       ".cm-roster-item .cm-row-name{font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
       ".cm-roster-item .cm-row-primary{font-size:12px;line-height:1.45;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
       ".cm-roster-item .cm-row-meta{font-size:11px;line-height:1.45;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
       ".cm-roster-item .cm-chevron{margin-top:3px;}",
-      ".cm-command--small-roster .cm-command-grid{gap:32px}.cm-command--small-roster .cm-section--roster{padding-top:2px;}",
-      "@media(min-width:760px){body.coach-workspace-active .device{width:min(calc(100% - 48px),1180px);max-width:1180px;border-radius:24px}.cm-command,.cm-command-skeleton{padding:28px 34px 112px}.cm-command-pair{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)}.cm-skel-grid{grid-template-columns:1fr 1fr}.cm-section--roster{margin-top:6px}.cm-roster-item .cm-row{padding-block:17px}}",
-      "@media(max-width:700px){.cm-command,.cm-command-skeleton{padding-inline:16px}.cm-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-metric{min-height:67px;padding:13px 12px}.cm-summary-metric:nth-child(2){border-right:0}.cm-summary-metric:nth-child(-n+2){border-bottom:1px solid var(--line,#e5e5e5)}.cm-summary-metric:nth-child(3){padding-left:0}.cm-summary-metric span{font-size:10px;letter-spacing:.035em}.cm-skel-summary{grid-template-columns:repeat(2,1fr);row-gap:10px}.cm-row-status{max-width:84px}.cm-review{padding:8px 9px}}",
+      ".cm-command--small-roster .cm-command-grid{gap:26px}.cm-command--small-roster .cm-section--roster{padding-top:2px;}",
+      "@media(min-width:760px){.cm-roster-item .cm-row{padding-block:17px}}",
+      "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready{animation:none}.cm-row-name{transition:none}}"
     ].join("");
     document.head.appendChild(style);
@@ -464,7 +463,6 @@
     var fromWs = _workspace;
     _workspace = "coach_workspace";
     writeWorkspacePref("coach_workspace");
-    document.body.classList.add("coach-workspace-active");
 
     // Hide athlete screens that Coach Mode replaces
     var athleteOnly = ["screen-coachai", "screen-train", "screen-trends", "screen-you"];
@@ -506,7 +504,6 @@
     var fromWs = _workspace;
     _workspace = "athlete_workspace";
     writeWorkspacePref("athlete_workspace");
-    document.body.classList.remove("coach-workspace-active");
 
     // Hide coach-only screens
     COACH_SCREENS.forEach(function (id) {
@@ -1342,14 +1339,12 @@
       // isAthleteWorkspace() tells the caller to continue athlete flow)
       _workspace = "athlete_workspace";
       writeWorkspacePref("athlete_workspace");
-      document.body.classList.remove("coach-workspace-active");
       return;
     }
 
     // Enter Coach Workspace (default for coach/admin)
     _workspace = "coach_workspace";
     writeWorkspacePref("coach_workspace");
-    document.body.classList.add("coach-workspace-active");
 
     ensureCoachScreens();
     rewriteNavigation();
