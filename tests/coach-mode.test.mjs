@@ -476,6 +476,92 @@ describe("Coach Mode — client module structure", () => {
   });
 });
 
+describe("Coach Mode — coaching command center UI", () => {
+  const source = readFileSync(resolve(import.meta.dirname, "..", "js", "coachMode.js"), "utf-8");
+  const dashboardSource = readFileSync(resolve(import.meta.dirname, "..", "js", "coachDashboard.js"), "utf-8");
+
+  it("uses the approved command-center hierarchy with the roster last", () => {
+    const renderStart = source.indexOf("function renderCoachToday");
+    const renderEnd = source.indexOf("function renderCoachSkeleton", renderStart);
+    const render = source.slice(renderStart, renderEnd);
+    assert.ok(render.includes("Coach Dashboard"));
+    assert.ok(render.indexOf("renderAttentionSection") < render.indexOf("renderTrainingTodaySection"));
+    assert.ok(render.indexOf("renderTrainingTodaySection") < render.indexOf("renderRecentActivitySection"));
+    assert.ok(render.indexOf("renderRecentActivitySection") < render.indexOf("renderRosterStatusSection"));
+  });
+
+  it("derives all summary metrics from the returned roster", () => {
+    assert.ok(source.includes('sorted.filter(function (a) { return Boolean(a.today_planned); })'));
+    assert.ok(source.includes('sorted.filter(function (a) { return Boolean(a.target_event); })'));
+    assert.ok(source.includes('{ label: "Athletes", value: total }'));
+    assert.ok(source.includes('{ label: "Need attention", value: attn }'));
+    assert.ok(source.includes('{ label: "Training today", value: training }'));
+    assert.ok(source.includes('{ label: "Upcoming races", value: races }'));
+  });
+
+  it("renders a compact all-clear state instead of an empty attention panel", () => {
+    assert.ok(source.includes('<div class="cm-all-clear">All clear.</div>'));
+    assert.ok(source.includes(".cm-all-clear{display:flex"));
+  });
+
+  it("shows only roster-supported planned status for today's sessions", () => {
+    assert.ok(source.includes('<span class="cm-row-status">Planned</span>'));
+    assert.ok(!source.includes("completedToday"));
+    assert.ok(!source.includes("Completed today"));
+  });
+
+  it("recent activity is a who/what/when feed without sync events", () => {
+    const start = source.indexOf("function renderRecentActivitySection");
+    const end = source.indexOf("function renderRaceGoalsSection", start);
+    const render = source.slice(start, end);
+    assert.ok(render.includes("a.name"));
+    assert.ok(render.includes("latestActivitySummary(a)"));
+    assert.ok(render.includes("fmtDateTime(a.latest_activity.date)"));
+    assert.ok(!/sync/i.test(render));
+  });
+
+  it("collapses repeated missing metrics into one truthful roster status", () => {
+    const start = source.indexOf("function renderRosterList");
+    const end = source.indexOf("function bindCoachTodayEvents", start);
+    const render = source.slice(start, end);
+    assert.ok(render.includes("rosterStatusLine(a)"));
+    assert.ok(source.includes('return "No recent training data"'));
+    assert.ok(!render.includes("Readiness:"));
+    assert.ok(!render.includes("Recovery:"));
+    assert.ok(!render.includes("Adh:"));
+  });
+
+  it("supports zero, small, and wide rosters without fake invite actions", () => {
+    assert.ok(source.includes("No athletes assigned yet."));
+    assert.ok(!source.includes("Invite Athlete"));
+    assert.ok(source.includes("width:min(100%,1120px)"));
+    assert.ok(source.includes("@media(max-width:520px)"));
+    assert.ok(source.includes("grid-template-columns:repeat(2,minmax(0,1fr))"));
+  });
+
+  it("uses the shared skeleton and composition-level reduced motion", () => {
+    assert.ok(source.includes('class="skel cm-skel-line'));
+    assert.ok(source.includes('class="skel cm-skel-stat'));
+    assert.ok(source.includes('class="skel cm-skel-row'));
+    assert.ok(source.includes("@media(prefers-reduced-motion:reduce)"));
+    assert.ok(!source.includes("Loading roster…"));
+  });
+
+  it("refresh exposes the skeleton before the authorized roster request completes", () => {
+    const start = source.indexOf("async function refreshRoster");
+    const end = source.indexOf("INITIALIZATION", start);
+    const refresh = source.slice(start, end);
+    assert.ok(refresh.indexOf("_rosterLoading = true") < refresh.indexOf("renderCoachToday()"));
+    assert.ok(refresh.indexOf("renderCoachToday()") < refresh.indexOf('api("roster")'));
+  });
+
+  it("every command-center row opens the existing athlete drawer", () => {
+    assert.ok(source.includes('container.querySelectorAll("[data-open-athlete]")'));
+    assert.ok(source.includes("openCoachAthleteDrawer(id)"));
+    assert.ok(dashboardSource.includes("switchToCoachWorkspace"));
+  });
+});
+
 /* ═══════════════════════════════════════════════════════════════════
  *  ANALYTICS REGISTRY
  * ═══════════════════════════════════════════════════════════════════ */

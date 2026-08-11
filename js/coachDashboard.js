@@ -3,8 +3,10 @@
  *  Athlevo — Coach Dashboard (client)   ·   window.AthlevoCoachDashboard
  * ══════════════════════════════════════════════════════════════════════
  *
- *  A SEPARATE coach workspace layered over the existing SPA. It is role-gated:
- *  athletes never see the entry and are redirected if they force the route.
+ *  The legacy #coach entry is role-gated and now hands confirmed coaches to
+ *  the current Coach Workspace command center. The roster-only screen remains
+ *  as a defensive fallback for older shells that do not load coachMode.js.
+ *  Athletes never see the entry and are redirected if they force the route.
  *  The browser UI is NOT the security boundary — every data read goes through
  *  /api/providers?action=coaching_dashboard_*, which re-checks role + active assignment server-side.
  *
@@ -339,6 +341,14 @@
 
   function openDashboard() {
     if (!state.enabled) { safeRedirect(); return; }
+    // The Coach Workspace owns the current command-center experience. Reuse it
+    // instead of mounting the legacy roster-only screen as a second dashboard.
+    if (window.AthlevoCoachMode && window.AthlevoCoachMode.isCoachMode &&
+        window.AthlevoCoachMode.isCoachMode() && window.AthlevoCoachMode.switchToCoachWorkspace) {
+      window.AthlevoCoachMode.switchToCoachWorkspace();
+      if (location.hash !== "#coach") location.hash = "#coach";
+      return;
+    }
     ensureRoot();
     if (typeof window.showScreen === "function") window.showScreen(ROOT_ID);
     else { document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); }); document.getElementById(ROOT_ID).classList.add("active"); }

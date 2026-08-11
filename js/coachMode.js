@@ -105,13 +105,6 @@
     if (days < 30) return Math.floor(days / 7) + "w ago";
     return "30+ days ago";
   }
-  function fmtDate(iso) {
-    if (!iso) return "—";
-    try {
-      var d = new Date(iso);
-      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    } catch (e) { return String(iso).slice(0, 10); }
-  }
   function fmtDateTime(iso) {
     if (!iso) return "—";
     try {
@@ -119,18 +112,6 @@
       return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " +
              d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
     } catch (e) { return String(iso).slice(0, 16); }
-  }
-  function daysUntil(iso) {
-    if (!iso) return null;
-    var t = Date.parse(iso);
-    if (!Number.isFinite(t)) return null;
-    return Math.ceil((t - Date.now()) / 86400000);
-  }
-  function greeting() {
-    var h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 17) return "Good afternoon";
-    return "Good evening";
   }
   function rosterBand(n) {
     if (n === 0) return "0";
@@ -158,6 +139,121 @@
       if (sa !== sb2) return sb2 - sa;
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
+  }
+
+  var ATTENTION_REASON_LABELS = {
+    pain_reported: "Pain reported",
+    illness_reported: "Illness reported",
+    very_low_readiness: "Readiness is materially low",
+    low_readiness: "Readiness is low",
+    low_recovery: "Recovery needs review",
+    missed_key_workout: "Key session missed",
+    multiple_missed_sessions: "Multiple sessions missed",
+    high_recent_load: "Recent training load is unusually high",
+    no_readiness_checkin: "Check-in is overdue",
+    no_recent_app_activity: "No recent app activity",
+    no_recent_activity: "No recent training activity",
+    provider_sync_failed: "Training data needs attention",
+    no_active_plan: "Training plan is missing",
+    event_approaching: "Target race is approaching"
+  };
+
+  function attentionReasonLabel(key) {
+    if (!key) return "Review athlete status";
+    return ATTENTION_REASON_LABELS[key] || String(key).replace(/_/g, " ").replace(/^./, function (c) { return c.toUpperCase(); });
+  }
+
+  function athleteContext(a) {
+    var bits = [];
+    var sport = SPORT_LABEL[a.primary_sport];
+    if (sport) bits.push(sport);
+    if (a.goal) bits.push(a.goal);
+    return bits.length ? bits.join(" · ") : "Athlete";
+  }
+
+  function latestActivitySummary(a) {
+    var act = a && a.latest_activity;
+    if (!act) return null;
+    var bits = [SPORT_LABEL[act.sport] || "Activity"];
+    if (act.duration_min != null) bits.push(act.duration_min + " min");
+    if (act.distance_km != null) bits.push(act.distance_km + " km");
+    return bits.join(" · ");
+  }
+
+  function rosterStatusLine(a) {
+    var reasons = a.attention_reason_keys || [];
+    if ((a.attention_status === "needs_attention" || a.attention_status === "monitor") && reasons.length) {
+      return attentionReasonLabel(reasons[0]);
+    }
+    if (a.today_planned) return (a.today_planned.title || "Session") + " planned today";
+    var activity = latestActivitySummary(a);
+    if (activity) return activity + " · " + fmtLastActive(a.latest_activity.date);
+    if (a.readiness_status && a.readiness_status !== "No recent data") return a.readiness_status + " readiness";
+    if (a.last_active_at) return "Last active " + fmtLastActive(a.last_active_at).toLowerCase();
+    return "No recent training data";
+  }
+
+  function ensureCoachCommandStyles() {
+    if (document.getElementById("coachCommandCenterStyles")) return;
+    var style = document.createElement("style");
+    style.id = "coachCommandCenterStyles";
+    style.textContent = [
+      ".cm-command{width:min(100%,1120px);margin:0 auto;padding:18px 18px 104px;box-sizing:border-box;color:var(--ink1,var(--ink,#171717));}",
+      ".cm-command--ready{animation:cmCommandIn var(--dur-base,220ms) var(--ease-standard,ease-out) both;}",
+      "@keyframes cmCommandIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}",
+      ".cm-command-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px;}",
+      ".cm-command-head h1{font-family:var(--serif,serif);font-size:clamp(25px,4vw,34px);font-weight:520;letter-spacing:-.025em;line-height:1.05;margin:0;}",
+      ".cm-command-summary{max-width:620px;margin:6px 0 0;color:var(--ink3,#737373);font-size:13px;line-height:1.4;}",
+      ".cm-refresh{border:0;background:transparent;color:var(--ink3,#737373);font:600 12px/1 var(--sans,sans-serif);padding:8px 0;cursor:pointer;flex:0 0 auto;}",
+      ".cm-refresh:hover{color:var(--ink1,var(--ink,#171717));}",
+      ".cm-refresh:focus-visible,.cm-open-row:focus-visible,.cm-review:focus-visible{outline:2px solid var(--red,#b3292d);outline-offset:3px;}",
+      ".cm-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid var(--line,#e5e5e5);margin-bottom:24px;}",
+      ".cm-summary-metric{min-width:0;padding:13px 14px 12px;border-right:1px solid var(--line,#e5e5e5);}",
+      ".cm-summary-metric:first-child{padding-left:0}.cm-summary-metric:last-child{border-right:0;}",
+      ".cm-summary-metric strong{display:block;font-size:21px;line-height:1;font-weight:700;letter-spacing:-.025em;}",
+      ".cm-summary-metric span{display:block;margin-top:5px;color:var(--ink3,#737373);font-size:10px;font-weight:700;letter-spacing:.075em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+      ".cm-command-grid{display:grid;gap:24px;align-items:start;}",
+      ".cm-command-pair{display:grid;gap:24px;align-items:start;}",
+      ".cm-section{min-width:0;}",
+      ".cm-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 9px;}",
+      ".cm-section-title{font-family:var(--sans,sans-serif);font-size:13px;font-weight:750;letter-spacing:.075em;text-transform:uppercase;margin:0;}",
+      ".cm-section-count{color:var(--ink3,#737373);font-size:11px;}",
+      ".cm-list{border-top:1px solid var(--line,#e5e5e5);}",
+      ".cm-row{display:flex;align-items:center;gap:11px;min-width:0;padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5);}",
+      ".cm-open-row{width:100%;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer;}",
+      ".cm-open-row:hover .cm-row-name{color:var(--red,#b3292d);}",
+      ".cm-avatar{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:var(--card2,var(--card,#f4f4f4));color:var(--ink2,#4f4f4f);font-size:11px;font-weight:750;letter-spacing:.02em;}",
+      ".cm-row-copy{min-width:0;flex:1;}",
+      ".cm-row-name{font-size:13px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color var(--dur-fast,140ms) var(--ease-standard,ease);}",
+      ".cm-row-primary{font-size:12px;line-height:1.35;color:var(--ink2,#555);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+      ".cm-row-meta{font-size:11px;line-height:1.35;color:var(--ink3,#737373);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+      ".cm-row-status{flex:0 0 auto;max-width:110px;text-align:right;color:var(--ink3,#737373);font-size:11px;line-height:1.25;}",
+      ".cm-status-attention{color:#a52a2f;font-weight:700;}",
+      ".cm-status-monitor{color:#9a6505;font-weight:700;}",
+      ".cm-chevron{flex:0 0 auto;color:var(--ink3,#737373);font-size:17px;line-height:1;}",
+      ".cm-review{flex:0 0 auto;border:1px solid var(--line,#d9d9d9);border-radius:999px;background:transparent;color:var(--ink1,var(--ink,#171717));font:700 11px/1 var(--sans,sans-serif);padding:8px 11px;cursor:pointer;}",
+      ".cm-review:hover{border-color:var(--ink2,#555);}",
+      ".cm-all-clear{display:flex;align-items:center;gap:9px;border-block:1px solid var(--line,#e5e5e5);padding:13px 0;color:var(--ink2,#555);font-size:13px;}",
+      ".cm-all-clear::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--good,#2e7d32);flex:0 0 auto;}",
+      ".cm-search{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--line,#e5e5e5);border-radius:0;background:transparent;color:inherit;padding:10px 0 11px;font:13px/1.3 var(--sans,sans-serif);margin:0;}",
+      ".cm-search:focus{outline:0;border-bottom-color:var(--ink2,#555);}",
+      ".cm-empty{padding:22px 0;border-block:1px solid var(--line,#e5e5e5);}",
+      ".cm-empty strong{display:block;font-family:var(--serif,serif);font-size:20px;font-weight:520;}",
+      ".cm-empty p{margin:5px 0 0;color:var(--ink3,#737373);font-size:13px;line-height:1.45;}",
+      ".cm-error{padding:18px 0;border-block:1px solid var(--line,#e5e5e5);color:var(--ink2,#555);font-size:13px;}",
+      ".cm-error button{margin-top:10px;}",
+      ".cm-command-skeleton{width:min(100%,1120px);margin:0 auto;padding:18px 18px 104px;box-sizing:border-box;}",
+      ".cm-skel-head{display:flex;justify-content:space-between;gap:20px;margin-bottom:18px;}",
+      ".cm-skel-stack{display:grid;gap:8px;flex:1}.cm-skel-line{height:12px;border-radius:4px}.cm-skel-line--title{width:min(240px,70%);height:29px}.cm-skel-line--sub{width:min(360px,90%);}",
+      ".cm-skel-refresh{width:48px;height:12px;border-radius:4px;}",
+      ".cm-skel-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;border-block:1px solid var(--line,#e5e5e5);padding:13px 0;margin-bottom:24px;}",
+      ".cm-skel-stat{height:34px;margin-right:14px;border-radius:5px;}",
+      ".cm-skel-grid{display:grid;gap:24px}.cm-skel-section{display:grid;gap:9px}.cm-skel-label{width:120px;height:11px;border-radius:4px}.cm-skel-row{height:57px;border-radius:7px;}",
+      "@media(min-width:760px){.cm-command,.cm-command-skeleton{padding:26px 28px 112px}.cm-command-pair{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)}.cm-skel-grid{grid-template-columns:1fr 1fr}.cm-section--roster{margin-top:4px}}",
+      "@media(max-width:520px){.cm-command,.cm-command-skeleton{padding-inline:16px}.cm-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-metric:nth-child(2){border-right:0}.cm-summary-metric:nth-child(-n+2){border-bottom:1px solid var(--line,#e5e5e5)}.cm-summary-metric:nth-child(3){padding-left:0}.cm-skel-summary{grid-template-columns:repeat(2,1fr);row-gap:10px}.cm-row-status{max-width:84px}.cm-review{padding:8px 9px}}",
+      "@media(prefers-reduced-motion:reduce){.cm-command--ready{animation:none}.cm-row-name{transition:none}}"
+    ].join("");
+    document.head.appendChild(style);
   }
 
   function trackCoach(event, props) {
@@ -230,6 +326,7 @@
   ];
 
   function ensureCoachScreens() {
+    ensureCoachCommandStyles();
     if (document.getElementById("screen-coach-you")) return;  // already created
     // Mount inside the existing .device shell so coach screens share
     // the same viewport, safe-area layout, and bottom nav as athlete
@@ -552,209 +649,164 @@
       _athleteTodayHTML = el.innerHTML;
     }
 
+    ensureCoachCommandStyles();
+    if (_rosterLoading) {
+      el.innerHTML = renderCoachSkeleton();
+      return;
+    }
+
     var sorted = sortRoster(_roster);
-    var needsAttn = sorted.filter(function (a) { return a.attention_status === "needs_attention"; });
-    var monitoring = sorted.filter(function (a) { return a.attention_status === "monitor"; });
-    var onTrack = sorted.filter(function (a) { return a.attention_status === "on_track"; });
-    var noData = sorted.filter(function (a) { return a.attention_status === "no_recent_data"; });
-
-    // Training today
-    var trainingToday = sorted.filter(function (a) { return a.today_planned; });
-    var completedToday = sorted.filter(function (a) {
-      return a.today_planned && a.today_planned.status === "completed";
+    var attention = sorted.filter(function (a) {
+      return a.attention_status === "needs_attention" || a.attention_status === "monitor";
     });
-
-    // Recent activity (from latest_activity on each athlete)
-    var recentActs = sorted.filter(function (a) { return a.latest_activity; })
-      .map(function (a) { return { name: a.name, initials: a.initials, athlete_id: a.athlete_id, activity: a.latest_activity, primary_sport: a.primary_sport }; })
+    var trainingToday = sorted.filter(function (a) { return Boolean(a.today_planned); });
+    var recentActs = sorted.filter(function (a) { return Boolean(a.latest_activity); })
       .sort(function (a, b) {
-        var da = a.activity.date || "", db = b.activity.date || "";
-        return db.localeCompare(da);
-      }).slice(0, 10);
+        return String((b.latest_activity || {}).date || "").localeCompare(String((a.latest_activity || {}).date || ""));
+      }).slice(0, 8);
+    var raceGoals = sorted.filter(function (a) { return Boolean(a.target_event); });
 
-    // Upcoming events
-    var upcoming = sorted.filter(function (a) { return a.target_event; })
-      .map(function (a) { return { name: a.name, initials: a.initials, athlete_id: a.athlete_id, event: a.target_event, primary_sport: a.primary_sport }; });
+    var liveSummary = attention.length
+      ? attention.length + " athlete" + (attention.length === 1 ? " needs" : "s need") + " review today."
+      : trainingToday.length
+        ? trainingToday.length + " athlete" + (trainingToday.length === 1 ? " is" : "s are") + " training today."
+        : sorted.length ? "Roster is clear for today." : "No athletes are currently assigned.";
 
-    var name = _coachName || "Coach";
-    var firstName = name.split(" ")[0];
-    var attnCount = needsAttn.length + monitoring.length;
+    var content =
+      '<div class="cm-command cm-command--ready">' +
+        '<header class="cm-command-head">' +
+          '<div><h1>Coach Dashboard</h1><p class="cm-command-summary" aria-live="polite">' + esc(liveSummary) + '</p></div>' +
+          '<button type="button" class="cm-refresh" id="cmRefresh">Refresh</button>' +
+        '</header>';
 
-    el.innerHTML =
-      '<div class="cm-wrap" style="max-width:720px;margin:0 auto;padding:16px 14px 96px;">' +
-      // Header
-      '<div style="margin-bottom:20px;">' +
-        '<h1 style="font-size:22px;font-weight:700;margin:0 0 2px;">' + esc(greeting()) + ', Coach ' + esc(firstName) + '</h1>' +
-        '<p style="font-size:14px;color:var(--ink3,#888);margin:0;">' +
-          (attnCount > 0 ? esc(attnCount) + ' athlete' + (attnCount !== 1 ? 's' : '') + ' need' + (attnCount === 1 ? 's' : '') + ' your attention today' : 'All athletes are on track') +
-        '</p>' +
-      '</div>' +
-      // Summary cards
-      renderSummaryCards(sorted.length, needsAttn.length, trainingToday.length, completedToday.length, noData.length) +
-      // Needs attention
-      (needsAttn.length ? renderAttentionSection(needsAttn) : '') +
-      // Monitor
-      (monitoring.length ? renderMonitorSection(monitoring) : '') +
-      // Training today
-      renderTrainingTodaySection(trainingToday) +
-      // Recent activity
-      renderRecentActivitySection(recentActs) +
-      // Upcoming events
-      renderUpcomingEventsSection(upcoming) +
-      // Roster status
-      renderRosterStatusSection(sorted) +
-      '</div>';
+    if (_rosterError) {
+      content += '<div class="cm-error">' + esc(_rosterError) + '<br><button type="button" class="cm-review" id="cmRetry">Try again</button></div></div>';
+      el.innerHTML = content;
+      bindCoachTodayEvents(el);
+      return;
+    }
 
-    // Bind event handlers
+    content += renderSummaryStrip(sorted.length, attention.length, trainingToday.length, raceGoals.length);
+    if (!sorted.length) {
+      content += '<section class="cm-empty"><strong>No athletes assigned yet.</strong><p>Assigned athletes will appear here when they are connected to your coaching roster.</p></section></div>';
+      el.innerHTML = content;
+      bindCoachTodayEvents(el);
+      return;
+    }
+
+    content +=
+      '<div class="cm-command-grid">' +
+        '<div class="cm-command-pair">' +
+          renderAttentionSection(attention) +
+          renderTrainingTodaySection(trainingToday) +
+        '</div>' +
+        ((recentActs.length || raceGoals.length) ? '<div class="cm-command-pair">' +
+          (recentActs.length ? renderRecentActivitySection(recentActs) : '') +
+          (raceGoals.length ? renderRaceGoalsSection(raceGoals) : '') +
+        '</div>' : '') +
+        renderRosterStatusSection(sorted) +
+      '</div></div>';
+
+    el.innerHTML = content;
     bindCoachTodayEvents(el);
   }
 
-  function renderSummaryCards(total, attn, training, completed, noData) {
-    var cards = [
-      { label: "Active athletes", value: total, color: "var(--ink1,#333)" },
-      { label: "Needs attention", value: attn, color: attn > 0 ? "#c0392b" : "var(--ink1,#333)" },
-      { label: "Training today", value: training, color: "var(--ink1,#333)" },
-      { label: "Completed today", value: completed, color: completed > 0 ? "#2e7d32" : "var(--ink1,#333)" },
-      { label: "No recent data", value: noData, color: noData > 0 ? "#888" : "var(--ink1,#333)" }
-    ];
-    return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:20px;">' +
-      cards.map(function (c) {
-        return '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:12px;padding:12px 10px;text-align:center;">' +
-          '<div style="font-size:22px;font-weight:700;color:' + c.color + ';">' + c.value + '</div>' +
-          '<div style="font-size:11px;color:var(--ink3,#888);margin-top:2px;">' + c.label + '</div>' +
-        '</div>';
-      }).join("") +
+  function renderCoachSkeleton() {
+    return '<div class="cm-command-skeleton" aria-label="Loading Coach Dashboard">' +
+      '<div class="cm-skel-head"><div class="cm-skel-stack"><span class="skel cm-skel-line cm-skel-line--title"></span><span class="skel cm-skel-line cm-skel-line--sub"></span></div><span class="skel cm-skel-refresh"></span></div>' +
+      '<div class="cm-skel-summary">' + [0, 1, 2, 3].map(function () { return '<span class="skel cm-skel-stat"></span>'; }).join("") + '</div>' +
+      '<div class="cm-skel-grid">' + [0, 1].map(function () {
+        return '<div class="cm-skel-section"><span class="skel cm-skel-label"></span><span class="skel cm-skel-row"></span><span class="skel cm-skel-row"></span></div>';
+      }).join("") + '</div>' +
+      '<div class="cm-skel-section" style="margin-top:24px"><span class="skel cm-skel-label"></span><span class="skel cm-skel-row"></span><span class="skel cm-skel-row"></span></div>' +
     '</div>';
+  }
+
+  function renderSummaryStrip(total, attn, training, races) {
+    var metrics = [
+      { label: "Athletes", value: total },
+      { label: "Need attention", value: attn },
+      { label: "Training today", value: training },
+      { label: "Upcoming races", value: races }
+    ];
+    return '<div class="cm-summary-strip" aria-label="Roster summary">' + metrics.map(function (m) {
+      return '<div class="cm-summary-metric"><strong>' + esc(m.value) + '</strong><span>' + esc(m.label) + '</span></div>';
+    }).join("") + '</div>';
+  }
+
+  function sectionHeader(title, count) {
+    return '<div class="cm-section-head"><h2 class="cm-section-title">' + esc(title) + '</h2>' +
+      (count == null ? '' : '<span class="cm-section-count">' + esc(count) + '</span>') + '</div>';
   }
 
   /* ─── Needs Attention ─── */
   function renderAttentionSection(athletes) {
-    var html = '<div style="margin-bottom:20px;">' +
-      '<h2 style="font-size:16px;font-weight:700;margin:0 0 10px;color:#c0392b;">Needs attention</h2>';
+    var html = '<section class="cm-section cm-section--attention">' + sectionHeader("Needs Attention", athletes.length);
+    if (!athletes.length) return html + '<div class="cm-all-clear">All clear.</div></section>';
+    html += '<div class="cm-list">';
     athletes.forEach(function (a) {
-      var reasons = (a.attention_reason_keys || []).slice(0, 3);
-      html += renderAttentionCard(a, reasons);
+      var key = (a.attention_reason_keys || [])[0];
+      var status = a.readiness_status && a.readiness_status !== "No recent data"
+        ? a.readiness_status + " readiness"
+        : a.recovery_status && a.recovery_status !== "unknown" ? a.recovery_status + " recovery" : (STATUS_META[a.attention_status] || STATUS_META.monitor).label;
+      html += '<div class="cm-row">' +
+        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
+        '<div class="cm-row-copy"><div class="cm-row-name">' + esc(a.name) + '</div><div class="cm-row-primary">' + esc(attentionReasonLabel(key)) + '</div></div>' +
+        '<span class="cm-row-status ' + (a.attention_status === "needs_attention" ? "cm-status-attention" : "cm-status-monitor") + '">' + esc(status) + '</span>' +
+        '<button type="button" class="cm-review cm-view-athlete" data-athlete="' + esc(a.athlete_id) + '">Review</button>' +
+      '</div>';
     });
-    return html + '</div>';
-  }
-
-  function renderMonitorSection(athletes) {
-    var html = '<div style="margin-bottom:20px;">' +
-      '<h2 style="font-size:16px;font-weight:700;margin:0 0 10px;color:#c77d0a;">Monitor</h2>';
-    athletes.forEach(function (a) {
-      var reasons = (a.attention_reason_keys || []).slice(0, 3);
-      html += renderAttentionCard(a, reasons);
-    });
-    return html + '</div>';
-  }
-
-  function renderAttentionCard(a, reasons) {
-    var meta = STATUS_META[a.attention_status] || STATUS_META.no_recent_data;
-    var reasonLabels = reasons.map(function (k) { return esc(k.replace(/_/g, " ")); }).join(", ");
-    return '<div class="cm-attn-card" style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-left:3px solid ' + meta.color + ';border-radius:12px;padding:12px 14px;margin-bottom:8px;">' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">' +
-        '<div style="width:36px;height:36px;border-radius:50%;background:' + meta.bg + ';display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;color:' + meta.color + ';">' + esc(a.initials || "A") + '</div>' +
-        '<div style="min-width:0;flex:1;">' +
-          '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(a.name) + '</div>' +
-          '<div style="font-size:12px;color:var(--ink3,#888);">' + esc(SPORT_LABEL[a.primary_sport] || "—") + '</div>' +
-        '</div>' +
-        '<span style="font-size:10px;font-weight:600;color:#fff;background:' + meta.color + ';border-radius:999px;padding:2px 8px;">' + esc(a.attention_severity || "medium") + '</span>' +
-      '</div>' +
-      (reasonLabels ? '<div style="font-size:12px;color:' + meta.color + ';margin-bottom:8px;">' + reasonLabels + '</div>' : '') +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-        '<button class="cm-view-athlete" data-athlete="' + esc(a.athlete_id) + '" style="font-size:12px;padding:5px 12px;border-radius:8px;border:1px solid var(--line,#ddd);background:transparent;cursor:pointer;">View athlete</button>' +
-        '<button class="cm-mark-reviewed" data-athlete="' + esc(a.athlete_id) + '" style="font-size:12px;padding:5px 12px;border-radius:8px;border:1px solid var(--line,#ddd);background:transparent;cursor:pointer;">Mark reviewed</button>' +
-      '</div>' +
-    '</div>';
+    return html + '</div></section>';
   }
 
   /* ─── Training Today ─── */
   function renderTrainingTodaySection(athletes) {
-    var html = '<div style="margin-bottom:20px;">' +
-      '<h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">Training today</h2>';
-    if (!athletes.length) {
-      return html + '<div style="padding:16px;text-align:center;color:var(--ink3,#888);font-size:13px;">No athletes have planned sessions today.</div></div>';
-    }
+    var html = '<section class="cm-section cm-section--training">' + sectionHeader("Training Today", athletes.length);
+    if (!athletes.length) return html + '<div class="cm-all-clear">No sessions planned today.</div></section>';
+    html += '<div class="cm-list">';
     athletes.forEach(function (a) {
       var s = a.today_planned || {};
-      var sport = SPORT_LABEL[s.sport || a.primary_sport] || "Activity";
-      var title = esc(s.title || s.session_type || "Planned session");
-      var duration = s.duration_minutes ? s.duration_minutes + " min" : null;
-      var distance = s.distance_km ? s.distance_km + " km" : null;
-      var details = [sport, duration, distance].filter(Boolean).join(" · ");
-
-      html += '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">' +
-        '<div style="width:36px;height:36px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;">' + esc(a.initials || "A") + '</div>' +
-        '<div style="min-width:0;flex:1;">' +
-          '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(a.name) + '</div>' +
-          '<div style="font-size:12px;color:var(--ink3,#888);">' + title + '</div>' +
-          '<div style="font-size:11px;color:var(--ink3,#888);margin-top:2px;">' + esc(details) + '</div>' +
-        '</div>' +
-        '<div style="text-align:right;font-size:11px;">' +
-          '<div style="color:var(--ink3,#888);">' + esc(a.readiness_status || "—") + '</div>' +
-        '</div>' +
-      '</div>';
+      var details = [s.title || "Planned session", SPORT_LABEL[s.sport || a.primary_sport]].filter(Boolean).join(" · ");
+      html += '<button type="button" class="cm-open-row" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
+        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
+        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(details) + '</span></span>' +
+        '<span class="cm-row-status">Planned</span><span class="cm-chevron" aria-hidden="true">›</span>' +
+      '</span></button>';
     });
-    return html + '</div>';
+    return html + '</div></section>';
   }
 
   /* ─── Recent Activity ─── */
-  function renderRecentActivitySection(recentActs) {
-    var html = '<div style="margin-bottom:20px;">' +
-      '<h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">Recent activity</h2>';
-    if (!recentActs.length) {
-      return html + '<div style="padding:16px;text-align:center;color:var(--ink3,#888);font-size:13px;">No recent activities across assigned athletes.</div></div>';
-    }
-    recentActs.forEach(function (r) {
-      var act = r.activity;
-      var sport = SPORT_LABEL[act.sport] || "Activity";
-      var bits = [sport];
-      if (act.duration_min) bits.push(act.duration_min + " min");
-      if (act.distance_km) bits.push(act.distance_km + " km");
-      var summary = bits.join(" · ");
-      html += '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:12px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">' +
-        '<div style="width:32px;height:32px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;">' + esc(r.initials || "A") + '</div>' +
-        '<div style="min-width:0;flex:1;">' +
-          '<div style="font-size:13px;"><b>' + esc(r.name) + '</b> · ' + esc(summary) + '</div>' +
-          '<div style="font-size:11px;color:var(--ink3,#888);">' + esc(fmtDateTime(act.date)) + '</div>' +
-        '</div>' +
-      '</div>';
+  function renderRecentActivitySection(athletes) {
+    var html = '<section class="cm-section cm-section--activity">' + sectionHeader("Recent Activity", athletes.length) + '<div class="cm-list">';
+    athletes.forEach(function (a) {
+      html += '<button type="button" class="cm-open-row" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
+        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
+        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(latestActivitySummary(a)) + '</span><span class="cm-row-meta">' + esc(fmtDateTime(a.latest_activity.date)) + '</span></span>' +
+        '<span class="cm-chevron" aria-hidden="true">›</span>' +
+      '</span></button>';
     });
-    return html + '</div>';
+    return html + '</div></section>';
   }
 
-  /* ─── Upcoming Events ─── */
-  function renderUpcomingEventsSection(upcoming) {
-    var html = '<div style="margin-bottom:20px;">' +
-      '<h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">Upcoming events</h2>';
-    if (!upcoming.length) {
-      return html + '<div style="padding:16px;text-align:center;color:var(--ink3,#888);font-size:13px;">No athletes have upcoming target events.</div></div>';
-    }
-    upcoming.forEach(function (u) {
-      html += '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:12px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">' +
-        '<div style="width:32px;height:32px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;">' + esc(u.initials || "A") + '</div>' +
-        '<div style="min-width:0;flex:1;">' +
-          '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(u.name) + '</div>' +
-          '<div style="font-size:12px;color:var(--ink3,#888);">' + esc(u.event) + '</div>' +
-        '</div>' +
-        '<div style="text-align:right;font-size:11px;color:var(--ink3,#888);">' +
-          esc(SPORT_LABEL[u.primary_sport] || "—") +
-        '</div>' +
-      '</div>';
+  /* The roster API exposes a real target-race name, but not a race date. */
+  function renderRaceGoalsSection(athletes) {
+    var html = '<section class="cm-section cm-section--races">' + sectionHeader("Upcoming Races", athletes.length) + '<div class="cm-list">';
+    athletes.forEach(function (a) {
+      html += '<button type="button" class="cm-open-row" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
+        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
+        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(a.target_event) + '</span></span>' +
+        '<span class="cm-chevron" aria-hidden="true">›</span>' +
+      '</span></button>';
     });
-    return html + '</div>';
+    return html + '</div></section>';
   }
 
-  /* ─── Roster Status ─── */
+  /* ─── Athlete Roster ─── */
   function renderRosterStatusSection(sorted) {
-    var html = '<div style="margin-bottom:20px;">' +
-      '<h2 style="font-size:16px;font-weight:700;margin:0 0 10px;">Roster status</h2>' +
-      '<input id="cmRosterSearch" type="search" placeholder="Search athletes by name" ' +
-        'style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--line,#e3e3e3);border-radius:10px;margin-bottom:10px;font-size:13px;" />' +
-      '<div id="cmRosterList">';
-    html += renderRosterList(sorted, "");
-    html += '</div></div>';
-    return html;
+    return '<section class="cm-section cm-section--roster">' + sectionHeader("Athletes", sorted.length) +
+      '<input class="cm-search" id="cmRosterSearch" type="search" placeholder="Search athletes" aria-label="Search athletes" value="' + esc(_search) + '" />' +
+      '<div id="cmRosterList" class="cm-list">' + renderRosterList(sorted, _search) + '</div></section>';
   }
 
   function renderRosterList(sorted, query) {
@@ -767,36 +819,21 @@
         (q ? 'No athletes match "' + esc(q) + '".' : 'No athletes assigned yet.') + '</div>';
     }
     return visible.map(function (a) {
-      var meta = STATUS_META[a.attention_status] || STATUS_META.no_recent_data;
-      var sport = SPORT_LABEL[a.primary_sport] || "—";
-      var load = a.seven_day_load != null ? a.seven_day_load : "—";
-      var adher = a.adherence_pct != null ? a.adherence_pct + "%" : "—";
-      var todayLabel = a.today_planned ? (a.today_planned.title || "Planned") : "—";
-      return '<div class="cm-roster-item" data-athlete="' + esc(a.athlete_id) + '" style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:12px;padding:10px 14px;margin-bottom:6px;cursor:pointer;">' +
-        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">' +
-          '<div style="width:32px;height:32px;border-radius:50%;background:' + meta.bg + ';display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;color:' + meta.color + ';">' + esc(a.initials || "A") + '</div>' +
-          '<div style="min-width:0;flex:1;">' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(a.name) + '</span>' +
-              '<span style="flex:0 0 auto;font-size:10px;font-weight:600;color:#fff;background:' + meta.color + ';border-radius:999px;padding:1px 7px;">' + esc(meta.label) + '</span>' +
-            '</div>' +
-            '<div style="font-size:11px;color:var(--ink3,#888);">' + esc(sport) + ' · ' + fmtVal(a.goal) + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;gap:10px;font-size:11px;color:var(--ink2,#555);flex-wrap:wrap;">' +
-          '<span>Today: <b>' + esc(todayLabel).substring(0, 20) + '</b></span>' +
-          '<span>Readiness: <b>' + fmtVal(a.readiness_status) + '</b></span>' +
-          '<span>Recovery: <b>' + fmtVal(a.recovery_status === "unknown" ? null : a.recovery_status) + '</b></span>' +
-          '<span>7d: <b>' + esc(load) + '</b></span>' +
-          '<span>Adh: <b>' + esc(adher) + '</b></span>' +
-          '<span>Active: <b>' + esc(fmtLastActive(a.last_active_at)) + '</b></span>' +
-        '</div>' +
-      '</div>';
+      return '<button type="button" class="cm-open-row cm-roster-item" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
+        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
+        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(athleteContext(a)) + '</span><span class="cm-row-meta">' + esc(rosterStatusLine(a)) + '</span></span>' +
+        '<span class="cm-chevron" aria-hidden="true">›</span>' +
+      '</span></button>';
     }).join("");
   }
 
   /* ─── Event Binding for Coach Today ─── */
   function bindCoachTodayEvents(container) {
+    var refresh = container.querySelector("#cmRefresh");
+    if (refresh) refresh.addEventListener("click", refreshRoster);
+    var retry = container.querySelector("#cmRetry");
+    if (retry) retry.addEventListener("click", refreshRoster);
+
     // View athlete buttons
     container.querySelectorAll(".cm-view-athlete").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
@@ -806,18 +843,10 @@
         trackCoach("coach_today_athlete_opened", { coach_mode: "coach_mode", source_surface: "coach_today" });
       });
     });
-    // Mark reviewed buttons
-    container.querySelectorAll(".cm-mark-reviewed").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var id = btn.getAttribute("data-athlete");
-        markAthleteReviewed(id, btn);
-      });
-    });
-    // Roster items
-    container.querySelectorAll(".cm-roster-item").forEach(function (item) {
+    // Training, activity, race-goal, and roster rows share the existing drawer.
+    container.querySelectorAll("[data-open-athlete]").forEach(function (item) {
       item.addEventListener("click", function () {
-        var id = item.getAttribute("data-athlete");
+        var id = item.getAttribute("data-open-athlete");
         openCoachAthleteDrawer(id);
         trackCoach("coach_today_athlete_opened", { coach_mode: "coach_mode", source_surface: "coach_roster" });
       });
@@ -829,11 +858,10 @@
         _search = e.target.value || "";
         var listEl = document.getElementById("cmRosterList");
         if (listEl) listEl.innerHTML = renderRosterList(sortRoster(_roster), _search);
-        // Re-bind roster click handlers
-        var rosterItems = listEl ? listEl.querySelectorAll(".cm-roster-item") : [];
+        var rosterItems = listEl ? listEl.querySelectorAll("[data-open-athlete]") : [];
         rosterItems.forEach(function (item) {
           item.addEventListener("click", function () {
-            openCoachAthleteDrawer(item.getAttribute("data-athlete"));
+            openCoachAthleteDrawer(item.getAttribute("data-open-athlete"));
           });
         });
       });
@@ -1253,14 +1281,17 @@
   async function refreshRoster() {
     _rosterLoading = true;
     _rosterError = null;
+    renderCoachToday();
     var res = await api("roster");
     _rosterLoading = false;
     if (!res.ok) {
       _rosterError = "Could not refresh roster.";
+      renderCoachToday();
       return;
     }
     _roster = (res.body && res.body.athletes) || [];
     _role = (res.body && res.body.role) || _role;
+    renderCoachToday();
   }
 
   /* ═══════════════════════ INITIALIZATION ══════════════════════════ */

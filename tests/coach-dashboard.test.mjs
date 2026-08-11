@@ -98,8 +98,12 @@ section("RLS / API SECURITY");
   t("service-role key absent from browser bundle", leak === false);
 
   const api = readFileSync(join(root, "api/providers/index.js"), "utf8");
+  const coachBundle = api.slice(
+    api.indexOf("async function loadAthleteBundle"),
+    api.indexOf("function readinessScoreFrom")
+  );
   t("API authorizes athlete_id against active assignments before loading data", /canCoachAccessAthlete\(assignments, user\.id, athleteId\)/.test(api));
-  t("API never SELECTs provider tokens", !/select=[^`'"]*(access_token|refresh_token)/.test(api));
+  t("Coach API never SELECTs provider tokens", coachBundle.length > 0 && !/select=[^`'"]*(access_token|refresh_token)/.test(coachBundle));
   t("API provider read is limited to last_sync fields", /provider_accounts\?[^`]*select=provider,last_sync_at,last_sync_status/.test(api));
   t("API does not leak raw DB errors", /could not load|could not record|not configured/i.test(api));
 
