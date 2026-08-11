@@ -37,7 +37,8 @@ section("Static markup — nothing may paint before auth resolves");
     /<body class="booting">/.test(html) && !/<body[^>]*landing-active/.test(html));
   t("landing section exists but is NOT active",
     /<section class="screen lp" id="screen-landing">/.test(html));
-  t("boot gate hides the tab bar", /body\.booting #tabbar\{display:none!important\}/.test(html));
+  t("boot gate preserves the shared tab bar without making it interactive",
+    /body\.booting #tabbar\{display:flex!important;z-index:9999;pointer-events:none\}/.test(html));
   t("gate survives showScreen — Today reveals populated, not empty",
     !/document\.body\.classList\.remove\('booting'\);/.test(extractEarly("showScreen")));
   t("6s safety valve so a slow load can't hold a blank overlay",
@@ -47,7 +48,8 @@ section("Static markup — nothing may paint before auth resolves");
     /class="boot-primary-card"/.test(html) &&
     (html.match(/class="skel boot-status-ring"/g) || []).length === 3 &&
     /class="boot-week-row"/.test(html) &&
-    /class="boot-tabbar"/.test(html) &&
+    !/class="boot-tabbar"/.test(html) &&
+    (html.match(/id="tabbar"/g) || []).length === 1 &&
     !/boot-spinner|bootSpin/.test(html));
   t("reduced motion leaves skeletons static",
     /prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html) &&

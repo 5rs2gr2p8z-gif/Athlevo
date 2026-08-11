@@ -75,10 +75,10 @@ console.log("\n──── Cold app shell ────");
     /\.boot-status-ring\{width:54px;height:54px/.test(html));
   test("boot shell presents no fake athlete values",
     !/—|\bRPE\b|\bbpm\b|\bkm\b|\bhrs?\b/.test(boot));
-  test("boot navigation preserves five stable top-level positions",
-    (boot.match(/class="boot-tab"/g) || []).length === 5 &&
-    ["Today", "Coach", "Train", "Trends", "You"].every(label =>
-      boot.includes(`<span>${label}</span>`)));
+  test("boot uses the one real navigation instead of a duplicate loading nav",
+    !/class="boot-tabbar"/.test(boot) &&
+    (html.match(/id="tabbar"/g) || []).length === 1 &&
+    /body\.booting #tabbar\{display:flex!important;z-index:9999;pointer-events:none\}/.test(html));
   test("375, 390, 430px and desktop/PWA keep the shell within the viewport",
     [375, 390, 430].every(width => width <= 430) &&
     /\.boot-shell\{[^}]*width:min\(100%,430px\)[^}]*height:100dvh/.test(html) &&

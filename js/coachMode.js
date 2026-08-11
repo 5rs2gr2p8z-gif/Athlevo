@@ -257,7 +257,7 @@
       ".cm-skel-number{display:block;width:38px;height:20px;border-radius:4px}.cm-skel-stat-label{display:block;width:min(92px,82%);height:8px;border-radius:3px}",
       ".cm-skel-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}.cm-skel-section{display:grid;gap:10px;min-width:0}.cm-skel-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line,#e5e5e5)}.cm-skel-label{display:block;width:120px;height:11px;border-radius:4px}.cm-skel-count{display:block;width:18px;height:9px;border-radius:3px}.cm-skel-quiet{display:block;height:46px;border-radius:10px}",
       ".cm-skel-search{display:block;width:100%;height:34px;border-radius:6px}.cm-skel-roster{display:grid}.cm-skel-roster-row{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:14px 2px;border-bottom:1px solid var(--line,#e5e5e5)}.cm-skel-avatar{display:block;width:40px;height:40px;border-radius:50%;flex:0 0 40px}.cm-skel-roster-copy{display:grid;gap:6px;min-width:0;flex:1;padding-top:1px}.cm-skel-name{display:block;width:min(180px,68%);height:13px;border-radius:4px}.cm-skel-context{display:block;width:min(250px,88%);height:10px;border-radius:3px}.cm-skel-status{display:block;width:min(150px,56%);height:9px;border-radius:3px}.cm-skel-chevron{display:block;width:8px;height:14px;margin-top:4px;border-radius:3px;flex:0 0 8px}",
-      "body.coach-loading .boot-content{padding:0;overflow:hidden}body.coach-loading .boot-content .cm-command-skeleton{padding-top:calc(18px + env(safe-area-inset-top));}body.coach-loading #tabbar{display:flex!important}",
+      "body.coach-loading .boot-content{padding:0;overflow:hidden}body.coach-loading .boot-content .cm-command-skeleton{padding-top:calc(18px + env(safe-area-inset-top));}",
       ".cm-roster-item .cm-row{align-items:flex-start;padding:16px 2px;}",
       ".cm-roster-item .cm-avatar{width:40px;height:40px;flex-basis:40px;margin-top:1px;font-size:12px;}",
       ".cm-roster-item .cm-row-name{font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
@@ -1472,18 +1472,18 @@
         !document.body.classList.contains("booting") || !content) return false;
 
     ensureCoachCommandStyles();
-    document.body.classList.add("coach-loading");
-    gate.setAttribute("aria-label", "Loading Coach Dashboard");
-    content.innerHTML = renderCoachSkeleton();
 
-    // Show the real tabbar with coach tabs during loading so bottom
-    // navigation stays visible while the boot-gate skeleton is up.
-    // The CSS rule body.coach-loading #tabbar{display:flex!important}
-    // overrides body.booting #tabbar{display:none!important}.
+    // Rewrite and synchronize the one shared tabbar before installing the
+    // coach loading content. body.booting keeps this real navigation visible
+    // above the boot gate; no loading-only navigation is created.
     rewriteNavigation();
     if (window.AthlevoAppMotion && typeof window.AthlevoAppMotion.syncIndicator === "function") {
       window.AthlevoAppMotion.syncIndicator(false);
     }
+
+    document.body.classList.add("coach-loading");
+    gate.setAttribute("aria-label", "Loading Coach Dashboard");
+    content.innerHTML = renderCoachSkeleton();
 
     return true;
   }

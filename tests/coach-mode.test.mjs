@@ -606,9 +606,26 @@ describe("Coach Mode — coaching command center UI", () => {
 
   it("keeps the shared bottom navigation stable while coach content loads", () => {
     const boot = indexSource.slice(indexSource.indexOf('<div id="boot-gate"'), indexSource.indexOf('<div class="device">'));
-    assert.equal((boot.match(/class="boot-tab"/g) || []).length, 5);
+    assert.ok(!boot.includes("boot-tabbar"));
+    assert.equal((indexSource.match(/id="tabbar"/g) || []).length, 1);
+    assert.ok(indexSource.includes("body.booting #tabbar{display:flex!important;z-index:9999;pointer-events:none}"));
     assert.ok(source.includes('content.innerHTML = renderCoachSkeleton()'));
     assert.ok(!source.includes('gate.innerHTML = renderCoachSkeleton()'));
+  });
+
+  it("rewrites and synchronizes coach navigation before showing the coach skeleton", () => {
+    const start = source.indexOf("function prepareDashboardLoading");
+    const end = source.indexOf("async function init", start);
+    const prepare = source.slice(start, end);
+    assert.ok(prepare.indexOf("rewriteNavigation()") < prepare.indexOf('document.body.classList.add("coach-loading")'));
+    assert.ok(prepare.indexOf("syncIndicator(false)") < prepare.indexOf('content.innerHTML = renderCoachSkeleton()'));
+    assert.ok(source.includes('btn.className = "tab" + (i === 0 ? " on" : "")'));
+    assert.ok(source.includes('{ screen: "screen-today",            label: "Today"'));
+  });
+
+  it("does not retain a loading-only tabbar or coach visibility override", () => {
+    assert.ok(!indexSource.includes('class="boot-tabbar"'));
+    assert.ok(!source.includes("body.coach-loading #tabbar"));
   });
 
   it("does not flash a loading skeleton when returning to cached Coach Today", () => {
