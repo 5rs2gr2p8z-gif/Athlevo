@@ -7435,6 +7435,14 @@ async function routeAfterAuth(userId) {
     return;
   }
 
+  // The static first-frame shell intentionally stays athlete-shaped for
+  // anonymous visitors and athletes. Once this authenticated profile is
+  // known to be a coach/admin, swap only its content for the Coach Dashboard
+  // skeleton while the server-authoritative Coach Mode request resolves.
+  if (window.AthlevoCoachMode && window.AthlevoCoachMode.prepareDashboardLoading) {
+    window.AthlevoCoachMode.prepareDashboardLoading(profile);
+  }
+
   /*
    * Guided setup survives the OAuth round-trip. If it was in progress when
    * the athlete left to authorize, resume it instead of dropping them on a
@@ -7748,6 +7756,7 @@ function endBootGate() {
     window.AthlevoAppMotion.syncIndicator(false);
   }
   document.body.classList.remove('booting');
+  document.body.classList.remove('coach-loading');
   try {
     window.dispatchEvent(new CustomEvent("athlevo:app-ready"));
   } catch (e) {}

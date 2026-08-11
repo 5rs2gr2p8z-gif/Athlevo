@@ -479,6 +479,7 @@ describe("Coach Mode — client module structure", () => {
 describe("Coach Mode — coaching command center UI", () => {
   const source = readFileSync(resolve(import.meta.dirname, "..", "js", "coachMode.js"), "utf-8");
   const dashboardSource = readFileSync(resolve(import.meta.dirname, "..", "js", "coachDashboard.js"), "utf-8");
+  const indexSource = readFileSync(resolve(import.meta.dirname, "..", "index.html"), "utf-8");
 
   it("uses the approved command-center hierarchy with the roster last", () => {
     const renderStart = source.indexOf("function renderCoachToday");
@@ -567,12 +568,59 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes('document.body.classList.remove("coach-workspace-active")'));
   });
 
-  it("uses the shared skeleton and composition-level reduced motion", () => {
+  it("uses the shared shimmer for a dashboard-shaped loading hierarchy", () => {
     assert.ok(source.includes('class="skel cm-skel-line'));
-    assert.ok(source.includes('class="skel cm-skel-stat'));
-    assert.ok(source.includes('class="skel cm-skel-row'));
+    assert.ok(source.includes('class="skel cm-skel-number'));
+    assert.ok(source.includes('class="skel cm-skel-stat-label'));
+    assert.equal((source.match(/compactSection\(\)/g) || []).length, 2);
+    assert.equal((source.match(/cm-skel-roster-row/g) || []).length >= 2, true);
+    assert.ok(source.includes("cm-skel-avatar"));
+    assert.ok(source.includes("cm-skel-name"));
+    assert.ok(source.includes("cm-skel-context"));
+    assert.ok(source.includes("cm-skel-status"));
+    assert.ok(source.includes("cm-skel-search"));
     assert.ok(source.includes("@media(prefers-reduced-motion:reduce)"));
     assert.ok(!source.includes("Loading roster…"));
+  });
+
+  it("swaps the boot content only for an authenticated coach dashboard context", () => {
+    const start = source.indexOf("function prepareDashboardLoading");
+    const end = source.indexOf("async function init", start);
+    const prepare = source.slice(start, end);
+    assert.ok(prepare.includes('profile.role === "coach"'));
+    assert.ok(prepare.includes('profile.role === "admin"'));
+    assert.ok(prepare.includes('readWorkspacePref() === "athlete_workspace"'));
+    assert.ok(prepare.includes('document.body.classList.contains("booting")'));
+    assert.ok(prepare.includes('content.innerHTML = renderCoachSkeleton()'));
+    assert.ok(indexSource.includes("AthlevoCoachMode.prepareDashboardLoading(profile)"));
+    assert.ok(indexSource.indexOf("AthlevoCoachMode.prepareDashboardLoading(profile)") > indexSource.indexOf("if (!completed)"));
+  });
+
+  it("keeps the static athlete Today skeleton intact for athletes and anonymous visitors", () => {
+    const boot = indexSource.slice(indexSource.indexOf('<div id="boot-gate"'), indexSource.indexOf('<div class="device">'));
+    assert.ok(boot.includes("boot-score-radar"));
+    assert.ok(boot.includes('class="boot-primary-card"'));
+    assert.ok(boot.includes('class="boot-status-row"'));
+    assert.ok(boot.includes('class="boot-week-row"'));
+  });
+
+  it("keeps the shared bottom navigation stable while coach content loads", () => {
+    const boot = indexSource.slice(indexSource.indexOf('<div id="boot-gate"'), indexSource.indexOf('<div class="device">'));
+    assert.equal((boot.match(/class="boot-tab"/g) || []).length, 5);
+    assert.ok(source.includes('content.innerHTML = renderCoachSkeleton()'));
+    assert.ok(!source.includes('gate.innerHTML = renderCoachSkeleton()'));
+  });
+
+  it("does not flash a loading skeleton when returning to cached Coach Today", () => {
+    const goStart = source.indexOf("function coachGo");
+    const goEnd = source.indexOf("COACH TODAY", goStart);
+    const go = source.slice(goStart, goEnd);
+    assert.ok(go.includes('if (screenId === "screen-today") renderCoachToday()'));
+    assert.ok(!go.includes("_rosterLoading = true"));
+    const initStart = source.indexOf("async function init");
+    const initEnd = source.indexOf("PUBLIC API", initStart);
+    const init = source.slice(initStart, initEnd);
+    assert.ok(init.indexOf("await resolveMode()") < init.indexOf("renderCoachToday()"));
   });
 
   it("refresh exposes the skeleton before the authorized roster request completes", () => {

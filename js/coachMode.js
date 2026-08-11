@@ -249,12 +249,15 @@
       ".cm-error{padding:18px 0;border-block:1px solid var(--line,#e5e5e5);color:var(--ink2,#555);font-size:13px;}",
       ".cm-error button{margin-top:10px;}",
       ".cm-command-skeleton{width:100%;max-width:430px;margin:0 auto;padding:18px 16px 104px;box-sizing:border-box;}",
-      ".cm-skel-head{display:flex;justify-content:space-between;gap:20px;margin-bottom:18px;}",
-      ".cm-skel-stack{display:grid;gap:8px;flex:1}.cm-skel-line{height:12px;border-radius:4px}.cm-skel-line--title{width:min(240px,70%);height:29px}.cm-skel-line--sub{width:min(360px,90%);}",
-      ".cm-skel-refresh{width:48px;height:12px;border-radius:4px;}",
-      ".cm-skel-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:26px;}",
-      ".cm-skel-stat{height:66px;border-radius:10px;}",
-      ".cm-skel-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:26px}.cm-skel-section{display:grid;gap:9px}.cm-skel-label{width:120px;height:11px;border-radius:4px}.cm-skel-row{height:57px;border-radius:7px;}",
+      ".cm-skel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px;}",
+      ".cm-skel-stack{display:grid;gap:8px;min-width:0;flex:1}.cm-skel-line{display:block;height:12px;border-radius:4px}.cm-skel-line--title{width:min(240px,70%);height:29px}.cm-skel-line--sub{width:min(360px,90%);}",
+      ".cm-skel-refresh{display:block;width:48px;height:12px;margin-top:8px;border-radius:4px;flex:0 0 auto;}",
+      ".cm-skel-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:26px;}",
+      ".cm-skel-stat{display:grid;align-content:center;gap:8px;min-width:0;min-height:66px;padding:12px 13px;box-sizing:border-box;border-radius:10px;background:var(--card2,var(--card,#f5f5f5));}",
+      ".cm-skel-number{display:block;width:38px;height:20px;border-radius:4px}.cm-skel-stat-label{display:block;width:min(92px,82%);height:8px;border-radius:3px}",
+      ".cm-skel-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}.cm-skel-section{display:grid;gap:10px;min-width:0}.cm-skel-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line,#e5e5e5)}.cm-skel-label{display:block;width:120px;height:11px;border-radius:4px}.cm-skel-count{display:block;width:18px;height:9px;border-radius:3px}.cm-skel-quiet{display:block;height:46px;border-radius:10px}",
+      ".cm-skel-search{display:block;width:100%;height:34px;border-radius:6px}.cm-skel-roster{display:grid}.cm-skel-roster-row{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:14px 2px;border-bottom:1px solid var(--line,#e5e5e5)}.cm-skel-avatar{display:block;width:40px;height:40px;border-radius:50%;flex:0 0 40px}.cm-skel-roster-copy{display:grid;gap:6px;min-width:0;flex:1;padding-top:1px}.cm-skel-name{display:block;width:min(180px,68%);height:13px;border-radius:4px}.cm-skel-context{display:block;width:min(250px,88%);height:10px;border-radius:3px}.cm-skel-status{display:block;width:min(150px,56%);height:9px;border-radius:3px}.cm-skel-chevron{display:block;width:8px;height:14px;margin-top:4px;border-radius:3px;flex:0 0 8px}",
+      "body.coach-loading .boot-content{padding:0;overflow:hidden}body.coach-loading .boot-content .cm-command-skeleton{padding-top:calc(18px + env(safe-area-inset-top));}",
       ".cm-roster-item .cm-row{align-items:flex-start;padding:16px 2px;}",
       ".cm-roster-item .cm-avatar{width:40px;height:40px;flex-basis:40px;margin-top:1px;font-size:12px;}",
       ".cm-roster-item .cm-row-name{font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
@@ -267,7 +270,7 @@
       ".cm-athlete-page{width:100%;max-width:920px;margin:0 auto;padding:16px 16px 108px;box-sizing:border-box;color:var(--ink1,var(--ink,#171717))}.cm-athlete-back{border:0;background:transparent;padding:7px 0;color:var(--ink2,#555);font:700 12px/1 var(--sans,sans-serif);cursor:pointer}.cm-athlete-head{display:flex;align-items:flex-start;gap:12px;margin:14px 0 18px}.cm-athlete-head .cm-avatar{width:44px;height:44px;flex-basis:44px}.cm-athlete-head-copy{min-width:0;flex:1}.cm-athlete-name{font-family:var(--serif,serif);font-size:26px;font-weight:520;line-height:1.08;margin:0;overflow-wrap:anywhere}.cm-athlete-context{margin:5px 0 0;color:var(--ink3,#737373);font-size:12px;line-height:1.4}.cm-athlete-tabs{display:flex;gap:18px;overflow-x:auto;border-bottom:1px solid var(--line,#e5e5e5);scrollbar-width:none}.cm-athlete-tab{border:0;border-bottom:2px solid transparent;background:transparent;padding:10px 0 9px;color:var(--ink3,#737373);font:700 12px/1 var(--sans,sans-serif);white-space:nowrap;cursor:pointer}.cm-athlete-tab.is-active{color:var(--ink1,#171717);border-bottom-color:var(--red,#b3292d)}.cm-athlete-panel{padding-top:20px}.cm-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line,#e5e5e5);border:1px solid var(--line,#e5e5e5)}.cm-detail-metric{min-height:82px;background:var(--bg,#fff);padding:14px}.cm-detail-label{display:block;color:var(--ink3,#737373);font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}.cm-detail-value{display:block;margin-top:7px;font-size:14px;font-weight:700;line-height:1.35}.cm-detail-sub{display:block;margin-top:3px;color:var(--ink3,#737373);font-size:11px;line-height:1.4}.cm-detail-section{margin-top:24px}.cm-detail-section h3{margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}.cm-detail-empty{padding:16px 0;border-block:1px solid var(--line,#e5e5e5);color:var(--ink3,#737373);font-size:13px}.cm-activity-list{margin:0;padding:0;list-style:none}.cm-activity-list li{padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5);font-size:13px}.cm-week-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.cm-week-title{font-size:14px;font-weight:750}.cm-week-actions{display:flex;gap:8px}.cm-week-btn{border:1px solid var(--line,#d9d9d9);background:transparent;color:inherit;border-radius:999px;padding:8px 11px;font:700 11px/1 var(--sans,sans-serif);cursor:pointer}.cm-week-btn--primary{border-color:var(--red,#b3292d);color:var(--red,#b3292d)}.cm-workout-list{border-top:1px solid var(--line,#e5e5e5)}.cm-workout-row{display:grid;grid-template-columns:45px minmax(0,1fr) auto;gap:11px;align-items:center;width:100%;padding:13px 0;border:0;border-bottom:1px solid var(--line,#e5e5e5);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-workout-date{font-size:10px;color:var(--ink3,#737373);text-transform:uppercase;line-height:1.35}.cm-workout-copy{min-width:0}.cm-workout-title{font-size:13px;font-weight:750;line-height:1.3}.cm-workout-meta{margin-top:4px;color:var(--ink3,#737373);font-size:11px;line-height:1.4}.cm-workout-status{font-size:10px;font-weight:750;text-transform:uppercase;color:var(--ink3,#737373)}.cm-workout-status.completed{color:#2e7d32}.cm-workout-status.modified{color:#9a6505}.cm-workout-status.skipped{color:#a52a2f}.cm-placeholder{padding:28px 0;color:var(--ink3,#737373);font-size:13px;line-height:1.5}.cm-workout-overlay{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.38);display:flex;align-items:flex-end;justify-content:center}.cm-workout-dialog{width:100%;max-width:620px;max-height:90vh;overflow:auto;background:var(--bg,#fff);border-radius:18px 18px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));box-sizing:border-box}.cm-workout-dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.cm-workout-dialog h2{margin:0;font-family:var(--serif,serif);font-size:22px}.cm-dialog-close{border:0;background:transparent;font-size:22px;cursor:pointer}.cm-workout-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cm-field{display:grid;gap:5px;min-width:0}.cm-field--full{grid-column:1/-1}.cm-field label{font-size:10px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#737373)}.cm-field input,.cm-field textarea,.cm-field select{width:100%;box-sizing:border-box;border:1px solid var(--line,#d9d9d9);border-radius:8px;background:var(--bg,#fff);color:inherit;padding:10px;font:13px/1.35 var(--sans,sans-serif)}.cm-field textarea{min-height:70px;resize:vertical}.cm-form-error{grid-column:1/-1;color:#a52a2f;font-size:12px}.cm-form-actions{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;margin-top:4px}.cm-form-actions-right{display:flex;gap:8px;margin-left:auto}.cm-danger{color:#a52a2f;border-color:#e5b7b9}.cm-readonly-note{padding:11px 0;color:var(--ink3,#737373);font-size:12px}",
       "@media(min-width:760px){.cm-athlete-page{padding-inline:24px}.cm-detail-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.cm-workout-dialog{align-self:center;border-radius:14px}.cm-athlete-panel{padding-top:24px}}",
       "@media(min-width:760px){.cm-roster-item .cm-row{padding-block:17px}}",
-      "@media(min-width:900px){body.coach-workspace-active .device{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}",
+      "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
       "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready{animation:none}.cm-row-name{transition:none}}"
     ].join("");
@@ -736,13 +739,21 @@
   }
 
   function renderCoachSkeleton() {
-    return '<div class="cm-command-skeleton" aria-label="Loading Coach Dashboard">' +
+    var summary = [0, 1, 2, 3].map(function () {
+      return '<div class="cm-skel-stat"><span class="skel cm-skel-number"></span><span class="skel cm-skel-stat-label"></span></div>';
+    }).join("");
+    var compactSection = function () {
+      return '<section class="cm-skel-section"><div class="cm-skel-section-head"><span class="skel cm-skel-label"></span><span class="skel cm-skel-count"></span></div><span class="skel cm-skel-quiet"></span></section>';
+    };
+    var rosterRows = [0, 1].map(function () {
+      return '<div class="cm-skel-roster-row"><span class="skel cm-skel-avatar"></span><span class="cm-skel-roster-copy"><span class="skel cm-skel-name"></span><span class="skel cm-skel-context"></span><span class="skel cm-skel-status"></span></span><span class="skel cm-skel-chevron"></span></div>';
+    }).join("");
+    return '<div class="cm-command-skeleton" role="status" aria-label="Loading Coach Dashboard">' +
       '<div class="cm-skel-head"><div class="cm-skel-stack"><span class="skel cm-skel-line cm-skel-line--title"></span><span class="skel cm-skel-line cm-skel-line--sub"></span></div><span class="skel cm-skel-refresh"></span></div>' +
-      '<div class="cm-skel-summary">' + [0, 1, 2, 3].map(function () { return '<span class="skel cm-skel-stat"></span>'; }).join("") + '</div>' +
-      '<div class="cm-skel-grid">' + [0, 1].map(function () {
-        return '<div class="cm-skel-section"><span class="skel cm-skel-label"></span><span class="skel cm-skel-row"></span><span class="skel cm-skel-row"></span></div>';
-      }).join("") + '</div>' +
-      '<div class="cm-skel-section" style="margin-top:24px"><span class="skel cm-skel-label"></span><span class="skel cm-skel-row"></span><span class="skel cm-skel-row"></span></div>' +
+      '<div class="cm-skel-summary">' + summary + '</div>' +
+      '<div class="cm-skel-grid">' + compactSection() + compactSection() +
+        '<section class="cm-skel-section cm-skel-section--roster"><div class="cm-skel-section-head"><span class="skel cm-skel-label"></span></div><span class="skel cm-skel-search"></span><div class="cm-skel-roster">' + rosterRows + '</div></section>' +
+      '</div>' +
     '</div>';
   }
 
@@ -1447,6 +1458,26 @@
 
   /* ═══════════════════════ INITIALIZATION ══════════════════════════ */
 
+  /*
+   * Replace the first-frame athlete shell only after routeAfterAuth has
+   * confirmed an authenticated coach/admin profile. This is visual routing
+   * only: the server-authoritative roster request in resolveMode() still
+   * decides whether Coach Workspace can actually activate.
+   */
+  function prepareDashboardLoading(profile) {
+    var isCoachProfile = profile && (profile.role === "coach" || profile.role === "admin");
+    var gate = document.getElementById("boot-gate");
+    var content = gate && gate.querySelector(".boot-content");
+    if (!isCoachProfile || readWorkspacePref() === "athlete_workspace" ||
+        !document.body.classList.contains("booting") || !content) return false;
+
+    ensureCoachCommandStyles();
+    document.body.classList.add("coach-loading");
+    gate.setAttribute("aria-label", "Loading Coach Dashboard");
+    content.innerHTML = renderCoachSkeleton();
+    return true;
+  }
+
   async function init() {
     if (_initialized) return;
     _initialized = true;
@@ -1517,6 +1548,7 @@
 
   window.AthlevoCoachMode = {
     init: init,
+    prepareDashboardLoading: prepareDashboardLoading,
     go: coachGo,
     getMode: function () { return _appMode; },
     isCoachMode: function () { return _appMode === "coach_mode"; },
