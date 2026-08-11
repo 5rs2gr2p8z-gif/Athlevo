@@ -113,10 +113,11 @@ const today = html.slice(todayStart, todayEnd);
 test("score mount is in the Today header, before primary training state",
   /<header class="today-header">[\s\S]*?id="athlevoScoreCard"[\s\S]*?id="todayPlanLoadingState"/.test(today));
 test("Today contains only one score mount", (today.match(/id="athlevoScoreCard"/g) || []).length === 1);
-test("the existing 22px Athlevo mark is centered independently above the header",
-  /<div class="today-brand-mark">[\s\S]*?athlevo-icon-transparent\.png[\s\S]*?width="22" height="22"/.test(today) &&
+test("the existing Athlevo mark is a centered 28px row with a 25px narrow-phone treatment",
+  /<div class="today-brand-mark">[\s\S]*?athlevo-icon-transparent\.png[\s\S]*?width="28" height="28"/.test(today) &&
   today.indexOf("today-brand-mark") < today.indexOf("today-header") &&
-  /\.today-brand-mark\{[^}]*justify-content:center[^}]*height:22px[^}]*padding:14px 22px 10px/.test(html));
+  /\.today-brand-mark\{[^}]*justify-content:center[^}]*height:28px[^}]*padding:12px 22px 16px/.test(html) &&
+  /@media \(max-width:380px\)[\s\S]*?\.today-brand-mark\{height:25px;padding:12px 22px 14px\}/.test(html));
 test("radar summary is 90px square and narrows safely on the smallest phones",
   /\.today-score-mount\{width:90px;height:90px/.test(html) &&
   /\.asc-radar-summary\{[\s\S]*?width:90px;height:90px/.test(html) &&
@@ -134,7 +135,8 @@ test("compact summary has no card shell",
   !/\.asc-radar-summary\{[^}]*border:1px/.test(html));
 test("boot and live loading states use compact pentagonal score placeholders",
   /class="boot-brand"[\s\S]*?class="skel boot-mark"/.test(html) &&
-  /\.boot-brand\{[^}]*justify-content:center[^}]*height:22px/.test(html) &&
+  /\.boot-brand\{[^}]*justify-content:center[^}]*height:28px[^}]*margin-bottom:16px/.test(html) &&
+  /@media \(max-width:380px\)[\s\S]*?\.boot-brand\{height:25px;margin-bottom:14px\}/.test(html) &&
   /class="skel boot-score-radar"/.test(html) &&
   /id="athlevoScoreCard"[\s\S]*?class="skel today-score-skeleton"/.test(today) &&
   /\.boot-score-radar\{[^}]*clip-path:polygon/.test(html) &&
@@ -150,10 +152,10 @@ test("compact radar shows current score, trend and the real five-axis shape",
   /asc-mini-area/.test(mount.innerHTML) &&
   !/asc-mini-dot/.test(mount.innerHTML));
 test("compact radar uses quiet technical grid, polygon, score, and trend styling",
-  /\.asc-mini-grid\{[^}]*stroke-width:\.75[^}]*opacity:\.3/.test(html) &&
-  /\.asc-mini-spoke\{[^}]*stroke-width:\.65[^}]*opacity:\.26/.test(html) &&
-  /\.asc-mini-area\{[^}]*fill-opacity:\.075[^}]*stroke-width:1\.55/.test(html) &&
-  /\.asc-radar-score\{[^}]*font-size:var\(--fs-h3\)[^}]*font-weight:500/.test(html) &&
+  /\.asc-mini-grid\{[^}]*stroke-width:\.65[^}]*opacity:\.22/.test(html) &&
+  /\.asc-mini-spoke\{[^}]*stroke-width:\.6[^}]*opacity:\.2/.test(html) &&
+  /\.asc-mini-area\{[^}]*fill-opacity:\.045[^}]*stroke-width:1\.25[^}]*drop-shadow\(0 1px 1px rgba\(125,35,40,\.12\)\)/.test(html) &&
+  /\.asc-radar-score\{[^}]*font-size:var\(--fs-body\)[^}]*font-weight:500/.test(html) &&
   /\.asc-radar-trend\{[^}]*font-weight:550[^}]*color:var\(--ink3\)/.test(html));
 test("compact radar omits the full dimension list and explanation",
   !/asc-crow|Aerobic|Threshold|Your long-term development/.test(mount.innerHTML));
@@ -177,8 +179,8 @@ test("sheet has a drag handle, close control and truthful explanation",
   /aria-label="Close"/.test(modal.innerHTML) &&
   /Your long-term development is stable\./.test(modal.innerHTML));
 test("expanded radar and performance annotations use restrained visual styling",
-  /\.asc-radar-grid\{[^}]*stroke-width:\.7[^}]*opacity:\.24/.test(html) &&
-  /\.asc-radar-area\{[^}]*fill-opacity:\.075[^}]*stroke-width:1\.65/.test(html) &&
+  /\.asc-radar-grid\{[^}]*stroke-width:\.65[^}]*opacity:\.2/.test(html) &&
+  /\.asc-radar-area\{[^}]*fill-opacity:\.05[^}]*stroke-width:1\.3[^}]*drop-shadow\(0 1px 2px rgba\(125,35,40,\.12\)\)/.test(html) &&
   /\.asc-radar-label\{[^}]*font-weight:550/.test(html) &&
   /\.asc-peak\{[^}]*font-size:var\(--fs-micro\)[^}]*padding:3px 6px[^}]*border-radius:4px/.test(html) &&
   /\.asc-delta\{[^}]*padding:0/.test(html));
