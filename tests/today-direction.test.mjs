@@ -711,7 +711,7 @@ const firstViewportVisibleText = firstViewportMarkup
   .replace(/\s+/g, " ")
   .trim();
 const positions = [
-  today.indexOf("brand-icon"),
+  today.indexOf("today-brand-mark"),
   today.indexOf("todayGreeting"),
   today.indexOf("todayContextLine"),
   today.indexOf("todayPlanLoadingState"),

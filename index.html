@@ -1904,11 +1904,12 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 
 /* The compact score IS the radar: no panel, border, radius or shadow. The
    full labeled model remains in #scoreDetailModal. */
+.today-brand-mark{display:flex;align-items:center;justify-content:center;height:22px;
+  padding:14px 22px 10px}
+.today-brand-mark img{display:block;width:22px;height:22px;object-fit:contain}
 .today-header{display:grid;grid-template-columns:minmax(0,1fr) 90px;align-items:start;
-  gap:12px;padding:16px 22px 12px;min-width:0}
-.today-header-copy{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:start;
-  gap:10px;min-width:0}
-.today-header .statusrow{justify-content:flex-start;padding:0}
+  gap:12px;padding:0 22px 12px;min-width:0}
+.today-header-copy{min-width:0}
 .today-header .greet{min-width:0;padding:0}
 .today-header .greet h1{overflow-wrap:anywhere}
 .today-score-mount{width:90px;height:90px;align-self:start}
@@ -1919,16 +1920,16 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .asc-radar-summary:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .asc-radar-graphic{position:absolute;top:0;left:50%;width:82px;height:82px;transform:translateX(-50%)}
 .asc-radar-graphic svg{display:block;width:100%;height:100%;overflow:visible}
-.asc-mini-grid{fill:none;stroke:var(--line);stroke-width:1.1}
-.asc-mini-spoke{stroke:var(--line);stroke-width:.8}
-.asc-mini-area{fill:rgba(192,39,45,.11);stroke:var(--red);stroke-width:1.45;stroke-linejoin:round}
-.asc-mini-dot{fill:var(--red)}
+.asc-mini-grid{fill:none;stroke:var(--ink3);stroke-width:.75;opacity:.3}
+.asc-mini-spoke{stroke:var(--ink3);stroke-width:.65;opacity:.26}
+.asc-mini-area{fill:var(--red);fill-opacity:.075;stroke:var(--red);stroke-opacity:.82;
+  stroke-width:1.55;stroke-linejoin:round}
 .asc-radar-score{position:absolute;z-index:1;top:31px;left:0;width:100%;font-family:var(--serif);
-  font-size:var(--fs-h2);font-weight:600;line-height:1;text-align:center;letter-spacing:-.02em;
+  font-size:var(--fs-h3);font-weight:500;line-height:1;text-align:center;letter-spacing:-.015em;
   font-variant-numeric:tabular-nums;color:var(--text)}
 .asc-radar-trend{position:absolute;z-index:1;left:0;right:0;bottom:0;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap;font-size:calc(var(--fs-micro) * .9);font-weight:650;
-  line-height:1;color:var(--ink2);text-align:center}
+  text-overflow:ellipsis;white-space:nowrap;font-size:calc(var(--fs-micro) * .86);font-weight:550;
+  line-height:1;color:var(--ink3);text-align:center}
 .asc-radar-summary--locked .asc-radar-score{font-family:var(--sans);font-size:var(--fs-body);
   letter-spacing:.08em;color:var(--ink3)}
 .today-score-skeleton{display:block;width:82px;height:82px;margin:0 auto;
@@ -1937,7 +1938,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   .today-header{grid-template-columns:minmax(0,1fr) 78px;gap:10px}
   .today-score-mount,.asc-radar-summary{width:78px;height:78px}
   .asc-radar-graphic,.today-score-skeleton{width:72px;height:72px}
-  .asc-radar-score{top:27px;font-size:var(--fs-h3)}
+  .asc-radar-score{top:27px;font-size:var(--fs-body)}
   .today-header .greet h1{font-size:clamp(28px,8.5vw,34px)}
 }
 
@@ -2180,31 +2181,35 @@ body.score-detail-open .screen.active{overflow:hidden}
 
 /* ---------- Athlevo Score: horizontal progression (distinct from Readiness) ---------- */
 .asc-head-l{display:flex;flex-direction:column}
-.asc-delta{display:inline-flex;align-items:center;font-size:var(--fs-caption);font-weight:800;letter-spacing:.01em;padding:6px 12px;border-radius:var(--r-pill);white-space:nowrap;flex-shrink:0}
-.asc-delta.up{background:var(--good-soft);color:var(--good)}
-.asc-delta.down{background:var(--card);color:var(--ink3)}
-.asc-delta.stable{background:var(--card);color:var(--ink3)}
-.asc-delta.building{background:var(--card);color:var(--ink3)}
+.asc-delta{display:inline-flex;align-items:center;font-size:var(--fs-caption);font-weight:650;
+  letter-spacing:.01em;padding:0;white-space:nowrap;flex-shrink:0;color:var(--ink2)}
+.asc-delta.up{color:var(--good)}
+.asc-delta.down,.asc-delta.stable,.asc-delta.building{color:var(--ink2)}
 
 .asc-hero{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);margin:18px 0 14px}
 .asc-scorewrap{display:flex;align-items:baseline;gap:3px}
 .asc-score-num{font-family:var(--serif);font-size:64px;font-weight:500;letter-spacing:-.03em;line-height:.9;color:var(--text);font-variant-numeric:tabular-nums}
 .asc-score-max{font-size:var(--fs-h3);font-weight:600;color:var(--ink3);letter-spacing:-.01em}
-.asc-peak{font-size:var(--fs-caption);font-weight:700;letter-spacing:.02em;color:var(--ink2);background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:var(--r-pill);white-space:nowrap}
-.asc-peak.best{color:var(--red);background:rgba(192,39,45,.07);border-color:rgba(192,39,45,.18)}
+.asc-peak{font-size:var(--fs-micro);font-weight:650;letter-spacing:.025em;color:var(--ink2);
+  background:transparent;border:1px solid var(--line);padding:3px 6px;border-radius:4px;white-space:nowrap}
+.asc-peak.best{color:color-mix(in srgb,var(--red) 72%,var(--ink2));
+  background:color-mix(in srgb,var(--red) 4%,transparent);
+  border-color:color-mix(in srgb,var(--red) 16%,var(--line))}
 
 /* Athlete-profile radar (5 axes). Distinct from the Readiness circle. */
 .asc-radar-wrap{margin:6px auto 2px;width:100%;max-width:320px}
 .asc-radar{display:block;width:100%;height:auto;overflow:visible}
-.asc-radar-grid{fill:none;stroke:var(--line);stroke-width:1}
-.asc-radar-frame .asc-radar-grid:last-of-type{stroke:var(--ink3);opacity:.5}
-.asc-radar-spoke{stroke:var(--line);stroke-width:1}
-.asc-radar-spoke.missing{stroke:var(--ink3);stroke-dasharray:2 3;opacity:.7}
-.asc-radar-label{font-family:var(--sans);font-size:var(--fs-micro);font-weight:600;fill:var(--ink2);letter-spacing:.01em}
+.asc-radar-grid{fill:none;stroke:var(--ink3);stroke-width:.7;opacity:.24}
+.asc-radar-frame .asc-radar-grid:last-of-type{stroke:var(--ink3);opacity:.34}
+.asc-radar-spoke{stroke:var(--ink3);stroke-width:.7;opacity:.25}
+.asc-radar-spoke.missing{stroke:var(--ink3);stroke-dasharray:2 3;opacity:.42}
+.asc-radar-label{font-family:var(--sans);font-size:var(--fs-micro);font-weight:550;
+  fill:var(--ink2);letter-spacing:0}
 .asc-radar-label.missing{fill:var(--ink3)}
-.asc-radar-area{fill:rgba(192,39,45,.14);stroke:var(--red);stroke-width:2;stroke-linejoin:round}
+.asc-radar-area{fill:var(--red);fill-opacity:.075;stroke:var(--red);stroke-opacity:.84;
+  stroke-width:1.65;stroke-linejoin:round}
 .asc-radar-area-line{stroke:var(--red);stroke-width:2.4;stroke-linecap:round}
-.asc-radar-dot{stroke:var(--paper);stroke-width:1.5}
+.asc-radar-dot{stroke:var(--paper);stroke-width:1;opacity:.86}
 .asc-radar-dot.v{fill:var(--red)}
 .asc-radar-dot.d{fill:var(--ink3)}
 .asc-radar-dot.m{fill:var(--paper);stroke:var(--ink3);stroke-width:1.4;stroke-dasharray:1.6 1.6}
@@ -2558,10 +2563,11 @@ body.booting #tabbar{display:none!important}
 .boot-content{height:100%;box-sizing:border-box;overflow:hidden;
   padding:calc(22px + env(safe-area-inset-top)) 22px
     calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom) + 22px)}
+.boot-brand{display:flex;justify-content:center;height:22px;margin-bottom:10px}
 .boot-header{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:12px;align-items:start;
   margin-bottom:12px}
-.boot-header-copy{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start}
-.boot-mark{width:30px;height:30px;border-radius:8px}
+.boot-header-copy{min-width:0}
+.boot-mark{width:22px;height:22px;border-radius:6px}
 .boot-greeting{width:min(86%,260px);height:31px;margin-bottom:8px}
 .boot-context{width:min(64%,180px);height:12px}
 .boot-score-radar{width:82px;height:82px;margin:0 auto;
@@ -3136,13 +3142,13 @@ body.landing-active #tabbar{display:none!important}
 <div id="boot-gate" role="status" aria-label="Loading Athlevo">
   <div class="boot-shell" aria-hidden="true">
     <div class="boot-content">
+      <div class="boot-brand">
+        <div class="skel boot-mark"></div>
+      </div>
       <div class="boot-header">
         <div class="boot-header-copy">
-          <div class="skel boot-mark"></div>
-          <div>
-            <div class="skel boot-greeting"></div>
-            <div class="skel boot-context"></div>
-          </div>
+          <div class="skel boot-greeting"></div>
+          <div class="skel boot-context"></div>
         </div>
         <div class="skel boot-score-radar"></div>
       </div>
@@ -3570,11 +3576,11 @@ body.landing-active #tabbar{display:none!important}
 
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
+  <div class="today-brand-mark">
+    <img src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="22" height="22">
+  </div>
   <header class="today-header">
     <div class="today-header-copy">
-      <div class="statusrow">
-        <img class="brand-icon" src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="30" height="30">
-      </div>
       <div class="greet">
         <h1 class="serif">
           <span id="todayGreeting">Good morning</span>, <span id="todayAthleteName">Athlete</span>
@@ -7861,7 +7867,7 @@ setTimeout(function () {
 <script src="js/activation.js?v=68"></script>
 <script src="js/onboardingConnect.js?v=69"></script>
 <script src="js/productionVerify.js?v=67"></script>
-<script src="js/athlevoScore.js?v=72"></script>
+<script src="js/athlevoScore.js?v=73"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
 <script src="js/coachBrain.js?v=67"></script>

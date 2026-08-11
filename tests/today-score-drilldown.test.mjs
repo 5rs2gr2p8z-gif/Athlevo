@@ -113,13 +113,17 @@ const today = html.slice(todayStart, todayEnd);
 test("score mount is in the Today header, before primary training state",
   /<header class="today-header">[\s\S]*?id="athlevoScoreCard"[\s\S]*?id="todayPlanLoadingState"/.test(today));
 test("Today contains only one score mount", (today.match(/id="athlevoScoreCard"/g) || []).length === 1);
+test("the existing 22px Athlevo mark is centered independently above the header",
+  /<div class="today-brand-mark">[\s\S]*?athlevo-icon-transparent\.png[\s\S]*?width="22" height="22"/.test(today) &&
+  today.indexOf("today-brand-mark") < today.indexOf("today-header") &&
+  /\.today-brand-mark\{[^}]*justify-content:center[^}]*height:22px[^}]*padding:14px 22px 10px/.test(html));
 test("radar summary is 90px square and narrows safely on the smallest phones",
   /\.today-score-mount\{width:90px;height:90px/.test(html) &&
   /\.asc-radar-summary\{[\s\S]*?width:90px;height:90px/.test(html) &&
   /@media \(max-width:380px\)[\s\S]*?\.today-score-mount,\.asc-radar-summary\{width:78px;height:78px\}/.test(html));
 test("header grid and long-name copy cannot cause horizontal overflow",
   /\.today-header\{[^}]*grid-template-columns:minmax\(0,1fr\) 90px[^}]*min-width:0/.test(html) &&
-  /\.today-header-copy\{[^}]*grid-template-columns:30px minmax\(0,1fr\)[^}]*min-width:0/.test(html) &&
+  /\.today-header-copy\{min-width:0\}/.test(html) &&
   /\.today-header \.greet h1\{overflow-wrap:anywhere\}/.test(html) &&
   [375, 390, 430].every(width => {
     const compact = width <= 380;
@@ -129,6 +133,8 @@ test("compact summary has no card shell",
   /\.asc-radar-summary\{[^}]*border:0[^}]*border-radius:0[^}]*background:transparent[^}]*box-shadow:none/.test(html) &&
   !/\.asc-radar-summary\{[^}]*border:1px/.test(html));
 test("boot and live loading states use compact pentagonal score placeholders",
+  /class="boot-brand"[\s\S]*?class="skel boot-mark"/.test(html) &&
+  /\.boot-brand\{[^}]*justify-content:center[^}]*height:22px/.test(html) &&
   /class="skel boot-score-radar"/.test(html) &&
   /id="athlevoScoreCard"[\s\S]*?class="skel today-score-skeleton"/.test(today) &&
   /\.boot-score-radar\{[^}]*clip-path:polygon/.test(html) &&
@@ -141,7 +147,14 @@ test("compact radar shows current score, trend and the real five-axis shape",
   /asc-radar-score[^>]*>64</.test(mount.innerHTML) &&
   /asc-radar-trend[^>]*>Building</.test(mount.innerHTML) &&
   (mount.innerHTML.match(/asc-mini-spoke/g) || []).length === 5 &&
-  /asc-mini-area/.test(mount.innerHTML));
+  /asc-mini-area/.test(mount.innerHTML) &&
+  !/asc-mini-dot/.test(mount.innerHTML));
+test("compact radar uses quiet technical grid, polygon, score, and trend styling",
+  /\.asc-mini-grid\{[^}]*stroke-width:\.75[^}]*opacity:\.3/.test(html) &&
+  /\.asc-mini-spoke\{[^}]*stroke-width:\.65[^}]*opacity:\.26/.test(html) &&
+  /\.asc-mini-area\{[^}]*fill-opacity:\.075[^}]*stroke-width:1\.55/.test(html) &&
+  /\.asc-radar-score\{[^}]*font-size:var\(--fs-h3\)[^}]*font-weight:500/.test(html) &&
+  /\.asc-radar-trend\{[^}]*font-weight:550[^}]*color:var\(--ink3\)/.test(html));
 test("compact radar omits the full dimension list and explanation",
   !/asc-crow|Aerobic|Threshold|Your long-term development/.test(mount.innerHTML));
 test("native button supports pointer and keyboard activation with an accessible dialog label",
@@ -163,6 +176,12 @@ test("sheet has a drag handle, close control and truthful explanation",
   /scd-handle/.test(modal.innerHTML) &&
   /aria-label="Close"/.test(modal.innerHTML) &&
   /Your long-term development is stable\./.test(modal.innerHTML));
+test("expanded radar and performance annotations use restrained visual styling",
+  /\.asc-radar-grid\{[^}]*stroke-width:\.7[^}]*opacity:\.24/.test(html) &&
+  /\.asc-radar-area\{[^}]*fill-opacity:\.075[^}]*stroke-width:1\.65/.test(html) &&
+  /\.asc-radar-label\{[^}]*font-weight:550/.test(html) &&
+  /\.asc-peak\{[^}]*font-size:var\(--fs-micro\)[^}]*padding:3px 6px[^}]*border-radius:4px/.test(html) &&
+  /\.asc-delta\{[^}]*padding:0/.test(html));
 test("opening exposes the dialog, focuses it and locks body scroll",
   attributes.get("aria-hidden") === "false" && sheetFocused === 1 &&
   body.classList.contains("score-detail-open") &&

@@ -595,7 +595,7 @@
       const [px, py] = pt(i, rad);
       poly.push([px, py]);
       const cls = missing ? "m" : (state === "verified" ? "v" : "d");
-      markers += `<circle class="asc-radar-dot ${cls}" cx="${f(px)}" cy="${f(py)}" r="${missing ? 3 : 3.4}"></circle>`;
+      markers += `<circle class="asc-radar-dot ${cls}" cx="${f(px)}" cy="${f(py)}" r="${missing ? 2 : 2.3}"></circle>`;
     });
 
     const shape = `<polygon class="asc-radar-area" points="${poly.map(p => p.map(f).join(",")).join(" ")}"></polygon>`;
@@ -632,12 +632,8 @@
     const shape = values.length >= 3
       ? `<polygon class="asc-mini-area" points="${values.map(value => value.point).join(" ")}"></polygon>`
       : "";
-    const dots = values.map(value => {
-      const [x, y] = value.point.split(",");
-      return `<circle class="asc-mini-dot" cx="${x}" cy="${y}" r="1.15"></circle>`;
-    }).join("");
     return `<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">
-      ${frames}${spokes}${shape}${dots}
+      ${frames}${spokes}${shape}
     </svg>`;
   }
 
