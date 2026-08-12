@@ -49,6 +49,7 @@ import {
   buildAthleteOverview,
   deriveLastActiveAt
 } from "../../lib/server/coachSanitize.js";
+import { buildCoachAnalytics } from "../../lib/server/coachAnalytics.js";
 
 /* ──────────────────── Athlete Mode imports ─────────────────────────────
  * Consolidated from the former api/athlete-mode.js (removed to stay
@@ -1924,29 +1925,40 @@ async function loadActiveAssignments(coachId) {
   );
 }
 
-async function loadAthleteBundle(athleteId, nowIso) {
+async function loadAthleteBundle(athleteId, nowIso, options = {}) {
   const idf = enc(athleteId);
   const todayKey = String(nowIso || new Date().toISOString()).slice(0, 10);
-  const rangeStart = addDateDays(todayKey, -28);
+  const includeAnalytics = options.includeAnalytics === true;
+  // Twelve displayed weeks plus the previous comparison period. These raw
+  // rows remain server-side and are reduced to sanitized aggregates before
+  // the athlete response is returned.
+  const rangeStart = addDateDays(todayKey, includeAnalytics ? -167 : -28);
   const rangeEnd = addDateDays(todayKey, 56);
-  const [profile, metrics, weekly, readiness, sessions, latestAct, provider, plans] =
+  const [profile, metrics, weekly, readiness, sessions, latestAct, analyticsAct, provider, plans] =
     await Promise.all([
       sbSelect(`profiles?id=eq.${idf}&select=id,full_name,primary_sport,goal,target_race,race_date`),
       sbSelect(`athlete_metrics?user_id=eq.${idf}&select=weekly_training_load,weekly_distance,fatigue_score,fitness_score,last_updated`),
       sbSelect(`weekly_progress_summaries?user_id=eq.${idf}&select=planned_duration_minutes,completed_duration_minutes,planned_distance_km,completed_distance_km,recovery_status,consistency_status,injury_risk_status,trajectory_status,week_start&order=week_start.desc&limit=1`),
       sbSelect(`daily_readiness?user_id=eq.${idf}&select=readiness_date,sleep_quality,energy,muscle_soreness,mental_stress,pain_present,pain_severity&order=readiness_date.desc&limit=1`),
-      sbSelect(`training_sessions?user_id=eq.${idf}&session_date=gte.${enc(rangeStart)}&session_date=lte.${enc(rangeEnd)}&select=*&order=session_date.asc&limit=100`),
+      sbSelect(`training_sessions?user_id=eq.${idf}&session_date=gte.${enc(rangeStart)}&session_date=lte.${enc(rangeEnd)}&select=*&order=session_date.asc&limit=${includeAnalytics ? 500 : 100}`),
       sbSelect(`activities?user_id=eq.${idf}&select=start_date,sport_type,activity_type,source,distance_meters,moving_time_seconds,average_cadence,trainer,raw_data&order=start_date.desc&limit=8`),
+      includeAnalytics
+        ? sbSelect(`activities?user_id=eq.${idf}&start_date=gte.${enc(rangeStart)}T00:00:00Z&select=start_date,sport_type,activity_type,distance_meters,moving_time_seconds,recognition:raw_data->recognition&order=start_date.desc&limit=500`)
+        : Promise.resolve([]),
       sbSelect(`provider_accounts?user_id=eq.${idf}&select=provider,last_sync_at,last_sync_status`),
       sbSelect(`training_plans?user_id=eq.${idf}&status=in.(active,current)&select=id,status,week_start,week_end,target_race,race_date,phase,phase_week,phase_length_weeks,week_focus,planned_distance_km,planned_hours,updated_at&order=updated_at.desc&limit=4`)
     ]);
   const sessionIds = sessions.map(row => row && row.id).filter(Boolean);
-  const executions = sessionIds.length
-    ? await sbSelect(
+  const executionChunks = [];
+  for (let index = 0; index < sessionIds.length; index += 100) {
+    executionChunks.push(sessionIds.slice(index, index + 100));
+  }
+  const executions = executionChunks.length
+    ? (await Promise.all(executionChunks.map(ids => sbSelect(
         `workout_execution_records?user_id=eq.${idf}` +
-        `&training_session_id=in.(${sessionIds.map(enc).join(",")})` +
+        `&training_session_id=in.(${ids.map(enc).join(",")})` +
         `&select=training_session_id,status,completed_at,actual_duration_minutes,actual_distance_km,actual_rpe,modification_reason,skip_reason`
-      )
+      )))).flat()
     : [];
   return {
     profile: profile[0] || {},
@@ -1957,6 +1969,7 @@ async function loadAthleteBundle(athleteId, nowIso) {
     executions,
     currentPlan: plans[0] || null,
     activities: latestAct,
+    analyticsActivities: analyticsAct,
     providerAccount: provider[0] || {}
   };
 }
@@ -2114,7 +2127,7 @@ async function actionCoachingDashboardAthlete(request, response) {
     if (!canCoachAccessAthlete(assignments, user.id, athleteId)) {
       return sendJson(response, 403, { error: "You are not assigned to this athlete." });
     }
-    const bundle = await loadAthleteBundle(athleteId, nowIso);
+    const bundle = await loadAthleteBundle(athleteId, nowIso, { includeAnalytics: true });
     const snapshot = buildSnapshot(bundle, nowIso);
     const attention = classifyAttention(snapshot, { now: nowIso });
     const assignment = assignments.find(row =>
@@ -2151,6 +2164,12 @@ async function actionCoachingDashboardAthlete(request, response) {
       attention,
       lastSyncAt: snapshot.lastSyncAt,
       lastActiveAt: snapshot.lastActiveAt
+    });
+    overview.coaching_analytics = buildCoachAnalytics({
+      activities: bundle.analyticsActivities,
+      sessions: bundle.trainingSessions,
+      executions: bundle.executions,
+      today: todayKey
     });
     return sendJson(response, 200, { athlete: overview });
   } catch (err) {

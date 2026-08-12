@@ -806,7 +806,8 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(detail.includes("No check-ins available yet."));
     assert.ok(detail.includes("Coach notes will appear here."));
     assert.ok(!detail.includes("Choose athlete"));
-    assert.ok(source.includes("More training history is needed before trends become useful."));
+    assert.ok(source.includes("Not enough training history yet."));
+    assert.ok(source.includes("More comparable sessions are needed before performance trend is reliable."));
   });
 
   it("uses a dedicated athlete skeleton and immediate cache return", () => {
