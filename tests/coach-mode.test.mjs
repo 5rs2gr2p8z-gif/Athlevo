@@ -663,6 +663,82 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes('method: "DELETE"'));
     assert.ok(source.includes("window.confirm"));
   });
+
+  it("keeps one athlete context across all five workspace tabs", () => {
+    assert.ok(source.includes('var _athleteDetailId = null'));
+    assert.ok(source.includes('var tabs = ["overview", "training", "analytics", "check-ins", "notes"]'));
+    const switchStart = source.indexOf("function switchAthleteTab");
+    const switchEnd = source.indexOf("function renderAthletePage", switchStart);
+    const switchTab = source.slice(switchStart, switchEnd);
+    assert.ok(switchTab.includes("_athleteDetailTab = tab"));
+    assert.ok(switchTab.includes("athletePanelContent(_athleteDetail)"));
+    assert.ok(!switchTab.includes('api("athlete"'));
+    assert.ok(source.includes("if (_athleteDetailId)"));
+    assert.ok(source.includes("_athleteDetailTab = \"overview\""));
+  });
+
+  it("renders the approved five-second Overview hierarchy from real fields", () => {
+    for (const label of ["Current direction", "Current status", "This week", "Latest activity", "Coach attention", "Upcoming race"]) {
+      assert.ok(source.includes(label), `missing ${label}`);
+    }
+    assert.ok(source.includes('weekSummaryItem(sessions.length, "Planned")'));
+    assert.ok(source.includes('weekSummaryItem(statusCount("modified"), "Modified")'));
+    assert.ok(source.includes('weekSummaryItem(statusCount("skipped"), "Skipped")'));
+    assert.ok(source.includes("No immediate issues."));
+    assert.ok(source.includes("ath.target_event || ath.target_date"));
+  });
+
+  it("renders a seven-day execution-backed training week and truthful no-plan state", () => {
+    assert.ok(source.includes("for (var i = 0; i < 7; i += 1)"));
+    assert.ok(source.includes('sessionStatusLabel(session.execution_status)'));
+    for (const status of ["Completed", "Pending", "Modified", "Skipped", "Planned", "Upcoming", "Rest"]) {
+      assert.ok(source.includes(status), `missing ${status}`);
+    }
+    assert.ok(source.includes('class="cm-day-row cm-day-rest'));
+    assert.ok(source.includes("key === ath.today_key"));
+    assert.ok(source.includes("No active training plan."));
+    assert.ok(source.includes("ath.has_active_plan"));
+  });
+
+  it("keeps mutation controls permission-aware and uses coaching language", () => {
+    assert.ok(source.includes('var canWrite = ath.assignment_permission === "read_write"'));
+    assert.ok(source.includes("View-only assignment."));
+    assert.ok(source.includes("Adjust session"));
+    assert.ok(source.includes("Move session to"));
+    assert.ok(source.includes("Remove from plan"));
+    assert.ok(source.includes("can_reschedule"));
+    assert.ok(source.includes("can_remove"));
+  });
+
+  it("scopes Analytics, Check-ins, and Notes without athlete selectors", () => {
+    const detailStart = source.indexOf("function athletePanelContent");
+    const detailEnd = source.indexOf("function positionAthleteTabIndicator", detailStart);
+    const detail = source.slice(detailStart, detailEnd);
+    assert.ok(detail.includes("renderAthleteAnalytics(ath)"));
+    assert.ok(detail.includes("No check-ins available yet."));
+    assert.ok(detail.includes("Coach notes will appear here."));
+    assert.ok(!detail.includes("Choose athlete"));
+    assert.ok(source.includes("More training history is needed before trends become useful."));
+  });
+
+  it("uses a dedicated athlete skeleton and immediate cache return", () => {
+    assert.ok(source.includes('class="cm-athlete-page cm-athlete-skeleton"'));
+    assert.ok(source.includes("cm-athlete-skel-tabs"));
+    assert.ok(source.includes("cm-athlete-skel-section"));
+    const openStart = source.indexOf("async function openCoachAthletePage");
+    const openEnd = source.indexOf("function renderAthletePageLoading", openStart);
+    const open = source.slice(openStart, openEnd);
+    assert.ok(open.indexOf("if (cached)") < open.indexOf("renderAthletePageLoading()"));
+    assert.ok(open.includes("_athleteDetailCache[cacheKey]"));
+  });
+
+  it("uses one moving athlete-tab indicator and composition-level motion", () => {
+    assert.ok(source.includes("cm-athlete-tab-indicator"));
+    assert.ok(source.includes("positionAthleteTabIndicator"));
+    assert.ok(source.includes("cm-athlete-panel.is-entering"));
+    assert.ok(source.includes("@media(prefers-reduced-motion:reduce)"));
+    assert.ok(!source.includes("cm-athlete-stagger"));
+  });
 });
 
 /* ═══════════════════════════════════════════════════════════════════

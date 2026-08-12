@@ -364,6 +364,9 @@ section("ATHLETE OVERVIEW");
       { source: "strava", activity_type: "WeightTraining", sport_type: "WeightTraining", start_date: old, moving_time_seconds: 2400 }
     ],
     attention: { status: "monitor", severity: "medium", reasons: [{ key: "low_recovery", severity: "medium", explanation: "Recovery status is currently poor." }] },
+    hasActivePlan: true,
+    todayKey: "2026-08-01",
+    metrics: { weekly_training_load: 42 },
     lastActiveAt: recent, lastSyncAt: recent
   };
   const ov = buildAthleteOverview(raw);
@@ -375,6 +378,7 @@ section("ATHLETE OVERVIEW");
   t("recent ride activity is speed/power/cadence (no running pace)", ride.speed_kph != null && ride.avg_power_watts === 190 && ride.avg_cadence === 88 && ride.pace_sec_per_km === undefined);
   t("recent strength activity is duration/category (no distance/pace)", str.category === "strength" && str.distance_km === undefined);
   t("overview carries active attention reasons", ov.attention_reasons.length === 1 && ov.attention_reasons[0].key === "low_recovery");
+  t("overview exposes only truthful cockpit plan/load context", ov.has_active_plan === true && ov.today_key === "2026-08-01" && ov.training_load === 42);
   t("no sensitive fields leak into overview", findSensitiveKeys(ov).length === 0);
 }
 t("unassigned athlete is blocked at the authorization layer", canCoachAccessAthlete([{ coach_id: COACH, athlete_id: A1, status: "active" }], COACH, "someone-else") === false);
