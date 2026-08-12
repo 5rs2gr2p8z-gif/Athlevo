@@ -49,6 +49,7 @@
   var _athleteWeekStart = null;
   var _athleteAnalyticsRange = 4;
   var _athleteCheckInsRange = 7;
+  var _editingCoachNoteId = null;
   var _athleteDetailCache = Object.create(null);
   var _athleteDetailRequest = 0;
   var _athletePanelTransition = 0;
@@ -278,11 +279,13 @@
       ".cm-training-week{display:grid;gap:14px}.cm-week-nav{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:start;gap:8px}.cm-week-nav button{display:grid;place-items:center;width:38px;height:38px;border:0;background:transparent;color:var(--ink2,#555);font:500 24px/1 var(--sans,sans-serif);cursor:pointer}.cm-week-nav button:last-child{justify-self:end}.cm-week-range{text-align:center;font-size:13px;font-weight:780;letter-spacing:.045em;text-transform:uppercase}.cm-week-volume{text-align:center;color:var(--ink3,#737373);font-size:10px;line-height:1.4;margin-top:4px}.cm-day-list{border-top:1px solid var(--line,#e5e5e5)}.cm-day-row{display:grid;grid-template-columns:45px minmax(0,1fr) auto;gap:11px;align-items:center;width:100%;min-height:64px;padding:10px 2px;border:0;border-bottom:1px solid var(--line,#e5e5e5);background:transparent;color:inherit;text-align:left;font:inherit}.cm-day-row[data-workout-id]{cursor:pointer}.cm-day-row[data-workout-id]:focus-visible,.cm-week-nav button:focus-visible,.cm-add-workout:focus-visible{outline:2px solid var(--red,#b3292d);outline-offset:2px}.cm-day-row.is-today{box-shadow:inset 2px 0 rgba(179,41,45,.58);padding-left:10px;background:rgba(179,41,45,.035)}.cm-day-date{font-size:10px;font-weight:750;line-height:1.3;letter-spacing:.045em;text-transform:uppercase;color:var(--ink3,#737373)}.cm-day-date b{display:block;margin-top:2px;color:var(--ink1,#171717);font-size:13px}.cm-day-copy{min-width:0}.cm-day-title{display:block;font-size:13px;font-weight:750;line-height:1.3;overflow-wrap:anywhere}.cm-day-meta{display:block;margin-top:3px;color:var(--ink3,#737373);font-size:10px;line-height:1.4;overflow-wrap:anywhere}.cm-day-status{max-width:68px;color:var(--ink3,#737373);font-size:9px;font-weight:750;letter-spacing:.035em;text-align:right;text-transform:uppercase}.cm-day-status.completed{color:var(--good,#2e7d32)}.cm-day-status.modified{color:var(--warn,#9a6505)}.cm-day-status.skipped{color:var(--bad,#a52a2f)}.cm-day-status.pending,.cm-day-status.planned,.cm-day-status.upcoming{color:var(--ink3,#737373)}.cm-day-rest{min-height:55px}.cm-day-rest .cm-day-title,.cm-day-rest .cm-day-status{color:var(--ink3,#737373);font-weight:600}.cm-add-workout{justify-self:start;border:0;border-bottom:1px solid var(--line,#d9d9d9);background:transparent;color:var(--ink2,#555);font:700 11px/1 var(--sans,sans-serif);padding:7px 0;cursor:pointer}.cm-no-plan,.cm-athlete-empty{padding:26px 0;border-block:1px solid var(--line,#e5e5e5)}.cm-no-plan strong,.cm-athlete-empty h2{margin:0;font-family:var(--serif,serif);font-size:20px;font-weight:520}.cm-no-plan p,.cm-athlete-empty p{margin:7px 0 0;color:var(--ink3,#737373);font-size:13px;line-height:1.5}",
       ".cm-athlete-analytics{display:grid;gap:22px}.cm-analytics-head{display:grid;gap:12px}.cm-analytics-headline{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.cm-analytics-head h2{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-range-control{display:flex;gap:14px;flex:0 0 auto}.cm-range-btn{border:0;border-bottom:1px solid transparent;background:transparent;color:var(--ink3,#737373);padding:3px 0 6px;font:750 10px/1 var(--sans,sans-serif);cursor:pointer}.cm-range-btn.is-active{border-bottom-color:var(--red,#b3292d);color:var(--ink1,#171717)}.cm-range-btn:focus-visible{outline:2px solid var(--red,#b3292d);outline-offset:3px}.cm-analytics-summary{max-width:640px;margin:0;color:var(--ink2,#555);font-size:14px;line-height:1.55}.cm-analytics-module{min-width:0;padding-top:17px;border-top:1px solid var(--line,#e5e5e5)}.cm-analytics-kicker{display:block;color:var(--ink3,#737373);font-size:10px;font-weight:750;letter-spacing:.065em;text-transform:uppercase}.cm-analytics-reading{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 10px;margin-top:7px}.cm-analytics-value{font-family:var(--serif,serif);font-size:25px;font-weight:520;line-height:1.1}.cm-analytics-compare{color:var(--ink3,#737373);font-size:11px}.cm-analytics-chart{display:block;width:100%;height:64px;margin-top:12px;overflow:visible}.cm-analytics-gridline{stroke:var(--line,#e5e5e5);stroke-width:.7}.cm-analytics-line{fill:none;stroke:var(--red,#b3292d);stroke-width:1.35;vector-effect:non-scaling-stroke}.cm-analytics-point{fill:var(--red,#b3292d)}.cm-analytics-bars{display:flex;align-items:flex-end;gap:5px;height:58px;margin-top:12px}.cm-analytics-bar{flex:1;min-width:0;background:var(--line,#e5e5e5);border-top:2px solid var(--red,#b3292d)}.cm-analytics-interpretation,.cm-analytics-unavailable{margin:10px 0 0;color:var(--ink2,#555);font-size:12px;line-height:1.5}.cm-analytics-unavailable{color:var(--ink3,#737373)}.cm-analytics-empty{padding:24px 0;border-block:1px solid var(--line,#e5e5e5)}.cm-analytics-empty strong{display:block;font-family:var(--serif,serif);font-size:20px;font-weight:520}.cm-analytics-empty p{margin:7px 0 0;max-width:560px;color:var(--ink3,#737373);font-size:13px;line-height:1.55}",
       ".cm-athlete-checkins{display:grid;gap:22px;max-width:720px}.cm-checkins-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.cm-checkins-head h2{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-checkins-latest{margin-top:5px;color:var(--ink3,#737373);font-size:11px}.cm-checkin-section{padding-top:16px;border-top:1px solid var(--line,#e5e5e5)}.cm-checkin-section:first-of-type{padding-top:0;border-top:0}.cm-checkin-rows{border-block:1px solid var(--line,#e5e5e5)}.cm-checkin-row{display:grid;grid-template-columns:minmax(92px,.8fr) minmax(0,1fr);align-items:baseline;gap:12px;min-height:40px;padding:8px 0;border-bottom:1px solid var(--line,#e5e5e5)}.cm-checkin-row:last-child{border-bottom:0}.cm-checkin-row span{color:var(--ink3,#737373);font-size:11px}.cm-checkin-row strong{font-size:13px;text-align:right}.cm-checkin-note{margin:8px 0 0;padding-left:12px;border-left:2px solid var(--line,#d9d9d9);color:var(--ink2,#555);font-family:var(--serif,serif);font-size:16px;line-height:1.5}.cm-checkin-pain{padding:12px 0;border-block:1px solid rgba(165,42,47,.32)}.cm-checkin-pain .cm-analytics-kicker{color:var(--bad,#a52a2f)}.cm-checkin-pain strong{display:block;margin-top:7px;color:var(--bad,#a52a2f);font-size:14px}.cm-checkin-quiet{color:var(--ink3,#737373);font-size:12px}.cm-subjective-trends{display:grid;gap:11px;margin-top:11px}.cm-subjective-row{display:grid;grid-template-columns:68px minmax(0,1fr);align-items:center;gap:10px}.cm-subjective-label{color:var(--ink2,#555);font-size:11px}.cm-subjective-bars{display:flex;align-items:flex-end;gap:4px;height:24px}.cm-subjective-bar{flex:1;min-width:3px;max-width:18px;background:var(--ink3,#737373);opacity:.38}.cm-subjective-bar.is-missing{height:1px!important;background:var(--line,#e5e5e5);opacity:1}.cm-checkin-timeline{margin:8px 0 0;padding:0;list-style:none}.cm-checkin-timeline li{display:grid;grid-template-columns:68px minmax(0,1fr);gap:12px;padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5)}.cm-checkin-timeline time{color:var(--ink3,#737373);font-size:10px}.cm-checkin-timeline p{margin:0;color:var(--ink2,#555);font-size:11px;line-height:1.5}.cm-checkin-timeline blockquote{margin:5px 0 0;color:var(--ink1,#171717);font-family:var(--serif,serif);font-size:13px;line-height:1.45}.cm-coaching-signals{margin:8px 0 0;padding:0;list-style:none}.cm-coaching-signals li{padding:7px 0;border-bottom:1px solid var(--line,#e5e5e5);color:var(--ink2,#555);font-size:12px;line-height:1.45}.cm-coaching-signals li:last-child{border-bottom:0}",
+      ".cm-athlete-notes{display:grid;gap:20px;max-width:720px}.cm-notes-head h2{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-notes-private{margin:5px 0 0;color:var(--ink3,#737373);font-size:11px}.cm-note-compose{display:grid;gap:9px;padding:14px 0;border-block:1px solid var(--line,#e5e5e5)}.cm-note-compose textarea,.cm-note-edit textarea{width:100%;min-height:68px;box-sizing:border-box;resize:vertical;border:0;border-bottom:1px solid var(--line,#d9d9d9);border-radius:0;background:transparent;color:inherit;padding:7px 0;font:13px/1.5 var(--sans,sans-serif)}.cm-note-compose textarea:focus,.cm-note-edit textarea:focus{outline:0;border-bottom-color:var(--ink2,#555)}.cm-note-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px}.cm-note-action{border:0;border-bottom:1px solid transparent;background:transparent;color:var(--ink3,#737373);padding:5px 0;font:700 10px/1 var(--sans,sans-serif);cursor:pointer}.cm-note-action:hover,.cm-note-action:focus-visible{color:var(--ink1,#171717);border-bottom-color:currentColor}.cm-note-action--primary{color:var(--red,#b3292d)}.cm-note-action--danger{color:var(--bad,#a52a2f)}.cm-note-action:disabled{cursor:default;opacity:.5}.cm-notes-error{min-height:14px;color:var(--bad,#a52a2f);font-size:11px}.cm-note-group{min-width:0}.cm-note-group-title{display:block;padding-bottom:7px;border-bottom:1px solid var(--line,#e5e5e5);color:var(--ink3,#737373);font-size:10px;font-weight:750;letter-spacing:.065em;text-transform:uppercase}.cm-note-list{margin:0;padding:0;list-style:none}.cm-note-item{padding:14px 0;border-bottom:1px solid var(--line,#e5e5e5)}.cm-note-item-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.cm-note-meta{color:var(--ink3,#737373);font-size:10px;line-height:1.4}.cm-note-pin{color:var(--ink2,#555);font-size:9px;font-weight:750;letter-spacing:.055em;text-transform:uppercase}.cm-note-body{margin:7px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink1,#171717);font-family:var(--serif,serif);font-size:15px;line-height:1.52}.cm-note-item-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:9px}.cm-note-edit{display:grid;gap:9px}.cm-notes-readonly,.cm-notes-unavailable{padding:12px 0;border-block:1px solid var(--line,#e5e5e5);color:var(--ink3,#737373);font-size:12px;line-height:1.5}.cm-notes-empty{padding:20px 0;border-bottom:1px solid var(--line,#e5e5e5)}.cm-notes-empty strong{display:block;font-family:var(--serif,serif);font-size:19px;font-weight:520}.cm-notes-empty p{margin:6px 0 0;color:var(--ink3,#737373);font-size:12px;line-height:1.5}",
+      ".cm-note-confirm{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.38)}.cm-note-confirm-dialog{width:min(100%,360px);box-sizing:border-box;background:var(--bg,#fff);border:1px solid var(--line,#e5e5e5);padding:20px}.cm-note-confirm-dialog h2{margin:0;font-family:var(--serif,serif);font-size:21px;font-weight:520}.cm-note-confirm-dialog p{margin:7px 0 18px;color:var(--ink3,#737373);font-size:12px}.cm-note-confirm-actions{display:flex;justify-content:flex-end;gap:16px}",
       ".cm-athlete-skeleton{display:grid;gap:18px}.cm-athlete-skel-back{width:112px;height:11px}.cm-athlete-skel-head{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px}.cm-athlete-skel-copy{display:grid;gap:7px}.cm-athlete-skel-name{width:min(180px,68%);height:24px}.cm-athlete-skel-sub{width:min(250px,88%);height:11px}.cm-athlete-skel-tabs{display:flex;gap:18px;padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5);overflow:hidden}.cm-athlete-skel-tabs span{flex:0 0 58px;height:10px}.cm-athlete-skel-section{display:grid;gap:9px;padding-top:14px;border-top:1px solid var(--line,#e5e5e5)}.cm-athlete-skel-section span{height:10px}.cm-athlete-skel-section span:first-child{width:92px}.cm-athlete-skel-section span:nth-child(2){width:76%;height:15px}.cm-athlete-skel-section span:nth-child(3){width:92%}.cm-athlete-skel-rows{display:grid;border-top:1px solid var(--line,#e5e5e5)}.cm-athlete-skel-row{height:54px;border-bottom:1px solid var(--line,#e5e5e5)}",
       "@media(min-width:760px){.cm-athlete-page{padding-inline:24px}.cm-detail-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.cm-workout-dialog{align-self:center;border-radius:14px}.cm-athlete-panel{padding-top:24px}.cm-athlete-analytics{max-width:720px}}",
       "@media(min-width:760px){.cm-roster-item .cm-row{padding-block:17px}}",
       "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
-      "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}}",
+      "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-panel.is-entering{animation:none}.cm-row-name,.cm-athlete-panel,.cm-athlete-tab-indicator{transition:none}}"
     ].join("");
     document.head.appendChild(style);
@@ -961,6 +964,7 @@
     var changedAthlete = String(_athleteDetailId || "") !== String(athleteId || "");
     if (changedAthlete) _athleteAnalyticsRange = 4;
     if (changedAthlete) _athleteCheckInsRange = 7;
+    if (changedAthlete) _editingCoachNoteId = null;
     _athleteDetailId = athleteId;
     _athleteDetailTab = tab || (changedAthlete ? "overview" : _athleteDetailTab) || "overview";
     _athleteWeekStart = weekStart || (changedAthlete ? null : _athleteWeekStart);
@@ -1016,6 +1020,7 @@
     _athleteWeekStart = null;
     _athleteAnalyticsRange = 4;
     _athleteCheckInsRange = 7;
+    _editingCoachNoteId = null;
     _athleteDetailTab = "overview";
     renderCoachToday();
   }
@@ -1034,7 +1039,7 @@
     if (_athleteDetailTab === "training") return renderAthleteTraining(ath);
     if (_athleteDetailTab === "analytics") return renderAthleteAnalytics(ath);
     if (_athleteDetailTab === "check-ins") return renderAthleteCheckIns(ath);
-    if (_athleteDetailTab === "notes") return renderAthleteEmpty("Notes", "Coach notes will appear here.");
+    if (_athleteDetailTab === "notes") return renderAthleteNotes(ath);
     return renderAthleteOverview(ath);
   }
 
@@ -1382,7 +1387,99 @@
       '<section class="cm-checkin-section"><span class="cm-analytics-kicker">Recent check-ins</span>' + (timeline ? '<ol class="cm-checkin-timeline">' + timeline + '</ol>' : '<p class="cm-checkin-quiet">No check-ins in this range.</p>') + '</section></div>';
   }
 
+  function coachNoteDate(iso) {
+    if (!iso) return "";
+    var date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) + " · " +
+      date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  function renderCoachNoteItem(note) {
+    var editing = String(_editingCoachNoteId || "") === String(note.id || "");
+    var author = " · " + esc(note.author_name || "Coach");
+    var editor = editing
+      ? '<form class="cm-note-edit" data-note-edit-form="' + esc(note.id) + '"><textarea name="body" maxlength="4000" aria-label="Edit coach note">' + esc(note.body) + '</textarea><div class="cm-notes-error" aria-live="polite"></div><div class="cm-note-actions"><button type="button" class="cm-note-action" data-note-edit-cancel>Cancel</button><button type="submit" class="cm-note-action cm-note-action--primary">Save changes</button></div></form>'
+      : '<p class="cm-note-body">' + esc(note.body) + '</p>';
+    var actions = !editing && note.can_edit
+      ? '<div class="cm-note-item-actions"><button type="button" class="cm-note-action" data-note-pin="' + esc(note.id) + '" data-pinned="' + (note.pinned ? "true" : "false") + '">' + (note.pinned ? "Unpin" : "Pin") + '</button><button type="button" class="cm-note-action" data-note-edit="' + esc(note.id) + '">Edit</button><button type="button" class="cm-note-action cm-note-action--danger" data-note-delete="' + esc(note.id) + '">Delete</button></div><div class="cm-notes-error" aria-live="polite"></div>'
+      : '';
+    return '<li class="cm-note-item" data-note-id="' + esc(note.id) + '"><div class="cm-note-item-head"><span class="cm-note-meta">' + esc(coachNoteDate(note.created_at)) + author + '</span>' + (note.pinned ? '<span class="cm-note-pin">Pinned</span>' : '') + '</div>' + editor + actions + '</li>';
+  }
+
+  function renderAthleteNotes(ath) {
+    var data = ath.coach_notes || { notes: [], can_create: false, unavailable: true };
+    var notes = Array.isArray(data.notes) ? data.notes : [];
+    var pinned = notes.filter(function (note) { return note.pinned; });
+    var recent = notes.filter(function (note) { return !note.pinned; });
+    var composer = data.can_create
+      ? '<form class="cm-note-compose" id="cmNoteCompose"><textarea name="body" maxlength="4000" aria-label="Add a private coach note" placeholder="Add a note about this athlete…"></textarea><div class="cm-notes-error" aria-live="polite"></div><div class="cm-note-actions"><button type="reset" class="cm-note-action">Cancel</button><button type="submit" class="cm-note-action cm-note-action--primary">Save</button></div></form>'
+      : '<p class="cm-notes-readonly">This assignment allows you to view private coach notes, but not add or change them.</p>';
+    if (data.unavailable) composer = '<p class="cm-notes-unavailable">Coach notes are unavailable until the private notes migration is applied.</p>';
+    var group = function (title, list) {
+      return list.length ? '<section class="cm-note-group"><span class="cm-note-group-title">' + title + '</span><ol class="cm-note-list">' + list.map(function (note) { return renderCoachNoteItem(note); }).join("") + '</ol></section>' : '';
+    };
+    var empty = !notes.length && !data.unavailable
+      ? '<div class="cm-notes-empty"><strong>No coach notes yet.</strong><p>Add private notes here to remember important athlete context.</p></div>'
+      : '';
+    return '<div class="cm-athlete-notes"><header class="cm-notes-head"><h2>Notes</h2><p class="cm-notes-private">Private to the athlete’s assigned coaching team.</p></header>' + composer + empty + group("Pinned", pinned) + group("Recent notes", recent) + '</div>';
+  }
+
   function renderAthleteEmpty(title, copy) { return '<div class="cm-athlete-empty"><h2>' + esc(title) + '</h2><p>' + esc(copy) + '</p></div>'; }
+
+  function replaceCoachNotes(data) {
+    if (!_athleteDetail || _athleteDetailTab !== "notes") return;
+    _editingCoachNoteId = null;
+    _athleteDetail.coach_notes = data;
+    Object.keys(_athleteDetailCache).forEach(function (key) {
+      if (key.indexOf(String(_athleteDetailId) + "|") === 0 && _athleteDetailCache[key]) {
+        _athleteDetailCache[key].coach_notes = data;
+      }
+    });
+    var panel = document.querySelector(".cm-athlete-panel");
+    if (panel) {
+      panel.innerHTML = renderAthleteNotes(_athleteDetail);
+      bindAthletePageActions(document.getElementById("screen-today"), _athleteDetail);
+    }
+  }
+
+  async function mutateCoachNote(method, payload, submit, error) {
+    if (submit) submit.disabled = true;
+    var res = await api("notes", { method: method, body: Object.assign({ athlete_id: _athleteDetailId }, payload) });
+    if (!res.ok || !res.body || !res.body.coach_notes) {
+      if (error) error.textContent = res.body && res.body.error || "The note could not be saved.";
+      if (submit) submit.disabled = false;
+      return false;
+    }
+    replaceCoachNotes(res.body.coach_notes);
+    return true;
+  }
+
+  function openCoachNoteDeleteConfirm(noteId) {
+    var overlay = document.createElement("div");
+    overlay.className = "cm-note-confirm";
+    overlay.innerHTML = '<div class="cm-note-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="cmNoteDeleteTitle" aria-describedby="cmNoteDeleteCopy"><h2 id="cmNoteDeleteTitle">Delete this note?</h2><p id="cmNoteDeleteCopy">This cannot be undone.</p><div class="cm-notes-error" aria-live="polite"></div><div class="cm-note-confirm-actions"><button type="button" class="cm-note-action" data-note-delete-cancel>Cancel</button><button type="button" class="cm-note-action cm-note-action--danger" data-note-delete-confirm>Delete</button></div></div>';
+    document.body.appendChild(overlay);
+    var previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    var cancel = overlay.querySelector("[data-note-delete-cancel]");
+    var confirm = overlay.querySelector("[data-note-delete-confirm]");
+    var close = function () {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      overlay.remove();
+    };
+    var onKey = function (event) { if (event.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    overlay.addEventListener("click", function (event) { if (event.target === overlay) close(); });
+    cancel.addEventListener("click", close);
+    confirm.addEventListener("click", async function () {
+      confirm.disabled = true;
+      var ok = await mutateCoachNote("DELETE", { note_id: noteId }, confirm, overlay.querySelector(".cm-notes-error"));
+      if (ok) close(); else confirm.disabled = false;
+    });
+    cancel.focus();
+  }
 
   function bindAthletePageActions(el, ath) {
     var review = el.querySelector("#cmDetailReview");
@@ -1406,6 +1503,34 @@
         panel.innerHTML = renderAthleteCheckIns(ath);
         bindAthletePageActions(el, ath);
       }
+    }); });
+    var composer = el.querySelector("#cmNoteCompose");
+    if (composer) composer.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var textarea = composer.querySelector('textarea[name="body"]');
+      mutateCoachNote("POST", { note: { body: textarea ? textarea.value : "" } }, composer.querySelector('[type="submit"]'), composer.querySelector(".cm-notes-error"));
+    });
+    el.querySelectorAll("[data-note-edit]").forEach(function (btn) { btn.addEventListener("click", function () {
+      _editingCoachNoteId = btn.getAttribute("data-note-edit");
+      var panel = el.querySelector(".cm-athlete-panel");
+      if (panel) { panel.innerHTML = renderAthleteNotes(ath); bindAthletePageActions(el, ath); }
+    }); });
+    el.querySelectorAll("[data-note-edit-cancel]").forEach(function (btn) { btn.addEventListener("click", function () {
+      _editingCoachNoteId = null;
+      var panel = el.querySelector(".cm-athlete-panel");
+      if (panel) { panel.innerHTML = renderAthleteNotes(ath); bindAthletePageActions(el, ath); }
+    }); });
+    el.querySelectorAll("[data-note-edit-form]").forEach(function (form) { form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var textarea = form.querySelector('textarea[name="body"]');
+      mutateCoachNote("PATCH", { note_id: form.getAttribute("data-note-edit-form"), note: { body: textarea ? textarea.value : "" } }, form.querySelector('[type="submit"]'), form.querySelector(".cm-notes-error"));
+    }); });
+    el.querySelectorAll("[data-note-pin]").forEach(function (btn) { btn.addEventListener("click", function () {
+      var item = btn.closest(".cm-note-item");
+      mutateCoachNote("PATCH", { note_id: btn.getAttribute("data-note-pin"), note: { pinned: btn.getAttribute("data-pinned") !== "true" } }, btn, item && item.querySelector(".cm-notes-error"));
+    }); });
+    el.querySelectorAll("[data-note-delete]").forEach(function (btn) { btn.addEventListener("click", function () {
+      openCoachNoteDeleteConfirm(btn.getAttribute("data-note-delete"));
     }); });
     el.querySelectorAll("[data-week-shift]").forEach(function (btn) { btn.addEventListener("click", function () {
       var base = _athleteWeekStart ? new Date(_athleteWeekStart + "T00:00:00Z") : new Date();

@@ -804,7 +804,7 @@ describe("Coach Mode — coaching command center UI", () => {
     const detail = source.slice(detailStart, detailEnd);
     assert.ok(detail.includes("renderAthleteAnalytics(ath)"));
     assert.ok(detail.includes("renderAthleteCheckIns(ath)"));
-    assert.ok(detail.includes("Coach notes will appear here."));
+    assert.ok(detail.includes("renderAthleteNotes(ath)"));
     assert.ok(!detail.includes("Choose athlete"));
     assert.ok(source.includes("Not enough training history yet."));
     assert.ok(source.includes("More comparable sessions are needed before performance trend is reliable."));

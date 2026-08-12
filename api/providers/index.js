@@ -51,6 +51,12 @@ import {
 } from "../../lib/server/coachSanitize.js";
 import { buildCoachAnalytics } from "../../lib/server/coachAnalytics.js";
 import { buildCoachCheckIns } from "../../lib/server/coachCheckIns.js";
+import {
+  buildCoachNotes,
+  canMutateCoachNote,
+  validateCoachNoteCreate,
+  validateCoachNotePatch
+} from "../../lib/server/coachNotes.js";
 
 /* ──────────────────── Athlete Mode imports ─────────────────────────────
  * Consolidated from the former api/athlete-mode.js (removed to stay
@@ -1926,6 +1932,21 @@ async function loadActiveAssignments(coachId) {
   );
 }
 
+async function loadCoachNotesForAthlete(athleteId, viewerId, canWrite) {
+  const notesResult = await sbCoachRead(
+    `coach_notes?athlete_id=eq.${enc(athleteId)}` +
+      `&select=id,author_user_id,body,pinned,created_at,updated_at` +
+      `&order=pinned.desc,created_at.desc&limit=100`
+  );
+  if (!notesResult.ok) throw new Error("coach_notes_read_failed");
+  const authorIds = [...new Set(notesResult.rows.map(row => row.author_user_id).filter(Boolean).map(String))];
+  const authorRows = authorIds.length
+    ? await sbSelect(`profiles?id=in.(${authorIds.map(enc).join(",")})&select=id,full_name`)
+    : [];
+  const authorNames = Object.fromEntries(authorRows.map(row => [String(row.id), row.full_name]));
+  return buildCoachNotes(notesResult.rows, { viewerId, canWrite, authorNames });
+}
+
 async function loadAthleteBundle(athleteId, nowIso, options = {}) {
   const idf = enc(athleteId);
   const todayKey = String(nowIso || new Date().toISOString()).slice(0, 10);
@@ -2177,9 +2198,98 @@ async function actionCoachingDashboardAthlete(request, response) {
       today: todayKey
     });
     overview.coach_check_ins = buildCoachCheckIns(bundle.readinessHistory);
+    try {
+      overview.coach_notes = await loadCoachNotesForAthlete(
+        athleteId,
+        user.id,
+        canCoachManageAthlete(assignments, user.id, athleteId)
+      );
+    } catch {
+      // Keep the rest of Athlete Detail usable if the additive migration has
+      // not been applied yet; never misrepresent this as a genuine empty list.
+      overview.coach_notes = { notes: [], can_create: false, unavailable: true };
+    }
     return sendJson(response, 200, { athlete: overview });
   } catch (err) {
     return sendJson(response, 500, { error: "The coach dashboard could not load." });
+  }
+}
+
+async function actionCoachingDashboardNotes(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+  if (!["POST", "PATCH", "DELETE"].includes(request.method)) {
+    response.setHeader("Allow", "POST, PATCH, DELETE");
+    return sendJson(response, 405, { error: "Method not allowed." });
+  }
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+  const profile = await loadCoachProfile(user.id);
+  if (!canAccessCoachDashboard(profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(profile) });
+  }
+
+  const body = request.body || {};
+  const athleteId = body.athlete_id;
+  if (!athleteId) return sendJson(response, 400, { error: "athlete_id is required." });
+  const assignments = await loadActiveAssignments(user.id);
+  if (!canCoachAccessAthlete(assignments, user.id, athleteId)) {
+    return sendJson(response, 403, { error: "You are not assigned to this athlete." });
+  }
+  const canWrite = canCoachManageAthlete(assignments, user.id, athleteId);
+  if (!canWrite) {
+    return sendJson(response, 403, { error: "This assignment allows viewing notes only." });
+  }
+
+  try {
+    if (request.method === "POST") {
+      const validated = validateCoachNoteCreate(body.note);
+      if (!validated.ok) return sendJson(response, 400, { error: validated.error });
+      const saved = await sbCoachWrite("coach_notes", "POST", {
+        athlete_id: athleteId,
+        author_user_id: user.id,
+        body: validated.value.body,
+        pinned: validated.value.pinned
+      });
+      if (!saved.ok || !saved.rows[0]) return sendJson(response, 500, { error: "The note could not be saved." });
+    } else {
+      const noteId = body.note_id;
+      if (!noteId) return sendJson(response, 400, { error: "note_id is required." });
+      const existing = await sbCoachRead(
+        `coach_notes?id=eq.${enc(noteId)}&athlete_id=eq.${enc(athleteId)}` +
+          `&select=id,athlete_id,author_user_id,body,pinned,created_at,updated_at&limit=1`
+      );
+      if (!existing.ok) return sendJson(response, 500, { error: "The note could not be verified." });
+      const note = existing.rows[0];
+      if (!note) return sendJson(response, 404, { error: "Note not found." });
+      if (!canMutateCoachNote(note, user.id, canWrite)) {
+        return sendJson(response, 403, { error: "Only the note author can change this note." });
+      }
+      if (request.method === "PATCH") {
+        const validated = validateCoachNotePatch(body.note);
+        if (!validated.ok) return sendJson(response, 400, { error: validated.error });
+        const saved = await sbCoachWrite(
+          `coach_notes?id=eq.${enc(noteId)}&athlete_id=eq.${enc(athleteId)}&author_user_id=eq.${enc(user.id)}`,
+          "PATCH",
+          { ...validated.value, updated_at: new Date().toISOString() }
+        );
+        if (!saved.ok || !saved.rows[0]) return sendJson(response, 500, { error: "The note could not be updated." });
+      } else {
+        const removed = await sbCoachWrite(
+          `coach_notes?id=eq.${enc(noteId)}&athlete_id=eq.${enc(athleteId)}&author_user_id=eq.${enc(user.id)}`,
+          "DELETE"
+        );
+        if (!removed.ok) return sendJson(response, 500, { error: "The note could not be deleted." });
+      }
+    }
+    const notes = await loadCoachNotesForAthlete(athleteId, user.id, canWrite);
+    return sendJson(response, 200, { coach_notes: notes });
+  } catch (err) {
+    return sendJson(response, 500, { error: "Coach notes are unavailable right now." });
   }
 }
 
@@ -2673,6 +2783,10 @@ async function actionDeleteAccount(request, response) {
   await deleteFrom("coach_attention_reviews", "athlete_id", userId);
   await deleteFrom("coach_attention_reviews", "coach_id", userId);
 
+  // coach_notes: private records about this athlete or authored by this coach
+  await deleteFrom("coach_notes", "athlete_id", userId);
+  await deleteFrom("coach_notes", "author_user_id", userId);
+
   // coaching_transitions: athlete_id, coach_id
   await deleteFrom("coaching_transitions", "athlete_id", userId);
   await deleteFrom("coaching_transitions", "coach_id", userId);
@@ -2816,6 +2930,9 @@ export default async function handler(request, response) {
         return response.status(405).json({ error: "Method not allowed." });
       }
       return actionCoachingDashboardWorkout(request, response);
+    }
+    if (action === "coaching_dashboard_notes") {
+      return actionCoachingDashboardNotes(request, response);
     }
 
     // Athlete Mode actions (consolidated from api/athlete-mode.js).
