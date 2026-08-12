@@ -456,6 +456,14 @@
     try { localStorage.removeItem(WORKSPACE_KEY); } catch (e) {}
   }
 
+  /* Athlete readiness is never collected inside Coach Workspace. Closing a
+   * prompt here also releases the inert state if workspace resolution wins a
+   * race with a lifecycle-triggered morning-check evaluation. */
+  function suppressAthleteReadiness() {
+    if (typeof window.closeReadinessCheck !== "function") return;
+    try { window.closeReadinessCheck(); } catch (e) {}
+  }
+
   /*
    * Resolve which workspace to show. Only coach/admin users may access
    * coach_workspace. If a stale pref says coach but the user is no longer
@@ -480,6 +488,7 @@
    */
   function activateCoachWorkspace() {
     document.body.classList.add("coach-workspace-active");
+    suppressAthleteReadiness();
     if (_workspace === "coach_workspace") return;
     var fromWs = _workspace;
     _workspace = "coach_workspace";
@@ -1042,13 +1051,25 @@
     });
     positionAthleteTabIndicator();
     if (!panel) { renderAthletePage(); return; }
+    var replacePanel = function () {
+      if (token !== _athletePanelTransition) return;
+      panel.classList.remove("is-leaving", "is-entering");
+      panel.innerHTML = athletePanelContent(_athleteDetail);
+      panel.classList.add("is-entering");
+      panel.addEventListener("animationend", function () {
+        if (token === _athletePanelTransition) panel.classList.remove("is-entering");
+      }, { once: true });
+      bindAthletePageActions(document.getElementById("screen-today"), _athleteDetail);
+    };
+    var reducedMotion = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    if (reducedMotion) {
+      replacePanel();
+      panel.classList.remove("is-entering");
+      return;
+    }
     panel.classList.remove("is-entering");
-    panel.innerHTML = athletePanelContent(_athleteDetail);
-    panel.classList.add("is-entering");
-    panel.addEventListener("animationend", function () {
-      if (token === _athletePanelTransition) panel.classList.remove("is-entering");
-    }, { once: true });
-    bindAthletePageActions(document.getElementById("screen-today"), _athleteDetail);
+    panel.classList.add("is-leaving");
+    setTimeout(replacePanel, 140);
   }
 
   function renderAthletePage() {
@@ -1673,6 +1694,7 @@
     // Enter Coach Workspace (default for coach/admin)
     _workspace = "coach_workspace";
     writeWorkspacePref("coach_workspace");
+    suppressAthleteReadiness();
 
     ensureCoachScreens();
     rewriteNavigation();

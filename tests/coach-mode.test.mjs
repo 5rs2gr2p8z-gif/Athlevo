@@ -677,6 +677,35 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes("_athleteDetailTab = \"overview\""));
   });
 
+  it("keeps all five Athlete Detail tabs interactive independent of mutation permission", () => {
+    const renderStart = source.indexOf("function renderAthletePage()");
+    const renderEnd = source.indexOf("function metric", renderStart);
+    const render = source.slice(renderStart, renderEnd);
+    const switchStart = source.indexOf("function switchAthleteTab");
+    const switchEnd = source.indexOf("function renderAthletePage", switchStart);
+    const switchTab = source.slice(switchStart, switchEnd);
+    assert.ok(render.includes('var tabs = ["overview", "training", "analytics", "check-ins", "notes"]'));
+    assert.ok(render.includes('<button type="button" class="cm-athlete-tab'));
+    assert.ok(render.includes('btn.addEventListener("click"'));
+    assert.ok(!render.includes("disabled"));
+    assert.ok(!switchTab.includes("assignment_permission"));
+    assert.ok(!switchTab.includes("read_write"));
+    assert.ok(switchTab.includes("athletePanelContent(_athleteDetail)"));
+  });
+
+  it("isolates readiness from Coach Workspace so its inert backdrop cannot intercept detail tabs", () => {
+    const activateStart = source.indexOf("function activateCoachWorkspace");
+    const activateEnd = source.indexOf("function activateAthleteWorkspace", activateStart);
+    const activate = source.slice(activateStart, activateEnd);
+    const initStart = source.indexOf("async function init()");
+    const initEnd = source.indexOf("PUBLIC API", initStart);
+    const init = source.slice(initStart, initEnd);
+    assert.ok(source.includes("function suppressAthleteReadiness"));
+    assert.ok(source.includes("window.closeReadinessCheck()"));
+    assert.ok(activate.indexOf("suppressAthleteReadiness()") < activate.indexOf('if (_workspace === "coach_workspace") return'));
+    assert.ok(init.indexOf('writeWorkspacePref("coach_workspace")') < init.indexOf("suppressAthleteReadiness()"));
+  });
+
   it("renders the approved five-second Overview hierarchy from real fields", () => {
     for (const label of ["Current direction", "Current status", "This week", "Latest activity", "Coach attention", "Upcoming race"]) {
       assert.ok(source.includes(label), `missing ${label}`);
@@ -698,6 +727,9 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes("key === ath.today_key"));
     assert.ok(source.includes("No active training plan."));
     assert.ok(source.includes("ath.has_active_plan"));
+    const panelStart = source.indexOf("function athletePanelContent");
+    const panelEnd = source.indexOf("function positionAthleteTabIndicator", panelStart);
+    assert.ok(!source.slice(panelStart, panelEnd).includes("Coming soon"));
   });
 
   it("keeps mutation controls permission-aware and uses coaching language", () => {
@@ -735,7 +767,9 @@ describe("Coach Mode — coaching command center UI", () => {
   it("uses one moving athlete-tab indicator and composition-level motion", () => {
     assert.ok(source.includes("cm-athlete-tab-indicator"));
     assert.ok(source.includes("positionAthleteTabIndicator"));
+    assert.ok(source.includes('panel.classList.add("is-leaving")'));
     assert.ok(source.includes("cm-athlete-panel.is-entering"));
+    assert.ok(source.includes('(prefers-reduced-motion: reduce)'));
     assert.ok(source.includes("@media(prefers-reduced-motion:reduce)"));
     assert.ok(!source.includes("cm-athlete-stagger"));
   });

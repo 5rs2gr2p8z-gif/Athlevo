@@ -102,6 +102,13 @@ function makeMorningWorld(options = {}) {
       return options.openResult !== false;
     }
   };
+  if (options.appMode) {
+    root.AthlevoCoachMode = {
+      getMode: () => options.appMode,
+      isAthleteWorkspace: () => options.workspace === "athlete_workspace",
+      _state: () => ({ role: options.role || null })
+    };
+  }
   const context = {
     window: root,
     document,
@@ -203,6 +210,43 @@ section("Onboarding, callbacks, blocking UI, and lifecycle");
   test("another blocking modal prevents the prompt",
     (await blocking.api.evaluate()).reason === "app_not_ready" &&
     blocking.verifyCalls() === 0);
+}
+
+section("Authoritative workspace isolation");
+{
+  const coach = makeMorningWorld({
+    appMode: "coach_mode",
+    workspace: "coach_workspace",
+    role: "coach"
+  });
+  const admin = makeMorningWorld({
+    appMode: "coach_mode",
+    workspace: "coach_workspace",
+    role: "admin"
+  });
+  const unresolved = makeMorningWorld({ appMode: "unknown" });
+  test("coach workspace never evaluates or opens athlete readiness",
+    (await coach.api.evaluate()).reason === "app_not_ready" &&
+    coach.verifyCalls() === 0 && coach.opened.length === 0);
+  test("admin coach workspace never evaluates or opens athlete readiness",
+    (await admin.api.evaluate()).reason === "app_not_ready" &&
+    admin.verifyCalls() === 0 && admin.opened.length === 0);
+  test("unresolved workspace cannot open athlete readiness early",
+    (await unresolved.api.evaluate()).reason === "app_not_ready" &&
+    unresolved.verifyCalls() === 0 && unresolved.opened.length === 0);
+}
+{
+  const athlete = makeMorningWorld({ appMode: "athlete_mode" });
+  const coachTrainingSelf = makeMorningWorld({
+    appMode: "coach_mode",
+    workspace: "athlete_workspace",
+    role: "coach"
+  });
+  test("athlete workspace retains the existing daily prompt",
+    (await athlete.api.evaluate()).shown === true && athlete.opened.length === 1);
+  test("coach training in their own athlete workspace retains the prompt",
+    (await coachTrainingSelf.api.evaluate()).shown === true &&
+    coachTrainingSelf.opened.length === 1);
 }
 {
   const world = makeMorningWorld({ day: "2026-07-29" });

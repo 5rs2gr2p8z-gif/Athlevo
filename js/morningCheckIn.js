@@ -95,6 +95,28 @@
     return Boolean(element && element.classList.contains("active"));
   }
 
+  /*
+   * Coach Dashboard and Athlete Detail deliberately reuse #screen-today.
+   * Screen visibility alone therefore cannot prove that the signed-in user
+   * is operating in their own athlete workspace. AthlevoCoachMode resolves
+   * role and workspace from the server-authorized roster response; suppress
+   * the athlete prompt until that resolution is complete, and throughout
+   * Coach Workspace for both coaches and admins.
+   */
+  function athleteWorkspaceActive() {
+    const coachMode = root.AthlevoCoachMode;
+    if (!coachMode || typeof coachMode.getMode !== "function") return true;
+
+    const mode = coachMode.getMode();
+    if (mode === "athlete_mode") return true;
+    if (mode !== "coach_mode") return false;
+
+    return Boolean(
+      typeof coachMode.isAthleteWorkspace === "function" &&
+      coachMode.isAthleteWorkspace()
+    );
+  }
+
   function authCallbackActive() {
     if (
       root.athlevoFinalizeInFlight ||
@@ -155,7 +177,9 @@
   }
 
   function appReady(options) {
-    if (!activeScreen("screen-today")) return false;
+    if (!athleteWorkspaceActive() || !activeScreen("screen-today")) {
+      return false;
+    }
     if (
       document.visibilityState === "hidden" ||
       onboardingActive() ||
@@ -275,6 +299,7 @@
     DISMISS_DELAY_MS,
     _test: {
       appReady,
+      athleteWorkspaceActive,
       authCallbackActive,
       blockingModalOpen,
       firstName,
