@@ -174,8 +174,8 @@ console.log("\n──── Overview states ────");
     training_week: { week_start: "2026-08-10", week_end: "2026-08-16", sessions: [] }
   }));
   test("partial/no-data Overview uses quiet truthful language",
-    /No recent data/.test(html) && /Building baseline/.test(html) &&
-    /Not enough history/.test(html) && !/>—</.test(html));
+    /Unavailable/.test(html) && /Some status signals need more athlete history/.test(html) &&
+    !/Building baseline|Not enough history/.test(html) && !/>—</.test(html));
   test("no attention remains a quiet line after Latest Activity",
     html.indexOf("Latest activity") < html.indexOf(">Attention<") &&
     /No immediate issues\./.test(html));

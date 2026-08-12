@@ -141,7 +141,7 @@ console.log("\n──── Messaging polish and motion ────");
   test("server refresh preserves an intentional upward scroll position", /restoreCoachMessageScroll\(confirmedLog, scrollSnapshot/.test(binding) && /log\.scrollTop = snapshot\.top/.test(source));
   test("cold thread has bubble-shaped loading while cache renders immediately", /cm-msg-loading/.test(source) && /if \(cached\)[\s\S]*renderCoachThread\(athleteId, cached\)/.test(source));
   test("screen and bubble entrance use shared motion tokens", /cmMsgScreenIn var\(--dur-base,220ms\)/.test(source) && /cmMsgBubbleIn var\(--dur-fast,180ms\)/.test(source));
-  test("reduced motion removes message animation and smooth scroll", /prefers-reduced-motion:reduce[\s\S]*\.cm-msg-thread,.cm-msg-bubble\{animation:none\}/.test(source) && /scroll-behavior:auto/.test(source));
+  test("reduced motion removes message animation and smooth scroll", /prefers-reduced-motion:reduce[\s\S]*\.cm-msg-thread,.cm-msg-bubble,[^{]*\{animation:none\}/.test(source) && /scroll-behavior:auto/.test(source));
 }
 
 console.log("\n──── Server and migration security boundary ────");

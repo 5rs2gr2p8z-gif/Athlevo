@@ -468,8 +468,10 @@ describe("Coach Mode — client module structure", () => {
     assert.ok(!coachModeSource.includes("Human coach messaging will appear here"));
   });
 
-  it("Coach trends shows coming-next placeholder", () => {
-    assert.ok(coachModeSource.includes("Detailed coach trends are coming next"));
+  it("Coach Analytics opens the real athlete-scoped analytics view", () => {
+    assert.ok(coachModeSource.includes("Athlete Analytics"));
+    assert.ok(coachModeSource.includes('openCoachAthletePage(item.getAttribute("data-athlete"), "analytics")'));
+    assert.ok(!coachModeSource.includes("Detailed coach trends are coming next"));
   });
 
   it("Coach You tab includes logout", () => {
@@ -688,7 +690,7 @@ describe("Coach Mode — coaching command center UI", () => {
     const switchEnd = source.indexOf("function renderAthletePage", switchStart);
     const switchTab = source.slice(switchStart, switchEnd);
     assert.ok(render.includes('var tabs = ["overview", "training", "analytics", "check-ins", "notes"]'));
-    assert.ok(render.includes('<button type="button" class="cm-athlete-tab'));
+    assert.ok(render.includes('<button type="button" role="tab" class="cm-athlete-tab'));
     assert.ok(render.includes('btn.addEventListener("click"'));
     assert.ok(!render.includes("disabled"));
     assert.ok(!switchTab.includes("assignment_permission"));
@@ -731,9 +733,8 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(overview.includes('statusRow("Recovery"'));
     assert.ok(overview.includes('statusRow("Training load"'));
     assert.ok(overview.includes('statusRow("Adherence"'));
-    assert.ok(overview.includes("No recent data"));
-    assert.ok(overview.includes("Building baseline"));
-    assert.ok(overview.includes("Not enough history"));
+    assert.ok(overview.includes("Unavailable"));
+    assert.ok(overview.includes("Some status signals need more athlete history."));
     assert.ok(source.includes(".cm-status-row{display:grid"));
     assert.ok(!source.includes(".cm-overview-status,.cm-analytics-grid"));
     assert.ok(!overview.includes("cm-detail-grid"));

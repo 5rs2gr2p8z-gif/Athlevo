@@ -57,6 +57,7 @@
   var _athleteDetailCache = Object.create(null);
   var _athleteDetailRequest = 0;
   var _athletePanelTransition = 0;
+  var _coachDashboardScrollTop = 0;
   var _initialized = false;
   var _resolving = false;
   var _athleteTodayHTML = null;   // saved athlete Today innerHTML for restore
@@ -287,12 +288,13 @@
       ".cm-note-confirm{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.38)}.cm-note-confirm-dialog{width:min(100%,360px);box-sizing:border-box;background:var(--bg,#fff);border:1px solid var(--line,#e5e5e5);padding:20px}.cm-note-confirm-dialog h2{margin:0;font-family:var(--serif,serif);font-size:21px;font-weight:520}.cm-note-confirm-dialog p{margin:7px 0 18px;color:var(--ink3,#737373);font-size:12px}.cm-note-confirm-actions{display:flex;justify-content:flex-end;gap:16px}",
       ".cm-athlete-head{display:grid;grid-template-columns:44px minmax(0,1fr) auto}.cm-athlete-head-actions{display:grid;justify-items:end;gap:8px}.cm-athlete-message{border:0;border-bottom:1px solid var(--line,#d9d9d9);background:transparent;color:var(--ink2,#555);padding:5px 0;font:750 10px/1 var(--sans,sans-serif);cursor:pointer}.cm-athlete-message:hover,.cm-athlete-message:focus-visible{color:var(--ink1,#171717);border-bottom-color:currentColor}.cm-msg-directory{width:100%;max-width:720px;margin:0 auto;padding:16px 14px 96px;box-sizing:border-box}.cm-msg-directory h1{margin:0 0 16px;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-msg-empty-directory{padding:40px 16px;text-align:center;color:var(--ink3,#737373);font-size:13px}.cm-msg-empty-directory strong{display:block;margin-bottom:6px;color:var(--ink2,#555);font-size:15px}.cm-msg-item{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:12px 0;border:0;border-bottom:1px solid var(--line,#e5e5e5);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-msg-item-copy{min-width:0}.cm-msg-item-name{display:block;font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-msg-item-meta{display:block;margin-top:3px;color:var(--ink3,#737373);font-size:11px}.cm-msg-item-arrow{color:var(--ink3,#737373)}.cm-msg-thread{display:flex;flex:1;min-height:0;width:100%;max-width:720px;margin:0 auto;flex-direction:column}.cm-msg-thread-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line,#e5e5e5);flex:0 0 auto}.cm-msg-thread-back{min-width:44px;min-height:40px;border:0;background:transparent;color:var(--ink2,#555);padding:0;text-align:left;font:700 12px/1 var(--sans,sans-serif);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-msg-thread-title{min-width:0}.cm-msg-thread-title strong{display:block;font-family:var(--serif,serif);font-size:18px;font-weight:520;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-msg-thread-title span{display:block;margin-top:2px;color:var(--ink3,#737373);font-size:10px}.cm-msg-athlete-detail{border:0;background:transparent;color:var(--ink3,#737373);padding:8px 0;font:700 10px/1 var(--sans,sans-serif);cursor:pointer}.cm-msg-log{display:flex;flex:1;min-height:0;overflow-y:auto;flex-direction:column;gap:12px;padding:18px 14px;-webkit-overflow-scrolling:touch}.cm-msg-bubble{max-width:82%;overflow-wrap:anywhere}.cm-msg-bubble p{margin:0;padding:9px 12px;border:1px solid var(--line,#e5e5e5);font-size:13px;line-height:1.48;white-space:pre-wrap}.cm-msg-bubble time{display:block;margin-top:4px;color:var(--ink3,#737373);font-size:9px}.cm-msg-bubble.is-coach{align-self:flex-end}.cm-msg-bubble.is-coach p{background:var(--ink1,#171717);border-color:var(--ink1,#171717);color:var(--bg,#fff)}.cm-msg-bubble.is-coach time{text-align:right}.cm-msg-bubble.is-athlete{align-self:flex-start}.cm-msg-thread-empty{margin:auto;padding:30px 14px;text-align:center}.cm-msg-thread-empty strong{display:block;font-family:var(--serif,serif);font-size:20px;font-weight:520}.cm-msg-thread-empty p{margin:6px 0 0;color:var(--ink3,#737373);font-size:12px}.cm-msg-composer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:9px;padding:10px 14px 12px;border-top:1px solid var(--line,#e5e5e5);background:var(--bg,#fff);flex:0 0 auto}.cm-msg-composer textarea{width:100%;min-height:42px;max-height:112px;box-sizing:border-box;resize:none;border:1px solid var(--line,#d9d9d9);border-radius:10px;background:var(--field,var(--card,#fff));color:inherit;padding:10px 11px;font:13px/1.4 var(--sans,sans-serif)}.cm-msg-send{min-width:54px;min-height:42px;border:0;border-radius:10px;background:var(--ink1,#171717);color:var(--bg,#fff);font:750 11px/1 var(--sans,sans-serif);cursor:pointer}.cm-msg-send:disabled{opacity:.5;cursor:default}.cm-msg-error{grid-column:1/-1;min-height:13px;color:var(--bad,#a52a2f);font-size:10px}.cm-msg-loading{display:grid;gap:12px;padding:20px 14px}.cm-msg-loading span{display:block;width:72%;height:44px;border-radius:8px}.cm-msg-loading span:nth-child(even){justify-self:end;width:62%}",
       ".cm-msg-thread{height:100%;overflow:hidden;animation:cmMsgScreenIn var(--dur-base,220ms) var(--ease-standard,ease-out) both}.cm-msg-thread-head{min-height:58px;padding-block:9px;background:var(--bg,#fff)}.cm-msg-thread-back,.cm-msg-athlete-detail{min-height:40px}.cm-msg-thread-title strong{font-size:17px}.cm-msg-log{display:block;padding:12px 14px 8px;overscroll-behavior:contain;scroll-behavior:smooth}.cm-msg-log-inner{display:flex;min-height:100%;flex-direction:column;justify-content:flex-end;gap:7px}.cm-msg-date{align-self:center;margin:8px 0 5px;color:var(--ink3,#737373);font-size:9px;font-weight:750;letter-spacing:.09em;text-transform:uppercase}.cm-msg-bubble{width:fit-content;max-width:76%;animation:cmMsgBubbleIn var(--dur-fast,180ms) var(--ease-standard,ease-out) both}.cm-msg-bubble p{padding:8px 11px;border-radius:14px 14px 14px 4px;background:var(--card2,var(--card,#f3f3f3));border-color:transparent;font-size:13px;line-height:1.45}.cm-msg-bubble.is-coach p{border-radius:14px 14px 4px 14px;background:var(--ink1,#171717)}.cm-msg-bubble time{margin-top:2px;padding:0 3px;font-size:8.5px}.cm-msg-bubble.is-pending{opacity:.58}.cm-msg-thread-empty{margin:auto 0 18px;padding:24px 14px;text-align:left}.cm-msg-thread-empty strong{font-size:17px}.cm-msg-thread-empty p{margin-top:4px}.cm-msg-composer{position:sticky;bottom:0;gap:8px;padding:9px 14px calc(9px + env(safe-area-inset-bottom));border-top-color:var(--line,#e5e5e5);background:var(--bg,#fff)}.cm-msg-composer textarea{min-height:40px;max-height:96px;border-radius:15px;padding:10px 12px;overflow-y:auto}.cm-msg-composer textarea:focus{outline:2px solid rgba(179,41,45,.28);outline-offset:1px;border-color:var(--red,#b3292d)}.cm-msg-send{min-width:52px;min-height:40px;border-radius:12px}.cm-msg-send:disabled{opacity:.32}.cm-msg-error:empty{display:none}.cm-msg-loading{display:flex;min-height:100%;flex-direction:column;justify-content:flex-end;gap:9px;padding:18px 14px}.cm-msg-loading span{width:min(68%,280px);height:38px;border-radius:14px 14px 14px 4px}.cm-msg-loading span:nth-child(even){width:min(54%,220px);border-radius:14px 14px 4px 14px}@keyframes cmMsgScreenIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}@keyframes cmMsgBubbleIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}",
+      ".cm-athlete-page--ready{animation:cmWorkflowIn var(--dur-base,220ms) var(--ease-standard,ease-out) both}.cm-athlete-tabs{scroll-padding-inline:2px;overscroll-behavior-inline:contain}.cm-athlete-tab{min-height:44px}.cm-athlete-tab:focus-visible,.cm-athlete-back:focus-visible,.cm-athlete-message:focus-visible{outline:2px solid var(--red,#b3292d);outline-offset:2px}.cm-athlete-panel[aria-busy='true']{min-height:260px}.cm-panel-loading{display:grid;gap:10px;padding-top:4px}.cm-panel-loading span{display:block;height:11px}.cm-panel-loading span:first-child{width:34%;height:18px}.cm-panel-loading span:nth-child(2){width:78%}.cm-panel-loading span:nth-child(3){width:92%}.cm-panel-loading-row{height:58px!important;border-bottom:1px solid var(--line,#e5e5e5)}.cm-status-footnote{margin:9px 0 0;color:var(--ink3,#737373);font-size:10px;line-height:1.45}.cm-global-directory{width:100%;max-width:720px;margin:0 auto;padding:16px 14px 96px;box-sizing:border-box}.cm-global-head{margin-bottom:16px}.cm-global-head h1{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-global-head p{margin:6px 0 0;max-width:560px;color:var(--ink3,#737373);font-size:12px;line-height:1.5}.cm-global-list{border-top:1px solid var(--line,#e5e5e5)}.cm-global-athlete{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;min-height:68px;padding:12px 0;border:0;border-bottom:1px solid var(--line,#e5e5e5);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-global-athlete:focus-visible{outline:2px solid var(--red,#b3292d);outline-offset:2px}.cm-global-copy{min-width:0}.cm-global-name{display:block;font-size:14px;font-weight:750;overflow-wrap:anywhere}.cm-global-primary,.cm-global-meta{display:block;margin-top:3px;color:var(--ink2,#555);font-size:11px;line-height:1.4;overflow-wrap:anywhere}.cm-global-meta{color:var(--ink3,#737373);font-size:10px}.cm-global-empty{padding:26px 0;border-block:1px solid var(--line,#e5e5e5);color:var(--ink3,#737373);font-size:13px}.cm-note-compose textarea{min-height:44px;transition:min-height var(--dur-fast,180ms) var(--ease-standard,ease)}.cm-note-compose:focus-within textarea{min-height:68px}.cm-workout-overlay,.cm-note-confirm{animation:cmCoachBackdropIn var(--dur-fast,180ms) var(--ease-standard,ease-out) both}.cm-workout-dialog,.cm-note-confirm-dialog{animation:cmCoachDialogIn var(--dur-base,220ms) var(--ease-standard,ease-out) both}.cm-workout-dialog :focus-visible,.cm-note-confirm-dialog :focus-visible{outline:2px solid var(--red,#b3292d);outline-offset:2px}@keyframes cmWorkflowIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}@keyframes cmCoachBackdropIn{from{opacity:0}to{opacity:1}}@keyframes cmCoachDialogIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}",
       ".cm-athlete-skeleton{display:grid;gap:18px}.cm-athlete-skel-back{width:112px;height:11px}.cm-athlete-skel-head{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px}.cm-athlete-skel-copy{display:grid;gap:7px}.cm-athlete-skel-name{width:min(180px,68%);height:24px}.cm-athlete-skel-sub{width:min(250px,88%);height:11px}.cm-athlete-skel-tabs{display:flex;gap:18px;padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5);overflow:hidden}.cm-athlete-skel-tabs span{flex:0 0 58px;height:10px}.cm-athlete-skel-section{display:grid;gap:9px;padding-top:14px;border-top:1px solid var(--line,#e5e5e5)}.cm-athlete-skel-section span{height:10px}.cm-athlete-skel-section span:first-child{width:92px}.cm-athlete-skel-section span:nth-child(2){width:76%;height:15px}.cm-athlete-skel-section span:nth-child(3){width:92%}.cm-athlete-skel-rows{display:grid;border-top:1px solid var(--line,#e5e5e5)}.cm-athlete-skel-row{height:54px;border-bottom:1px solid var(--line,#e5e5e5)}",
       "@media(min-width:760px){.cm-athlete-page{padding-inline:24px}.cm-detail-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.cm-workout-dialog{align-self:center;border-radius:14px}.cm-athlete-panel{padding-top:24px}.cm-athlete-analytics{max-width:720px}}",
       "@media(min-width:760px){.cm-roster-item .cm-row{padding-block:17px}}",
       "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
       "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
-      "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-panel.is-entering,.cm-msg-thread,.cm-msg-bubble{animation:none}.cm-row-name,.cm-athlete-panel,.cm-athlete-tab-indicator,.cm-msg-log{transition:none;scroll-behavior:auto}}"
+      "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-page--ready,.cm-athlete-panel.is-entering,.cm-msg-thread,.cm-msg-bubble,.cm-workout-overlay,.cm-note-confirm,.cm-workout-dialog,.cm-note-confirm-dialog{animation:none}.cm-row-name,.cm-athlete-panel,.cm-athlete-tab-indicator,.cm-msg-log,.cm-note-compose textarea{transition:none;scroll-behavior:auto}}"
     ].join("");
     document.head.appendChild(style);
   }
@@ -397,9 +399,9 @@
 
   var COACH_TABS = [
     { screen: "screen-today",            label: "Today",  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>' },
-    { screen: "screen-coach-messaging", label: "Coach",  icon: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>' },
+    { screen: "screen-coach-messaging", label: "Messages",  icon: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>' },
     { screen: "screen-coach-train",     label: "Train",  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' },
-    { screen: "screen-coach-trends",    label: "Trends", icon: '<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>' },
+    { screen: "screen-coach-trends",    label: "Analytics", icon: '<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>' },
     { screen: "screen-coach-you",       label: "You",    icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>' }
   ];
 
@@ -494,6 +496,7 @@
     _athleteDetailCache = Object.create(null);
     _athleteDetailRequest += 1;
     _athletePanelTransition = 0;
+    _coachDashboardScrollTop = 0;
     _workspace = null;
     _athleteUIInitialized = false;
     _initialized = false;
@@ -699,7 +702,7 @@
       document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
       if (screenEl) screenEl.classList.add("active");
     }
-    if (screenEl) screenEl.scrollTop = 0;
+    if (screenEl && screenId !== "screen-today") screenEl.scrollTop = 0;
 
     // Analytics
     var TAB_EVENTS = {
@@ -1012,6 +1015,10 @@
 
   async function openCoachAthletePage(athleteId, tab, weekStart, force) {
     var changedAthlete = String(_athleteDetailId || "") !== String(athleteId || "");
+    var existingAthlete = !changedAthlete && _athleteDetail;
+    var todayScreen = document.getElementById("screen-today");
+    if (changedAthlete && !_athleteDetailId && todayScreen) _coachDashboardScrollTop = todayScreen.scrollTop || 0;
+    activateCoachScreen("screen-today");
     if (changedAthlete) _athleteAnalyticsRange = 4;
     if (changedAthlete) _athleteCheckInsRange = 7;
     if (changedAthlete) _editingCoachNoteId = null;
@@ -1027,15 +1034,23 @@
       return;
     }
 
-    _athleteDetail = null;
-    renderAthletePageLoading();
+    if (!existingAthlete) {
+      _athleteDetail = null;
+      renderAthletePageLoading();
+    } else {
+      _athleteDetail = existingAthlete;
+      renderAthletePage();
+      renderAthletePanelLoading();
+    }
     var requestId = ++_athleteDetailRequest;
     var query = { athlete_id: athleteId };
     if (_athleteWeekStart) query.week_start = _athleteWeekStart;
     var res = await api("athlete", { query: query });
     if (_athleteDetailId !== athleteId || requestId !== _athleteDetailRequest) return;
     if (!res.ok || !res.body || !res.body.athlete) {
-      renderAthletePageError(res.status === 403 ? "You are not assigned to this athlete." : "Could not load this athlete.");
+      var message = res.status === 403 ? "You are not assigned to this athlete." : "Could not load this athlete.";
+      if (existingAthlete) renderAthletePanelError(message);
+      else renderAthletePageError(message);
       return;
     }
     _athleteDetail = res.body.athlete;
@@ -1053,6 +1068,24 @@
       '<div class="cm-athlete-skel-tabs">' + [0, 1, 2, 3, 4].map(function () { return '<span class="skel"></span>'; }).join("") + '</div>' +
       '<div class="cm-athlete-skel-section"><span class="skel"></span><span class="skel"></span><span class="skel"></span></div><div class="cm-athlete-skel-section"><span class="skel"></span><span class="skel"></span><span class="skel"></span></div>' +
       '<div class="cm-athlete-skel-rows">' + [0, 1, 2].map(function () { return '<span class="skel cm-athlete-skel-row"></span>'; }).join("") + '</div></div>';
+  }
+
+  function renderAthletePanelLoading() {
+    var panel = document.querySelector(".cm-athlete-panel");
+    if (!panel) { renderAthletePageLoading(); return; }
+    panel.setAttribute("aria-busy", "true");
+    panel.setAttribute("aria-label", "Loading " + (_athleteDetailTab === "training" ? "training week" : "athlete details"));
+    panel.innerHTML = '<div class="cm-panel-loading" role="status"><span class="skel"></span><span class="skel"></span><span class="skel"></span><span class="skel cm-panel-loading-row"></span><span class="skel cm-panel-loading-row"></span><span class="skel cm-panel-loading-row"></span></div>';
+  }
+
+  function renderAthletePanelError(message) {
+    var panel = document.querySelector(".cm-athlete-panel");
+    if (!panel) { renderAthletePageError(message); return; }
+    panel.removeAttribute("aria-busy");
+    panel.removeAttribute("aria-label");
+    panel.innerHTML = '<div class="cm-error">' + esc(message) + '<br><button type="button" class="cm-review" id="cmAthletePanelRetry">Try again</button></div>';
+    var retry = panel.querySelector("#cmAthletePanelRetry");
+    if (retry) retry.addEventListener("click", function () { openCoachAthletePage(_athleteDetailId, _athleteDetailTab, _athleteWeekStart, true); });
   }
 
   function renderAthletePageError(message) {
@@ -1074,6 +1107,8 @@
     _messageRequest += 1;
     _athleteDetailTab = "overview";
     renderCoachToday();
+    var el = document.getElementById("screen-today");
+    if (el) el.scrollTop = _coachDashboardScrollTop;
   }
 
   function athleteRaceContext(ath) {
@@ -1104,6 +1139,7 @@
     if (!nr.width || !ar.width) return;
     indicator.style.width = Math.round(ar.width) + "px";
     indicator.style.transform = "translate3d(" + Math.round(ar.left - nr.left + nav.scrollLeft) + "px,0,0)";
+    if (typeof active.scrollIntoView === "function") active.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
 
   function switchAthleteTab(tab) {
@@ -1112,7 +1148,10 @@
     var panel = document.querySelector(".cm-athlete-panel");
     var token = ++_athletePanelTransition;
     document.querySelectorAll("[data-athlete-tab]").forEach(function (btn) {
-      btn.classList.toggle("is-active", btn.getAttribute("data-athlete-tab") === tab);
+      var selected = btn.getAttribute("data-athlete-tab") === tab;
+      btn.classList.toggle("is-active", selected);
+      btn.setAttribute("aria-selected", selected ? "true" : "false");
+      btn.setAttribute("tabindex", selected ? "0" : "-1");
     });
     positionAthleteTabIndicator();
     if (!panel) { renderAthletePage(); return; }
@@ -1120,6 +1159,7 @@
       if (token !== _athletePanelTransition) return;
       panel.classList.remove("is-leaving", "is-entering");
       panel.innerHTML = athletePanelContent(_athleteDetail);
+      panel.setAttribute("aria-labelledby", "cmAthleteTab-" + tab);
       panel.classList.add("is-entering");
       panel.addEventListener("animationend", function () {
         if (token === _athletePanelTransition) panel.classList.remove("is-entering");
@@ -1144,13 +1184,23 @@
     var tabs = ["overview", "training", "analytics", "check-ins", "notes"];
     var labels = { overview: "Overview", training: "Training", analytics: "Analytics", "check-ins": "Check-ins", notes: "Notes" };
     var headerStatus = ath.readiness && ath.readiness.status && ath.readiness.status !== "No recent data" ? ath.readiness.status + " readiness" : "";
-    el.innerHTML = '<div class="cm-athlete-page">' +
+    el.innerHTML = '<div class="cm-athlete-page cm-athlete-page--ready">' +
       '<button class="cm-athlete-back" type="button">← Coach Dashboard</button>' +
       '<header class="cm-athlete-head"><span class="cm-avatar" aria-hidden="true">' + esc(ath.initials || "A") + '</span><div class="cm-athlete-head-copy"><h1 class="cm-athlete-name">' + esc(ath.name || "Athlete") + '</h1><p class="cm-athlete-goal">' + esc(ath.goal || SPORT_LABEL[ath.primary_sport] || "Athlete") + '</p>' + (athleteRaceContext(ath) ? '<p class="cm-athlete-race">' + esc(athleteRaceContext(ath)) + '</p>' : '') + '</div><div class="cm-athlete-head-actions">' + (headerStatus ? '<span class="cm-athlete-head-status">' + esc(headerStatus) + '</span>' : '') + '<button type="button" class="cm-athlete-message" id="cmMessageAthlete">Message</button></div></header>' +
-      '<nav class="cm-athlete-tabs" aria-label="Athlete workspace">' + tabs.map(function (tab) { return '<button type="button" class="cm-athlete-tab' + (_athleteDetailTab === tab ? ' is-active' : '') + '" data-athlete-tab="' + tab + '">' + labels[tab] + '</button>'; }).join("") + '<span class="cm-athlete-tab-indicator" aria-hidden="true"></span></nav>' +
-      '<div class="cm-athlete-panel">' + athletePanelContent(ath) + '</div></div>';
+      '<nav class="cm-athlete-tabs" role="tablist" aria-label="Athlete workspace">' + tabs.map(function (tab) { var selected = _athleteDetailTab === tab; return '<button type="button" role="tab" class="cm-athlete-tab' + (selected ? ' is-active' : '') + '" id="cmAthleteTab-' + tab + '" aria-controls="cmAthletePanel" aria-selected="' + (selected ? 'true' : 'false') + '" tabindex="' + (selected ? '0' : '-1') + '" data-athlete-tab="' + tab + '">' + labels[tab] + '</button>'; }).join("") + '<span class="cm-athlete-tab-indicator" aria-hidden="true"></span></nav>' +
+      '<div class="cm-athlete-panel" id="cmAthletePanel" role="tabpanel" aria-labelledby="cmAthleteTab-' + esc(_athleteDetailTab) + '">' + athletePanelContent(ath) + '</div></div>';
     el.querySelector(".cm-athlete-back").addEventListener("click", closeAthletePage);
-    el.querySelectorAll("[data-athlete-tab]").forEach(function (btn) { btn.addEventListener("click", function () { switchAthleteTab(btn.getAttribute("data-athlete-tab")); }); });
+    var tabButtons = Array.from(el.querySelectorAll("[data-athlete-tab]"));
+    tabButtons.forEach(function (btn, index) {
+      btn.addEventListener("click", function () { switchAthleteTab(btn.getAttribute("data-athlete-tab")); });
+      btn.addEventListener("keydown", function (event) {
+        var direction = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (!direction) return;
+        event.preventDefault();
+        var next = tabButtons[(index + direction + tabButtons.length) % tabButtons.length];
+        if (next) { next.focus(); switchAthleteTab(next.getAttribute("data-athlete-tab")); }
+      });
+    });
     positionAthleteTabIndicator();
     bindAthletePageActions(el, ath);
   }
@@ -1171,12 +1221,14 @@
     var reasons = (ath.attention_reasons || []).map(function (r) { return '<li>' + esc(r.explanation || attentionReasonLabel(r.key)) + '</li>'; }).join("");
     var attention = '<section class="cm-overview-section' + (reasons ? ' cm-attention-section' : '') + '"><span class="cm-overview-kicker">' + (reasons ? 'Needs attention' : 'Attention') + '</span>' + (reasons ? '<ul class="cm-attention-list">' + reasons + '</ul><button type="button" class="cm-review cm-attention-action" id="cmDetailReview">Mark reviewed</button>' : '<div class="cm-attention-clear">No immediate issues.</div>') + '</section>';
     var latestSection = '<section class="cm-overview-section"><span class="cm-overview-kicker">Latest activity</span>' + (latest ? renderLatestActivity(latest) : '<div class="cm-attention-clear">No recent training data.</div>') + '</section>';
+    var hasIncompleteStatus = !(ath.readiness && ath.readiness.status && ath.readiness.status !== "No recent data") ||
+      !(ath.recovery_status && ath.recovery_status !== "unknown") || ath.training_load == null || !compliance;
     return '<div class="cm-overview"><section class="cm-overview-section"><span class="cm-overview-kicker">Current direction</span><h2 class="cm-overview-title">' + esc(ath.goal || "Goal not recorded") + '</h2><p class="cm-overview-copy">' + esc(plan || "No current training phase is available.") + '</p></section>' +
       '<section class="cm-overview-section"><span class="cm-overview-kicker">Current status</span><div class="cm-overview-status">' +
-        statusRow("Readiness", ath.readiness && ath.readiness.status || "No recent data", ath.readiness && ath.readiness.check_in_date ? "Latest check-in" : "") +
-        statusRow("Recovery", titleCase(ath.recovery_status && ath.recovery_status !== "unknown" ? ath.recovery_status : "Building baseline"), ath.recovery_status && ath.recovery_status !== "unknown" ? "Current trend" : "Not enough history") +
-        statusRow("Training load", ath.training_load != null ? ath.training_load : "Building baseline", ath.training_load != null ? "Recent load" : "Not enough history") +
-        statusRow("Adherence", compliance || "Not enough history", compliance ? "Planned vs completed" : "Building baseline") + '</div></section>' +
+        statusRow("Readiness", ath.readiness && ath.readiness.status || "Unavailable", ath.readiness && ath.readiness.check_in_date ? "Latest check-in" : "") +
+        statusRow("Recovery", titleCase(ath.recovery_status && ath.recovery_status !== "unknown" ? ath.recovery_status : "Unavailable"), ath.recovery_status && ath.recovery_status !== "unknown" ? "Current trend" : "") +
+        statusRow("Training load", ath.training_load != null ? ath.training_load : "Unavailable", ath.training_load != null ? "Recent load" : "") +
+        statusRow("Adherence", compliance || "Unavailable", compliance ? "Planned vs completed" : "") + '</div>' + (hasIncompleteStatus ? '<p class="cm-status-footnote">Some status signals need more athlete history.</p>' : '') + '</section>' +
       '<section class="cm-overview-section"><span class="cm-overview-kicker">This week</span>' + renderWeekSnapshot(sessions, completed, remaining, statusCount("modified"), statusCount("skipped"), wk) + '</section>' +
       (reasons ? attention + latestSection : latestSection + attention) +
       (ath.target_event || ath.target_date ? renderUpcomingRace(ath) : '') + '</div>';
@@ -1287,7 +1339,7 @@
       return '<button type="button" class="cm-range-btn' + (_athleteAnalyticsRange === weeks ? ' is-active' : '') + '" data-analytics-range="' + weeks + '" aria-pressed="' + (_athleteAnalyticsRange === weeks ? 'true' : 'false') + '">' + weeks + 'W</button>';
     }).join("") + '</div>';
     if (!range) {
-      return '<div class="cm-athlete-analytics"><div class="cm-analytics-head"><div class="cm-analytics-headline"><h2>Analytics</h2>' + controls + '</div><p class="cm-analytics-summary">Not enough training history yet to identify a reliable trend.</p></div><div class="cm-analytics-empty"><strong>Not enough training history yet.</strong><p>Keep training consistently and useful trends will appear here once there is enough comparable data.</p></div></div>';
+      return '<div class="cm-athlete-analytics"><div class="cm-analytics-head"><div class="cm-analytics-headline"><h2>Analytics</h2>' + controls + '</div></div><div class="cm-analytics-empty"><strong>Not enough training history yet.</strong><p>Useful trends will appear after the athlete records enough comparable training.</p></div></div>';
     }
     var modules = renderAnalyticsVolume(range.volume) + renderAnalyticsAdherence(range.adherence) + renderAnalyticsPerformance(range.performance);
     if (!range.has_meaningful_history) {
@@ -1464,7 +1516,7 @@
     var pinned = notes.filter(function (note) { return note.pinned; });
     var recent = notes.filter(function (note) { return !note.pinned; });
     var composer = data.can_create
-      ? '<form class="cm-note-compose" id="cmNoteCompose"><textarea name="body" maxlength="4000" aria-label="Add a private coach note" placeholder="Add a note about this athlete…"></textarea><div class="cm-notes-error" aria-live="polite"></div><div class="cm-note-actions"><button type="reset" class="cm-note-action">Cancel</button><button type="submit" class="cm-note-action cm-note-action--primary">Save</button></div></form>'
+      ? '<form class="cm-note-compose" id="cmNoteCompose"><textarea name="body" maxlength="4000" aria-label="Add a private coach note" placeholder="Add a note about this athlete…"></textarea><div class="cm-notes-error" aria-live="polite"></div><div class="cm-note-actions"><button type="reset" class="cm-note-action">Cancel</button><button type="submit" class="cm-note-action cm-note-action--primary" disabled>Save</button></div></form>'
       : '<p class="cm-notes-readonly">This assignment allows you to view private coach notes, but not add or change them.</p>';
     if (data.unavailable) composer = '<p class="cm-notes-unavailable">Coach notes are unavailable until the private notes migration is applied.</p>';
     var group = function (title, list) {
@@ -1507,6 +1559,7 @@
   }
 
   function openCoachNoteDeleteConfirm(noteId) {
+    var returnFocus = document.activeElement;
     var overlay = document.createElement("div");
     overlay.className = "cm-note-confirm";
     overlay.innerHTML = '<div class="cm-note-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="cmNoteDeleteTitle" aria-describedby="cmNoteDeleteCopy"><h2 id="cmNoteDeleteTitle">Delete this note?</h2><p id="cmNoteDeleteCopy">This cannot be undone.</p><div class="cm-notes-error" aria-live="polite"></div><div class="cm-note-confirm-actions"><button type="button" class="cm-note-action" data-note-delete-cancel>Cancel</button><button type="button" class="cm-note-action cm-note-action--danger" data-note-delete-confirm>Delete</button></div></div>';
@@ -1515,12 +1568,22 @@
     document.body.style.overflow = "hidden";
     var cancel = overlay.querySelector("[data-note-delete-cancel]");
     var confirm = overlay.querySelector("[data-note-delete-confirm]");
+    var dialog = overlay.querySelector(".cm-note-confirm-dialog");
     var close = function () {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
       overlay.remove();
+      if (returnFocus && typeof returnFocus.focus === "function") returnFocus.focus();
     };
-    var onKey = function (event) { if (event.key === "Escape") close(); };
+    var onKey = function (event) {
+      if (event.key === "Escape") close();
+      if (event.key === "Tab" && dialog) {
+        var first = cancel;
+        var last = confirm;
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
     document.addEventListener("keydown", onKey);
     overlay.addEventListener("click", function (event) { if (event.target === overlay) close(); });
     cancel.addEventListener("click", close);
@@ -1560,11 +1623,18 @@
       }
     }); });
     var composer = el.querySelector("#cmNoteCompose");
-    if (composer) composer.addEventListener("submit", function (event) {
-      event.preventDefault();
-      var textarea = composer.querySelector('textarea[name="body"]');
-      mutateCoachNote("POST", { note: { body: textarea ? textarea.value : "" } }, composer.querySelector('[type="submit"]'), composer.querySelector(".cm-notes-error"));
-    });
+    if (composer) {
+      var noteTextarea = composer.querySelector('textarea[name="body"]');
+      var noteSubmit = composer.querySelector('[type="submit"]');
+      var syncNoteComposer = function () { if (noteSubmit) noteSubmit.disabled = !noteTextarea || !noteTextarea.value.trim(); };
+      if (noteTextarea) noteTextarea.addEventListener("input", syncNoteComposer);
+      composer.addEventListener("reset", function () { setTimeout(syncNoteComposer, 0); });
+      composer.addEventListener("submit", function (event) {
+        event.preventDefault();
+        mutateCoachNote("POST", { note: { body: noteTextarea ? noteTextarea.value : "" } }, noteSubmit, composer.querySelector(".cm-notes-error"));
+      });
+      syncNoteComposer();
+    }
     el.querySelectorAll("[data-note-edit]").forEach(function (btn) { btn.addEventListener("click", function () {
       _editingCoachNoteId = btn.getAttribute("data-note-edit");
       var panel = el.querySelector(".cm-athlete-panel");
@@ -1605,6 +1675,7 @@
     if (!ath) return;
     var canWrite = ath.assignment_permission === "read_write";
     var editable = canWrite && (!session || session.can_edit);
+    var returnFocus = document.activeElement;
     var overlay = document.createElement("div");
     overlay.className = "cm-workout-overlay";
     overlay.id = "cmWorkoutOverlay";
@@ -1630,20 +1701,36 @@
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
       overlay.remove();
+      if (returnFocus && typeof returnFocus.focus === "function") returnFocus.focus();
     };
     overlay._closeCoachWorkout = close;
+    var dialog = overlay.querySelector(".cm-workout-dialog");
+    var focusable = function () { return Array.from(dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')); };
+    var trapFocus = function (event) {
+      if (event.key !== "Tab") return;
+      var items = focusable();
+      if (!items.length) return;
+      var first = items[0];
+      var last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
     document.addEventListener("keydown", onKey);
+    dialog.addEventListener("keydown", trapFocus);
     overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
     overlay.querySelectorAll(".cm-dialog-close").forEach(function (btn) { btn.addEventListener("click", close); });
     var form = overlay.querySelector("#cmWorkoutForm");
     if (form) form.addEventListener("submit", function (e) { e.preventDefault(); saveWorkoutForm(form, session, overlay); });
     var remove = overlay.querySelector("#cmRemoveWorkout");
     if (remove) remove.addEventListener("click", function () { removeWorkout(session, overlay); });
+    var initialFocus = dialog.querySelector("input:not([disabled]), textarea:not([disabled])") || dialog.querySelector("button");
+    if (initialFocus) initialFocus.focus();
   }
 
   async function saveWorkoutForm(form, session, overlay) {
     var error = form.querySelector("#cmWorkoutError");
     var submit = form.querySelector('[type="submit"]');
+    var submitLabel = submit ? submit.textContent : "Save";
     var data = new FormData(form);
     var workout = {};
     data.forEach(function (value, key) { workout[key] = value; });
@@ -1651,7 +1738,7 @@
     var res = await api("workout", { method: session ? "PATCH" : "POST", body: { athlete_id: _athleteDetailId, session_id: session && session.id, workout: workout } });
     if (!res.ok) {
       if (error) error.textContent = res.body && res.body.error || "The workout could not be saved.";
-      if (submit) { submit.disabled = false; submit.textContent = "Save"; }
+      if (submit) { submit.disabled = false; submit.textContent = submitLabel; }
       return;
     }
     if (overlay._closeCoachWorkout) overlay._closeCoachWorkout(); else overlay.remove();
@@ -1949,37 +2036,19 @@
     var el = document.getElementById("screen-coach-train");
     if (!el) return;
     var sorted = sortRoster(_roster);
-    var html = '<div style="max-width:720px;margin:0 auto;padding:16px 14px 96px;">' +
-      '<h1 style="font-size:20px;font-weight:700;margin:0 0 16px;">Athlete Training</h1>';
+    var html = '<div class="cm-global-directory"><header class="cm-global-head"><h1>Athlete Training</h1><p>Open an athlete’s current training week to inspect sessions and make permitted plan changes.</p></header>';
     if (!sorted.length) {
-      html += '<div style="padding:40px 16px;text-align:center;color:var(--ink3,#888);">' +
-        '<div style="font-size:15px;margin-bottom:6px;">No athletes assigned yet</div>' +
-        '<div style="font-size:13px;">Assigned athletes will appear here.</div></div>';
+      html += '<div class="cm-global-empty">Assigned athletes will appear here.</div>';
     } else {
+      html += '<div class="cm-global-list">';
       sorted.forEach(function (a) {
-        var todayLabel = a.today_planned ? esc(a.today_planned.title || "Planned") : "No session";
-        var adher = a.adherence_pct != null ? a.adherence_pct + "%" : "—";
-        html += '<div class="cm-train-item" data-athlete="' + esc(a.athlete_id) + '" style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;">' +
-          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">' +
-            '<div style="width:36px;height:36px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;">' + esc(a.initials || "A") + '</div>' +
-            '<div style="min-width:0;flex:1;">' +
-              '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(a.name) + '</div>' +
-              '<div style="font-size:12px;color:var(--ink3,#888);">' + esc(SPORT_LABEL[a.primary_sport] || "—") + ' · ' + fmtVal(a.goal) + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div style="display:flex;gap:10px;font-size:11px;color:var(--ink2,#555);flex-wrap:wrap;">' +
-            '<span>Today: <b>' + todayLabel + '</b></span>' +
-            '<span>Adherence: <b>' + esc(adher) + '</b></span>' +
-            '<span>Active: <b>' + esc(fmtLastActive(a.last_active_at)) + '</b></span>' +
-          '</div>' +
-        '</div>';
+        var todayLabel = a.today_planned ? a.today_planned.title || "Planned session" : "No session planned today";
+        var context = [SPORT_LABEL[a.primary_sport] || "Athlete", a.goal].filter(Boolean).join(" · ");
+        var trainingMeta = [a.adherence_pct != null ? a.adherence_pct + "% adherence" : null, a.last_active_at ? "Active " + fmtLastActive(a.last_active_at).toLowerCase() : null].filter(Boolean).join(" · ");
+        html += '<button type="button" class="cm-global-athlete cm-train-item" data-athlete="' + esc(a.athlete_id) + '"><span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span><span class="cm-global-copy"><span class="cm-global-name">' + esc(a.name) + '</span><span class="cm-global-primary">' + esc(todayLabel) + '</span><span class="cm-global-meta">' + esc([context, trainingMeta].filter(Boolean).join(" · ")) + '</span></span><span class="cm-chevron" aria-hidden="true">›</span></button>';
       });
+      html += '</div>';
     }
-    // Future sections
-    html += '<div style="margin-top:24px;padding:20px;border:1px dashed var(--line,#ddd);border-radius:12px;text-align:center;color:var(--ink3,#888);">' +
-      '<div style="font-size:14px;font-weight:600;margin-bottom:6px;">Coming soon</div>' +
-      '<div style="font-size:12px;">Calendar · Plan editing · Activities · Feedback</div>' +
-    '</div>';
     html += '</div>';
     el.innerHTML = html;
     // Bind clicks
@@ -1995,58 +2064,25 @@
     var el = document.getElementById("screen-coach-trends");
     if (!el) return;
     var sorted = sortRoster(_roster);
-    var html = '<div style="max-width:720px;margin:0 auto;padding:16px 14px 96px;">' +
-      '<h1 style="font-size:20px;font-weight:700;margin:0 0 16px;">Athlete Trends</h1>';
+    var html = '<div class="cm-global-directory"><header class="cm-global-head"><h1>Athlete Analytics</h1><p>Choose an athlete to open their decision-oriented training analysis.</p></header>';
     if (!sorted.length) {
-      html += '<div style="padding:40px 16px;text-align:center;color:var(--ink3,#888);">' +
-        '<div style="font-size:15px;margin-bottom:6px;">No athletes assigned yet</div>' +
-        '<div style="font-size:13px;">Assigned athletes will appear here.</div></div>';
+      html += '<div class="cm-global-empty">Assigned athletes will appear here.</div>';
     } else {
-      html += '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Select an athlete</label>' +
-        '<select id="cmTrendsSelect" style="width:100%;padding:10px;border:1px solid var(--line,#ddd);border-radius:10px;font-size:14px;margin-bottom:16px;">' +
-        '<option value="">Choose athlete…</option>';
+      html += '<div class="cm-global-list">';
       sorted.forEach(function (a) {
-        html += '<option value="' + esc(a.athlete_id) + '">' + esc(a.name) + ' · ' + esc(SPORT_LABEL[a.primary_sport] || "Athlete") + '</option>';
+        var readiness = a.readiness_status && a.readiness_status !== "No recent data" ? a.readiness_status + " readiness" : "Readiness unavailable";
+        var context = [SPORT_LABEL[a.primary_sport] || "Athlete", a.goal].filter(Boolean).join(" · ");
+        html += '<button type="button" class="cm-global-athlete cm-trends-item" data-athlete="' + esc(a.athlete_id) + '"><span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span><span class="cm-global-copy"><span class="cm-global-name">' + esc(a.name) + '</span><span class="cm-global-primary">' + esc(context) + '</span><span class="cm-global-meta">' + esc(readiness) + (a.adherence_pct != null ? ' · ' + esc(a.adherence_pct + "% adherence") : '') + '</span></span><span class="cm-chevron" aria-hidden="true">›</span></button>';
       });
-      html += '</select>';
-      html += '<div id="cmTrendsBody" style="padding:20px;text-align:center;color:var(--ink3,#888);">' +
-        '<div style="font-size:13px;">Select an athlete to view their trends.</div></div>';
+      html += '</div>';
     }
     html += '</div>';
     el.innerHTML = html;
-    var sel = document.getElementById("cmTrendsSelect");
-    if (sel) {
-      sel.addEventListener("change", function () {
-        var athleteId = sel.value;
-        var body = document.getElementById("cmTrendsBody");
-        if (!body) return;
-        if (!athleteId) { body.innerHTML = '<div style="font-size:13px;">Select an athlete to view their trends.</div>'; return; }
-        var entry = _roster.find(function (a) { return a.athlete_id === athleteId; });
-        if (!entry) return;
-        body.innerHTML =
-          '<div style="text-align:left;">' +
-            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">' +
-              '<div style="width:40px;height:40px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;">' + esc(entry.initials || "A") + '</div>' +
-              '<div><div style="font-weight:700;font-size:16px;">' + esc(entry.name) + '</div>' +
-              '<div style="font-size:12px;color:var(--ink3,#888);">' + esc(SPORT_LABEL[entry.primary_sport] || "—") + '</div></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">' +
-              '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:10px;padding:10px;text-align:center;">' +
-                '<div style="font-size:11px;color:var(--ink3,#888);">Readiness</div><div style="font-size:16px;font-weight:700;">' + fmtVal(entry.readiness_status) + '</div></div>' +
-              '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:10px;padding:10px;text-align:center;">' +
-                '<div style="font-size:11px;color:var(--ink3,#888);">Recovery</div><div style="font-size:16px;font-weight:700;">' + fmtVal(entry.recovery_status === "unknown" ? null : entry.recovery_status) + '</div></div>' +
-              '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:10px;padding:10px;text-align:center;">' +
-                '<div style="font-size:11px;color:var(--ink3,#888);">7d Load</div><div style="font-size:16px;font-weight:700;">' + fmtVal(entry.seven_day_load) + '</div></div>' +
-              '<div style="background:var(--card,#fff);border:1px solid var(--line,#eee);border-radius:10px;padding:10px;text-align:center;">' +
-                '<div style="font-size:11px;color:var(--ink3,#888);">Adherence</div><div style="font-size:16px;font-weight:700;">' + (entry.adherence_pct != null ? entry.adherence_pct + "%" : "—") + '</div></div>' +
-            '</div>' +
-            '<div style="padding:20px;border:1px dashed var(--line,#ddd);border-radius:12px;text-align:center;color:var(--ink3,#888);">' +
-              '<div style="font-size:14px;font-weight:600;margin-bottom:4px;">Detailed coach trends are coming next</div>' +
-              '<div style="font-size:12px;">Training load history, readiness trends, and performance data will appear here.</div>' +
-            '</div>' +
-          '</div>';
+    el.querySelectorAll(".cm-trends-item").forEach(function (item) {
+      item.addEventListener("click", function () {
+        openCoachAthletePage(item.getAttribute("data-athlete"), "analytics");
       });
-    }
+    });
   }
 
   /* ─── You Tab ─── */
