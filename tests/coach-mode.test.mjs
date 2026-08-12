@@ -707,14 +707,60 @@ describe("Coach Mode — coaching command center UI", () => {
   });
 
   it("renders the approved five-second Overview hierarchy from real fields", () => {
-    for (const label of ["Current direction", "Current status", "This week", "Latest activity", "Coach attention", "Upcoming race"]) {
+    for (const label of ["Current direction", "Current status", "This week", "Latest activity", "Needs attention", "Upcoming race"]) {
       assert.ok(source.includes(label), `missing ${label}`);
     }
-    assert.ok(source.includes('weekSummaryItem(sessions.length, "Planned")'));
-    assert.ok(source.includes('weekSummaryItem(statusCount("modified"), "Modified")'));
-    assert.ok(source.includes('weekSummaryItem(statusCount("skipped"), "Skipped")'));
+    assert.ok(source.includes("function renderWeekSnapshot"));
+    assert.ok(source.includes('statusCount("completed") + statusCount("modified")'));
+    assert.ok(source.includes('wk.completed_distance_km != null'));
+    assert.ok(source.includes('wk.completed_minutes != null'));
+    assert.ok(source.includes('"Execution updates will appear here"'));
     assert.ok(source.includes("No immediate issues."));
-    assert.ok(source.includes("ath.target_event || ath.target_date"));
+    assert.ok(source.includes("function renderUpcomingRace"));
+    assert.ok(source.includes("ath.target_event || ath.target_date ? renderUpcomingRace(ath) : ''"));
+  });
+
+  it("uses compact status rows instead of a generic 2x2 metric-card grid", () => {
+    const overviewStart = source.indexOf("function renderAthleteOverview");
+    const overviewEnd = source.indexOf("function workoutMeta", overviewStart);
+    const overview = source.slice(overviewStart, overviewEnd);
+    assert.ok(overview.includes('statusRow("Readiness"'));
+    assert.ok(overview.includes('statusRow("Recovery"'));
+    assert.ok(overview.includes('statusRow("Training load"'));
+    assert.ok(overview.includes('statusRow("Adherence"'));
+    assert.ok(overview.includes("No recent data"));
+    assert.ok(overview.includes("Building baseline"));
+    assert.ok(overview.includes("Not enough history"));
+    assert.ok(source.includes(".cm-status-row{display:grid"));
+    assert.ok(!source.includes(".cm-overview-status,.cm-analytics-grid"));
+    assert.ok(!overview.includes("cm-detail-grid"));
+  });
+
+  it("prioritizes genuine attention above Latest Activity but keeps all-clear quiet", () => {
+    const overviewStart = source.indexOf("function renderAthleteOverview");
+    const overviewEnd = source.indexOf("function workoutMeta", overviewStart);
+    const overview = source.slice(overviewStart, overviewEnd);
+    assert.ok(overview.includes("reasons ? attention + latestSection : latestSection + attention"));
+    assert.ok(overview.includes("No immediate issues."));
+    assert.ok(overview.includes("cm-attention-section"));
+    assert.ok(overview.includes("Mark reviewed"));
+  });
+
+  it("keeps Latest Activity and Upcoming Race compact and omits unavailable metrics", () => {
+    const latestStart = source.indexOf("function renderLatestActivity");
+    const latestEnd = source.indexOf("function renderUpcomingRace", latestStart);
+    const latest = source.slice(latestStart, latestEnd);
+    const raceStart = source.indexOf("function renderUpcomingRace");
+    const raceEnd = source.indexOf("function workoutMeta", raceStart);
+    const race = source.slice(raceStart, raceEnd);
+    assert.ok(latest.includes("a.distance_km != null"));
+    assert.ok(latest.includes("a.duration_min != null"));
+    assert.ok(latest.includes("a.pace_sec_per_km"));
+    assert.ok(latest.includes("a.avg_power_watts != null"));
+    assert.ok(latest.includes("Completed"));
+    assert.ok(race.includes("if (ath.target_date)"));
+    assert.ok(race.includes("days >= 0"));
+    assert.ok(!race.includes("21.1"));
   });
 
   it("renders a seven-day execution-backed training week and truthful no-plan state", () => {
@@ -727,6 +773,11 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes("key === ath.today_key"));
     assert.ok(source.includes("No active training plan."));
     assert.ok(source.includes("ath.has_active_plan"));
+    assert.ok(source.includes('aria-label="Previous week"'));
+    assert.ok(source.includes('aria-label="Next week"'));
+    assert.ok(source.includes('plannedDistance ? Math.round(plannedDistance * 10) / 10 + " km planned"'));
+    assert.ok(source.includes('plannedMinutes ? plannedMinutes + " min planned"'));
+    assert.ok(source.includes("+ Add workout"));
     const panelStart = source.indexOf("function athletePanelContent");
     const panelEnd = source.indexOf("function positionAthleteTabIndicator", panelStart);
     assert.ok(!source.slice(panelStart, panelEnd).includes("Coming soon"));
@@ -740,6 +791,11 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes("Remove from plan"));
     assert.ok(source.includes("can_reschedule"));
     assert.ok(source.includes("can_remove"));
+    const trainingStart = source.indexOf("function renderAthleteTraining");
+    const trainingEnd = source.indexOf("function renderAthleteAnalytics", trainingStart);
+    const training = source.slice(trainingStart, trainingEnd);
+    assert.ok(training.includes("!canWrite ? '<div class=\"cm-readonly-note\""));
+    assert.ok(training.includes("canWrite ? '<button type=\"button\" class=\"cm-add-workout\""));
   });
 
   it("scopes Analytics, Check-ins, and Notes without athlete selectors", () => {
@@ -757,6 +813,8 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes('class="cm-athlete-page cm-athlete-skeleton"'));
     assert.ok(source.includes("cm-athlete-skel-tabs"));
     assert.ok(source.includes("cm-athlete-skel-section"));
+    assert.ok(source.includes("cm-athlete-skel-rows"));
+    assert.ok(source.includes("cm-athlete-skel-row"));
     const openStart = source.indexOf("async function openCoachAthletePage");
     const openEnd = source.indexOf("function renderAthletePageLoading", openStart);
     const open = source.slice(openStart, openEnd);
@@ -772,6 +830,16 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes('(prefers-reduced-motion: reduce)'));
     assert.ok(source.includes("@media(prefers-reduced-motion:reduce)"));
     assert.ok(!source.includes("cm-athlete-stagger"));
+  });
+
+  it("keeps Athlete Detail mobile-first at 375, 390, and 430px without page overflow", () => {
+    assert.ok(source.includes(".cm-athlete-page{width:100%;max-width:920px"));
+    assert.ok(source.includes("box-sizing:border-box"));
+    assert.ok(source.includes(".cm-athlete-tabs{display:flex"));
+    assert.ok(source.includes("overflow-x:auto"));
+    assert.ok(source.includes("@media(max-width:380px)"));
+    assert.ok(source.includes(".cm-athlete-page{padding-inline:14px}"));
+    assert.ok(source.includes("@media(min-width:760px)"));
   });
 });
 
