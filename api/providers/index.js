@@ -57,6 +57,7 @@ import {
   validateCoachNoteCreate,
   validateCoachNotePatch
 } from "../../lib/server/coachNotes.js";
+import { buildCoachThread, validateCoachMessage } from "../../lib/server/coachMessaging.js";
 
 /* ──────────────────── Athlete Mode imports ─────────────────────────────
  * Consolidated from the former api/athlete-mode.js (removed to stay
@@ -1947,6 +1948,15 @@ async function loadCoachNotesForAthlete(athleteId, viewerId, canWrite) {
   return buildCoachNotes(notesResult.rows, { viewerId, canWrite, authorNames });
 }
 
+async function loadCoachMessageThread(coachId, athleteId, canSend) {
+  const result = await sbCoachRead(
+    `coach_messages?coach_id=eq.${enc(coachId)}&athlete_id=eq.${enc(athleteId)}` +
+      `&select=id,sender_role,body,created_at&order=created_at.asc&limit=200`
+  );
+  if (!result.ok) throw new Error("coach_messages_read_failed");
+  return buildCoachThread(result.rows, { canSend });
+}
+
 async function loadAthleteBundle(athleteId, nowIso, options = {}) {
   const idf = enc(athleteId);
   const todayKey = String(nowIso || new Date().toISOString()).slice(0, 10);
@@ -2290,6 +2300,59 @@ async function actionCoachingDashboardNotes(request, response) {
     return sendJson(response, 200, { coach_notes: notes });
   } catch (err) {
     return sendJson(response, 500, { error: "Coach notes are unavailable right now." });
+  }
+}
+
+async function actionCoachingDashboardMessages(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+  if (!["GET", "POST"].includes(request.method)) {
+    response.setHeader("Allow", "GET, POST");
+    return sendJson(response, 405, { error: "Method not allowed." });
+  }
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+  const profile = await loadCoachProfile(user.id);
+  if (!canAccessCoachDashboard(profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(profile) });
+  }
+
+  const athleteId = request.method === "GET"
+    ? request.query && (request.query.athlete_id || request.query.athleteId)
+    : request.body && request.body.athlete_id;
+  if (!athleteId) return sendJson(response, 400, { error: "athlete_id is required." });
+  const assignments = await loadActiveAssignments(user.id);
+  if (!canCoachAccessAthlete(assignments, user.id, athleteId)) {
+    return sendJson(response, 403, { error: "You are not assigned to this athlete." });
+  }
+  const canSend = canCoachManageAthlete(assignments, user.id, athleteId);
+
+  try {
+    if (request.method === "POST") {
+      if (!canSend) {
+        return sendJson(response, 403, { error: "This assignment is view-only." });
+      }
+      const validated = validateCoachMessage(request.body && request.body.message);
+      if (!validated.ok) return sendJson(response, 400, { error: validated.error });
+      const saved = await sbCoachWrite("coach_messages", "POST", {
+        coach_id: user.id,
+        athlete_id: athleteId,
+        sender_user_id: user.id,
+        sender_role: "coach",
+        body: validated.value.body
+      });
+      if (!saved.ok || !saved.rows[0]) {
+        return sendJson(response, 500, { error: "The message could not be sent." });
+      }
+    }
+    const thread = await loadCoachMessageThread(user.id, athleteId, canSend);
+    return sendJson(response, 200, { thread });
+  } catch {
+    return sendJson(response, 500, { error: "Messages are unavailable right now." });
   }
 }
 
@@ -2787,6 +2850,12 @@ async function actionDeleteAccount(request, response) {
   await deleteFrom("coach_notes", "athlete_id", userId);
   await deleteFrom("coach_notes", "author_user_id", userId);
 
+  // coach_messages: participant and sender references all cascade, but explicit
+  // cleanup keeps the account-deletion audit deterministic across environments.
+  await deleteFrom("coach_messages", "athlete_id", userId);
+  await deleteFrom("coach_messages", "coach_id", userId);
+  await deleteFrom("coach_messages", "sender_user_id", userId);
+
   // coaching_transitions: athlete_id, coach_id
   await deleteFrom("coaching_transitions", "athlete_id", userId);
   await deleteFrom("coaching_transitions", "coach_id", userId);
@@ -2933,6 +3002,9 @@ export default async function handler(request, response) {
     }
     if (action === "coaching_dashboard_notes") {
       return actionCoachingDashboardNotes(request, response);
+    }
+    if (action === "coaching_dashboard_messages") {
+      return actionCoachingDashboardMessages(request, response);
     }
 
     // Athlete Mode actions (consolidated from api/athlete-mode.js).

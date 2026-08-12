@@ -462,8 +462,10 @@ describe("Coach Mode — client module structure", () => {
     assert.ok(!coachModeSource.match(/email.*role|role.*email/));
   });
 
-  it("Coach messaging placeholder is clearly not AI coach", () => {
-    assert.ok(coachModeSource.includes("Human coach messaging will appear here"));
+  it("Coach messaging remains human and athlete-scoped", () => {
+    assert.ok(coachModeSource.includes('api("messages"'));
+    assert.ok(coachModeSource.includes("No messages yet."));
+    assert.ok(!coachModeSource.includes("Human coach messaging will appear here"));
   });
 
   it("Coach trends shows coming-next placeholder", () => {

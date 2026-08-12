@@ -50,6 +50,10 @@
   var _athleteAnalyticsRange = 4;
   var _athleteCheckInsRange = 7;
   var _editingCoachNoteId = null;
+  var _messageOrigin = "global";
+  var _messageReturnTab = "overview";
+  var _messageThreadCache = Object.create(null);
+  var _messageRequest = 0;
   var _athleteDetailCache = Object.create(null);
   var _athleteDetailRequest = 0;
   var _athletePanelTransition = 0;
@@ -281,11 +285,12 @@
       ".cm-athlete-checkins{display:grid;gap:22px;max-width:720px}.cm-checkins-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.cm-checkins-head h2{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-checkins-latest{margin-top:5px;color:var(--ink3,#737373);font-size:11px}.cm-checkin-section{padding-top:16px;border-top:1px solid var(--line,#e5e5e5)}.cm-checkin-section:first-of-type{padding-top:0;border-top:0}.cm-checkin-rows{border-block:1px solid var(--line,#e5e5e5)}.cm-checkin-row{display:grid;grid-template-columns:minmax(92px,.8fr) minmax(0,1fr);align-items:baseline;gap:12px;min-height:40px;padding:8px 0;border-bottom:1px solid var(--line,#e5e5e5)}.cm-checkin-row:last-child{border-bottom:0}.cm-checkin-row span{color:var(--ink3,#737373);font-size:11px}.cm-checkin-row strong{font-size:13px;text-align:right}.cm-checkin-note{margin:8px 0 0;padding-left:12px;border-left:2px solid var(--line,#d9d9d9);color:var(--ink2,#555);font-family:var(--serif,serif);font-size:16px;line-height:1.5}.cm-checkin-pain{padding:12px 0;border-block:1px solid rgba(165,42,47,.32)}.cm-checkin-pain .cm-analytics-kicker{color:var(--bad,#a52a2f)}.cm-checkin-pain strong{display:block;margin-top:7px;color:var(--bad,#a52a2f);font-size:14px}.cm-checkin-quiet{color:var(--ink3,#737373);font-size:12px}.cm-subjective-trends{display:grid;gap:11px;margin-top:11px}.cm-subjective-row{display:grid;grid-template-columns:68px minmax(0,1fr);align-items:center;gap:10px}.cm-subjective-label{color:var(--ink2,#555);font-size:11px}.cm-subjective-bars{display:flex;align-items:flex-end;gap:4px;height:24px}.cm-subjective-bar{flex:1;min-width:3px;max-width:18px;background:var(--ink3,#737373);opacity:.38}.cm-subjective-bar.is-missing{height:1px!important;background:var(--line,#e5e5e5);opacity:1}.cm-checkin-timeline{margin:8px 0 0;padding:0;list-style:none}.cm-checkin-timeline li{display:grid;grid-template-columns:68px minmax(0,1fr);gap:12px;padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5)}.cm-checkin-timeline time{color:var(--ink3,#737373);font-size:10px}.cm-checkin-timeline p{margin:0;color:var(--ink2,#555);font-size:11px;line-height:1.5}.cm-checkin-timeline blockquote{margin:5px 0 0;color:var(--ink1,#171717);font-family:var(--serif,serif);font-size:13px;line-height:1.45}.cm-coaching-signals{margin:8px 0 0;padding:0;list-style:none}.cm-coaching-signals li{padding:7px 0;border-bottom:1px solid var(--line,#e5e5e5);color:var(--ink2,#555);font-size:12px;line-height:1.45}.cm-coaching-signals li:last-child{border-bottom:0}",
       ".cm-athlete-notes{display:grid;gap:20px;max-width:720px}.cm-notes-head h2{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-notes-private{margin:5px 0 0;color:var(--ink3,#737373);font-size:11px}.cm-note-compose{display:grid;gap:9px;padding:14px 0;border-block:1px solid var(--line,#e5e5e5)}.cm-note-compose textarea,.cm-note-edit textarea{width:100%;min-height:68px;box-sizing:border-box;resize:vertical;border:0;border-bottom:1px solid var(--line,#d9d9d9);border-radius:0;background:transparent;color:inherit;padding:7px 0;font:13px/1.5 var(--sans,sans-serif)}.cm-note-compose textarea:focus,.cm-note-edit textarea:focus{outline:0;border-bottom-color:var(--ink2,#555)}.cm-note-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px}.cm-note-action{border:0;border-bottom:1px solid transparent;background:transparent;color:var(--ink3,#737373);padding:5px 0;font:700 10px/1 var(--sans,sans-serif);cursor:pointer}.cm-note-action:hover,.cm-note-action:focus-visible{color:var(--ink1,#171717);border-bottom-color:currentColor}.cm-note-action--primary{color:var(--red,#b3292d)}.cm-note-action--danger{color:var(--bad,#a52a2f)}.cm-note-action:disabled{cursor:default;opacity:.5}.cm-notes-error{min-height:14px;color:var(--bad,#a52a2f);font-size:11px}.cm-note-group{min-width:0}.cm-note-group-title{display:block;padding-bottom:7px;border-bottom:1px solid var(--line,#e5e5e5);color:var(--ink3,#737373);font-size:10px;font-weight:750;letter-spacing:.065em;text-transform:uppercase}.cm-note-list{margin:0;padding:0;list-style:none}.cm-note-item{padding:14px 0;border-bottom:1px solid var(--line,#e5e5e5)}.cm-note-item-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.cm-note-meta{color:var(--ink3,#737373);font-size:10px;line-height:1.4}.cm-note-pin{color:var(--ink2,#555);font-size:9px;font-weight:750;letter-spacing:.055em;text-transform:uppercase}.cm-note-body{margin:7px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink1,#171717);font-family:var(--serif,serif);font-size:15px;line-height:1.52}.cm-note-item-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:9px}.cm-note-edit{display:grid;gap:9px}.cm-notes-readonly,.cm-notes-unavailable{padding:12px 0;border-block:1px solid var(--line,#e5e5e5);color:var(--ink3,#737373);font-size:12px;line-height:1.5}.cm-notes-empty{padding:20px 0;border-bottom:1px solid var(--line,#e5e5e5)}.cm-notes-empty strong{display:block;font-family:var(--serif,serif);font-size:19px;font-weight:520}.cm-notes-empty p{margin:6px 0 0;color:var(--ink3,#737373);font-size:12px;line-height:1.5}",
       ".cm-note-confirm{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.38)}.cm-note-confirm-dialog{width:min(100%,360px);box-sizing:border-box;background:var(--bg,#fff);border:1px solid var(--line,#e5e5e5);padding:20px}.cm-note-confirm-dialog h2{margin:0;font-family:var(--serif,serif);font-size:21px;font-weight:520}.cm-note-confirm-dialog p{margin:7px 0 18px;color:var(--ink3,#737373);font-size:12px}.cm-note-confirm-actions{display:flex;justify-content:flex-end;gap:16px}",
+      ".cm-athlete-head{display:grid;grid-template-columns:44px minmax(0,1fr) auto}.cm-athlete-head-actions{display:grid;justify-items:end;gap:8px}.cm-athlete-message{border:0;border-bottom:1px solid var(--line,#d9d9d9);background:transparent;color:var(--ink2,#555);padding:5px 0;font:750 10px/1 var(--sans,sans-serif);cursor:pointer}.cm-athlete-message:hover,.cm-athlete-message:focus-visible{color:var(--ink1,#171717);border-bottom-color:currentColor}.cm-msg-directory{width:100%;max-width:720px;margin:0 auto;padding:16px 14px 96px;box-sizing:border-box}.cm-msg-directory h1{margin:0 0 16px;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-msg-empty-directory{padding:40px 16px;text-align:center;color:var(--ink3,#737373);font-size:13px}.cm-msg-empty-directory strong{display:block;margin-bottom:6px;color:var(--ink2,#555);font-size:15px}.cm-msg-item{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:12px 0;border:0;border-bottom:1px solid var(--line,#e5e5e5);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-msg-item-copy{min-width:0}.cm-msg-item-name{display:block;font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-msg-item-meta{display:block;margin-top:3px;color:var(--ink3,#737373);font-size:11px}.cm-msg-item-arrow{color:var(--ink3,#737373)}.cm-msg-thread{display:flex;flex:1;min-height:0;width:100%;max-width:720px;margin:0 auto;flex-direction:column}.cm-msg-thread-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line,#e5e5e5);flex:0 0 auto}.cm-msg-thread-back{min-width:44px;min-height:40px;border:0;background:transparent;color:var(--ink2,#555);padding:0;text-align:left;font:700 12px/1 var(--sans,sans-serif);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-msg-thread-title{min-width:0}.cm-msg-thread-title strong{display:block;font-family:var(--serif,serif);font-size:18px;font-weight:520;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-msg-thread-title span{display:block;margin-top:2px;color:var(--ink3,#737373);font-size:10px}.cm-msg-athlete-detail{border:0;background:transparent;color:var(--ink3,#737373);padding:8px 0;font:700 10px/1 var(--sans,sans-serif);cursor:pointer}.cm-msg-log{display:flex;flex:1;min-height:0;overflow-y:auto;flex-direction:column;gap:12px;padding:18px 14px;-webkit-overflow-scrolling:touch}.cm-msg-bubble{max-width:82%;overflow-wrap:anywhere}.cm-msg-bubble p{margin:0;padding:9px 12px;border:1px solid var(--line,#e5e5e5);font-size:13px;line-height:1.48;white-space:pre-wrap}.cm-msg-bubble time{display:block;margin-top:4px;color:var(--ink3,#737373);font-size:9px}.cm-msg-bubble.is-coach{align-self:flex-end}.cm-msg-bubble.is-coach p{background:var(--ink1,#171717);border-color:var(--ink1,#171717);color:var(--bg,#fff)}.cm-msg-bubble.is-coach time{text-align:right}.cm-msg-bubble.is-athlete{align-self:flex-start}.cm-msg-thread-empty{margin:auto;padding:30px 14px;text-align:center}.cm-msg-thread-empty strong{display:block;font-family:var(--serif,serif);font-size:20px;font-weight:520}.cm-msg-thread-empty p{margin:6px 0 0;color:var(--ink3,#737373);font-size:12px}.cm-msg-composer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:9px;padding:10px 14px 12px;border-top:1px solid var(--line,#e5e5e5);background:var(--bg,#fff);flex:0 0 auto}.cm-msg-composer textarea{width:100%;min-height:42px;max-height:112px;box-sizing:border-box;resize:none;border:1px solid var(--line,#d9d9d9);border-radius:10px;background:var(--field,var(--card,#fff));color:inherit;padding:10px 11px;font:13px/1.4 var(--sans,sans-serif)}.cm-msg-send{min-width:54px;min-height:42px;border:0;border-radius:10px;background:var(--ink1,#171717);color:var(--bg,#fff);font:750 11px/1 var(--sans,sans-serif);cursor:pointer}.cm-msg-send:disabled{opacity:.5;cursor:default}.cm-msg-error{grid-column:1/-1;min-height:13px;color:var(--bad,#a52a2f);font-size:10px}.cm-msg-loading{display:grid;gap:12px;padding:20px 14px}.cm-msg-loading span{display:block;width:72%;height:44px;border-radius:8px}.cm-msg-loading span:nth-child(even){justify-self:end;width:62%}",
       ".cm-athlete-skeleton{display:grid;gap:18px}.cm-athlete-skel-back{width:112px;height:11px}.cm-athlete-skel-head{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px}.cm-athlete-skel-copy{display:grid;gap:7px}.cm-athlete-skel-name{width:min(180px,68%);height:24px}.cm-athlete-skel-sub{width:min(250px,88%);height:11px}.cm-athlete-skel-tabs{display:flex;gap:18px;padding:11px 0;border-bottom:1px solid var(--line,#e5e5e5);overflow:hidden}.cm-athlete-skel-tabs span{flex:0 0 58px;height:10px}.cm-athlete-skel-section{display:grid;gap:9px;padding-top:14px;border-top:1px solid var(--line,#e5e5e5)}.cm-athlete-skel-section span{height:10px}.cm-athlete-skel-section span:first-child{width:92px}.cm-athlete-skel-section span:nth-child(2){width:76%;height:15px}.cm-athlete-skel-section span:nth-child(3){width:92%}.cm-athlete-skel-rows{display:grid;border-top:1px solid var(--line,#e5e5e5)}.cm-athlete-skel-row{height:54px;border-bottom:1px solid var(--line,#e5e5e5)}",
       "@media(min-width:760px){.cm-athlete-page{padding-inline:24px}.cm-detail-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.cm-workout-dialog{align-self:center;border-radius:14px}.cm-athlete-panel{padding-top:24px}.cm-athlete-analytics{max-width:720px}}",
       "@media(min-width:760px){.cm-roster-item .cm-row{padding-block:17px}}",
       "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
-      "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}}",
+      "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-panel.is-entering{animation:none}.cm-row-name,.cm-athlete-panel,.cm-athlete-tab-indicator{transition:none}}"
     ].join("");
     document.head.appendChild(style);
@@ -461,6 +466,14 @@
 
   function clearWorkspacePref() {
     try { localStorage.removeItem(WORKSPACE_KEY); } catch (e) {}
+  }
+
+  function clearWorkspaceOnLogout() {
+    clearWorkspacePref();
+    _messageThreadCache = Object.create(null);
+    _messageRequest += 1;
+    _messageOrigin = "global";
+    _messageReturnTab = "overview";
   }
 
   /* Athlete readiness is never collected inside Coach Workspace. Closing a
@@ -639,6 +652,10 @@
   /* Coach tab switching — replaces the athlete `go()` for coach screens */
   function coachGo(btn) {
     var screenId = btn.dataset.screen;
+    if (screenId === "screen-coach-messaging") {
+      _messageOrigin = "global";
+      _messageRequest += 1;
+    }
     var screenEl = document.getElementById(screenId);
     if (window.AthlevoAppMotion) {
       window.AthlevoAppMotion.selectTab(btn, true);
@@ -1021,6 +1038,7 @@
     _athleteAnalyticsRange = 4;
     _athleteCheckInsRange = 7;
     _editingCoachNoteId = null;
+    _messageRequest += 1;
     _athleteDetailTab = "overview";
     renderCoachToday();
   }
@@ -1095,7 +1113,7 @@
     var headerStatus = ath.readiness && ath.readiness.status && ath.readiness.status !== "No recent data" ? ath.readiness.status + " readiness" : "";
     el.innerHTML = '<div class="cm-athlete-page">' +
       '<button class="cm-athlete-back" type="button">← Coach Dashboard</button>' +
-      '<header class="cm-athlete-head"><span class="cm-avatar" aria-hidden="true">' + esc(ath.initials || "A") + '</span><div class="cm-athlete-head-copy"><h1 class="cm-athlete-name">' + esc(ath.name || "Athlete") + '</h1><p class="cm-athlete-goal">' + esc(ath.goal || SPORT_LABEL[ath.primary_sport] || "Athlete") + '</p>' + (athleteRaceContext(ath) ? '<p class="cm-athlete-race">' + esc(athleteRaceContext(ath)) + '</p>' : '') + '</div>' + (headerStatus ? '<span class="cm-athlete-head-status">' + esc(headerStatus) + '</span>' : '') + '</header>' +
+      '<header class="cm-athlete-head"><span class="cm-avatar" aria-hidden="true">' + esc(ath.initials || "A") + '</span><div class="cm-athlete-head-copy"><h1 class="cm-athlete-name">' + esc(ath.name || "Athlete") + '</h1><p class="cm-athlete-goal">' + esc(ath.goal || SPORT_LABEL[ath.primary_sport] || "Athlete") + '</p>' + (athleteRaceContext(ath) ? '<p class="cm-athlete-race">' + esc(athleteRaceContext(ath)) + '</p>' : '') + '</div><div class="cm-athlete-head-actions">' + (headerStatus ? '<span class="cm-athlete-head-status">' + esc(headerStatus) + '</span>' : '') + '<button type="button" class="cm-athlete-message" id="cmMessageAthlete">Message</button></div></header>' +
       '<nav class="cm-athlete-tabs" aria-label="Athlete workspace">' + tabs.map(function (tab) { return '<button type="button" class="cm-athlete-tab' + (_athleteDetailTab === tab ? ' is-active' : '') + '" data-athlete-tab="' + tab + '">' + labels[tab] + '</button>'; }).join("") + '<span class="cm-athlete-tab-indicator" aria-hidden="true"></span></nav>' +
       '<div class="cm-athlete-panel">' + athletePanelContent(ath) + '</div></div>';
     el.querySelector(".cm-athlete-back").addEventListener("click", closeAthletePage);
@@ -1484,6 +1502,10 @@
   function bindAthletePageActions(el, ath) {
     var review = el.querySelector("#cmDetailReview");
     if (review) review.addEventListener("click", function () { markAthleteReviewed(ath.athlete_id, review); });
+    var messageAthlete = el.querySelector("#cmMessageAthlete");
+    if (messageAthlete) messageAthlete.addEventListener("click", function () {
+      openAthleteMessaging(ath.athlete_id, "athlete_detail", _athleteDetailTab);
+    });
     el.querySelectorAll("[data-analytics-range]").forEach(function (btn) { btn.addEventListener("click", function () {
       var next = Number(btn.getAttribute("data-analytics-range"));
       if ([4, 8, 12].indexOf(next) === -1 || next === _athleteAnalyticsRange) return;
@@ -1629,59 +1651,159 @@
     if (btn) btn.textContent = "Reviewed";
   }
 
-  /* ═══════════════════════ PLACEHOLDER TABS ════════════════════════ */
+  /* ═══════════════════════ COACH WORKSPACE TABS ════════════════════ */
 
   /* ─── Coach (Messaging) Tab ─── */
+  function activateCoachScreen(screenId) {
+    var screen = document.getElementById(screenId);
+    var tab = document.querySelector('#tabbar .tab[data-screen="' + screenId + '"]');
+    if (window.AthlevoAppMotion && tab) {
+      window.AthlevoAppMotion.selectTab(tab, true);
+      window.AthlevoAppMotion.transitionTo(screenId);
+    } else {
+      document.querySelectorAll(".screen").forEach(function (item) { item.classList.remove("active"); });
+      if (screen) screen.classList.add("active");
+      document.querySelectorAll("#tabbar .tab").forEach(function (item) {
+        item.classList.toggle("on", item.getAttribute("data-screen") === screenId);
+      });
+    }
+    return screen;
+  }
+
+  function rosterAthlete(athleteId) {
+    return _roster.find(function (athlete) { return String(athlete.athlete_id) === String(athleteId); }) ||
+      (_athleteDetail && String(_athleteDetail.athlete_id) === String(athleteId) ? _athleteDetail : null);
+  }
+
+  function coachMessageTime(iso) {
+    var date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " +
+      date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  function renderCoachThread(athleteId, thread) {
+    var athlete = rosterAthlete(athleteId);
+    var messages = thread && Array.isArray(thread.messages) ? thread.messages : [];
+    var backLabel = _messageOrigin === "athlete_detail" ? "← " + (athlete && athlete.name || "Athlete") : "← Messages";
+    var history = thread && thread.error
+      ? '<div class="cm-msg-thread-empty"><strong>Messages unavailable.</strong><p>' + esc(thread.error) + '</p></div>'
+      : messages.length
+      ? messages.map(function (message) {
+          return '<article class="cm-msg-bubble ' + (message.sender_role === "coach" ? "is-coach" : "is-athlete") + '"><p>' + esc(message.body) + '</p><time datetime="' + esc(message.created_at) + '">' + esc(coachMessageTime(message.created_at)) + '</time></article>';
+        }).join("")
+      : '<div class="cm-msg-thread-empty"><strong>No messages yet.</strong><p>Start a conversation with ' + esc(athlete && athlete.name || "this athlete") + '.</p></div>';
+    var composer = thread && thread.can_send
+      ? '<form class="cm-msg-composer" id="cmMessageComposer"><textarea name="body" maxlength="4000" rows="1" aria-label="Message ' + esc(athlete && athlete.name || "athlete") + '" placeholder="Write a message…"></textarea><button type="submit" class="cm-msg-send">Send</button><div class="cm-msg-error" aria-live="polite"></div></form>'
+      : '<p class="cm-notes-readonly">This conversation is view-only.</p>';
+    return '<div class="cm-msg-thread" data-message-athlete="' + esc(athleteId) + '"><header class="cm-msg-thread-head"><button type="button" class="cm-msg-thread-back">' + esc(backLabel) + '</button><div class="cm-msg-thread-title"><strong>' + esc(athlete && athlete.name || "Athlete") + '</strong><span>Athlete</span></div>' + (_messageOrigin === "global" ? '<button type="button" class="cm-msg-athlete-detail">View athlete</button>' : '<span></span>') + '</header><div class="cm-msg-log" id="cmMessageLog">' + history + '</div>' + composer + '</div>';
+  }
+
+  function renderCoachThreadLoading(athleteId) {
+    var athlete = rosterAthlete(athleteId);
+    return '<div class="cm-msg-thread" data-message-athlete="' + esc(athleteId) + '"><header class="cm-msg-thread-head"><button type="button" class="cm-msg-thread-back">←</button><div class="cm-msg-thread-title"><strong>' + esc(athlete && athlete.name || "Athlete") + '</strong><span>Athlete</span></div><span></span></header><div class="cm-msg-loading" role="status" aria-label="Loading conversation"><span class="skel"></span><span class="skel"></span><span class="skel"></span></div></div>';
+  }
+
+  function bindCoachThread(el, athleteId) {
+    var back = el.querySelector(".cm-msg-thread-back");
+    if (back) back.addEventListener("click", function () {
+      _messageRequest += 1;
+      if (_messageOrigin === "athlete_detail" && _athleteDetailId && _athleteDetail) {
+        activateCoachScreen("screen-today");
+        _athleteDetailTab = _messageReturnTab || "overview";
+        renderAthletePage();
+      } else {
+        _messageOrigin = "global";
+        renderCoachMessaging();
+      }
+    });
+    var viewAthlete = el.querySelector(".cm-msg-athlete-detail");
+    if (viewAthlete) viewAthlete.addEventListener("click", function () {
+      _messageRequest += 1;
+      activateCoachScreen("screen-today");
+      openCoachAthletePage(athleteId, "overview");
+    });
+    var form = el.querySelector("#cmMessageComposer");
+    if (form) form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      var textarea = form.querySelector('textarea[name="body"]');
+      var send = form.querySelector('[type="submit"]');
+      var error = form.querySelector(".cm-msg-error");
+      if (send) send.disabled = true;
+      if (error) error.textContent = "";
+      var requestId = ++_messageRequest;
+      var res = await api("messages", { method: "POST", body: { athlete_id: athleteId, message: { body: textarea ? textarea.value : "" } } });
+      if (requestId !== _messageRequest || !el.classList.contains("active")) return;
+      if (!res.ok || !res.body || !res.body.thread) {
+        if (error) error.textContent = res.body && res.body.error || "The message could not be sent.";
+        if (send) send.disabled = false;
+        return;
+      }
+      _messageThreadCache[String(athleteId)] = res.body.thread;
+      el.innerHTML = renderCoachThread(athleteId, res.body.thread);
+      bindCoachThread(el, athleteId);
+      var log = el.querySelector("#cmMessageLog");
+      if (log) log.scrollTop = log.scrollHeight;
+    });
+  }
+
+  async function openAthleteMessaging(athleteId, origin, returnTab) {
+    var athlete = rosterAthlete(athleteId);
+    if (!athlete) return;
+    _messageOrigin = origin === "athlete_detail" ? "athlete_detail" : "global";
+    _messageReturnTab = returnTab || "overview";
+    var el = activateCoachScreen("screen-coach-messaging");
+    if (!el) return;
+    var cached = _messageThreadCache[String(athleteId)];
+    if (cached) {
+      el.innerHTML = renderCoachThread(athleteId, cached);
+      bindCoachThread(el, athleteId);
+    } else {
+      el.innerHTML = renderCoachThreadLoading(athleteId);
+      bindCoachThread(el, athleteId);
+    }
+    var requestId = ++_messageRequest;
+    var res = await api("messages", { query: { athlete_id: athleteId } });
+    if (requestId !== _messageRequest || !el.classList.contains("active")) return;
+    if (!res.ok || !res.body || !res.body.thread) {
+      el.innerHTML = renderCoachThread(athleteId, {
+        messages: [],
+        can_send: false,
+        error: res.status === 403 ? "You are not assigned to this athlete." : "Try again in a moment."
+      });
+      bindCoachThread(el, athleteId);
+      return;
+    }
+    _messageThreadCache[String(athleteId)] = res.body.thread;
+    el.innerHTML = renderCoachThread(athleteId, res.body.thread);
+    bindCoachThread(el, athleteId);
+    var log = el.querySelector("#cmMessageLog");
+    if (log) log.scrollTop = log.scrollHeight;
+  }
+
   function renderCoachMessaging() {
     var el = document.getElementById("screen-coach-messaging");
     if (!el) return;
+    _messageRequest += 1;
+    _messageOrigin = "global";
     var sorted = sortRoster(_roster);
-    var html = '<div style="max-width:720px;margin:0 auto;padding:16px 14px 96px;">' +
-      '<h1 style="font-size:20px;font-weight:700;margin:0 0 16px;">Coach Messaging</h1>';
+    var html = '<div class="cm-msg-directory"><h1>Coach Messaging</h1>';
     if (!sorted.length) {
-      html += '<div style="padding:40px 16px;text-align:center;color:var(--ink3,#888);">' +
-        '<div style="font-size:40px;margin-bottom:12px;">💬</div>' +
-        '<div style="font-size:15px;margin-bottom:6px;">No athletes assigned yet</div>' +
-        '<div style="font-size:13px;">Assigned athletes will appear here.</div></div>';
+      html += '<div class="cm-msg-empty-directory"><strong>No athletes assigned yet</strong><span>Assigned athletes will appear here.</span></div>';
     } else {
       sorted.forEach(function (a) {
-        html += '<div class="cm-msg-item" data-athlete="' + esc(a.athlete_id) + '" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line,#eee);cursor:pointer;">' +
-          '<div style="width:40px;height:40px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;">' + esc(a.initials || "A") + '</div>' +
-          '<div style="min-width:0;flex:1;">' +
-            '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(a.name) + '</div>' +
-            '<div style="font-size:12px;color:var(--ink3,#888);">No messages yet</div>' +
-          '</div>' +
-          '<div style="font-size:11px;color:var(--ink3,#aaa);">—</div>' +
-        '</div>';
+        var cached = _messageThreadCache[String(a.athlete_id)];
+        var count = cached && Array.isArray(cached.messages) ? cached.messages.length : null;
+        html += '<button type="button" class="cm-msg-item" data-athlete="' + esc(a.athlete_id) + '"><span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span><span class="cm-msg-item-copy"><span class="cm-msg-item-name">' + esc(a.name) + '</span><span class="cm-msg-item-meta">' + (count == null ? "Open conversation" : count ? count + (count === 1 ? " message" : " messages") : "No messages yet") + '</span></span><span class="cm-msg-item-arrow">›</span></button>';
       });
     }
     html += '</div>';
     el.innerHTML = html;
-    // Bind click to show messaging placeholder
     el.querySelectorAll(".cm-msg-item").forEach(function (item) {
       item.addEventListener("click", function () {
-        showMessagingPlaceholder(item.getAttribute("data-athlete"));
+        openAthleteMessaging(item.getAttribute("data-athlete"), "global", "overview");
       });
     });
-  }
-
-  function showMessagingPlaceholder(athleteId) {
-    var entry = _roster.find(function (a) { return a.athlete_id === athleteId; });
-    var el = document.getElementById("screen-coach-messaging");
-    if (!el) return;
-    el.innerHTML = '<div style="max-width:720px;margin:0 auto;padding:16px 14px 96px;">' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">' +
-        '<button class="cm-msg-back" style="border:0;background:transparent;font-size:20px;cursor:pointer;padding:4px;">‹</button>' +
-        '<div style="width:36px;height:36px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;">' + esc(entry ? entry.initials : "A") + '</div>' +
-        '<div style="font-weight:600;font-size:16px;">' + esc(entry ? entry.name : "Athlete") + '</div>' +
-      '</div>' +
-      '<div style="padding:60px 20px;text-align:center;color:var(--ink3,#888);">' +
-        '<div style="font-size:36px;margin-bottom:12px;">💬</div>' +
-        '<div style="font-size:15px;font-weight:600;margin-bottom:6px;">Human coach messaging will appear here</div>' +
-        '<div style="font-size:13px;">Direct messaging with your athletes is coming in a future update.</div>' +
-      '</div>' +
-    '</div>';
-    el.querySelector(".cm-msg-back").addEventListener("click", function () { renderCoachMessaging(); });
   }
 
   /* ─── Train Tab ─── */
@@ -1914,7 +2036,7 @@
     var logoutBtn = document.getElementById("cmLogout");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", async function () {
-        clearWorkspacePref();
+        clearWorkspaceOnLogout();
         var c = sb();
         if (c) { try { await c.auth.signOut(); } catch (e) {} }
         location.reload();
@@ -2057,7 +2179,7 @@
     getWorkspace: function () { return _workspace; },
     switchToCoachWorkspace: activateCoachWorkspace,
     switchToAthleteWorkspace: activateAthleteWorkspace,
-    clearWorkspaceOnLogout: clearWorkspacePref,
+    clearWorkspaceOnLogout: clearWorkspaceOnLogout,
     injectAthleteYouSwitcher: injectAthleteYouSwitcher,
     _roster: function () { return _roster; },
     _state: function () { return { mode: _appMode, role: _role, coachName: _coachName, rosterSize: _roster.length, workspace: _workspace }; },
