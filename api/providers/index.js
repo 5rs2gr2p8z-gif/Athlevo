@@ -50,6 +50,7 @@ import {
   deriveLastActiveAt
 } from "../../lib/server/coachSanitize.js";
 import { buildCoachAnalytics } from "../../lib/server/coachAnalytics.js";
+import { buildCoachCheckIns } from "../../lib/server/coachCheckIns.js";
 
 /* ──────────────────── Athlete Mode imports ─────────────────────────────
  * Consolidated from the former api/athlete-mode.js (removed to stay
@@ -1934,12 +1935,15 @@ async function loadAthleteBundle(athleteId, nowIso, options = {}) {
   // the athlete response is returned.
   const rangeStart = addDateDays(todayKey, includeAnalytics ? -167 : -28);
   const rangeEnd = addDateDays(todayKey, 56);
-  const [profile, metrics, weekly, readiness, sessions, latestAct, analyticsAct, provider, plans] =
+  const [profile, metrics, weekly, readiness, readinessHistory, sessions, latestAct, analyticsAct, provider, plans] =
     await Promise.all([
       sbSelect(`profiles?id=eq.${idf}&select=id,full_name,primary_sport,goal,target_race,race_date`),
       sbSelect(`athlete_metrics?user_id=eq.${idf}&select=weekly_training_load,weekly_distance,fatigue_score,fitness_score,last_updated`),
       sbSelect(`weekly_progress_summaries?user_id=eq.${idf}&select=planned_duration_minutes,completed_duration_minutes,planned_distance_km,completed_distance_km,recovery_status,consistency_status,injury_risk_status,trajectory_status,week_start&order=week_start.desc&limit=1`),
       sbSelect(`daily_readiness?user_id=eq.${idf}&select=readiness_date,sleep_quality,energy,muscle_soreness,mental_stress,pain_present,pain_severity&order=readiness_date.desc&limit=1`),
+      includeAnalytics
+        ? sbSelect(`daily_readiness?user_id=eq.${idf}&select=readiness_date,created_at,updated_at,sleep_quality,energy,muscle_soreness,mental_stress,pain_present,pain_location,pain_severity,notes&order=readiness_date.desc&limit=14`)
+        : Promise.resolve([]),
       sbSelect(`training_sessions?user_id=eq.${idf}&session_date=gte.${enc(rangeStart)}&session_date=lte.${enc(rangeEnd)}&select=*&order=session_date.asc&limit=${includeAnalytics ? 500 : 100}`),
       sbSelect(`activities?user_id=eq.${idf}&select=start_date,sport_type,activity_type,source,distance_meters,moving_time_seconds,average_cadence,trainer,raw_data&order=start_date.desc&limit=8`),
       includeAnalytics
@@ -1965,6 +1969,7 @@ async function loadAthleteBundle(athleteId, nowIso, options = {}) {
     metrics: metrics[0] || {},
     weeklySummary: weekly[0] || {},
     readiness: readiness[0] || {},
+    readinessHistory,
     trainingSessions: sessions,
     executions,
     currentPlan: plans[0] || null,
@@ -2171,6 +2176,7 @@ async function actionCoachingDashboardAthlete(request, response) {
       executions: bundle.executions,
       today: todayKey
     });
+    overview.coach_check_ins = buildCoachCheckIns(bundle.readinessHistory);
     return sendJson(response, 200, { athlete: overview });
   } catch (err) {
     return sendJson(response, 500, { error: "The coach dashboard could not load." });

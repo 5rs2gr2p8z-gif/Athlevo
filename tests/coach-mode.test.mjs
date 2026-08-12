@@ -803,7 +803,7 @@ describe("Coach Mode — coaching command center UI", () => {
     const detailEnd = source.indexOf("function positionAthleteTabIndicator", detailStart);
     const detail = source.slice(detailStart, detailEnd);
     assert.ok(detail.includes("renderAthleteAnalytics(ath)"));
-    assert.ok(detail.includes("No check-ins available yet."));
+    assert.ok(detail.includes("renderAthleteCheckIns(ath)"));
     assert.ok(detail.includes("Coach notes will appear here."));
     assert.ok(!detail.includes("Choose athlete"));
     assert.ok(source.includes("Not enough training history yet."));
