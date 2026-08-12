@@ -282,6 +282,12 @@
     evaluate({ reason }).catch(function () {});
   }
 
+  function clearOnLogout() {
+    openedThisSession.clear();
+    completedThisSession.clear();
+    evaluationInFlight = null;
+  }
+
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") {
       evaluateOnResume("app-resume");
@@ -295,6 +301,7 @@
     evaluate,
     dismiss,
     markCompleted,
+    clearOnLogout,
     isDismissalActive,
     DISMISS_DELAY_MS,
     _test: {

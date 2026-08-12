@@ -188,9 +188,24 @@ describe("Workspace Switcher — security", () => {
       "doLogout must call clearWorkspaceOnLogout"
     );
     assert.ok(
-      coachModeSource.includes("clearWorkspaceOnLogout: clearWorkspacePref"),
+      coachModeSource.includes("clearWorkspaceOnLogout: clearWorkspaceOnLogout"),
       "clearWorkspaceOnLogout must be exposed on public API"
     );
+  });
+
+  it("coach logout uses the shared app logout flow without reloading", () => {
+    const logoutBinding = coachModeSource.match(/var logoutBtn[\s\S]*?\n    \}/)?.[0] || "";
+    assert.ok(logoutBinding.includes("window.doLogout"));
+    assert.ok(!logoutBinding.includes("location.reload"));
+  });
+
+  it("logout clears private coach, athlete-detail, and messaging state", () => {
+    const clearFn = coachModeSource.match(/function clearWorkspaceOnLogout\(\)[\s\S]*?\n  \}/)?.[0] || "";
+    assert.ok(clearFn.includes('_athleteDetailId = null'));
+    assert.ok(clearFn.includes('_athleteDetailCache = Object.create(null)'));
+    assert.ok(clearFn.includes('_messageThreadCache = Object.create(null)'));
+    assert.ok(clearFn.includes('_roster = []'));
+    assert.ok(clearFn.includes('_initialized = false'));
   });
 
   it("role verification failure does not activate Coach Workspace", () => {

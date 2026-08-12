@@ -66,6 +66,10 @@ function extract(name) {
 }
 
 const SOURCE = [
+  extract("rememberAppEntryIntent"),
+  extract("hasAppEntryIntent"),
+  extract("appEntryIntentReason"),
+  extract("clearAppEntryIntent"),
   extract("restoreSession"),
   extract("endBootGate"),
   extract("showScreen"),
@@ -151,7 +155,7 @@ function makeWorld({ session, standalone, routeThrows = false, continuation = nu
     updateOpenAppUI: () => {},
     toast: () => {},
     AthlevoBrain: { resetAthleteUI: () => {}, invalidateActivityCache: () => {} },
-    history: { pushState() {} },
+    history: { pushState() {}, replaceState(value) { state.historyState = value; } },
     state
   };
 
@@ -244,6 +248,15 @@ section("Routing scenarios");
   t("7c. session id cleared", api.getUid() === null);
   t("7d. tab bar hidden", state.tabbarDisplay === "none");
   t("7e. landing page is NOT shown", state.screens["screen-landing"].active === false);
+  t("7f. logout records explicit app-entry intent", state.store.get("athlevo_app_entry_intent") === "logout");
+  t("7g. logout replaces browser history floor with app entry", state.historyState?.athlevoNav === "entry");
+}
+{
+  const { api, state } = makeWorld({ session: null, standalone: false });
+  state.store.set("athlevo_app_entry_intent", "logout");
+  await api.restoreSession({}); api.endBootGate();
+  const visible = Object.keys(state.screens).find(k => state.screens[k].active);
+  t("8c. same-tab reload after logout remains at app entry", visible === "screen-welcome", visible);
 }
 {
   const { api, state } = makeWorld({ session: SESSION, standalone: true });

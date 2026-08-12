@@ -54,7 +54,7 @@ const context = {
   }
 };
 vm.runInNewContext(
-  `${["rosterAthlete", "coachMessageTime", "renderCoachThread"].map(extractFunction).join("\n")}
+  `${["rosterAthlete", "coachMessageTime", "coachMessageDayKey", "coachMessageDayLabel", "renderCoachMessageHistory", "renderCoachThread"].map(extractFunction).join("\n")}
    this.renderCoachThread = renderCoachThread;`,
   context
 );
@@ -96,6 +96,8 @@ console.log("\n──── Athlete-scoped and empty/history UI ────");
   ], { canSend: true }));
   test("athlete name is explicit in compact thread header", /Adi/.test(existing) && /Athlete/.test(existing));
   test("existing coach and athlete messages are distinguishable", /is-athlete/.test(existing) && /is-coach/.test(existing));
+  test("date separator is rendered once for same-day messages", (existing.match(/cm-msg-date/g) || []).length === 1);
+  test("timestamps stay secondary and omit repeated full dates", !/Aug 12 ·/.test(existing) && /<time/.test(existing));
   test("thread contains no athlete picker or conversation selector", !/Choose athlete|Select an athlete|<select/i.test(existing));
   test("composer is available in athlete context", /id="cmMessageComposer"/.test(existing) && /Message Adi/.test(existing));
   const empty = context.renderCoachThread("athlete-1", { messages: [], can_send: true });
@@ -122,6 +124,24 @@ console.log("\n──── Routing, context, caching, and global coexistence �
   test("stale send responses cannot overwrite a newly opened athlete", /var requestId = \+\+_messageRequest;[\s\S]*requestId !== _messageRequest \|\| !el\.classList\.contains\("active"\)/.test(source));
   test("messaging uses the existing single bottom-nav screen", /screen-coach-messaging/.test(source) && !/cm-msg-tabbar|message-tabbar/.test(source));
   test("mobile composer and thread are min-width safe at 375/390/430", /\.cm-msg-thread\{display:flex;flex:1;min-height:0/.test(source) && /grid-template-columns:minmax\(0,1fr\) auto/.test(source) && /overflow-wrap:anywhere/.test(source));
+}
+
+console.log("\n──── Messaging polish and motion ────");
+{
+  const binding = source.slice(source.indexOf("function bindCoachThread"), source.indexOf("async function openAthleteMessaging"));
+  test("recent conversation content anchors to the bottom", /\.cm-msg-log-inner\{[^}]*justify-content:flex-end/.test(source));
+  test("message widths stay natural and below 78 percent", /\.cm-msg-bubble\{width:fit-content;max-width:76%/.test(source));
+  test("Send begins disabled and follows meaningful trimmed input", /class="cm-msg-send" disabled/.test(context.renderCoachThread("athlete-1", { messages: [], can_send: true })) && /composerTextarea\.value\.trim\(\)/.test(binding));
+  test("desktop Enter sends while Shift+Enter remains multiline", /event\.key === "Enter" && !event\.shiftKey && !event\.isComposing/.test(binding));
+  test("composer grows only to a bounded multiline height", /Math\.min\(textarea\.scrollHeight \|\| 40, 96\)/.test(source));
+  test("one pending bubble is appended and replaced by the server thread", /pending\.className = "cm-msg-bubble is-coach is-pending"/.test(binding) && /el\.innerHTML = renderCoachThread\(athleteId, res\.body\.thread\)/.test(binding));
+  test("duplicate submit and Enter paths are locked during one send", /form\.dataset\.sending === "true"/.test(binding) && /form\.dataset\.sending = "true"/.test(binding));
+  test("failed send removes pending state and restores a genuine empty state", /pending\.remove\(\)/.test(binding) && /inner\.appendChild\(removedEmpty\)/.test(binding));
+  test("scroll follows newest only when the coach was already near the bottom", /scrollSnapshot = coachMessageScrollSnapshot/.test(binding) && /if \(scrollSnapshot\.nearBottom\) scrollCoachMessages/.test(binding));
+  test("server refresh preserves an intentional upward scroll position", /restoreCoachMessageScroll\(confirmedLog, scrollSnapshot/.test(binding) && /log\.scrollTop = snapshot\.top/.test(source));
+  test("cold thread has bubble-shaped loading while cache renders immediately", /cm-msg-loading/.test(source) && /if \(cached\)[\s\S]*renderCoachThread\(athleteId, cached\)/.test(source));
+  test("screen and bubble entrance use shared motion tokens", /cmMsgScreenIn var\(--dur-base,220ms\)/.test(source) && /cmMsgBubbleIn var\(--dur-fast,180ms\)/.test(source));
+  test("reduced motion removes message animation and smooth scroll", /prefers-reduced-motion:reduce[\s\S]*\.cm-msg-thread,.cm-msg-bubble\{animation:none\}/.test(source) && /scroll-behavior:auto/.test(source));
 }
 
 console.log("\n──── Server and migration security boundary ────");

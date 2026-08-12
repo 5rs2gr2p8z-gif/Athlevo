@@ -5023,6 +5023,28 @@ function openAppEntry() {
 }
 window.openAppEntry = openAppEntry;
 
+/*
+ * Public-site mode and app-entry mode are separate navigation intents.
+ * A session decides whether authenticated screens may open; it does not decide
+ * whether a signed-out person intended to visit marketing or sign into the app.
+ * Session storage keeps an explicit app-entry intent within this browser tab
+ * without permanently changing a future fresh visit to athlevo.org.
+ */
+function rememberAppEntryIntent(reason) {
+  try { sessionStorage.setItem('athlevo_app_entry_intent', reason === 'logout' ? 'logout' : 'entry'); } catch (e) {}
+}
+function hasAppEntryIntent() {
+  try { return Boolean(sessionStorage.getItem('athlevo_app_entry_intent')); }
+  catch (e) { return false; }
+}
+function appEntryIntentReason() {
+  try { return sessionStorage.getItem('athlevo_app_entry_intent') || null; }
+  catch (e) { return null; }
+}
+function clearAppEntryIntent() {
+  try { sessionStorage.removeItem('athlevo_app_entry_intent'); } catch (e) {}
+}
+
 // Landing CTAs. Logged in → straight into the app (never asked to create a
 // second account). Logged out → the app entry screen.
 function rememberLandingAuthEntry(entrySource) {
@@ -5038,6 +5060,7 @@ function rememberLandingAuthEntry(entrySource) {
 function landingOpenApp()    {
   if (athlevoSessionUserId) { openAthlevoApp(); }
   else {
+    rememberAppEntryIntent();
     rememberLandingAuthEntry("landing_open_app");
     openAppEntry();
   }
@@ -5056,12 +5079,14 @@ function landingStartFree(trigger)  {
     destination: "screen-welcome"
   });
   if (interceptInAppAuthHandoff("signup", "landing")) return;
+  rememberAppEntryIntent();
   openAppEntry();
 }
 function landingStartBeta(trigger)  { landingStartFree(trigger); }
 function landingSignIn()     {
   if (athlevoSessionUserId) { openAthlevoApp(); }
   else {
+    rememberAppEntryIntent();
     rememberLandingAuthEntry("navigation_login");
     if (interceptInAppAuthHandoff("login", "landing")) return;
     openAppEntry();
@@ -5083,7 +5108,7 @@ function renderNavState(state) {
    * installed app has no marketing surface at all. In both cases the
    * signed-out entry screen is the correct floor.
    */
-  if (nav === 'landing' && (athlevoSessionUserId || isStandaloneMode())) {
+  if (nav === 'landing' && (athlevoSessionUserId || isStandaloneMode() || appEntryIntentReason() === 'logout')) {
     nav = 'entry';
   }
   var modal = document.getElementById('authModal');
@@ -5102,6 +5127,7 @@ function renderNavState(state) {
     if (tb) tb.style.display = 'none';
     showScreen('screen-welcome');
   } else if (nav === 'landing') {
+    clearAppEntryIntent();
     athlevoAuthPushed = false;
     showScreen('screen-landing');
     if (typeof updateOpenAppUI === 'function') updateOpenAppUI(!!athlevoSessionUserId);
@@ -5454,6 +5480,19 @@ async function doLogout() {
   if (window.AthlevoCoachMode && window.AthlevoCoachMode.clearWorkspaceOnLogout) {
     try { window.AthlevoCoachMode.clearWorkspaceOnLogout(); } catch (e) {}
   }
+  if (window.AthlevoAthleteMode && window.AthlevoAthleteMode.clearOnLogout) {
+    try { window.AthlevoAthleteMode.clearOnLogout(); } catch (e) {}
+  }
+  if (typeof window.closeReadinessCheck === 'function') {
+    try { window.closeReadinessCheck(); } catch (e) {}
+  }
+  if (window.AthlevoMorningCheckIn && window.AthlevoMorningCheckIn.clearOnLogout) {
+    try { window.AthlevoMorningCheckIn.clearOnLogout(); } catch (e) {}
+  }
+
+  // Preserve the user's explicit app-entry intent across a same-tab refresh.
+  rememberAppEntryIntent('logout');
+  try { history.replaceState({ athlevoNav: 'entry' }, ''); } catch (e) {}
 
   athlevoAuthPushed = false;
 
@@ -7385,6 +7424,7 @@ function quizPick(btn,correct){
 async function routeAfterAuth(userId) {
   // Keep the "Open App" affordance in sync after interactive login/signup.
   athlevoSessionUserId = userId;
+  clearAppEntryIntent();
   const { data: profile, error } = await supabaseClient
     .from("profiles")
     .select("onboarding_complete, goal, device, role")
@@ -7716,7 +7756,7 @@ async function restoreSession(opts) {
           }
         }, 0);
       }
-    } else if (isStandaloneMode()) {
+    } else if (isStandaloneMode() || hasAppEntryIntent()) {
       showScreen("screen-welcome");
     } else {
       showScreen("screen-landing");
@@ -7889,15 +7929,15 @@ setTimeout(function () {
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
-<script src="js/athleteMode.js?v=74"></script>
+<script src="js/athleteMode.js?v=75"></script>
 <script src="js/coachDashboard.js?v=75"></script>
-<script src="js/coachMode.js?v=10"></script>
+<script src="js/coachMode.js?v=11"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
 <script src="js/accessGuard.js?v=72"></script>
 <script src="js/planSetup.js?v=69"></script>
 <script src="js/feedback.js?v=67"></script>
 <script src="js/readiness.js?v=68"></script>
-<script src="js/morningCheckIn.js?v=69"></script>
+<script src="js/morningCheckIn.js?v=70"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=67"></script>
 <script src="js/onboarding.js?v=69"></script>

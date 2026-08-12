@@ -312,6 +312,7 @@
       // Mark read-only (disable edit buttons)
       var editBtns = card.querySelectorAll("[data-action='edit'], [data-action='modify'], [data-action='skip']");
       editBtns.forEach(function (btn) {
+        if (!btn.disabled) btn.setAttribute("data-am-managed-disabled", "true");
         btn.disabled = true;
         btn.style.opacity = "0.4";
         btn.title = "This workout is managed by your coach";
@@ -441,6 +442,28 @@
     renderAssignedCoach();
   }
 
+  function clearOnLogout() {
+    _mode = "unknown";
+    _coach = null;
+    _transition = null;
+    _ambiguous = false;
+    _confirmed = false;
+    _fetching = false;
+    _cacheKey = null;
+    _lastError = null;
+    hideUnknownNotice();
+    restoreSuppressedControls();
+    document.querySelectorAll(".am-authorship-label, .am-request-adjustment, .am-assigned-coach").forEach(function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    document.querySelectorAll("[data-am-managed-disabled='true']").forEach(function (el) {
+      el.disabled = false;
+      el.style.opacity = "";
+      el.title = "";
+      el.removeAttribute("data-am-managed-disabled");
+    });
+  }
+
   // ─── Expose ──────────────────────────────────────────────────────────
   window.AthlevoAthleteMode = {
     init: init,
@@ -459,6 +482,7 @@
     applyTrainPermissions: applyTrainPermissions,
     renderAssignedCoach: renderAssignedCoach,
     requestAdjustment: requestAdjustment,
+    clearOnLogout: clearOnLogout,
     // Testing / diagnostics only — not part of the athlete UX contract.
     _test: {
       suppressAIControls: suppressAIControls,

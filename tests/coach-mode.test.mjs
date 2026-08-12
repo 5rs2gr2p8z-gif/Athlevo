@@ -474,7 +474,8 @@ describe("Coach Mode — client module structure", () => {
 
   it("Coach You tab includes logout", () => {
     assert.ok(coachModeSource.includes("cmLogout"));
-    assert.ok(coachModeSource.includes("signOut"));
+    assert.ok(coachModeSource.includes("window.doLogout"));
+    assert.ok(indexSource.includes("supabaseClient.auth.signOut()"));
   });
 });
 
