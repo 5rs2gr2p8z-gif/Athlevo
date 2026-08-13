@@ -58,7 +58,9 @@ section("Genuine pills use --r-pill; cards/modals keep their own radius");
   t("--r-pill is actually used for pills", (html.match(/border-radius:var\(--r-pill\)/g) || []).length > 40);
   // Excluded, on purpose: the desktop device frame and bottom-sheet modals.
   t("the desktop device frame keeps its 44px radius", /border-radius:44px/.test(html));
-  t("bottom-sheet modals keep 26px top corners", /border-radius:26px 26px 0 0/.test(html));
+  t("bottom-sheet modals share the sheet-radius token",
+    /--ui-radius-sheet:26px/.test(root) &&
+    /border-radius:var\(--ui-radius-sheet\) var\(--ui-radius-sheet\) 0 0/.test(html));
 }
 
 /* ══════ Part 4 — one focus-visible treatment ═════════════════════════ */

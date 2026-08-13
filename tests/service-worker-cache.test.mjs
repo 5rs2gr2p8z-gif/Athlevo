@@ -105,7 +105,7 @@ section("Cache activation");
   stores.set("unrelated-library-cache", new Map());
   await dispatchLifecycle("activate");
 
-  test("cache version was bumped to v72", currentCacheName === "athlevo-shell-v72");
+  test("cache version was bumped to v73", currentCacheName === "athlevo-shell-v73");
   test("every old Athlevo cache is deleted",
     deletedCaches.includes("athlevo-shell-v12") &&
     deletedCaches.includes("athlevo-runtime-v4"));

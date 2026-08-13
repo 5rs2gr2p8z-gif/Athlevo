@@ -91,7 +91,8 @@ section("Loading shows a skeleton, never a blank card");
   t("renders a skeleton with shimmer blocks", /ss-skeleton/.test(html) && /ss-sk-block/.test(html));
   t("marks itself busy for assistive tech", /aria-busy="true"/.test(html));
   const css = readFileSync("./index.html", "utf8");
-  t("the shimmer animation is defined", /@keyframes ssShimmer/.test(css));
+  t("the shared shimmer animation is defined and reused", /@keyframes skelShimmer/.test(css) &&
+    /\.ss-sk\{[^}]*animation:skelShimmer var\(--skeleton-duration\)/.test(css));
   t("reduced-motion disables the shimmer", /prefers-reduced-motion[^}]*\.ss-sk[\s\S]{0,40}animation:none/.test(css) ||
     /\.ss-sk,\.ss-dot-sync\{animation:none\}/.test(css));
 }

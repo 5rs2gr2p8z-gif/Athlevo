@@ -84,7 +84,9 @@ section("No expensive shadow/blur animation");
   t("no transition animates box-shadow's spread on the whole element badly (filters)",
     !trans.some(x => /filter/.test(x) && /blur/.test(x)));
   t("skeleton shimmer stays a single loading indicator",
-    /@keyframes ssShimmer/.test(html) && (html.match(/@keyframes ssShimmer/g) || []).length === 1);
+    /@keyframes skelShimmer/.test(html) &&
+    (html.match(/@keyframes skelShimmer/g) || []).length === 1 &&
+    !/@keyframes ssShimmer/.test(html));
 }
 
 console.log(`\n${p} passed, ${f} failed`);

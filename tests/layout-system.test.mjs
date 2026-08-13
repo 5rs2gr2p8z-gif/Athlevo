@@ -25,7 +25,7 @@ section("One canonical card system exists");
     .forEach(sel => t(sel + "} defined", html.includes(sel)));
   const card = html.slice(html.indexOf(".card{"), html.indexOf(".card{") + 160);
   t("card composes tokens (surface, radius, padding, elevation)",
-    /var\(--card\)/.test(card) && /var\(--r-lg\)/.test(card) && /var\(--s-\d\)/.test(card) && /var\(--elev-1\)/.test(card));
+    /var\(--surface-soft\)/.test(card) && /var\(--r-lg\)/.test(card) && /var\(--s-\d\)/.test(card) && /var\(--elev-1\)/.test(card));
   t("card padding + radius use tokens, not raw px",
     !/padding:[0-9]+px/.test(card) && !/border-radius:[0-9]+px/.test(card));
 }
@@ -36,8 +36,11 @@ section("On-grid spacing uses tokens");
 {
   t("gaps reference spacing tokens", (html.match(/gap:var\(--s-/g) || []).length > 40);
   t("paddings reference spacing tokens", (html.match(/padding:var\(--s-/g) || []).length > 20);
-  t("no single-value on-grid gap literals remain",
-    !/gap:8px[;}]/.test(html) && !/gap:12px[;}]/.test(html) && !/gap:16px[;}]/.test(html));
+  // App surfaces use the shared grid. Landing is intentionally excluded from
+  // this app-foundation sprint and retains its approved editorial spacing.
+  const appCss = html.slice(0, html.indexOf("LANDING PAGE — premium marketing"));
+  t("no single-value on-grid gap literals remain in app CSS",
+    !/gap:8px[;}]/.test(appCss) && !/gap:12px[;}]/.test(appCss) && !/gap:16px[;}]/.test(appCss));
 }
 
 /* ══════ Part 6 — elevation tokens adopted ═══════════════════════════ */
@@ -57,12 +60,15 @@ section("Shadows use the three elevation tokens");
 section("Radii use tokens; the PR1 spaced-pill miss is fixed");
 {
   t("no border-radius:100px (spaced or not) remains", !/border-radius:\s*100px/.test(html));
-  t("no hardcoded card radii (12–24px) remain",
-    !/border-radius:(12|14|16|18|20|22|24)px[;}]/.test(html));
+  const appCss = html.slice(0, html.indexOf("LANDING PAGE — premium marketing"));
+  t("no hardcoded card radii (12–24px) remain in app CSS",
+    !/border-radius:(12|14|16|18|20|22|24)px[;}]/.test(appCss));
   t("radius tokens are widely used", (html.match(/border-radius:var\(--r-(sm|md|lg|pill)\)/g) || []).length > 80);
   // Intentional one-offs preserved: device frame + bottom-sheet corners.
   t("desktop device frame keeps 44px", /border-radius:44px/.test(html));
-  t("bottom-sheet modals keep 26px top corners", /border-radius:26px 26px 0 0/.test(html));
+  t("bottom-sheet modals keep 26px top corners through one shared token",
+    /--ui-radius-sheet:26px/.test(html) &&
+    /border-radius:var\(--ui-radius-sheet\) var\(--ui-radius-sheet\) 0 0/.test(html));
 }
 
 /* ══════ multi-value shorthands untouched (no layout shift) ══════════ */

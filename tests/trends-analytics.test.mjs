@@ -458,7 +458,7 @@ section("Graph-first UI and accessibility");
   test("native SVG is responsive inside the narrow app shell",
     /\.trend-svg\{[^}]*width:100%[^}]*height:auto/.test(html) &&
     /\.trend-chart\{[^}]*width:100%[^}]*overflow:hidden/.test(html) &&
-    /@media\(max-width:360px\)\{[\s\S]*?\.trend-zone-label,\.trend-threshold-label,\.trend-latest-label\{font-size:10px\}/.test(html));
+    /@media\(max-width:360px\)\{[\s\S]*?\.trend-zone-label,\.trend-threshold-label,\.trend-latest-label\{font-size:var\(--fs-micro\)\}/.test(html));
   test("chart colors are centralized as tokens",
     /--trend-fitness:/.test(html) && /--trend-fatigue:/.test(html) &&
     /--trend-zone-risk:/.test(html) && /--trend-load:/.test(html));

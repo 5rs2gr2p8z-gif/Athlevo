@@ -872,9 +872,9 @@ test("semantic ring colors support light and dark mode without gradients",
   /\.direction-signal\[data-tone="recovery-poor"\]\{--signal-color:var\(--bad\)\}/.test(html) &&
   /\.direction-signal\[data-tone="recovery-moderate"\]\{--signal-color:var\(--warn\)\}/.test(html) &&
   /\.direction-signal\[data-tone="recovery-good"\],[\s\S]*?\.direction-signal\[data-tone="recovery-excellent"\]\{--signal-color:var\(--good\)\}/.test(html) &&
-  /\.direction-signal\[data-tone="recovery"\]\{--signal-color:#3970c8\}/.test(html) &&
+  /\.direction-signal\[data-tone="recovery"\]\{--signal-color:var\(--info\)\}/.test(html) &&
   /\.direction-signal\[data-tone="positive"\]\{--signal-color:var\(--good\)\}/.test(html) &&
-  /html\[data-theme="dark"\] \.direction-signal\[data-tone="recovery"\]\{--signal-color:#78a6ff\}/.test(html) &&
+  /html\[data-theme="dark"\]\{[\s\S]*?--info:#78a6ff/.test(html) &&
   !/\.today-status-card\{[^}]*gradient/.test(html));
 test("CTA dispatch keeps existing plan build and Train navigation",
   /button\.dataset\.action === "build"[\s\S]*?window\.AthlevoPlan\.start\(\)/.test(

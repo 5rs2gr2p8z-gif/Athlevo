@@ -153,8 +153,8 @@
     var notice = document.createElement("div");
     notice.id = _noticeId;
     notice.style.cssText = "position:fixed;bottom:80px;left:16px;right:16px;z-index:9999;" +
-      "padding:14px 16px;background:#FEF3C7;border:1px solid #F59E0B;border-radius:12px;" +
-      "font-size:14px;color:#92400E;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);";
+      "padding:14px 16px;background:var(--warning-soft);border:1px solid var(--warning);border-radius:var(--ui-radius-control);" +
+      "font-size:var(--fs-body-sm);color:var(--warning);display:flex;align-items:center;gap:var(--s-3);box-shadow:var(--elev-2);";
 
     var text = document.createElement("span");
     text.style.cssText = "flex:1;";
@@ -162,8 +162,8 @@
 
     var retryBtn = document.createElement("button");
     retryBtn.textContent = "Retry";
-    retryBtn.style.cssText = "padding:6px 14px;font-size:13px;font-weight:600;border:1px solid #D97706;" +
-      "color:#92400E;background:#FDE68A;border-radius:8px;cursor:pointer;flex-shrink:0;";
+    retryBtn.style.cssText = "min-height:var(--control-height);padding:6px 14px;font-size:var(--fs-body-sm);font-weight:600;border:1px solid var(--warning);" +
+      "color:var(--warning);background:transparent;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;";
     retryBtn.addEventListener("click", function () {
       retryBtn.disabled = true;
       retryBtn.textContent = "Checking…";
@@ -247,7 +247,7 @@
       if (!label) return;
       var el = document.createElement("div");
       el.className = "am-authorship-label";
-      el.style.cssText = "font-size:12px;color:#6B7280;margin-top:4px;font-style:italic;";
+      el.style.cssText = "font-size:var(--fs-caption);color:var(--text-muted);margin-top:var(--s-1);font-style:italic;";
       el.textContent = label;
       card.insertBefore(el, card.firstChild);
     });
@@ -272,22 +272,22 @@
 
     var transitionHtml = "";
     if (_transition && _transition.state && _transition.state !== "resolved") {
-      transitionHtml = '<div style="margin-top:16px;padding:12px;background:#FEF3C7;border-radius:8px;font-size:13px;color:#92400E;">' +
+      transitionHtml = '<div style="margin-top:var(--s-4);padding:var(--s-3);background:var(--warning-soft);border-radius:var(--ui-radius-control);font-size:var(--fs-body-sm);color:var(--warning);">' +
         'Your coach is setting up your training plan. You\'ll see your new sessions here once they\'re ready.' +
         '</div>';
     }
 
     screen.innerHTML =
       '<div style="padding:24px;text-align:center;">' +
-        '<div style="width:64px;height:64px;border-radius:50%;background:#3B82F6;color:#fff;' +
+        '<div style="width:64px;height:64px;border-radius:50%;background:var(--athlevo-red);color:#fff;' +
           'display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;">' +
           initials +
         '</div>' +
         '<h2 style="margin:12px 0 4px;font-size:20px;font-weight:600;">' + coachName + '</h2>' +
-        '<p style="color:#6B7280;font-size:14px;margin:0;">' + title + (since ? ' · ' + since : '') + '</p>' +
+        '<p style="color:var(--text-muted);font-size:var(--fs-body-sm);margin:0;">' + title + (since ? ' · ' + since : '') + '</p>' +
         transitionHtml +
-        '<div style="margin-top:24px;padding:16px;background:#F3F4F6;border-radius:12px;text-align:left;">' +
-          '<p style="font-size:14px;color:#374151;margin:0;">' +
+        '<div style="margin-top:var(--s-6);padding:var(--s-4);background:var(--surface-soft);border-radius:var(--ui-radius-card);text-align:left;">' +
+          '<p style="font-size:var(--fs-body-sm);color:var(--text-secondary);margin:0;">' +
             coachName + ' manages your training plan. ' +
             'Check <strong>Train</strong> for your prescribed sessions, ' +
             'and use <strong>Request Adjustment</strong> if you need a change.' +
@@ -323,8 +323,8 @@
       var btn = document.createElement("button");
       btn.className = "am-request-adjustment";
       btn.textContent = "Request Adjustment";
-      btn.style.cssText = "margin-top:8px;padding:8px 16px;font-size:13px;border:1px solid #3B82F6;" +
-        "color:#3B82F6;background:#fff;border-radius:8px;cursor:pointer;";
+      btn.style.cssText = "min-height:var(--control-height);margin-top:var(--s-2);padding:8px 16px;font-size:var(--fs-body-sm);border:1px solid var(--border-default);" +
+        "color:var(--athlevo-red);background:var(--surface-base);border-radius:var(--r-pill);cursor:pointer;";
       btn.addEventListener("click", function () {
         var sessionDate = card.getAttribute("data-session-date") || card.getAttribute("data-date") || null;
         requestAdjustment({ session_date: sessionDate, request_type: "adjustment" });
@@ -382,15 +382,15 @@
 
     var section = document.createElement("div");
     section.className = "am-assigned-coach";
-    section.style.cssText = "margin:16px;padding:16px;background:#EFF6FF;border-radius:12px;display:flex;align-items:center;gap:12px;";
+    section.style.cssText = "margin:var(--s-4);padding:var(--s-4);background:var(--surface-soft);border:1px solid var(--border-default);border-radius:var(--ui-radius-card);display:flex;align-items:center;gap:var(--s-3);";
     section.innerHTML =
-      '<div style="width:44px;height:44px;border-radius:50%;background:#3B82F6;color:#fff;' +
+      '<div style="width:44px;height:44px;border-radius:50%;background:var(--athlevo-red);color:#fff;' +
         'display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex-shrink:0;">' +
         initials +
       '</div>' +
       '<div>' +
         '<div style="font-weight:600;font-size:15px;">' + coachName + '</div>' +
-        '<div style="font-size:13px;color:#6B7280;">' + title + '</div>' +
+        '<div style="font-size:var(--fs-body-sm);color:var(--text-muted);">' + title + '</div>' +
       '</div>';
 
     // Insert at the top of the content area

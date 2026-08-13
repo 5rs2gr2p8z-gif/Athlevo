@@ -215,7 +215,7 @@ test("mobile sheet and centered desktop modal share the existing overlay",
   /\.scd\{[^}]*max-height:88vh/.test(html) &&
   /@media \(min-width:700px\)[\s\S]*?#scoreDetailModal\{align-items:center;justify-content:center/.test(html));
 test("entrance stays within 220–300ms and reduced motion removes it",
-  /animation:scoreSheetIn 260ms/.test(html) &&
+  /--motion-sheet:260ms/.test(html) && /animation:scoreSheetIn var\(--motion-sheet\)/.test(html) &&
   /@media \(prefers-reduced-motion:reduce\)[\s\S]*?\.scd\{animation:none\}/.test(html));
 test("keyboard handling includes Escape and an in-dialog focus loop",
   /event\.key === "Escape"/.test(source) &&

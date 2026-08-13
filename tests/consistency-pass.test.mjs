@@ -25,10 +25,11 @@ section("Canonical button system exists, composed from tokens");
    ".btn--danger{", ".btn--compact{", ".btn--icon{", ".btn-group{"]
     .forEach(sel => t(sel + "} defined", html.includes(sel)));
   const base = html.slice(html.indexOf(".btn{"), html.indexOf(".btn{") + 480);
-  t("min-height is a comfortable thumb target (≥44px)", /min-height:44px/.test(base));
+  t("min-height uses the shared comfortable thumb target (44px)",
+    /min-height:var\(--control-height\)/.test(base) && /--control-height:44px/.test(html));
   t("padding + radius + type use tokens", /padding:0 var\(--s-4\)/.test(base) &&
     /border-radius:var\(--r-pill\)/.test(base) && /font-size:var\(--fs-body-sm\)/.test(base));
-  t("transition uses motion tokens", /var\(--dur-fast\) var\(--ease-standard\)/.test(base));
+  t("transition uses purpose-based motion tokens", /var\(--motion-press\) var\(--ease-standard\)/.test(base));
   t("has disabled + loading + active states",
     /\.btn\[disabled\],\.btn:disabled,\.btn\.is-disabled\{/.test(html) &&
     /\.btn\.is-loading\{/.test(html) && /\.btn:active\{/.test(html));
@@ -67,8 +68,9 @@ section("Design-system tokens remain adopted (no regression)");
   t("spacing tokens still used", (html.match(/(padding|gap):var\(--s-/g) || []).length > 60);
   t("elevation tokens still used", (html.match(/box-shadow:var\(--elev-/g) || []).length >= 8);
   t("motion tokens still used", (html.match(/var\(--dur-|var\(--ease-/g) || []).length > 80);
-  t("no raw pill/card radius literals remain",
-    !/border-radius:\s*100px/.test(html) && !/border-radius:(12|14|16|18|20|22|24)px[;}]/.test(html));
+  const appCss = html.slice(0, html.indexOf("LANDING PAGE — premium marketing"));
+  t("no raw pill/card radius literals remain in app CSS",
+    !/border-radius:\s*100px/.test(appCss) && !/border-radius:(12|14|16|18|20|22|24)px[;}]/.test(appCss));
 }
 
 console.log(`\n${p} passed, ${f} failed`);

@@ -244,6 +244,29 @@
   --warn-soft:#fbf3e4;
   --bad:#c0272d;
   --nav-glass:rgba(255,255,255,.92);
+  /* Athlevo UI foundation. These semantic names sit above the original
+     compatibility tokens so older screens and newer components share one
+     palette without a risky all-at-once rewrite. */
+  --athlevo-red:var(--red);
+  --athlevo-red-dark:color-mix(in srgb,var(--red) 82%,var(--text));
+  --athlevo-red-soft:var(--red-soft);
+  --text-primary:var(--text);
+  --ink1:var(--text);
+  --text-secondary:var(--ink2);
+  --text-muted:var(--ink3);
+  --surface-base:var(--paper);
+  --surface-raised:var(--card2);
+  --surface-soft:var(--card);
+  --border-default:var(--line);
+  --border-strong:color-mix(in srgb,var(--line) 55%,var(--text));
+  --success:var(--good);
+  --success-soft:var(--good-soft);
+  --warning:var(--warn);
+  --warning-soft:var(--warn-soft);
+  --danger:var(--bad);
+  --danger-soft:var(--red-soft);
+  --info:#3970c8;
+  --info-soft:rgba(57,112,200,.12);
   /* Trends chart palette — centralized for every SVG series and zone. */
   --trend-fitness:#2f78bd;
   --trend-fatigue:#7958b8;
@@ -263,6 +286,9 @@
   --r-md:16px;
   --r-sm:10px;
   --r-pill:999px;
+  --ui-radius-card:var(--r-md);
+  --ui-radius-control:var(--r-sm);
+  --ui-radius-sheet:26px;
   /* Spacing scale (4px base) — theme-invariant. */
   --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-7:32px; --s-8:40px;
   /* Elevation — restrained, single light source (light theme). */
@@ -277,6 +303,16 @@
      a small settle); emphasized has a slightly stronger settle for entrances.
      Neither overshoots (all control-point y stay <=1) so nothing bounces. */
   --ease-standard:cubic-bezier(.2,.7,.2,1); --ease-emphasized:cubic-bezier(.2,.9,.15,1);
+  --motion-press:var(--dur-fast);
+  --motion-screen:var(--dur-base);
+  --motion-sheet:260ms;
+  --tap-target:44px;
+  --page-gutter:22px;
+  --control-height:44px;
+  --backdrop:rgba(20,20,22,.45);
+  --skeleton-base:var(--line);
+  --skeleton-highlight:var(--card2);
+  --skeleton-duration:1.8s;
   /* Focus ring colour (see the global :focus-visible rule). */
   --focus-ring:#3a6df0;
   --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -338,6 +374,8 @@ html[data-theme="dark"]{
   --warn:#e2a94a;
   --warn-soft:rgba(226,169,74,.16);
   --bad:#ef5a60;
+  --info:#78a6ff;
+  --info-soft:rgba(120,166,255,.16);
   --nav-glass:rgba(18,19,22,.86);
   --elev-1:0 1px 2px rgba(0,0,0,.40);
   --elev-2:0 4px 16px -4px rgba(0,0,0,.50);
@@ -364,6 +402,8 @@ html[data-theme="dark"]{
     --warn:#e2a94a;
     --warn-soft:rgba(226,169,74,.16);
     --bad:#ef5a60;
+    --info:#78a6ff;
+    --info-soft:rgba(120,166,255,.16);
     --nav-glass:rgba(18,19,22,.86);
     --elev-1:0 1px 2px rgba(0,0,0,.40);
     --elev-2:0 4px 16px -4px rgba(0,0,0,.50);
@@ -399,7 +439,7 @@ textarea:focus-visible,.cf-chip:focus-visible,.ss-btn:focus-visible,.ss-banner-c
 /* ── Canonical card system — one geometry, composed from tokens. Reusable
    primitive; existing cards keep their content and simply share these
    surface/radius/padding/elevation/rhythm values. ─────────────────────── */
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5);box-shadow:var(--elev-1)}
+.card{background:var(--surface-soft);border:1px solid var(--border-default);border-radius:var(--r-lg);padding:var(--s-5);box-shadow:var(--elev-1)}
 .card--raised{box-shadow:var(--elev-2)}
 .card--flat{box-shadow:none}
 .card-header{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);margin-bottom:var(--s-3)}
@@ -414,11 +454,11 @@ textarea:focus-visible,.cf-chip:focus-visible,.ss-btn:focus-visible,.ss-banner-c
 /* ── Canonical button system — one hierarchy, all from tokens. Reference
    primitive; existing buttons keep working and can adopt these over time. ── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);
-  min-height:44px;padding:0 var(--s-4);border-radius:var(--r-pill);border:1px solid transparent;
+  min-height:var(--control-height);padding:0 var(--s-4);border-radius:var(--r-pill);border:1px solid transparent;
   font-family:var(--font-ui);font-size:var(--fs-body-sm);font-weight:var(--fw-semibold);
   letter-spacing:var(--ls-normal);line-height:1;cursor:pointer;white-space:nowrap;
-  transition:background var(--dur-fast) var(--ease-standard),border-color var(--dur-fast) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard)}
-.btn:active{opacity:.86}
+  transition:background var(--motion-press) var(--ease-standard),border-color var(--motion-press) var(--ease-standard),opacity var(--motion-press) var(--ease-standard),transform var(--motion-press) var(--ease-standard)}
+.btn:active{opacity:.86;transform:scale(.985)}
 .btn[disabled],.btn:disabled,.btn.is-disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
 .btn.is-loading{opacity:.7;pointer-events:none}
 .btn--primary{background:var(--ink);color:var(--paper)}
@@ -453,7 +493,7 @@ body{
   max-width:430px;margin:0 auto;background:var(--paper);
   min-height:100dvh;position:relative;
   display:flex;flex-direction:column;
-  box-shadow:0 0 0 1px rgba(0,0,0,.04),0 24px 80px rgba(0,0,0,.10);
+  box-shadow:var(--elev-3);
 }
 @media(min-width:480px){.device{margin:28px auto;min-height:calc(100dvh - 56px);border-radius:44px;overflow:hidden}}
 
@@ -493,7 +533,7 @@ body{
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 .pad{padding:0 22px}
-.section-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.01em;margin-bottom:14px}
+.section-title{font-family:var(--font-ui);font-size:var(--fs-micro);font-weight:var(--fw-bold);line-height:var(--lh-caption);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--s-3)}
 .spacer-lg{height:34px;flex-shrink:0}
 .spacer-md{height:20px;flex-shrink:0}
 
@@ -518,14 +558,14 @@ body{
   border-top: 1px solid var(--line);
   isolation:isolate;
 }
-.tab{position:relative;z-index:1;background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink3);width:64px;padding:2px 0;opacity:.66;transition:color var(--dur-base) var(--ease-standard),opacity var(--dur-base) var(--ease-standard)}
+.tab{position:relative;z-index:1;min-height:var(--tap-target);background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink3);width:64px;padding:2px 0;opacity:.66;transition:color var(--motion-screen) var(--ease-standard),opacity var(--motion-press) var(--ease-standard),transform var(--motion-press) var(--ease-standard)}
 .tab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .tab span{font-size:var(--fs-micro);font-weight:600;letter-spacing:.02em}
 .tab.on{color:var(--text);opacity:1}
 .tab.on span{font-weight:700}
 /* Instant press acknowledgment on the tab bar — the whole nav feels
    responsive even before the screen animates in. */
-.tab:active{opacity:.7;transition:opacity var(--dur-fast) var(--ease-standard)}
+.tab:active{opacity:.78;transform:scale(.985)}
 .dotmark{display:none}
 .nav-active-indicator{position:absolute;z-index:0;left:0;
   bottom:calc(max(10px, env(safe-area-inset-bottom)) + 2px);height:2px;
@@ -537,7 +577,6 @@ body{
 .tab:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:8px}
 
 /* ---------- cards ---------- */
-.card{background:var(--card);border-radius:var(--r-lg);padding:var(--s-5)}
 .card.white{background:var(--paper);border:1px solid var(--line)}
 .hairline{height:1px;background:var(--line);border:none}
 
@@ -717,7 +756,7 @@ body{
 
 /* ── Coach inline error + retry ────────────────────────────────────── */
 .coach-error{display:flex;flex-direction:column;gap:10px}
-.coach-error-msg{margin:0;font-size:var(--fs-body);color:var(--ink2);line-height:1.45}
+.coach-error-msg{margin:0;font-size:var(--fs-body);color:var(--ink2);line-height:var(--lh-body)}
 .coach-error-retry{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-radius:var(--r-pill);padding:9px 18px;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:650;color:var(--text);cursor:pointer;transition:border-color var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
 .coach-error-retry:hover{border-color:var(--ink3)}
 .coach-error-retry:active{transform:scale(.97)}
@@ -779,7 +818,7 @@ body{
   flex-shrink:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--field);
   transition:border-color var(--dur-base) var(--ease-standard),
   box-shadow var(--dur-base) var(--ease-standard)}
-.composer:focus-within{border-color:var(--ink3);box-shadow:0 0 0 3px var(--card2)}
+.composer:focus-within{border-color:var(--ink3);outline:2px solid var(--focus-ring);outline-offset:2px;box-shadow:none}
 .composer textarea{flex:1;min-height:36px;border:none;background:transparent;color:var(--text);
   padding:8px 0;font-family:var(--sans);font-size:var(--fs-body);outline:none;resize:none;
   overflow-y:auto;max-height:120px;line-height:var(--lh-body)}
@@ -957,7 +996,7 @@ input,textarea,select{color:var(--text)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .connect-btn{font-family:var(--sans);font-size:var(--fs-caption);font-weight:650;color:var(--red);background:var(--red-soft);border:none;border-radius:var(--r-pill);padding:8px 15px;cursor:pointer}
 .connected-check{color:var(--good);font-weight:700;font-size:var(--fs-body-sm)}
-.rowlink{margin:0 22px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:var(--r-lg);padding:18px 20px;cursor:pointer}
+.rowlink{width:calc(100% - 44px);margin:0 22px;display:flex;align-items:center;justify-content:space-between;background:var(--card);color:var(--text);border:0;border-radius:var(--r-lg);padding:18px 20px;cursor:pointer;text-align:left;font-family:var(--font-ui)}
 .rowlink b{font-size:var(--fs-body);font-weight:650;display:block}
 .rowlink small{font-size:var(--fs-caption);color:var(--ink2)}
 .rowlink .arr{color:var(--ink3);font-size:var(--fs-h3)}
@@ -1113,21 +1152,21 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 /* Bottom-sheet modals must sit ABOVE the fixed bottom navigation
    (#tabbar is z-index:1000) so their lower controls are never covered
    or unreachable. */
-.modal-back{position:absolute;inset:0;background:rgba(20,20,22,.45);z-index:1200;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
-.modal-back.show{display:flex;animation:fadeIn var(--dur-base)}
+.modal-back{position:absolute;inset:0;background:var(--backdrop);z-index:1200;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
+.modal-back.show{display:flex;animation:fadeIn var(--motion-screen) var(--ease-standard)}
 /* Delete Account */
-.rowlink-danger b{color:var(--danger,#d93025)}
-.rowlink-danger small{color:var(--danger,#d93025);opacity:.7}
-.rowlink-danger-subtle b{color:var(--danger,#d93025);font-weight:600}
+.rowlink-danger b{color:var(--danger)}
+.rowlink-danger small{color:var(--danger);opacity:.7}
+.rowlink-danger-subtle b{color:var(--danger);font-weight:600}
 .rowlink-danger-subtle small{color:var(--ink2)}
-.rowlink-danger-subtle .arr{color:var(--danger,#d93025);opacity:.5}
+.rowlink-danger-subtle .arr{color:var(--danger);opacity:.5}
 .you-delete-divider{height:1px;background:var(--line,#e5e5e5);margin:16px 22px}
 .appearance-row{background:var(--card);border-radius:var(--r-lg);padding:16px 20px}
 #youWorkspaceSection:empty+.spacer-md{display:none}
-.delete-account-sheet{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--dur-slow) var(--ease-standard)}
+.delete-account-sheet{background:var(--surface-base);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
 .delete-account-btn:disabled{opacity:.4;cursor:not-allowed}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.lesson{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--dur-slow) var(--ease-standard)}
+.lesson{background:var(--surface-base);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
 @keyframes slideUp{from{transform:translateY(60px)}to{transform:none}}
 .lesson .eyebrow{color:var(--red)}
 .lesson h3{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;margin:8px 0 12px;letter-spacing:-.01em}
@@ -1145,17 +1184,17 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   #authModal { position:fixed; inset:0; z-index:9999;
     display:flex; align-items:center; justify-content:center; }
-  .auth-overlay { position:absolute; inset:0; background:rgba(0,0,0,.6); }
-  .auth-box { position:relative; background:var(--paper); color:var(--text);
-    padding:28px 24px; border-radius:var(--r-sm); width:90%; max-width:340px;
+  .auth-overlay { position:absolute; inset:0; background:var(--backdrop); }
+  .auth-box { position:relative; background:var(--surface-base); color:var(--text-primary);
+    padding:28px 24px; border:1px solid var(--border-default);border-radius:var(--ui-radius-card); width:90%; max-width:340px;
     box-shadow:var(--elev-3); font-family:inherit; }
   .auth-box h2 { margin:0 0 16px; font-size:var(--fs-h2); color:var(--text); }
   .auth-box input { display:block; width:100%; box-sizing:border-box;
     margin:0 0 12px; padding:11px 12px; border:1px solid var(--line);
     background:var(--field); color:var(--text);
-    border-radius:8px; font-size:var(--fs-body); }
+    border-radius:var(--ui-radius-control); font-size:var(--fs-body); }
   .auth-box > div > button { width:100%; padding:var(--s-3); border:none;
-    border-radius:8px; background:var(--red); color:#fff; font-size:var(--fs-body);
+    min-height:var(--control-height);border-radius:var(--r-pill); background:var(--athlevo-red); color:#fff; font-size:var(--fs-body);
     font-weight:600; cursor:pointer; }
   .auth-close { position:absolute; top:10px; right:14px; border:none;
     background:none; font-size:var(--fs-h1); line-height:1; cursor:pointer; color:var(--ink3); }
@@ -1164,8 +1203,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   .auth-switch a { color:var(--red); cursor:pointer; text-decoration:underline; }
   .auth-box > div > button:disabled { opacity:.45; cursor:not-allowed; }
   /* subtle legal consent line under Create Account */
-  .auth-legal { margin:14px 0 0; font-size:var(--fs-caption); line-height:var(--lh-body); color:#9a9da3; text-align:center; }
-  .auth-legal a { color:#6d7075; text-decoration:underline; cursor:pointer; }
+  .auth-legal { margin:14px 0 0; font-size:var(--fs-caption); line-height:var(--lh-body); color:var(--text-muted); text-align:center; }
+  .auth-legal a { color:var(--text-secondary); text-decoration:underline; cursor:pointer; }
   /* legal document pages */
   .legal-head { display:flex; align-items:center; gap:10px; padding:18px 20px 6px;
     position:sticky; top:0; background:var(--nav-glass); backdrop-filter:blur(10px);
@@ -1194,14 +1233,14 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   .pw-check { list-style:none; margin:2px 0 14px; padding:0;
     display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; }
   .pw-check li { display:flex; align-items:center; gap:var(--s-2);
-    font-size:var(--fs-caption); color:#9a9da3; transition:color var(--dur-base); }
+    font-size:var(--fs-caption); color:var(--text-muted); transition:color var(--motion-screen); }
   .pw-check li .pw-dot { width:15px; height:15px; border-radius:50%;
-    border:1.5px solid #d7d7d4; display:flex; align-items:center;
-    justify-content:center; flex-shrink:0; transition:all var(--dur-base); }
+    border:1.5px solid var(--border-default); display:flex; align-items:center;
+    justify-content:center; flex-shrink:0; transition:all var(--motion-screen); }
   .pw-check li .pw-dot::after { content:"✓"; font-size:var(--fs-micro); font-weight:800;
     color:#fff; opacity:0; transform:scale(.5); transition:all var(--dur-base); }
-  .pw-check li.ok { color:#141416; }
-  .pw-check li.ok .pw-dot { background:#1f9d5b; border-color:#1f9d5b; }
+  .pw-check li.ok { color:var(--text-primary); }
+  .pw-check li.ok .pw-dot { background:var(--success); border-color:var(--success); }
   .pw-check li.ok .pw-dot::after { opacity:1; transform:scale(1); }
 /* ===== FIXED BOTTOM NAVIGATION ===== */
 
@@ -1908,7 +1947,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   padding:12px 22px 16px}
 .today-brand-mark img{display:block;width:28px;height:28px;object-fit:contain}
 .today-header{display:grid;grid-template-columns:minmax(0,1fr) 90px;align-items:start;
-  gap:12px;padding:0 22px 12px;min-width:0}
+  gap:var(--s-3);padding:0 22px 12px;min-width:0}
 .today-header-copy{min-width:0}
 .today-header .greet{min-width:0;padding:0}
 .today-header .greet h1{overflow-wrap:anywhere}
@@ -2000,9 +2039,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 /* ---------- Score detail sheet ---------- */
 .score-detail-open{overflow:hidden}
 body.score-detail-open .screen.active{overflow:hidden}
-.scd{background:var(--paper);border-radius:26px 26px 0 0;width:100%;max-height:88vh;
+.scd{background:var(--surface-base);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;width:100%;max-height:88vh;
   overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
-  padding:10px 22px calc(28px + env(safe-area-inset-bottom));animation:scoreSheetIn 260ms var(--ease-standard)}
+  padding:10px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:var(--elev-3);animation:scoreSheetIn var(--motion-sheet) var(--ease-emphasized)}
 .scd-handle{width:38px;height:4px;border-radius:var(--r-pill);background:var(--line);margin:0 auto 14px}
 .scd-header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-3)}
 .scd-overall{font-family:var(--serif);font-size:42px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-top:4px}
@@ -2178,7 +2217,7 @@ body.score-detail-open .screen.active{overflow:hidden}
   .trends-shell{margin-left:var(--s-4);margin-right:var(--s-4)}
   .trends-head-row{display:block}
   .trend-range{margin-top:var(--s-3);width:max-content}
-  .trend-zone-label,.trend-threshold-label,.trend-latest-label{font-size:10px}
+  .trend-zone-label,.trend-threshold-label,.trend-latest-label{font-size:var(--fs-micro)}
   .trend-form-key{display:grid;grid-template-columns:1fr}
 }
 
@@ -2495,14 +2534,13 @@ body.score-detail-open .screen.active{overflow:hidden}
 .ss-btn:active{transform:translateY(1px)}
 /* skeleton loader — never a blank area while status resolves */
 .ss-skeleton{gap:14px}
-.ss-sk{display:block;border-radius:8px;background:linear-gradient(90deg,var(--line) 25%,var(--field) 37%,var(--line) 63%);
-  background-size:400% 100%;animation:ssShimmer 1.4s ease infinite}
+.ss-sk{display:block;border-radius:8px;background:linear-gradient(90deg,var(--skeleton-base) 25%,var(--skeleton-highlight) 37%,var(--skeleton-base) 63%);
+  background-size:400% 100%;animation:skelShimmer var(--skeleton-duration) var(--ease-standard) infinite}
 .ss-sk-row{display:flex;align-items:center;gap:10px}
 .ss-sk-dot{width:12px;height:12px;border-radius:50%}
 .ss-sk-line{height:16px;width:52%}
 .ss-sk-block{height:13px;width:100%}
 .ss-sk-block.short{width:60%}
-@keyframes ssShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
 @media(prefers-reduced-motion:reduce){.ss-sk,.ss-dot-sync{animation:none}}
 /* ── Import success banner (subtle, non-intrusive) ──────────────────── */
 .ss-banner-wrap{margin:0}
@@ -2571,7 +2609,7 @@ body.booting #tabbar{display:flex!important;z-index:9999;pointer-events:none}
   padding:calc(22px + env(safe-area-inset-top)) 22px
     calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom) + 22px)}
 .boot-brand{display:flex;justify-content:center;height:28px;margin-bottom:16px}
-.boot-header{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:12px;align-items:start;
+.boot-header{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:var(--s-3);align-items:start;
   margin-bottom:12px}
 .boot-header-copy{min-width:0}
 .boot-mark{width:28px;height:28px;border-radius:7px}
@@ -2606,7 +2644,7 @@ body.booting #tabbar{display:flex!important;z-index:9999;pointer-events:none}
   .boot-score-radar{width:72px;height:72px}
 }
 @media(min-width:480px){.boot-shell{height:calc(100dvh - 56px);margin:28px auto;
-  border-radius:44px;box-shadow:0 0 0 1px rgba(0,0,0,.04),0 24px 80px rgba(0,0,0,.10)}}
+  border-radius:44px;box-shadow:var(--elev-3)}}
 @media (prefers-reduced-motion:reduce){
   #boot-gate{transition:none}
 }
@@ -2619,8 +2657,8 @@ body.landing-active #tabbar{display:none!important}
 /* ─── Skeleton utilities ─── */
 @keyframes skelShimmer{0%{background-position:200% 0}to{background-position:-200% 0}}
 .skel,.skel-line,.skel-block,.skel-circle{
-  background:linear-gradient(90deg,var(--line) 25%,var(--card) 50%,var(--line) 75%);
-  background-size:200% 100%;animation:skelShimmer 1.8s ease-in-out infinite}
+  background:linear-gradient(90deg,var(--skeleton-base) 25%,var(--skeleton-highlight) 50%,var(--skeleton-base) 75%);
+  background-size:200% 100%;animation:skelShimmer var(--skeleton-duration) var(--ease-standard) infinite}
 .skel{border-radius:6px}
 .skel-line{height:14px;border-radius:4px;margin:6px 0}
 .skel-line.sm{height:10px}.skel-line.md{height:16px}.skel-line.lg{height:20px}.skel-line.xl{height:32px}
@@ -3540,13 +3578,13 @@ body.landing-active #tabbar{display:none!important}
   /* One reusable Athlevo Performance sheet. Feature previews open this
      explanation; only its primary action opens checkout. */
   .performance-upgrade-back{position:fixed;inset:0;z-index:90;display:none;
-    align-items:flex-end;justify-content:center;background:rgba(0,0,0,.44);
+    align-items:flex-end;justify-content:center;background:var(--backdrop);
     padding-top:env(safe-area-inset-top)}
-  .performance-upgrade-back.show{display:flex}
-  .performance-upgrade-sheet{width:100%;max-width:560px;background:var(--paper);
-    border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;
+  .performance-upgrade-back.show{display:flex;animation:fadeIn var(--motion-screen) var(--ease-standard)}
+  .performance-upgrade-sheet{width:100%;max-width:560px;background:var(--surface-base);
+    border:1px solid var(--border-default);border-bottom:0;border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;
     padding:22px 22px calc(22px + env(safe-area-inset-bottom));
-    box-shadow:var(--elev-3)}
+    box-shadow:var(--elev-3);animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
   .performance-upgrade-eyebrow{font-size:var(--fs-micro);font-weight:750;
     letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--red)}
   .performance-upgrade-sheet h2{margin:7px 0 12px;font-family:var(--serif);
@@ -3604,7 +3642,7 @@ body.landing-active #tabbar{display:none!important}
     .today-status-card{margin:0 22px}
     .today-plan-loading,.today-no-plan,.today-plan-error{border:1px solid var(--line);
       border-radius:var(--r-lg);background:var(--paper);padding:20px;box-shadow:var(--elev-1)}
-    .today-plan-loading{display:grid;gap:12px;min-height:218px;box-sizing:border-box}
+    .today-plan-loading{display:grid;gap:var(--s-3);min-height:218px;box-sizing:border-box}
     .today-plan-loading[hidden],.today-no-plan[hidden],.today-plan-error[hidden],
     .today-active-plan[hidden]{display:none!important}
     .today-skeleton-line{display:block;height:13px;border-radius:5px}
@@ -3672,7 +3710,7 @@ body.landing-active #tabbar{display:none!important}
     .direction-signal[data-tone="readiness-low"]{--signal-color:var(--bad)}
     .direction-signal[data-tone="readiness-moderate"]{--signal-color:var(--warn)}
     .direction-signal[data-tone="readiness-good"]{--signal-color:var(--good)}
-    .direction-signal[data-tone="recovery"]{--signal-color:#3970c8}
+    .direction-signal[data-tone="recovery"]{--signal-color:var(--info)}
     .direction-signal[data-tone="positive"]{--signal-color:var(--good)}
     .direction-signal[data-tone="warning"]{--signal-color:var(--warn)}
     .direction-signal[data-tone="risk"]{--signal-color:var(--bad)}
@@ -3682,10 +3720,6 @@ body.landing-active #tabbar{display:none!important}
     .direction-signal[data-tone="recovery-excellent"]{--signal-color:var(--good)}
     .direction-signal[data-tone="missing"]{--signal-color:var(--line)}
     .direction-signal[data-tone="missing"] .direction-signal-ring{border-radius:50%;background:var(--card)}
-    html[data-theme="dark"] .direction-signal[data-tone="recovery"]{--signal-color:#78a6ff}
-    @media (prefers-color-scheme: dark){
-      html[data-theme="system"] .direction-signal[data-tone="recovery"]{--signal-color:#78a6ff}
-    }
     .direction-signal[data-animated="true"] .direction-signal-progress{
       transition:stroke-dasharray calc(var(--dur-slow) * 2) var(--ease-standard),
         stroke calc(var(--dur-slow) * 2) var(--ease-standard);
@@ -3702,7 +3736,7 @@ body.landing-active #tabbar{display:none!important}
       font-weight:550;line-height:1.2;color:var(--ink3)}
     .direction-signal-lock{display:none;position:absolute;z-index:2;width:18px;height:18px;
       align-items:center;justify-content:center;border-radius:50%;background:var(--paper);
-      color:var(--ink2);box-shadow:0 0 0 1px var(--line)}
+      color:var(--ink2);border:1px solid var(--line)}
     .direction-signal-lock svg{position:static;width:11px;height:11px;fill:none;
       stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
       transform:none}
@@ -4235,8 +4269,8 @@ body.landing-active #tabbar{display:none!important}
    modal could never open and "Tap for full workout" did nothing. */
 .tw-modal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
   .tw-modal.show{display:flex}
-  .tw-modal-ov{position:absolute;inset:0;background:rgba(8,9,11,.55);backdrop-filter:blur(2px)}
-  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--paper);color:var(--text);border-radius:26px 26px 0 0;padding:24px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px -20px rgba(0,0,0,.5);animation:slideUp var(--dur-slow) var(--ease-emphasized)}
+  .tw-modal-ov{position:absolute;inset:0;background:var(--backdrop);backdrop-filter:blur(2px)}
+  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:24px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:var(--elev-3);animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
   @media(min-width:480px){.tw-modal{align-items:center}.tw-modal-box{border-radius:var(--r-lg);max-height:86vh}}
   .tw-modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer}
   .twm-kicker{font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red)}
@@ -4270,10 +4304,10 @@ body.landing-active #tabbar{display:none!important}
   .apl-rw-stat b{font-size:var(--fs-body);font-variant-numeric:tabular-nums;color:var(--text)}
   .apl-rw-take{font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink2);margin:10px 0 0}
   .apl-modal{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;
-    background:rgba(0,0,0,.4)}
-  .apl-modal.show{display:flex}
-  .apl-sheet{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--paper);
-    border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+    background:var(--backdrop)}
+  .apl-modal.show{display:flex;animation:fadeIn var(--motion-screen) var(--ease-standard)}
+  .apl-sheet{width:100%;max-width:560px;max-height:86vh;overflow-y:auto;background:var(--surface-base);
+    border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:var(--elev-3);animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
   .apl-sheet-h{font-size:var(--fs-h3);font-weight:700;color:var(--text);margin-bottom:12px}
   .apl-change{border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:8px}
   .apl-change-top{display:flex;justify-content:flex-end}
@@ -4591,7 +4625,7 @@ body.landing-active #tabbar{display:none!important}
   <div class="spacer-md"></div>
 
   <!-- ── Preferences ── -->
-  <div class="pad"><div class="section-title serif">Preferences</div></div>
+  <div class="pad"><div class="section-title">Preferences</div></div>
   <div class="appearance appearance-row">
     <span class="appearance-label">Appearance</span>
     <div class="seg" id="themeSeg" role="group" aria-label="Theme">
@@ -4601,46 +4635,46 @@ body.landing-active #tabbar{display:none!important}
     </div>
   </div>
   <div class="spacer-md" style="height:8px"></div>
-  <div class="rowlink" id="youInstallRow" onclick="athlevoInstall()">
+  <button class="rowlink" id="youInstallRow" type="button" onclick="athlevoInstall()">
     <div><b>Install Athlevo</b><small id="youInstallSub">Add Athlevo to your home screen</small></div>
     <span class="arr">→</span>
-  </div>
+  </button>
   <div class="spacer-md" style="height:8px"></div>
-  <div class="rowlink" onclick="toast(‘Notification settings coming soon’)">
+  <button class="rowlink" type="button" onclick="toast(‘Notification settings coming soon’)">
     <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
-  </div>
+  </button>
 
   <div class="spacer-md"></div>
 
   <!-- ── Support & Legal ── -->
-  <div class="pad"><div class="section-title serif">Support &amp; Legal</div></div>
-  <div class="rowlink" onclick="openBetaFeedback()">
+  <div class="pad"><div class="section-title">Support &amp; Legal</div></div>
+  <button class="rowlink" type="button" onclick="openBetaFeedback()">
     <div><b>Support</b><small>Report a bug, share an idea, or get help.</small></div><span class="arr">→</span>
-  </div>
+  </button>
   <div class="spacer-md" style="height:8px"></div>
-  <div class="rowlink" onclick="openLegal(‘privacy’)">
+  <button class="rowlink" type="button" onclick="openLegal(‘privacy’)">
     <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
-  </div>
+  </button>
   <div class="spacer-md" style="height:8px"></div>
-  <div class="rowlink" onclick="openLegal(‘terms’)">
+  <button class="rowlink" type="button" onclick="openLegal(‘terms’)">
     <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
-  </div>
+  </button>
 
   <div class="spacer-md"></div>
 
   <!-- ── Account ── -->
-  <div class="pad"><div class="section-title serif">Account</div></div>
-  <div class="rowlink" onclick="toast(‘Account settings coming soon’)">
+  <div class="pad"><div class="section-title">Account</div></div>
+  <button class="rowlink" type="button" onclick="toast(‘Account settings coming soon’)">
     <div><b>Account Settings</b><small>Manage your account details.</small></div><span class="arr">→</span>
-  </div>
+  </button>
   <div class="spacer-md" style="height:8px"></div>
-  <div class="rowlink" onclick="doLogout()">
+  <button class="rowlink" type="button" onclick="doLogout()">
     <div><b>Log Out</b><small>Sign out of your Athlevo account.</small></div><span class="arr">→</span>
-  </div>
+  </button>
   <div class="you-delete-divider"></div>
-  <div class="rowlink rowlink-danger-subtle" onclick="openDeleteAccount()">
+  <button class="rowlink rowlink-danger-subtle" type="button" onclick="openDeleteAccount()">
     <div><b>Delete Account</b><small>Permanently delete your account and all data.</small></div><span class="arr">→</span>
-  </div>
+  </button>
 
 <div class="app-version">
   <div>Athlevo</div>
@@ -4667,7 +4701,7 @@ body.landing-active #tabbar{display:none!important}
     <div class="cm-stat"><b class="num flag">3</b><small>Flags</small></div>
   </div>
   <div class="spacer-md"></div>
-  <div class="pad"><div class="section-title serif">Needs your decision</div></div>
+  <div class="pad"><div class="section-title">Needs your decision</div></div>
 
   <div class="athlete">
     <div class="row1"><div class="a-pfp">RG</div><div><b>RJ Gomez</b><small>Marathon · Peak phase</small></div><div class="compliance"><b class="num">96%</b><small>Compl.</small></div></div>
@@ -4687,7 +4721,7 @@ body.landing-active #tabbar{display:none!important}
     <div class="cm-actions"><button class="cm-btn approve" onclick="decide(this,'Message queued for Carlo')">Send message</button><button class="cm-btn" onclick="decide(this,'Dismissed')">Dismiss</button></div>
   </div>
 
-  <div class="pad"><div class="section-title serif" style="margin-top:10px">On track</div></div>
+  <div class="pad"><div class="section-title" style="margin-top:10px">On track</div></div>
   <div class="athlete"><div class="row1"><div class="a-pfp">RD</div><div><b>Rupert Delson</b><small>5K · Sharpening</small></div><div class="compliance"><b class="num">98%</b><small>Compl.</small></div></div></div>
   <div class="athlete"><div class="row1"><div class="a-pfp">AP</div><div><b>Abby Panghulan</b><small>10K · Build</small></div><div class="compliance"><b class="num">92%</b><small>Compl.</small></div></div></div>
   <div class="athlete"><div class="row1"><div class="a-pfp">JD</div><div><b>JM Destacamento</b><small>Marathon · Base</small></div><div class="compliance"><b class="num">90%</b><small>Compl.</small></div></div></div>
@@ -7848,11 +7882,11 @@ setTimeout(function () {
 <!-- PWA install guide (platform-specific instructions; not a fake prompt) -->
 <style>
   #pwaModal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
-  #pwaModal.show{display:flex}
-  #pwaModal .pwa-ov{position:absolute;inset:0;background:rgba(15,15,17,.55);backdrop-filter:blur(2px)}
-  #pwaModal .pwa-box{position:relative;width:100%;max-width:430px;background:var(--paper);border-radius:26px 26px 0 0;
-    padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -20px 60px -20px rgba(0,0,0,.4);
-    animation:pwaUp var(--dur-slow) var(--ease-emphasized)}
+  #pwaModal.show{display:flex;animation:fadeIn var(--motion-screen) var(--ease-standard)}
+  #pwaModal .pwa-ov{position:absolute;inset:0;background:var(--backdrop);backdrop-filter:blur(2px)}
+  #pwaModal .pwa-box{position:relative;width:100%;max-width:430px;background:var(--surface-base);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;
+    padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--elev-3);
+    animation:pwaUp var(--motion-sheet) var(--ease-emphasized)}
   @media(min-width:480px){#pwaModal{align-items:center}#pwaModal .pwa-box{border-radius:var(--r-lg);max-width:400px}}
   @keyframes pwaUp{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
   #pwaModal .pwa-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer}
@@ -7865,6 +7899,48 @@ setTimeout(function () {
   #pwaModal .pwa-ico{display:inline-flex;vertical-align:-3px;margin:0 2px}
   #pwaModal .pwa-done{width:100%;margin-top:20px;border:none;border-radius:var(--r-pill);padding:14px;background:var(--ink);color:#fff;
     font-family:var(--sans);font-weight:650;font-size:var(--fs-body);cursor:pointer}
+
+  /* ── Shared application component contract ───────────────────────────
+     Kept out of .landing-active so public editorial composition remains
+     unchanged. Existing screen classes retain layout ownership while their
+     controls share touch, focus, input and state behavior. */
+  body:not(.landing-active) .device :where(
+    button,.rowlink,.edu-card,.workout,.tcp-card.clickable,.tcp-actrow,
+    .cm-open-row,.cm-global-athlete,.cm-msg-item,.cm-workout-row,
+    .cm-day-row[data-workout-id]
+  ){-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  body:not(.landing-active) .device :where(
+    button,.rowlink,.edu-card,.workout,.tcp-card.clickable,.tcp-actrow,
+    .cm-open-row,.cm-global-athlete,.cm-msg-item,.cm-workout-row,
+    .cm-day-row[data-workout-id]
+  ){transition:opacity var(--motion-press) var(--ease-standard),transform var(--motion-press) var(--ease-standard),background-color var(--motion-press) var(--ease-standard),border-color var(--motion-press) var(--ease-standard)}
+  body:not(.landing-active) .device :where(
+    button,.rowlink,.edu-card,.workout,.tcp-card.clickable,.tcp-actrow,
+    .cm-open-row,.cm-global-athlete,.cm-msg-item,.cm-workout-row,
+    .cm-day-row[data-workout-id]
+  ):active:not(:disabled){opacity:.86;transform:scale(.985)}
+  body:not(.landing-active) .device :where(button,[role="button"],a,input,textarea,select):focus-visible{
+    outline:2px solid var(--focus-ring);outline-offset:2px}
+  body:not(.landing-active) .device :where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+    textarea,select
+  ){min-height:var(--control-height);font-family:var(--font-ui);color:var(--text-primary);caret-color:var(--athlevo-red)}
+  body:not(.landing-active) .device :where(input,textarea)::placeholder{color:var(--text-muted);opacity:1}
+  body:not(.landing-active) .device :where(input,textarea,select):disabled{opacity:.52;cursor:not-allowed}
+  body:not(.landing-active) .device :where(
+    .eyebrow,.rd-eyebrow,.ss-eyebrow,.asc-eyebrow,.twm-kicker,.twm-block-h,
+    .tcx-eyebrow,.performance-upgrade-eyebrow
+  ){font-family:var(--font-ui);font-size:var(--fs-micro);line-height:var(--lh-caption);font-weight:var(--fw-bold);letter-spacing:var(--ls-wide);text-transform:uppercase}
+  body:not(.landing-active) .device :where(.sc-status,.tcp-status,.tpc-conf,.scd-cov){
+    font-family:var(--font-ui);font-size:var(--fs-micro);line-height:var(--lh-caption);font-weight:var(--fw-bold)}
+  body:not(.landing-active) .device :where(.sc-status.done,.tcp-status.done){background:var(--success-soft);color:var(--success)}
+  body:not(.landing-active) .device :where(.sc-status.mod,.tcp-status.mod){background:var(--warning-soft);color:var(--warning)}
+  body:not(.landing-active) .device :where(.sc-status.skip,.tcp-status.skip){background:var(--danger-soft);color:var(--danger)}
+  body:not(.landing-active) .device :where(.rowlink,.tcp-actrow,.cm-open-row,.cm-global-athlete,.cm-msg-item,.cm-workout-row){min-height:var(--tap-target)}
+  body:not(.landing-active) .device :where(button:disabled,[aria-disabled="true"]){cursor:not-allowed;opacity:.48}
+  @media(hover:hover){
+    body:not(.landing-active) .device :where(.rowlink,.tcp-actrow,.cm-open-row,.cm-global-athlete,.cm-msg-item,.cm-workout-row):hover{background-color:var(--surface-soft)}
+  }
 </style>
 <div id="pwaModal" role="dialog" aria-modal="true" aria-labelledby="pwaModalTitle">
   <div class="pwa-ov" onclick="closePwaModal()"></div>
@@ -7879,7 +7955,7 @@ setTimeout(function () {
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
 <script src="js/landingContent.js?v=76"></script>
-<script src="js/authSupport.js?v=71"></script>
+<script src="js/authSupport.js?v=72"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
 <script src="js/brain.js?v=68"></script>
@@ -7929,9 +8005,9 @@ setTimeout(function () {
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
-<script src="js/athleteMode.js?v=75"></script>
+<script src="js/athleteMode.js?v=76"></script>
 <script src="js/coachDashboard.js?v=75"></script>
-<script src="js/coachMode.js?v=12"></script>
+<script src="js/coachMode.js?v=13"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
 <script src="js/accessGuard.js?v=72"></script>
 <script src="js/planSetup.js?v=69"></script>
