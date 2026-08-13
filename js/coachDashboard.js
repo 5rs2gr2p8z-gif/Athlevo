@@ -116,10 +116,10 @@
   /* ─────────────────────── state helpers ────────────────────── */
 
   var STATUS_META = {
-    needs_attention: { label: "Needs attention", order: 0, color: "#c0392b" },
-    monitor:         { label: "Monitor",         order: 1, color: "#c77d0a" },
-    no_recent_data:  { label: "No recent data",  order: 2, color: "#888" },
-    on_track:        { label: "On track",        order: 3, color: "#2e7d32" }
+    needs_attention: { label: "Needs attention", order: 0, color: "var(--danger,#c0392b)" },
+    monitor:         { label: "Monitor",         order: 1, color: "var(--warning,#c77d0a)" },
+    no_recent_data:  { label: "No recent data",  order: 2, color: "var(--text-muted,#888)" },
+    on_track:        { label: "On track",        order: 3, color: "var(--success,#2e7d32)" }
   };
   var SEV_RANK = { high: 3, medium: 2, low: 1, none: 0 };
 
@@ -159,7 +159,7 @@
 
     if (state.loading) { body.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3,#888);">Loading roster…</div>'; return; }
     if (state.error) {
-      body.innerHTML = '<div style="padding:24px;text-align:center;color:#c0392b;">' +
+      body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--danger,#c0392b);">' +
         esc(state.error) + '<br><button id="cdRetry" style="margin-top:10px;padding:8px 14px;border-radius:10px;border:1px solid var(--line,#ddd);background:transparent;cursor:pointer;">Try again</button></div>';
       var rb = document.getElementById("cdRetry"); if (rb) rb.addEventListener("click", function () { loadAndRender(true); });
       return;
@@ -190,7 +190,7 @@
         '    <div style="min-width:0;flex:1;">' +
         '      <div style="display:flex;align-items:center;gap:8px;">' +
         '        <span style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(a.name) + '</span>' +
-        '        <span style="flex:0 0 auto;font-size:11px;font-weight:600;color:#fff;background:' + meta.color + ';border-radius:999px;padding:2px 8px;">' + esc(meta.label) + '</span>' +
+        '        <span style="flex:0 0 auto;font-size:11px;font-weight:600;color:var(--paper,#fff);background:' + meta.color + ';border-radius:var(--r-pill);padding:2px 8px;">' + esc(meta.label) + '</span>' +
         '      </div>' +
         '      <div style="font-size:12px;color:var(--ink3,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">' +
                 esc(sport) + ' · ' + fmtVal(a.goal) + '</div>' +
@@ -223,7 +223,7 @@
     drawer.innerHTML = '<div style="padding:24px;text-align:center;color:var(--ink3,#888);">Loading athlete…</div>';
     var res = await api("athlete", { query: { athlete_id: athleteId } });
     if (!res.ok || !res.body || !res.body.athlete) {
-      drawer.innerHTML = '<div style="padding:24px;text-align:center;color:#c0392b;">' +
+      drawer.innerHTML = '<div style="padding:24px;text-align:center;color:var(--danger,#c0392b);">' +
         (res.status === 403 ? "You are not assigned to this athlete." : "Could not load this athlete.") +
         '<br><button id="cdDrawerClose" style="margin-top:10px;padding:8px 14px;border-radius:10px;border:1px solid var(--line,#ddd);background:transparent;cursor:pointer;">Close</button></div>';
       var cb = document.getElementById("cdDrawerClose"); if (cb) cb.addEventListener("click", closeDrawer);
@@ -267,8 +267,8 @@
 
     drawer.hidden = false;
     drawer.innerHTML =
-      '<div style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:60;" id="cdOverlay"></div>' +
-      '<div role="dialog" aria-label="Athlete overview" style="position:fixed;left:0;right:0;bottom:0;z-index:61;max-width:720px;margin:0 auto;background:var(--bg,#fff);border-radius:18px 18px 0 0;max-height:88vh;overflow:auto;padding:18px 16px 40px;">' +
+      '<div style="position:fixed;inset:0;background:var(--backdrop,rgba(0,0,0,.35));z-index:60;" id="cdOverlay"></div>' +
+      '<div role="dialog" aria-label="Athlete overview" style="position:fixed;left:0;right:0;bottom:0;z-index:61;max-width:720px;margin:0 auto;background:var(--surface-base,#fff);border-radius:var(--ui-radius-sheet,26px) var(--ui-radius-sheet,26px) 0 0;max-height:88vh;overflow:auto;padding:18px 16px 40px;box-shadow:var(--elev-3);">' +
       '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
       '    <div style="display:flex;align-items:center;gap:10px;min-width:0;">' +
       '      <div aria-hidden="true" style="width:38px;height:38px;border-radius:50%;background:var(--tint,#eef);display:flex;align-items:center;justify-content:center;font-weight:600;">' + esc(ath.initials || "A") + '</div>' +
