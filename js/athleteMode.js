@@ -279,7 +279,7 @@
 
     screen.innerHTML =
       '<div style="padding:24px;text-align:center;">' +
-        '<div style="width:64px;height:64px;border-radius:50%;background:var(--athlevo-red);color:#fff;' +
+        '<div style="width:64px;height:64px;border-radius:50%;background:var(--athlevo-red);color:var(--paper,#ffffff);' +
           'display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;">' +
           initials +
         '</div>' +
@@ -384,7 +384,7 @@
     section.className = "am-assigned-coach";
     section.style.cssText = "margin:var(--s-4);padding:var(--s-4);background:var(--surface-soft);border:1px solid var(--border-default);border-radius:var(--ui-radius-card);display:flex;align-items:center;gap:var(--s-3);";
     section.innerHTML =
-      '<div style="width:44px;height:44px;border-radius:50%;background:var(--athlevo-red);color:#fff;' +
+      '<div style="width:44px;height:44px;border-radius:50%;background:var(--athlevo-red);color:var(--paper,#ffffff);' +
         'display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex-shrink:0;">' +
         initials +
       '</div>' +

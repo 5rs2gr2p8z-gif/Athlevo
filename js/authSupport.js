@@ -263,14 +263,14 @@
     style.id = "athlevoEnvNoticeStyles";
     style.textContent =
       "#athlevoEnvNotice{position:fixed;inset:0;z-index:99999;background:var(--backdrop,rgba(20,20,22,.45));display:flex;align-items:flex-end;justify-content:center;font-family:var(--font-ui,var(--sans,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif));animation:aehFadeIn var(--motion-screen,var(--dur-base,200ms)) var(--ease-standard,ease-out)}" +
-      "#athlevoEnvNotice .aeh-card{width:100%;max-width:430px;background:var(--surface-base,var(--paper,#fff));color:var(--text-primary,var(--text,#141416));border:1px solid var(--border-default,var(--line,#e7e7e4));border-radius:var(--ui-radius-sheet,26px) var(--ui-radius-sheet,26px) 0 0;padding:24px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--elev-3,0 -18px 48px rgba(0,0,0,.18));animation:aehSheetIn var(--motion-sheet,260ms) var(--ease-emphasized,ease-out)}" +
+      "#athlevoEnvNotice .aeh-card{width:100%;max-width:430px;background:var(--surface-base,var(--paper,#fff));color:var(--text-primary,var(--text,#141416));border:1px solid var(--border-default,var(--line,#ebebe8));border-radius:var(--ui-radius-sheet,26px) var(--ui-radius-sheet,26px) 0 0;padding:24px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--elev-3,0 -18px 48px rgba(0,0,0,.18));animation:aehSheetIn var(--motion-sheet,260ms) var(--ease-emphasized,ease-out)}" +
       "#athlevoEnvNotice h2{font-size:20px;line-height:1.2;margin:0 0 9px}" +
-      "#athlevoEnvNotice p{font-size:14px;line-height:1.5;color:var(--ink2,#60636a);margin:0 0 13px}" +
+      "#athlevoEnvNotice p{font-size:14px;line-height:1.5;color:var(--ink2,#6d7075);margin:0 0 13px}" +
       "#athlevoEnvNotice .aeh-instruction{font-weight:600;color:var(--text,#141416)}" +
       "#athlevoEnvNotice .aeh-actions{display:flex;gap:10px;margin-top:18px}" +
       "#athlevoEnvNotice button{min-height:var(--control-height,44px);border-radius:var(--r-pill,999px);padding:12px 16px;font:600 14px/1 var(--font-ui,var(--sans,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif));cursor:pointer;transition:opacity var(--motion-press,140ms) var(--ease-standard,ease-out),transform var(--motion-press,140ms) var(--ease-standard,ease-out)}" +
       "#athlevoEnvCopy{flex:1;border:1px solid var(--ink,#141416);background:var(--ink,#141416);color:var(--paper,#fff)}" +
-      "#athlevoEnvClose{border:1px solid var(--line,#d9d9d5);background:transparent;color:var(--text,#141416)}" +
+      "#athlevoEnvClose{border:1px solid var(--line,#ebebe8);background:transparent;color:var(--text,#141416)}" +
       "#athlevoEnvFeedback{min-height:18px;margin:13px 0 0!important;font-size:13px!important}" +
       "#athlevoEnvNotice button:active{opacity:.86;transform:scale(.985)}" +
       "#athlevoEnvNotice button:focus-visible{outline:2px solid var(--focus-ring,#3a6df0);outline-offset:2px}" +

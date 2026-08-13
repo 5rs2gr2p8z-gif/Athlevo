@@ -198,10 +198,10 @@ function readinessSummaryLine(record) {
 /* ─── readiness score (client mirror of lib/server/readiness.js) ── */
 
 const READINESS_STATUS_META = {
-  low: { label: "Low", color: "var(--danger,#C0272D)" },
-  moderate: { label: "Moderate", color: "var(--warning,#E07B1A)" },
-  good: { label: "Good", color: "var(--warning,#E0B21A)" },
-  optimal: { label: "Optimal", color: "var(--success,#1F9D5B)" }
+  low: { label: "Low", color: "var(--bad,#c0272d)" },
+  moderate: { label: "Moderate", color: "var(--warn,#c98a1e)" },
+  good: { label: "Good", color: "#d4a318" },
+  optimal: { label: "Optimal", color: "var(--good,#1f9d5b)" }
 };
 
 function rdClamp(value, min, max) {
