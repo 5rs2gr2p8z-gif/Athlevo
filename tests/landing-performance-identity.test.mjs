@@ -37,7 +37,7 @@ test("brand navigation names both coaching paths and the method",
   ["Coaching", "AI", "Method", "Athletes", "About"].every(label =>
     landing.includes(`>${label}</a>`)));
 test("global brand CTA is Train With Athlevo",
-  /<a class="lp-btn sm" href="#train-with-athlevo">Train With Athlevo<\/a>/.test(landing));
+  /<button type="button" class="lp-btn sm" onclick="landingOpenApp\(\)">Train With Athlevo<\/button>/.test(landing));
 test("hero is editorial photography-first rather than an app mockup",
   /<img src="assets\/landing\/hero-athlevo\.png"[^>]*alt="Athlevo athletes together after a training session\."[^>]*loading="eager"[^>]*fetchpriority="high"/.test(landing) &&
   !landing.slice(landing.indexOf('<header class="lp-hero"'), landing.indexOf("</header>"))

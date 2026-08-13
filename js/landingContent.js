@@ -24,7 +24,9 @@
           "Knows when to push and when to pull back"
         ],
         cta: "Start Training",
-        href: "#ai"
+        href: "#ai",
+        appEntry: true,
+        ctaLocation: "ai_product"
       },
       {
         name: "Athlevo Plan",
@@ -160,8 +162,14 @@
       const article = node("article", "lp-offer");
       const features = node("ul", "lp-offer-features");
       offer.features.forEach(feature => features.append(node("li", "", feature)));
-      const cta = node("a", "lp-btn lp-offer-cta", offer.cta);
-      cta.href = offer.href;
+      const cta = node(offer.appEntry ? "button" : "a", "lp-btn lp-offer-cta", offer.cta);
+      if (offer.appEntry) {
+        cta.type = "button";
+        cta.dataset.ctaLocation = offer.ctaLocation;
+        cta.addEventListener("click", () => global.landingStartFree(cta));
+      } else {
+        cta.href = offer.href;
+      }
       const bestFor = node("div", "lp-offer-best");
       bestFor.append(node("span", "", "BEST FOR"), node("p", "", offer.bestFor));
       article.append(

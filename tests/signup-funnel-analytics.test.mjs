@@ -24,6 +24,7 @@ const test = (name, condition) => {
 const section = name => console.log(`\n──── ${name} ────`);
 
 const html = readFileSync("./index.html", "utf8");
+const landingContent = readFileSync("./js/landingContent.js", "utf8");
 const analytics = readFileSync("./js/analytics.js", "utf8");
 const registry = readFileSync("./js/analyticsRegistry.js", "utf8");
 const social = readFileSync("./js/socialAuth.js", "utf8");
@@ -81,13 +82,14 @@ test("legacy signup_started/signup_completed calls are absent",
 
 section("Landing and auth intent");
 
-const ctaTags = Array.from(html.matchAll(
-  /<button[^>]*data-cta-location="([^"]+)"[^>]*onclick="landingStartFree\(this\)"[^>]*>Build My Training Plan<\/button>/g
-));
+const ctaTag = landingContent.match(
+  /cta: "Start Training",[\s\S]*?appEntry: true,[\s\S]*?ctaLocation: "([^"]+)"/
+);
 test("the dedicated Athlevo AI signup CTA carries an explicit location",
-  ctaTags.length === 1 && ctaTags[0][1] === "ai_product");
+  ctaTag && ctaTag[1] === "ai_product");
 test("parent-brand CTAs do not masquerade as signup intent",
   /Train With Athlevo/.test(html) &&
+  (html.match(/onclick="landingOpenApp\(\)">Train With Athlevo/g) || []).length === 2 &&
   !/data-cta-location="(?:navigation|hero|footer)"/.test(html));
 test("signup CTA captures text, location, and auth destination",
   /trackAuthChoice\("signup_cta_clicked",\s*\{[\s\S]*?cta_text:[\s\S]*?cta_location:[\s\S]*?destination:\s*"screen-welcome"/.test(html));
