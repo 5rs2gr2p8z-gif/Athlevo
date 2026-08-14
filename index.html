@@ -1654,6 +1654,72 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
   background:var(--card2)
 }
+.am-coach-mode-mount{flex:1 1 auto;min-height:0}
+.am-ai-surface-hidden{display:none!important}
+.am-coach-resolving{
+  display:grid;place-content:center;justify-items:center;gap:var(--s-3);
+  padding:var(--s-6);color:var(--text-muted);font-size:var(--fs-body-sm)
+}
+.am-coach-resolving-mark{
+  width:28px;height:28px;border:1px solid var(--line);border-top-color:var(--athlevo-red);
+  border-radius:50%;animation:amCoachResolve .8s linear infinite
+}
+@keyframes amCoachResolve{to{transform:rotate(360deg)}}
+.am-human-coach{display:flex;flex-direction:column;background:var(--paper)}
+.am-human-coach-head{
+  flex:0 0 auto;display:flex;align-items:center;gap:var(--s-3);padding:14px 22px 12px;
+  border-bottom:1px solid var(--line);background:var(--paper)
+}
+.am-human-coach-avatar{
+  width:34px;height:34px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;
+  background:var(--athlevo-red);color:#fff;font-size:var(--fs-body-sm);font-weight:700
+}
+.am-human-coach-head strong,.am-human-coach-head small{display:block}
+.am-human-coach-head>span:last-child{min-width:0}
+.am-human-coach-head strong{font-size:var(--fs-body-sm);overflow-wrap:anywhere}
+.am-human-coach-head small{margin-top:2px;color:var(--text-muted);font-size:var(--fs-caption)}
+.am-human-coach-thread{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--s-5) 22px;
+  display:flex;flex-direction:column;gap:var(--s-3);-webkit-overflow-scrolling:touch
+}
+.am-human-coach-thread>:first-child{margin-top:auto}
+.am-human-thread-state,.am-human-thread-empty{margin:auto;text-align:center;color:var(--text-muted);font-size:var(--fs-body-sm)}
+.am-human-thread-loading{width:min(72%,280px);display:grid;gap:8px;margin:auto 0 0}
+.am-human-thread-loading i{
+  display:block;height:38px;border-radius:12px;background:var(--card2);opacity:.72;
+  animation:amHumanThreadPulse var(--dur-slow,600ms) ease-in-out infinite alternate
+}
+.am-human-thread-loading i:nth-child(2){width:72%;animation-delay:80ms}
+.am-human-thread-loading i:nth-child(3){width:88%;animation-delay:160ms}
+@keyframes amHumanThreadPulse{to{opacity:.42}}
+.am-human-thread-empty strong{display:block;color:var(--ink);font-size:var(--fs-body);margin-bottom:var(--s-1)}
+.am-human-thread-empty p{max-width:280px;margin:0}
+.am-human-message{max-width:min(82%,440px);align-self:flex-start}
+.am-human-message.is-athlete{align-self:flex-end}
+.am-human-message p{
+  margin:0;padding:10px 13px;border-radius:14px 14px 14px 4px;background:var(--card2);
+  color:var(--ink);font-size:var(--fs-body-sm);line-height:var(--lh-body);overflow-wrap:anywhere
+}
+.am-human-message.is-athlete p{border-radius:14px 14px 4px 14px;background:var(--ink);color:var(--paper)}
+.am-human-message time{display:block;margin-top:4px;color:var(--text-muted);font-size:10px}
+.am-human-message.is-athlete time{text-align:right}
+.am-human-coach-composer{
+  flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s-2);
+  padding:var(--s-2) 22px var(--s-3);background:var(--paper);border-top:1px solid var(--line)
+}
+.am-human-coach-composer textarea{
+  width:100%;min-width:0;min-height:44px;max-height:120px;resize:vertical;padding:11px 13px;
+  border:1px solid var(--line);border-radius:var(--ui-radius-control);background:var(--paper);color:var(--ink);
+  font:inherit;font-size:var(--fs-body-sm)
+}
+.am-human-coach-composer button{
+  min-height:44px;padding:0 var(--s-4);border:0;border-radius:var(--ui-radius-control);
+  background:var(--ink);color:var(--paper);font:inherit;font-size:var(--fs-body-sm);font-weight:700;cursor:pointer
+}
+.am-human-coach-composer button:disabled{opacity:.55;cursor:default}
+.am-human-coach-status{
+  grid-column:1/-1;min-height:14px;margin:0;color:var(--athlevo-red);font-size:var(--fs-caption)
+}
 
 @media (max-width:360px){
   #screen-coachai .coach-head,
@@ -1662,7 +1728,9 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
   #screen-coachai.coach-is-active #chatlog{padding-left:var(--s-4);padding-right:var(--s-4)}
   .coach-empty-greeting{font-size:var(--fs-h1)}
   .coach-starters{grid-template-columns:1fr}
+  .am-human-coach-head,.am-human-coach-thread,.am-human-coach-composer{padding-left:var(--s-4);padding-right:var(--s-4)}
 }
+@media (prefers-reduced-motion:reduce){.am-coach-resolving-mark,.am-human-thread-loading i{animation:none}}
 
 /* Tab bar owns the reserved bottom area. Use min-height (not a fixed height)
    so the safe-area padding EXTENDS the bar in standalone instead of squishing
@@ -4086,7 +4154,7 @@ body.landing-active #tabbar{display:none!important}
   </div>
 </div>
 
- <div class="coachnote">
+ <div class="coachnote" id="todayCoachNoteSection">
   <span class="eyebrow">Coach’s note</span>
 
   <p id="todayCoachNote">
@@ -4571,7 +4639,7 @@ body.landing-active #tabbar{display:none!important}
   </div>
 </div>
 
- <div class="memory">
+ <div class="memory" id="coachMemorySection">
   <span class="eyebrow">Coach memory</span>
 
   <h4 class="serif">What I know about you</h4>
@@ -5970,11 +6038,17 @@ async function go(btn){
     }
   }
   if (screenId === "screen-coachai") {
-    await renderConversationHistory();
-    requestAnimationFrame(() => {
-      var chatlog = document.getElementById("chatlog");
-      if (chatlog) chatlog.scrollTop = chatlog.scrollHeight;
-    });
+    var athleteCoachMode = "unknown";
+    if (window.AthlevoAthleteMode && typeof window.AthlevoAthleteMode.onCoachTabEnter === "function") {
+      athleteCoachMode = await window.AthlevoAthleteMode.onCoachTabEnter();
+    }
+    if (athleteCoachMode === "self_guided") {
+      await renderConversationHistory();
+      requestAnimationFrame(() => {
+        var chatlog = document.getElementById("chatlog");
+        if (chatlog) chatlog.scrollTop = chatlog.scrollHeight;
+      });
+    }
   }
   await screenTransition;
   try {
@@ -7549,6 +7623,14 @@ async function routeAfterAuth(userId) {
   document.getElementById("tabbar").style.display = "flex";
   showScreen("screen-today");
 
+  // Resolve athlete coaching authority before loading any AI-authored
+  // coaching surface. init() synchronously masks the hidden Coach AI DOM,
+  // while the server decides whether this athlete is self-guided or managed.
+  var athleteModePromise = null;
+  if (window.AthlevoAthleteMode && window.AthlevoAthleteMode.init) {
+    try { athleteModePromise = window.AthlevoAthleteMode.init(); } catch (e) {}
+  }
+
   // Authoritative post-auth data load (used by both session restore and
   // interactive login). refreshAthleteUI populates Today/Train/Trends +
   // profile + Strava state; then the brief and the weekly plan load.
@@ -7568,7 +7650,12 @@ async function routeAfterAuth(userId) {
     try { window.AthlevoCoachMode.injectAthleteYouSwitcher(); } catch (e) {}
   }
 
-  await AthlevoDailyBrief.load();
+  if (athleteModePromise) {
+    try { await athleteModePromise; } catch (e) {}
+  }
+  if (!window.AthlevoAthleteMode || window.AthlevoAthleteMode.mode() === "self_guided") {
+    await AthlevoDailyBrief.load();
+  }
 
   if (typeof window.loadWeeklyPlan === "function") {
     await window.loadWeeklyPlan();
@@ -7595,19 +7682,6 @@ async function routeAfterAuth(userId) {
   try {
     if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.init) {
       window.AthlevoCoachDashboard.init();
-    }
-  } catch (e) {}
-
-  /*
-   * Managed Athlete Mode (role-gated). init() fetches the authoritative
-   * coaching mode from the server. For self_guided athletes (the majority)
-   * it is a no-op after a single lightweight GET. For human_coached athletes
-   * it configures Today labels, Coach-tab shell, Train permissions, and the
-   * You Assigned Coach section. Never blocks athlete routing.
-   */
-  try {
-    if (window.AthlevoAthleteMode && window.AthlevoAthleteMode.init) {
-      window.AthlevoAthleteMode.init();
     }
   } catch (e) {}
 
@@ -7997,15 +8071,15 @@ setTimeout(function () {
 <script src="js/developmentData.js?v=67"></script>
 <script src="js/raceDetection.js?v=67"></script>
 <script src="js/memory.js?v=67"></script>
-<script src="js/dailyBrief.js?v=67"></script>
+<script src="js/dailyBrief.js?v=77"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
-<script src="js/coach.js?v=70"></script>
+<script src="js/coach.js?v=77"></script>
 <script src="js/features.js?v=68"></script>
 <script src="js/train.js?v=67"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
-<script src="js/athleteMode.js?v=76"></script>
+<script src="js/athleteMode.js?v=77"></script>
 <script src="js/coachDashboard.js?v=75"></script>
 <script src="js/coachMode.js?v=13"></script>
 <script src="js/adaptivePlan.js?v=67"></script>

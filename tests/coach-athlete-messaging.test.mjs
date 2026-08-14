@@ -220,5 +220,85 @@ console.log("\n──── Executable authenticated messaging route ───�
   if (originalKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = originalKey;
 }
 
+console.log("\n──── Executable athlete-facing messaging route ────");
+{
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.SUPABASE_URL;
+  const originalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_URL = "https://supabase.test";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role";
+  const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+  async function callAthleteMessages({ method = "GET", status = "active", assignmentFailure = false, threadRows, body = "Coach, I need to move tomorrow's run." } = {}) {
+    const writes = [];
+    globalThis.fetch = async (input, init = {}) => {
+      const url = String(input);
+      const requestMethod = init.method || "GET";
+      if (url.includes("/auth/v1/user")) return jsonResponse({ id: "athlete-1" });
+      if (url.includes("coach_athlete_assignments?athlete_id=eq.athlete-1")) {
+        if (assignmentFailure) return jsonResponse({ error: "unavailable" }, 503);
+        return jsonResponse(status ? [{
+          id: "assignment-1", coach_id: "coach-1", athlete_id: "athlete-1",
+          status, permission_level: "read_write", assigned_at: "2026-08-01T00:00:00Z"
+        }] : []);
+      }
+      if (url.endsWith("/rest/v1/coach_messages") && requestMethod === "POST") {
+        const saved = JSON.parse(init.body);
+        writes.push(saved);
+        return jsonResponse([row({ body: saved.body, sender_role: "athlete", sender_user_id: "athlete-1" })]);
+      }
+      if (url.includes("coach_messages?coach_id=eq.coach-1&athlete_id=eq.athlete-1")) {
+        return jsonResponse(threadRows === undefined
+          ? [row({ sender_role: "athlete", sender_user_id: "athlete-1", body })]
+          : threadRows);
+      }
+      throw new Error(`Unexpected fetch: ${requestMethod} ${url}`);
+    };
+    const request = {
+      method,
+      query: { action: "athlete_messages", athlete_id: "victim-athlete", coach_id: "attacker-coach" },
+      headers: { authorization: "Bearer verified-athlete-jwt" },
+      body: {
+        athlete_id: "victim-athlete",
+        coach_id: "attacker-coach",
+        sender_role: "coach",
+        message: { body }
+      }
+    };
+    const result = { statusCode: null, body: null };
+    const response = {
+      setHeader() {},
+      status(code) { result.statusCode = code; return this; },
+      json(value) { result.body = value; return value; }
+    };
+    await providerHandler(request, response);
+    return { ...result, writes };
+  }
+
+  const history = await callAthleteMessages({ method: "GET" });
+  test("active managed athlete can read the assigned coach thread", history.statusCode === 200 && history.body.thread.messages.length === 1);
+  const emptyHistory = await callAthleteMessages({ method: "GET", threadRows: [] });
+  test("active managed athlete receives a valid empty thread", emptyHistory.statusCode === 200 && emptyHistory.body.thread.messages.length === 0 && emptyHistory.body.thread.can_send === true);
+  const coachHistory = await callAthleteMessages({ method: "GET", threadRows: [row({ sender_role: "coach", body: "Keep today's run controlled." })] });
+  test("coach messages are visible to the assigned athlete", coachHistory.body.thread.messages[0].sender_role === "coach" && coachHistory.body.thread.messages[0].body === "Keep today's run controlled.");
+  const sent = await callAthleteMessages({ method: "POST" });
+  test("active managed athlete can send a message", sent.statusCode === 200 && sent.writes.length === 1);
+  test("athlete route ignores spoofed identities and stamps verified ownership", sent.writes[0].athlete_id === "athlete-1" && sent.writes[0].coach_id === "coach-1" && sent.writes[0].sender_user_id === "athlete-1" && sent.writes[0].sender_role === "athlete");
+  const paused = await callAthleteMessages({ method: "GET", status: "paused" });
+  test("paused assignment immediately removes athlete messaging authority", paused.statusCode === 403 && paused.writes.length === 0);
+  const ended = await callAthleteMessages({ method: "POST", status: "ended" });
+  test("ended assignment cannot send", ended.statusCode === 403 && ended.writes.length === 0);
+  const missing = await callAthleteMessages({ method: "GET", status: null });
+  test("unassigned athlete cannot select another coach thread", missing.statusCode === 403 && missing.writes.length === 0);
+  const overlong = await callAthleteMessages({ method: "POST", body: "x".repeat(4001) });
+  test("athlete route enforces the shared 4000-character limit", overlong.statusCode === 400 && overlong.writes.length === 0);
+  const unresolved = await callAthleteMessages({ method: "GET", assignmentFailure: true });
+  test("assignment lookup failures fail closed instead of becoming self-guided", unresolved.statusCode === 503 && unresolved.writes.length === 0);
+
+  globalThis.fetch = originalFetch;
+  if (originalUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = originalUrl;
+  if (originalKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = originalKey;
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

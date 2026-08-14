@@ -1,5 +1,15 @@
 console.log("Athlevo Daily Brief Loaded");
 
+let dailyBriefManaged = false;
+
+function setManagedDailyBrief(managed) {
+  dailyBriefManaged = managed === true;
+  const brief = document.getElementById("dailyBriefFull");
+  const coachNote = document.getElementById("todayCoachNoteSection");
+  if (brief) brief.hidden = dailyBriefManaged;
+  if (coachNote) coachNote.hidden = dailyBriefManaged;
+}
+
 function setDailyBriefText(elementId, value, fallback) {
   const element = document.getElementById(elementId);
 
@@ -233,6 +243,13 @@ function renderDailyBriefUpgrade() {
 async function loadDailyBrief({
   force = false
 } = {}) {
+  if (
+    dailyBriefManaged ||
+    (window.AthlevoAthleteMode && window.AthlevoAthleteMode.isManaged())
+  ) {
+    setManagedDailyBrief(true);
+    return null;
+  }
   renderDailyBriefLoading();
 
   try {
@@ -291,6 +308,11 @@ async function loadDailyBrief({
       return null;
     }
 
+    if (response.status === 403 && result?.code === "HUMAN_COACHED") {
+      setManagedDailyBrief(true);
+      return null;
+    }
+
     if (!response.ok) {
       throw new Error(
         result?.error ||
@@ -317,5 +339,6 @@ async function loadDailyBrief({
 
 window.AthlevoDailyBrief = {
   load: loadDailyBrief,
-  render: renderDailyBrief
+  render: renderDailyBrief,
+  setManaged: setManagedDailyBrief
 };

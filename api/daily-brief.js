@@ -11,6 +11,7 @@ import {
   READINESS_STATUS,
   summarizeReadiness
 } from "../lib/server/readiness.js";
+import { resolveCoachingMode } from "../lib/server/coachingMode.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -105,6 +106,17 @@ async function loadProfile(userId) {
   );
 
   return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function loadCoachingMode(userId) {
+  const rows = await supabaseRequest(
+    [
+      "coach_athlete_assignments",
+      `?athlete_id=eq.${encodeURIComponent(userId)}`,
+      "&select=id,coach_id,athlete_id,status,assigned_at"
+    ].join("")
+  );
+  return resolveCoachingMode(Array.isArray(rows) ? rows : [], userId);
 }
 
 async function loadMemories(userId) {
@@ -876,6 +888,17 @@ export default async function handler(req, res) {
       return sendJson(res, 401, {
         error:
           "The authenticated user could not be verified."
+      });
+    }
+
+    // A managed athlete receives coaching direction from their assigned
+    // human coach. Resolve that server-side before entitlement, rate-limit,
+    // data loading, caching, or any model request can occur.
+    const coachingMode = await loadCoachingMode(user.id);
+    if (coachingMode.mode === "human_coached") {
+      return sendJson(res, 403, {
+        code: "HUMAN_COACHED",
+        error: "Your coach manages your coaching guidance."
       });
     }
 

@@ -39,8 +39,14 @@
   var _ambiguous = false;
   var _confirmed = false; // true ONLY after a successful authoritative server response
   var _fetching = false;
+  var _fetchPromise = null;
   var _cacheKey = null;
   var _lastError = null;  // categorical error reason (never raw message)
+  var _thread = null;
+  var _threadLoading = false;
+  var _sendInFlight = false;
+  var _requestGeneration = 0;
+  var MODE_STALE_MS = 2 * 60 * 1000;
 
   // ─── Helpers ─────────────────────────────────────────────────────────
   function sb() { return typeof supabaseClient !== "undefined" ? supabaseClient : null; }
@@ -74,60 +80,72 @@
   //   3. The response contained a recognized coaching_mode value
   //
   // Anything else → unknown. Unknown is never cached as confirmed.
-  async function fetchMode(force) {
-    if (_fetching) return;
-    if (_confirmed && !force) return;
+  function fetchMode(force) {
+    if (_fetchPromise) return _fetchPromise;
+    if (_confirmed && !force) return Promise.resolve(_mode);
     _fetching = true;
     _lastError = null;
-    try {
-      var t = await token();
-      if (!t) {
-        // No token: cannot verify. Stay unknown.
+    var requestGeneration = _requestGeneration;
+    var request = (async function () {
+      try {
+        var t = await token();
+        if (requestGeneration !== _requestGeneration) return _mode;
+        if (!t) {
+          // No token: cannot verify. Stay unknown.
+          _mode = "unknown";
+          _confirmed = false;
+          _lastError = "no_token";
+          return _mode;
+        }
+        var resp = await fetch("/api/providers?action=athlete_coaching_mode", {
+          headers: { Authorization: "Bearer " + t }
+        });
+        if (requestGeneration !== _requestGeneration) return _mode;
+        if (!resp.ok) {
+          // Server rejected: 401/403/500/503/etc. Stay unknown.
+          _mode = "unknown";
+          _confirmed = false;
+          _lastError = resp.status === 401 || resp.status === 403 ? "auth_failed" : "server_error";
+          return _mode;
+        }
+        var data = await resp.json();
+        if (requestGeneration !== _requestGeneration) return _mode;
+        var serverMode = data.coaching_mode;
+        if (serverMode !== "self_guided" && serverMode !== "human_coached") {
+          // Unrecognized mode value: do not trust. Stay unknown.
+          _mode = "unknown";
+          _confirmed = false;
+          _lastError = "unrecognized_mode";
+          return _mode;
+        }
+        // ─── Authoritative confirmation ───
+        _mode = serverMode;
+        _coach = serverMode === "human_coached" ? (data.coach || null) : null;
+        _transition = data.transition || null;
+        _ambiguous = !!data.ambiguous;
+        _confirmed = true;
+        _cacheKey = Date.now();
+        _lastError = null;
+        track("athlete_coaching_mode_resolved", { coaching_mode: _mode });
+        return _mode;
+      } catch (e) {
+        if (requestGeneration !== _requestGeneration) return _mode;
+        // Network failure, JSON parse error, etc. Stay unknown.
         _mode = "unknown";
         _confirmed = false;
-        _lastError = "no_token";
-        _fetching = false;
-        return;
+        _coach = null;
+        _transition = null;
+        _lastError = "network";
+        return _mode;
+      } finally {
+        if (_fetchPromise === request) {
+          _fetching = false;
+          _fetchPromise = null;
+        }
       }
-      var resp = await fetch("/api/providers?action=athlete_coaching_mode", {
-        headers: { Authorization: "Bearer " + t }
-      });
-      if (!resp.ok) {
-        // Server rejected: 401/403/500/503/etc. Stay unknown.
-        _mode = "unknown";
-        _confirmed = false;
-        _lastError = resp.status === 401 || resp.status === 403 ? "auth_failed" : "server_error";
-        _fetching = false;
-        return;
-      }
-      var data = await resp.json();
-      var serverMode = data.coaching_mode;
-      if (serverMode !== "self_guided" && serverMode !== "human_coached") {
-        // Unrecognized mode value: do not trust. Stay unknown.
-        _mode = "unknown";
-        _confirmed = false;
-        _lastError = "unrecognized_mode";
-        _fetching = false;
-        return;
-      }
-      // ─── Authoritative confirmation ───
-      _mode = serverMode;
-      _coach = serverMode === "human_coached" ? (data.coach || null) : null;
-      _transition = data.transition || null;
-      _ambiguous = !!data.ambiguous;
-      _confirmed = true;
-      _cacheKey = Date.now();
-      _lastError = null;
-      track("athlete_coaching_mode_resolved", { coaching_mode: _mode });
-    } catch (e) {
-      // Network failure, JSON parse error, etc. Stay unknown.
-      _mode = "unknown";
-      _confirmed = false;
-      _coach = null;
-      _transition = null;
-      _lastError = "network";
-    }
-    _fetching = false;
+    })();
+    _fetchPromise = request;
+    return _fetchPromise;
   }
 
   // ─── Public API ──────────────────────────────────────────────────────
@@ -204,10 +222,11 @@
     selectors.forEach(function (sel) {
       var els = document.querySelectorAll(sel);
       els.forEach(function (el) {
+        if (el.disabled && el.getAttribute("data-am-suppressed") !== "true") return;
+        if (!el.disabled) el.setAttribute("data-am-suppressed", "true");
         el.disabled = true;
         el.style.opacity = "0.35";
         el.title = "Coaching setup could not be verified";
-        el.setAttribute("data-am-suppressed", "true");
       });
     });
   }
@@ -253,47 +272,209 @@
     });
   }
 
-  // ─── Coach tab: human-coach shell ────────────────────────────────────
-  // When managed, replaces the Coach tab (AI chat) with a human-coach info
-  // panel. The AI must NEVER impersonate the human coach.
-  // When unknown, does NOT render coach identity (unverified).
-  function renderCoachTab() {
-    if (_mode !== "human_coached") return;
-    var screen = document.getElementById("screen-coach");
+  // ─── Coach tab: authoritative mode surfaces ─────────────────────────
+  // Keep the original AI DOM alive (and its listeners intact), but never
+  // expose it until the server has confirmed self-guided mode.
+  function coachScreen() {
+    return document.getElementById("screen-coachai");
+  }
+
+  function setAiCoachVisible(visible) {
+    var screen = coachScreen();
     if (!screen) return;
-    track("managed_coach_tab_viewed", {});
+    Array.prototype.forEach.call(screen.children, function (child) {
+      if (child.classList && child.classList.contains("am-coach-mode-mount")) return;
+      child.hidden = !visible;
+      if (child.classList) child.classList.toggle("am-ai-surface-hidden", !visible);
+      child.setAttribute("aria-hidden", visible ? "false" : "true");
+    });
+  }
+
+  function removeCoachModeMounts() {
+    document.querySelectorAll("#screen-coachai > .am-coach-mode-mount").forEach(function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
+
+  function renderUnknownCoachTab() {
+    var screen = coachScreen();
+    if (!screen) return;
+    setAiCoachVisible(false);
+    removeCoachModeMounts();
+    var mount = document.createElement("div");
+    mount.className = "am-coach-mode-mount am-coach-resolving";
+    mount.setAttribute("aria-live", "polite");
+    mount.innerHTML = '<div class="am-coach-resolving-mark" aria-hidden="true"></div>' +
+      '<p>Checking your coaching setup…</p>';
+    screen.appendChild(mount);
+  }
+
+  function restoreSelfGuidedCoachTab() {
+    removeCoachModeMounts();
+    setAiCoachVisible(true);
+  }
+
+  function clearAiCoachDom() {
+    var screen = coachScreen();
+    if (!screen) return;
+    screen.classList.remove("coach-is-active");
+    screen.classList.add("coach-is-empty");
+    var chatlog = document.getElementById("chatlog");
+    if (chatlog) chatlog.querySelectorAll(".msg").forEach(function (el) { el.remove(); });
+    var empty = document.getElementById("coachEmptyState");
+    if (empty) empty.hidden = false;
+    var input = document.getElementById("chatInput");
+    if (input) input.value = "";
+    var chips = document.getElementById("chips");
+    if (chips) {
+      chips.innerHTML = "";
+      chips.dataset.hasSuggestions = "false";
+    }
+  }
+
+  function humanMessageTime(value) {
+    var date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function renderHumanThread() {
+    var log = document.getElementById("amHumanCoachThread");
+    if (!log) return;
+    if (_threadLoading) {
+      log.innerHTML = '<div class="am-human-thread-loading" aria-label="Loading messages">' +
+        '<i></i><i></i><i></i></div>';
+      return;
+    }
+    var messages = _thread && Array.isArray(_thread.messages) ? _thread.messages : [];
+    if (!messages.length) {
+      log.innerHTML = '<div class="am-human-thread-empty"><strong>Message your coach</strong>' +
+        '<p>Ask about your training, schedule, or anything your coach should know.</p></div>';
+      return;
+    }
+    log.innerHTML = messages.map(function (message) {
+      var athlete = message.sender_role === "athlete";
+      return '<article class="am-human-message ' + (athlete ? "is-athlete" : "is-coach") + '">' +
+        '<p>' + esc(message.body) + '</p>' +
+        '<time datetime="' + esc(message.created_at || "") + '">' + esc(humanMessageTime(message.created_at)) + '</time>' +
+      '</article>';
+    }).join("");
+    requestAnimationFrame(function () { log.scrollTop = log.scrollHeight; });
+  }
+
+  async function athleteMessageRequest(method, message) {
+    var t = await token();
+    if (!t) throw new Error("auth");
+    var options = { method: method, cache: "no-store", headers: { Authorization: "Bearer " + t } };
+    if (method === "POST") {
+      options.headers["Content-Type"] = "application/json";
+      options.body = JSON.stringify({ message: message });
+    }
+    var response = await fetch("/api/providers?action=athlete_messages", options);
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok) {
+      var error = new Error(data.error || "Messages are unavailable right now.");
+      error.status = response.status;
+      throw error;
+    }
+    return data.thread || { messages: [], can_send: true };
+  }
+
+  async function loadHumanMessages() {
+    if (_mode !== "human_coached" || _threadLoading) return;
+    var requestGeneration = _requestGeneration;
+    _threadLoading = true;
+    renderHumanThread();
+    try {
+      var nextThread = await athleteMessageRequest("GET");
+      if (requestGeneration !== _requestGeneration || _mode !== "human_coached") return;
+      _thread = nextThread;
+    } catch (error) {
+      var log = document.getElementById("amHumanCoachThread");
+      if (log) log.innerHTML = '<p class="am-human-thread-state">Messages are unavailable right now. Try again.</p>';
+      if (error && error.status === 403) await revalidateMode();
+      return;
+    } finally {
+      if (requestGeneration === _requestGeneration) _threadLoading = false;
+    }
+    if (requestGeneration === _requestGeneration && _mode === "human_coached") renderHumanThread();
+  }
+
+  async function sendHumanMessage(message) {
+    var clean = String(message || "").trim();
+    if (_mode !== "human_coached" || !clean || _sendInFlight) return;
+    var input = document.getElementById("amHumanCoachInput");
+    var button = document.getElementById("amHumanCoachSend");
+    var status = document.getElementById("amHumanCoachStatus");
+    var requestGeneration = _requestGeneration;
+    _sendInFlight = true;
+    if (button) button.disabled = true;
+    if (status) status.textContent = "Sending…";
+    try {
+      var nextThread = await athleteMessageRequest("POST", clean);
+      if (requestGeneration !== _requestGeneration || _mode !== "human_coached") return;
+      _thread = nextThread;
+      if (input) input.value = "";
+      if (status) status.textContent = "";
+      renderHumanThread();
+    } catch (error) {
+      if (status) status.textContent = error && error.message ? error.message : "The message could not be sent.";
+      if (error && error.status === 403) await revalidateMode();
+    } finally {
+      if (requestGeneration === _requestGeneration) {
+        _sendInFlight = false;
+        if (button) button.disabled = !input || !input.value.trim();
+      }
+    }
+  }
+
+  function syncHumanSendState() {
+    var input = document.getElementById("amHumanCoachInput");
+    var button = document.getElementById("amHumanCoachSend");
+    if (button) button.disabled = _sendInFlight || !input || !input.value.trim();
+  }
+
+  function renderCoachTab() {
+    if (_mode === "unknown") {
+      renderUnknownCoachTab();
+      return;
+    }
+    if (_mode === "self_guided") {
+      restoreSelfGuidedCoachTab();
+      return;
+    }
+    var screen = coachScreen();
+    if (!screen) return;
+    setAiCoachVisible(false);
+    removeCoachModeMounts();
 
     var coachName = (_coach && _coach.display_name) ? esc(_coach.display_name) : "Your Coach";
     var initials = (_coach && _coach.initials) ? esc(_coach.initials) : "C";
     var title = (_coach && _coach.coaching_title) ? esc(_coach.coaching_title) : "Coach";
-    var since = (_coach && _coach.assignment_start_date)
-      ? "Since " + esc(new Date(_coach.assignment_start_date).toLocaleDateString())
-      : "";
-
-    var transitionHtml = "";
-    if (_transition && _transition.state && _transition.state !== "resolved") {
-      transitionHtml = '<div style="margin-top:var(--s-4);padding:var(--s-3);background:var(--warning-soft);border-radius:var(--ui-radius-control);font-size:var(--fs-body-sm);color:var(--warning);">' +
-        'Your coach is setting up your training plan. You\'ll see your new sessions here once they\'re ready.' +
-        '</div>';
-    }
-
-    screen.innerHTML =
-      '<div style="padding:24px;text-align:center;">' +
-        '<div style="width:64px;height:64px;border-radius:50%;background:var(--athlevo-red);color:var(--paper,#ffffff);' +
-          'display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;">' +
-          initials +
-        '</div>' +
-        '<h2 style="margin:12px 0 4px;font-size:20px;font-weight:600;">' + coachName + '</h2>' +
-        '<p style="color:var(--text-muted);font-size:var(--fs-body-sm);margin:0;">' + title + (since ? ' · ' + since : '') + '</p>' +
-        transitionHtml +
-        '<div style="margin-top:var(--s-6);padding:var(--s-4);background:var(--surface-soft);border-radius:var(--ui-radius-card);text-align:left;">' +
-          '<p style="font-size:var(--fs-body-sm);color:var(--text-secondary);margin:0;">' +
-            coachName + ' manages your training plan. ' +
-            'Check <strong>Train</strong> for your prescribed sessions, ' +
-            'and use <strong>Request Adjustment</strong> if you need a change.' +
-          '</p>' +
-        '</div>' +
-      '</div>';
+    var mount = document.createElement("div");
+    mount.className = "am-coach-mode-mount am-human-coach";
+    mount.innerHTML =
+      '<header class="am-human-coach-head">' +
+        '<span class="am-human-coach-avatar" aria-hidden="true">' + initials + '</span>' +
+        '<span><strong>' + coachName + '</strong><small>' + title + '</small></span>' +
+      '</header>' +
+      '<div class="am-human-coach-thread" id="amHumanCoachThread" aria-label="Conversation with ' + coachName + '"></div>' +
+      '<form class="am-human-coach-composer" id="amHumanCoachComposer">' +
+        '<label class="sr-only" for="amHumanCoachInput">Message ' + coachName + '</label>' +
+        '<textarea id="amHumanCoachInput" maxlength="4000" rows="1" placeholder="Message your coach"></textarea>' +
+        '<button type="submit" id="amHumanCoachSend" disabled>Send</button>' +
+        '<p class="am-human-coach-status" id="amHumanCoachStatus" aria-live="polite"></p>' +
+      '</form>';
+    screen.appendChild(mount);
+    var form = document.getElementById("amHumanCoachComposer");
+    if (form) form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var input = document.getElementById("amHumanCoachInput");
+      sendHumanMessage(input ? input.value : "");
+    });
+    var input = document.getElementById("amHumanCoachInput");
+    if (input) input.addEventListener("input", syncHumanSendState);
+    renderHumanThread();
   }
 
   // ─── Train: read-only state + request adjustment ─────────────────────
@@ -365,92 +546,116 @@
     }
   }
 
-  // ─── You: Assigned Coach section ─────────────────────────────────────
-  // Only rendered when human_coached is CONFIRMED. Never for unknown.
+  // The Coach tab already establishes the human relationship. Keep You free
+  // of a duplicate assigned-coach card, including remnants from older builds.
   function renderAssignedCoach() {
-    if (_mode !== "human_coached" || !_coach) return;
-    track("assigned_coach_viewed", {});
+    document.querySelectorAll(".am-assigned-coach").forEach(function (el) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
 
-    // Find the You screen and inject at top of content
-    var youScreen = document.getElementById("screen-you") || document.getElementById("screen-profile");
-    if (!youScreen) return;
-    if (youScreen.querySelector(".am-assigned-coach")) return; // already rendered
-
-    var coachName = esc(_coach.display_name || "Your Coach");
-    var initials = esc(_coach.initials || "C");
-    var title = esc(_coach.coaching_title || "Coach");
-
-    var section = document.createElement("div");
-    section.className = "am-assigned-coach";
-    section.style.cssText = "margin:var(--s-4);padding:var(--s-4);background:var(--surface-soft);border:1px solid var(--border-default);border-radius:var(--ui-radius-card);display:flex;align-items:center;gap:var(--s-3);";
-    section.innerHTML =
-      '<div style="width:44px;height:44px;border-radius:50%;background:var(--athlevo-red);color:var(--paper,#ffffff);' +
-        'display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex-shrink:0;">' +
-        initials +
-      '</div>' +
-      '<div>' +
-        '<div style="font-weight:600;font-size:15px;">' + coachName + '</div>' +
-        '<div style="font-size:var(--fs-body-sm);color:var(--text-muted);">' + title + '</div>' +
-      '</div>';
-
-    // Insert at the top of the content area
-    var firstChild = youScreen.querySelector(".you-content, .profile-content");
-    if (firstChild) {
-      firstChild.insertBefore(section, firstChild.firstChild);
+  function setManagedAdviceHidden(hidden) {
+    var memory = document.getElementById("coachMemorySection");
+    if (memory) memory.hidden = hidden;
+    if (window.AthlevoDailyBrief && typeof window.AthlevoDailyBrief.setManaged === "function") {
+      window.AthlevoDailyBrief.setManaged(hidden);
     } else {
-      youScreen.insertBefore(section, youScreen.firstChild);
+      var brief = document.getElementById("dailyBriefFull");
+      var note = document.getElementById("todayCoachNoteSection");
+      if (brief) brief.hidden = hidden;
+      if (note) note.hidden = hidden;
     }
+  }
+
+  function applyModeUi() {
+    renderAssignedCoach();
+    renderCoachTab();
+    if (_mode === "unknown") {
+      suppressAIControls();
+      setManagedAdviceHidden(true);
+      showUnknownNotice();
+      return;
+    }
+    hideUnknownNotice();
+    restoreSuppressedControls();
+    if (_mode === "self_guided") {
+      setManagedAdviceHidden(false);
+      return;
+    }
+    setManagedAdviceHidden(true);
+    applyTodayLabels();
+    applyTrainPermissions();
+  }
+
+  async function revalidateMode() {
+    var previousMode = _mode;
+    _mode = "unknown";
+    _coach = null;
+    _transition = null;
+    _confirmed = false;
+    _thread = null;
+    renderAssignedCoach();
+    renderCoachTab();
+    suppressAIControls();
+    setManagedAdviceHidden(true);
+    hideUnknownNotice();
+    await fetchMode(true);
+    applyModeUi();
+    if (
+      previousMode === "human_coached" &&
+      _mode === "self_guided" &&
+      window.AthlevoDailyBrief &&
+      typeof window.AthlevoDailyBrief.load === "function"
+    ) {
+      window.AthlevoDailyBrief.load().catch(function () {});
+    }
+    return _mode;
+  }
+
+  async function onCoachTabEnter() {
+    var stale = !_cacheKey || (Date.now() - _cacheKey) > MODE_STALE_MS;
+    if (_mode === "unknown" || stale) await revalidateMode();
+    else applyModeUi();
+    if (_mode === "human_coached") {
+      track("managed_coach_tab_viewed", {});
+      await loadHumanMessages();
+    }
+    return _mode;
   }
 
   // ─── Retry: re-fetch mode and apply the result ───────────────────────
   async function retry() {
-    await fetchMode(true);
-    if (_confirmed) {
-      hideUnknownNotice();
-      restoreSuppressedControls();
-      if (_mode === "human_coached") {
-        applyTodayLabels();
-        renderCoachTab();
-        applyTrainPermissions();
-        renderAssignedCoach();
-      }
-      // self_guided confirmed: controls are restored, no further action needed.
-    }
-    // Still unknown after retry: notice stays, controls stay suppressed.
+    return revalidateMode();
   }
 
   // ─── init(): single call from authenticated boot ─────────────────────
   async function init() {
-    await fetchMode();
-
-    if (_mode === "unknown") {
-      // Verification failed. Suppress conflicting controls and show notice.
-      suppressAIControls();
-      showUnknownNotice();
-      return;
-    }
-
-    if (_mode === "self_guided") {
-      // Confirmed self-guided: no-op, everything works as today.
-      return;
-    }
-
-    // Confirmed human-coached: apply all managed UI.
-    applyTodayLabels();
-    renderCoachTab();
-    applyTrainPermissions();
+    // Paint a neutral Coach surface synchronously so hidden app-shell AI
+    // content never flashes while the assignment lookup is in flight.
     renderAssignedCoach();
+    renderCoachTab();
+    suppressAIControls();
+    setManagedAdviceHidden(true);
+    hideUnknownNotice();
+    await fetchMode();
+    applyModeUi();
+    return _mode;
   }
 
   function clearOnLogout() {
+    _requestGeneration += 1;
     _mode = "unknown";
     _coach = null;
     _transition = null;
     _ambiguous = false;
     _confirmed = false;
     _fetching = false;
+    _fetchPromise = null;
     _cacheKey = null;
     _lastError = null;
+    _thread = null;
+    _threadLoading = false;
+    _sendInFlight = false;
     hideUnknownNotice();
     restoreSuppressedControls();
     document.querySelectorAll(".am-authorship-label, .am-request-adjustment, .am-assigned-coach").forEach(function (el) {
@@ -462,6 +667,9 @@
       el.title = "";
       el.removeAttribute("data-am-managed-disabled");
     });
+    restoreSelfGuidedCoachTab();
+    clearAiCoachDom();
+    setManagedAdviceHidden(false);
   }
 
   // ─── Expose ──────────────────────────────────────────────────────────
@@ -479,6 +687,9 @@
     authorshipLabel: authorshipLabel,
     applyTodayLabels: applyTodayLabels,
     renderCoachTab: renderCoachTab,
+    onCoachTabEnter: onCoachTabEnter,
+    loadHumanMessages: loadHumanMessages,
+    sendHumanMessage: sendHumanMessage,
     applyTrainPermissions: applyTrainPermissions,
     renderAssignedCoach: renderAssignedCoach,
     requestAdjustment: requestAdjustment,

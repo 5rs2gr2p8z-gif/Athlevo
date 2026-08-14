@@ -62,7 +62,7 @@ import { buildCoachThread, validateCoachMessage } from "../../lib/server/coachMe
 /* ──────────────────── Athlete Mode imports ─────────────────────────────
  * Consolidated from the former api/athlete-mode.js (removed to stay
  * within the Vercel Hobby 12-function limit). Actions are namespaced as
- * athlete_coaching_mode, athlete_request_adjustment.
+ * athlete_coaching_mode, athlete_messages, athlete_request_adjustment.
  */
 import { resolveCoachingMode, buildSafeCoachProfile } from "../../lib/server/coachingMode.js";
 import { stripClientAuthorityFields, stampOwnership } from "../../lib/server/planAuthority.js";
@@ -2548,7 +2548,7 @@ async function actionCoachingDashboardWorkout(request, response) {
 
 /*
  * Consolidated from the former api/athlete-mode.js. Actions are namespaced
- * as athlete_coaching_mode and athlete_request_adjustment. Security
+ * as athlete_coaching_mode, athlete_messages and athlete_request_adjustment. Security
  * invariants are IDENTICAL: the athlete may only see their own assignment,
  * scoped to user.id; coach email/tokens/business fields are never returned.
  */
@@ -2563,11 +2563,14 @@ async function actionAthleteCoachingMode(request, response) {
   const user = await getCoachingUser(tok);
   if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
 
-  const assignments = await sbSelect(
+  const assignmentResult = await sbCoachRead(
     `coach_athlete_assignments?athlete_id=eq.${enc(user.id)}` +
       `&select=id,coach_id,athlete_id,status,assigned_at`
   );
-  const resolved = resolveCoachingMode(assignments, user.id);
+  if (!assignmentResult.ok) {
+    return sendJson(response, 503, { error: "Could not verify your coaching setup. Please try again." });
+  }
+  const resolved = resolveCoachingMode(assignmentResult.rows, user.id);
 
   try {
     let coach = null;
@@ -2595,6 +2598,60 @@ async function actionAthleteCoachingMode(request, response) {
   }
 }
 
+async function actionAthleteMessages(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+  if (!["GET", "POST"].includes(request.method)) {
+    response.setHeader("Allow", "GET, POST");
+    return sendJson(response, 405, { error: "Method not allowed." });
+  }
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  try {
+    // The authenticated athlete is the sole source of athlete identity. A
+    // client-provided athlete_id or coach_id is deliberately never read.
+    const assignmentResult = await sbCoachRead(
+      `coach_athlete_assignments?athlete_id=eq.${enc(user.id)}` +
+        `&select=id,coach_id,athlete_id,status,permission_level,assigned_at`
+    );
+    if (!assignmentResult.ok) {
+      return sendJson(response, 503, { error: "Could not verify your coaching setup. Please try again." });
+    }
+    const resolved = resolveCoachingMode(assignmentResult.rows, user.id);
+    if (resolved.mode !== "human_coached" || !resolved.coachId) {
+      return sendJson(response, 403, {
+        code: "HUMAN_COACH_REQUIRED",
+        error: "Messaging is available when a coach is actively managing your training."
+      });
+    }
+
+    if (request.method === "POST") {
+      const validated = validateCoachMessage(request.body && request.body.message);
+      if (!validated.ok) return sendJson(response, 400, { error: validated.error });
+      const saved = await sbCoachWrite("coach_messages", "POST", {
+        coach_id: resolved.coachId,
+        athlete_id: user.id,
+        sender_user_id: user.id,
+        sender_role: "athlete",
+        body: validated.value.body
+      });
+      if (!saved.ok || !saved.rows[0]) {
+        return sendJson(response, 500, { error: "The message could not be sent." });
+      }
+    }
+
+    const thread = await loadCoachMessageThread(resolved.coachId, user.id, true);
+    return sendJson(response, 200, { thread });
+  } catch {
+    return sendJson(response, 500, { error: "Messages are unavailable right now." });
+  }
+}
+
 async function actionAthleteRequestAdjustment(request, response) {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -2607,11 +2664,14 @@ async function actionAthleteRequestAdjustment(request, response) {
   const user = await getCoachingUser(tok);
   if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
 
-  const assignments = await sbSelect(
+  const assignmentResult = await sbCoachRead(
     `coach_athlete_assignments?athlete_id=eq.${enc(user.id)}` +
       `&select=id,coach_id,athlete_id,status,assigned_at`
   );
-  const resolved = resolveCoachingMode(assignments, user.id);
+  if (!assignmentResult.ok) {
+    return sendJson(response, 503, { error: "Could not verify your coaching setup. Please try again." });
+  }
+  const resolved = resolveCoachingMode(assignmentResult.rows, user.id);
 
   try {
     if (resolved.mode !== "human_coached") {
@@ -3012,6 +3072,9 @@ export default async function handler(request, response) {
       if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionAthleteCoachingMode(request, response);
     }
+    if (action === "athlete_messages") {
+      return actionAthleteMessages(request, response);
+    }
     if (action === "athlete_request_adjustment") {
       if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionAthleteRequestAdjustment(request, response);
@@ -3066,7 +3129,7 @@ export default async function handler(request, response) {
         "reanalyze", "status", "disconnect", "admin_analytics",
         "coaching_dashboard_roster", "coaching_dashboard_athlete",
         "coaching_dashboard_review", "coaching_dashboard_workout", "athlete_coaching_mode",
-        "athlete_request_adjustment", "delete_account"
+        "athlete_messages", "athlete_request_adjustment", "delete_account"
       ].includes(action) ? action : "unsupported"
     });
     return response.status(500).json({ error: "Something went wrong. Please try again." });

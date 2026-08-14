@@ -246,6 +246,12 @@ async function loadConversationHistory() {
   return data || [];
 }
 async function renderConversationHistory() {
+  if (
+    window.AthlevoAthleteMode &&
+    (window.AthlevoAthleteMode.isManaged() || window.AthlevoAthleteMode.isUnknown())
+  ) {
+    return [];
+  }
   const chatlog = document.getElementById("chatlog");
 
   if (!chatlog) {
@@ -988,6 +994,12 @@ function setCoachSendingState(isSending) {
 }
 
 async function askCoach(question) {
+  if (
+    window.AthlevoAthleteMode &&
+    (window.AthlevoAthleteMode.isManaged() || window.AthlevoAthleteMode.isUnknown())
+  ) {
+    return;
+  }
   const cleanQuestion = question?.trim();
 
   if (!cleanQuestion) return;
@@ -1439,6 +1451,12 @@ window.markAppliedProposals = markAppliedProposals;
  * changes anything. Idempotent: a repeated tap can't double-apply.
  */
 async function applyCoachAction(proposalId, cardEl) {
+  if (
+    window.AthlevoAthleteMode &&
+    (window.AthlevoAthleteMode.isManaged() || window.AthlevoAthleteMode.isUnknown())
+  ) {
+    return;
+  }
   if (!cardEl || cardEl.dataset.status === "applied") {
     return;
   }
