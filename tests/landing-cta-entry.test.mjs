@@ -54,11 +54,11 @@ function createHandlers(sessionUserId) {
 }
 
 console.log("\n──── CTA markup and native interaction ────");
-const trainButtons = [...landing.matchAll(
-  /<button type="button" class="lp-btn(?: sm| light)" onclick="landingOpenApp\(\)">Train With Athlevo<\/button>/g
+const trainLinks = [...landing.matchAll(
+  /<a class="lp-btn(?: sm| light)" href="#train-with-athlevo">Train With Athlevo<\/a>/g
 )];
-test("both Train With Athlevo CTAs are semantic buttons", trainButtons.length === 2);
-test("Train With Athlevo uses the authoritative general app-entry handler", trainButtons.every(match => match[0].includes("landingOpenApp()")));
+test("both Train With Athlevo CTAs are in-page anchor links to the offers section", trainLinks.length === 2);
+test("Train With Athlevo navigates to Ways to Train, not app entry", trainLinks.every(match => match[0].includes('href="#train-with-athlevo"') && !match[0].includes("landingOpenApp")));
 test("Start Training remains approved offer copy and signup location", /cta: "Start Training"[\s\S]*?appEntry: true,[\s\S]*?ctaLocation: "ai_product"/.test(content));
 test("Start Training renders as a native button", /node\(offer\.appEntry \? "button" : "a", "lp-btn lp-offer-cta", offer\.cta\)/.test(content) && /cta\.type = "button"/.test(content));
 test("Start Training invokes the same authoritative handler", /cta\.addEventListener\("click", \(\) => global\.landingStartFree\(cta\)\)/.test(content));
@@ -68,12 +68,10 @@ test("normal landing CTAs are not pointer-blocked", !/\.lp-btn(?:\[[^\]]+\]|\.[\
 test("landing skeleton stops intercepting after reveal", /\.lp-section-revealed \.lp-skel\{display:none\}/.test(html));
 
 console.log("\n──── Shared app-entry routing ────");
-test("anonymous CTAs record tab-scoped app intent and open app entry",
-  /rememberAppEntryIntent\(\)/.test(landingStart) && /openAppEntry\(\)/.test(landingStart) &&
-  /rememberAppEntryIntent\(\)/.test(landingOpen) && /openAppEntry\(\)/.test(landingOpen));
-test("authenticated CTAs delegate to role-aware app routing",
+test("Start Training records tab-scoped app intent and opens app entry",
+  /rememberAppEntryIntent\(\)/.test(landingStart) && /openAppEntry\(\)/.test(landingStart));
+test("authenticated Start Training delegates to role-aware app routing",
   /if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); return; \}/.test(landingStart) &&
-  /if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \}/.test(landingOpen) &&
   /async function openAthlevoApp\(\)[\s\S]*?routeAfterAuth\(athlevoSessionUserId\)/.test(html));
 test("public signed-out browser still resolves to landing",
   /else \{\s*showScreen\("screen-landing"\)/.test(restore));
@@ -85,11 +83,8 @@ test("cache-busted landing script prevents the stale fragment-link renderer from
   /<script src="js\/landingContent\.js\?v=77"><\/script>/.test(html));
 
 console.log("\n──── Executable CTA routing ────");
-{
-  const { handlers, calls } = createHandlers(null);
-  handlers.landingOpenApp();
-  test("anonymous Train With Athlevo opens app entry", calls.join("|") === "intent|entry:landing_open_app|welcome");
-}
+test("Train With Athlevo CTAs use in-page anchors, not JS handlers",
+  !/<(?:button|a)[^>]*onclick="landingOpenApp\(\)"[^>]*>Train With Athlevo/.test(landing));
 {
   const { handlers, calls } = createHandlers(null);
   handlers.landingStartFree({ dataset: { ctaLocation: "ai_product" }, textContent: "Start Training" });
@@ -98,10 +93,9 @@ console.log("\n──── Executable CTA routing ────");
 }
 {
   const { handlers, calls } = createHandlers("athlete-or-coach-user");
-  handlers.landingOpenApp();
   handlers.landingStartFree({ dataset: { ctaLocation: "ai_product" }, textContent: "Start Training" });
-  test("authenticated CTAs both delegate directly to role-aware app routing",
-    calls.join("|") === "app|app");
+  test("authenticated Start Training delegates directly to role-aware app routing",
+    calls.join("|") === "app");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

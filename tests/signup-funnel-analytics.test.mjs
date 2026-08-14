@@ -89,7 +89,7 @@ test("the dedicated Athlevo AI signup CTA carries an explicit location",
   ctaTag && ctaTag[1] === "ai_product");
 test("parent-brand CTAs do not masquerade as signup intent",
   /Train With Athlevo/.test(html) &&
-  (html.match(/onclick="landingOpenApp\(\)">Train With Athlevo/g) || []).length === 2 &&
+  (html.match(/href="#train-with-athlevo">Train With Athlevo/g) || []).length === 2 &&
   !/data-cta-location="(?:navigation|hero|footer)"/.test(html));
 test("signup CTA captures text, location, and auth destination",
   /trackAuthChoice\("signup_cta_clicked",\s*\{[\s\S]*?cta_text:[\s\S]*?cta_location:[\s\S]*?destination:\s*"screen-welcome"/.test(html));
