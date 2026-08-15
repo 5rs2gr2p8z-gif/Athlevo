@@ -548,6 +548,16 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes(".cm-command--small-roster .cm-command-grid{gap:26px}"));
   });
 
+  it("keeps Invite Athlete as the only dashboard header action while preserving internal refresh", () => {
+    const start = source.indexOf("function renderCoachToday");
+    const end = source.indexOf("function renderCoachSkeleton", start);
+    const render = source.slice(start, end);
+    assert.ok(render.includes('id="cmInviteAthlete">Invite Athlete</button>'));
+    assert.ok(!render.includes('id="cmRefresh"'));
+    assert.ok(source.includes("async function refreshRoster()"));
+    assert.ok(source.includes('retry.addEventListener("click", refreshRoster)'));
+  });
+
   it("keeps every summary label complete at 375, 390, and 430px", () => {
     for (const label of ["Athletes", "Need attention", "Training today", "Upcoming races"]) {
       assert.ok(source.includes(`label: "${label}"`));

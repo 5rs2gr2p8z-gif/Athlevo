@@ -850,7 +850,7 @@
       '<div class="cm-command cm-command--ready' + rosterSizeClass + '">' +
         '<header class="cm-command-head">' +
           '<div><h1>Coach Dashboard</h1><p class="cm-command-summary" aria-live="polite">' + esc(liveSummary) + '</p></div>' +
-          '<div class="cm-head-actions"><button type="button" class="cm-invite-trigger" id="cmInviteAthlete">Invite Athlete</button><button type="button" class="cm-refresh" id="cmRefresh">Refresh</button></div>' +
+          '<div class="cm-head-actions"><button type="button" class="cm-invite-trigger" id="cmInviteAthlete">Invite Athlete</button></div>' +
         '</header>';
 
     if (_rosterError) {
