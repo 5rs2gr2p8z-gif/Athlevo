@@ -14,6 +14,18 @@
 <!-- Apply the saved theme BEFORE first paint so the installed PWA never
      flashes white on launch. Runs synchronously in <head>. -->
 <script>
+(function capturePendingCoachInvite(){
+  var KEY = "athlevo_pending_invite";
+  try {
+    var url = new URL(window.location.href);
+    var token = String(url.searchParams.get("invite") || "").trim();
+    if (token && token.length >= 20 && token.length <= 512) {
+      try { sessionStorage.setItem(KEY, token); } catch (e) {}
+      url.searchParams.delete("invite");
+      try { history.replaceState(history.state, "", url.pathname + (url.search || "") + (url.hash || "")); } catch (e) {}
+    }
+  } catch (e) {}
+})();
 /*
  * ══════════════════════════════════════════════════════════════════════
  *  OAuth return capture — MUST be the first script on the page.
@@ -7576,6 +7588,16 @@ async function routeAfterAuth(userId) {
     return;
   }
 
+  // Resume a session-only coach invitation before onboarding or workspace
+  // routing. Opening the link never accepts silently: this awaits the
+  // matching-account confirmation (or wrong-account switch choice).
+  if (window.AthlevoCoachInvites && window.AthlevoCoachInvites.resumeAfterAuth) {
+    try {
+      var inviteOutcome = await window.AthlevoCoachInvites.resumeAfterAuth();
+      if (inviteOutcome && inviteOutcome.stopRouting) return;
+    } catch (e) {}
+  }
+
   // Coach/admin bypass: existing coaches and admins whose role was granted
   // server-side skip athlete onboarding entirely. Their onboarding_complete
   // flag is set by js/onboarding.js on first visit so this path only fires
@@ -7895,7 +7917,9 @@ async function restoreSession(opts) {
           }
         }, 0);
       }
-    } else if (isStandaloneMode() || hasAppEntryIntent()) {
+    } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
+                window.AthlevoCoachInvites.hasPendingInvite()) ||
+               isStandaloneMode() || hasAppEntryIntent()) {
       showScreen("screen-welcome");
     } else {
       showScreen("screen-landing");
@@ -8111,9 +8135,10 @@ setTimeout(function () {
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
+<script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=78"></script>
 <script src="js/coachDashboard.js?v=75"></script>
-<script src="js/coachMode.js?v=13"></script>
+<script src="js/coachMode.js?v=14"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
 <script src="js/accessGuard.js?v=72"></script>
 <script src="js/planSetup.js?v=69"></script>

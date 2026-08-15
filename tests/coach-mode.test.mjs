@@ -540,7 +540,8 @@ describe("Coach Mode — coaching command center UI", () => {
 
   it("supports zero, small, and larger rosters inside the phone-width shell", () => {
     assert.ok(source.includes("No athletes assigned yet."));
-    assert.ok(!source.includes("Invite Athlete"));
+    assert.ok(source.includes("Invite Athlete"));
+    assert.ok(source.includes("Invite an athlete to connect them to your coaching roster."));
     assert.ok(source.includes("width:100%;max-width:430px"));
     assert.ok(source.includes("grid-template-columns:repeat(2,minmax(0,1fr))"));
     assert.ok(source.includes('sorted.length <= 3 ? " cm-command--small-roster"'));

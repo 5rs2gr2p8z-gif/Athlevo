@@ -37,7 +37,11 @@ import {
  * within the Vercel Hobby 12-function limit). Actions are namespaced as
  * coaching_dashboard_roster, coaching_dashboard_athlete, coaching_dashboard_review.
  */
-import { canAccessCoachDashboard, resolveRole } from "../../lib/server/coachRoles.js";
+import {
+  canAccessCoachDashboard,
+  canManageOwnCoachInvites,
+  resolveRole
+} from "../../lib/server/coachRoles.js";
 import {
   assignedAthleteIds,
   canCoachAccessAthlete,
@@ -58,6 +62,15 @@ import {
   validateCoachNotePatch
 } from "../../lib/server/coachNotes.js";
 import { buildCoachThread, validateCoachMessage } from "../../lib/server/coachMessaging.js";
+import {
+  INVITE_TTL_MS,
+  generateInviteToken,
+  hashInviteToken,
+  isInviteExpired,
+  normalizeInviteEmail,
+  validateInviteEmail,
+  validateInviteTransition
+} from "../../lib/server/coachInvites.js";
 
 /* ──────────────────── Athlete Mode imports ─────────────────────────────
  * Consolidated from the former api/athlete-mode.js (removed to stay
@@ -2184,6 +2197,369 @@ async function actionWeatherContext(request, response) {
   }
 }
 
+/* ═════════════════ COACH → ATHLETE INVITE actions ══════════════════ */
+
+function safeInviteMetadata(invite) {
+  const effectiveStatus = invite && invite.status === "pending" && isInviteExpired(invite)
+    ? "expired"
+    : invite && invite.status;
+  return {
+    id: invite && invite.id,
+    email: invite && invite.email_normalized,
+    status: effectiveStatus || "pending",
+    permission_level: invite && invite.permission_level,
+    created_at: invite && invite.created_at,
+    expires_at: invite && invite.expires_at
+  };
+}
+
+async function loadInviteActor(request) {
+  const tok = bearer(request);
+  if (!tok) return { ok: false, status: 401, error: "Authentication is required." };
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) {
+    return { ok: false, status: 401, error: "Your session is invalid or expired." };
+  }
+  const profile = await loadCoachProfile(user.id);
+  return { ok: true, user, profile };
+}
+
+async function sbCoachRpc(name, body) {
+  try {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const r = await fetch(`${url}/rest/v1/rpc/${encodeURIComponent(name)}`, {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body || {})
+    });
+    const data = await r.json().catch(() => null);
+    return { ok: r.ok, status: r.status, data };
+  } catch {
+    return { ok: false, status: 0, data: null };
+  }
+}
+
+function inviteAppOrigin() {
+  const configured = String(process.env.APP_URL || "").trim();
+  try {
+    const parsed = new URL(configured || "https://athlevo.org");
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return parsed.origin;
+    }
+  } catch {}
+  return "https://athlevo.org";
+}
+
+function escapeInviteHtml(value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+}
+
+async function sendCoachInviteEmail({ email, coachName, rawToken }) {
+  const apiKey = String(process.env.RESEND_API_KEY || "").trim();
+  if (!apiKey) return { ok: false, setupRequired: true, status: 0 };
+
+  const from = String(process.env.ATHLEVO_INVITE_FROM_EMAIL || "").trim() ||
+    "Athlevo <noreply@athlevo.org>";
+  const displayName = (String(coachName || "Your coach").replace(/[\r\n\u0000-\u001f]+/g, " ").trim() || "Your coach").slice(0, 100);
+  const acceptanceUrl = new URL(inviteAppOrigin() + "/");
+  acceptanceUrl.searchParams.set("invite", rawToken);
+  const safeName = escapeInviteHtml(displayName);
+  const safeUrl = escapeInviteHtml(acceptanceUrl.toString());
+  const html = `<!doctype html><html><body style="margin:0;background:#f6f6f4;color:#141416;font-family:Arial,sans-serif"><div style="max-width:560px;margin:0 auto;padding:36px 22px"><div style="font-size:22px;font-weight:700;margin-bottom:28px">Athlevo</div><p style="font-size:16px;line-height:1.6;margin:0 0 16px">${safeName} has invited you to join their coaching roster on Athlevo.</p><p style="font-size:16px;line-height:1.6;margin:0 0 24px">Accept this invitation to connect with your coach and start receiving personalized training.</p><a href="${safeUrl}" style="display:inline-block;background:#c0272d;color:#fff;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:999px">Accept Invitation</a><p style="font-size:13px;line-height:1.5;color:#6d7075;margin:24px 0 0">This invitation expires in 7 days.</p><p style="font-size:13px;line-height:1.5;color:#6d7075;margin:8px 0 0">If you didn't expect this invitation, you can ignore this email.</p></div></body></html>`;
+
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from,
+        to: [email],
+        reply_to: "support@athlevo.org",
+        subject: `${displayName} invited you to train with Athlevo`,
+        html
+      })
+    });
+    return {
+      ok: r.ok,
+      setupRequired: r.status === 401 || r.status === 403 || r.status === 422,
+      status: r.status
+    };
+  } catch {
+    return { ok: false, setupRequired: false, status: 0 };
+  }
+}
+
+function inviteEmailFailure(response, result) {
+  return sendJson(response, 503, {
+    code: result && result.setupRequired
+      ? "INVITE_EMAIL_SETUP_REQUIRED"
+      : "INVITE_EMAIL_UNAVAILABLE",
+    error: result && result.setupRequired
+      ? "Invitation email is not configured yet. Set up and verify the Resend sender, then try again."
+      : "The invitation email could not be sent. Please try again."
+  });
+}
+
+async function actionCoachingInviteCreate(request, response) {
+  const actor = await loadInviteActor(request);
+  if (!actor.ok) return sendJson(response, actor.status, { error: actor.error });
+  if (!canManageOwnCoachInvites(actor.profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(actor.profile) });
+  }
+
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const email = normalizeInviteEmail(body.email);
+  if (!validateInviteEmail(email)) {
+    return sendJson(response, 400, { code: "INVALID_INVITE_EMAIL", error: "Enter a valid athlete email." });
+  }
+  if (normalizeInviteEmail(actor.user.email) === email) {
+    return sendJson(response, 400, { code: "INVITE_SELF", error: "Invite an athlete using a different email." });
+  }
+  if (!process.env.RESEND_API_KEY) {
+    return inviteEmailFailure(response, { setupRequired: true });
+  }
+
+  const existing = await sbCoachRead(
+    `coach_athlete_invites?coach_id=eq.${enc(actor.user.id)}&email_normalized=eq.${enc(email)}` +
+      `&status=eq.pending&select=id,email_normalized,status,permission_level,created_at,expires_at&limit=1`
+  );
+  if (!existing.ok) {
+    return sendJson(response, 503, { error: "Invitations are unavailable right now." });
+  }
+  if (existing.rows[0]) {
+    if (isInviteExpired(existing.rows[0])) {
+      const expired = await sbCoachWrite(
+        `coach_athlete_invites?id=eq.${enc(existing.rows[0].id)}&coach_id=eq.${enc(actor.user.id)}&status=eq.pending`,
+        "PATCH",
+        { status: "expired" }
+      );
+      if (!expired.ok || !expired.rows[0]) {
+        return sendJson(response, 409, { error: "This invitation changed. Refresh and try again." });
+      }
+    } else {
+      return sendJson(response, 409, {
+        code: "INVITE_ALREADY_PENDING",
+        error: "An invitation is already pending for this email.",
+        invite: safeInviteMetadata(existing.rows[0])
+      });
+    }
+  }
+
+  const relationship = await sbCoachRpc("athlevo_invite_has_active_relationship", {
+    p_coach_id: actor.user.id,
+    p_email_normalized: email
+  });
+  if (!relationship.ok) {
+    return sendJson(response, 503, { error: "The coaching roster could not be verified." });
+  }
+  if (relationship.data === true) {
+    return sendJson(response, 409, {
+      code: "ATHLETE_ALREADY_ON_ROSTER",
+      error: "This athlete is already on your roster."
+    });
+  }
+
+  const rawToken = generateInviteToken();
+  const expiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString();
+  const saved = await sbCoachWrite("coach_athlete_invites", "POST", {
+    coach_id: actor.user.id,
+    email_normalized: email,
+    token_hash: hashInviteToken(rawToken),
+    permission_level: "read_write",
+    status: "pending",
+    expires_at: expiresAt
+  });
+  if (!saved.ok || !saved.rows[0]) {
+    if (saved.status === 409) {
+      return sendJson(response, 409, {
+        code: "INVITE_ALREADY_PENDING",
+        error: "An invitation is already pending for this email."
+      });
+    }
+    return sendJson(response, 500, { error: "The invitation could not be created." });
+  }
+
+  const delivery = await sendCoachInviteEmail({
+    email,
+    coachName: actor.profile && actor.profile.full_name,
+    rawToken
+  });
+  if (!delivery.ok) return inviteEmailFailure(response, delivery);
+  return sendJson(response, 201, {
+    sent: true,
+    invite: safeInviteMetadata(saved.rows[0])
+  });
+}
+
+async function actionCoachingInviteList(request, response) {
+  const actor = await loadInviteActor(request);
+  if (!actor.ok) return sendJson(response, actor.status, { error: actor.error });
+  if (!canManageOwnCoachInvites(actor.profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(actor.profile) });
+  }
+  const result = await sbCoachRead(
+    `coach_athlete_invites?coach_id=eq.${enc(actor.user.id)}` +
+      `&select=id,email_normalized,status,permission_level,created_at,expires_at` +
+      `&order=created_at.desc&limit=100`
+  );
+  if (!result.ok) return sendJson(response, 503, { error: "Invitations are unavailable right now." });
+  return sendJson(response, 200, { invites: result.rows.map(safeInviteMetadata) });
+}
+
+async function actionCoachingInviteResend(request, response) {
+  const actor = await loadInviteActor(request);
+  if (!actor.ok) return sendJson(response, actor.status, { error: actor.error });
+  if (!canManageOwnCoachInvites(actor.profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(actor.profile) });
+  }
+  if (!process.env.RESEND_API_KEY) {
+    return inviteEmailFailure(response, { setupRequired: true });
+  }
+  const inviteId = request.body && request.body.invite_id;
+  if (!inviteId) return sendJson(response, 400, { error: "invite_id is required." });
+  const found = await sbCoachRead(
+    `coach_athlete_invites?id=eq.${enc(inviteId)}&coach_id=eq.${enc(actor.user.id)}` +
+      `&select=id,email_normalized,status,permission_level,created_at,expires_at&limit=1`
+  );
+  if (!found.ok) return sendJson(response, 503, { error: "The invitation could not be verified." });
+  const invite = found.rows[0];
+  if (!invite) return sendJson(response, 404, { error: "Invitation not found." });
+  const transition = validateInviteTransition(invite.status, "resend");
+  if (!transition.ok) {
+    return sendJson(response, 409, { code: "INVITE_NOT_PENDING", error: "Only pending invitations can be resent." });
+  }
+
+  const rawToken = generateInviteToken();
+  const expiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString();
+  const saved = await sbCoachWrite(
+    `coach_athlete_invites?id=eq.${enc(invite.id)}&coach_id=eq.${enc(actor.user.id)}&status=eq.pending`,
+    "PATCH",
+    { token_hash: hashInviteToken(rawToken), expires_at: expiresAt }
+  );
+  if (!saved.ok || !saved.rows[0]) {
+    return sendJson(response, 409, { error: "This invitation is no longer pending." });
+  }
+  const delivery = await sendCoachInviteEmail({
+    email: invite.email_normalized,
+    coachName: actor.profile && actor.profile.full_name,
+    rawToken
+  });
+  if (!delivery.ok) return inviteEmailFailure(response, delivery);
+  return sendJson(response, 200, { sent: true, invite: safeInviteMetadata(saved.rows[0]) });
+}
+
+async function actionCoachingInviteRevoke(request, response) {
+  const actor = await loadInviteActor(request);
+  if (!actor.ok) return sendJson(response, actor.status, { error: actor.error });
+  if (!canManageOwnCoachInvites(actor.profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(actor.profile) });
+  }
+  const inviteId = request.body && request.body.invite_id;
+  if (!inviteId) return sendJson(response, 400, { error: "invite_id is required." });
+  const found = await sbCoachRead(
+    `coach_athlete_invites?id=eq.${enc(inviteId)}&coach_id=eq.${enc(actor.user.id)}` +
+      `&select=id,email_normalized,status,permission_level,created_at,expires_at&limit=1`
+  );
+  if (!found.ok) return sendJson(response, 503, { error: "The invitation could not be verified." });
+  const invite = found.rows[0];
+  if (!invite) return sendJson(response, 404, { error: "Invitation not found." });
+  const transition = validateInviteTransition(invite.status, "revoke");
+  if (!transition.ok) {
+    return sendJson(response, 409, { code: "INVITE_NOT_PENDING", error: "This invitation is no longer pending." });
+  }
+  const saved = await sbCoachWrite(
+    `coach_athlete_invites?id=eq.${enc(invite.id)}&coach_id=eq.${enc(actor.user.id)}&status=eq.pending`,
+    "PATCH",
+    { status: "revoked", revoked_at: new Date().toISOString() }
+  );
+  if (!saved.ok || !saved.rows[0]) {
+    return sendJson(response, 409, { error: "This invitation is no longer pending." });
+  }
+  return sendJson(response, 200, { revoked: true, invite: safeInviteMetadata(saved.rows[0]) });
+}
+
+async function actionCoachingInviteAccept(request, response) {
+  const actor = await loadInviteActor(request);
+  if (!actor.ok) return sendJson(response, actor.status, { error: actor.error });
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const rawToken = typeof body.token === "string" ? body.token.trim() : "";
+  if (rawToken.length < 20 || rawToken.length > 512) {
+    return sendJson(response, 400, { state: "invalid", error: "This invitation link is invalid." });
+  }
+  const authenticatedEmail = normalizeInviteEmail(actor.user.email);
+  if (!validateInviteEmail(authenticatedEmail)) {
+    return sendJson(response, 409, { state: "wrong_email", error: "Your signed-in account has no verified email." });
+  }
+  const tokenHash = hashInviteToken(rawToken);
+  const lookup = await sbCoachRead(
+    `coach_athlete_invites?token_hash=eq.${enc(tokenHash)}` +
+      `&select=id,coach_id,email_normalized,status,permission_level,created_at,expires_at,accepted_by&limit=1`
+  );
+  if (!lookup.ok) return sendJson(response, 503, { error: "The invitation could not be verified." });
+  const invite = lookup.rows[0];
+  if (!invite) return sendJson(response, 404, { state: "invalid", error: "This invitation link is invalid." });
+
+  const coachRows = await sbSelect(
+    `profiles?id=eq.${enc(invite.coach_id)}&select=full_name&limit=1`
+  );
+  const coachName = String(coachRows[0] && coachRows[0].full_name || "Your coach");
+  let state = invite.status;
+  if (invite.status === "pending" && isInviteExpired(invite)) state = "expired";
+  if (authenticatedEmail !== invite.email_normalized) state = "wrong_email";
+
+  if (body.intent === "preview") {
+    return sendJson(response, 200, {
+      state,
+      coach_name: coachName,
+      invitation_email: invite.email_normalized,
+      current_email: authenticatedEmail,
+      expires_at: invite.expires_at
+    });
+  }
+  if (body.intent !== "accept") {
+    return sendJson(response, 400, { error: "Invite intent must be preview or accept." });
+  }
+  if (state === "wrong_email") {
+    return sendJson(response, 403, {
+      state,
+      invitation_email: invite.email_normalized,
+      current_email: authenticatedEmail,
+      error: "Sign in with the email address that received this invitation."
+    });
+  }
+
+  const accepted = await sbCoachRpc("athlevo_accept_coach_invite", {
+    p_token_hash: tokenHash,
+    p_athlete_id: actor.user.id,
+    p_email_normalized: authenticatedEmail
+  });
+  if (!accepted.ok) {
+    return sendJson(response, 503, { error: "The invitation could not be accepted." });
+  }
+  const result = Array.isArray(accepted.data) ? accepted.data[0] : accepted.data;
+  const resultState = result && result.result_state || "invalid";
+  const success = resultState === "accepted_now";
+  const alreadyAccepted = resultState === "accepted";
+  const code = success ? 200 : alreadyAccepted ? 200 : resultState === "wrong_email" ? 403 : 409;
+  return sendJson(response, code, {
+    state: success ? "accepted" : resultState,
+    accepted: success,
+    already_accepted: alreadyAccepted,
+    coach_name: coachName,
+    assignment_id: success ? result.result_assignment_id : undefined
+  });
+}
+
 async function actionCoachingDashboardRoster(request, response) {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -3169,6 +3545,26 @@ export default async function handler(request, response) {
     if (action === "coaching_dashboard_messages") {
       return actionCoachingDashboardMessages(request, response);
     }
+    if (action === "coaching_invite_create") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingInviteCreate(request, response);
+    }
+    if (action === "coaching_invite_list") {
+      if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingInviteList(request, response);
+    }
+    if (action === "coaching_invite_accept") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingInviteAccept(request, response);
+    }
+    if (action === "coaching_invite_resend") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingInviteResend(request, response);
+    }
+    if (action === "coaching_invite_revoke") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingInviteRevoke(request, response);
+    }
 
     // Athlete Mode actions (consolidated from api/athlete-mode.js).
     if (action === "athlete_coaching_mode") {
@@ -3233,6 +3629,8 @@ export default async function handler(request, response) {
         "weather_context",
         "coaching_dashboard_roster", "coaching_dashboard_athlete",
         "coaching_dashboard_review", "coaching_dashboard_workout", "athlete_coaching_mode",
+        "coaching_invite_create", "coaching_invite_list", "coaching_invite_accept",
+        "coaching_invite_resend", "coaching_invite_revoke",
         "athlete_messages", "athlete_request_adjustment", "delete_account"
       ].includes(action) ? action : "unsupported"
     });

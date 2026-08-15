@@ -27,7 +27,8 @@
  *
  *  Privacy: analytics are categorical only — never name, email, UUID,
  *  workout title, pain notes, readiness values, health metrics, provider
- *  IDs, or raw errors. DOM never contains athlete emails or UUIDs.
+ *  IDs, or raw errors. Active-roster DOM never contains athlete emails; the
+ *  pending-invitation list intentionally shows only the coach-entered email.
  */
 
 (function () {
@@ -41,6 +42,12 @@
   var _roster = [];
   var _rosterLoading = false;
   var _rosterError = null;
+  var _invites = [];
+  var _invitesLoaded = false;
+  var _inviteMutationId = null;
+  var _inviteSendInFlight = false;
+  var _inviteEmail = "";
+  var _invitePreviousFocus = null;
   var _search = "";
   var _rosterFilter = "all";
   var _athleteDetailId = null;
@@ -100,6 +107,22 @@
       var res = await fetch(url, init);
       var body = null;
       try { body = await res.json(); } catch (e) { body = null; }
+      return { ok: res.ok, status: res.status, body: body || {} };
+    } catch (e) {
+      return { ok: false, status: 0, body: { error: "network" } };
+    }
+  }
+
+  async function inviteApi(action, opts) {
+    opts = opts || {};
+    var t = await token();
+    if (!t) return { ok: false, status: 401, body: { error: "No session" } };
+    var init = { method: opts.method || "GET", headers: { Authorization: "Bearer " + t } };
+    if (opts.body) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(opts.body); }
+    try {
+      var res = await fetch("/api/providers?action=coaching_invite_" + encodeURIComponent(action), init);
+      var body = {};
+      try { body = await res.json(); } catch (e) {}
       return { ok: res.ok, status: res.status, body: body || {} };
     } catch (e) {
       return { ok: false, status: 0, body: { error: "network" } };
@@ -209,6 +232,18 @@
     return "No recent training data";
   }
 
+  function inviteAge(iso) {
+    var time = Date.parse(iso || "");
+    if (!Number.isFinite(time)) return "Sent recently";
+    var minutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
+    if (minutes < 1) return "Sent just now";
+    if (minutes < 60) return "Sent " + minutes + " minute" + (minutes === 1 ? "" : "s") + " ago";
+    var hours = Math.floor(minutes / 60);
+    if (hours < 24) return "Sent " + hours + " hour" + (hours === 1 ? "" : "s") + " ago";
+    var days = Math.floor(hours / 24);
+    return "Sent " + days + " day" + (days === 1 ? "" : "s") + " ago";
+  }
+
   function ensureCoachCommandStyles() {
     if (document.getElementById("coachCommandCenterStyles")) return;
     var style = document.createElement("style");
@@ -222,6 +257,7 @@
       ".cm-command-summary{max-width:620px;margin:6px 0 0;color:var(--ink3,#9a9da3);font-size:13px;line-height:1.4;}",
       ".cm-refresh{border:0;background:transparent;color:var(--ink3,#9a9da3);font:600 12px/1 var(--sans,sans-serif);padding:8px 0;cursor:pointer;flex:0 0 auto;}",
       ".cm-refresh:hover{color:var(--ink1,var(--ink,#141416));}",
+      ".cm-head-actions{display:flex;align-items:center;gap:12px;flex:0 0 auto}.cm-invite-trigger{min-height:36px;border:1px solid var(--line,#ebebe8);border-radius:999px;background:transparent;color:var(--ink1,#141416);font:700 11px/1 var(--sans,sans-serif);padding:9px 12px;cursor:pointer;white-space:nowrap}",
       ".cm-refresh:focus-visible,.cm-open-row:focus-visible,.cm-review:focus-visible{outline:2px solid var(--red,#C0272D);outline-offset:3px;}",
       ".cm-summary-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:26px;}",
       ".cm-summary-metric{min-width:0;min-height:66px;padding:12px 13px;background:var(--card2,var(--card,#f6f6f4));border-radius:10px;}",
@@ -257,6 +293,8 @@
       ".cm-empty{padding:22px 0;border-block:1px solid var(--line,#ebebe8);}",
       ".cm-empty strong{display:block;font-family:var(--serif,serif);font-size:20px;font-weight:520;}",
       ".cm-empty p{margin:5px 0 0;color:var(--ink3,#9a9da3);font-size:13px;line-height:1.45;}",
+      ".cm-pending-invites{margin-top:26px}.cm-invite-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line,#ebebe8)}.cm-invite-copy{min-width:0;flex:1}.cm-invite-email{display:block;font-size:13px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}.cm-invite-sent{display:block;margin-top:3px;color:var(--ink3,#9a9da3);font-size:11px}.cm-invite-row-actions{display:flex;gap:10px;flex:0 0 auto}.cm-invite-row-actions button{min-height:34px;border:0;background:transparent;color:var(--ink2,#6d7075);font:700 11px/1 var(--sans,sans-serif);padding:7px 0;cursor:pointer}.cm-invite-row-actions .danger{color:var(--bad,#c0272d)}.cm-invite-row-actions button:disabled{opacity:.5}",
+      ".cm-invite-overlay{position:fixed;inset:0;z-index:210;background:var(--backdrop,rgba(20,20,22,.48));display:flex;align-items:flex-end;justify-content:center}.cm-invite-dialog{width:100%;max-width:480px;max-height:90vh;overflow:auto;box-sizing:border-box;background:var(--surface-base,#fff);border-radius:26px 26px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}.cm-invite-dialog h2{margin:0;font-family:var(--serif,serif);font-size:24px;font-weight:520}.cm-invite-dialog>p{margin:8px 0 20px;color:var(--ink2,#6d7075);font-size:13px;line-height:1.5}.cm-invite-form{display:grid;gap:8px}.cm-invite-form label{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-invite-form input{width:100%;min-height:46px;box-sizing:border-box;border:1px solid var(--line,#ebebe8);border-radius:10px;background:var(--bg,#fff);color:inherit;padding:11px 12px;font:16px/1.35 var(--sans,sans-serif)}.cm-invite-form-error{min-height:18px;margin:1px 0 0;color:var(--bad,#c0272d);font-size:12px;line-height:1.45}.cm-invite-dialog-actions{display:grid;gap:9px;margin-top:12px}.cm-invite-dialog-actions button{min-height:46px;border:1px solid var(--line,#ebebe8);border-radius:999px;background:transparent;color:inherit;font:700 13px/1 var(--sans,sans-serif);padding:12px 16px;cursor:pointer}.cm-invite-dialog-actions .primary{border-color:var(--red,#c0272d);background:var(--red,#c0272d);color:#fff}.cm-invite-dialog-actions .danger{border-color:var(--bad,#c0272d);color:var(--bad,#c0272d)}.cm-invite-dialog-actions button:disabled{opacity:.52;cursor:default}",
       ".cm-error{padding:18px 0;border-block:1px solid var(--line,#ebebe8);color:var(--ink2,#6d7075);font-size:13px;}",
       ".cm-error button{margin-top:10px;}",
       ".cm-command-skeleton{width:100%;max-width:430px;margin:0 auto;padding:18px 16px 104px;box-sizing:border-box;}",
@@ -309,8 +347,9 @@
       ".cm-refresh:focus-visible,.cm-review:focus-visible,.cm-open-row:focus-visible,.cm-filter:focus-visible,.cm-athlete-back:focus-visible,.cm-athlete-tab:focus-visible,.cm-week-btn:focus-visible,.cm-workout-row:focus-visible,.cm-week-nav button:focus-visible,.cm-add-workout:focus-visible,.cm-note-action:focus-visible,.cm-athlete-message:focus-visible,.cm-msg-item:focus-visible,.cm-msg-thread-back:focus-visible,.cm-msg-athlete-detail:focus-visible,.cm-msg-send:focus-visible,.cm-global-athlete:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}",
       "@media(min-width:760px){.cm-athlete-page{padding-inline:24px}.cm-detail-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.cm-workout-dialog{align-self:center;border-radius:var(--ui-radius-card)}.cm-athlete-panel{padding-top:24px}.cm-athlete-analytics{max-width:720px}}",
       "@media(min-width:760px){.cm-roster-item .cm-row{padding-block:17px}}",
+      "@media(min-width:600px){.cm-invite-overlay{align-items:center;padding:20px}.cm-invite-dialog{border-radius:22px}}",
       "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
-      "@media(max-width:380px){.cm-command-head h1{font-size:24px}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
+      "@media(max-width:380px){.cm-command-head{gap:10px}.cm-command-head h1{font-size:24px}.cm-head-actions{gap:7px}.cm-invite-trigger{padding-inline:9px}.cm-invite-row{align-items:flex-start;display:grid;grid-template-columns:minmax(0,1fr) auto}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-page--ready,.cm-athlete-panel.is-entering,.cm-msg-thread,.cm-msg-bubble,.cm-workout-overlay,.cm-note-confirm,.cm-workout-dialog,.cm-note-confirm-dialog{animation:none}.cm-row-name,.cm-athlete-panel,.cm-athlete-tab-indicator,.cm-msg-log,.cm-note-compose textarea{transition:none;scroll-behavior:auto}}"
     ].join("");
     document.head.appendChild(style);
@@ -489,6 +528,7 @@
   }
 
   function clearWorkspaceOnLogout() {
+    closeInviteDialog(false);
     clearWorkspacePref();
     suppressAthleteReadiness();
     _appMode = "unknown";
@@ -497,6 +537,11 @@
     _roster = [];
     _rosterLoading = false;
     _rosterError = null;
+    _invites = [];
+    _invitesLoaded = false;
+    _inviteMutationId = null;
+    _inviteSendInFlight = false;
+    _inviteEmail = "";
     _search = "";
     _rosterFilter = "all";
     _athleteDetailId = null;
@@ -588,6 +633,7 @@
     var todayEl = document.getElementById("screen-today");
     if (todayEl) todayEl.classList.add("active");
     renderCoachToday();
+    if (!_invitesLoaded) loadInvites(true);
 
     if (fromWs) {
       trackCoach("workspace_switched", {
@@ -804,7 +850,7 @@
       '<div class="cm-command cm-command--ready' + rosterSizeClass + '">' +
         '<header class="cm-command-head">' +
           '<div><h1>Coach Dashboard</h1><p class="cm-command-summary" aria-live="polite">' + esc(liveSummary) + '</p></div>' +
-          '<button type="button" class="cm-refresh" id="cmRefresh">Refresh</button>' +
+          '<div class="cm-head-actions"><button type="button" class="cm-invite-trigger" id="cmInviteAthlete">Invite Athlete</button><button type="button" class="cm-refresh" id="cmRefresh">Refresh</button></div>' +
         '</header>';
 
     if (_rosterError) {
@@ -816,7 +862,7 @@
 
     content += renderSummaryStrip(sorted.length, attention.length, trainingToday.length, raceGoals.length);
     if (!sorted.length) {
-      content += '<section class="cm-empty"><strong>No athletes assigned yet.</strong><p>Assigned athletes will appear here when they are connected to your coaching roster.</p></section></div>';
+      content += '<section class="cm-empty"><strong>No athletes assigned yet.</strong><p>Invite an athlete to connect them to your coaching roster.</p></section>' + renderPendingInvitations() + '</div>';
       el.innerHTML = content;
       bindCoachTodayEvents(el);
       return;
@@ -833,7 +879,7 @@
           renderRaceGoalsSection(raceGoals) +
         '</div>' +
         renderRosterStatusSection(sorted) +
-      '</div></div>';
+      '</div>' + renderPendingInvitations() + '</div>';
 
     el.innerHTML = content;
     bindCoachTodayEvents(el);
@@ -873,6 +919,19 @@
   function sectionHeader(title, count) {
     return '<div class="cm-section-head"><h2 class="cm-section-title">' + esc(title) + '</h2>' +
       (count == null ? '' : '<span class="cm-section-count">' + esc(count) + '</span>') + '</div>';
+  }
+
+  function renderPendingInvitations() {
+    if (!_invitesLoaded) return "";
+    var pending = _invites.filter(function (invite) { return invite && invite.status === "pending"; });
+    if (!pending.length) return "";
+    return '<section class="cm-section cm-pending-invites">' + sectionHeader("Pending Invitations", pending.length) +
+      '<div class="cm-list">' + pending.map(function (invite) {
+        var busy = _inviteMutationId === invite.id;
+        return '<div class="cm-invite-row"><div class="cm-invite-copy"><span class="cm-invite-email">' + esc(invite.email) + '</span><span class="cm-invite-sent">' + esc(inviteAge(invite.created_at)) + '</span></div>' +
+          '<div class="cm-invite-row-actions"><button type="button" data-resend-invite="' + esc(invite.id) + '"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Working…' : 'Resend') + '</button>' +
+          '<button type="button" class="danger" data-revoke-invite="' + esc(invite.id) + '"' + (busy ? ' disabled' : '') + '>Revoke</button></div></div>';
+      }).join("") + '</div></section>';
   }
 
   /* ─── Needs Attention ─── */
@@ -978,12 +1037,152 @@
     }).join("");
   }
 
+  function closeInviteDialog(resetEmail) {
+    var overlay = document.getElementById("cmInviteOverlay");
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    document.removeEventListener("keydown", handleInviteEscape);
+    if (resetEmail) _inviteEmail = "";
+    if (_invitePreviousFocus && typeof _invitePreviousFocus.focus === "function") {
+      try { _invitePreviousFocus.focus(); } catch (e) {}
+    }
+    _invitePreviousFocus = null;
+  }
+
+  function handleInviteEscape(event) {
+    if (event.key !== "Escape" || _inviteSendInFlight) return;
+    event.preventDefault();
+    closeInviteDialog(false);
+  }
+
+  function mountInviteDialog(html) {
+    closeInviteDialog(false);
+    _invitePreviousFocus = document.activeElement;
+    var overlay = document.createElement("div");
+    overlay.id = "cmInviteOverlay";
+    overlay.className = "cm-invite-overlay";
+    overlay.innerHTML = '<section class="cm-invite-dialog" role="dialog" aria-modal="true" aria-labelledby="cmInviteTitle">' + html + '</section>';
+    document.body.appendChild(overlay);
+    document.addEventListener("keydown", handleInviteEscape);
+    return overlay;
+  }
+
+  function openInviteDialog() {
+    var overlay = mountInviteDialog(
+      '<h2 id="cmInviteTitle">Invite Athlete</h2><p>Invite an athlete to connect with your coaching roster.</p>' +
+      '<form class="cm-invite-form" id="cmInviteForm"><label for="cmInviteEmail">Email</label>' +
+      '<input id="cmInviteEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="athlete@email.com" value="' + esc(_inviteEmail) + '" required>' +
+      '<p class="cm-invite-form-error" id="cmInviteError" role="status" aria-live="polite"></p>' +
+      '<div class="cm-invite-dialog-actions"><button class="primary" id="cmInviteSend" type="submit">Send Invite</button><button id="cmInviteCancel" type="button">Cancel</button></div></form>'
+    );
+    var input = overlay.querySelector("#cmInviteEmail");
+    overlay.querySelector("#cmInviteCancel").addEventListener("click", function () {
+      _inviteEmail = input.value;
+      closeInviteDialog(false);
+    });
+    overlay.querySelector("#cmInviteForm").addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (_inviteSendInFlight) return;
+      _inviteEmail = String(input.value || "").trim();
+      var error = overlay.querySelector("#cmInviteError");
+      var button = overlay.querySelector("#cmInviteSend");
+      if (!input.checkValidity()) {
+        error.textContent = "Enter a valid athlete email.";
+        input.focus();
+        return;
+      }
+      _inviteSendInFlight = true;
+      button.disabled = true;
+      button.textContent = "Sending…";
+      error.textContent = "";
+      var result = await inviteApi("create", { method: "POST", body: { email: _inviteEmail } });
+      _inviteSendInFlight = false;
+      if (!result.ok) {
+        error.textContent = result.body && result.body.error || "The invitation could not be sent. Please try again.";
+        button.disabled = false;
+        button.textContent = "Send Invite";
+        return;
+      }
+      closeInviteDialog(true);
+      if (typeof window.toast === "function") window.toast("Invitation sent.");
+      await loadInvites(true);
+    });
+    setTimeout(function () { input.focus(); }, 0);
+  }
+
+  async function loadInvites(renderAfter) {
+    var result = await inviteApi("list");
+    if (result.ok) {
+      _invites = result.body && Array.isArray(result.body.invites) ? result.body.invites : [];
+      _invitesLoaded = true;
+    }
+    if (renderAfter && _workspace === "coach_workspace") renderCoachToday();
+    return result;
+  }
+
+  async function resendInvite(inviteId, button) {
+    if (_inviteMutationId) return;
+    _inviteMutationId = inviteId;
+    if (button) { button.disabled = true; button.textContent = "Sending…"; }
+    var result = await inviteApi("resend", { method: "POST", body: { invite_id: inviteId } });
+    _inviteMutationId = null;
+    if (!result.ok) {
+      if (button) { button.disabled = false; button.textContent = "Resend"; }
+      if (typeof window.toast === "function") window.toast(result.body && result.body.error || "Could not resend invitation");
+      return;
+    }
+    if (typeof window.toast === "function") window.toast("Invitation resent.");
+    await loadInvites(true);
+  }
+
+  function openRevokeInvite(inviteId) {
+    var invite = _invites.find(function (row) { return row.id === inviteId; });
+    if (!invite) return;
+    var overlay = mountInviteDialog(
+      '<h2 id="cmInviteTitle">Revoke invitation?</h2><p>This invitation link will stop working.</p>' +
+      '<div class="cm-invite-dialog-actions"><button type="button" id="cmRevokeCancel">Cancel</button><button type="button" class="danger" id="cmRevokeConfirm">Revoke</button></div>'
+    );
+    overlay.querySelector("#cmRevokeCancel").addEventListener("click", function () { closeInviteDialog(false); });
+    var confirm = overlay.querySelector("#cmRevokeConfirm");
+    confirm.addEventListener("click", async function () {
+      if (_inviteMutationId) return;
+      _inviteMutationId = inviteId;
+      confirm.disabled = true;
+      confirm.textContent = "Revoking…";
+      var result = await inviteApi("revoke", { method: "POST", body: { invite_id: inviteId } });
+      _inviteMutationId = null;
+      if (!result.ok) {
+        confirm.disabled = false;
+        confirm.textContent = "Revoke";
+        var prior = overlay.querySelector(".cm-invite-form-error");
+        if (!prior) {
+          prior = document.createElement("p");
+          prior.className = "cm-invite-form-error";
+          overlay.querySelector(".cm-invite-dialog").insertBefore(prior, overlay.querySelector(".cm-invite-dialog-actions"));
+        }
+        prior.textContent = result.body && result.body.error || "The invitation could not be revoked.";
+        return;
+      }
+      closeInviteDialog(false);
+      if (typeof window.toast === "function") window.toast("Invitation revoked.");
+      await loadInvites(true);
+    });
+    setTimeout(function () { confirm.focus(); }, 0);
+  }
+
   /* ─── Event Binding for Coach Today ─── */
   function bindCoachTodayEvents(container) {
     var refresh = container.querySelector("#cmRefresh");
     if (refresh) refresh.addEventListener("click", refreshRoster);
     var retry = container.querySelector("#cmRetry");
     if (retry) retry.addEventListener("click", refreshRoster);
+    var invite = container.querySelector("#cmInviteAthlete");
+    if (invite) invite.addEventListener("click", openInviteDialog);
+    container.querySelectorAll("[data-resend-invite]").forEach(function (button) {
+      button.addEventListener("click", function () { resendInvite(button.getAttribute("data-resend-invite"), button); });
+    });
+    container.querySelectorAll("[data-revoke-invite]").forEach(function (button) {
+      button.addEventListener("click", function () { openRevokeInvite(button.getAttribute("data-revoke-invite")); });
+    });
 
     // View athlete buttons
     container.querySelectorAll(".cm-view-athlete").forEach(function (btn) {
@@ -2247,6 +2446,7 @@
     }
     _roster = (res.body && res.body.athletes) || [];
     _role = (res.body && res.body.role) || _role;
+    await loadInvites(false);
     renderCoachToday();
   }
 
@@ -2346,6 +2546,7 @@
     });
 
     renderCoachToday();
+    loadInvites(true);
 
     trackCoach("coach_today_viewed", {
       coach_mode: "coach_mode",
