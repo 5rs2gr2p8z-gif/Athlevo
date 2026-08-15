@@ -125,7 +125,6 @@ async function loadAthleteProfile() {
     return null;
   }
 
-  console.log("Athlete profile loaded:", profile);
   return profile;
 }
 
@@ -276,6 +275,17 @@ function buildCoachingContext(
 
   const latestActivity =
     activitySummary?.latestActivity || null;
+
+  // Weather is factual context only in V1. It is exposed to the AI coaching
+  // context exclusively after the authoritative athlete-mode service confirms
+  // self-guided mode; managed/unknown modes never receive AI weather advice.
+  const weatherState = window.AthlevoWeather?.current?.() || null;
+  const coachingMode = window.AthlevoAthleteMode?.mode?.() || "unknown";
+  const suppliedWeather = coachingMode === "self_guided" &&
+    weatherState?.available === true && weatherState.weather
+      ? weatherState.weather
+      : null;
+  const suppliedWeatherRisk = suppliedWeather ? (weatherState.risk || null) : null;
 
   return {
     athlete: {
@@ -441,6 +451,9 @@ function buildCoachingContext(
       sixWeekVolumeHistory: weeklyVolumes
     },
 
+    weather: suppliedWeather,
+    weatherRisk: suppliedWeatherRisk,
+
     missingData: {
       sleep:
         true,
@@ -459,6 +472,9 @@ function buildCoachingContext(
 
       wearableRecoveryData:
         true,
+
+      weather:
+        !suppliedWeather,
 
       heartRate:
         !recentActivities.some(
@@ -1420,6 +1436,15 @@ async function refreshAthleteUI() {
 
     updateTodayDashboard(profile);
     updateAthleteProfileScreens(profile);
+
+    // Weather fills asynchronously and must never delay Today, activity data,
+    // readiness, or plan rendering. The saved location is a cache hint only;
+    // the server independently reads it using verified JWT identity.
+    if (window.AthlevoWeather && typeof window.AthlevoWeather.load === "function") {
+      window.AthlevoWeather.load({
+        savedLocationHint: profile.location || ""
+      }).catch(function () {});
+    }
 
     // Today + the latest-workout card need recent training only; the
     // heavier surfaces load their own history window.

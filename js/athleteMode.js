@@ -570,6 +570,9 @@
   function applyModeUi() {
     renderAssignedCoach();
     renderCoachTab();
+    if (window.AthlevoWeather && typeof window.AthlevoWeather.render === "function") {
+      window.AthlevoWeather.render();
+    }
     if (_mode === "unknown") {
       suppressAIControls();
       setManagedAdviceHidden(true);
@@ -670,6 +673,9 @@
     restoreSelfGuidedCoachTab();
     clearAiCoachDom();
     setManagedAdviceHidden(false);
+    if (window.AthlevoWeather && typeof window.AthlevoWeather.clear === "function") {
+      window.AthlevoWeather.clear();
+    }
   }
 
   // ─── Expose ──────────────────────────────────────────────────────────

@@ -96,6 +96,8 @@ import {
   dateRangeForTrends
 } from "../../lib/server/providerTrends.js";
 import { requirePaidAccess } from "../../lib/server/freemium.js";
+import { fetchWeatherContext } from "../../lib/server/weatherProvider.js";
+import { deriveWeatherRisk } from "../../lib/server/weatherRisk.js";
 
 /* ───────────────────────────── logging ──────────────────────────────── */
 
@@ -2086,6 +2088,102 @@ async function getCoachingUser(token) {
   return r.json();
 }
 
+/* ═════════════════════ ACTION: weather context ══════════════════════ */
+
+function roundedCoordinate(value, min, max) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < min || number > max) return null;
+  return Math.round(number * 100) / 100;
+}
+
+async function actionWeatherContext(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    return sendJson(response, 503, {
+      available: false,
+      weather: null,
+      risk: null,
+      code: "WEATHER_UNAVAILABLE"
+    });
+  }
+
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user?.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const hasLat = body.lat !== undefined;
+  const hasLng = body.lng !== undefined;
+  if (hasLat !== hasLng) {
+    return sendJson(response, 400, { error: "Both latitude and longitude are required." });
+  }
+
+  let query = "";
+  if (hasLat && hasLng) {
+    const lat = roundedCoordinate(body.lat, -90, 90);
+    const lng = roundedCoordinate(body.lng, -180, 180);
+    if (lat === null || lng === null) {
+      return sendJson(response, 400, { error: "Location coordinates are invalid." });
+    }
+    query = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  } else {
+    // The caller cannot select an athlete. The verified JWT is the sole
+    // authority for the profile fallback, and only the location column is read.
+    const profile = await sbCoachRead(
+      `profiles?id=eq.${enc(user.id)}&select=location&limit=1`
+    );
+    if (!profile.ok) {
+      return sendJson(response, 503, {
+        available: false,
+        weather: null,
+        risk: null,
+        code: "WEATHER_UNAVAILABLE"
+      });
+    }
+    query = String(profile.rows[0]?.location || "").trim().slice(0, 160);
+    if (!query) {
+      return sendJson(response, 200, {
+        available: false,
+        weather: null,
+        risk: null,
+        reason: "location_unavailable"
+      });
+    }
+  }
+
+  if (!process.env.WEATHERAPI_KEY) {
+    return sendJson(response, 503, {
+      available: false,
+      weather: null,
+      risk: null,
+      code: "WEATHER_UNAVAILABLE"
+    });
+  }
+
+  try {
+    const weather = await fetchWeatherContext(query, {
+      apiKey: process.env.WEATHERAPI_KEY
+    });
+    return sendJson(response, 200, {
+      available: true,
+      weather,
+      risk: deriveWeatherRisk(weather)
+    });
+  } catch {
+    // Provider failures are deliberately quiet and contain no location,
+    // provider payload, token, or secret in logs or in the response.
+    return sendJson(response, 503, {
+      available: false,
+      weather: null,
+      risk: null,
+      code: "WEATHER_UNAVAILABLE"
+    });
+  }
+}
+
 async function actionCoachingDashboardRoster(request, response) {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -3040,6 +3138,11 @@ export default async function handler(request, response) {
       return actionAdminAnalytics(request, response);
     }
 
+    if (action === "weather_context") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionWeatherContext(request, response);
+    }
+
     // Coach Dashboard actions (consolidated from api/coach-dashboard.js).
     if (action === "coaching_dashboard_roster") {
       if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
@@ -3127,6 +3230,7 @@ export default async function handler(request, response) {
       action: [
         "connect", "callback", "finalize", "sync", "trends", "diagnose",
         "reanalyze", "status", "disconnect", "admin_analytics",
+        "weather_context",
         "coaching_dashboard_roster", "coaching_dashboard_athlete",
         "coaching_dashboard_review", "coaching_dashboard_workout", "athlete_coaching_mode",
         "athlete_messages", "athlete_request_adjustment", "delete_account"

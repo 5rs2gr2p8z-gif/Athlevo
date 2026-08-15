@@ -562,6 +562,10 @@ function buildCoachContextSummary(context) {
     items.push("Reviewed today's readiness");
   }
 
+  if (context?.todayWeather?.weather) {
+    items.push("Checked today's weather");
+  }
+
   const week = context?.currentWeekExecution || null;
   const sessions = Array.isArray(week?.sessions) ? week.sessions : [];
 
@@ -1106,6 +1110,16 @@ if (!context) {
   var contextError = new Error("Coach needs your athlete profile before answering.");
   contextError.coachCode = "COACH_CONTEXT_UNAVAILABLE";
   throw contextError;
+}
+
+// Weather is supplied only when brain.js has already verified self-guided
+// mode and has a real normalized observation. Managed athletes never reach
+// the AI Coach path and never receive weather-derived AI instructions.
+if (context.weather) {
+  context.todayWeather = {
+    weather: context.weather,
+    risk: context.weatherRisk || null
+  };
 }
 
 // Durable athlete memory — concise, active facts only. Internal fields

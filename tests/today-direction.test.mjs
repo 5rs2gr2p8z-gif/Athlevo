@@ -739,13 +739,14 @@ test("the shared compact Athlete status follows both primary plan states",
   /id="todayAthleteStatusCard"[\s\S]*?id="todayStatusHeading">Athlete status<\/span>/.test(today) &&
   today.indexOf("todayAthleteStatusCard") > today.indexOf("todayActivePlanState") &&
   /athleteStatus\.hidden = state !== "no-plan" && state !== "active"/.test(html));
-test("the active primary card exposes only real workout fields and one action",
+test("the active primary card exposes real workout fields, one workout action, and compact weather opt-in",
   /id="todayWorkoutTitle"/.test(trainingMarkup) &&
   /id="todayWorkoutType" hidden/.test(trainingMarkup) &&
   /id="todayWorkoutSummary" hidden/.test(trainingMarkup) &&
   /id="todayWorkoutInstruction" hidden/.test(trainingMarkup) &&
   /id="todayWorkoutAdjusted" hidden>Adjusted today/.test(trainingMarkup) &&
-  (trainingMarkup.match(/<button\b/g) || []).length === 1);
+  (trainingMarkup.match(/id="todayDirectionAction"/g) || []).length === 1 &&
+  (trainingMarkup.match(/data-weather-permission/g) || []).length === 1);
 test("classification words are absent from visible first-viewport text",
   !/\b(?:RECOVER|HOLD|PUSH)\b/.test(firstViewportVisibleText));
 test("interactive scale, slider, marker, tab, gauge, and needle markup are absent",

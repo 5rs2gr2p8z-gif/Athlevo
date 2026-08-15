@@ -3747,6 +3747,17 @@ body.landing-active #tabbar{display:none!important}
     .today-adjusted-label[hidden]{display:none}
     .today-workout-instruction{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line);
       font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
+    .today-weather{margin-top:11px;padding-top:10px;border-top:1px solid var(--line);min-width:0}
+    .today-weather[hidden],.today-weather [hidden]{display:none!important}
+    .today-weather-label{display:block;margin-bottom:4px;font-size:var(--fs-micro);font-weight:750;
+      letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+    .today-weather-conditions{margin:0;font-size:var(--fs-caption);font-weight:650;
+      line-height:var(--lh-caption);color:var(--text);overflow-wrap:anywhere}
+    .today-weather-warning{margin:4px 0 0;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
+    .today-weather-explanation{margin:0;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink3)}
+    .today-weather-permission{margin-top:7px;border:0;background:none;color:var(--red);
+      font:700 var(--fs-caption)/1 var(--sans);padding:5px 0;cursor:pointer}
+    .today-no-plan .today-weather{margin:14px 0 0}
     .today-training-card .direction-action{width:100%;min-height:46px;margin-top:16px}
 
     /* Compact status: the existing signal calculations remain unchanged. */
@@ -3927,6 +3938,14 @@ body.landing-active #tabbar{display:none!important}
     <span class="today-state-eyebrow">Your training</span>
     <h2>You’re already doing the work. Now give it a direction.</h2>
     <p id="todayNoPlanCopy">Tell us what you’re training for, and Athlevo will build a plan around where you are now, the time you have, and the goal you want to reach.</p>
+    <div class="today-weather" data-today-weather hidden>
+      <span class="today-weather-label">Weather</span>
+      <p class="today-weather-conditions" data-weather-conditions></p>
+      <p class="today-weather-warning" data-weather-warning hidden></p>
+      <p class="today-weather-explanation" data-weather-explanation hidden>Athlevo uses your location to show local weather conditions for your training.</p>
+      <button type="button" class="today-weather-permission" data-weather-permission hidden
+        onclick="AthlevoWeather.requestDeviceLocation()">Use local weather</button>
+    </div>
     <button type="button" class="today-primary-btn" id="todayNoPlanAction"
       onclick="todayStartPlan()">Build My Plan</button>
     <p class="today-state-note">First race, marathon, or a new PR — your starting point doesn’t matter.</p>
@@ -3950,6 +3969,14 @@ body.landing-active #tabbar{display:none!important}
       <h2 class="today-workout-title" id="todayWorkoutTitle">Checking your training plan…</h2>
       <p class="today-workout-type" id="todayWorkoutType" hidden></p>
       <p class="today-workout-meta" id="todayWorkoutSummary" hidden></p>
+      <div class="today-weather" data-today-weather hidden>
+        <span class="today-weather-label">Weather</span>
+        <p class="today-weather-conditions" data-weather-conditions></p>
+        <p class="today-weather-warning" data-weather-warning hidden></p>
+        <p class="today-weather-explanation" data-weather-explanation hidden>Athlevo uses your location to show local weather conditions for your training.</p>
+        <button type="button" class="today-weather-permission" data-weather-permission hidden
+          onclick="AthlevoWeather.requestDeviceLocation()">Use local weather</button>
+      </div>
       <p class="today-workout-instruction" id="todayWorkoutInstruction" hidden></p>
       <button type="button" class="direction-action" id="todayDirectionAction"
         data-action="" onclick="todayDirectionPrimaryAction()" hidden disabled>Open workout</button>
@@ -6700,6 +6727,10 @@ async function renderTodayRecommendation(forceRefresh){
    routine lifecycle refreshes share the current request. */
 async function refreshTodayAfterPlanChange(reason){
   var planChanged = reason === "plan-change";
+  if (reason === "manual" && window.AthlevoWeather &&
+      typeof window.AthlevoWeather.load === "function"){
+    window.AthlevoWeather.load({ force: true }).catch(function(){});
+  }
   if (todayPlanRefreshInFlight && !planChanged){
     return todayPlanRefreshInFlight;
   }
@@ -8032,7 +8063,8 @@ setTimeout(function () {
 <script src="js/authSupport.js?v=72"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
-<script src="js/brain.js?v=68"></script>
+<script src="js/brain.js?v=78"></script>
+<script src="js/weather.js?v=78"></script>
 <script src="js/syncStatus.js?v=67"></script>
 <script src="js/performance.js?v=67"></script>
 <!-- Training Engine V2: one authoritative pace service (ranges/RPE/source/
@@ -8073,13 +8105,13 @@ setTimeout(function () {
 <script src="js/memory.js?v=67"></script>
 <script src="js/dailyBrief.js?v=77"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
-<script src="js/coach.js?v=77"></script>
+<script src="js/coach.js?v=78"></script>
 <script src="js/features.js?v=68"></script>
 <script src="js/train.js?v=67"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=67"></script>
-<script src="js/athleteMode.js?v=77"></script>
+<script src="js/athleteMode.js?v=78"></script>
 <script src="js/coachDashboard.js?v=75"></script>
 <script src="js/coachMode.js?v=13"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
