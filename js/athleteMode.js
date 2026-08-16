@@ -45,6 +45,8 @@
   var _thread = null;
   var _threadLoading = false;
   var _sendInFlight = false;
+  var _threadScroll = { top: 0, nearBottom: true };
+  var _renderedThreadCount = 0;
   var _requestGeneration = 0;
   var MODE_STALE_MS = 2 * 60 * 1000;
 
@@ -338,10 +340,39 @@
     return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
 
-  function renderHumanThread() {
+  function humanThreadNearBottom(log) {
+    return !log || log.scrollHeight - log.clientHeight - log.scrollTop < 96;
+  }
+
+  function syncHumanJumpLatest(log) {
+    var button = document.getElementById("amHumanCoachLatest");
+    if (button) button.hidden = humanThreadNearBottom(log);
+  }
+
+  function scrollHumanThreadToLatest(options) {
     var log = document.getElementById("amHumanCoachThread");
     if (!log) return;
-    if (_threadLoading) {
+    options = options || {};
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (typeof log.scrollTo === "function") {
+      log.scrollTo({ top: log.scrollHeight, behavior: options.immediate || reduce ? "auto" : "smooth" });
+    } else {
+      log.scrollTop = log.scrollHeight;
+    }
+    _threadScroll.top = log.scrollHeight;
+    _threadScroll.nearBottom = true;
+    syncHumanJumpLatest(log);
+  }
+
+  function renderHumanThread(options) {
+    var log = document.getElementById("amHumanCoachThread");
+    if (!log) return;
+    options = options || {};
+    var hadContent = Boolean(log.children.length);
+    var priorTop = hadContent ? log.scrollTop : _threadScroll.top;
+    var wasNearBottom = options.forceLatest === true ||
+      (hadContent ? humanThreadNearBottom(log) : _threadScroll.nearBottom);
+    if (_threadLoading && !_thread) {
       log.innerHTML = '<div class="am-human-thread-loading" aria-label="Loading messages">' +
         '<i></i><i></i><i></i></div>';
       return;
@@ -359,7 +390,21 @@
         '<time datetime="' + esc(message.created_at || "") + '">' + esc(humanMessageTime(message.created_at)) + '</time>' +
       '</article>';
     }).join("");
-    requestAnimationFrame(function () { log.scrollTop = log.scrollHeight; });
+    var nextCount = messages.length;
+    requestAnimationFrame(function () {
+      if (!log.isConnected) return;
+      if (wasNearBottom) {
+        scrollHumanThreadToLatest({
+          immediate: options.forceLatest === true || _renderedThreadCount === 0 || nextCount === _renderedThreadCount
+        });
+      } else {
+        log.scrollTop = priorTop;
+        _threadScroll.top = priorTop;
+        _threadScroll.nearBottom = false;
+        syncHumanJumpLatest(log);
+      }
+      _renderedThreadCount = nextCount;
+    });
   }
 
   async function athleteMessageRequest(method, message) {
@@ -414,9 +459,12 @@
       var nextThread = await athleteMessageRequest("POST", clean);
       if (requestGeneration !== _requestGeneration || _mode !== "human_coached") return;
       _thread = nextThread;
-      if (input) input.value = "";
+      if (input) {
+        input.value = "";
+        input.style.height = "";
+      }
       if (status) status.textContent = "";
-      renderHumanThread();
+      renderHumanThread({ forceLatest: true });
     } catch (error) {
       if (status) status.textContent = error && error.message ? error.message : "The message could not be sent.";
       if (error && error.status === 403) await revalidateMode();
@@ -459,6 +507,7 @@
         '<span><strong>' + coachName + '</strong><small>' + title + '</small></span>' +
       '</header>' +
       '<div class="am-human-coach-thread" id="amHumanCoachThread" aria-label="Conversation with ' + coachName + '"></div>' +
+      '<button class="am-human-coach-latest" id="amHumanCoachLatest" type="button" hidden>Jump to latest</button>' +
       '<form class="am-human-coach-composer" id="amHumanCoachComposer">' +
         '<label class="sr-only" for="amHumanCoachInput">Message ' + coachName + '</label>' +
         '<textarea id="amHumanCoachInput" maxlength="4000" rows="1" placeholder="Message your coach"></textarea>' +
@@ -473,7 +522,21 @@
       sendHumanMessage(input ? input.value : "");
     });
     var input = document.getElementById("amHumanCoachInput");
-    if (input) input.addEventListener("input", syncHumanSendState);
+    if (input) input.addEventListener("input", function () {
+      input.style.height = "auto";
+      input.style.height = Math.min(120, input.scrollHeight) + "px";
+      syncHumanSendState();
+    });
+    var log = document.getElementById("amHumanCoachThread");
+    if (log) log.addEventListener("scroll", function () {
+      _threadScroll.top = log.scrollTop;
+      _threadScroll.nearBottom = humanThreadNearBottom(log);
+      syncHumanJumpLatest(log);
+    }, { passive: true });
+    var latest = document.getElementById("amHumanCoachLatest");
+    if (latest) latest.addEventListener("click", function () {
+      scrollHumanThreadToLatest({ immediate: false });
+    });
     renderHumanThread();
   }
 

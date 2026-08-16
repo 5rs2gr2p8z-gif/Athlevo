@@ -1146,8 +1146,14 @@ body.athlevo-sheet-locked{overflow:hidden}
 .athlevo-sheet-overlay{opacity:0;pointer-events:none;background:var(--backdrop);
   backdrop-filter:blur(var(--backdrop-blur));-webkit-backdrop-filter:blur(var(--backdrop-blur))}
 .athlevo-sheet-overlay.athlevo-sheet-mounted{display:flex!important;pointer-events:auto;z-index:1200}
+.athlevo-sheet-overlay.athlevo-sheet-mounted.show{animation:none}
 .athlevo-sheet-overlay.athlevo-sheet-open{opacity:1}
 .athlevo-sheet-material{opacity:.985;transform:translate3d(0,32px,0);animation:none!important}
+.athlevo-sheet-drag-handle{position:relative;width:100%;height:28px;flex:0 0 28px;
+  margin:-14px 0 2px;touch-action:none;cursor:grab}
+.athlevo-sheet-drag-handle::after{content:"";position:absolute;left:50%;top:11px;width:38px;height:4px;
+  border-radius:999px;background:color-mix(in srgb,var(--text-muted) 42%,transparent);transform:translateX(-50%)}
+.athlevo-sheet-drag-handle:active{cursor:grabbing}
 .athlevo-sheet-open>.athlevo-sheet-material,
 .athlevo-sheet-open .athlevo-sheet-material{opacity:1;transform:translate3d(0,0,0)}
 .athlevo-sheet-fallback{transition:opacity 200ms var(--ease-standard)}
@@ -1155,6 +1161,19 @@ body.athlevo-sheet-locked{overflow:hidden}
   transition:opacity 280ms var(--ease-emphasized),transform 280ms var(--ease-emphasized)}
 @media(prefers-reduced-motion:reduce){
   .athlevo-sheet-overlay,.athlevo-sheet-material{transition:none!important;transform:none!important}
+}
+@media(prefers-reduced-transparency:reduce){
+  :root{--backdrop-blur:0px;--backdrop:rgba(20,20,22,.72)}
+  .athlevo-sheet-overlay,.modal-back,.tw-modal-ov,.apl-modal,.performance-upgrade-back{
+    backdrop-filter:none;-webkit-backdrop-filter:none}
+  .tabbar,#tabbar,.legal-head,.lp-nav,#screen-landing .lp-nav{background:var(--paper);
+    backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+@media(prefers-contrast:more){
+  :root{--border-default:color-mix(in srgb,var(--text) 58%,transparent);--focus-ring:#145cff}
+  .athlevo-sheet-material{outline:1px solid var(--border-default)}
+  .athlevo-sheet-drag-handle::after{background:var(--text-muted)}
+  .tabbar,#tabbar{border-top-color:var(--text-muted)}
 }
 /* Delete Account */
 .rowlink-danger b{color:var(--danger)}
@@ -1667,7 +1686,7 @@ body.athlevo-sheet-locked{overflow:hidden}
   border-radius:50%;animation:amCoachResolve .8s linear infinite
 }
 @keyframes amCoachResolve{to{transform:rotate(360deg)}}
-.am-human-coach{display:flex;flex-direction:column;background:var(--paper)}
+.am-human-coach{position:relative;display:flex;flex-direction:column;background:var(--paper)}
 .am-human-coach-head{
   flex:0 0 auto;display:flex;align-items:center;gap:var(--s-3);padding:14px 22px 12px;
   border-bottom:1px solid var(--line);background:var(--paper)
@@ -1705,6 +1724,10 @@ body.athlevo-sheet-locked{overflow:hidden}
 .am-human-message.is-athlete p{border-radius:14px 14px 4px 14px;background:var(--ink);color:var(--paper)}
 .am-human-message time{display:block;margin-top:4px;color:var(--text-muted);font-size:10px}
 .am-human-message.is-athlete time{text-align:right}
+.am-human-coach-latest{position:absolute;right:22px;bottom:88px;z-index:2;min-height:44px;padding:0 13px;
+  border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--ink);box-shadow:var(--elev-1);
+  font:700 var(--fs-caption)/1 var(--sans);cursor:pointer}
+.am-human-coach-latest[hidden]{display:none}
 .am-human-coach-composer{
   flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s-2);
   padding:var(--s-2) 22px var(--s-3);background:var(--paper);border-top:1px solid var(--line)
@@ -1825,7 +1848,8 @@ body.athlevo-sheet-locked{overflow:hidden}
 }
 .sc-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--dur-slow)}
 .session-card.open .sc-toggle svg{transform:rotate(180deg)}
-.sc-detail{max-height:0;overflow:hidden;transition:max-height var(--dur-base) var(--ease-standard)}
+.sc-detail{display:none}
+.session-card.open .sc-detail{display:block;animation:trainDetailReveal var(--dur-base) var(--ease-standard)}
 .sc-detail-inner{padding:0 20px 20px}
 .sc-lead{font-size:var(--fs-body);line-height:1.6;color:var(--text);padding-top:2px}
 .sc-section{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
@@ -1883,7 +1907,9 @@ body.athlevo-sheet-locked{overflow:hidden}
 .wp-line .wp-tag{flex-shrink:0;font-size:var(--fs-micro);font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:var(--r-pill)}
 .wp-tag.win{background:var(--good-soft);color:var(--good)}
 .wp-tag.concern{background:var(--red-soft);color:var(--red)}
-.wp-detail{max-height:0;overflow:hidden;transition:max-height var(--dur-base) var(--ease-standard)}
+.wp-detail{display:none}
+.wp-card.open .wp-detail{display:block;animation:trainDetailReveal var(--dur-base) var(--ease-standard)}
+@keyframes trainDetailReveal{from{opacity:0;transform:translate3d(0,4px,0)}to{opacity:1;transform:none}}
 .wp-detail-inner{padding-top:14px}
 .wp-detail .sc-section:first-child{margin-top:0;border-top:none;padding-top:0}
 .wp-toggle{
@@ -2105,10 +2131,11 @@ body.athlevo-sheet-locked{overflow:hidden}
   overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
   padding:10px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
 .scd-handle{width:38px;height:4px;border-radius:var(--r-pill);background:var(--line);margin:0 auto 14px}
+.scd-handle.athlevo-sheet-drag-handle{width:100%;height:28px;margin:-4px 0 2px;background:transparent}
 .scd-header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-3)}
 .scd-overall{font-family:var(--serif);font-size:42px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-top:4px}
 .scd-quality{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em}
-.scd-close{width:32px;height:32px;border:none;background:var(--card);border-radius:50%;color:var(--ink2);font-size:var(--fs-body);cursor:pointer;flex-shrink:0}
+.scd-close{width:44px;height:44px;border:none;background:var(--card);border-radius:50%;color:var(--ink2);font-size:var(--fs-body);cursor:pointer;flex-shrink:0}
 .scd-explain{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text);margin:14px 0}
 .scd-line{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:6px 0}
 .scd-line b{color:var(--text)}
@@ -4383,9 +4410,9 @@ body.landing-active #tabbar{display:none!important}
 .tw-modal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
   .tw-modal.show{display:flex}
   .tw-modal-ov{position:absolute;inset:0;background:var(--backdrop);backdrop-filter:blur(2px)}
-  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:24px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:var(--elev-3);animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
+  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:24px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
   @media(min-width:480px){.tw-modal{align-items:center}.tw-modal-box{border-radius:var(--r-lg);max-height:86vh}}
-  .tw-modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer}
+  .tw-modal-close{position:absolute;top:8px;right:10px;display:grid;place-items:center;min-width:44px;min-height:44px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer}
   .twm-kicker{font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red)}
   .twm-title{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;letter-spacing:-.01em;color:var(--text);margin-top:4px}
   .twm-block{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
@@ -4511,9 +4538,9 @@ body.landing-active #tabbar{display:none!important}
 </section>
 
 <!-- Workout / activity detail sheet (opened from the selected-date panel) -->
-<div id="trainWorkoutModal" class="tw-modal">
+<div id="trainWorkoutModal" class="tw-modal" aria-hidden="true">
   <div class="tw-modal-ov" onclick="AthlevoTrainCalendar.closeModal()"></div>
-  <div class="tw-modal-box">
+  <div class="tw-modal-box" role="dialog" aria-modal="true" aria-label="Workout details">
     <button class="tw-modal-close" aria-label="Close" onclick="AthlevoTrainCalendar.closeModal()">&times;</button>
     <div id="trainWorkoutModalBody"></div>
   </div>
@@ -8259,8 +8286,8 @@ setTimeout(function () {
 <script src="js/activation.js?v=68"></script>
 <script src="js/onboardingConnect.js?v=69"></script>
 <script src="js/productionVerify.js?v=67"></script>
-<script src="js/sheet.js?v=1"></script>
-<script src="js/athlevoScore.js?v=74"></script>
+<script src="js/sheet.js?v=2"></script>
+<script src="js/athlevoScore.js?v=79"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
 <script src="js/coachBrain.js?v=67"></script>
@@ -8275,19 +8302,19 @@ setTimeout(function () {
 <script src="js/renderCoachResponse.js?v=68"></script>
 <script src="js/coach.js?v=78"></script>
 <script src="js/features.js?v=69"></script>
-<script src="js/train.js?v=67"></script>
+<script src="js/train.js?v=79"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
-<script src="js/trainCalendar.js?v=67"></script>
+<script src="js/trainCalendar.js?v=79"></script>
 <script src="js/coachInvites.js?v=1"></script>
-<script src="js/athleteMode.js?v=78"></script>
+<script src="js/athleteMode.js?v=79"></script>
 <script src="js/coachDashboard.js?v=75"></script>
-<script src="js/coachMode.js?v=17"></script>
-<script src="js/adaptivePlan.js?v=67"></script>
-<script src="js/accessGuard.js?v=73"></script>
+<script src="js/coachMode.js?v=18"></script>
+<script src="js/adaptivePlan.js?v=79"></script>
+<script src="js/accessGuard.js?v=79"></script>
 <script src="js/planSetup.js?v=69"></script>
-<script src="js/feedback.js?v=67"></script>
-<script src="js/readiness.js?v=69"></script>
+<script src="js/feedback.js?v=79"></script>
+<script src="js/readiness.js?v=79"></script>
 <script src="js/morningCheckIn.js?v=71"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=67"></script>

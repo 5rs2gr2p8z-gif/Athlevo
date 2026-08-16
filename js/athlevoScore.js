@@ -851,6 +851,8 @@
     window.AthlevoSheet.open({
       root: modal,
       sheet: ".scd",
+      draggable: true,
+      dragHandle: ".scd-handle",
       initialFocus: ".scd-close",
       closeOnEscape: true,
       closeOnBackdrop: true,

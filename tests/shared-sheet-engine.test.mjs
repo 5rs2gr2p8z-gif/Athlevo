@@ -1,5 +1,5 @@
 /**
- * Phase 3A shared sheet engine and three-surface migration contract.
+ * Shared sheet engine, opt-in drag, and migrated-surface contract.
  * Run: node tests/shared-sheet-engine.test.mjs
  */
 import { readFileSync } from "node:fs";
@@ -10,6 +10,8 @@ const html = readFileSync("./index.html", "utf8");
 const coach = readFileSync("./js/coachMode.js", "utf8");
 const readiness = readFileSync("./js/readiness.js", "utf8");
 const score = readFileSync("./js/athlevoScore.js", "utf8");
+const calendar = readFileSync("./js/trainCalendar.js", "utf8");
+const accessGuard = readFileSync("./js/accessGuard.js", "utf8");
 
 let passed = 0;
 let failed = 0;
@@ -77,6 +79,18 @@ class FakeElement {
       this.children.push(element);
     });
   }
+  insertBefore(element, before) {
+    element.parentElement = this;
+    const index = this.children.indexOf(before);
+    if (index < 0) this.children.push(element);
+    else this.children.splice(index, 0, element);
+  }
+  removeChild(element) {
+    const index = this.children.indexOf(element);
+    if (index >= 0) this.children.splice(index, 1);
+    element.parentElement = null;
+  }
+  get firstChild() { return this.children[0] || null; }
   setAttribute(name, value) { this.attrs.set(name, String(value)); }
   getAttribute(name) { return this.attrs.has(name) ? this.attrs.get(name) : null; }
   removeAttribute(name) { this.attrs.delete(name); }
@@ -112,9 +126,12 @@ class FakeElement {
     this.animations.push(animation);
     return animation;
   }
+  getBoundingClientRect() { return { width: 390, height: 400, left: 0, top: 0 }; }
+  setPointerCapture(id) { this.capturedPointer = id; }
+  releasePointerCapture(id) { if (this.capturedPointer === id) this.capturedPointer = null; }
 }
 
-function createWorld() {
+function createWorld(pointerEvents = false) {
   const listeners = new Map();
   const timers = [];
   const htmlElement = new FakeElement("html");
@@ -143,6 +160,11 @@ function createWorld() {
     activeElement: trigger,
     querySelectorAll(selector) { return selector === ".screen.active" ? [screen] : []; },
     querySelector() { return trigger; },
+    createElement() {
+      const element = new FakeElement("created");
+      element.ownerDocument = document;
+      return element;
+    },
     addEventListener(name, handler) {
       if (!listeners.has(name)) listeners.set(name, new Set());
       listeners.get(name).add(handler);
@@ -165,6 +187,7 @@ function createWorld() {
     requestAnimationFrame(callback) { callback(); return 1; },
     scrollTo(x, y) { restoredScroll = [x, y]; }
   };
+  if (pointerEvents) window.PointerEvent = function PointerEvent() {};
   vm.runInNewContext(engineSource, {
     window,
     document,
@@ -297,7 +320,50 @@ console.log("\n──── Backdrop, interruptibility, and reduced motion ─�
     world.listeners.get("keydown").size === 1);
 }
 
-console.log("\n──── Phase 3A surface migrations ────");
+console.log("\n──── Shared surface migrations and drag boundaries ────");
+{
+  const world = createWorld(true);
+  openWorld(world, { draggable: true });
+  world.finishMaterial();
+  const handle = world.sheet.children[0];
+  world.sheet.dispatch("pointerdown", { pointerId: 6, isPrimary: true, button: 0, clientX: 100, clientY: 100, timeStamp: 1 });
+  test("scrollable sheet content does not start the drag gesture",
+    !world.sheet.listeners.has("pointermove") && world.sheet.style.transform === "");
+  handle.dispatch("pointerdown", { pointerId: 7, isPrimary: true, button: 0, clientX: 100, clientY: 100, timeStamp: 10 });
+  world.sheet.dispatch("pointermove", { pointerId: 7, clientX: 101, clientY: 140, timeStamp: 210, preventDefault() {} });
+  test("drag follows the pointer directly after vertical intent resolves",
+    world.sheet.style.transform === "translate3d(0,40px,0)" && handle.capturedPointer === 7);
+  world.sheet.dispatch("pointerup", { pointerId: 7 });
+  test("a short slow drag springs back without closing",
+    world.api.phase(world.overlay) === "open" && world.sheet.animations.length > 0);
+  world.finishMaterial();
+
+  handle.dispatch("pointerdown", { pointerId: 8, isPrimary: true, button: 0, clientX: 100, clientY: 100, timeStamp: 300 });
+  world.sheet.dispatch("pointermove", { pointerId: 8, clientX: 100, clientY: 220, timeStamp: 600, preventDefault() {} });
+  world.sheet.dispatch("pointerup", { pointerId: 8 });
+  test("distance release continues to dismissal from the dragged position",
+    world.api.phase(world.overlay) === "closing");
+  world.finishMaterial();
+}
+{
+  const world = createWorld(true);
+  openWorld(world, { draggable: true });
+  world.finishMaterial();
+  const handle = world.sheet.children[0];
+  handle.dispatch("pointerdown", { pointerId: 9, isPrimary: true, button: 0, clientX: 100, clientY: 100, timeStamp: 10 });
+  world.sheet.dispatch("pointermove", { pointerId: 9, clientX: 100, clientY: 122, timeStamp: 20, preventDefault() {} });
+  world.sheet.dispatch("pointerup", { pointerId: 9 });
+  test("release velocity can dismiss below the distance threshold",
+    world.api.phase(world.overlay) === "closing");
+}
+{
+  const world = createWorld(true);
+  openWorld(world);
+  world.finishMaterial();
+  test("non-opted-in sheets install no drag handle or pointer listener",
+    !world.sheet.children.some(child => child.classList.contains("athlevo-sheet-drag-handle")) &&
+    !world.sheet.listeners.has("pointermove"));
+}
 test("Invite Athlete delegates scrim, Escape, backdrop, focus, and cleanup to the engine",
   /function mountInviteSheet/.test(coach) &&
   /initialFocus: "#cmInviteEmail"/.test(coach) &&
@@ -326,8 +392,18 @@ test("shared scrim is restrained and the engine animates only transform and opac
   /--backdrop-blur:4px/.test(html) &&
   /backdrop-filter:blur\(var\(--backdrop-blur\)\)/.test(html) &&
   !/sheetFrames[\s\S]*?\b(?:top|left|width|height|margin|padding):/.test(engineSource));
-test("Phase 3A adds no drag, pointer capture, framework, or animation dependency",
-  !/pointerdown|pointermove|setPointerCapture|releasePointerCapture/.test(engineSource) &&
+test("drag uses Pointer Events, capture, direct translation, and projected release",
+  /pointerdown|pointermove/.test(engineSource) &&
+  /setPointerCapture/.test(engineSource) && /releasePointerCapture/.test(engineSource) &&
+  /drag\.offset \+ drag\.velocity \* 180/.test(engineSource) &&
+  /translate3d\(0,/.test(engineSource));
+test("only approved non-destructive sheets opt into drag",
+  /sheet: "\.rd-sheet",\s*draggable: true/.test(readiness) &&
+  /sheet: "\.scd",\s*draggable: true/.test(score) &&
+  /sheet: "\.cm-invite-dialog",\s*draggable: true/.test(coach) &&
+  /sheet: "\.tw-modal-box",\s*draggable: true/.test(calendar));
+test("upgrade/payment is migrated without drag and no framework dependency was added",
+  /sheet: "\.performance-upgrade-sheet",\s*draggable: false/.test(accessGuard) &&
   !/React|Framer|gsap|spring\(/i.test(engineSource));
 
 console.log(`\n${passed} passed, ${failed} failed`);

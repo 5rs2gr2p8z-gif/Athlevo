@@ -965,14 +965,6 @@ function openSessionCard(card) {
 
     card.classList.add("open");
 
-    const detail =
-        card.querySelector(".sc-detail");
-
-    if (detail) {
-        detail.style.maxHeight =
-            detail.scrollHeight + "px";
-    }
-
     setSessionCardToggle(card, true);
 
 }
@@ -980,13 +972,6 @@ function openSessionCard(card) {
 function closeSessionCard(card) {
 
     card.classList.remove("open");
-
-    const detail =
-        card.querySelector(".sc-detail");
-
-    if (detail) {
-        detail.style.maxHeight = "0px";
-    }
 
     setSessionCardToggle(card, false);
 
@@ -1443,21 +1428,10 @@ function toggleProgressDetail(card) {
         return;
     }
 
-    const detail =
-        card.querySelector(".wp-detail");
-
-    if (!detail) {
-        return;
-    }
-
     const isOpen =
         card.classList.contains("open");
 
     card.classList.toggle("open", !isOpen);
-
-    detail.style.maxHeight = isOpen
-        ? "0px"
-        : detail.scrollHeight + "px";
 
 }
 
@@ -1504,9 +1478,9 @@ function openWeeklyCheckin() {
     ).join("");
 
     modal.innerHTML = `
-        <div class="lesson">
+        <div class="lesson" role="dialog" aria-modal="true" aria-labelledby="weeklyCheckinTitle">
             <span class="eyebrow">Weekly check-in · 1 minute</span>
-            <h3 class="serif">How did this week actually feel?</h3>
+            <h3 class="serif" id="weeklyCheckinTitle">How did this week actually feel?</h3>
             <p>Honest answers shape next week's plan. Nothing here is judged.</p>
 
             ${scaleRows}
@@ -1599,13 +1573,23 @@ function openWeeklyCheckin() {
         .querySelector("#ciSubmit")
         .addEventListener("click", submitWeeklyCheckin);
 
-    modal.onclick = event => {
-        if (event.target === modal) {
-            closeWeeklyCheckin();
-        }
-    };
-
-    modal.classList.add("show");
+    if (window.AthlevoSheet) {
+        window.AthlevoSheet.open({
+            root: modal,
+            sheet: ".lesson",
+            initialFocus: ".ci-dot",
+            fallbackFocus: "#tabbar .tab.on",
+            onRequestClose: () => {
+                closeWeeklyCheckin();
+                return false;
+            }
+        });
+    } else {
+        modal.onclick = event => {
+            if (event.target === modal) closeWeeklyCheckin();
+        };
+        modal.classList.add("show");
+    }
 
 }
 
@@ -1614,10 +1598,14 @@ function closeWeeklyCheckin() {
     const modal =
         document.getElementById("checkinModal");
 
-    if (modal) {
+    if (!modal) return;
+    const cleanup = () => {
         modal.classList.remove("show");
         modal.innerHTML = "";
-    }
+    };
+    if (window.AthlevoSheet && window.AthlevoSheet.isOpen(modal)) {
+        window.AthlevoSheet.close(modal, { onAfterClose: cleanup });
+    } else cleanup();
 
 }
 
@@ -1964,9 +1952,9 @@ function openFeedbackSheet(session, mode, existingRecord) {
     }
 
     modal.innerHTML = `
-        <div class="lesson">
+        <div class="lesson" role="dialog" aria-modal="true" aria-labelledby="feedbackSheetTitle">
             <span class="eyebrow">${escapeHtml(heading.eyebrow)}</span>
-            <h3 class="serif">${escapeHtml(heading.title)}</h3>
+            <h3 class="serif" id="feedbackSheetTitle">${escapeHtml(heading.title)}</h3>
             <p>${escapeHtml(cleanText(session.title) || "This session")} · ${escapeHtml(formatSessionDate(session.session_date))}</p>
 
             ${blocks.join("")}
@@ -1981,13 +1969,23 @@ function openFeedbackSheet(session, mode, existingRecord) {
 
     wireFeedbackSheet(modal, record);
 
-    modal.onclick = event => {
-        if (event.target === modal) {
-            closeFeedbackSheet();
-        }
-    };
-
-    modal.classList.add("show");
+    if (window.AthlevoSheet) {
+        window.AthlevoSheet.open({
+            root: modal,
+            sheet: ".lesson",
+            initialFocus: "[data-fb], #fbSubmit",
+            fallbackFocus: "#tabbar .tab.on",
+            onRequestClose: () => {
+                closeFeedbackSheet();
+                return false;
+            }
+        });
+    } else {
+        modal.onclick = event => {
+            if (event.target === modal) closeFeedbackSheet();
+        };
+        modal.classList.add("show");
+    }
 }
 
 function notesField(record, placeholder) {
@@ -2108,10 +2106,15 @@ function wireFeedbackSheet(modal, record) {
 function closeFeedbackSheet() {
     const modal = document.getElementById("feedbackModal");
 
-    if (modal) {
-        modal.classList.remove("show");
-        modal.innerHTML = "";
-    }
+    const cleanup = () => {
+        if (modal) {
+            modal.classList.remove("show");
+            modal.innerHTML = "";
+        }
+    };
+    if (modal && window.AthlevoSheet && window.AthlevoSheet.isOpen(modal)) {
+        window.AthlevoSheet.close(modal, { onAfterClose: cleanup });
+    } else cleanup();
 
     feedbackContext = null;
     feedbackDraft = {};

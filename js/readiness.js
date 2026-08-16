@@ -687,6 +687,7 @@ function openReadinessCheck(options = {}) {
   window.AthlevoSheet.open({
     root: modal,
     sheet: ".rd-sheet",
+    draggable: true,
     initialFocus: '[data-rd="sleep_quality"]',
     closeOnEscape: true,
     closeOnBackdrop: true,

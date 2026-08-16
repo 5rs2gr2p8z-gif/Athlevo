@@ -135,9 +135,31 @@
           '<button type="button" class="apl-apply" onclick="AthlevoAdaptivePlan.apply()">Apply changes</button>' +
         '</div>' +
       '</div>';
-    m.classList.add("show");
+    if (root.AthlevoSheet) {
+      root.AthlevoSheet.open({
+        root: m,
+        sheet: ".apl-sheet",
+        draggable: false,
+        initialFocus: ".apl-keep",
+        fallbackFocus: ".apl-review-btn, #tabbar .tab.on",
+        onRequestClose: function () {
+          if (state.busy) return false;
+          closeReview();
+          return false;
+        }
+      });
+    } else {
+      m.classList.add("show");
+    }
   }
-  function closeReview() { var m = $("adaptivePlanModal"); if (m) { m.classList.remove("show"); m.innerHTML = ""; } }
+  function closeReview() {
+    var m = $("adaptivePlanModal");
+    if (!m) return;
+    var cleanup = function () { m.classList.remove("show"); m.innerHTML = ""; };
+    if (root.AthlevoSheet && root.AthlevoSheet.isOpen(m)) {
+      root.AthlevoSheet.close(m, { onAfterClose: cleanup });
+    } else cleanup();
+  }
   function msg(text) { var el = $("aplMsg"); if (el) el.textContent = text || ""; }
 
   async function apply() {

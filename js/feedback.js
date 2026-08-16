@@ -87,9 +87,9 @@ function openBetaFeedback() {
     .join("");
 
   modal.innerHTML = `
-    <div class="lesson">
+    <div class="lesson" role="dialog" aria-modal="true" aria-labelledby="betaFeedbackTitle">
       <span class="eyebrow">Feedback &amp; Suggestions</span>
-      <h3 class="serif">Tell us what's on your mind</h3>
+      <h3 class="serif" id="betaFeedbackTitle">Tell us what's on your mind</h3>
       <p>Report a bug, share an idea, or tell us what felt confusing. This is private — only the Athlevo team sees it.</p>
 
       <div class="ci-row">
@@ -139,22 +139,38 @@ function openBetaFeedback() {
     .querySelector("#bfSubmit")
     .addEventListener("click", submitBetaFeedback);
 
-  modal.onclick = event => {
-    if (event.target === modal) {
-      closeBetaFeedback();
-    }
-  };
-
-  modal.classList.add("show");
+  if (window.AthlevoSheet) {
+    window.AthlevoSheet.open({
+      root: modal,
+      sheet: ".lesson",
+      initialFocus: "[data-category]",
+      fallbackFocus: "#tabbar .tab.on",
+      onRequestClose: () => {
+        if (betaFeedbackSubmitting) return false;
+        closeBetaFeedback();
+        return false;
+      }
+    });
+  } else {
+    modal.onclick = event => {
+      if (event.target === modal) closeBetaFeedback();
+    };
+    modal.classList.add("show");
+  }
 }
 
 function closeBetaFeedback() {
   const modal = document.getElementById("betaFeedbackModal");
 
-  if (modal) {
-    modal.classList.remove("show");
-    modal.innerHTML = "";
-  }
+  const cleanup = () => {
+    if (modal) {
+      modal.classList.remove("show");
+      modal.innerHTML = "";
+    }
+  };
+  if (modal && window.AthlevoSheet && window.AthlevoSheet.isOpen(modal)) {
+    window.AthlevoSheet.close(modal, { onAfterClose: cleanup });
+  } else cleanup();
 
   betaFeedbackDraft = { category: null };
   betaFeedbackSubmitting = false;

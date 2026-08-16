@@ -65,8 +65,8 @@ test("tab state and keyboard navigation remain synchronized",
 test("active narrow-screen tab is deliberately scrolled into view",
   /scrollIntoView\(\{ block: "nearest", inline: "nearest" \}\)/.test(source));
 test("workflow transitions share restrained timing and reduced-motion handling",
-  /cmWorkflowIn var\(--dur-base,220ms\)/.test(source) &&
-  /cmCoachDialogIn var\(--dur-base,220ms\)/.test(source) &&
+  /cmWorkflowIn var\(--dur-base,200ms\)/.test(source) &&
+  /cmCoachDialogIn var\(--dur-base,200ms\)/.test(source) &&
   /prefers-reduced-motion:reduce/.test(source));
 
 console.log("\n──── Mutation, notes, and accessibility ────");
@@ -91,7 +91,7 @@ test("note composer stays compact until focused",
 console.log("\n──── Product and security boundaries ────");
 test("Coach workflow polish does not add a new API or database route",
   !/workflow|directory/.test(source.slice(source.indexOf('async function api'), source.indexOf('function fmtVal'))) &&
-  /js\/coachMode\.js\?v=13/.test(index));
+  /js\/coachMode\.js\?v=18/.test(index));
 test("workout writes remain athlete scoped and use the existing route",
   /api\("workout", \{ method: session \? "PATCH" : "POST", body: \{ athlete_id: _athleteDetailId/.test(workoutSave));
 

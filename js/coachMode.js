@@ -66,6 +66,10 @@
   var _athletePanelTransition = 0;
   var _athletePanelTimer = null;
   var _coachDashboardScrollTop = 0;
+  var _athleteDetailScrollTop = 0;
+  var _athleteDrillPending = false;
+  var _athleteDrillAnimation = null;
+  var _athleteDrillToken = 0;
   var _initialized = false;
   var _resolving = false;
   var _athleteTodayHTML = null;   // saved athlete Today innerHTML for restore
@@ -346,6 +350,7 @@
       "@media(min-width:600px){.cm-invite-overlay{align-items:center;padding:20px}.cm-invite-dialog{border-radius:22px}}",
       "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
       "@media(max-width:380px){.cm-command-head{gap:10px}.cm-command-head h1{font-size:24px}.cm-head-actions{gap:7px}.cm-invite-trigger{padding-inline:9px}.cm-invite-row{align-items:flex-start;display:grid;grid-template-columns:minmax(0,1fr) auto}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
+      ".cm-athlete-page--ready{animation:none;will-change:transform,opacity}.cm-athlete-tabs{-webkit-overflow-scrolling:touch}",
       "@media(hover:hover) and (pointer:fine){.cm-refresh:hover{color:var(--ink1,var(--ink,#141416))}.cm-open-row:hover .cm-row-name{color:var(--red,#C0272D)}.cm-review:hover{border-color:var(--ink2,#6d7075)}.cm-note-action:hover,.cm-athlete-message:hover{color:var(--ink1,#141416);border-bottom-color:currentColor}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-page--ready,.cm-msg-thread,.cm-msg-bubble,.cm-workout-overlay,.cm-note-confirm,.cm-workout-dialog,.cm-note-confirm-dialog{animation:none}.cm-row-name,.cm-athlete-panel-content,.cm-athlete-tab-indicator,.cm-msg-log,.cm-note-compose textarea{transition:none;scroll-behavior:auto}.cm-athlete-panel-content{transform:none!important}}"
     ].join("");
@@ -1099,6 +1104,7 @@
     window.AthlevoSheet.open({
       root: overlay,
       sheet: ".cm-invite-dialog",
+      draggable: true,
       initialFocus: "#cmInviteEmail",
       closeOnEscape: true,
       closeOnBackdrop: true,
@@ -1289,7 +1295,10 @@
     var changedAthlete = String(_athleteDetailId || "") !== String(athleteId || "");
     var existingAthlete = !changedAthlete && _athleteDetail;
     var todayScreen = document.getElementById("screen-today");
-    if (changedAthlete && !_athleteDetailId && todayScreen) _coachDashboardScrollTop = todayScreen.scrollTop || 0;
+    if (changedAthlete && !_athleteDetailId && todayScreen) {
+      _coachDashboardScrollTop = todayScreen.scrollTop || 0;
+      _athleteDrillPending = true;
+    }
     activateCoachScreen("screen-today");
     if (changedAthlete) _athleteAnalyticsRange = 4;
     if (changedAthlete) _athleteCheckInsRange = 7;
@@ -1340,6 +1349,7 @@
       '<div class="cm-athlete-skel-tabs">' + [0, 1, 2, 3, 4].map(function () { return '<span class="skel"></span>'; }).join("") + '</div>' +
       '<div class="cm-athlete-skel-section"><span class="skel"></span><span class="skel"></span><span class="skel"></span></div><div class="cm-athlete-skel-section"><span class="skel"></span><span class="skel"></span><span class="skel"></span></div>' +
       '<div class="cm-athlete-skel-rows">' + [0, 1, 2].map(function () { return '<span class="skel cm-athlete-skel-row"></span>'; }).join("") + '</div></div>';
+    animateAthleteDrillIn(el.querySelector(".cm-athlete-page"));
   }
 
   function renderAthletePanelLoading() {
@@ -1369,6 +1379,31 @@
   }
 
   function closeAthletePage() {
+    var el = document.getElementById("screen-today");
+    var page = el && el.querySelector(".cm-athlete-page");
+    var reduced = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    var token = ++_athleteDrillToken;
+    if (_athleteDrillAnimation) {
+      try { _athleteDrillAnimation.cancel(); } catch (error) {}
+      _athleteDrillAnimation = null;
+    }
+    var finish = function () {
+      if (token !== _athleteDrillToken) return;
+      finishCloseAthletePage();
+    };
+    if (!page || reduced || typeof page.animate !== "function") {
+      finish();
+      return;
+    }
+    var current = window.getComputedStyle ? window.getComputedStyle(page) : null;
+    _athleteDrillAnimation = page.animate([
+      { transform: current && current.transform !== "none" ? current.transform : "translate3d(0,0,0)", opacity: current ? current.opacity : 1 },
+      { transform: "translate3d(24px,0,0)", opacity: .94 }
+    ], { duration: 210, easing: "cubic-bezier(.4,0,.8,.2)", fill: "both" });
+    _athleteDrillAnimation.onfinish = finish;
+  }
+
+  function finishCloseAthletePage() {
     _athleteDetailRequest += 1;
     _athleteDetailId = null;
     _athleteDetail = null;
@@ -1378,9 +1413,34 @@
     _editingCoachNoteId = null;
     _messageRequest += 1;
     _athleteDetailTab = "overview";
+    _athleteDrillPending = false;
+    _athleteDrillAnimation = null;
     renderCoachToday();
     var el = document.getElementById("screen-today");
     if (el) el.scrollTop = _coachDashboardScrollTop;
+  }
+
+  function animateAthleteDrillIn(page) {
+    if (!_athleteDrillPending || !page) return;
+    _athleteDrillPending = false;
+    var token = ++_athleteDrillToken;
+    var reduced = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    if (_athleteDrillAnimation) {
+      try { _athleteDrillAnimation.cancel(); } catch (error) {}
+    }
+    if (reduced || typeof page.animate !== "function") {
+      _athleteDrillAnimation = null;
+      return;
+    }
+    _athleteDrillAnimation = page.animate([
+      { transform: "translate3d(24px,0,0)", opacity: .94 },
+      { transform: "translate3d(0,0,0)", opacity: 1 }
+    ], { duration: 240, easing: "cubic-bezier(.2,.7,.2,1)", fill: "both" });
+    _athleteDrillAnimation.onfinish = function () {
+      if (token !== _athleteDrillToken) return;
+      try { _athleteDrillAnimation.cancel(); } catch (error) {}
+      _athleteDrillAnimation = null;
+    };
   }
 
   function athleteRaceContext(ath) {
@@ -1494,6 +1554,7 @@
       '<header class="cm-athlete-head"><span class="cm-avatar" aria-hidden="true">' + esc(ath.initials || "A") + '</span><div class="cm-athlete-head-copy"><h1 class="cm-athlete-name">' + esc(ath.name || "Athlete") + '</h1><p class="cm-athlete-goal">' + esc(ath.goal || SPORT_LABEL[ath.primary_sport] || "Athlete") + '</p>' + (athleteRaceContext(ath) ? '<p class="cm-athlete-race">' + esc(athleteRaceContext(ath)) + '</p>' : '') + '</div><div class="cm-athlete-head-actions">' + (headerStatus ? '<span class="cm-athlete-head-status">' + esc(headerStatus) + '</span>' : '') + '<button type="button" class="cm-athlete-message" id="cmMessageAthlete">Message</button></div></header>' +
       '<nav class="cm-athlete-tabs" role="tablist" aria-label="Athlete workspace">' + tabs.map(function (tab) { var selected = _athleteDetailTab === tab; return '<button type="button" role="tab" class="cm-athlete-tab' + (selected ? ' is-active' : '') + '" id="cmAthleteTab-' + tab + '" aria-controls="cmAthletePanel" aria-selected="' + (selected ? 'true' : 'false') + '" tabindex="' + (selected ? '0' : '-1') + '" data-athlete-tab="' + tab + '">' + labels[tab] + '</button>'; }).join("") + '<span class="cm-athlete-tab-indicator" aria-hidden="true"></span></nav>' +
       '<div class="cm-athlete-panel" id="cmAthletePanel" role="tabpanel" aria-labelledby="cmAthleteTab-' + esc(_athleteDetailTab) + '"><div class="cm-athlete-panel-content">' + athletePanelContent(ath) + '</div></div></div>';
+    animateAthleteDrillIn(el.querySelector(".cm-athlete-page"));
     el.querySelector(".cm-athlete-back").addEventListener("click", closeAthletePage);
     var tabButtons = Array.from(el.querySelectorAll("[data-athlete-tab]"));
     tabButtons.forEach(function (btn, index) {
@@ -1905,6 +1966,8 @@
     if (review) review.addEventListener("click", function () { markAthleteReviewed(ath.athlete_id, review); });
     var messageAthlete = el.querySelector("#cmMessageAthlete");
     if (messageAthlete) messageAthlete.addEventListener("click", function () {
+      var today = document.getElementById("screen-today");
+      _athleteDetailScrollTop = today ? today.scrollTop || 0 : 0;
       openAthleteMessaging(ath.athlete_id, "athlete_detail", _athleteDetailTab);
     });
     el.querySelectorAll("[data-analytics-range]").forEach(function (btn) { btn.addEventListener("click", function () {
@@ -2047,6 +2110,10 @@
       return;
     }
     if (overlay._closeCoachWorkout) overlay._closeCoachWorkout(); else overlay.remove();
+    if (typeof window.toast === "function") {
+      var moved = session && workout.session_date && String(workout.session_date) !== String(session.date || "");
+      window.toast(!session ? "Workout added." : moved ? "Workout rescheduled." : "Workout updated.");
+    }
     Object.keys(_athleteDetailCache).forEach(function (key) { if (key.indexOf(String(_athleteDetailId) + "|") === 0) delete _athleteDetailCache[key]; });
     openCoachAthletePage(_athleteDetailId, "training", _athleteWeekStart, true);
   }
@@ -2198,6 +2265,8 @@
         activateCoachScreen("screen-today");
         _athleteDetailTab = _messageReturnTab || "overview";
         renderAthletePage();
+        var today = document.getElementById("screen-today");
+        if (today) today.scrollTop = _athleteDetailScrollTop;
       } else {
         _messageOrigin = "global";
         renderCoachMessaging();
@@ -2270,6 +2339,7 @@
       el.innerHTML = renderCoachThread(athleteId, res.body.thread);
       bindCoachThread(el, athleteId);
       var confirmedLog = el.querySelector("#cmMessageLog");
+      scrollSnapshot.nearBottom = true;
       restoreCoachMessageScroll(confirmedLog, scrollSnapshot, "smooth");
     });
     }

@@ -23,6 +23,8 @@
   let byDate = {};         // date → { session, execution, activities:[] }
   let actById = {};        // activity id → activity (for modal lookup)
   let hasAnyPlan = false;
+  let weekMotion = null;
+  let weekMotionToken = 0;
 
   /* ── date helpers (local) ─────────────────────────────────────────── */
   const pad = n => String(n).padStart(2, "0");
@@ -468,9 +470,33 @@
       if (window.WorkoutStructureView) WorkoutStructureView.mount(body, _wsvSegments);
     }
     const m = document.getElementById("trainWorkoutModal");
-    if (m) m.classList.add("show");
+    if (m && window.AthlevoSheet) {
+      window.AthlevoSheet.open({
+        root: m,
+        sheet: ".tw-modal-box",
+        draggable: true,
+        initialFocus: ".tw-modal-close",
+        fallbackFocus: ".tcp-card.clickable, .tc-day.sel",
+        onRequestClose: () => {
+          closeModal();
+          return false;
+        }
+      });
+    } else if (m) {
+      m.classList.add("show");
+      m.setAttribute("aria-hidden", "false");
+    }
   }
-  function closeModal() { const m = document.getElementById("trainWorkoutModal"); if (m) m.classList.remove("show"); }
+  function closeModal() {
+    const m = document.getElementById("trainWorkoutModal");
+    if (!m) return;
+    if (window.AthlevoSheet && window.AthlevoSheet.isOpen(m)) {
+      window.AthlevoSheet.close(m);
+      return;
+    }
+    m.classList.remove("show");
+    m.setAttribute("aria-hidden", "true");
+  }
   function planRow(label, value) { return (value == null || value === "") ? "" : `<div class="twm-row"><span>${esc(label)}</span><b>${esc(value)}</b></div>`; }
   function ul(label, arr) { const items = (Array.isArray(arr) ? arr : []).map(x => x == null ? "" : String(x)).filter(Boolean); return items.length ? `<div class="twm-block-h" style="margin-top:12px">${esc(label)}</div><ul class="twm-ul">${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""; }
   function fmtPace(s) { s = Math.round(s); return `${Math.floor(s / 60)}:${pad(s % 60)}/km`; }
@@ -545,20 +571,165 @@
     await loadWeek(monday);
     render();
   }
-  async function prevWeek() { await goToWeek(addDays(weekStart, -7), selectedDow()); }
-  async function nextWeek() { await goToWeek(addDays(weekStart, 7), selectedDow()); }
-  async function goToday() { selected = todayISO(); await goToWeek(mondayOf(new Date()), null); selected = todayISO(); render(); }
-  function select(dISO) { selected = dISO; render(); }
+  function interruptWeekMotion() {
+    weekMotionToken += 1;
+    if (weekMotion) {
+      try { weekMotion.cancel(); } catch (e) {}
+      weekMotion = null;
+    }
+    const cal = document.getElementById("trainCalendar");
+    if (cal) cal.style.transform = "";
+  }
+  async function prevWeek() { interruptWeekMotion(); await goToWeek(addDays(weekStart, -7), selectedDow()); }
+  async function nextWeek() { interruptWeekMotion(); await goToWeek(addDays(weekStart, 7), selectedDow()); }
+  async function goToday() { interruptWeekMotion(); selected = todayISO(); await goToWeek(mondayOf(new Date()), null); selected = todayISO(); render(); }
+  function select(dISO) {
+    selected = dISO;
+    render();
+    const activeDay = document.querySelector("#trainCalendar .tc-day.sel");
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (activeDay && !reduce && typeof activeDay.animate === "function") {
+      activeDay.animate([
+        { transform: "scale(.965)" },
+        { transform: "scale(1)" }
+      ], { duration: 180, easing: "cubic-bezier(.2,.7,.2,1)" });
+    }
+  }
 
   function attachSwipe(elem) {
-    if (elem._tcSwipe) return; elem._tcSwipe = true;
-    let x0 = null, y0 = null;
-    elem.addEventListener("touchstart", e => { const t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
-    elem.addEventListener("touchend", e => {
-      if (x0 == null) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
-      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) { dx < 0 ? nextWeek() : prevWeek(); }
-      x0 = y0 = null;
-    }, { passive: true });
+    if (elem._tcSwipe || !window.PointerEvent) return;
+    elem._tcSwipe = true;
+    elem.style.touchAction = "pan-y";
+    let gesture = null;
+    let frame = null;
+
+    const reduced = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const presentationX = transform => {
+      if (!transform || transform === "none") return 0;
+      if (window.DOMMatrixReadOnly) {
+        try { return new window.DOMMatrixReadOnly(transform).m41 || 0; } catch (e) {}
+      }
+      const matrix3d = transform.match(/^matrix3d\(([^)]+)\)$/);
+      if (matrix3d) return Number(matrix3d[1].split(",")[12]) || 0;
+      const matrix = transform.match(/^matrix\(([^)]+)\)$/);
+      return matrix ? Number(matrix[1].split(",")[4]) || 0 : 0;
+    };
+    const paint = () => {
+      frame = null;
+      if (!gesture || gesture.intent !== "horizontal") return;
+      elem.style.transform = `translate3d(${gesture.dx}px,0,0)`;
+    };
+    const cleanup = pointerId => {
+      elem.removeEventListener("pointermove", move);
+      elem.removeEventListener("pointerup", end);
+      elem.removeEventListener("pointercancel", cancel);
+      if (pointerId != null) {
+        try { elem.releasePointerCapture(pointerId); } catch (e) {}
+      }
+      if (frame != null) cancelAnimationFrame(frame);
+      frame = null;
+    };
+    const settle = dx => {
+      elem.style.transform = "";
+      if (reduced() || typeof elem.animate !== "function") return;
+      weekMotion = elem.animate([
+        { transform: `translate3d(${dx}px,0,0)` },
+        { transform: "translate3d(0,0,0)" }
+      ], { duration: 260, easing: "cubic-bezier(.2,.9,.2,1.08)" });
+    };
+    const navigate = async (direction, dx) => {
+      const token = ++weekMotionToken;
+      const width = elem.clientWidth || window.innerWidth || 390;
+      if (!reduced() && typeof elem.animate === "function") {
+        weekMotion = elem.animate([
+          { transform: `translate3d(${dx}px,0,0)` },
+          { transform: `translate3d(${direction > 0 ? -width : width}px,0,0)` }
+        ], { duration: 180, easing: "cubic-bezier(.32,.72,0,1)" });
+        try { await weekMotion.finished; } catch (e) {}
+      }
+      if (token !== weekMotionToken) return;
+      elem.style.transform = "";
+      const dow = selectedDow();
+      await goToWeek(addDays(weekStart, direction * 7), dow);
+      if (token !== weekMotionToken || reduced() || typeof elem.animate !== "function") return;
+      weekMotion = elem.animate([
+        { transform: `translate3d(${direction > 0 ? 28 : -28}px,0,0)`, opacity: .94 },
+        { transform: "translate3d(0,0,0)", opacity: 1 }
+      ], { duration: 220, easing: "cubic-bezier(.2,.7,.2,1)" });
+    };
+    const move = event => {
+      if (!gesture || event.pointerId !== gesture.id) return;
+      const dx = event.clientX - gesture.x;
+      const dy = event.clientY - gesture.y;
+      if (!gesture.intent && Math.max(Math.abs(dx), Math.abs(dy)) >= 7) {
+        gesture.intent = Math.abs(dx) > Math.abs(dy) * 1.15 ? "horizontal" : "vertical";
+      }
+      if (gesture.intent === "vertical") {
+        const current = gesture.dx;
+        cleanup(gesture.id);
+        gesture = null;
+        settle(current);
+        return;
+      }
+      if (gesture.intent !== "horizontal") return;
+      event.preventDefault();
+      const now = event.timeStamp || Date.now();
+      gesture.velocity = (event.clientX - gesture.lastX) / Math.max(1, now - gesture.lastTime);
+      gesture.lastX = event.clientX;
+      gesture.lastTime = now;
+      gesture.travelX = dx;
+      gesture.dx = gesture.baseX + dx;
+      if (frame == null) frame = requestAnimationFrame(paint);
+    };
+    const end = event => {
+      if (!gesture || event.pointerId !== gesture.id) return;
+      const finished = gesture;
+      cleanup(finished.id);
+      gesture = null;
+      const width = elem.clientWidth || window.innerWidth || 390;
+      const projected = finished.travelX + finished.velocity * 180;
+      const commit = Math.abs(projected) > Math.max(64, width * .22) || Math.abs(finished.velocity) > .48;
+      if (finished.intent === "horizontal" && commit) navigate(finished.travelX < 0 ? 1 : -1, finished.dx);
+      else settle(finished.dx || 0);
+    };
+    const cancel = event => {
+      if (!gesture || event.pointerId !== gesture.id) return;
+      const dx = gesture.dx || 0;
+      cleanup(gesture.id);
+      gesture = null;
+      settle(dx);
+    };
+    elem.addEventListener("pointerdown", event => {
+      if (reduced() || !event.isPrimary || event.button !== 0 || gesture) return;
+      if (event.target.closest(".tc-nav")) return;
+      if (event.clientX < 24 || event.clientX > window.innerWidth - 24) return;
+      const computed = window.getComputedStyle ? window.getComputedStyle(elem) : null;
+      const currentTransform = computed && computed.transform !== "none"
+        ? computed.transform : "translate3d(0,0,0)";
+      ++weekMotionToken;
+      if (weekMotion) {
+        try { weekMotion.cancel(); } catch (e) {}
+        weekMotion = null;
+      }
+      const baseX = presentationX(currentTransform);
+      elem.style.transform = currentTransform;
+      gesture = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        dx: baseX,
+        baseX,
+        travelX: 0,
+        intent: null,
+        velocity: 0,
+        lastX: event.clientX,
+        lastTime: event.timeStamp || Date.now()
+      };
+      try { elem.setPointerCapture(event.pointerId); } catch (e) {}
+      elem.addEventListener("pointermove", move, { passive: false });
+      elem.addEventListener("pointerup", end);
+      elem.addEventListener("pointercancel", cancel);
+    });
   }
 
   async function open(planData) {

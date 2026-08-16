@@ -618,6 +618,17 @@
   function closeUpgradeSheet() {
     const modal = document.getElementById("performanceUpgradeModal");
     if (!modal) return;
+    if (window.AthlevoSheet && window.AthlevoSheet.isOpen(modal)) {
+      window.AthlevoSheet.close(modal, {
+        onAfterClose: () => {
+          modal.classList.remove("show");
+          modal.setAttribute("aria-hidden", "true");
+          restoreFocusTo = null;
+          setPaymentChoiceStatus("", false);
+        }
+      });
+      return;
+    }
     modal.classList.remove("show");
     modal.setAttribute("aria-hidden", "true");
     if (restoreFocusTo && typeof restoreFocusTo.focus === "function") {
@@ -694,6 +705,19 @@
     restoreFocusTo = document.activeElement;
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
+    if (window.AthlevoSheet) {
+      window.AthlevoSheet.open({
+        root: modal,
+        sheet: ".performance-upgrade-sheet",
+        draggable: false,
+        initialFocus: "#performanceUpgradePrimary",
+        fallbackFocus: "#tabbar .tab.on",
+        onRequestClose: () => {
+          closeUpgradeSheet();
+          return false;
+        }
+      });
+    }
     if (
       !wasOpen &&
       document.visibilityState === "visible" &&
@@ -716,12 +740,14 @@
         }
       }).catch(() => {});
     }
-    if (modal.dataset.focusBound !== "true") {
+    if (!window.AthlevoSheet && modal.dataset.focusBound !== "true") {
       modal.addEventListener("keydown", onUpgradeKeydown);
       modal.dataset.focusBound = "true";
     }
-    const nodes = focusableIn(modal);
-    if (nodes.length && typeof nodes[0].focus === "function") nodes[0].focus();
+    if (!window.AthlevoSheet) {
+      const nodes = focusableIn(modal);
+      if (nodes.length && typeof nodes[0].focus === "function") nodes[0].focus();
+    }
   }
 
   async function checkoutFromUpgrade() {
