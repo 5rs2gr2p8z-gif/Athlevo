@@ -16,6 +16,11 @@ api/terra/
 # than deleted, so the change is reversible.
 api/admin/
 
+# PayMongo's public URLs are rewritten to the existing provider gateway and
+# payment-webhook function so Hosted Checkout does not exceed Hobby's 12-function
+# deployment cap. These thin local entrypoints remain available for direct tests.
+api/paymongo/
+
 # Not part of the deployed app.
 migrations/
 tests/

@@ -36,9 +36,9 @@
   let upgradeContext = { feature: "trends", surface: "upgrade_sheet" };
   let restoreFocusTo = null;
   const DEFAULT_UPGRADE_COPY = Object.freeze({
-    title: "See the full picture behind your training.",
+    title: "Upgrade to Athlevo Performance",
     body: "",
-    primary: "Upgrade to Athlevo Performance",
+    primary: "Continue",
     secondary: "Not now",
     hideBenefits: false
   });
@@ -549,6 +549,65 @@
     }
   }
 
+  function setPaymentChoiceStatus(message, isError) {
+    const status = document.getElementById("performancePaymentStatus");
+    if (!status) return;
+    status.textContent = message || "";
+    status.classList.toggle("is-error", isError === true);
+  }
+
+  async function sessionAccessToken() {
+    if (typeof supabaseClient === "undefined" || !supabaseClient.auth ||
+        typeof supabaseClient.auth.getSession !== "function") return null;
+    const result = await supabaseClient.auth.getSession();
+    return result && result.data && result.data.session &&
+      result.data.session.access_token || null;
+  }
+
+  async function checkoutLocal(context) {
+    const safe = categoricalContext(context, "upgrade_sheet");
+    trackCategorical("upgrade_clicked", safe);
+    const button = document.getElementById("performanceUpgradeLocal");
+    if (button) button.disabled = true;
+    setPaymentChoiceStatus("Opening secure local checkout…", false);
+    try {
+      const token = await sessionAccessToken();
+      if (!token) throw new Error("auth");
+      const response = await fetch("/api/paymongo/checkout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.checkout_url) throw new Error("checkout");
+      const checkoutUrl = new URL(payload.checkout_url);
+      if (checkoutUrl.protocol !== "https:" ||
+          checkoutUrl.hostname.toLowerCase() !== "checkout.paymongo.com") {
+        throw new Error("unsafe_checkout_url");
+      }
+      let opened = null;
+      if (window.AthlevoRuntime && window.AthlevoRuntime.openExternal) {
+        opened = await window.AthlevoRuntime.openExternal(checkoutUrl.toString());
+        if (!opened || opened.ok !== true) throw new Error("browser");
+      } else if (window.location && typeof window.location.assign === "function") {
+        window.location.assign(checkoutUrl.toString());
+      } else {
+        window.location.href = checkoutUrl.toString();
+      }
+      trackCategorical("checkout_started", safe);
+      return true;
+    } catch (error) {
+      setPaymentChoiceStatus("Local payment is unavailable right now. Card payment still works.", true);
+      trackCategorical("checkout_failed", {
+        surface: "upgrade_sheet",
+        failure_category: "browser",
+        stage: "checkout_open"
+      });
+      return false;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   function focusableIn(modal) {
     if (!modal || typeof modal.querySelectorAll !== "function") return [];
     return Array.from(modal.querySelectorAll(
@@ -565,6 +624,7 @@
       restoreFocusTo.focus();
     }
     restoreFocusTo = null;
+    setPaymentChoiceStatus("", false);
   }
 
   function onUpgradeKeydown(event) {
@@ -594,7 +654,9 @@
     const resolved = {
       title: input.title || DEFAULT_UPGRADE_COPY.title,
       body: input.body || DEFAULT_UPGRADE_COPY.body,
-      primary: input.primary || DEFAULT_UPGRADE_COPY.primary,
+      // Both payment routes use the same concise action label; the surrounding
+      // option copy identifies whether Continue means card or local payment.
+      primary: DEFAULT_UPGRADE_COPY.primary,
       secondary: input.secondary || DEFAULT_UPGRADE_COPY.secondary,
       hideBenefits: input.hideBenefits === true
     };
@@ -667,6 +729,61 @@
     closeUpgradeSheet();
   }
 
+  async function checkoutLocalFromUpgrade() {
+    const opened = await checkoutLocal(upgradeContext);
+    if (opened) closeUpgradeSheet();
+  }
+
+  function paymentReturnNotice(message) {
+    if (typeof window.toast === "function") window.toast(message);
+  }
+
+  function waitForPaymentRetry(delay) {
+    return new Promise(resolve => window.setTimeout(resolve, delay));
+  }
+
+  async function paymentTransactionStatus(reference) {
+    if (!reference || typeof supabaseClient === "undefined") return null;
+    const result = await supabaseClient.from("payment_transactions")
+      .select("status")
+      .eq("reference_number", reference)
+      .maybeSingle();
+    return result && !result.error && result.data ? result.data.status : null;
+  }
+
+  async function confirmPaymongoReturn() {
+    let url;
+    try { url = new URL(window.location.href); } catch (error) { return; }
+    const state = url.searchParams.get("paymongo_return");
+    if (!state) return;
+    const reference = url.searchParams.get("paymongo_reference");
+    url.searchParams.delete("paymongo_return");
+    url.searchParams.delete("paymongo_reference");
+    try { window.history.replaceState({}, "", url.pathname + url.search + url.hash); } catch (error) {}
+    if (state !== "success") {
+      paymentReturnNotice("Payment was not completed.");
+      return;
+    }
+
+    paymentReturnNotice("Payment received. Confirming access…");
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (attempt > 0) await waitForPaymentRetry(1500);
+      const status = await paymentTransactionStatus(reference);
+      if (status === "paid") {
+        if (window.AthlevoPlan && typeof window.AthlevoPlan.load === "function") {
+          await window.AthlevoPlan.load();
+        }
+        if (cachedAccessState() === "paid_active") {
+          unlockAll();
+          refreshPremiumViews();
+          paymentReturnNotice("Athlevo Performance access confirmed.");
+          return;
+        }
+      }
+    }
+    paymentReturnNotice("Your payment is still being confirmed.");
+  }
+
   /*
    * Called after a successful paid activation to remove all
    * locked overlays so tabs work normally going forward.
@@ -681,6 +798,10 @@
     });
   }
 
+  confirmPaymongoReturn().catch(() => {
+    paymentReturnNotice("Your payment is still being confirmed.");
+  });
+
   /* ─────────────── public API ────────────────────────────────────── */
 
   window.AthlevoAccessGuard = {
@@ -690,11 +811,13 @@
     hasPaidAccess,
     unlockAll,
     checkout,
+    checkoutLocal,
     checkoutFromUpgrade,
+    checkoutLocalFromUpgrade,
     showUpgradeSheet,
     closeUpgradeSheet,
     trackPremiumView,
     refreshPremiumViews,
-    VERSION: "access-guard-v3"
+    VERSION: "access-guard-v4"
   };
 })();

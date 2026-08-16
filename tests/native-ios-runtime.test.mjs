@@ -185,6 +185,14 @@ await test("opens allowlisted external destinations through the Capacitor browse
   assert.deepEqual(opened, ["https://www.strava.com/oauth/authorize"]);
 });
 
+await test("opens only the exact PayMongo hosted-checkout host", async () => {
+  const { runtime, opened } = world();
+  const checkout = "https://checkout.paymongo.com/session/test";
+  assert.equal((await runtime.openExternal(checkout)).ok, true);
+  assert.equal((await runtime.openExternal("https://evil.paymongo.com/session/test")).ok, false);
+  assert.deepEqual(opened, [checkout]);
+});
+
 await test("requires HTTPS even for otherwise trusted external hosts", async () => {
   const { runtime, opened } = world();
   for (const url of [

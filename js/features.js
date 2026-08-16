@@ -4,7 +4,7 @@ console.log("Athlevo Plan/Features Loaded");
  * Client mirror of lib/server/features.js. PLAN_TIERS, FEATURE_REGISTRY,
  * resolveEntitlement, and canUse are kept byte-for-byte identical to the
  * server so UI gating matches server enforcement. Paid access comes from
- * recognised paid providers (Whop or admin-managed GCash manual); all
+ * recognised paid providers (Whop, PayMongo, or admin-managed GCash manual); all
  * other users retain the free tier.
  *
  * Usage:
@@ -26,9 +26,10 @@ const PLAN_ORDER = ["free", "essentials", "performance", "founding_beta", "elite
  * Providers whose subscription rows may grant paid access.
  * "whop"         — Whop webhook writes these rows automatically.
  * "gcash_manual" — Admin-managed GCash payments; period_end enforced at read time.
+ * "paymongo"     — Verified hosted-checkout payments; paid_until enforced at read time.
  * Any provider NOT in this set is treated as free regardless of plan_id.
  */
-const PAID_PROVIDERS = new Set(["whop", "gcash_manual"]);
+const PAID_PROVIDERS = new Set(["whop", "gcash_manual", "paymongo"]);
 
 const ACCESS_STATES = Object.freeze({
   FREE: "free",
@@ -121,6 +122,8 @@ function resolveEntitlement(subscription, now) {
   }
 
   const periodEnd = toTime(subscription.current_period_end);
+  const paidUntil = toTime(subscription.paid_until);
+  const effectivePaidEnd = Math.max(periodEnd || 0, paidUntil || 0) || null;
   const graceUntil = toTime(subscription.grace_until);
 
   const keep = (reason, extra) =>
@@ -150,10 +153,16 @@ function resolveEntitlement(subscription, now) {
     effectivePaidPlan: planId
   });
 
+  // paid_until is an independent, verified prepaid entitlement lane. It must
+  // survive Whop cancellation/refund lifecycle updates to the shared row.
+  if (paidUntil && paidUntil > now) {
+    return keep("prepaid_active", { effectivePaidEnd: effectivePaidEnd });
+  }
+
   switch (status) {
     case "trialing":
     case "active":
-      return periodEnd === null || periodEnd > now
+      return effectivePaidEnd === null || effectivePaidEnd > now
         ? keep("active")
         : graceUntil && graceUntil > now
         ? keep("grace", { inGrace: true })
@@ -168,7 +177,7 @@ function resolveEntitlement(subscription, now) {
       return downgrade("past_due");
 
     case "cancelled":
-      return periodEnd && periodEnd > now
+      return effectivePaidEnd && effectivePaidEnd > now
         ? keep("cancelled_active", { cancelAtPeriodEnd: true })
         : downgrade("cancelled");
 

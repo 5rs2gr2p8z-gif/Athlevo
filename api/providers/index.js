@@ -25,6 +25,7 @@
  */
 
 import crypto from "node:crypto";
+import paymongoCheckoutHandler from "../../lib/server/paymongoCheckoutEndpoint.js";
 // Beta analytics aggregation (admin_analytics action). Folded into this
 // gateway so the founder dashboard does not consume a separate Vercel
 // serverless slot — keeping the Whop webhook within the Hobby 12-fn limit.
@@ -3504,6 +3505,10 @@ export default async function handler(request, response) {
 
   try {
     // Provider-independent routes (folded in to save serverless slots).
+    if (action === "paymongo_checkout") {
+      return paymongoCheckoutHandler(request, response);
+    }
+
     if (action === "delete_account") {
       if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionDeleteAccount(request, response);

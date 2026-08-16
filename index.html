@@ -132,7 +132,7 @@
   }
 })();
 </script>
-<script src="js/runtimeEnvironment.js?v=72"></script>
+<script src="js/runtimeEnvironment.js?v=73"></script>
 <script>
 (function(){
   try{
@@ -3664,6 +3664,7 @@ body.landing-active #tabbar{display:none!important}
   .performance-upgrade-sheet{width:100%;max-width:560px;background:var(--surface-base);
     border:1px solid var(--border-default);border-bottom:0;border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;
     padding:22px 22px calc(22px + env(safe-area-inset-bottom));
+    max-height:90vh;overflow-y:auto;box-sizing:border-box;
     box-shadow:var(--elev-3);animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
   .performance-upgrade-eyebrow{font-size:var(--fs-micro);font-weight:750;
     letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--red)}
@@ -3676,8 +3677,26 @@ body.landing-active #tabbar{display:none!important}
     border-bottom:1px solid var(--line);font-size:var(--fs-body-sm);color:var(--ink2)}
   .performance-upgrade-benefits li::before{content:"";position:absolute;left:1px;top:15px;
     width:6px;height:6px;border-radius:50%;background:var(--red)}
-  .performance-upgrade-price{margin:15px 0 12px;font-size:var(--fs-h3);
+  .performance-upgrade-price{margin:15px 0 5px;font-size:var(--fs-h3);
     font-weight:750;color:var(--text)}
+  .performance-payment-heading{margin:0 0 10px;font-size:var(--fs-body-sm);color:var(--ink2)}
+  .performance-payment-options{display:grid;gap:var(--s-2)}
+  .performance-payment-option{display:grid;grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;gap:var(--s-3);padding:12px;border:1px solid var(--line);
+    border-radius:var(--r-md);background:var(--paper);min-width:0}
+  .performance-payment-copy{min-width:0}
+  .performance-payment-label{display:block;font-size:var(--fs-micro);font-weight:750;
+    letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink3)}
+  .performance-payment-copy b{display:block;margin-top:4px;font-size:var(--fs-body);color:var(--text)}
+  .performance-payment-copy small{display:block;margin-top:3px;font-size:var(--fs-caption);
+    line-height:var(--lh-caption);color:var(--ink2)}
+  .performance-payment-continue{min-height:38px;border:1px solid var(--red);
+    border-radius:var(--r-pill);background:var(--red);color:#fff;padding:9px 13px;
+    font:700 var(--fs-body-sm)/1 var(--sans);cursor:pointer;white-space:nowrap}
+  .performance-payment-continue:disabled{opacity:.55;cursor:default}
+  .performance-payment-status{min-height:18px;margin:8px 0 0;font-size:var(--fs-caption);
+    line-height:var(--lh-caption);color:var(--ink2)}
+  .performance-payment-status.is-error{color:var(--bad)}
   .performance-upgrade-actions{display:grid;gap:var(--s-2)}
   .performance-upgrade-primary,.performance-upgrade-secondary{width:100%;
     min-height:48px;border-radius:var(--r-pill);font-family:var(--sans);
@@ -4843,7 +4862,7 @@ body.landing-active #tabbar{display:none!important}
   onclick="if(event.target===this)AthlevoAccessGuard.closeUpgradeSheet()">
   <div class="performance-upgrade-sheet">
     <span class="performance-upgrade-eyebrow">Athlevo Performance</span>
-    <h2 id="performanceUpgradeTitle">See the full picture behind your training.</h2>
+    <h2 id="performanceUpgradeTitle">Upgrade to Athlevo Performance</h2>
     <p class="performance-upgrade-body" id="performanceUpgradeBody" hidden></p>
     <ul class="performance-upgrade-benefits" id="performanceUpgradeBenefits">
       <li>Recovery and Training Load insights</li>
@@ -4852,10 +4871,30 @@ body.landing-active #tabbar{display:none!important}
       <li>Deeper workout analysis</li>
       <li>Ongoing AI coaching</li>
     </ul>
-    <p class="performance-upgrade-price">₱597/month</p>
+    <p class="performance-upgrade-price">₱597</p>
+    <p class="performance-payment-heading">Choose how to pay</p>
+    <div class="performance-payment-options">
+      <div class="performance-payment-option">
+        <div class="performance-payment-copy">
+          <span class="performance-payment-label">Card</span>
+          <b>Credit / Debit Card</b>
+          <small>Automatic monthly renewal</small>
+        </div>
+        <button class="performance-payment-continue" id="performanceUpgradePrimary" type="button"
+          onclick="AthlevoAccessGuard.checkoutFromUpgrade()">Continue</button>
+      </div>
+      <div class="performance-payment-option">
+        <div class="performance-payment-copy">
+          <span class="performance-payment-label">Local payment</span>
+          <b>QRPh · Maya · GrabPay</b>
+          <small>30 days access</small>
+        </div>
+        <button class="performance-payment-continue" id="performanceUpgradeLocal" type="button"
+          onclick="AthlevoAccessGuard.checkoutLocalFromUpgrade()">Continue</button>
+      </div>
+    </div>
+    <p class="performance-payment-status" id="performancePaymentStatus" role="status" aria-live="polite"></p>
     <div class="performance-upgrade-actions">
-      <button class="performance-upgrade-primary" id="performanceUpgradePrimary" type="button"
-        onclick="AthlevoAccessGuard.checkoutFromUpgrade()">Upgrade to Athlevo Performance</button>
       <button class="performance-upgrade-secondary" id="performanceUpgradeSecondary" type="button"
         onclick="AthlevoAccessGuard.closeUpgradeSheet()">Not now</button>
     </div>
@@ -8130,7 +8169,7 @@ setTimeout(function () {
 <script src="js/dailyBrief.js?v=77"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
 <script src="js/coach.js?v=78"></script>
-<script src="js/features.js?v=68"></script>
+<script src="js/features.js?v=69"></script>
 <script src="js/train.js?v=67"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
@@ -8140,7 +8179,7 @@ setTimeout(function () {
 <script src="js/coachDashboard.js?v=75"></script>
 <script src="js/coachMode.js?v=14"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
-<script src="js/accessGuard.js?v=72"></script>
+<script src="js/accessGuard.js?v=73"></script>
 <script src="js/planSetup.js?v=69"></script>
 <script src="js/feedback.js?v=67"></script>
 <script src="js/readiness.js?v=68"></script>

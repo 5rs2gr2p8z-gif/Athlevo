@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/paymongo/checkout",
+      "destination": "/api/providers?action=paymongo_checkout"
+    },
+    {
+      "source": "/api/paymongo/webhook",
+      "destination": "/api/whop/webhook?provider=paymongo"
+    }
+  ]
+}

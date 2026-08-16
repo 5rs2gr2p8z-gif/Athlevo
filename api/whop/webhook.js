@@ -26,6 +26,7 @@ import {
 } from "../../lib/server/whopWebhook.js";
 import { makeWhopClient } from "../../lib/server/whopClient.js";
 import { captureServerEvent } from "../../lib/server/productAnalytics.js";
+import paymongoWebhookHandler from "../../lib/server/paymongoWebhookEndpoint.js";
 
 // Disable Vercel's body parser so we receive the exact bytes Whop signed.
 export const config = { api: { bodyParser: false } };
@@ -125,6 +126,9 @@ async function upsertSubscription(userId, patch) {
 }
 
 export default async function handler(req, res) {
+  if ((req.query && req.query.provider === "paymongo") || req.headers["paymongo-signature"]) {
+    return paymongoWebhookHandler(req, res);
+  }
   if (req.method !== "POST") { res.setHeader("Allow", "POST"); return send(res, 405, { error: "Method not allowed." }); }
   if (!SUPABASE_URL || !KEY) return send(res, 500, { error: "Server not configured." });
 

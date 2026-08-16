@@ -25,6 +25,7 @@
     "www.strava.com",
     "intervals.icu",
     "www.intervals.icu",
+    "checkout.paymongo.com",
     "whop.com",
     "www.whop.com"
   ]);
