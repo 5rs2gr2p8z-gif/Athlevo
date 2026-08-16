@@ -54,6 +54,10 @@ function makeClassList(initial = []) {
   return {
     add(...names) { names.forEach(name => values.add(name)); },
     remove(...names) { names.forEach(name => values.delete(name)); },
+    toggle(name, force) {
+      if (force === undefined ? !values.has(name) : force) values.add(name);
+      else values.delete(name);
+    },
     contains(name) { return values.has(name); }
   };
 }
@@ -148,17 +152,36 @@ console.log("\n──── Shared moving tab indicator ────");
 
 console.log("\n──── Screen transition runtime ────");
 {
-  const makeScreen = (id, active) => ({
-    id,
-    classList: makeClassList(active ? ["active"] : [])
-  });
+  const makeScreen = (id, active) => {
+    const attrs = new Map();
+    const styles = new Map();
+    return {
+      id,
+      inert: false,
+      classList: makeClassList(active ? ["active"] : []),
+      style: {
+        setProperty(name, value) { styles.set(name, value); },
+        removeProperty(name) { styles.delete(name); }
+      },
+      setAttribute(name, value) { attrs.set(name, value); },
+      getAttribute(name) { return attrs.get(name) || null; },
+      removeAttribute(name) { attrs.delete(name); }
+    };
+  };
   const today = makeScreen("screen-today", true);
   const coach = makeScreen("screen-coachai", false);
   const screens = [today, coach];
+  const tabs = ["screen-today", "screen-coachai"].map(screen => ({
+    getAttribute(name) { return name === "data-screen" ? screen : null; }
+  }));
   let reduced = false;
   const document = {
     getElementById(id) { return screens.find(screen => screen.id === id) || null; },
-    querySelectorAll(selector) { return selector === ".screen" ? screens : []; },
+    querySelectorAll(selector) {
+      if (selector === ".screen") return screens;
+      if (selector === "#tabbar .tab") return tabs;
+      return [];
+    },
     querySelector(selector) {
       return selector === ".screen.active"
         ? screens.find(screen => screen.classList.contains("active")) || null
@@ -171,8 +194,15 @@ console.log("\n──── Screen transition runtime ────");
   };
   const api = new Function("document", "window", "setTimeout", `
     var athlevoScreenTransitionToken = 0;
+    var athlevoScreenTransitionTimer = null;
+    var athlevoScreenTransitionResolve = null;
+    var athlevoScreenTransitionTargetId = null;
+    var ATHLEVO_SCREEN_MOTION_MS = 240;
     ${extractFunction(html, "athlevoPrefersReducedMotion")}
+    ${extractFunction(html, "appTabIndexForScreen")}
+    ${extractFunction(html, "appScreenDirection")}
     ${extractFunction(html, "clearAppScreenMotion")}
+    ${extractFunction(html, "cancelAppScreenTransition")}
     ${extractFunction(html, "showAppScreenImmediately")}
     ${extractFunction(html, "transitionTopLevelScreen")}
     return { transitionTopLevelScreen };

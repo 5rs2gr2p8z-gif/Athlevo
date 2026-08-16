@@ -56,12 +56,12 @@ section("Shared app-shell motion stays wrapper-level and restrained");
     /\.nav-active-indicator\{[^}]*height:2px/.test(html) &&
     /\.dotmark\{display:none\}/.test(html) &&
     /function positionNavActiveIndicator/.test(html));
-  t("tab indicator uses transform and width on the slow motion token",
-    /\.nav-active-indicator\{[\s\S]*?transition:transform var\(--dur-slow\) var\(--ease-standard\),[\s\S]*?width var\(--dur-slow\) var\(--ease-standard\)/.test(html));
-  t("screen transition animates one wrapper with short transform and opacity",
-    /\.screen\.tab-leaving\{[^}]*opacity:0;transform:translateY\(-2px\)/.test(html) &&
-    /\.screen\.tab-entering\{opacity:0;transform:translateY\(7px\)\}/.test(html) &&
-    /\.screen\.tab-entering\.tab-entering-active\{opacity:1;transform:none/.test(html));
+  t("tab indicator is synchronized to the screen motion token",
+    /\.nav-active-indicator\{[\s\S]*?transition:transform var\(--motion-screen\) var\(--ease-standard\),[\s\S]*?width var\(--motion-screen\) var\(--ease-standard\)/.test(html));
+  t("peer screens overlap with directional X-only transform and opacity",
+    /\.screen\.tab-leaving\.tab-leaving-active\{opacity:0;transform:translate3d\(var\(--screen-exit-x\),0,0\)/.test(html) &&
+    /\.screen\.tab-entering\{[^}]*transform:translate3d\(var\(--screen-enter-x\),0,0\)/.test(html) &&
+    /\.screen\.tab-entering\.tab-entering-active\{opacity:1;transform:translate3d\(0,0,0\)/.test(html));
   t("cached tab navigation does not force a loading skeleton",
     !/async function go\(btn\)[\s\S]{0,1200}(?:todayPlanLoadingState|boot-gate|setTodayScreenState\("loading"\))/.test(html));
 }

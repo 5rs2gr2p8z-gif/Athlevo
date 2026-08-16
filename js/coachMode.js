@@ -64,6 +64,7 @@
   var _athleteDetailCache = Object.create(null);
   var _athleteDetailRequest = 0;
   var _athletePanelTransition = 0;
+  var _athletePanelTimer = null;
   var _coachDashboardScrollTop = 0;
   var _initialized = false;
   var _resolving = false;
@@ -314,7 +315,7 @@
       ".cm-filter-row{display:flex;gap:14px;overflow-x:auto;padding:12px 0 2px;scrollbar-width:none}.cm-filter-row::-webkit-scrollbar{display:none}.cm-filter{border:0;border-bottom:1px solid transparent;background:transparent;padding:3px 0 6px;color:var(--ink3,#9a9da3);font:700 11px/1 var(--sans,sans-serif);white-space:nowrap;cursor:pointer}.cm-filter.is-active{color:var(--ink1,#141416);border-bottom-color:var(--red,#C0272D)}",
       ".cm-roster-state{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--ink3,#9a9da3);max-width:92px;text-align:right}.cm-roster-state.attention{color:var(--bad,#c0272d)}",
       ".cm-athlete-page{width:100%;max-width:920px;margin:0 auto;padding:16px 16px 108px;box-sizing:border-box;color:var(--ink1,var(--ink,#141416))}.cm-athlete-back{border:0;background:transparent;padding:7px 0;color:var(--ink2,#6d7075);font:700 12px/1 var(--sans,sans-serif);cursor:pointer}.cm-athlete-head{display:flex;align-items:flex-start;gap:12px;margin:14px 0 18px}.cm-athlete-head .cm-avatar{width:44px;height:44px;flex-basis:44px}.cm-athlete-head-copy{min-width:0;flex:1}.cm-athlete-name{font-family:var(--serif,serif);font-size:26px;font-weight:520;line-height:1.08;margin:0;overflow-wrap:anywhere}.cm-athlete-context{margin:5px 0 0;color:var(--ink3,#9a9da3);font-size:12px;line-height:1.4}.cm-athlete-tabs{display:flex;gap:18px;overflow-x:auto;border-bottom:1px solid var(--line,#ebebe8);scrollbar-width:none}.cm-athlete-tab{border:0;border-bottom:2px solid transparent;background:transparent;padding:10px 0 9px;color:var(--ink3,#9a9da3);font:700 12px/1 var(--sans,sans-serif);white-space:nowrap;cursor:pointer}.cm-athlete-tab.is-active{color:var(--ink1,#141416);border-bottom-color:var(--red,#C0272D)}.cm-athlete-panel{padding-top:20px}.cm-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line,#ebebe8);border:1px solid var(--line,#ebebe8)}.cm-detail-metric{min-height:82px;background:var(--bg,#fff);padding:14px}.cm-detail-label{display:block;color:var(--ink3,#9a9da3);font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}.cm-detail-value{display:block;margin-top:7px;font-size:14px;font-weight:700;line-height:1.35}.cm-detail-sub{display:block;margin-top:3px;color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}.cm-detail-section{margin-top:24px}.cm-detail-section h3{margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}.cm-detail-empty{padding:16px 0;border-block:1px solid var(--line,#ebebe8);color:var(--ink3,#9a9da3);font-size:13px}.cm-activity-list{margin:0;padding:0;list-style:none}.cm-activity-list li{padding:11px 0;border-bottom:1px solid var(--line,#ebebe8);font-size:13px}.cm-week-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.cm-week-title{font-size:14px;font-weight:750}.cm-week-actions{display:flex;gap:8px}.cm-week-btn{border:1px solid var(--line,#ebebe8);background:transparent;color:inherit;border-radius:999px;padding:8px 11px;font:700 11px/1 var(--sans,sans-serif);cursor:pointer}.cm-week-btn--primary{border-color:var(--red,#C0272D);color:var(--red,#C0272D)}.cm-workout-list{border-top:1px solid var(--line,#ebebe8)}.cm-workout-row{display:grid;grid-template-columns:45px minmax(0,1fr) auto;gap:11px;align-items:center;width:100%;padding:13px 0;border:0;border-bottom:1px solid var(--line,#ebebe8);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-workout-date{font-size:10px;color:var(--ink3,#9a9da3);text-transform:uppercase;line-height:1.35}.cm-workout-copy{min-width:0}.cm-workout-title{font-size:13px;font-weight:750;line-height:1.3}.cm-workout-meta{margin-top:4px;color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}.cm-workout-status{font-size:10px;font-weight:750;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-workout-status.completed{color:var(--good,#1f9d5b)}.cm-workout-status.modified{color:var(--warn,#c98a1e)}.cm-workout-status.skipped{color:var(--bad,#c0272d)}.cm-placeholder{padding:28px 0;color:var(--ink3,#9a9da3);font-size:13px;line-height:1.5}.cm-workout-overlay{position:fixed;inset:0;z-index:80;background:var(--backdrop,rgba(20,20,22,.45));display:flex;align-items:flex-end;justify-content:center}.cm-workout-dialog{width:100%;max-width:620px;max-height:90vh;overflow:auto;background:var(--surface-base,#fff);border-radius:var(--ui-radius-sheet,26px) var(--ui-radius-sheet,26px) 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));box-sizing:border-box}.cm-workout-dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.cm-workout-dialog h2{margin:0;font-family:var(--serif,serif);font-size:22px}.cm-dialog-close{border:0;background:transparent;font-size:22px;cursor:pointer}.cm-workout-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cm-field{display:grid;gap:5px;min-width:0}.cm-field--full{grid-column:1/-1}.cm-field label{font-size:10px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-field input,.cm-field textarea,.cm-field select{width:100%;box-sizing:border-box;border:1px solid var(--line,#ebebe8);border-radius:8px;background:var(--bg,#fff);color:inherit;padding:10px;font:13px/1.35 var(--sans,sans-serif)}.cm-field textarea{min-height:70px;resize:vertical}.cm-form-error{grid-column:1/-1;color:var(--bad,#c0272d);font-size:12px}.cm-form-actions{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;margin-top:4px}.cm-form-actions-right{display:flex;gap:8px;margin-left:auto}.cm-danger{color:var(--bad,#c0272d);border-color:#e5b7b9}.cm-readonly-note{padding:11px 0;color:var(--ink3,#9a9da3);font-size:12px}",
-      ".cm-athlete-back{display:inline-flex;align-items:center;min-height:34px;margin-bottom:8px}.cm-athlete-head{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;margin:4px 0 18px}.cm-athlete-goal{margin:5px 0 0;color:var(--ink2,#6d7075);font-size:13px;line-height:1.35;overflow-wrap:anywhere}.cm-athlete-race{margin:3px 0 0;color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}.cm-athlete-head-status{max-width:82px;color:var(--ink2,#6d7075);font-size:10px;font-weight:750;line-height:1.3;text-align:right;text-transform:uppercase;letter-spacing:.04em}.cm-athlete-tabs{position:relative;gap:20px;scrollbar-width:none}.cm-athlete-tabs::-webkit-scrollbar{display:none}.cm-athlete-tab{position:relative;z-index:1;flex:0 0 auto;border-bottom:0}.cm-athlete-tab.is-active{border-bottom-color:transparent}.cm-athlete-tab-indicator{position:absolute;left:0;bottom:0;width:24px;height:2px;border-radius:999px;background:var(--red,#C0272D);transform:translate3d(0,0,0);transition:transform var(--dur-slow,320ms) var(--ease-standard,ease),width var(--dur-slow,320ms) var(--ease-standard,ease)}.cm-athlete-panel{transition:opacity var(--dur-fast,140ms) var(--ease-standard,ease),transform var(--dur-fast,140ms) var(--ease-standard,ease)}.cm-athlete-panel.is-leaving{opacity:0;transform:translateY(3px)}.cm-athlete-panel.is-entering{animation:cmAthletePanelIn var(--dur-base,200ms) var(--ease-standard,ease-out) both}@keyframes cmAthletePanelIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}",
+      ".cm-athlete-back{display:inline-flex;align-items:center;min-height:34px;margin-bottom:8px}.cm-athlete-head{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;margin:4px 0 18px}.cm-athlete-goal{margin:5px 0 0;color:var(--ink2,#6d7075);font-size:13px;line-height:1.35;overflow-wrap:anywhere}.cm-athlete-race{margin:3px 0 0;color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}.cm-athlete-head-status{max-width:82px;color:var(--ink2,#6d7075);font-size:10px;font-weight:750;line-height:1.3;text-align:right;text-transform:uppercase;letter-spacing:.04em}.cm-athlete-tabs{position:relative;gap:20px;scrollbar-width:none}.cm-athlete-tabs::-webkit-scrollbar{display:none}.cm-athlete-tab{position:relative;z-index:1;flex:0 0 auto;border-bottom:0}.cm-athlete-tab.is-active{border-bottom-color:transparent}.cm-athlete-tab-indicator{position:absolute;left:0;bottom:0;width:24px;height:2px;border-radius:999px;background:var(--red,#C0272D);transform:translate3d(0,0,0);transition:transform var(--motion-screen,240ms) var(--ease-standard,ease),width var(--motion-screen,240ms) var(--ease-standard,ease)}.cm-athlete-panel{display:grid}.cm-athlete-panel-content{grid-area:1/1;min-width:0;transition:opacity var(--motion-screen,240ms) var(--ease-standard,ease),transform var(--motion-screen,240ms) var(--ease-standard,ease);will-change:opacity,transform}.cm-athlete-panel-content.is-exiting{pointer-events:none;opacity:0;transform:translate3d(var(--athlete-panel-exit-x),0,0)}.cm-athlete-panel-content.is-entering{opacity:0;transform:translate3d(var(--athlete-panel-enter-x),0,0)}.cm-athlete-panel-content.is-entering-active{opacity:1;transform:translate3d(0,0,0)}",
       ".cm-overview{display:grid;gap:22px}.cm-overview-section{min-width:0;padding-top:15px;border-top:1px solid var(--line,#ebebe8)}.cm-overview-section:first-child{padding-top:0;border-top:0}.cm-overview-kicker{display:block;margin-bottom:8px;color:var(--ink3,#9a9da3);font-size:10px;font-weight:750;letter-spacing:.065em;text-transform:uppercase}.cm-overview-title{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520;line-height:1.15}.cm-overview-copy{margin:6px 0 0;color:var(--ink2,#6d7075);font-size:12px;line-height:1.5}.cm-overview-status{border-block:1px solid var(--line,#ebebe8)}.cm-status-row{display:grid;grid-template-columns:minmax(86px,.8fr) minmax(0,1fr);align-items:baseline;gap:12px;min-height:42px;padding:9px 0;border-bottom:1px solid var(--line,#ebebe8)}.cm-status-row:last-child{border-bottom:0}.cm-status-label{color:var(--ink3,#9a9da3);font-size:11px;font-weight:650}.cm-status-reading{display:flex;align-items:baseline;justify-content:flex-end;gap:8px;min-width:0;text-align:right}.cm-status-value{font-size:14px;font-weight:750;line-height:1.25;overflow-wrap:anywhere}.cm-status-note{color:var(--ink3,#9a9da3);font-size:10px;line-height:1.3}.cm-week-snapshot{border-block:1px solid var(--line,#ebebe8);padding:13px 0}.cm-week-primary{font-size:15px;font-weight:750;line-height:1.35}.cm-week-detail{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;color:var(--ink2,#6d7075);font-size:11px;line-height:1.4}.cm-week-progress{height:2px;margin-top:12px;background:var(--line,#ebebe8);overflow:hidden}.cm-week-progress span{display:block;height:100%;background:var(--red,#C0272D)}.cm-week-flags{display:flex;gap:18px;margin-top:10px;color:var(--ink3,#9a9da3);font-size:10px}.cm-latest{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}.cm-latest strong{display:block;font-size:14px}.cm-latest p{margin:4px 0 0;color:var(--ink2,#6d7075);font-size:11px;line-height:1.45}.cm-latest-status,.cm-latest time{color:var(--ink3,#9a9da3);font-size:10px;white-space:nowrap}.cm-latest-status{display:block;margin-top:5px;font-weight:700}.cm-attention-section{border-top-color:rgba(154,101,5,.32)}.cm-attention-list{margin:0;padding:0;list-style:none}.cm-attention-list li{padding:8px 0;border-bottom:1px solid var(--line,#ebebe8);font-size:12px;line-height:1.45}.cm-attention-list li:last-child{border-bottom:0}.cm-attention-action{margin-top:9px}.cm-attention-clear{color:var(--ink2,#6d7075);font-size:12px}.cm-race-line{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:14px}.cm-race-line strong{font-family:var(--serif,serif);font-size:19px;font-weight:520;line-height:1.2}.cm-race-meta{display:block;margin-top:5px;color:var(--ink3,#9a9da3);font-size:11px}.cm-race-countdown{color:var(--ink2,#6d7075);font-size:13px;font-weight:750;text-align:right}",
       ".cm-training-week{display:grid;gap:14px}.cm-week-nav{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:start;gap:8px}.cm-week-nav button{display:grid;place-items:center;width:38px;height:38px;border:0;background:transparent;color:var(--ink2,#6d7075);font:500 24px/1 var(--sans,sans-serif);cursor:pointer}.cm-week-nav button:last-child{justify-self:end}.cm-week-range{text-align:center;font-size:13px;font-weight:780;letter-spacing:.045em;text-transform:uppercase}.cm-week-volume{text-align:center;color:var(--ink3,#9a9da3);font-size:10px;line-height:1.4;margin-top:4px}.cm-day-list{border-top:1px solid var(--line,#ebebe8)}.cm-day-row{display:grid;grid-template-columns:45px minmax(0,1fr) auto;gap:11px;align-items:center;width:100%;min-height:64px;padding:10px 2px;border:0;border-bottom:1px solid var(--line,#ebebe8);background:transparent;color:inherit;text-align:left;font:inherit}.cm-day-row[data-workout-id]{cursor:pointer}.cm-day-row[data-workout-id]:focus-visible,.cm-week-nav button:focus-visible,.cm-add-workout:focus-visible{outline:2px solid var(--red,#C0272D);outline-offset:2px}.cm-day-row.is-today{box-shadow:inset 2px 0 rgba(179,41,45,.58);padding-left:10px;background:rgba(179,41,45,.035)}.cm-day-date{font-size:10px;font-weight:750;line-height:1.3;letter-spacing:.045em;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-day-date b{display:block;margin-top:2px;color:var(--ink1,#141416);font-size:13px}.cm-day-copy{min-width:0}.cm-day-title{display:block;font-size:13px;font-weight:750;line-height:1.3;overflow-wrap:anywhere}.cm-day-meta{display:block;margin-top:3px;color:var(--ink3,#9a9da3);font-size:10px;line-height:1.4;overflow-wrap:anywhere}.cm-day-status{max-width:68px;color:var(--ink3,#9a9da3);font-size:9px;font-weight:750;letter-spacing:.035em;text-align:right;text-transform:uppercase}.cm-day-status.completed{color:var(--good,#1f9d5b)}.cm-day-status.modified{color:var(--warn,#c98a1e)}.cm-day-status.skipped{color:var(--bad,#c0272d)}.cm-day-status.pending,.cm-day-status.planned,.cm-day-status.upcoming{color:var(--ink3,#9a9da3)}.cm-day-rest{min-height:55px}.cm-day-rest .cm-day-title,.cm-day-rest .cm-day-status{color:var(--ink3,#9a9da3);font-weight:600}.cm-add-workout{justify-self:start;border:0;border-bottom:1px solid var(--line,#ebebe8);background:transparent;color:var(--ink2,#6d7075);font:700 11px/1 var(--sans,sans-serif);padding:7px 0;cursor:pointer}.cm-no-plan,.cm-athlete-empty{padding:26px 0;border-block:1px solid var(--line,#ebebe8)}.cm-no-plan strong,.cm-athlete-empty h2{margin:0;font-family:var(--serif,serif);font-size:20px;font-weight:520}.cm-no-plan p,.cm-athlete-empty p{margin:7px 0 0;color:var(--ink3,#9a9da3);font-size:13px;line-height:1.5}",
       ".cm-athlete-analytics{display:grid;gap:22px}.cm-analytics-head{display:grid;gap:12px}.cm-analytics-headline{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.cm-analytics-head h2{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520}.cm-range-control{display:flex;gap:14px;flex:0 0 auto}.cm-range-btn{border:0;border-bottom:1px solid transparent;background:transparent;color:var(--ink3,#9a9da3);padding:3px 0 6px;font:750 10px/1 var(--sans,sans-serif);cursor:pointer}.cm-range-btn.is-active{border-bottom-color:var(--red,#C0272D);color:var(--ink1,#141416)}.cm-range-btn:focus-visible{outline:2px solid var(--red,#C0272D);outline-offset:3px}.cm-analytics-summary{max-width:640px;margin:0;color:var(--ink2,#6d7075);font-size:14px;line-height:1.55}.cm-analytics-module{min-width:0;padding-top:17px;border-top:1px solid var(--line,#ebebe8)}.cm-analytics-kicker{display:block;color:var(--ink3,#9a9da3);font-size:10px;font-weight:750;letter-spacing:.065em;text-transform:uppercase}.cm-analytics-reading{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 10px;margin-top:7px}.cm-analytics-value{font-family:var(--serif,serif);font-size:25px;font-weight:520;line-height:1.1}.cm-analytics-compare{color:var(--ink3,#9a9da3);font-size:11px}.cm-analytics-chart{display:block;width:100%;height:64px;margin-top:12px;overflow:visible}.cm-analytics-gridline{stroke:var(--line,#ebebe8);stroke-width:.7}.cm-analytics-line{fill:none;stroke:var(--red,#C0272D);stroke-width:1.35;vector-effect:non-scaling-stroke}.cm-analytics-point{fill:var(--red,#C0272D)}.cm-analytics-bars{display:flex;align-items:flex-end;gap:5px;height:58px;margin-top:12px}.cm-analytics-bar{flex:1;min-width:0;background:var(--line,#ebebe8);border-top:2px solid var(--red,#C0272D)}.cm-analytics-interpretation,.cm-analytics-unavailable{margin:10px 0 0;color:var(--ink2,#6d7075);font-size:12px;line-height:1.5}.cm-analytics-unavailable{color:var(--ink3,#9a9da3)}.cm-analytics-empty{padding:24px 0;border-block:1px solid var(--line,#ebebe8)}.cm-analytics-empty strong{display:block;font-family:var(--serif,serif);font-size:20px;font-weight:520}.cm-analytics-empty p{margin:7px 0 0;max-width:560px;color:var(--ink3,#9a9da3);font-size:13px;line-height:1.55}",
@@ -346,7 +347,7 @@
       "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
       "@media(max-width:380px){.cm-command-head{gap:10px}.cm-command-head h1{font-size:24px}.cm-head-actions{gap:7px}.cm-invite-trigger{padding-inline:9px}.cm-invite-row{align-items:flex-start;display:grid;grid-template-columns:minmax(0,1fr) auto}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
       "@media(hover:hover) and (pointer:fine){.cm-refresh:hover{color:var(--ink1,var(--ink,#141416))}.cm-open-row:hover .cm-row-name{color:var(--red,#C0272D)}.cm-review:hover{border-color:var(--ink2,#6d7075)}.cm-note-action:hover,.cm-athlete-message:hover{color:var(--ink1,#141416);border-bottom-color:currentColor}}",
-      "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-page--ready,.cm-athlete-panel.is-entering,.cm-msg-thread,.cm-msg-bubble,.cm-workout-overlay,.cm-note-confirm,.cm-workout-dialog,.cm-note-confirm-dialog{animation:none}.cm-row-name,.cm-athlete-panel,.cm-athlete-tab-indicator,.cm-msg-log,.cm-note-compose textarea{transition:none;scroll-behavior:auto}}"
+      "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-page--ready,.cm-msg-thread,.cm-msg-bubble,.cm-workout-overlay,.cm-note-confirm,.cm-workout-dialog,.cm-note-confirm-dialog{animation:none}.cm-row-name,.cm-athlete-panel-content,.cm-athlete-tab-indicator,.cm-msg-log,.cm-note-compose textarea{transition:none;scroll-behavior:auto}.cm-athlete-panel-content{transform:none!important}}"
     ].join("");
     document.head.appendChild(style);
   }
@@ -554,6 +555,8 @@
     _athleteDetailCache = Object.create(null);
     _athleteDetailRequest += 1;
     _athletePanelTransition = 0;
+    if (_athletePanelTimer !== null) clearTimeout(_athletePanelTimer);
+    _athletePanelTimer = null;
     _coachDashboardScrollTop = 0;
     _workspace = null;
     _athleteUIInitialized = false;
@@ -625,9 +628,14 @@
     rewriteNavigation();
 
     // Show Coach Today
-    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
-    var todayEl = document.getElementById("screen-today");
-    if (todayEl) todayEl.classList.add("active");
+    var hasImmediateMotion = window.AthlevoAppMotion && typeof window.AthlevoAppMotion.showImmediately === "function";
+    var todayEl = hasImmediateMotion
+      ? window.AthlevoAppMotion.showImmediately("screen-today")
+      : document.getElementById("screen-today");
+    if (!hasImmediateMotion) {
+      document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+      if (todayEl) todayEl.classList.add("active");
+    }
     renderCoachToday();
     if (!_invitesLoaded) loadInvites(true);
 
@@ -669,9 +677,14 @@
     restoreAthleteNavigation();
 
     // Show athlete Today
-    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
-    var todayEl = document.getElementById("screen-today");
-    if (todayEl) todayEl.classList.add("active");
+    var hasImmediateMotion = window.AthlevoAppMotion && typeof window.AthlevoAppMotion.showImmediately === "function";
+    var todayEl = hasImmediateMotion
+      ? window.AthlevoAppMotion.showImmediately("screen-today")
+      : document.getElementById("screen-today");
+    if (!hasImmediateMotion) {
+      document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+      if (todayEl) todayEl.classList.add("active");
+    }
 
     // Initialize athlete UI data if not already done
     if (!_athleteUIInitialized) {
@@ -1356,9 +1369,17 @@
 
   function switchAthleteTab(tab) {
     if (!_athleteDetail || tab === _athleteDetailTab) return;
+    var tabs = ["overview", "training", "analytics", "check-ins", "notes"];
+    var previousIndex = tabs.indexOf(_athleteDetailTab);
+    var targetIndex = tabs.indexOf(tab);
+    var direction = previousIndex < 0 || targetIndex < 0 || previousIndex === targetIndex
+      ? 0
+      : targetIndex > previousIndex ? 1 : -1;
     _athleteDetailTab = tab;
     var panel = document.querySelector(".cm-athlete-panel");
     var token = ++_athletePanelTransition;
+    if (_athletePanelTimer !== null) clearTimeout(_athletePanelTimer);
+    _athletePanelTimer = null;
     document.querySelectorAll("[data-athlete-tab]").forEach(function (btn) {
       var selected = btn.getAttribute("data-athlete-tab") === tab;
       btn.classList.toggle("is-active", selected);
@@ -1367,32 +1388,57 @@
     });
     positionAthleteTabIndicator();
     if (!panel) { renderAthletePage(); return; }
-    var replacePanel = function () {
-      if (token !== _athletePanelTransition) return;
-      panel.classList.remove("is-leaving", "is-entering");
-      panel.innerHTML = athletePanelContent(_athleteDetail);
-      panel.setAttribute("aria-labelledby", "cmAthleteTab-" + tab);
-      panel.classList.add("is-entering");
-      panel.addEventListener("animationend", function () {
-        if (token === _athletePanelTransition) panel.classList.remove("is-entering");
-      }, { once: true });
-      bindAthletePageActions(document.getElementById("screen-today"), _athleteDetail);
-    };
     var reducedMotion = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     if (reducedMotion) {
-      replacePanel();
-      panel.classList.remove("is-entering");
+      panel.innerHTML = '<div class="cm-athlete-panel-content">' + athletePanelContent(_athleteDetail) + '</div>';
+      panel.setAttribute("aria-labelledby", "cmAthleteTab-" + tab);
+      bindAthletePageActions(document.getElementById("screen-today"), _athleteDetail);
       return;
     }
-    panel.classList.remove("is-entering");
-    panel.classList.add("is-leaving");
-    setTimeout(replacePanel, 140);
+    var contents = Array.from(panel.querySelectorAll(":scope > .cm-athlete-panel-content"));
+    var outgoing = contents.length ? contents[contents.length - 1] : null;
+    if (!outgoing) {
+      outgoing = document.createElement("div");
+      outgoing.className = "cm-athlete-panel-content";
+      while (panel.firstChild) outgoing.appendChild(panel.firstChild);
+      panel.appendChild(outgoing);
+    } else {
+      contents.slice(0, -1).forEach(function (content) { content.remove(); });
+    }
+    outgoing.classList.remove("is-entering", "is-entering-active", "is-exiting");
+    outgoing.style.setProperty("--athlete-panel-exit-x", direction < 0 ? "6px" : direction > 0 ? "-6px" : "0px");
+    outgoing.setAttribute("aria-hidden", "true");
+    outgoing.inert = true;
+    var incoming = document.createElement("div");
+    incoming.className = "cm-athlete-panel-content is-entering";
+    incoming.style.setProperty("--athlete-panel-enter-x", direction < 0 ? "-10px" : direction > 0 ? "10px" : "0px");
+    incoming.innerHTML = athletePanelContent(_athleteDetail);
+    panel.appendChild(incoming);
+    panel.setAttribute("aria-labelledby", "cmAthleteTab-" + tab);
+    bindAthletePageActions(document.getElementById("screen-today"), _athleteDetail);
+    var begin = function () {
+      if (token !== _athletePanelTransition) return;
+      outgoing.classList.add("is-exiting");
+      incoming.classList.add("is-entering-active");
+      _athletePanelTimer = setTimeout(function () {
+        if (token !== _athletePanelTransition) return;
+        outgoing.remove();
+        incoming.classList.remove("is-entering", "is-entering-active");
+        incoming.style.removeProperty("--athlete-panel-enter-x");
+        _athletePanelTimer = null;
+      }, 240);
+    };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(begin);
+    else setTimeout(begin, 0);
   }
 
   function renderAthletePage() {
     var el = document.getElementById("screen-today");
     var ath = _athleteDetail;
     if (!el || !ath) return;
+    if (_athletePanelTimer !== null) clearTimeout(_athletePanelTimer);
+    _athletePanelTimer = null;
+    _athletePanelTransition += 1;
     var tabs = ["overview", "training", "analytics", "check-ins", "notes"];
     var labels = { overview: "Overview", training: "Training", analytics: "Analytics", "check-ins": "Check-ins", notes: "Notes" };
     var headerStatus = ath.readiness && ath.readiness.status && ath.readiness.status !== "No recent data" ? ath.readiness.status + " readiness" : "";
@@ -1400,7 +1446,7 @@
       '<button class="cm-athlete-back" type="button">← Coach Dashboard</button>' +
       '<header class="cm-athlete-head"><span class="cm-avatar" aria-hidden="true">' + esc(ath.initials || "A") + '</span><div class="cm-athlete-head-copy"><h1 class="cm-athlete-name">' + esc(ath.name || "Athlete") + '</h1><p class="cm-athlete-goal">' + esc(ath.goal || SPORT_LABEL[ath.primary_sport] || "Athlete") + '</p>' + (athleteRaceContext(ath) ? '<p class="cm-athlete-race">' + esc(athleteRaceContext(ath)) + '</p>' : '') + '</div><div class="cm-athlete-head-actions">' + (headerStatus ? '<span class="cm-athlete-head-status">' + esc(headerStatus) + '</span>' : '') + '<button type="button" class="cm-athlete-message" id="cmMessageAthlete">Message</button></div></header>' +
       '<nav class="cm-athlete-tabs" role="tablist" aria-label="Athlete workspace">' + tabs.map(function (tab) { var selected = _athleteDetailTab === tab; return '<button type="button" role="tab" class="cm-athlete-tab' + (selected ? ' is-active' : '') + '" id="cmAthleteTab-' + tab + '" aria-controls="cmAthletePanel" aria-selected="' + (selected ? 'true' : 'false') + '" tabindex="' + (selected ? '0' : '-1') + '" data-athlete-tab="' + tab + '">' + labels[tab] + '</button>'; }).join("") + '<span class="cm-athlete-tab-indicator" aria-hidden="true"></span></nav>' +
-      '<div class="cm-athlete-panel" id="cmAthletePanel" role="tabpanel" aria-labelledby="cmAthleteTab-' + esc(_athleteDetailTab) + '">' + athletePanelContent(ath) + '</div></div>';
+      '<div class="cm-athlete-panel" id="cmAthletePanel" role="tabpanel" aria-labelledby="cmAthleteTab-' + esc(_athleteDetailTab) + '"><div class="cm-athlete-panel-content">' + athletePanelContent(ath) + '</div></div></div>';
     el.querySelector(".cm-athlete-back").addEventListener("click", closeAthletePage);
     var tabButtons = Array.from(el.querySelectorAll("[data-athlete-tab]"));
     tabButtons.forEach(function (btn, index) {
@@ -2530,9 +2576,14 @@
 
     // Hide all athlete screens, show Coach Today inside the existing
     // #screen-today element (same position in the .device flex layout).
-    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
-    var todayEl = document.getElementById("screen-today");
-    if (todayEl) todayEl.classList.add("active");
+    var hasImmediateMotion = window.AthlevoAppMotion && typeof window.AthlevoAppMotion.showImmediately === "function";
+    var todayEl = hasImmediateMotion
+      ? window.AthlevoAppMotion.showImmediately("screen-today")
+      : document.getElementById("screen-today");
+    if (!hasImmediateMotion) {
+      document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+      if (todayEl) todayEl.classList.add("active");
+    }
 
     // Hide athlete-only screens so they don't appear in coach workspace
     var athleteOnly = ["screen-coachai", "screen-train", "screen-trends", "screen-you"];

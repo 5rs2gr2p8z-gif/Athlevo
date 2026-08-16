@@ -841,8 +841,8 @@ describe("Coach Mode — coaching command center UI", () => {
   it("uses one moving athlete-tab indicator and composition-level motion", () => {
     assert.ok(source.includes("cm-athlete-tab-indicator"));
     assert.ok(source.includes("positionAthleteTabIndicator"));
-    assert.ok(source.includes('panel.classList.add("is-leaving")'));
-    assert.ok(source.includes("cm-athlete-panel.is-entering"));
+    assert.ok(source.includes('outgoing.classList.add("is-exiting")'));
+    assert.ok(source.includes("cm-athlete-panel-content.is-entering"));
     assert.ok(source.includes('(prefers-reduced-motion: reduce)'));
     assert.ok(source.includes("@media(prefers-reduced-motion:reduce)"));
     assert.ok(!source.includes("cm-athlete-stagger"));

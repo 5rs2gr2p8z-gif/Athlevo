@@ -318,7 +318,7 @@
   --motion-press:var(--dur-fast);
   --motion-fast:180ms;
   --motion-base:var(--dur-base);
-  --motion-screen:var(--dur-base);
+  --motion-screen:240ms;
   --motion-sheet:260ms;
   --tap-target:44px;
   --page-gutter:22px;
@@ -533,16 +533,16 @@ body{
 .screen > * {
   flex-shrink: 0;
 }
-/* Top-level tab motion is applied to the screen wrapper only. Cached screens
-   paint immediately; these classes exist solely during an actual tab change. */
+/* Top-level peers overlap in place. Direction values are assigned once by the
+   navigation controller; only compositor-safe opacity/transform animate. */
 .screen.active{display:flex}
-.screen.tab-leaving{pointer-events:none;opacity:0;transform:translateY(-2px);
-  transition:opacity var(--dur-fast) var(--ease-standard),
-    transform var(--dur-fast) var(--ease-standard)}
-.screen.tab-entering{opacity:0;transform:translateY(7px)}
-.screen.tab-entering.tab-entering-active{opacity:1;transform:none;
-  transition:opacity var(--dur-base) var(--ease-standard),
-    transform var(--dur-base) var(--ease-standard)}
+.screen.tab-leaving,.screen.tab-entering{position:absolute;inset:0;width:100%;
+  transition:opacity var(--motion-screen) var(--ease-standard),
+    transform var(--motion-screen) var(--ease-standard);will-change:opacity,transform}
+.screen.tab-leaving{z-index:1;pointer-events:none}
+.screen.tab-leaving.tab-leaving-active{opacity:0;transform:translate3d(var(--screen-exit-x),0,0)}
+.screen.tab-entering{z-index:2;opacity:0;transform:translate3d(var(--screen-enter-x),0,0)}
+.screen.tab-entering.tab-entering-active{opacity:1;transform:translate3d(0,0,0)}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 .pad{padding:0 22px}
@@ -581,8 +581,8 @@ body{
   bottom:calc(max(10px, env(safe-area-inset-bottom)) + 2px);height:2px;
   width:24px;border-radius:var(--r-pill);background:var(--red);pointer-events:none;
   transform:translate3d(0,0,0);transform-origin:left center;
-  transition:transform var(--dur-slow) var(--ease-standard),
-    width var(--dur-slow) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard)}
+  transition:transform var(--motion-screen) var(--ease-standard),
+    width var(--motion-screen) var(--ease-standard),opacity var(--motion-press) var(--ease-standard)}
 .nav-active-indicator[data-ready="false"]{opacity:0;transition:none}
 .tab:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:8px}
 
@@ -5912,6 +5912,10 @@ window.connectStrava = connectStrava;
 /* ---------- navigation ---------- */
 var athlevoScreenTransitionToken = 0;
 var athlevoNavSyncFrame = null;
+var athlevoScreenTransitionTimer = null;
+var athlevoScreenTransitionResolve = null;
+var athlevoScreenTransitionTargetId = null;
+var ATHLEVO_SCREEN_MOTION_MS = 240;
 
 function athlevoPrefersReducedMotion(){
   return Boolean(window.matchMedia &&
@@ -5973,13 +5977,44 @@ function syncAppTabForScreen(screenId, animate){
   if (tab) selectAppTab(tab, animate);
 }
 
+function appTabIndexForScreen(screenId){
+  var tabs = Array.from(document.querySelectorAll("#tabbar .tab"));
+  return tabs.findIndex(function(tab){ return tab.getAttribute("data-screen") === screenId; });
+}
+
+function appScreenDirection(fromScreenId, toScreenId){
+  var fromIndex = appTabIndexForScreen(fromScreenId);
+  var toIndex = appTabIndexForScreen(toScreenId);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return 0;
+  return toIndex > fromIndex ? 1 : -1;
+}
+
 function clearAppScreenMotion(screen){
   if (!screen) return;
-  screen.classList.remove("tab-leaving", "tab-entering", "tab-entering-active");
+  screen.classList.remove("tab-leaving", "tab-leaving-active", "tab-entering", "tab-entering-active");
+  if (screen.style && screen.style.removeProperty){
+    screen.style.removeProperty("--screen-exit-x");
+    screen.style.removeProperty("--screen-enter-x");
+  }
+  if (screen.getAttribute && screen.getAttribute("data-screen-transition-hidden") === "true"){
+    screen.removeAttribute("data-screen-transition-hidden");
+    screen.removeAttribute("aria-hidden");
+    screen.inert = false;
+  }
+}
+
+function cancelAppScreenTransition(){
+  athlevoScreenTransitionToken += 1;
+  if (athlevoScreenTransitionTimer !== null) clearTimeout(athlevoScreenTransitionTimer);
+  athlevoScreenTransitionTimer = null;
+  athlevoScreenTransitionTargetId = null;
+  var resolve = athlevoScreenTransitionResolve;
+  athlevoScreenTransitionResolve = null;
+  if (resolve) resolve(null);
 }
 
 function showAppScreenImmediately(screenId){
-  athlevoScreenTransitionToken += 1;
+  cancelAppScreenTransition();
   document.querySelectorAll(".screen").forEach(function(screen){
     clearAppScreenMotion(screen);
     screen.classList.remove("active");
@@ -5991,36 +6026,55 @@ function showAppScreenImmediately(screenId){
 
 function transitionTopLevelScreen(screenId){
   var target = document.getElementById(screenId);
-  var current = document.querySelector(".screen.active");
+  var pendingTarget = athlevoScreenTransitionTargetId
+    ? document.getElementById(athlevoScreenTransitionTargetId)
+    : null;
+  if (target && pendingTarget === target) return Promise.resolve(target);
+  var current = pendingTarget || document.querySelector(".screen.active");
   if (!target || current === target || !current || athlevoPrefersReducedMotion()){
     showAppScreenImmediately(screenId);
     return Promise.resolve(target);
   }
 
-  athlevoScreenTransitionToken += 1;
-  var token = athlevoScreenTransitionToken;
-  document.querySelectorAll(".screen").forEach(clearAppScreenMotion);
-  current.classList.add("tab-leaving");
+  if (pendingTarget) cancelAppScreenTransition();
+  var token = ++athlevoScreenTransitionToken;
+  var direction = appScreenDirection(current.id, target.id);
+  var enterX = direction < 0 ? "-14px" : direction > 0 ? "14px" : "0px";
+  var exitX = direction < 0 ? "8px" : direction > 0 ? "-8px" : "0px";
+  document.querySelectorAll(".screen").forEach(function(screen){
+    clearAppScreenMotion(screen);
+    if (screen !== current && screen !== target) screen.classList.remove("active");
+  });
+  current.classList.add("active", "tab-leaving");
+  current.style.setProperty("--screen-exit-x", exitX);
+  current.setAttribute("data-screen-transition-hidden", "true");
+  current.setAttribute("aria-hidden", "true");
+  current.inert = true;
+  target.classList.add("active", "tab-entering");
+  target.style.setProperty("--screen-enter-x", enterX);
+  target.inert = false;
+  athlevoScreenTransitionTargetId = screenId;
 
   return new Promise(function(resolve){
-    setTimeout(function(){
+    athlevoScreenTransitionResolve = resolve;
+    var begin = function(){
       if (token !== athlevoScreenTransitionToken){ resolve(null); return; }
-      document.querySelectorAll(".screen").forEach(function(screen){
-        clearAppScreenMotion(screen);
-        screen.classList.remove("active");
-      });
-      target.classList.add("active", "tab-entering");
-      var enter = function(){
+      current.classList.add("tab-leaving-active");
+      target.classList.add("tab-entering-active");
+      athlevoScreenTransitionTimer = setTimeout(function(){
         if (token !== athlevoScreenTransitionToken){ resolve(null); return; }
-        target.classList.add("tab-entering-active");
-        setTimeout(function(){
-          if (token === athlevoScreenTransitionToken) clearAppScreenMotion(target);
-          resolve(target);
-        }, 220);
-      };
-      if (window.requestAnimationFrame) window.requestAnimationFrame(enter);
-      else setTimeout(enter, 0);
-    }, 140);
+        document.querySelectorAll(".screen").forEach(function(screen){
+          clearAppScreenMotion(screen);
+          screen.classList.toggle("active", screen === target);
+        });
+        athlevoScreenTransitionTimer = null;
+        athlevoScreenTransitionResolve = null;
+        athlevoScreenTransitionTargetId = null;
+        resolve(target);
+      }, ATHLEVO_SCREEN_MOTION_MS);
+    };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(begin);
+    else setTimeout(begin, 0);
   });
 }
 
@@ -6057,6 +6111,7 @@ window.AthlevoAppMotion = {
   selectScreen: syncAppTabForScreen,
   transitionTo: transitionTopLevelScreen,
   showImmediately: showAppScreenImmediately,
+  direction: appScreenDirection,
   syncIndicator: syncNavIndicatorToActiveTab
 };
 
@@ -8214,7 +8269,7 @@ setTimeout(function () {
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=78"></script>
 <script src="js/coachDashboard.js?v=75"></script>
-<script src="js/coachMode.js?v=15"></script>
+<script src="js/coachMode.js?v=16"></script>
 <script src="js/adaptivePlan.js?v=67"></script>
 <script src="js/accessGuard.js?v=73"></script>
 <script src="js/planSetup.js?v=69"></script>
