@@ -268,11 +268,10 @@
       "#athlevoEnvNotice p{font-size:14px;line-height:1.5;color:var(--ink2,#6d7075);margin:0 0 13px}" +
       "#athlevoEnvNotice .aeh-instruction{font-weight:600;color:var(--text,#141416)}" +
       "#athlevoEnvNotice .aeh-actions{display:flex;gap:10px;margin-top:18px}" +
-      "#athlevoEnvNotice button{min-height:var(--control-height,44px);border-radius:var(--r-pill,999px);padding:12px 16px;font:600 14px/1 var(--font-ui,var(--sans,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif));cursor:pointer;transition:opacity var(--motion-press,140ms) var(--ease-standard,ease-out),transform var(--motion-press,140ms) var(--ease-standard,ease-out)}" +
+      "#athlevoEnvNotice button{min-height:var(--control-height,44px);border-radius:var(--r-pill,999px);padding:12px 16px;font:600 14px/1 var(--font-ui,var(--sans,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif));cursor:pointer}" +
       "#athlevoEnvCopy{flex:1;border:1px solid var(--ink,#141416);background:var(--ink,#141416);color:var(--paper,#fff)}" +
       "#athlevoEnvClose{border:1px solid var(--line,#ebebe8);background:transparent;color:var(--text,#141416)}" +
       "#athlevoEnvFeedback{min-height:18px;margin:13px 0 0!important;font-size:13px!important}" +
-      "#athlevoEnvNotice button:active{opacity:.86;transform:scale(.985)}" +
       "#athlevoEnvNotice button:focus-visible{outline:2px solid var(--focus-ring,#3a6df0);outline-offset:2px}" +
       "@keyframes aehFadeIn{from{opacity:0}to{opacity:1}}@keyframes aehSheetIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}" +
       "@media(max-width:360px){#athlevoEnvNotice .aeh-card{padding-left:18px;padding-right:18px}#athlevoEnvNotice .aeh-actions{flex-direction:column}#athlevoEnvClose{width:100%}}" +

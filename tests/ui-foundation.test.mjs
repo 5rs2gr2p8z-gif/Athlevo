@@ -35,7 +35,7 @@ console.log("\n──── App-only interaction and accessibility contract ─�
 test("shared refinements are explicitly excluded from the landing page",
   (html.match(/body:not\(\.landing-active\) \.device/g) || []).length >= 8);
 test("interactive rows and app actions receive subtle tokenized press feedback",
-  /:active:not\(:disabled\)\{opacity:\.86;transform:scale\(\.985\)\}/.test(html) &&
+  /:active:not\(:disabled\):not\(\[disabled\]\):not\(\[aria-disabled="true"\]\):not\(\.is-disabled\):not\(\.is-loading\)\{\s*opacity:\.92;transform:scale\(\.985\)/.test(html) &&
   /var\(--motion-press\) var\(--ease-standard\)/.test(html));
 test("app controls use the shared focus ring and 44px target",
   /outline:2px solid var\(--focus-ring\)/.test(html) && /min-height:var\(--tap-target\)/.test(html));

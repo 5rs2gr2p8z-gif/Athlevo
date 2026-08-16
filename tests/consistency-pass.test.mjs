@@ -32,7 +32,7 @@ section("Canonical button system exists, composed from tokens");
   t("transition uses purpose-based motion tokens", /var\(--motion-press\) var\(--ease-standard\)/.test(base));
   t("has disabled + loading + active states",
     /\.btn\[disabled\],\.btn:disabled,\.btn\.is-disabled\{/.test(html) &&
-    /\.btn\.is-loading\{/.test(html) && /\.btn:active\{/.test(html));
+    /\.btn\.is-loading\{/.test(html) && /:not\(\.is-loading\)\{\s*opacity:\.92/.test(html));
 }
 
 /* ══════ Part 6/8 — temporary build/debug markers removed ════════════ */
