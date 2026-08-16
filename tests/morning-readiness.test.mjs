@@ -7,6 +7,7 @@ import vm from "node:vm";
 
 const morningSource = readFileSync("./js/morningCheckIn.js", "utf8");
 const readinessSource = readFileSync("./js/readiness.js", "utf8");
+const sheetSource = readFileSync("./js/sheet.js", "utf8");
 const html = readFileSync("./index.html", "utf8");
 const registrySource = readFileSync("./js/analyticsRegistry.js", "utf8");
 let passed = 0;
@@ -78,7 +79,7 @@ function makeMorningWorld(options = {}) {
     body: { classList: classList(options.booting === true) },
     getElementById: id => screens[id] || null,
     querySelectorAll: selector =>
-      selector === ".modal-back.show" ? modalOpen : [],
+      selector.includes(".modal-back.show") ? modalOpen : [],
     querySelector: () => null,
     addEventListener: (name, fn) => { listeners[name] = fn; }
   };
@@ -353,6 +354,9 @@ function makeSubmissionWorld({ failFirst = false } = {}) {
     };
   }
   const root = {
+    AthlevoSheet: {
+      close: () => { closeCount += 1; return true; }
+    },
     AthlevoProductAnalytics: {
       trackAthlevoEvent: (name, props) => captured.push({ name, props })
     },
@@ -492,9 +496,11 @@ section("Analytics privacy, accessibility, and no push");
     ));
   test("modal exposes dialog title, description, labels, focus trap, and inert background",
     /role="dialog" aria-modal="true" aria-labelledby="rdTitle" aria-describedby="rdDescription"/.test(readinessSource) &&
-    /setReadinessBackgroundInert\(true\)/.test(readinessSource) &&
-    /event\.key === "Escape"/.test(readinessSource) &&
-    /event\.key !== "Tab"/.test(readinessSource) &&
+    /AthlevoSheet\.open\(\{/.test(readinessSource) &&
+    /initialFocus: '\[data-rd="sleep_quality"\]'/.test(readinessSource) &&
+    /event\.key === "Escape"/.test(sheetSource) &&
+    /event\.key !== "Tab"/.test(sheetSource) &&
+    /element\.inert = true/.test(sheetSource) &&
     /aria-pressed=/.test(readinessSource));
   test("manual readiness entry remains available after dismissal",
     /Open today’s check-in/.test(html) &&

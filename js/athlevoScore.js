@@ -782,12 +782,18 @@
     return peak > current ? `<span class="asc-peak">Best ${peak}</span>` : "";
   }
 
-  let scoreDetailReturnFocus = null;
-
   function openDetails() {
     const modal = document.getElementById("scoreDetailModal");
     const result = lastResult;
     if (!modal || !result) return;
+    if (window.AthlevoSheet) {
+      const phase = window.AthlevoSheet.phase(modal);
+      if (phase === "opening" || phase === "open") return;
+      if (phase === "closing") {
+        window.AthlevoSheet.open({ root: modal });
+        return;
+      }
+    }
 
     const o = result.overall;
     const order = ["aerobic", "threshold", "speed", "durability", "consistency", "level"];
@@ -841,12 +847,19 @@
         ${needed}
         ${history}
       </div>`;
-    scoreDetailReturnFocus = document.activeElement || null;
-    modal.setAttribute("aria-hidden", "false");
-    modal.classList.add("show");
-    if (document.body && document.body.classList) document.body.classList.add("score-detail-open");
-    const sheet = typeof modal.querySelector === "function" ? modal.querySelector(".scd") : null;
-    if (sheet && typeof sheet.focus === "function") sheet.focus({ preventScroll: true });
+    if (!window.AthlevoSheet) return;
+    window.AthlevoSheet.open({
+      root: modal,
+      sheet: ".scd",
+      initialFocus: ".scd-close",
+      closeOnEscape: true,
+      closeOnBackdrop: true,
+      fallbackFocus: ".asc-radar-summary, #tabbar .tab.on",
+      onRequestClose: () => {
+        closeDetails();
+        return false;
+      }
+    });
   }
 
   function renderHistory() {
@@ -859,15 +872,7 @@
 
   function closeDetails() {
     const modal = document.getElementById("scoreDetailModal");
-    if (modal) {
-      modal.classList.remove("show");
-      modal.setAttribute("aria-hidden", "true");
-    }
-    if (document.body && document.body.classList) document.body.classList.remove("score-detail-open");
-    if (scoreDetailReturnFocus && typeof scoreDetailReturnFocus.focus === "function") {
-      scoreDetailReturnFocus.focus({ preventScroll: true });
-    }
-    scoreDetailReturnFocus = null;
+    if (modal && window.AthlevoSheet) window.AthlevoSheet.close(modal);
   }
 
   /* ─────────────────── history persistence (client) ────────────────── */
@@ -944,11 +949,9 @@
         try { window.__athlevoLastComponents = null; } catch (e) {}
         const details = document.getElementById("scoreDetailModal");
         if (details) {
-          details.classList.remove("show");
-          if (typeof details.setAttribute === "function") details.setAttribute("aria-hidden", "true");
+          if (window.AthlevoSheet) window.AthlevoSheet.close(details, { immediate: true });
           details.innerHTML = "";
         }
-        if (document.body && document.body.classList) document.body.classList.remove("score-detail-open");
         renderLockedScoreCard();
         return null;
       }
@@ -1039,29 +1042,5 @@
     renderScoreCard,
     renderLockedScoreCard
   };
-  if (document && typeof document.addEventListener === "function") {
-    document.addEventListener("keydown", event => {
-      const modal = document.getElementById("scoreDetailModal");
-      if (!modal || !modal.classList || !modal.classList.contains("show")) return;
-      if (event.key === "Escape") {
-        closeDetails();
-        return;
-      }
-      if (event.key !== "Tab" || typeof modal.querySelectorAll !== "function") return;
-      const focusable = Array.from(modal.querySelectorAll(
-        'button:not([disabled]),a[href],summary,[tabindex]:not([tabindex="-1"])'
-      ));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    });
-  }
   window.renderAthlevoScoreCard = refresh; // repoint the existing hook
 })();

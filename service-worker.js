@@ -18,7 +18,7 @@
  */
 
 const ATHLEVO_CACHE_PREFIX = "athlevo-";
-const CACHE_VERSION = "athlevo-shell-v77";
+const CACHE_VERSION = "athlevo-shell-v78";
 const SHELL = [
   "/",
   "/index.html",

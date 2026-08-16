@@ -35,7 +35,6 @@ let readinessDraft = {};
 let readinessSubmitting = false;
 let todayReadinessRecord = null;
 let readinessOpenContext = null;
-let readinessBackgroundState = [];
 
 function readinessEscape(value) {
   return String(value == null ? "" : value)
@@ -566,88 +565,28 @@ function readinessFirstName(fallback) {
     : "Athlete";
 }
 
-function setReadinessBackgroundInert(inert) {
-  if (inert) {
-    readinessBackgroundState = [];
-    document.querySelectorAll(".screen.active, #tabbar").forEach(element => {
-      readinessBackgroundState.push({
-        element,
-        ariaHidden: element.getAttribute("aria-hidden"),
-        inert: element.inert === true
-      });
-      element.inert = true;
-      element.setAttribute("aria-hidden", "true");
-    });
-    return;
-  }
-
-  readinessBackgroundState.forEach(state => {
-    state.element.inert = state.inert;
-    if (state.ariaHidden === null) {
-      state.element.removeAttribute("aria-hidden");
-    } else {
-      state.element.setAttribute("aria-hidden", state.ariaHidden);
-    }
-  });
-  readinessBackgroundState = [];
-}
-
-function readinessFocusable(modal) {
-  return Array.from(
-    modal.querySelectorAll(
-      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    )
-  ).filter(element => !element.hidden && element.offsetParent !== null);
-}
-
-function handleReadinessModalKeydown(event) {
-  const modal = document.getElementById("readinessModal");
-  if (!modal || !modal.classList.contains("show")) return;
-
-  if (event.key === "Escape") {
-    event.preventDefault();
-    closeReadinessCheck({
-      dismiss: Boolean(readinessOpenContext?.automatic)
-    });
-    return;
-  }
-
-  if (event.key !== "Tab") return;
-  const focusable = readinessFocusable(modal);
-  if (!focusable.length) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
-}
-
 function openReadinessCheck(options = {}) {
   const modal = document.getElementById("readinessModal");
 
-  if (!modal || modal.classList.contains("show")) {
+  if (!modal || !window.AthlevoSheet) {
     return false;
+  }
+  const sheetPhase = window.AthlevoSheet.phase(modal);
+  if (sheetPhase === "opening" || sheetPhase === "open") return false;
+  if (sheetPhase === "closing") {
+    window.AthlevoSheet.open({ root: modal });
+    return true;
   }
 
   const existing = todayReadinessRecord || null;
   const automatic = options.automatic === true;
   const firstName = readinessFirstName(options.firstName);
-  const returnFocus = document.activeElement &&
-    typeof document.activeElement.focus === "function"
-    ? document.activeElement
-    : null;
-
   readinessOpenContext = {
     automatic,
     source: options.source || (automatic ? "morning_prompt" : "manual"),
     onDismiss: typeof options.onDismiss === "function"
       ? options.onDismiss
       : null,
-    returnFocus,
     dismissed: false
   };
 
@@ -745,20 +684,23 @@ function openReadinessCheck(options = {}) {
   renderReadinessPainScale(modal);
   wireReadinessSheet(modal);
 
-  modal.onclick = event => {
-    if (event.target === modal) {
-      closeReadinessCheck({ dismiss: automatic });
+  window.AthlevoSheet.open({
+    root: modal,
+    sheet: ".rd-sheet",
+    initialFocus: '[data-rd="sleep_quality"]',
+    closeOnEscape: true,
+    closeOnBackdrop: true,
+    fallbackFocus: ".rd-settings-link, #tabbar .tab.on",
+    onRequestClose: () => {
+      closeReadinessCheck({ dismiss: Boolean(readinessOpenContext?.automatic) });
+      return false;
+    },
+    onAfterClose: () => {
+      modal.innerHTML = "";
+      readinessSubmitting = false;
+      readinessOpenContext = null;
     }
-  };
-  modal.onkeydown = handleReadinessModalKeydown;
-
-  modal.setAttribute("aria-hidden", "false");
-  setReadinessBackgroundInert(true);
-  modal.classList.add("show");
-  const title = modal.querySelector("#rdTitle");
-  if (title && typeof title.focus === "function") {
-    title.focus({ preventScroll: true });
-  }
+  });
   return true;
 }
 
@@ -848,22 +790,15 @@ function closeReadinessCheck(options = {}) {
       }
     }
   }
-  if (modal) {
-    modal.classList.remove("show");
-    modal.setAttribute("aria-hidden", "true");
-    modal.onclick = null;
-    modal.onkeydown = null;
-    modal.innerHTML = "";
-  }
-  setReadinessBackgroundInert(false);
-  readinessSubmitting = false;
-  readinessOpenContext = null;
-  if (
-    context?.returnFocus &&
-    typeof context.returnFocus.focus === "function"
-  ) {
-    context.returnFocus.focus({ preventScroll: true });
-  }
+  if (!modal || !window.AthlevoSheet) return;
+  window.AthlevoSheet.close(modal, {
+    immediate: options.immediate === true,
+    onAfterClose: () => {
+      modal.innerHTML = "";
+      readinessSubmitting = false;
+      readinessOpenContext = null;
+    }
+  });
 }
 
 async function submitReadiness() {

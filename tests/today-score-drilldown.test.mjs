@@ -8,6 +8,7 @@ import vm from "node:vm";
 
 const html = readFileSync("./index.html", "utf8");
 const source = readFileSync("./js/athlevoScore.js", "utf8");
+const sheetSource = readFileSync("./js/sheet.js", "utf8");
 
 let passed = 0;
 let failed = 0;
@@ -36,13 +37,15 @@ const mount = {
 };
 let sheetFocused = 0;
 let triggerFocused = 0;
+let sheetOptions = null;
+let sheetPhase = "closed";
 const attributes = new Map();
 const modal = {
   innerHTML: "",
   classList: makeClassList(),
   setAttribute(name, value) { attributes.set(name, value); },
   querySelector(selector) {
-    if (selector !== ".scd") return null;
+    if (selector !== ".scd" && selector !== ".scd-close") return null;
     return { focus() { sheetFocused += 1; } };
   }
 };
@@ -68,6 +71,27 @@ const root = {
   matchMedia() { return { matches: false }; }
 };
 root.window = root;
+root.AthlevoSheet = {
+  phase() { return sheetPhase; },
+  open(options) {
+    sheetOptions = options;
+    sheetPhase = "open";
+    modal.classList.add("athlevo-sheet-mounted");
+    modal.classList.add("athlevo-sheet-open");
+    modal.setAttribute("aria-hidden", "false");
+    body.classList.add("athlevo-sheet-locked");
+    modal.querySelector(options.initialFocus).focus();
+  },
+  close() {
+    sheetPhase = "closed";
+    modal.classList.remove("athlevo-sheet-mounted");
+    modal.classList.remove("athlevo-sheet-open");
+    modal.setAttribute("aria-hidden", "true");
+    body.classList.remove("athlevo-sheet-locked");
+    document.activeElement.focus();
+    return true;
+  }
+};
 vm.runInNewContext(source, {
   window: root,
   document,
@@ -167,7 +191,7 @@ test("native button supports pointer and keyboard activation with an accessible 
 
 root.AthlevoScore.openDetails();
 test("open renders the full score, trend, radar and every existing dimension",
-  modal.classList.contains("show") &&
+  modal.classList.contains("athlevo-sheet-open") &&
   /role="dialog"/.test(modal.innerHTML) &&
   /Long-term development/.test(modal.innerHTML) &&
   /Building baseline/.test(modal.innerHTML) &&
@@ -186,15 +210,16 @@ test("expanded radar and performance annotations use restrained visual styling",
   /\.asc-delta\{[^}]*padding:0/.test(html));
 test("opening exposes the dialog, focuses it and locks body scroll",
   attributes.get("aria-hidden") === "false" && sheetFocused === 1 &&
-  body.classList.contains("score-detail-open") &&
-  /body\.score-detail-open \.screen\.active\{overflow:hidden\}/.test(html));
+  body.classList.contains("athlevo-sheet-locked") &&
+  /body\.athlevo-sheet-locked\{overflow:hidden\}/.test(html));
 
-keydownHandler({ key: "Escape" });
+sheetOptions.onRequestClose("escape");
 test("Escape closes, restores trigger focus and unlocks body scroll",
-  !modal.classList.contains("show") && attributes.get("aria-hidden") === "true" &&
-  !body.classList.contains("score-detail-open") && triggerFocused === 1);
+  !modal.classList.contains("athlevo-sheet-open") && attributes.get("aria-hidden") === "true" &&
+  !body.classList.contains("athlevo-sheet-locked") && triggerFocused === 1);
 test("backdrop is wired to close only from the backdrop itself",
-  /id="scoreDetailModal"[\s\S]*?onclick="if\(event\.target===this\)AthlevoScore\.closeDetails\(\)"/.test(html));
+  /closeOnBackdrop: true/.test(source) &&
+  /<div class="modal-back" id="scoreDetailModal" aria-hidden="true"><\/div>/.test(html));
 
 console.log("\n──── Missing data and responsive motion ────");
 const missing = {
@@ -215,12 +240,13 @@ test("mobile sheet and centered desktop modal share the existing overlay",
   /\.scd\{[^}]*max-height:88vh/.test(html) &&
   /@media \(min-width:700px\)[\s\S]*?#scoreDetailModal\{align-items:center;justify-content:center/.test(html));
 test("entrance stays within 220–300ms and reduced motion removes it",
-  /--motion-sheet:260ms/.test(html) && /animation:scoreSheetIn var\(--motion-sheet\)/.test(html) &&
-  /@media \(prefers-reduced-motion:reduce\)[\s\S]*?\.scd\{animation:none\}/.test(html));
+  /var duration = Number\(state\.options\.duration\) \|\| 280/.test(sheetSource) &&
+  /prefers-reduced-motion: reduce/.test(sheetSource) &&
+  !/scoreSheetIn/.test(html));
 test("keyboard handling includes Escape and an in-dialog focus loop",
-  /event\.key === "Escape"/.test(source) &&
-  /event\.key !== "Tab"/.test(source) &&
-  /button:not\(\[disabled\]\),a\[href\],summary/.test(source));
+  /event\.key === "Escape"/.test(sheetSource) &&
+  /event\.key !== "Tab"/.test(sheetSource) &&
+  /button:not\(\[disabled\]\)/.test(sheetSource));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

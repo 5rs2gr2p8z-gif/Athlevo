@@ -160,7 +160,9 @@
   function blockingModalOpen() {
     const readiness = document.getElementById("readinessModal");
     const modalBacks = Array.from(
-      document.querySelectorAll(".modal-back.show")
+      document.querySelectorAll(
+        ".modal-back.show, .athlevo-sheet-overlay.athlevo-sheet-mounted"
+      )
     ).filter(element => element !== readiness);
     if (modalBacks.length) return true;
 

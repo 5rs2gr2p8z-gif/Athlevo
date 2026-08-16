@@ -717,7 +717,7 @@ describe("Coach Mode — coaching command center UI", () => {
     const initEnd = source.indexOf("PUBLIC API", initStart);
     const init = source.slice(initStart, initEnd);
     assert.ok(source.includes("function suppressAthleteReadiness"));
-    assert.ok(source.includes("window.closeReadinessCheck()"));
+    assert.ok(source.includes("window.closeReadinessCheck({ immediate: true })"));
     assert.ok(activate.indexOf("suppressAthleteReadiness()") < activate.indexOf('if (_workspace === "coach_workspace") return'));
     assert.ok(init.indexOf('writeWorkspacePref("coach_workspace")') < init.indexOf("suppressAthleteReadiness()"));
   });

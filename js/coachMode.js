@@ -525,7 +525,7 @@
   }
 
   function clearWorkspaceOnLogout() {
-    closeInviteDialog(false);
+    closeInviteDialog(false, true);
     clearWorkspacePref();
     suppressAthleteReadiness();
     _appMode = "unknown";
@@ -578,7 +578,7 @@
    * race with a lifecycle-triggered morning-check evaluation. */
   function suppressAthleteReadiness() {
     if (typeof window.closeReadinessCheck !== "function") return;
-    try { window.closeReadinessCheck(); } catch (e) {}
+    try { window.closeReadinessCheck({ immediate: true }); } catch (e) {}
   }
 
   /*
@@ -1046,11 +1046,23 @@
     }).join("");
   }
 
-  function closeInviteDialog(resetEmail) {
-    var overlay = document.getElementById("cmInviteOverlay");
+  function removeInviteOverlay(overlay) {
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
-    document.removeEventListener("keydown", handleInviteEscape);
+  }
+
+  function closeInviteDialog(resetEmail, immediate) {
+    var overlay = document.getElementById("cmInviteOverlay");
     if (resetEmail) _inviteEmail = "";
+    if (overlay && overlay.getAttribute("data-athlevo-sheet") === "invite" &&
+        window.AthlevoSheet) {
+      window.AthlevoSheet.close(overlay, {
+        immediate: immediate === true,
+        onAfterClose: function () { removeInviteOverlay(overlay); }
+      });
+      return;
+    }
+    removeInviteOverlay(overlay);
+    document.removeEventListener("keydown", handleInviteEscape);
     if (_invitePreviousFocus && typeof _invitePreviousFocus.focus === "function") {
       try { _invitePreviousFocus.focus(); } catch (e) {}
     }
@@ -1064,7 +1076,8 @@
   }
 
   function mountInviteDialog(html) {
-    closeInviteDialog(false);
+    // Revoke remains on the existing confirmation path in Phase 3A.
+    closeInviteDialog(false, true);
     _invitePreviousFocus = document.activeElement;
     var overlay = document.createElement("div");
     overlay.id = "cmInviteOverlay";
@@ -1075,8 +1088,43 @@
     return overlay;
   }
 
+  function mountInviteSheet(html) {
+    closeInviteDialog(false, true);
+    var overlay = document.createElement("div");
+    overlay.id = "cmInviteOverlay";
+    overlay.className = "cm-invite-overlay";
+    overlay.setAttribute("data-athlevo-sheet", "invite");
+    overlay.innerHTML = '<section class="cm-invite-dialog" role="dialog" aria-modal="true" aria-labelledby="cmInviteTitle">' + html + '</section>';
+    document.body.appendChild(overlay);
+    window.AthlevoSheet.open({
+      root: overlay,
+      sheet: ".cm-invite-dialog",
+      initialFocus: "#cmInviteEmail",
+      closeOnEscape: true,
+      closeOnBackdrop: true,
+      fallbackFocus: "#cmInviteAthlete",
+      onRequestClose: function () {
+        if (_inviteSendInFlight) return false;
+        closeInviteDialog(false);
+        return false;
+      },
+      onAfterClose: function () { removeInviteOverlay(overlay); }
+    });
+    return overlay;
+  }
+
   function openInviteDialog() {
-    var overlay = mountInviteDialog(
+    var existingOverlay = document.getElementById("cmInviteOverlay");
+    if (existingOverlay && existingOverlay.getAttribute("data-athlevo-sheet") === "invite" &&
+        window.AthlevoSheet) {
+      var existingPhase = window.AthlevoSheet.phase(existingOverlay);
+      if (existingPhase === "opening" || existingPhase === "open") return;
+      if (existingPhase === "closing") {
+        window.AthlevoSheet.open({ root: existingOverlay });
+        return;
+      }
+    }
+    var overlay = mountInviteSheet(
       '<h2 id="cmInviteTitle">Invite Athlete</h2><p>Invite an athlete to connect with your coaching roster.</p>' +
       '<form class="cm-invite-form" id="cmInviteForm"><label for="cmInviteEmail">Email</label>' +
       '<input id="cmInviteEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="athlete@email.com" value="' + esc(_inviteEmail) + '" required>' +
@@ -1115,7 +1163,6 @@
       if (typeof window.toast === "function") window.toast("Invitation sent.");
       await loadInvites(true);
     });
-    setTimeout(function () { input.focus(); }, 0);
   }
 
   async function loadInvites(renderAfter) {
