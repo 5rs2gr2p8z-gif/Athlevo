@@ -729,8 +729,13 @@ function bindCoachScrollWatcher() {
   if (_coachScrollListener) {
     cl.removeEventListener("scroll", _coachScrollListener);
   }
+  var scrollFrame = null;
   _coachScrollListener = function () {
-    syncCoachScrollUi();
+    if (scrollFrame !== null) return;
+    scrollFrame = requestAnimationFrame(function () {
+      scrollFrame = null;
+      syncCoachScrollUi();
+    });
   };
   cl.addEventListener("scroll", _coachScrollListener, { passive: true });
 

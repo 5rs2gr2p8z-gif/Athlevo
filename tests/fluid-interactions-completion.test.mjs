@@ -38,7 +38,7 @@ test("week swipe is direct, edge-safe, and does not rerender on pointermove",
   /translate3d\(\$\{gesture\.dx\}px/.test(calendar) &&
   /event\.clientX < 24/.test(calendar) && !/render\(/.test(calendarMove));
 test("week release combines distance and velocity while buttons remain",
-  /projected = finished\.travelX \+ finished\.velocity \* 180/.test(calendar) &&
+  /projected = finished\.travelX \+ finished\.velocity \* 140/.test(calendar) &&
   /AthlevoTrainCalendar\.prevWeek/.test(calendar) && /AthlevoTrainCalendar\.nextWeek/.test(calendar));
 test("Athlete Detail has distinct push/reverse motion and exact return state",
   /function animateAthleteDrillIn/.test(coach) && /translate3d\(24px,0,0\)/.test(coach) &&

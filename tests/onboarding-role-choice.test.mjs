@@ -334,13 +334,13 @@ describe("Coach Workspace access — authorization boundary", () => {
     // The workspace switcher is gated by server-resolved mode + role, not by
     // localStorage alone.
     assert.ok(
-      coachModeSource.includes("function canEnterCoachWorkspace()") &&
+      coachModeSource.includes("function canAccessCoachWorkspace()") &&
       coachModeSource.includes("roleCanUseCoachWorkspace(_role)"),
       "Workspace activation must check server-resolved _role"
     );
     // injectAthleteYouSwitcher uses the same centralized guard.
     assert.ok(
-      coachModeSource.includes("if (!canEnterCoachWorkspace())"),
+      coachModeSource.includes("if (!canAccessCoachWorkspace())"),
       "Switcher injection must guard on role"
     );
   });

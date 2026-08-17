@@ -142,7 +142,7 @@ describe("Workspace Switcher — security", () => {
       coachModeSource.indexOf("function activateCoachWorkspace"),
       coachModeSource.indexOf("function activateAthleteWorkspace")
     );
-    assert.ok(activate.indexOf("if (!canEnterCoachWorkspace())") < activate.indexOf('classList.add("coach-workspace-active")'));
+    assert.ok(activate.indexOf("if (!canAccessCoachWorkspace())") < activate.indexOf('classList.add("coach-workspace-active")'));
     // resolveWorkspace clears stale coach pref for non-coach users
     assert.ok(
       coachModeSource.includes("clearWorkspacePref"),
@@ -223,7 +223,7 @@ describe("Workspace Switcher — security", () => {
 
   it("switcher only visible to confirmed coach/admin in athlete You", () => {
     assert.ok(
-      coachModeSource.includes("if (!canEnterCoachWorkspace())"),
+      coachModeSource.includes("if (!canAccessCoachWorkspace())"),
       "injectAthleteYouSwitcher must use the centralized role guard before rendering"
     );
   });

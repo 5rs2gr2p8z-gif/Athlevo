@@ -635,7 +635,7 @@
       weekMotion = elem.animate([
         { transform: `translate3d(${dx}px,0,0)` },
         { transform: "translate3d(0,0,0)" }
-      ], { duration: 260, easing: "cubic-bezier(.2,.9,.2,1.08)" });
+      ], { duration: 220, easing: "cubic-bezier(.2,.7,.2,1)" });
     };
     const navigate = async (direction, dx) => {
       const token = ++weekMotionToken;
@@ -661,8 +661,8 @@
       if (!gesture || event.pointerId !== gesture.id) return;
       const dx = event.clientX - gesture.x;
       const dy = event.clientY - gesture.y;
-      if (!gesture.intent && Math.max(Math.abs(dx), Math.abs(dy)) >= 7) {
-        gesture.intent = Math.abs(dx) > Math.abs(dy) * 1.15 ? "horizontal" : "vertical";
+      if (!gesture.intent && Math.max(Math.abs(dx), Math.abs(dy)) >= 12) {
+        gesture.intent = Math.abs(dx) > Math.abs(dy) * 1.35 ? "horizontal" : "vertical";
       }
       if (gesture.intent === "vertical") {
         const current = gesture.dx;
@@ -687,8 +687,8 @@
       cleanup(finished.id);
       gesture = null;
       const width = elem.clientWidth || window.innerWidth || 390;
-      const projected = finished.travelX + finished.velocity * 180;
-      const commit = Math.abs(projected) > Math.max(64, width * .22) || Math.abs(finished.velocity) > .48;
+      const projected = finished.travelX + finished.velocity * 140;
+      const commit = Math.abs(projected) > Math.max(72, width * .24) || Math.abs(finished.velocity) > .65;
       if (finished.intent === "horizontal" && commit) navigate(finished.travelX < 0 ? 1 : -1, finished.dx);
       else settle(finished.dx || 0);
     };

@@ -350,7 +350,7 @@
       "@media(min-width:600px){.cm-invite-overlay{align-items:center;padding:20px}.cm-invite-dialog{border-radius:22px}}",
       "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
       "@media(max-width:380px){.cm-command-head{gap:10px}.cm-command-head h1{font-size:24px}.cm-head-actions{gap:7px}.cm-invite-trigger{padding-inline:9px}.cm-invite-row{align-items:flex-start;display:grid;grid-template-columns:minmax(0,1fr) auto}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
-      ".cm-athlete-page--ready{animation:none;will-change:transform,opacity}.cm-athlete-tabs{-webkit-overflow-scrolling:touch}",
+      ".cm-athlete-page--ready{animation:none}.cm-athlete-tabs{-webkit-overflow-scrolling:touch}",
       "@media(hover:hover) and (pointer:fine){.cm-refresh:hover{color:var(--ink1,var(--ink,#141416))}.cm-open-row:hover .cm-row-name{color:var(--red,#C0272D)}.cm-review:hover{border-color:var(--ink2,#6d7075)}.cm-note-action:hover,.cm-athlete-message:hover{color:var(--ink1,#141416);border-bottom-color:currentColor}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-page--ready,.cm-msg-thread,.cm-msg-bubble,.cm-workout-overlay,.cm-note-confirm,.cm-workout-dialog,.cm-note-confirm-dialog{animation:none}.cm-row-name,.cm-athlete-panel-content,.cm-athlete-tab-indicator,.cm-msg-log,.cm-note-compose textarea{transition:none;scroll-behavior:auto}.cm-athlete-panel-content{transform:none!important}}"
     ].join("");
@@ -538,15 +538,8 @@
    * after the protected roster endpoint resolves, so local/session storage
    * can choose a workspace preference but can never authorize one.
    */
-  function canEnterCoachWorkspace() {
+  function canAccessCoachWorkspace() {
     return _appMode === "coach_mode" && roleCanUseCoachWorkspace(_role);
-  }
-
-  function setAthleteYouWorkspaceVisible(visible) {
-    var section = document.getElementById("youWorkspaceSection");
-    var spacer = document.getElementById("youWorkspaceSpacer");
-    if (section) section.hidden = !visible;
-    if (spacer) spacer.hidden = !visible;
   }
 
   function clearWorkspaceOnLogout() {
@@ -590,7 +583,6 @@
     document.body.classList.remove("coach-workspace-active", "coach-loading");
     var athleteSwitcher = document.getElementById("cmAthleteSwitcher");
     if (athleteSwitcher && athleteSwitcher.parentNode) athleteSwitcher.parentNode.removeChild(athleteSwitcher);
-    setAthleteYouWorkspaceVisible(false);
     restoreAthleteToday();
     restoreAthleteNavigation();
     COACH_SCREENS.forEach(function (id) {
@@ -613,7 +605,6 @@
     document.body.classList.remove("coach-workspace-active", "coach-loading");
     var athleteSwitcher = document.getElementById("cmAthleteSwitcher");
     if (athleteSwitcher && athleteSwitcher.parentNode) athleteSwitcher.parentNode.removeChild(athleteSwitcher);
-    setAthleteYouWorkspaceVisible(false);
     restoreAthleteToday();
     restoreAthleteNavigation();
     COACH_SCREENS.forEach(function (id) {
@@ -628,7 +619,7 @@
    * coach/admin, fall back to athlete_workspace.
    */
   function resolveWorkspace() {
-    var isCoach = canEnterCoachWorkspace();
+    var isCoach = canAccessCoachWorkspace();
     if (!isCoach) {
       // Safety: clear any stale coach pref
       if (readWorkspacePref() === "coach_workspace") clearWorkspacePref();
@@ -645,7 +636,7 @@
    * Idempotent: calling when already in coach_workspace is a no-op.
    */
   function activateCoachWorkspace() {
-    if (!canEnterCoachWorkspace()) {
+    if (!canAccessCoachWorkspace()) {
       enforceAthleteWorkspaceFallback();
       if (typeof window.showScreen === "function") window.showScreen("screen-today");
       return false;
@@ -764,17 +755,15 @@
   function injectAthleteYouSwitcher() {
     var youEl = document.getElementById("screen-you");
     if (!youEl) return;
-    if (!canEnterCoachWorkspace()) {
+    if (!canAccessCoachWorkspace()) {
       var stale = youEl.querySelector("#cmAthleteSwitcher");
       if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
-      setAthleteYouWorkspaceVisible(false);
       return;
     }
-    setAthleteYouWorkspaceVisible(true);
     if (youEl.querySelector("#cmAthleteSwitcher")) return; // already injected
 
-    var section = document.getElementById("youWorkspaceSection");
-    if (!section) return;
+    var preferencesHeading = document.getElementById("youPreferencesHeading");
+    if (!preferencesHeading || preferencesHeading.parentNode !== youEl) return;
 
     var switcher = document.createElement("div");
     switcher.id = "cmAthleteSwitcher";
@@ -786,9 +775,10 @@
       '<div class="spacer-md" style="height:8px"></div>' +
       '<div class="rowlink" id="cmOpenDashboard" style="cursor:pointer">' +
         '<div><b>Open Coach Dashboard</b><small>View and manage your athletes.</small></div><span class="arr">→</span>' +
-      '</div>';
+      '</div>' +
+      '<div class="spacer-md"></div>';
 
-    section.appendChild(switcher);
+    youEl.insertBefore(switcher, preferencesHeading);
 
     document.getElementById("cmSwitchToCoach").addEventListener("click", function () {
       trackCoach("workspace_switcher_viewed", { source_surface: "athlete_you" });
@@ -2774,8 +2764,9 @@
     prepareDashboardLoading: prepareDashboardLoading,
     go: coachGo,
     getMode: function () { return _appMode; },
-    isCoachMode: function () { return canEnterCoachWorkspace(); },
-    isCoachWorkspace: function () { return canEnterCoachWorkspace() && _workspace === "coach_workspace"; },
+    canAccessCoachWorkspace: canAccessCoachWorkspace,
+    isCoachMode: function () { return canAccessCoachWorkspace(); },
+    isCoachWorkspace: function () { return canAccessCoachWorkspace() && _workspace === "coach_workspace"; },
     isAthleteWorkspace: function () { return _workspace === "athlete_workspace"; },
     getWorkspace: function () { return _workspace; },
     switchToCoachWorkspace: activateCoachWorkspace,
@@ -2789,7 +2780,7 @@
 
   if (typeof window.addEventListener === "function") {
     window.addEventListener("athlevo:native-back", function (event) {
-      if (event.defaultPrevented || !canEnterCoachWorkspace() || _workspace !== "coach_workspace") return;
+      if (event.defaultPrevented || !canAccessCoachWorkspace() || _workspace !== "coach_workspace") return;
       var activeScreen = document.querySelector(".screen.active");
       var threadBack = activeScreen && activeScreen.querySelector(".cm-msg-thread-back");
       if (threadBack) {

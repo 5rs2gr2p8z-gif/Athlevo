@@ -254,10 +254,12 @@ await test("Android disables WebView edge stretch without blocking normal or nes
 
 await test("sheet and calendar gestures preserve intent thresholds and cancellation cleanup", () => {
   assert.match(sheetSource, /dragHandle/);
-  assert.match(sheetSource, /drag\.intent = Math\.abs\(dy\) >= Math\.abs\(dx\) \? "vertical" : "horizontal"/);
+  assert.match(sheetSource, /Math\.max\(Math\.abs\(dx\), Math\.abs\(dy\)\) >= 10/);
+  assert.match(sheetSource, /drag\.intent = Math\.abs\(dy\) > Math\.abs\(dx\) \* 1\.2 \? "vertical" : "horizontal"/);
   assert.match(sheetSource, /removeEventListener\("pointercancel", drag\.cancel\)/);
   assert.match(sheetSource, /releasePointerCapture/);
-  assert.match(calendarSource, /Math\.abs\(dx\) > Math\.abs\(dy\) \* 1\.15/);
+  assert.match(calendarSource, /Math\.max\(Math\.abs\(dx\), Math\.abs\(dy\)\) >= 12/);
+  assert.match(calendarSource, /Math\.abs\(dx\) > Math\.abs\(dy\) \* 1\.35/);
   assert.match(calendarSource, /removeEventListener\("pointercancel", cancel\)/);
   assert.match(calendarSource, /elem\.style\.touchAction = "pan-y"/);
 });

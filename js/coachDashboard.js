@@ -3,16 +3,14 @@
  *  Athlevo — Coach Dashboard (client)   ·   window.AthlevoCoachDashboard
  * ══════════════════════════════════════════════════════════════════════
  *
- *  The legacy #coach entry is role-gated and now hands confirmed coaches to
- *  the current Coach Workspace command center. The roster-only screen remains
- *  as a defensive fallback for older shells that do not load coachMode.js.
- *  Athletes never see the entry and are redirected if they force the route.
+ *  The legacy #coach route hands server-confirmed coaches to the current Coach
+ *  Workspace command center. It never inserts its own Profile entry and it
+ *  fails closed when the authoritative Coach Mode client is unavailable.
  *  The browser UI is NOT the security boundary — every data read goes through
  *  /api/providers?action=coaching_dashboard_*, which re-checks role + active assignment server-side.
  *
  *  · Route: hash '#coach' (PWA/back/refresh safe). Athlete bottom nav is
- *    untouched; a Coach entry is injected into the You screen only for
- *    coach/admin.
+ *    untouched; Coach Mode owns the sole authorized workspace switcher.
  *  · Renders the roster (with states, sorting, name search) and an athlete
  *    overview drawer. No plan editing, no messaging.
  *  · Never puts athlete name/email/UUID/health values into analytics.
@@ -23,11 +21,12 @@
 
   var ROOT_ID = "screen-coach";
   var state = { role: null, enabled: false, athletes: [], search: "", loading: false, error: null };
-  var accessConfirmed = false;
   var hashListenerBound = false;
 
-  function roleCanUseCoachDashboard(role) {
-    return role === "coach" || role === "admin";
+  function canAccessCoachDashboard() {
+    return !!(window.AthlevoCoachMode &&
+      typeof window.AthlevoCoachMode.canAccessCoachWorkspace === "function" &&
+      window.AthlevoCoachMode.canAccessCoachWorkspace());
   }
 
   function sb() { return typeof supabaseClient !== "undefined" ? supabaseClient : null; }
@@ -45,20 +44,6 @@
       var r = await c.auth.getSession();
       return (r && r.data && r.data.session && r.data.session.access_token) || null;
     } catch (e) { return null; }
-  }
-
-  async function myRole() {
-    var c = sb();
-    if (!c) return "athlete";
-    try {
-      var u = await c.auth.getUser();
-      var uid = u && u.data && u.data.user && u.data.user.id;
-      if (!uid) return "athlete";
-      // RLS allows reading one's OWN profile row.
-      var q = await c.from("profiles").select("role").eq("id", uid).maybeSingle();
-      var role = q && q.data && q.data.role;
-      return role === "coach" || role === "admin" ? role : "athlete";
-    } catch (e) { return "athlete"; }
   }
 
   async function api(action, opts) {
@@ -352,24 +337,19 @@
   }
 
   function openDashboard() {
-    if (!accessConfirmed || !state.enabled || !roleCanUseCoachDashboard(state.role)) {
+    if (!canAccessCoachDashboard()) {
       safeRedirect();
       return false;
     }
     // The Coach Workspace owns the current command-center experience. Reuse it
     // instead of mounting the legacy roster-only screen as a second dashboard.
-    if (window.AthlevoCoachMode && window.AthlevoCoachMode.isCoachMode &&
-        window.AthlevoCoachMode.isCoachMode() && window.AthlevoCoachMode.switchToCoachWorkspace) {
+    if (window.AthlevoCoachMode.switchToCoachWorkspace) {
       window.AthlevoCoachMode.switchToCoachWorkspace();
       if (location.hash !== "#coach") location.hash = "#coach";
       return true;
     }
-    ensureRoot();
-    if (typeof window.showScreen === "function") window.showScreen(ROOT_ID);
-    else { document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); }); document.getElementById(ROOT_ID).classList.add("active"); }
-    if (location.hash !== "#coach") location.hash = "#coach";
-    loadAndRender(true);
-    return true;
+    safeRedirect();
+    return false;
   }
 
   function closeDashboard() {
@@ -384,21 +364,7 @@
     if (typeof window.showScreen === "function") window.showScreen("screen-today");
   }
 
-  function injectEntry() {
-    // Add a Coach entry into the You screen — coach/admin only. Idempotent.
-    if (document.getElementById("cdEntryBtn")) return;
-    var host = document.getElementById("screen-you") || document.getElementById("screen-profile");
-    if (!host) return;
-    var btn = document.createElement("button");
-    btn.id = "cdEntryBtn";
-    btn.textContent = "Open coach dashboard";
-    btn.style.cssText = "display:block;width:100%;margin:12px 0;padding:12px;border-radius:12px;border:1px solid var(--line,#ebebe8);background:var(--card,#f6f6f4);font-size:14px;font-weight:600;cursor:pointer;";
-    btn.addEventListener("click", openDashboard);
-    host.insertBefore(btn, host.firstChild);
-  }
-
   function clearOnLogout() {
-    accessConfirmed = false;
     state.role = null;
     state.enabled = false;
     state.athletes = [];
@@ -417,15 +383,14 @@
 
   async function init() {
     clearOnLogout();
-    var role = await myRole();
-    state.role = role;
-    state.enabled = roleCanUseCoachDashboard(role);
-    accessConfirmed = state.enabled;
+    state.enabled = canAccessCoachDashboard();
+    var coachState = state.enabled && window.AthlevoCoachMode._state
+      ? window.AthlevoCoachMode._state() : null;
+    state.role = coachState && coachState.role || null;
     if (!state.enabled) {
       if (location.hash === "#coach") safeRedirect();
       return;
     }
-    injectEntry();
     if (!hashListenerBound) {
       hashListenerBound = true;
       window.addEventListener("hashchange", function () {

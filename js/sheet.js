@@ -431,8 +431,8 @@
       if (!drag.tracking || event.pointerId !== drag.pointerId) return;
       var dx = event.clientX - drag.startX;
       var dy = event.clientY - drag.startY;
-      if (!drag.intent && Math.max(Math.abs(dx), Math.abs(dy)) >= 6) {
-        drag.intent = Math.abs(dy) >= Math.abs(dx) ? "vertical" : "horizontal";
+      if (!drag.intent && Math.max(Math.abs(dx), Math.abs(dy)) >= 10) {
+        drag.intent = Math.abs(dy) > Math.abs(dx) * 1.2 ? "vertical" : "horizontal";
       }
       if (drag.intent === "horizontal") {
         removeDragListeners(state);

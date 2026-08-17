@@ -46,6 +46,7 @@
   var _threadLoading = false;
   var _sendInFlight = false;
   var _threadScroll = { top: 0, nearBottom: true };
+  var _threadScrollFrame = null;
   var _renderedThreadCount = 0;
   var _requestGeneration = 0;
   var MODE_STALE_MS = 2 * 60 * 1000;
@@ -293,6 +294,10 @@
   }
 
   function removeCoachModeMounts() {
+    if (_threadScrollFrame !== null) {
+      cancelAnimationFrame(_threadScrollFrame);
+      _threadScrollFrame = null;
+    }
     document.querySelectorAll("#screen-coachai > .am-coach-mode-mount").forEach(function (el) {
       if (el.parentNode) el.parentNode.removeChild(el);
     });
@@ -564,9 +569,13 @@
     });
     var log = document.getElementById("amHumanCoachThread");
     if (log) log.addEventListener("scroll", function () {
-      _threadScroll.top = log.scrollTop;
-      _threadScroll.nearBottom = humanThreadNearBottom(log);
-      syncHumanJumpLatest(log);
+      if (_threadScrollFrame !== null) return;
+      _threadScrollFrame = requestAnimationFrame(function () {
+        _threadScrollFrame = null;
+        _threadScroll.top = log.scrollTop;
+        _threadScroll.nearBottom = humanThreadNearBottom(log);
+        syncHumanJumpLatest(log);
+      });
     }, { passive: true });
     var latest = document.getElementById("amHumanCoachLatest");
     if (latest) latest.addEventListener("click", function () {

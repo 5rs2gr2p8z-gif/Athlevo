@@ -1183,7 +1183,6 @@ body.athlevo-sheet-locked{overflow:hidden}
 .rowlink-danger-subtle .arr{color:var(--danger);opacity:.5}
 .you-delete-divider{height:1px;background:var(--line,#e5e5e5);margin:16px 22px}
 .appearance-row{background:var(--card);border-radius:var(--r-lg);padding:16px 20px}
-#youWorkspaceSection:empty+.spacer-md{display:none}
 .delete-account-sheet{background:var(--surface-base);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
 .delete-account-btn:disabled{opacity:.4;cursor:not-allowed}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -1319,6 +1318,15 @@ html.athlevo-native-android #tabbar{
   border-top-color:var(--line);
   box-shadow:0 -8px 24px rgba(20,20,22,.08)
 }
+/* Bound expensive native paint work to the chart itself and keep programmatic
+   scrolling immediate inside Android WebView. Native touch scrolling remains
+   owned by each existing .screen container. */
+html.athlevo-native-android .screen,
+html.athlevo-native-android #chatlog,
+html.athlevo-native-android .cm-msg-log{scroll-behavior:auto}
+html.athlevo-native-android .trend-chart{contain:layout paint}
+html.athlevo-native-android .asc-mini-area,
+html.athlevo-native-android .asc-radar-area{filter:none}
 /* ===== DAILY COACH BRIEFING ===== */
 
 .daily-brief-section {
@@ -2809,6 +2817,12 @@ html.athlevo-native-android .athlevo-surface-skeleton .skel,
 html.athlevo-native-android .am-coach-resolving .skel{
   background:var(--skeleton-base);animation:athlevoSkeletonBreathe 1.8s ease-in-out infinite alternate
 }
+/* Other legacy skeletons use a translated gradient. Keep those static in the
+   native shell so one loading surface cannot schedule dozens of paint loops. */
+html.athlevo-native-android .skel:not(.athlevo-surface-skeleton .skel):not(.am-coach-resolving .skel),
+html.athlevo-native-android .skel-line,
+html.athlevo-native-android .skel-block,
+html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animation:none}
 @media(max-width:390px){
   .athlevo-surface-skeleton{padding-left:18px;padding-right:18px}
   .asl-week{gap:5px}.asl-control{width:78px}.asl-metrics{gap:6px}
@@ -4868,14 +4882,8 @@ html.athlevo-native-android .am-coach-resolving .skel{
 
   <div class="spacer-md"></div>
 
-  <!-- ── Workspace ── -->
-  <div id="youWorkspaceSection" hidden>
-    <!-- Coach/admin: workspace switcher + dashboard injected here by coachMode.js -->
-  </div>
-  <div class="spacer-md" id="youWorkspaceSpacer" hidden></div>
-
   <!-- ── Preferences ── -->
-  <div class="pad"><div class="section-title">Preferences</div></div>
+  <div class="pad" id="youPreferencesHeading"><div class="section-title">Preferences</div></div>
   <div class="appearance appearance-row">
     <span class="appearance-label">Appearance</span>
     <div class="seg" id="themeSeg" role="group" aria-label="Theme">
@@ -8417,7 +8425,7 @@ setTimeout(function () {
 <script src="js/activation.js?v=68"></script>
 <script src="js/onboardingConnect.js?v=69"></script>
 <script src="js/productionVerify.js?v=67"></script>
-<script src="js/sheet.js?v=2"></script>
+<script src="js/sheet.js?v=3"></script>
 <script src="js/athlevoScore.js?v=79"></script>
 <!-- Coach Brain V1: pure reasoning engine + data/render layers. Reuses the
      existing engines; separates data collection, reasoning, and rendering. -->
@@ -8431,16 +8439,16 @@ setTimeout(function () {
 <script src="js/memory.js?v=67"></script>
 <script src="js/dailyBrief.js?v=77"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
-<script src="js/coach.js?v=78"></script>
+<script src="js/coach.js?v=79"></script>
 <script src="js/features.js?v=69"></script>
 <script src="js/train.js?v=81"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
-<script src="js/trainCalendar.js?v=79"></script>
+<script src="js/trainCalendar.js?v=80"></script>
 <script src="js/coachInvites.js?v=1"></script>
-<script src="js/athleteMode.js?v=81"></script>
-<script src="js/coachDashboard.js?v=76"></script>
-<script src="js/coachMode.js?v=19"></script>
+<script src="js/athleteMode.js?v=82"></script>
+<script src="js/coachDashboard.js?v=77"></script>
+<script src="js/coachMode.js?v=20"></script>
 <script src="js/adaptivePlan.js?v=79"></script>
 <script src="js/accessGuard.js?v=79"></script>
 <script src="js/planSetup.js?v=69"></script>
