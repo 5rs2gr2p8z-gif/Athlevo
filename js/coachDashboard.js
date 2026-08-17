@@ -21,7 +21,6 @@
 
   var ROOT_ID = "screen-coach";
   var state = { role: null, enabled: false, athletes: [], search: "", loading: false, error: null };
-  var hashListenerBound = false;
 
   function canAccessCoachDashboard() {
     return !!(window.AthlevoCoachMode &&
@@ -345,7 +344,6 @@
     // instead of mounting the legacy roster-only screen as a second dashboard.
     if (window.AthlevoCoachMode.switchToCoachWorkspace) {
       window.AthlevoCoachMode.switchToCoachWorkspace();
-      if (location.hash !== "#coach") location.hash = "#coach";
       return true;
     }
     safeRedirect();
@@ -374,10 +372,7 @@
     var entry = document.getElementById("cdEntryBtn");
     if (entry && entry.parentNode) entry.parentNode.removeChild(entry);
     var root = document.getElementById(ROOT_ID);
-    if (root) {
-      root.classList.remove("active");
-      root.style.display = "none";
-    }
+    if (root && root.parentNode) root.parentNode.removeChild(root);
     closeDrawer();
   }
 
@@ -387,17 +382,10 @@
     var coachState = state.enabled && window.AthlevoCoachMode._state
       ? window.AthlevoCoachMode._state() : null;
     state.role = coachState && coachState.role || null;
-    if (!state.enabled) {
-      if (location.hash === "#coach") safeRedirect();
-      return;
-    }
-    if (!hashListenerBound) {
-      hashListenerBound = true;
-      window.addEventListener("hashchange", function () {
-        if (location.hash === "#coach") openDashboard();
-      });
-    }
-    if (location.hash === "#coach") openDashboard();
+    // A URL fragment is passive state, not an explicit current-session action.
+    // Sanitize it for athletes and authorized users alike; visible buttons call
+    // openDashboard() directly when the user intentionally enters Coach Mode.
+    if (location.hash === "#coach") safeRedirect();
   }
 
   window.AthlevoCoachDashboard = {

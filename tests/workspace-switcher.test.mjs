@@ -28,33 +28,31 @@ const analyticsSource = readFileSync(resolve(import.meta.dirname, "..", "js", "a
 
 describe("Workspace Switcher — defaults", () => {
 
-  it("admin defaults to Coach Workspace", () => {
+  it("admin is authorized but defaults to Athlete Workspace", () => {
     assert.equal(resolveRole({ role: "admin" }), "admin");
     assert.equal(canAccessCoachDashboard({ role: "admin" }), true);
-    // coachMode.js resolveWorkspace defaults to coach_workspace when no pref
     assert.ok(
-      coachModeSource.includes('return "coach_workspace"'),
-      "resolveWorkspace must default coach/admin to coach_workspace"
+      /function resolveWorkspace\(\)[\s\S]*?return "athlete_workspace"/.test(coachModeSource),
+      "Passive workspace resolution must default admin to athlete_workspace"
     );
   });
 
-  it("coach defaults to Coach Workspace", () => {
+  it("coach remains authorized for explicit Coach Workspace entry", () => {
     assert.equal(resolveRole({ role: "coach" }), "coach");
     assert.equal(canAccessCoachDashboard({ role: "coach" }), true);
   });
 
-  it("resolveWorkspace reads localStorage preference", () => {
+  it("resolveWorkspace removes the legacy device-wide preference", () => {
     assert.ok(
-      coachModeSource.includes("WORKSPACE_KEY") &&
-      coachModeSource.includes("localStorage.getItem(WORKSPACE_KEY)"),
-      "Must read workspace preference from localStorage"
+      coachModeSource.includes("LEGACY_WORKSPACE_KEY") &&
+      coachModeSource.includes("localStorage.removeItem(LEGACY_WORKSPACE_KEY)"),
+      "Must remove the old device-wide workspace preference"
     );
   });
 
-  it("first-use coach/admin without stored pref gets coach_workspace", () => {
-    // resolveWorkspace returns coach_workspace when no pref AND role is coach/admin
-    const fnMatch = coachModeSource.match(/function resolveWorkspace\(\)[\s\S]*?return "coach_workspace"/);
-    assert.ok(fnMatch, "resolveWorkspace must return coach_workspace as default for coach/admin");
+  it("first-use coach/admin without a current-session action gets athlete_workspace", () => {
+    const fnMatch = coachModeSource.match(/function resolveWorkspace\(\)[\s\S]*?return "athlete_workspace"/);
+    assert.ok(fnMatch, "resolveWorkspace must return athlete_workspace by default");
   });
 });
 
@@ -107,25 +105,17 @@ describe("Workspace Switcher — switching behavior", () => {
     );
   });
 
-  it("workspace preference is persisted to localStorage", () => {
+  it("workspace choice is session-only", () => {
     assert.ok(
-      coachModeSource.includes("writeWorkspacePref"),
-      "Workspace preference must be persisted"
-    );
-    assert.ok(
-      coachModeSource.includes("localStorage.setItem(WORKSPACE_KEY"),
-      "writeWorkspacePref must use localStorage"
+      !coachModeSource.includes("localStorage.setItem(LEGACY_WORKSPACE_KEY"),
+      "Coach Workspace must not persist across cold starts"
     );
   });
 
-  it("refresh preserves selected workspace (reads from localStorage)", () => {
+  it("cold restart cannot restore Coach Workspace from localStorage", () => {
     assert.ok(
-      coachModeSource.includes("readWorkspacePref"),
-      "init must read workspace pref on startup"
-    );
-    assert.ok(
-      coachModeSource.includes("var ws = resolveWorkspace()"),
-      "init must call resolveWorkspace which reads the stored pref"
+      !coachModeSource.includes("localStorage.getItem(LEGACY_WORKSPACE_KEY)"),
+      "init must not read the old Coach Workspace preference"
     );
   });
 });
@@ -145,18 +135,18 @@ describe("Workspace Switcher — security", () => {
     assert.ok(activate.indexOf("if (!canAccessCoachWorkspace())") < activate.indexOf('classList.add("coach-workspace-active")'));
     // resolveWorkspace clears stale coach pref for non-coach users
     assert.ok(
-      coachModeSource.includes("clearWorkspacePref"),
+      coachModeSource.includes("clearLegacyWorkspacePref"),
       "Must clear stale coach workspace pref for non-coach users"
     );
   });
 
   it("stale coach pref falls back to athlete_workspace if role changed", () => {
-    // resolveWorkspace checks isCoach before returning coach_workspace
+    // Passive initialization always chooses athlete_workspace and clears legacy state.
     const resolveWsFn = coachModeSource.match(/function resolveWorkspace\(\)[\s\S]*?^  \}/m);
     assert.ok(resolveWsFn, "resolveWorkspace must exist");
     assert.ok(
-      resolveWsFn[0].includes("isCoach"),
-      "resolveWorkspace must check isCoach before returning coach_workspace"
+      resolveWsFn[0].includes("clearLegacyWorkspacePref"),
+      "resolveWorkspace must clear the device-wide preference"
     );
     assert.ok(
       resolveWsFn[0].includes('return "athlete_workspace"'),
@@ -354,7 +344,7 @@ describe("Workspace Switcher — data isolation", () => {
   it("roster data only loads in Coach Workspace via coaching_dashboard_roster", () => {
     // api("roster") is only in resolveMode and refreshRoster, never in activateAthleteWorkspace
     assert.ok(
-      coachModeSource.includes('api("roster")'),
+      /api\("roster",\s*\{\s*expectedUserId:/.test(coachModeSource),
       "Roster endpoint must be called for coach mode resolution"
     );
   });
@@ -431,11 +421,10 @@ describe("Workspace Switcher — layout integrity", () => {
     );
   });
 
-  it("init function supports athlete workspace skip for coach/admin", () => {
-    // When workspace is athlete_workspace, init returns early so athlete UI loads
+  it("init always hands authorized users to athlete workspace", () => {
     assert.ok(
-      coachModeSource.includes('ws === "athlete_workspace"'),
-      "init must check for athlete_workspace preference"
+      coachModeSource.includes("_workspace = resolveWorkspace()"),
+      "init must resolve the passive Athlete Workspace default"
     );
   });
 
@@ -538,8 +527,8 @@ describe("Workspace Switcher — public API", () => {
     assert.ok(coachModeSource.includes("workspace: _workspace"));
   });
 
-  it("version is updated to coach-mode-v2", () => {
-    assert.ok(coachModeSource.includes('"coach-mode-v2"'));
+  it("version is updated to coach-mode-v3", () => {
+    assert.ok(coachModeSource.includes('"coach-mode-v3"'));
   });
 });
 

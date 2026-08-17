@@ -599,17 +599,13 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(!source.includes("Loading roster…"));
   });
 
-  it("swaps the boot content only for an authenticated coach dashboard context", () => {
+  it("never prepaints Coach Dashboard during passive boot", () => {
     const start = source.indexOf("function prepareDashboardLoading");
     const end = source.indexOf("async function init", start);
     const prepare = source.slice(start, end);
-    assert.ok(prepare.includes('profile.role === "coach"'));
-    assert.ok(prepare.includes('profile.role === "admin"'));
-    assert.ok(prepare.includes('readWorkspacePref() === "athlete_workspace"'));
-    assert.ok(prepare.includes('document.body.classList.contains("booting")'));
-    assert.ok(prepare.includes('content.innerHTML = renderCoachSkeleton()'));
-    assert.ok(indexSource.includes("AthlevoCoachMode.prepareDashboardLoading(profile)"));
-    assert.ok(indexSource.indexOf("AthlevoCoachMode.prepareDashboardLoading(profile)") > indexSource.indexOf("if (!completed)"));
+    assert.ok(prepare.includes("return false"));
+    const route = indexSource.slice(indexSource.indexOf("async function routeAfterAuth"), indexSource.indexOf("function isStandaloneMode"));
+    assert.ok(!route.includes("prepareDashboardLoading"));
   });
 
   it("keeps the static athlete Today skeleton intact for athletes and anonymous visitors", () => {
@@ -620,21 +616,22 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(boot.includes('class="boot-week-row"'));
   });
 
-  it("keeps the shared bottom navigation stable while coach content loads", () => {
+  it("keeps the shared bottom navigation athlete-shaped while authorization resolves", () => {
     const boot = indexSource.slice(indexSource.indexOf('<div id="boot-gate"'), indexSource.indexOf('<div class="device">'));
     assert.ok(!boot.includes("boot-tabbar"));
     assert.equal((indexSource.match(/id="tabbar"/g) || []).length, 1);
     assert.ok(indexSource.includes("body.booting #tabbar{display:flex!important;z-index:9999;pointer-events:none}"));
-    assert.ok(source.includes('content.innerHTML = renderCoachSkeleton()'));
-    assert.ok(!source.includes('gate.innerHTML = renderCoachSkeleton()'));
+    const prepare = source.slice(source.indexOf("function prepareDashboardLoading"), source.indexOf("async function init"));
+    assert.ok(!prepare.includes("renderCoachSkeleton"));
+    assert.ok(!prepare.includes("rewriteNavigation"));
   });
 
-  it("rewrites and synchronizes coach navigation before showing the coach skeleton", () => {
+  it("does not rewrite navigation or show coach loading during passive boot", () => {
     const start = source.indexOf("function prepareDashboardLoading");
     const end = source.indexOf("async function init", start);
     const prepare = source.slice(start, end);
-    assert.ok(prepare.indexOf("rewriteNavigation()") < prepare.indexOf('document.body.classList.add("coach-loading")'));
-    assert.ok(prepare.indexOf("syncIndicator(false)") < prepare.indexOf('content.innerHTML = renderCoachSkeleton()'));
+    assert.ok(!prepare.includes("rewriteNavigation()"));
+    assert.ok(!prepare.includes('classList.add("coach-loading")'));
     assert.ok(source.includes('btn.className = "tab" + (i === 0 ? " on" : "")'));
     assert.ok(source.includes('{ screen: "screen-today",            label: "Today"'));
   });
@@ -653,7 +650,8 @@ describe("Coach Mode — coaching command center UI", () => {
     const initStart = source.indexOf("async function init");
     const initEnd = source.indexOf("PUBLIC API", initStart);
     const init = source.slice(initStart, initEnd);
-    assert.ok(init.indexOf("await resolveMode()") < init.indexOf("renderCoachToday()"));
+    assert.ok(init.includes("await resolveMode(routeContext)"));
+    assert.ok(!init.includes("renderCoachToday()"));
   });
 
   it("refresh exposes the skeleton before the authorized roster request completes", () => {
@@ -661,7 +659,7 @@ describe("Coach Mode — coaching command center UI", () => {
     const end = source.indexOf("INITIALIZATION", start);
     const refresh = source.slice(start, end);
     assert.ok(refresh.indexOf("_rosterLoading = true") < refresh.indexOf("renderCoachToday()"));
-    assert.ok(refresh.indexOf("renderCoachToday()") < refresh.indexOf('api("roster")'));
+    assert.ok(refresh.indexOf("renderCoachToday()") < refresh.indexOf('api("roster",'));
   });
 
   it("every command-center row opens the dedicated athlete page", () => {
@@ -713,13 +711,14 @@ describe("Coach Mode — coaching command center UI", () => {
     const activateStart = source.indexOf("function activateCoachWorkspace");
     const activateEnd = source.indexOf("function activateAthleteWorkspace", activateStart);
     const activate = source.slice(activateStart, activateEnd);
-    const initStart = source.indexOf("async function init()");
+    const initStart = source.indexOf("async function init(routeContext)");
     const initEnd = source.indexOf("PUBLIC API", initStart);
     const init = source.slice(initStart, initEnd);
     assert.ok(source.includes("function suppressAthleteReadiness"));
     assert.ok(source.includes("window.closeReadinessCheck({ immediate: true })"));
     assert.ok(activate.indexOf("suppressAthleteReadiness()") < activate.indexOf('if (_workspace === "coach_workspace") return'));
-    assert.ok(init.indexOf('writeWorkspacePref("coach_workspace")') < init.indexOf("suppressAthleteReadiness()"));
+    assert.ok(!init.includes("suppressAthleteReadiness()"));
+    assert.ok(!init.includes('"coach_workspace"'));
   });
 
   it("renders the approved five-second Overview hierarchy from real fields", () => {

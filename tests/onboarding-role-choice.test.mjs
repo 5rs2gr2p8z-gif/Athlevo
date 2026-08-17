@@ -317,8 +317,7 @@ describe("Coach Workspace access — authorization boundary", () => {
 
   it("Coach Workspace is gated by server-authoritative resolveMode", () => {
     assert.ok(
-      coachModeSource.includes('api("roster")') ||
-      coachModeSource.includes("api('roster')"),
+      /api\(["']roster["'],\s*\{\s*expectedUserId:/.test(coachModeSource),
       "Coach Mode must call the roster API endpoint"
     );
   });
@@ -360,7 +359,7 @@ describe("Coach Workspace access — authorization boundary", () => {
   });
 
   it("role query failure fails safely to Athlete Workspace", () => {
-    const resolveModeFn = coachModeSource.match(/function resolveMode\(\)[\s\S]*?catch/);
+    const resolveModeFn = coachModeSource.match(/function resolveMode\(context\)[\s\S]*?catch/);
     assert.ok(resolveModeFn, "resolveMode must have error handling");
     assert.ok(
       coachModeSource.includes("athlete_mode"),

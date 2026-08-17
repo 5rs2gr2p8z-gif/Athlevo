@@ -5775,6 +5775,7 @@ async function doLogout() {
     toast('Logout failed');
     return;
   }
+  if (window.AthlevoAuthRoute) window.AthlevoAuthRoute.invalidate();
   AthlevoBrain.resetAthleteUI();
   try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
   try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
@@ -5916,6 +5917,7 @@ async function confirmDeleteAccount() {
     document.getElementById('deleteAccountSuccess').style.display = '';
 
     // Clean up local state
+    if (window.AthlevoAuthRoute) window.AthlevoAuthRoute.invalidate();
     try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
     AthlevoBrain.resetAthleteUI();
     try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
@@ -7821,6 +7823,33 @@ function quizPick(btn,correct){
 
 // ---- Session restore on page load ----
 async function routeAfterAuth(userId) {
+  const previousUserId = athlevoSessionUserId;
+  const routeContext = window.AthlevoAuthRoute
+    ? window.AthlevoAuthRoute.begin(userId)
+    : { userId: userId, generation: 1 };
+  const routeIsCurrent = function () {
+    return window.AthlevoAuthRoute
+      ? window.AthlevoAuthRoute.isCurrent(routeContext)
+      : athlevoSessionUserId === userId;
+  };
+
+  // Legacy fragments are passive persisted state, never proof of an explicit
+  // Coach Workspace action in this authenticated session.
+  if (location.hash === "#coach") {
+    try { history.replaceState(null, "", location.pathname + location.search); }
+    catch (e) { location.hash = ""; }
+  }
+
+  // A new account must not inherit module state or Coach UI projections from
+  // the previous authenticated user, even if an older route is still pending.
+  if (previousUserId && previousUserId !== userId) {
+    if (window.AthlevoCoachMode && window.AthlevoCoachMode.clearWorkspaceOnLogout) {
+      try { window.AthlevoCoachMode.clearWorkspaceOnLogout(); } catch (e) {}
+    }
+    if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.clearOnLogout) {
+      try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
+    }
+  }
   // Keep the "Open App" affordance in sync after interactive login/signup.
   athlevoSessionUserId = userId;
   clearAppEntryIntent();
@@ -7829,6 +7858,8 @@ async function routeAfterAuth(userId) {
     .select("onboarding_complete, goal, device, role")
     .eq("id", userId)
     .maybeSingle();
+
+  if (!routeIsCurrent()) return;
 
   if (error) {
     console.error("Profile lookup failed:", error.message);
@@ -7842,9 +7873,11 @@ async function routeAfterAuth(userId) {
   if (window.AthlevoCoachInvites && window.AthlevoCoachInvites.resumeAfterAuth) {
     try {
       var inviteOutcome = await window.AthlevoCoachInvites.resumeAfterAuth();
+      if (!routeIsCurrent()) return;
       if (inviteOutcome && inviteOutcome.stopRouting) return;
     } catch (e) {}
   }
+  if (!routeIsCurrent()) return;
 
   // Coach/admin bypass: existing coaches and admins whose role was granted
   // server-side skip athlete onboarding entirely. Their onboarding_complete
@@ -7872,14 +7905,6 @@ async function routeAfterAuth(userId) {
     return;
   }
 
-  // The static first-frame shell intentionally stays athlete-shaped for
-  // anonymous visitors and athletes. Once this authenticated profile is
-  // known to be a coach/admin, swap only its content for the Coach Dashboard
-  // skeleton while the server-authoritative Coach Mode request resolves.
-  if (window.AthlevoCoachMode && window.AthlevoCoachMode.prepareDashboardLoading) {
-    window.AthlevoCoachMode.prepareDashboardLoading(profile);
-  }
-
   /*
    * Guided setup survives the OAuth round-trip. If it was in progress when
    * the athlete left to authorize, resume it instead of dropping them on a
@@ -7895,23 +7920,27 @@ async function routeAfterAuth(userId) {
    * Resuming here would run detection against nothing and show "no workouts".
    */
   if (window.athlevoFinalizeInFlight) { try { await window.athlevoFinalizeInFlight; } catch (e) {} }
+  if (!routeIsCurrent()) return;
 
   if (window.AthlevoConnect && window.AthlevoConnect.isActive() &&
       !window.AthlevoConnect.hasFailed()) {
-    try { await window.AthlevoConnect.resumeAfterConnect(); return; }
+    try {
+      await window.AthlevoConnect.resumeAfterConnect();
+      if (!routeIsCurrent()) return;
+      return;
+    }
     catch (e) { console.warn("Could not resume guided setup:", e); }
   }
+  if (!routeIsCurrent()) return;
 
   /*
-   * Coach Mode intercept. If the user's server-authoritative role is
-   * coach or admin, AthlevoCoachMode.init() activates Coach Mode: it
-   * rewrites navigation, renders Coach Today, and returns. The athlete
-   * data flow below is then skipped — coach users do not need athlete
-   * Today/Train/Trends/Brief populated in their own athlete profile.
-   * Athletes (the vast majority of users) pass through unchanged.
+   * Resolve Coach authorization for this exact user and route generation.
+   * Authorized users still start in Athlete Workspace; only an explicit
+   * current-session action can activate Coach Workspace.
    */
   if (window.AthlevoCoachMode && window.AthlevoCoachMode.init) {
-    try { await window.AthlevoCoachMode.init(); } catch (e) {}
+    try { await window.AthlevoCoachMode.init(routeContext); } catch (e) {}
+    if (!routeIsCurrent()) return;
     if (window.AthlevoCoachMode.isCoachWorkspace()) {
       // Coach Workspace is active — skip athlete UI initialization
       return;
@@ -7936,6 +7965,7 @@ async function routeAfterAuth(userId) {
   // interactive login). refreshAthleteUI populates Today/Train/Trends +
   // profile + Strava state; then the brief and the weekly plan load.
   await AthlevoBrain.refreshAthleteUI();
+  if (!routeIsCurrent()) return;
 
   // The sync status card may have initialised at DOMContentLoaded (before
   // the session was ready) and painted "No wearable connected". Now the
@@ -7953,13 +7983,16 @@ async function routeAfterAuth(userId) {
 
   if (athleteModePromise) {
     try { await athleteModePromise; } catch (e) {}
+    if (!routeIsCurrent()) return;
   }
   if (!window.AthlevoAthleteMode || window.AthlevoAthleteMode.mode() === "self_guided") {
     await AthlevoDailyBrief.load();
+    if (!routeIsCurrent()) return;
   }
 
   if (typeof window.loadWeeklyPlan === "function") {
     await window.loadWeeklyPlan();
+    if (!routeIsCurrent()) return;
   }
 
   /*
@@ -7970,6 +8003,7 @@ async function routeAfterAuth(userId) {
   try {
     if (AthlevoBrain.maybeBackfillRecognitionOnce) {
       AthlevoBrain.maybeBackfillRecognitionOnce().then(function (r) {
+        if (!routeIsCurrent()) return;
         if (r && r.analyzed > 0 && typeof window.loadWeeklyPlan === "function") window.loadWeeklyPlan();
       });
     }
@@ -7989,6 +8023,7 @@ async function routeAfterAuth(userId) {
   // The boot gate is lifted immediately after authenticated routing returns.
   // Evaluate on the next task so Today is populated and visible first.
   setTimeout(function(){
+    if (!routeIsCurrent()) return;
     if (
       window.AthlevoMorningCheckIn &&
       typeof window.AthlevoMorningCheckIn.evaluate === "function"
@@ -8447,8 +8482,9 @@ setTimeout(function () {
 <script src="js/trainCalendar.js?v=80"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
-<script src="js/coachDashboard.js?v=77"></script>
-<script src="js/coachMode.js?v=20"></script>
+<script src="js/authRouteGuard.js?v=1"></script>
+<script src="js/coachDashboard.js?v=78"></script>
+<script src="js/coachMode.js?v=21"></script>
 <script src="js/adaptivePlan.js?v=79"></script>
 <script src="js/accessGuard.js?v=79"></script>
 <script src="js/planSetup.js?v=69"></script>
@@ -9203,6 +9239,27 @@ setTimeout(function () {
   }
 
   initializeAthlevoApp();
+
+  // Supabase can publish an account change before the corresponding login or
+  // native callback reaches routeAfterAuth. Invalidate pending work immediately
+  // and remove every coach projection; the new user is resolved from scratch.
+  if (supabaseClient.auth && typeof supabaseClient.auth.onAuthStateChange === "function") {
+    supabaseClient.auth.onAuthStateChange(function (event, session) {
+      if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+      var nextUserId = session && session.user && session.user.id || null;
+      var currentRoute = window.AthlevoAuthRoute && window.AthlevoAuthRoute.current();
+      if (!currentRoute || !currentRoute.userId || currentRoute.userId === nextUserId) return;
+
+      window.AthlevoAuthRoute.invalidate();
+      athlevoSessionUserId = nextUserId;
+      if (window.AthlevoCoachMode && window.AthlevoCoachMode.clearWorkspaceOnLogout) {
+        try { window.AthlevoCoachMode.clearWorkspaceOnLogout(); } catch (e) {}
+      }
+      if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.clearOnLogout) {
+        try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
+      }
+    });
+  }
 
   window.addEventListener("athlevo:native-auth-complete", async function () {
     try {

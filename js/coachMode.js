@@ -72,10 +72,13 @@
   var _athleteDrillToken = 0;
   var _initialized = false;
   var _resolving = false;
+  var _authUserId = null;
+  var _authGeneration = 0;
+  var _modeRequest = 0;
   var _athleteTodayHTML = null;   // saved athlete Today innerHTML for restore
 
   /* ─── Workspace state ─── */
-  var WORKSPACE_KEY = "athlevo_workspace";       // localStorage key
+  var LEGACY_WORKSPACE_KEY = "athlevo_workspace";
   var _workspace = null;   // "coach_workspace" | "athlete_workspace" | null (not yet resolved)
   var _athleteUIInitialized = false;  // tracks whether athlete screens have been populated
 
@@ -89,24 +92,33 @@
     });
   }
 
-  async function token() {
+  async function authSession(expectedUserId) {
     var c = sb();
     if (!c) return null;
     try {
       var r = await c.auth.getSession();
-      return (r && r.data && r.data.session && r.data.session.access_token) || null;
+      var session = r && r.data && r.data.session;
+      var userId = session && session.user && session.user.id;
+      if (!session || !session.access_token) return null;
+      if (expectedUserId && userId !== expectedUserId) return null;
+      return { accessToken: session.access_token, userId: userId || null };
     } catch (e) { return null; }
+  }
+
+  async function token() {
+    var session = await authSession();
+    return session && session.accessToken;
   }
 
   async function api(action, opts) {
     opts = opts || {};
-    var t = await token();
-    if (!t) return { ok: false, status: 401, body: { error: "No session" } };
+    var session = await authSession(opts.expectedUserId);
+    if (!session) return { ok: false, status: 401, body: { error: "No matching session" } };
     var url = "/api/providers?action=coaching_dashboard_" + encodeURIComponent(action);
     if (opts.query) Object.keys(opts.query).forEach(function (k) {
       url += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(opts.query[k]);
     });
-    var init = { method: opts.method || "GET", headers: { Authorization: "Bearer " + t } };
+    var init = { method: opts.method || "GET", headers: { Authorization: "Bearer " + session.accessToken } };
     if (opts.body) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(opts.body); }
     try {
       var res = await fetch(url, init);
@@ -371,11 +383,20 @@
    *
    * This reuses the EXISTING server-authorized response — no new endpoint.
    */
-  async function resolveMode() {
-    if (_resolving) return _appMode;
+  function isCurrentAuthContext(context, requestId) {
+    var routeCurrent = !window.AthlevoAuthRoute || window.AthlevoAuthRoute.isCurrent(context);
+    return routeCurrent && !!context &&
+      context.userId === _authUserId &&
+      context.generation === _authGeneration &&
+      (requestId === undefined || requestId === _modeRequest);
+  }
+
+  async function resolveMode(context) {
+    var requestId = ++_modeRequest;
     _resolving = true;
     try {
-      var res = await api("roster");
+      var res = await api("roster", { expectedUserId: context.userId });
+      if (!isCurrentAuthContext(context, requestId)) return "stale";
       if (res.status === 403) {
         _appMode = "athlete_mode";
         _role = (res.body && res.body.role) || "athlete";
@@ -404,6 +425,7 @@
       _resolving = false;
       return _appMode;
     } catch (e) {
+      if (!isCurrentAuthContext(context, requestId)) return "stale";
       _appMode = "unknown";
       _resolving = false;
       return _appMode;
@@ -509,24 +531,10 @@
 
   /* ═══════════════════════ WORKSPACE SWITCHER ═══════════════════════ */
 
-  /*
-   * Read the saved workspace preference. Falls back to coach_workspace
-   * for coach/admin, silently ignores stale coach_workspace for athletes.
-   */
-  function readWorkspacePref() {
-    try {
-      var v = localStorage.getItem(WORKSPACE_KEY);
-      if (v === "coach_workspace" || v === "athlete_workspace") return v;
-    } catch (e) {}
-    return null;
-  }
-
-  function writeWorkspacePref(ws) {
-    try { localStorage.setItem(WORKSPACE_KEY, ws); } catch (e) {}
-  }
-
-  function clearWorkspacePref() {
-    try { localStorage.removeItem(WORKSPACE_KEY); } catch (e) {}
+  /* Workspace choice is deliberately session-only. Remove the legacy global
+   * preference so no account or cold launch can passively enter Coach Mode. */
+  function clearLegacyWorkspacePref() {
+    try { localStorage.removeItem(LEGACY_WORKSPACE_KEY); } catch (e) {}
   }
 
   function roleCanUseCoachWorkspace(role) {
@@ -543,8 +551,9 @@
   }
 
   function clearWorkspaceOnLogout() {
+    _modeRequest += 1;
     closeInviteDialog(false, true);
-    clearWorkspacePref();
+    clearLegacyWorkspacePref();
     suppressAthleteReadiness();
     _appMode = "unknown";
     _role = null;
@@ -580,6 +589,8 @@
     _athleteUIInitialized = false;
     _initialized = false;
     _resolving = false;
+    _authUserId = null;
+    _authGeneration = 0;
     document.body.classList.remove("coach-workspace-active", "coach-loading");
     var athleteSwitcher = document.getElementById("cmAthleteSwitcher");
     if (athleteSwitcher && athleteSwitcher.parentNode) athleteSwitcher.parentNode.removeChild(athleteSwitcher);
@@ -587,7 +598,7 @@
     restoreAthleteNavigation();
     COACH_SCREENS.forEach(function (id) {
       var el = document.getElementById(id);
-      if (el) el.style.display = "none";
+      if (el && el.parentNode) el.parentNode.removeChild(el);
     });
   }
 
@@ -600,7 +611,7 @@
   }
 
   function enforceAthleteWorkspaceFallback() {
-    if (readWorkspacePref() === "coach_workspace") clearWorkspacePref();
+    clearLegacyWorkspacePref();
     _workspace = "athlete_workspace";
     document.body.classList.remove("coach-workspace-active", "coach-loading");
     var athleteSwitcher = document.getElementById("cmAthleteSwitcher");
@@ -613,22 +624,11 @@
     });
   }
 
-  /*
-   * Resolve which workspace to show. Only coach/admin users may access
-   * coach_workspace. If a stale pref says coach but the user is no longer
-   * coach/admin, fall back to athlete_workspace.
-   */
+  /* Passive initialization always enters Athlete Workspace. Coach Workspace
+   * can be entered only by an explicit, authorized current-session action. */
   function resolveWorkspace() {
-    var isCoach = canAccessCoachWorkspace();
-    if (!isCoach) {
-      // Safety: clear any stale coach pref
-      if (readWorkspacePref() === "coach_workspace") clearWorkspacePref();
-      return "athlete_workspace";
-    }
-    var pref = readWorkspacePref();
-    if (pref) return pref;
-    // Default coach/admin to coach_workspace on first use
-    return "coach_workspace";
+    clearLegacyWorkspacePref();
+    return "athlete_workspace";
   }
 
   /*
@@ -646,7 +646,6 @@
     if (_workspace === "coach_workspace") return;
     var fromWs = _workspace;
     _workspace = "coach_workspace";
-    writeWorkspacePref("coach_workspace");
 
     // Hide athlete screens that Coach Mode replaces
     var athleteOnly = ["screen-coachai", "screen-train", "screen-trends", "screen-you"];
@@ -695,7 +694,6 @@
     if (_workspace === "athlete_workspace") return;
     var fromWs = _workspace;
     _workspace = "athlete_workspace";
-    writeWorkspacePref("athlete_workspace");
 
     // Hide coach-only screens
     COACH_SCREENS.forEach(function (id) {
@@ -2631,10 +2629,14 @@
   /* ═══════════════════════ REFRESH ═════════════════════════════════ */
 
   async function refreshRoster() {
+    var context = { userId: _authUserId, generation: _authGeneration };
+    var requestId = _modeRequest;
+    if (!isCurrentAuthContext(context, requestId) || !canAccessCoachWorkspace()) return;
     _rosterLoading = true;
     _rosterError = null;
     renderCoachToday();
-    var res = await api("roster");
+    var res = await api("roster", { expectedUserId: context.userId });
+    if (!isCurrentAuthContext(context, requestId)) return;
     _rosterLoading = false;
     if (!res.ok) {
       _rosterError = "Could not refresh roster.";
@@ -2644,46 +2646,38 @@
     _roster = (res.body && res.body.athletes) || [];
     _role = (res.body && res.body.role) || _role;
     await loadInvites(false);
+    if (!isCurrentAuthContext(context, requestId)) return;
     renderCoachToday();
   }
 
   /* ═══════════════════════ INITIALIZATION ══════════════════════════ */
 
-  /*
-   * Replace the first-frame athlete shell only after routeAfterAuth has
-   * confirmed an authenticated coach/admin profile. This is visual routing
-   * only: the server-authoritative roster request in resolveMode() still
-   * decides whether Coach Workspace can actually activate.
-   */
-  function prepareDashboardLoading(profile) {
-    var isCoachProfile = profile && (profile.role === "coach" || profile.role === "admin");
-    var gate = document.getElementById("boot-gate");
-    var content = gate && gate.querySelector(".boot-content");
-    if (!isCoachProfile || readWorkspacePref() === "athlete_workspace" ||
-        !document.body.classList.contains("booting") || !content) return false;
-
-    ensureCoachCommandStyles();
-
-    // Rewrite and synchronize the one shared tabbar before installing the
-    // coach loading content. body.booting keeps this real navigation visible
-    // above the boot gate; no loading-only navigation is created.
-    rewriteNavigation();
-    if (window.AthlevoAppMotion && typeof window.AthlevoAppMotion.syncIndicator === "function") {
-      window.AthlevoAppMotion.syncIndicator(false);
-    }
-
-    document.body.classList.add("coach-loading");
-    gate.setAttribute("aria-label", "Loading Coach Dashboard");
-    content.innerHTML = renderCoachSkeleton();
-
-    return true;
+  /* Passive boot never paints Coach UI. Kept as a compatibility no-op for
+   * callers while older cached shells roll forward. */
+  function prepareDashboardLoading() {
+    return false;
   }
 
-  async function init() {
+  async function init(routeContext) {
+    if (!routeContext && window.AthlevoAuthRoute) {
+      routeContext = window.AthlevoAuthRoute.current();
+    }
+    if (!routeContext || !routeContext.userId || !routeContext.generation) {
+      clearWorkspaceOnLogout();
+      enforceAthleteWorkspaceFallback();
+      return;
+    }
+
+    if (_authUserId !== routeContext.userId || _authGeneration !== routeContext.generation) {
+      clearWorkspaceOnLogout();
+      _authUserId = routeContext.userId;
+      _authGeneration = routeContext.generation;
+    }
     if (_initialized) return;
     _initialized = true;
 
-    var mode = await resolveMode();
+    var mode = await resolveMode(routeContext);
+    if (!isCurrentAuthContext(routeContext)) return;
     trackCoach("coach_mode_resolved", { coach_mode: mode });
 
     if (mode !== "coach_mode") {
@@ -2698,63 +2692,20 @@
       var c = sb();
       if (c) {
         var u = await c.auth.getUser();
+        if (!isCurrentAuthContext(routeContext)) return;
         var uid = u && u.data && u.data.user && u.data.user.id;
-        if (uid) {
+        if (uid === routeContext.userId) {
           var q = await c.from("profiles").select("full_name").eq("id", uid).maybeSingle();
+          if (!isCurrentAuthContext(routeContext)) return;
           _coachName = (q && q.data && q.data.full_name) || null;
         }
       }
     } catch (e) {}
 
-    // Resolve workspace preference
-    var ws = resolveWorkspace();
-
-    if (ws === "athlete_workspace") {
-      // Coach/admin chose athlete workspace — skip coach UI, let athlete
-      // init run in index.html (isCoachMode() returns true but
-      // isAthleteWorkspace() tells the caller to continue athlete flow)
-      _workspace = "athlete_workspace";
-      writeWorkspacePref("athlete_workspace");
-      // prepareDashboardLoading may have rewritten the tabbar to coach
-      // tabs — restore athlete navigation before handing off.
-      restoreAthleteNavigation();
-      return;
-    }
-
-    // Enter Coach Workspace (default for coach/admin)
-    _workspace = "coach_workspace";
-    writeWorkspacePref("coach_workspace");
-    suppressAthleteReadiness();
-
-    ensureCoachScreens();
-    rewriteNavigation();
-
-    // Hide all athlete screens, show Coach Today inside the existing
-    // #screen-today element (same position in the .device flex layout).
-    var hasImmediateMotion = window.AthlevoAppMotion && typeof window.AthlevoAppMotion.showImmediately === "function";
-    var todayEl = hasImmediateMotion
-      ? window.AthlevoAppMotion.showImmediately("screen-today")
-      : document.getElementById("screen-today");
-    if (!hasImmediateMotion) {
-      document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
-      if (todayEl) todayEl.classList.add("active");
-    }
-
-    // Hide athlete-only screens so they don't appear in coach workspace
-    var athleteOnly = ["screen-coachai", "screen-train", "screen-trends", "screen-you"];
-    athleteOnly.forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el) el.style.display = "none";
-    });
-
-    renderCoachToday();
-    loadInvites(true);
-
-    trackCoach("coach_today_viewed", {
-      coach_mode: "coach_mode",
-      source_surface: "coach_init",
-      roster_size_band: rosterBand(_roster.length)
-    });
+    // Authorization enables the explicit switcher, but passive routing always
+    // starts in Athlete Workspace. Coach UI is mounted only after a user action.
+    _workspace = resolveWorkspace();
+    restoreAthleteNavigation();
   }
 
   /* ═══════════════════════ PUBLIC API ══════════════════════════════ */
@@ -2774,8 +2725,8 @@
     clearWorkspaceOnLogout: clearWorkspaceOnLogout,
     injectAthleteYouSwitcher: injectAthleteYouSwitcher,
     _roster: function () { return _roster; },
-    _state: function () { return { mode: _appMode, role: _role, coachName: _coachName, rosterSize: _roster.length, workspace: _workspace }; },
-    COACH_MODE_VERSION: "coach-mode-v2"
+    _state: function () { return { mode: _appMode, role: _role, coachName: _coachName, rosterSize: _roster.length, workspace: _workspace, authUserId: _authUserId, authGeneration: _authGeneration }; },
+    COACH_MODE_VERSION: "coach-mode-v3"
   };
 
   if (typeof window.addEventListener === "function") {

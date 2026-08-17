@@ -59,8 +59,7 @@ test("unauthorized entry resolves cleanly to athlete Today",
   activate.includes("enforceAthleteWorkspaceFallback()") && activate.includes('window.showScreen("screen-today")'));
 const fallback = between(coachMode, "function enforceAthleteWorkspaceFallback()", "function resolveWorkspace()");
 test("fallback clears stale coach preference and hides coach-only screens",
-  fallback.includes('readWorkspacePref() === "coach_workspace"') &&
-  fallback.includes("clearWorkspacePref()") && fallback.includes('el.style.display = "none"'));
+  fallback.includes("clearLegacyWorkspacePref()") && fallback.includes('el.style.display = "none"'));
 test("failed or athlete role resolution applies the same pre-paint fallback",
   /if \(mode !== "coach_mode"\)[\s\S]{0,220}enforceAthleteWorkspaceFallback\(\)/.test(coachMode));
 test("the public switch API points only to the guarded activation function",
@@ -79,7 +78,8 @@ test("legacy dashboard consumes the same server-confirmed Coach Mode authority",
 test("legacy 401/403 responses revoke access and silently redirect",
   /res\.status === 401 \|\| res\.status === 403[\s\S]{0,160}clearOnLogout\(\)[\s\S]{0,100}safeRedirect\(\)/.test(dashboard));
 test("an athlete deep link is removed without mounting the dashboard",
-  /state\.enabled = canAccessCoachDashboard\(\)[\s\S]{0,220}if \(!state\.enabled\)[\s\S]{0,120}safeRedirect\(\)/.test(dashboard));
+  dashboard.includes('if (location.hash === "#coach") safeRedirect();') &&
+  !/hashchange[\s\S]{0,120}openDashboard\(\)/.test(dashboard));
 
 console.log("\n──── Trusted backend authorization ────");
 test("normal and malformed roles remain denied by the shared server role model",
