@@ -310,9 +310,11 @@ section("Fitness/Fatigue and Training Load calculations");
 
 section("Graph-first UI and accessibility");
 {
+  const trendsId = html.indexOf('id="screen-trends"');
+  const trendsStart = html.lastIndexOf("<section", trendsId);
   const trendsMarkup = html.slice(
-    html.indexOf('<section class="screen" id="screen-trends">'),
-    html.indexOf("</section>", html.indexOf('<section class="screen" id="screen-trends">')) +
+    trendsStart,
+    html.indexOf("</section>", trendsStart) +
       "</section>".length
   );
   const chartHost = () => ({

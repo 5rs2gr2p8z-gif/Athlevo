@@ -626,7 +626,10 @@
       </div>`;
   }
 
-  function renderEntitlementLoading() {
+  function renderEntitlementLoading(initialLoading) {
+    // After first hydration, range/access refreshes stay localized and keep
+    // confirmed content visible while the next request is in flight.
+    if (!initialLoading) return;
     const state = document.getElementById("trendsState");
     const content = document.getElementById("trendsContent");
     const preview = document.getElementById("trendsPerformancePreview");
@@ -673,13 +676,23 @@
 
   async function refresh() {
     bind();
-    renderEntitlementLoading();
-    const access = root.AthlevoAccessGuard &&
-      typeof root.AthlevoAccessGuard.accessState === "function"
-      ? await root.AthlevoAccessGuard.accessState()
-      : "free";
+    const loading = root.AthlevoLoadingContinuity;
+    const initialLoading = Boolean(loading && loading.begin("trends"));
+    renderEntitlementLoading(initialLoading);
+    let access = "free";
+    try {
+      access = root.AthlevoAccessGuard &&
+        typeof root.AthlevoAccessGuard.accessState === "function"
+        ? await root.AthlevoAccessGuard.accessState()
+        : "free";
+    } catch (error) {
+      renderBlockingState("PROVIDER_UNAVAILABLE");
+      if (loading) loading.error("trends");
+      return null;
+    }
     if (access !== "paid_active") {
       renderPerformancePreview();
+      if (loading) loading.success("trends");
       return null;
     }
 
@@ -687,6 +700,7 @@
     if (!userId || !root.AthlevoBrain ||
         typeof root.AthlevoBrain.loadProviderTrends !== "function") {
       renderBlockingState("PROVIDER_UNAVAILABLE");
+      if (loading) loading.error("trends");
       return null;
     }
 
@@ -695,10 +709,12 @@
       if (!data || !Array.isArray(data.days)) throw new Error("Invalid trends response.");
       confirmedCache.set(`${userId}:${selectedRange}`, data);
       renderData(data, "");
+      if (loading) loading.success("trends");
       return data;
     } catch (error) {
       if (error && error.code === "PERFORMANCE_REQUIRED") {
         renderPerformancePreview();
+        if (loading) loading.success("trends");
         return null;
       }
       const cached = confirmedCache.get(`${userId}:${selectedRange}`);
@@ -707,9 +723,11 @@
           cached,
           "Could not refresh. Showing your last confirmed trends."
         );
+        if (loading) loading.success("trends");
         return cached;
       }
       renderBlockingState(error && error.code);
+      if (loading) loading.error("trends");
       return null;
     }
   }

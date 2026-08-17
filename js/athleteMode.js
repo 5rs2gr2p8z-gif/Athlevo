@@ -298,6 +298,22 @@
     });
   }
 
+  function markCoachSurfaceReady(target) {
+    var screen = coachScreen();
+    if (!screen) return;
+    var surfaces = target ? [target] : Array.prototype.filter.call(screen.children, function (child) {
+      return !child.hidden && !(child.classList && child.classList.contains("am-coach-mode-mount"));
+    });
+    surfaces.forEach(function (surface) { surface.classList.remove("am-coach-surface-enter"); });
+    var nextFrame = window.requestAnimationFrame || function (callback) { callback(); };
+    nextFrame(function () {
+      surfaces.forEach(function (surface) { surface.classList.add("am-coach-surface-enter"); });
+      setTimeout(function () {
+        surfaces.forEach(function (surface) { surface.classList.remove("am-coach-surface-enter"); });
+      }, 120);
+    });
+  }
+
   function renderUnknownCoachTab() {
     var screen = coachScreen();
     if (!screen) return;
@@ -306,14 +322,32 @@
     var mount = document.createElement("div");
     mount.className = "am-coach-mode-mount am-coach-resolving";
     mount.setAttribute("aria-live", "polite");
-    mount.innerHTML = '<div class="am-coach-resolving-mark" aria-hidden="true"></div>' +
-      '<p>Checking your coaching setup…</p>';
+    if (_lastError) {
+      mount.innerHTML = '<div class="am-coach-resolution-error" role="alert">' +
+        '<h2>Coach is temporarily unavailable</h2>' +
+        '<p>Athlevo couldn’t verify your coaching setup. Your coaching access remains protected.</p>' +
+        '<button type="button" data-am-coach-retry>Try again</button></div>';
+      var retryButton = mount.querySelector("[data-am-coach-retry]");
+      if (retryButton) retryButton.addEventListener("click", function () { retry(); });
+    } else {
+      mount.setAttribute("aria-label", "Loading Coach");
+      mount.innerHTML = '<div class="am-coach-resolving-head" aria-hidden="true">' +
+          '<span class="skel skel-circle"></span><span class="am-coach-resolving-copy">' +
+            '<i class="skel"></i><i class="skel"></i></span></div>' +
+        '<div class="am-coach-resolving-thread" aria-hidden="true">' +
+          '<div class="skel am-coach-context-skeleton"></div>' +
+          '<div class="skel am-coach-message-skeleton is-wide"></div>' +
+          '<div class="skel am-coach-message-skeleton is-athlete"></div>' +
+          '<div class="skel am-coach-message-skeleton"></div></div>' +
+        '<div class="skel am-coach-resolving-composer" aria-hidden="true"></div>';
+    }
     screen.appendChild(mount);
   }
 
   function restoreSelfGuidedCoachTab() {
     removeCoachModeMounts();
     setAiCoachVisible(true);
+    markCoachSurfaceReady();
   }
 
   function clearAiCoachDom() {
@@ -515,6 +549,7 @@
         '<p class="am-human-coach-status" id="amHumanCoachStatus" aria-live="polite"></p>' +
       '</form>';
     screen.appendChild(mount);
+    markCoachSurfaceReady(mount);
     var form = document.getElementById("amHumanCoachComposer");
     if (form) form.addEventListener("submit", function (event) {
       event.preventDefault();
@@ -660,6 +695,7 @@
     _transition = null;
     _confirmed = false;
     _thread = null;
+    _lastError = null;
     renderAssignedCoach();
     renderCoachTab();
     suppressAIControls();

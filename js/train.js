@@ -1,10 +1,17 @@
 async function loadWeeklyPlan() {
 
+    const loading = window.AthlevoLoadingContinuity;
+    const initialLoading = Boolean(loading && loading.begin("train"));
+
+    try {
+
     const {
         data: { session }
     } = await supabaseClient.auth.getSession();
 
     if (!session) {
+        if (initialLoading) renderTrainLoadError("Sign in to load your training week.");
+        if (loading) loading.error("train");
         return;
     }
 
@@ -17,6 +24,10 @@ async function loadWeeklyPlan() {
             }
         }
     );
+
+    if (!res.ok) {
+        throw new Error("Training week request failed.");
+    }
 
     const data = await res.json();
 
@@ -51,6 +62,25 @@ async function loadWeeklyPlan() {
         window.AthlevoAdaptivePlan.refresh();
     }
 
+    if (loading) loading.success("train");
+
+    } catch (error) {
+        if (initialLoading) {
+            renderTrainLoadError("Your training week could not be loaded. Try again in a moment.");
+        }
+        if (loading) loading.error("train");
+        throw error;
+    }
+
+}
+
+function renderTrainLoadError(message) {
+    const calendar = document.getElementById("trainCalendar");
+    const panel = document.getElementById("trainDayPanel");
+    if (calendar) {
+        calendar.innerHTML = `<div class="train-empty" role="alert"><h3>Training is temporarily unavailable.</h3><p>${message}</p></div>`;
+    }
+    if (panel) panel.innerHTML = "";
 }
 
 function renderNoPlan() {

@@ -1309,6 +1309,16 @@ body.athlevo-sheet-locked{overflow:hidden}
      iPhone home indicator (standalone PWA) never overlaps the navigation. */
   padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
+/* Android WebView repaints a live 18px backdrop blur while each nested
+   .screen performs native touch scrolling. Keep native scrolling intact and
+   use an opaque elevated material only in the Android container. */
+html.athlevo-native-android #tabbar{
+  background:var(--paper);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  border-top-color:var(--line);
+  box-shadow:0 -8px 24px rgba(20,20,22,.08)
+}
 /* ===== DAILY COACH BRIEFING ===== */
 
 .daily-brief-section {
@@ -1678,14 +1688,25 @@ body.athlevo-sheet-locked{overflow:hidden}
 .am-coach-mode-mount{flex:1 1 auto;min-height:0}
 .am-ai-surface-hidden{display:none!important}
 .am-coach-resolving{
-  display:grid;place-content:center;justify-items:center;gap:var(--s-3);
-  padding:var(--s-6);color:var(--text-muted);font-size:var(--fs-body-sm)
+  display:flex;flex-direction:column;padding:0;background:var(--paper);overflow:hidden
 }
-.am-coach-resolving-mark{
-  width:28px;height:28px;border:1px solid var(--line);border-top-color:var(--athlevo-red);
-  border-radius:50%;animation:amCoachResolve .8s linear infinite
-}
-@keyframes amCoachResolve{to{transform:rotate(360deg)}}
+.am-coach-resolving-head{display:flex;align-items:center;gap:12px;padding:14px 22px 12px;border-bottom:1px solid var(--line)}
+.am-coach-resolving-head .skel-circle{width:34px;height:34px;flex:0 0 auto}
+.am-coach-resolving-copy{flex:1;display:grid;gap:7px}
+.am-coach-resolving-copy .skel:first-child{width:122px;height:12px}
+.am-coach-resolving-copy .skel:last-child{width:78px;height:9px}
+.am-coach-resolving-thread{flex:1;min-height:0;padding:22px;display:flex;flex-direction:column;gap:12px}
+.am-coach-context-skeleton{height:72px;border-radius:var(--r-md);margin-bottom:auto}
+.am-coach-message-skeleton{height:44px;width:72%;border-radius:14px}
+.am-coach-message-skeleton.is-wide{width:88%}
+.am-coach-message-skeleton.is-athlete{width:62%;align-self:flex-end}
+.am-coach-resolving-composer{margin:0 22px 14px;height:48px;border-radius:var(--r-pill)}
+.am-coach-resolution-error{margin:auto 22px;padding:22px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--paper)}
+.am-coach-resolution-error h2{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;margin:0 0 7px}
+.am-coach-resolution-error p{color:var(--ink2);font-size:var(--fs-body-sm);line-height:var(--lh-body);margin:0 0 14px}
+.am-coach-resolution-error button{border:0;border-radius:var(--r-pill);background:var(--ink);color:#fff;padding:11px 17px;font:650 var(--fs-body-sm)/1 var(--sans)}
+.am-coach-surface-enter{animation:amCoachSurfaceIn 120ms var(--ease-standard) both}
+@keyframes amCoachSurfaceIn{from{opacity:0}to{opacity:1}}
 .am-human-coach{position:relative;display:flex;flex-direction:column;background:var(--paper)}
 .am-human-coach-head{
   flex:0 0 auto;display:flex;align-items:center;gap:var(--s-3);padding:14px 22px 12px;
@@ -2746,6 +2767,57 @@ body.landing-active #tabbar{display:none!important}
 .skel-line.sm{height:10px}.skel-line.md{height:16px}.skel-line.lg{height:20px}.skel-line.xl{height:32px}
 .skel-block{border-radius:8px}
 .skel-circle{border-radius:50%}
+
+/* First-hydration shells. Real content keeps its final layout underneath,
+   so the 120ms reveal cannot collapse space or move the scroll position. */
+.athlevo-hydration-surface{position:relative}
+.screen.athlevo-hydration-surface.tab-leaving,
+.screen.athlevo-hydration-surface.tab-entering{position:absolute}
+.athlevo-surface-skeleton{
+  display:none;position:absolute;inset:0;z-index:8;overflow:hidden;
+  box-sizing:border-box;background:var(--paper);padding:28px 22px 110px;
+  opacity:1;pointer-events:none
+}
+.athlevo-surface-loading>.athlevo-surface-skeleton,
+.athlevo-surface-revealing>.athlevo-surface-skeleton{display:block}
+.athlevo-surface-loading>:not(.athlevo-surface-skeleton){visibility:hidden}
+.athlevo-surface-revealing>.athlevo-surface-skeleton{
+  opacity:0;transition:opacity 120ms var(--ease-standard)
+}
+.asl-title{width:128px;height:34px;border-radius:8px;margin-bottom:8px}
+.asl-subtitle{width:min(56%,210px);height:11px;margin-bottom:22px}
+.asl-card{border:1px solid var(--line);border-radius:var(--r-lg);padding:15px;margin-bottom:12px;background:var(--paper)}
+.asl-row{display:flex;align-items:center;gap:12px}.asl-row+.asl-row{margin-top:12px}
+.asl-grow{flex:1;min-width:0}
+.asl-line{height:11px;margin:0 0 8px}.asl-line:last-child{margin-bottom:0}
+.asl-line.is-short{width:42%}.asl-line.is-medium{width:68%}.asl-line.is-wide{width:88%}
+.asl-circle{width:46px;height:46px;flex:0 0 auto}
+.asl-control{width:90px;height:32px;border-radius:var(--r-pill)}
+.asl-week{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:15px}
+.asl-day{height:48px;border-radius:12px}
+.asl-session{height:74px;border-radius:var(--r-md);margin-top:10px}
+.asl-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.asl-metric{height:68px;border-radius:var(--r-md)}
+.asl-chart{height:210px;border-radius:var(--r-lg);margin-bottom:12px;position:relative;overflow:hidden}
+.asl-chart:after{content:"";position:absolute;left:16px;right:16px;bottom:36px;height:1px;background:var(--skeleton-highlight);box-shadow:0 -46px var(--skeleton-highlight),0 -92px var(--skeleton-highlight)}
+.asl-profile{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+.asl-profile .asl-circle{width:64px;height:64px}
+.asl-section-label{width:92px;height:9px;margin:22px 0 10px}
+.asl-preference{height:66px;border-radius:var(--r-md);margin-bottom:8px}
+@keyframes athlevoSkeletonBreathe{from{opacity:.68}to{opacity:1}}
+html.athlevo-native-android .athlevo-surface-skeleton .skel,
+html.athlevo-native-android .am-coach-resolving .skel{
+  background:var(--skeleton-base);animation:athlevoSkeletonBreathe 1.8s ease-in-out infinite alternate
+}
+@media(max-width:390px){
+  .athlevo-surface-skeleton{padding-left:18px;padding-right:18px}
+  .asl-week{gap:5px}.asl-control{width:78px}.asl-metrics{gap:6px}
+}
+@media(prefers-reduced-motion:reduce){
+  .athlevo-surface-revealing>.athlevo-surface-skeleton{display:none;transition:none}
+  html.athlevo-native-android .athlevo-surface-skeleton .skel,
+  html.athlevo-native-android .am-coach-resolving .skel{animation:none}
+}
 
 /* ─── Skeleton overlay architecture ───
    Without JS, .lp-skel stays display:none and all content is visible.
@@ -4301,7 +4373,24 @@ body.landing-active #tabbar{display:none!important}
 </section>
 
 <!-- ══════════════ TRAIN ══════════════ -->
-<section class="screen" id="screen-train">
+<section class="screen athlevo-hydration-surface athlevo-surface-loading" id="screen-train" aria-busy="true">
+
+  <div class="athlevo-surface-skeleton" data-loading-surface="train" role="status" aria-label="Loading Training">
+    <div class="skel asl-title"></div>
+    <div class="asl-card">
+      <div class="asl-row"><div class="skel asl-line is-medium asl-grow"></div><div class="skel asl-control"></div></div>
+      <div class="asl-week">
+        <div class="skel asl-day"></div><div class="skel asl-day"></div><div class="skel asl-day"></div>
+        <div class="skel asl-day"></div><div class="skel asl-day"></div><div class="skel asl-day"></div><div class="skel asl-day"></div>
+      </div>
+    </div>
+    <div class="skel asl-subtitle asl-training-context"></div>
+    <div class="skel asl-session asl-workout"></div>
+    <div class="skel asl-session asl-workout"></div>
+    <div class="asl-card asl-training-summary">
+      <div class="skel asl-line is-medium"></div><div class="skel asl-line is-wide"></div>
+    </div>
+  </div>
 
    <div class="greet tc-greet">
     <h1 class="serif">Training</h1>
@@ -4547,7 +4636,17 @@ body.landing-active #tabbar{display:none!important}
 </div>
 
 <!-- ══════════════ TRENDS ══════════════ -->
-<section class="screen" id="screen-trends">
+<section class="screen athlevo-hydration-surface athlevo-surface-loading" id="screen-trends" aria-busy="true">
+
+  <div class="athlevo-surface-skeleton" data-loading-surface="trends" role="status" aria-label="Loading Trends">
+    <div class="asl-row" style="align-items:flex-start">
+      <div class="asl-grow"><div class="skel asl-title"></div><div class="skel asl-subtitle"></div></div>
+      <div class="skel asl-control"></div>
+    </div>
+    <div class="asl-metrics"><div class="skel asl-metric"></div><div class="skel asl-metric"></div><div class="skel asl-metric"></div></div>
+    <div class="skel asl-chart" data-skeleton-region="chart"></div>
+    <div class="asl-card" data-skeleton-region="status"><div class="skel asl-line is-medium"></div><div class="skel asl-line is-wide"></div><div class="skel asl-line is-medium"></div></div>
+  </div>
 
   <div class="greet">
     <div class="trends-head-row">
@@ -4701,7 +4800,15 @@ body.landing-active #tabbar{display:none!important}
 </section>
 
 <!-- ══════════════ YOU ══════════════ -->
-<section class="screen" id="screen-you">
+<section class="screen athlevo-hydration-surface athlevo-surface-loading" id="screen-you" aria-busy="true">
+  <div class="athlevo-surface-skeleton" data-loading-surface="you" role="status" aria-label="Loading Profile">
+    <div class="asl-profile"><div class="skel skel-circle asl-circle"></div><div class="asl-grow"><div class="skel asl-line is-medium"></div><div class="skel asl-line is-wide"></div></div></div>
+    <div class="asl-card asl-training-data"><div class="skel asl-line is-short"></div><div class="skel asl-line is-wide"></div><div class="skel asl-line is-medium"></div></div>
+    <div class="skel asl-section-label asl-preferences-label"></div>
+    <div class="skel asl-preference"></div><div class="skel asl-preference"></div>
+    <div class="skel asl-section-label asl-support-label"></div>
+    <div class="skel asl-preference asl-support-row"></div><div class="skel asl-preference asl-support-row"></div>
+  </div>
   <div class="profilehead">
   <div class="pfp serif" id="profileInitial">A</div>
 
@@ -8280,7 +8387,8 @@ setTimeout(function () {
 <script src="js/authSupport.js?v=73"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
-<script src="js/brain.js?v=78"></script>
+<script src="js/loadingContinuity.js?v=81"></script>
+<script src="js/brain.js?v=81"></script>
 <script src="js/weather.js?v=78"></script>
 <script src="js/syncStatus.js?v=67"></script>
 <script src="js/performance.js?v=67"></script>
@@ -8300,7 +8408,7 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js?v=67"></script>
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
-<script src="js/trendsAnalytics.js?v=70"></script>
+<script src="js/trendsAnalytics.js?v=81"></script>
 <script src="js/socialAuth.js?v=72"></script>
 <script src="js/analyticsRegistry.js?v=73"></script>
 <script src="js/metaPixel.js?v=68"></script>
@@ -8325,12 +8433,12 @@ setTimeout(function () {
 <script src="js/renderCoachResponse.js?v=68"></script>
 <script src="js/coach.js?v=78"></script>
 <script src="js/features.js?v=69"></script>
-<script src="js/train.js?v=79"></script>
+<script src="js/train.js?v=81"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=79"></script>
 <script src="js/coachInvites.js?v=1"></script>
-<script src="js/athleteMode.js?v=79"></script>
+<script src="js/athleteMode.js?v=81"></script>
 <script src="js/coachDashboard.js?v=76"></script>
 <script src="js/coachMode.js?v=19"></script>
 <script src="js/adaptivePlan.js?v=79"></script>

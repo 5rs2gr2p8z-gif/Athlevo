@@ -24,7 +24,7 @@ test("AI DOM remains mounted and is hidden instead of replaced", /setAiCoachVisi
 test("confirmed self-guided mode restores AI Coach and removes any human thread", /function restoreSelfGuidedCoachTab\(\)[\s\S]*removeCoachModeMounts\(\)[\s\S]*setAiCoachVisible\(true\)/.test(athleteMode));
 test("confirmed human-coached mode hides AI Coach before mounting the human thread", /setAiCoachVisible\(false\)[\s\S]*am-coach-mode-mount am-human-coach/.test(athleteMode));
 test("human mode hides AI starter prompts and proposals with the complete AI surface", /screen\.children[\s\S]*am-ai-surface-hidden/.test(athleteMode) && /applyCoachAction[\s\S]*AthlevoAthleteMode\.isManaged/.test(coach));
-test("unknown mode renders neutral loading before authority resolves", /renderUnknownCoachTab/.test(athleteMode) && /Checking your coaching setup/.test(athleteMode));
+test("unknown mode renders a neutral structured Coach shell before authority resolves", /renderUnknownCoachTab/.test(athleteMode) && /am-coach-resolving-head/.test(athleteMode) && /am-coach-context-skeleton/.test(athleteMode) && !/Checking your coaching setup/.test(athleteMode));
 test("Coach tab revalidates stale assignment state", /MODE_STALE_MS/.test(athleteMode) && /onCoachTabEnter/.test(index));
 test("logout invalidates in-flight mode/thread work and clears stale AI DOM", /_requestGeneration \+= 1/.test(athleteMode) && /clearAiCoachDom\(\)/.test(athleteMode));
 test("paused or ended transition restores self-guided Daily Brief", /previousMode === "human_coached"[\s\S]*_mode === "self_guided"[\s\S]*AthlevoDailyBrief\.load/.test(athleteMode));

@@ -902,6 +902,11 @@ function resetAthleteUI() {
   }
 }
 
+function renderAthleteProfileLoadError() {
+  const summary = document.getElementById("profileSummary");
+  if (summary) summary.textContent = "Profile temporarily unavailable. Try again in a moment.";
+}
+
 function updateTodayActivityData(summary) {
   const setText = (id, value) => {
     const element = document.getElementById(id);
@@ -1424,6 +1429,8 @@ function updateTrendsActivityData(
 }
 
 async function refreshAthleteUI() {
+  const loading = window.AthlevoLoadingContinuity;
+  if (loading) loading.begin("you");
   resetAthleteUI();
 
   try {
@@ -1431,11 +1438,14 @@ async function refreshAthleteUI() {
 
     if (!profile) {
       console.log("No profile exists for the current athlete.");
+      renderAthleteProfileLoadError();
+      if (loading) loading.error("you");
       return null;
     }
 
     updateTodayDashboard(profile);
     updateAthleteProfileScreens(profile);
+    if (loading) loading.success("you");
 
     // Weather fills asynchronously and must never delay Today, activity data,
     // readiness, or plan rendering. The saved location is a cache hint only;
@@ -1535,6 +1545,8 @@ async function refreshAthleteUI() {
   } catch (error) {
     console.error("Could not update athlete UI:", error);
     resetAthleteUI();
+    renderAthleteProfileLoadError();
+    if (loading) loading.error("you");
     return null;
   }
 }
