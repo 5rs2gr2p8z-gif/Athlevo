@@ -91,7 +91,7 @@ test("note composer stays compact until focused",
 console.log("\n──── Product and security boundaries ────");
 test("Coach workflow polish does not add a new API or database route",
   !/workflow|directory/.test(source.slice(source.indexOf('async function api'), source.indexOf('function fmtVal'))) &&
-  /js\/coachMode\.js\?v=18/.test(index));
+  /js\/coachMode\.js\?v=19/.test(index));
 test("workout writes remain athlete scoped and use the existing route",
   /api\("workout", \{ method: session \? "PATCH" : "POST", body: \{ athlete_id: _athleteDetailId/.test(workoutSave));
 

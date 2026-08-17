@@ -4762,10 +4762,10 @@ body.landing-active #tabbar{display:none!important}
   <div class="spacer-md"></div>
 
   <!-- ── Workspace ── -->
-  <div id="youWorkspaceSection">
+  <div id="youWorkspaceSection" hidden>
     <!-- Coach/admin: workspace switcher + dashboard injected here by coachMode.js -->
   </div>
-  <div class="spacer-md"></div>
+  <div class="spacer-md" id="youWorkspaceSpacer" hidden></div>
 
   <!-- ── Preferences ── -->
   <div class="pad"><div class="section-title">Preferences</div></div>
@@ -5695,6 +5695,9 @@ async function doLogout() {
   // not inherit a stale coach workspace selection.
   if (window.AthlevoCoachMode && window.AthlevoCoachMode.clearWorkspaceOnLogout) {
     try { window.AthlevoCoachMode.clearWorkspaceOnLogout(); } catch (e) {}
+  }
+  if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.clearOnLogout) {
+    try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
   }
   if (window.AthlevoAthleteMode && window.AthlevoAthleteMode.clearOnLogout) {
     try { window.AthlevoAthleteMode.clearOnLogout(); } catch (e) {}
@@ -8328,8 +8331,8 @@ setTimeout(function () {
 <script src="js/trainCalendar.js?v=79"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=79"></script>
-<script src="js/coachDashboard.js?v=75"></script>
-<script src="js/coachMode.js?v=18"></script>
+<script src="js/coachDashboard.js?v=76"></script>
+<script src="js/coachMode.js?v=19"></script>
 <script src="js/adaptivePlan.js?v=79"></script>
 <script src="js/accessGuard.js?v=79"></script>
 <script src="js/planSetup.js?v=69"></script>
@@ -8338,7 +8341,7 @@ setTimeout(function () {
 <script src="js/morningCheckIn.js?v=71"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=67"></script>
-<script src="js/onboarding.js?v=69"></script>
+<script src="js/onboarding.js?v=70"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

@@ -37,11 +37,17 @@ describe("Role-choice screen", () => {
     );
   });
 
-  it("shows 'What brings you to Athlevo?' as the title", () => {
+  it("keeps the athlete-or-coach question explicit", () => {
     assert.ok(
-      onboardingSource.includes("What brings you to Athlevo?"),
+      onboardingSource.includes("Are you an athlete or a coach?"),
       "Role-choice title must be present"
     );
+  });
+
+  it("marks the public Coach option as intentionally unavailable", () => {
+    assert.ok(onboardingSource.includes("const COACH_PUBLIC_ACCESS_ENABLED = false"));
+    assert.ok(onboardingSource.includes("Coming soon"));
+    assert.ok(onboardingSource.includes('aria-disabled="${coachLocked ? "true" : "false"}"'));
   });
 
   it("stores intent in sessionStorage (not localStorage)", () => {
@@ -95,11 +101,16 @@ describe("Role-choice screen", () => {
     );
   });
 
-  it("coach card calls obStartCoachFlow", () => {
-    assert.ok(
-      onboardingSource.includes("obStartCoachFlow()"),
-      "Coach card must call obStartCoachFlow"
-    );
+  it("public Coach taps stop before intent or application flow", () => {
+    const start = onboardingSource.indexOf('body.querySelector("#obRoleCoach")');
+    const end = onboardingSource.indexOf("/* ─── Restore progress", start);
+    const handler = onboardingSource.slice(start, end);
+    const gate = handler.indexOf("if (!obCoachPublicAccessEnabled())");
+    const stop = handler.indexOf("return;", gate);
+    assert.ok(gate >= 0 && stop > gate);
+    assert.ok(handler.indexOf('obWriteIntent("coach")') > stop);
+    assert.ok(handler.indexOf("obStartCoachFlow()") > stop);
+    assert.ok(handler.includes("Coach tools are coming soon."));
   });
 });
 
@@ -320,16 +331,16 @@ describe("Coach Workspace access — authorization boundary", () => {
   });
 
   it("pending application + localStorage manipulation cannot unlock Coach Workspace", () => {
-    // The workspace switcher is gated by _role check, not by localStorage alone
+    // The workspace switcher is gated by server-resolved mode + role, not by
+    // localStorage alone.
     assert.ok(
-      coachModeSource.includes('_role === "coach"') ||
-      coachModeSource.includes('_role === "admin"'),
+      coachModeSource.includes("function canEnterCoachWorkspace()") &&
+      coachModeSource.includes("roleCanUseCoachWorkspace(_role)"),
       "Workspace activation must check server-resolved _role"
     );
-    // injectAthleteYouSwitcher guards on role
+    // injectAthleteYouSwitcher uses the same centralized guard.
     assert.ok(
-      coachModeSource.includes('_role !== "coach"') &&
-      coachModeSource.includes('_role !== "admin"'),
+      coachModeSource.includes("if (!canEnterCoachWorkspace())"),
       "Switcher injection must guard on role"
     );
   });
@@ -694,11 +705,12 @@ describe("Coach/admin onboarding bypass", () => {
     );
   });
 
-  it("saved intent 'coach' resumes coach flow", () => {
+  it("saved coach intent cannot resume while public access is locked", () => {
     assert.ok(
-      onboardingSource.match(/savedIntent\s*===\s*"coach"[\s\S]{0,200}obStartCoachFlow/),
-      "Saved coach intent must resume coach flow"
+      onboardingSource.match(/savedIntent\s*===\s*"coach"\s*&&\s*obCoachPublicAccessEnabled\(\)[\s\S]{0,200}obStartCoachFlow/),
+      "Saved coach intent must be availability-gated"
     );
+    assert.ok(onboardingSource.includes('if (savedIntent === "coach") obClearIntent();'));
   });
 
   it("saved intent 'athlete' resumes athlete flow", () => {

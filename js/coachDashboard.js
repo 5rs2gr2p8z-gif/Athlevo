@@ -23,6 +23,12 @@
 
   var ROOT_ID = "screen-coach";
   var state = { role: null, enabled: false, athletes: [], search: "", loading: false, error: null };
+  var accessConfirmed = false;
+  var hashListenerBound = false;
+
+  function roleCanUseCoachDashboard(role) {
+    return role === "coach" || role === "admin";
+  }
 
   function sb() { return typeof supabaseClient !== "undefined" ? supabaseClient : null; }
   function analytics() { return window.AthlevoAnalytics || null; }
@@ -79,7 +85,10 @@
 
   function ensureRoot() {
     var el = document.getElementById(ROOT_ID);
-    if (el) return el;
+    if (el) {
+      el.style.display = "";
+      return el;
+    }
     el = document.createElement("section");
     el.id = ROOT_ID;
     el.className = "screen";
@@ -327,8 +336,11 @@
     state.loading = true; state.error = null; renderRoster();
     var res = await api("roster");
     state.loading = false;
-    if (res.status === 401) { state.error = "Your coach session has expired. Please sign in again."; renderRoster(); return; }
-    if (res.status === 403) { state.error = "Coach access is required."; renderRoster(); return; }
+    if (res.status === 401 || res.status === 403) {
+      clearOnLogout();
+      safeRedirect();
+      return;
+    }
     if (!res.ok) { state.error = "The dashboard could not load. Please try again."; renderRoster(); return; }
     state.athletes = (res.body && res.body.athletes) || [];
     state.role = (res.body && res.body.role) || state.role;
@@ -340,20 +352,24 @@
   }
 
   function openDashboard() {
-    if (!state.enabled) { safeRedirect(); return; }
+    if (!accessConfirmed || !state.enabled || !roleCanUseCoachDashboard(state.role)) {
+      safeRedirect();
+      return false;
+    }
     // The Coach Workspace owns the current command-center experience. Reuse it
     // instead of mounting the legacy roster-only screen as a second dashboard.
     if (window.AthlevoCoachMode && window.AthlevoCoachMode.isCoachMode &&
         window.AthlevoCoachMode.isCoachMode() && window.AthlevoCoachMode.switchToCoachWorkspace) {
       window.AthlevoCoachMode.switchToCoachWorkspace();
       if (location.hash !== "#coach") location.hash = "#coach";
-      return;
+      return true;
     }
     ensureRoot();
     if (typeof window.showScreen === "function") window.showScreen(ROOT_ID);
     else { document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); }); document.getElementById(ROOT_ID).classList.add("active"); }
     if (location.hash !== "#coach") location.hash = "#coach";
     loadAndRender(true);
+    return true;
   }
 
   function closeDashboard() {
@@ -381,15 +397,41 @@
     host.insertBefore(btn, host.firstChild);
   }
 
+  function clearOnLogout() {
+    accessConfirmed = false;
+    state.role = null;
+    state.enabled = false;
+    state.athletes = [];
+    state.search = "";
+    state.loading = false;
+    state.error = null;
+    var entry = document.getElementById("cdEntryBtn");
+    if (entry && entry.parentNode) entry.parentNode.removeChild(entry);
+    var root = document.getElementById(ROOT_ID);
+    if (root) {
+      root.classList.remove("active");
+      root.style.display = "none";
+    }
+    closeDrawer();
+  }
+
   async function init() {
+    clearOnLogout();
     var role = await myRole();
     state.role = role;
-    state.enabled = role === "coach" || role === "admin";
-    if (!state.enabled) return; // Athletes: nothing is injected, no entry, no route.
+    state.enabled = roleCanUseCoachDashboard(role);
+    accessConfirmed = state.enabled;
+    if (!state.enabled) {
+      if (location.hash === "#coach") safeRedirect();
+      return;
+    }
     injectEntry();
-    window.addEventListener("hashchange", function () {
-      if (location.hash === "#coach") openDashboard();
-    });
+    if (!hashListenerBound) {
+      hashListenerBound = true;
+      window.addEventListener("hashchange", function () {
+        if (location.hash === "#coach") openDashboard();
+      });
+    }
     if (location.hash === "#coach") openDashboard();
   }
 
@@ -397,6 +439,7 @@
     init: init,
     open: openDashboard,
     close: closeDashboard,
+    clearOnLogout: clearOnLogout,
     _loadAndRender: loadAndRender,
     _sortRoster: sortRoster,
     _state: state,

@@ -48,6 +48,18 @@ console.log("Athlevo Onboarding v2 loaded");
  */
 const OB_ROLE_KEY = "athlevo_onboarding_intent";
 
+/*
+ * Public-release availability gate. This controls only whether an ordinary
+ * user may start the coach-application onboarding path. It never grants
+ * Coach Workspace access; that remains tied to the server-owned profile role.
+ * Flip this single value when public coach applications are ready to reopen.
+ */
+const COACH_PUBLIC_ACCESS_ENABLED = false;
+
+function obCoachPublicAccessEnabled() {
+  return COACH_PUBLIC_ACCESS_ENABLED === true;
+}
+
 function obReadIntent() {
   try { return sessionStorage.getItem(OB_ROLE_KEY) || null; } catch (e) { return null; }
 }
@@ -1266,6 +1278,7 @@ function obTrackOnboardingEvent(eventName, props) {
 function obRenderRoleChoice() {
   const body = document.getElementById("ob2Body");
   if (!body) return;
+  const coachLocked = !obCoachPublicAccessEnabled();
 
   // Hide progress bar and footer during role choice
   const progress = document.getElementById("ob2Progress");
@@ -1275,7 +1288,7 @@ function obRenderRoleChoice() {
 
   body.innerHTML = `
     <div class="ob2-step" style="text-align:center">
-      <h2 class="ob2-title">What brings you to Athlevo?</h2>
+      <h2 class="ob2-title">Are you an athlete or a coach?</h2>
       <p class="ob2-sub">Choose how you'll use the app.</p>
       <div style="display:flex;flex-direction:column;gap:14px;margin-top:28px;max-width:340px;margin-left:auto;margin-right:auto">
         <button type="button" id="obRoleAthlete" class="ob2-role-card" style="
@@ -1285,19 +1298,22 @@ function obRenderRoleChoice() {
           transition:border-color .15s,box-shadow .15s;font-family:inherit">
           <span style="font-size:28px" aria-hidden="true">&#127939;</span>
           <span>
-            <span style="display:block;font-weight:700;font-size:16px;color:var(--ink5,#111)">I'm an athlete</span>
+            <span style="display:block;font-weight:700;font-size:16px;color:var(--ink5,#111)">Athlete</span>
             <span style="display:block;font-size:13px;color:var(--ink3,#666);margin-top:2px">Get a personalised training plan</span>
           </span>
         </button>
-        <button type="button" id="obRoleCoach" class="ob2-role-card" style="
+        <button type="button" id="obRoleCoach" class="ob2-role-card" aria-disabled="${coachLocked ? "true" : "false"}" style="
           display:flex;align-items:center;gap:14px;padding:20px 22px;
           border-radius:14px;border:2px solid var(--ink1,#e0e0e0);
-          background:var(--bg2,#fff);cursor:pointer;text-align:left;
+          background:var(--bg2,#fff);cursor:${coachLocked ? "default" : "pointer"};text-align:left;
           transition:border-color .15s,box-shadow .15s;font-family:inherit">
-          <span style="font-size:28px" aria-hidden="true">&#128203;</span>
-          <span>
-            <span style="display:block;font-weight:700;font-size:16px;color:var(--ink5,#111)">I'm a coach</span>
-            <span style="display:block;font-size:13px;color:var(--ink3,#666);margin-top:2px">Apply to manage athletes on Athlevo</span>
+          <span style="font-size:24px" aria-hidden="true">${coachLocked ? "&#128274;" : "&#128203;"}</span>
+          <span style="min-width:0;flex:1">
+            <span style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <span style="font-weight:700;font-size:16px;color:var(--ink5,#111)">Coach</span>
+              ${coachLocked ? '<span style="flex:0 0 auto;border:1px solid var(--ink1,#e0e0e0);border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--ink3,#666);text-transform:uppercase">Coming soon</span>' : ''}
+            </span>
+            <span style="display:block;font-size:13px;color:var(--ink3,#666);margin-top:3px">Manage athletes and coaching workflows</span>
           </span>
         </button>
       </div>
@@ -1317,6 +1333,12 @@ function obRenderRoleChoice() {
   });
 
   body.querySelector("#obRoleCoach").addEventListener("click", () => {
+    if (!obCoachPublicAccessEnabled()) {
+      obClearIntent();
+      if (typeof window.toast === "function") window.toast("Coach tools are coming soon.");
+      else obMessage("Coach tools are coming soon.");
+      return;
+    }
     obTrackOnboardingEvent("onboarding_role_selected", {
       selected_role: "coach", source_surface: "onboarding"
     });
@@ -1347,6 +1369,12 @@ function obStartAthleteFlow() {
 /* ─── Coach flow ─── */
 
 function obStartCoachFlow() {
+  if (!obCoachPublicAccessEnabled()) {
+    obClearIntent();
+    obRenderRoleChoice();
+    obMessage("Coach tools are coming soon.");
+    return false;
+  }
   _obCurrentFlow = "coach";
   obRestoreChrome();
   coachObStepIndex = 0;
@@ -1362,6 +1390,7 @@ function obStartCoachFlow() {
   });
 
   obRenderCoachStep();
+  return true;
 }
 
 function obRenderCoachStep() {
@@ -1809,11 +1838,13 @@ async function startAthlevoOnboarding() {
     // ── Check saved intent and resume the right flow ──
     const savedIntent = obReadIntent();
 
-    if (savedIntent === "coach") {
-      // Resume coach flow
+    if (savedIntent === "coach" && obCoachPublicAccessEnabled()) {
+      // Resume the coach application flow only when public access reopens.
       obStartCoachFlow();
       return;
     }
+
+    if (savedIntent === "coach") obClearIntent();
 
     if (savedIntent === "athlete") {
       // Resume athlete flow
@@ -1847,7 +1878,8 @@ window.startOnboarding = startAthlevoOnboarding;
 window.startAthlevoOnboarding = startAthlevoOnboarding;
 window.AthlevoOnboarding = { setUnits: obSetUnits, units: obUnits,
   normalizeDistance: obNormalizeDistance, convert: OB_CONVERT,
-  clearIntent: obClearIntent };
+  clearIntent: obClearIntent,
+  coachPublicAccessEnabled: obCoachPublicAccessEnabled };
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", setupOnboardingInterface);

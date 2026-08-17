@@ -529,6 +529,26 @@
     try { localStorage.removeItem(WORKSPACE_KEY); } catch (e) {}
   }
 
+  function roleCanUseCoachWorkspace(role) {
+    return role === "coach" || role === "admin";
+  }
+
+  /*
+   * The one client-side entry guard. _role and _appMode are populated only
+   * after the protected roster endpoint resolves, so local/session storage
+   * can choose a workspace preference but can never authorize one.
+   */
+  function canEnterCoachWorkspace() {
+    return _appMode === "coach_mode" && roleCanUseCoachWorkspace(_role);
+  }
+
+  function setAthleteYouWorkspaceVisible(visible) {
+    var section = document.getElementById("youWorkspaceSection");
+    var spacer = document.getElementById("youWorkspaceSpacer");
+    if (section) section.hidden = !visible;
+    if (spacer) spacer.hidden = !visible;
+  }
+
   function clearWorkspaceOnLogout() {
     closeInviteDialog(false, true);
     clearWorkspacePref();
@@ -570,6 +590,7 @@
     document.body.classList.remove("coach-workspace-active", "coach-loading");
     var athleteSwitcher = document.getElementById("cmAthleteSwitcher");
     if (athleteSwitcher && athleteSwitcher.parentNode) athleteSwitcher.parentNode.removeChild(athleteSwitcher);
+    setAthleteYouWorkspaceVisible(false);
     restoreAthleteToday();
     restoreAthleteNavigation();
     COACH_SCREENS.forEach(function (id) {
@@ -586,13 +607,28 @@
     try { window.closeReadinessCheck({ immediate: true }); } catch (e) {}
   }
 
+  function enforceAthleteWorkspaceFallback() {
+    if (readWorkspacePref() === "coach_workspace") clearWorkspacePref();
+    _workspace = "athlete_workspace";
+    document.body.classList.remove("coach-workspace-active", "coach-loading");
+    var athleteSwitcher = document.getElementById("cmAthleteSwitcher");
+    if (athleteSwitcher && athleteSwitcher.parentNode) athleteSwitcher.parentNode.removeChild(athleteSwitcher);
+    setAthleteYouWorkspaceVisible(false);
+    restoreAthleteToday();
+    restoreAthleteNavigation();
+    COACH_SCREENS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+  }
+
   /*
    * Resolve which workspace to show. Only coach/admin users may access
    * coach_workspace. If a stale pref says coach but the user is no longer
    * coach/admin, fall back to athlete_workspace.
    */
   function resolveWorkspace() {
-    var isCoach = _role === "coach" || _role === "admin";
+    var isCoach = canEnterCoachWorkspace();
     if (!isCoach) {
       // Safety: clear any stale coach pref
       if (readWorkspacePref() === "coach_workspace") clearWorkspacePref();
@@ -609,6 +645,11 @@
    * Idempotent: calling when already in coach_workspace is a no-op.
    */
   function activateCoachWorkspace() {
+    if (!canEnterCoachWorkspace()) {
+      enforceAthleteWorkspaceFallback();
+      if (typeof window.showScreen === "function") window.showScreen("screen-today");
+      return false;
+    }
     document.body.classList.add("coach-workspace-active");
     suppressAthleteReadiness();
     if (_workspace === "coach_workspace") return;
@@ -651,6 +692,7 @@
         source_surface: "workspace_switcher"
       });
     }
+    return true;
   }
 
   /*
@@ -722,8 +764,14 @@
   function injectAthleteYouSwitcher() {
     var youEl = document.getElementById("screen-you");
     if (!youEl) return;
+    if (!canEnterCoachWorkspace()) {
+      var stale = youEl.querySelector("#cmAthleteSwitcher");
+      if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+      setAthleteYouWorkspaceVisible(false);
+      return;
+    }
+    setAthleteYouWorkspaceVisible(true);
     if (youEl.querySelector("#cmAthleteSwitcher")) return; // already injected
-    if (_role !== "coach" && _role !== "admin") return;
 
     var section = document.getElementById("youWorkspaceSection");
     if (!section) return;
@@ -2649,9 +2697,9 @@
     trackCoach("coach_mode_resolved", { coach_mode: mode });
 
     if (mode !== "coach_mode") {
-      // Athlete or unknown — leave the app unchanged.
-      // prepareDashboardLoading may have set coach tabs; restore athlete nav.
-      restoreAthleteNavigation();
+      // Athlete or unknown — clear stale workspace state before any coach UI
+      // can paint. prepareDashboardLoading may also have set coach tabs.
+      enforceAthleteWorkspaceFallback();
       return;
     }
 
@@ -2726,8 +2774,8 @@
     prepareDashboardLoading: prepareDashboardLoading,
     go: coachGo,
     getMode: function () { return _appMode; },
-    isCoachMode: function () { return _appMode === "coach_mode"; },
-    isCoachWorkspace: function () { return _appMode === "coach_mode" && _workspace === "coach_workspace"; },
+    isCoachMode: function () { return canEnterCoachWorkspace(); },
+    isCoachWorkspace: function () { return canEnterCoachWorkspace() && _workspace === "coach_workspace"; },
     isAthleteWorkspace: function () { return _workspace === "athlete_workspace"; },
     getWorkspace: function () { return _workspace; },
     switchToCoachWorkspace: activateCoachWorkspace,
@@ -2741,7 +2789,7 @@
 
   if (typeof window.addEventListener === "function") {
     window.addEventListener("athlevo:native-back", function (event) {
-      if (event.defaultPrevented || _workspace !== "coach_workspace") return;
+      if (event.defaultPrevented || !canEnterCoachWorkspace() || _workspace !== "coach_workspace") return;
       var activeScreen = document.querySelector(".screen.active");
       var threadBack = activeScreen && activeScreen.querySelector(".cm-msg-thread-back");
       if (threadBack) {
