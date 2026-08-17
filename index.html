@@ -132,7 +132,7 @@
   }
 })();
 </script>
-<script src="js/runtimeEnvironment.js?v=73"></script>
+<script src="js/runtimeEnvironment.js?v=74"></script>
 <script>
 (function(){
   try{
@@ -5052,18 +5052,18 @@ body.landing-active #tabbar{display:none!important}
  (function() { var v = document.getElementById("appVersionDisplay"); if (v) v.textContent = "Version " + window.ATHLEVO_VERSION; })();
  const SUPABASE_URL = 'https://hqwdehqsllyvrcnlcytj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt';
-  const athlevoNativeIOS = Boolean(
-    window.AthlevoRuntime && window.AthlevoRuntime.isNativeIOS()
+  const athlevoNative = Boolean(
+    window.AthlevoRuntime && window.AthlevoRuntime.isNative()
   );
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
   persistSession: true,
   autoRefreshToken: true,
-  detectSessionInUrl: !athlevoNativeIOS,
-  flowType: athlevoNativeIOS ? 'pkce' : 'implicit',
+  detectSessionInUrl: !athlevoNative,
+  flowType: athlevoNative ? 'pkce' : 'implicit',
 }
 });
-  if (athlevoNativeIOS && window.AthlevoRuntime) {
+  if (athlevoNative && window.AthlevoRuntime) {
     window.AthlevoRuntime.initializeNative(supabaseClient);
   }
 
@@ -5907,7 +5907,7 @@ async function connectStrava() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify(
-        window.AthlevoRuntime && window.AthlevoRuntime.isNativeIOS()
+        window.AthlevoRuntime && window.AthlevoRuntime.isNative()
           ? { return_target: "ios" }
           : {}
       )
@@ -8280,7 +8280,7 @@ setTimeout(function () {
 <script src="js/trendsAnalytics.js?v=70"></script>
 <script src="js/socialAuth.js?v=72"></script>
 <script src="js/analyticsRegistry.js?v=73"></script>
-<script src="js/metaPixel.js?v=67"></script>
+<script src="js/metaPixel.js?v=68"></script>
 <script src="js/analytics.js?v=73"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=68"></script>

@@ -3,6 +3,9 @@
   "appName": "Athlevo",
   "webDir": "dist",
   "backgroundColor": "#eeeeec",
+  "android": {
+    "backgroundColor": "#eeeeec"
+  },
   "ios": {
     "contentInset": "automatic",
     "preferredContentMode": "mobile"

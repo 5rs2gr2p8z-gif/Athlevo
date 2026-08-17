@@ -79,6 +79,10 @@
     return isNative() && nativePlatform() === "ios";
   }
 
+  function isNativeAndroid() {
+    return isNative() && nativePlatform() === "android";
+  }
+
   function isInstalledPWA() {
     if (isNative()) return false;
     try {
@@ -101,6 +105,7 @@
 
   function browserKind() {
     if (isNativeIOS()) return "native-ios";
+    if (isNativeAndroid()) return "native-android";
     const ua = userAgent();
     if (/\bInstagram\b/i.test(ua)) return "instagram";
     if (/\bFBAN\b|\bFBAV\b|FB_IAB|\bFBIOS\b|Messenger/i.test(ua)) return "facebook";
@@ -122,7 +127,7 @@
   }
 
   function isAppMode() {
-    return isNativeIOS() || isInstalledPWA();
+    return isNative() || isInstalledPWA();
   }
 
   function shouldShowInstallUI() {
@@ -138,7 +143,7 @@
   }
 
   function authRedirectUrl() {
-    return isNativeIOS() ? AUTH_CALLBACK : null;
+    return isNative() ? AUTH_CALLBACK : null;
   }
 
   function normalizeInputUrl(value, base) {
@@ -193,7 +198,7 @@
   }
 
   function nativeApiUrl(value) {
-    if (!isNativeIOS()) return value;
+    if (!isNative()) return value;
     const raw = typeof value === "string"
       ? value
       : value && typeof value.url === "string"
@@ -233,10 +238,10 @@
     const style = doc.createElement("style");
     style.id = "athlevoNativeStateStyles";
     style.textContent =
-      ".athlevo-native-ios{--athlevo-native-top:env(safe-area-inset-top,0px)}" +
-      ".athlevo-native-ios [data-install-cta],.athlevo-native-ios #todayInstallCard," +
-      ".athlevo-native-ios #lpInstallNav,.athlevo-native-ios #youInstallRow{display:none!important}" +
-      ".athlevo-native-ios body{padding-top:0}" +
+      ".athlevo-native{--athlevo-native-top:env(safe-area-inset-top,0px)}" +
+      ".athlevo-native [data-install-cta],.athlevo-native #todayInstallCard," +
+      ".athlevo-native #lpInstallNav,.athlevo-native #youInstallRow{display:none!important}" +
+      ".athlevo-native body{padding-top:0}" +
       ".athlevo-native-keyboard #tabbar{visibility:hidden}" +
       "#athlevoNativeState{position:fixed;inset:0;z-index:10020;display:none;align-items:center;" +
       "justify-content:center;padding:calc(28px + env(safe-area-inset-top)) 24px " +
@@ -275,7 +280,7 @@
   }
 
   function showNativeState(kind) {
-    if (!isNativeIOS()) return;
+    if (!isNative()) return;
     const element = ensureStateElement();
     if (!element) return;
     const title = element.querySelector("#athlevoNativeStateTitle");
@@ -296,7 +301,7 @@
   }
 
   function installFetchBridge() {
-    if (!isNativeIOS() || originalFetch || typeof root.fetch !== "function") return;
+    if (!isNative() || originalFetch || typeof root.fetch !== "function") return;
     originalFetch = root.fetch.bind(root);
     root.fetch = async function athlevoNativeFetch(input, init) {
       let requestInput = input;
@@ -338,7 +343,7 @@
       toastSafe("That link cannot be opened safely.");
       return { ok: false, reason: route.reason };
     }
-    if (!isNativeIOS()) {
+    if (!isNative()) {
       root.open(route.url.toString(), "_blank", "noopener");
       return { ok: true, target: "browser" };
     }
@@ -360,7 +365,7 @@
   }
 
   async function startOAuth(value) {
-    if (isNativeIOS()) return openOAuth(value);
+    if (isNative()) return openOAuth(value);
     const route = classifyNavigation(value);
     if (route.kind === "blocked") {
       toastSafe("That connection could not be opened safely.");
@@ -546,7 +551,7 @@
   }
 
   async function handleCallback(value) {
-    if (!isNativeIOS() || typeof value !== "string" || seenCallbackUrls.has(value)) return false;
+    if (!isNative() || typeof value !== "string" || seenCallbackUrls.has(value)) return false;
     seenCallbackUrls.add(value);
     const parsed = parseCallback(value);
     if (!parsed.ok) {
@@ -619,7 +624,7 @@
   }
 
   function installAnchorGuard() {
-    if (!isNativeIOS() || !root.document) return;
+    if (!isNative() || !root.document) return;
     root.document.addEventListener("click", event => {
       const anchor = event.target && typeof event.target.closest === "function"
         ? event.target.closest("a[href]")
@@ -635,7 +640,7 @@
   }
 
   function setStatusBarAppearance() {
-    if (!isNativeIOS()) return;
+    if (!isNative()) return;
     const StatusBar = plugins().StatusBar;
     if (!StatusBar) return;
     const theme = root.document && root.document.documentElement &&
@@ -660,7 +665,7 @@
   }
 
   function watchAppearance() {
-    if (!isNativeIOS()) return;
+    if (!isNative()) return;
     try {
       if (root.MutationObserver && root.document && root.document.documentElement) {
         const observer = new root.MutationObserver(setStatusBarAppearance);
@@ -751,10 +756,11 @@
 
   function initializeNative(client) {
     if (client) authClient = client;
-    if (!isNativeIOS() || nativeInitialized) return false;
+    if (!isNative() || nativeInitialized) return false;
     nativeInitialized = true;
     if (root.document) {
-      root.document.documentElement.classList.add("athlevo-native-ios");
+      root.document.documentElement.classList.add("athlevo-native");
+      root.document.documentElement.classList.add(`athlevo-native-${nativePlatform()}`);
       ensureStateStyles();
       if (root.document.body) ensureStateElement();
       else root.document.addEventListener("DOMContentLoaded", ensureStateElement, { once: true });
@@ -775,6 +781,7 @@
     PROVIDER_CALLBACK,
     isNative,
     isNativeIOS,
+    isNativeAndroid,
     nativePlatform,
     isInstalledPWA,
     browserKind,
@@ -798,9 +805,10 @@
   };
 
   // Install the API rewrite before any later application script can fetch.
-  if (isNativeIOS()) {
+  if (isNative()) {
     if (root.document) {
-      root.document.documentElement.classList.add("athlevo-native-ios");
+      root.document.documentElement.classList.add("athlevo-native");
+      root.document.documentElement.classList.add(`athlevo-native-${nativePlatform()}`);
       ensureStateStyles();
     }
     installFetchBridge();

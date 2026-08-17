@@ -3,13 +3,19 @@
   "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "Athlevo web application and Capacitor iOS shell",
+  "description": "Athlevo web application and Capacitor iOS/Android shells",
   "scripts": {
     "build:native": "node scripts/build-native-web.mjs",
+    "native:sync": "npm run build:native && cap sync",
+    "android:prepare": "npm run build:native && cap sync android",
+    "android:open": "npm run android:prepare && cap open android",
+    "android:run": "npm run android:prepare && cap run android",
+    "android:debug": "npm run android:prepare && cd android && ./gradlew assembleDebug",
+    "android:bundle": "npm run android:prepare && cd android && ./gradlew bundleRelease",
     "ios:prepare": "npm run build:native && cap sync ios",
     "ios:open": "npm run ios:prepare && cap open ios",
     "ios:run": "npm run ios:prepare && cap run ios",
-    "test:native": "node tests/native-ios-runtime.test.mjs"
+    "test:native": "node tests/native-ios-runtime.test.mjs && node tests/native-build-readiness.test.mjs"
   },
   "dependencies": {
     "@capacitor/app": "8.1.1",
@@ -22,6 +28,7 @@
     "@supabase/supabase-js": "2.111.0"
   },
   "devDependencies": {
+    "@capacitor/android": "8.4.2",
     "@capacitor/cli": "8.4.2",
     "@capacitor/ios": "8.4.2"
   }

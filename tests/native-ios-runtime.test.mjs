@@ -31,7 +31,7 @@ function classList() {
   };
 }
 
-function world({ native = true, ua = "Mozilla/5.0 FBAN/FBIOS" } = {}) {
+function world({ native = true, platform = "ios", ua = "Mozilla/5.0 FBAN/FBIOS" } = {}) {
   const opened = [];
   const assigned = [];
   const replaced = [];
@@ -105,7 +105,7 @@ function world({ native = true, ua = "Mozilla/5.0 FBAN/FBIOS" } = {}) {
     Capacitor: {
       Plugins: plugins,
       isNativePlatform: () => native,
-      getPlatform: () => native ? "ios" : "web"
+      getPlatform: () => native ? platform : "web"
     },
     navigator: { userAgent: ua, vendor: "", onLine: true, standalone: false },
     document,
@@ -153,6 +153,14 @@ await test("detects native iOS from Capacitor, not the user agent", () => {
 await test("does not mistake an iOS user agent for the native app", () => {
   const { runtime } = world({ native: false, ua: "iPhone Safari" });
   assert.equal(runtime.isNativeIOS(), false);
+});
+
+await test("detects Android as a native app without changing iOS detection", () => {
+  const { runtime } = world({ native: true, platform: "android", ua: "Android" });
+  assert.equal(runtime.isNative(), true);
+  assert.equal(runtime.isNativeAndroid(), true);
+  assert.equal(runtime.isNativeIOS(), false);
+  assert.equal(runtime.authRedirectUrl(), "athlevo://auth/callback");
 });
 
 await test("disables Facebook/Instagram handoff classification inside native iOS", () => {
@@ -354,8 +362,8 @@ await test("uses persisted PKCE sessions and rechecks them on native resume", as
   assert.equal(checks, 1);
   assert.match(indexSource, /persistSession:\s*true/);
   assert.match(indexSource, /autoRefreshToken:\s*true/);
-  assert.match(indexSource, /flowType:\s*athlevoNativeIOS \? 'pkce' : 'implicit'/);
-  assert.match(socialAuthSource, /skipBrowserRedirect:\s*nativeIOS/);
+  assert.match(indexSource, /flowType:\s*athlevoNative \? 'pkce' : 'implicit'/);
+  assert.match(socialAuthSource, /skipBrowserRedirect:\s*nativeApp/);
 });
 
 await test("contains no service-role key or private credential in native client files", () => {

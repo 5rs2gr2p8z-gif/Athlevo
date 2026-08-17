@@ -57,6 +57,21 @@
     } catch (e) { /* quota / private mode — still deduped in-page */ }
   }
 
+  function isNativeRuntime() {
+    try {
+      if (root.AthlevoRuntime && typeof root.AthlevoRuntime.isNative === "function") {
+        return root.AthlevoRuntime.isNative();
+      }
+      return Boolean(
+        root.Capacitor &&
+        typeof root.Capacitor.isNativePlatform === "function" &&
+        root.Capacitor.isNativePlatform()
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
   /* ─────────────── init ───────────────────────────────────────────── */
 
   /**
@@ -66,6 +81,10 @@
   function init() {
     if (_initDone) return;
     _initDone = true;
+
+    // Native tracking remains off until Athlevo intentionally ships ATT and
+    // a consent-aware native tracking policy. Browser analytics are unchanged.
+    if (isNativeRuntime()) return;
 
     _pixelId = resolvePixelId();
     if (!_pixelId) {

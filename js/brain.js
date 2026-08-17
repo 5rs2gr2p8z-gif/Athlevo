@@ -1820,7 +1820,7 @@ async function providerRequest(action, body) {
   if (
     action === "connect" &&
     window.AthlevoRuntime &&
-    window.AthlevoRuntime.isNativeIOS()
+    window.AthlevoRuntime.isNative()
   ) {
     requestBody.return_target = "ios";
   }

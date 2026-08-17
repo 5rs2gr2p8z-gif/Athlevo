@@ -185,9 +185,9 @@ section("OAuth return — success is left to Supabase");
   const p = load({ search: "?code=abc123" }).api.readReturnError();
   t("a successful return produces no error", p === null);
   t("web OAuth still lets Supabase detect the return URL",
-    /detectSessionInUrl:\s*!athlevoNativeIOS/.test(html));
+    /detectSessionInUrl:\s*!athlevoNative/.test(html));
   t("native OAuth uses validated PKCE code exchange instead of URL token detection",
-    /flowType:\s*athlevoNativeIOS \? 'pkce' : 'implicit'/.test(html) &&
+    /flowType:\s*athlevoNative \? 'pkce' : 'implicit'/.test(html) &&
     /exchangeCodeForSession/.test(readFileSync("js/runtimeEnvironment.js", "utf8")));
   t("we never hand-roll the token exchange",
     !/exchangeCodeForSession/.test(src));

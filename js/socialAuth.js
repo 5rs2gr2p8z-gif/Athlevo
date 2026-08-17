@@ -58,7 +58,7 @@
    * the only origin guaranteed to be allow-listed.
    */
   function redirectTarget() {
-    if (root.AthlevoRuntime && root.AthlevoRuntime.isNativeIOS()) {
+    if (root.AthlevoRuntime && root.AthlevoRuntime.isNative()) {
       return root.AthlevoRuntime.authRedirectUrl();
     }
     try {
@@ -122,14 +122,14 @@
     }
 
     try {
-      const nativeIOS = Boolean(
-        root.AthlevoRuntime && root.AthlevoRuntime.isNativeIOS()
+      const nativeApp = Boolean(
+        root.AthlevoRuntime && root.AthlevoRuntime.isNative()
       );
       const { data, error } = await client.auth.signInWithOAuth({
         provider: providerKey,
         options: {
           redirectTo: redirectTarget(),
-          skipBrowserRedirect: nativeIOS,
+          skipBrowserRedirect: nativeApp,
           // Ask Google for a refresh token and always show the account
           // chooser, so an athlete on a shared device is never silently
           // signed into someone else's account.
@@ -150,7 +150,7 @@
         console.warn("OAuth start failed:", error.name || "error");
         return { ok: false, message: describeStartFailure(error) };
       }
-      if (nativeIOS) {
+      if (nativeApp) {
         if (!data || !data.url || !root.AthlevoRuntime.openOAuth) {
           if (loggedOut) trackSignupFailure("unavailable");
           return { ok: false, message: "We couldn't open Google sign-in. Please try again." };
