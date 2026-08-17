@@ -1,4 +1,5 @@
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
+import { handleCors } from "../../lib/server/cors.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 
@@ -576,6 +577,7 @@ export default async function handler(
   req,
   res
 ) {
+  if (handleCors(req, res)) return;
   if (req.method !== "POST") {
     return sendJson(res, 405, {
       error: "Method not allowed"

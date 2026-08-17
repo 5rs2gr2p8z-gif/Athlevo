@@ -1,3 +1,5 @@
+import { handleCors } from "../../lib/server/cors.js";
+
 /*
  * SUPERSEDED — do not deploy.
  *
@@ -9,5 +11,6 @@
  * history; the real logic + tests target the gateway route.
  */
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return;
   return res.status(410).json({ error: "Moved to /api/providers?action=admin_analytics" });
 }

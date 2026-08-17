@@ -3,6 +3,7 @@ import {
   isRedirectUriValid
 } from "../../lib/server/stravaConfig.js";
 import { createOAuthState } from "../../lib/server/oauthState.js";
+import { handleCors } from "../../lib/server/cors.js";
 
 function sendJson(response, statusCode, body) {
   response.status(statusCode).json(body);
@@ -32,6 +33,7 @@ async function getAuthenticatedUser(accessToken) {
 }
 
 export default async function handler(request, response) {
+  if (handleCors(request, response)) return;
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
 

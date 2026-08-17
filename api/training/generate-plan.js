@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { handleCors } from "../../lib/server/cors.js";
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
 import { guardPlanWrite } from "../../lib/server/managedPlan.js";
 import {
@@ -1734,6 +1735,7 @@ export default async function handler(
   request,
   response
 ) {
+  if (handleCors(request, response)) return;
   if (request.method !== "POST") {
     return sendJson(
       response,

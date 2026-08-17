@@ -3,6 +3,7 @@ import {
   indexRecordsBySession,
   matchActivitiesToSessions
 } from "../../lib/server/executionRecords.js";
+import { handleCors } from "../../lib/server/cors.js";
 
 import {
   buildActivityOverrideRow,
@@ -1171,6 +1172,7 @@ export default async function handler(
   request,
   response
 ) {
+  if (handleCors(request, response)) return;
   if (
     request.method !== "GET" &&
     request.method !== "POST"

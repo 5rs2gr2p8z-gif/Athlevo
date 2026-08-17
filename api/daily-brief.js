@@ -12,6 +12,7 @@ import {
   summarizeReadiness
 } from "../lib/server/readiness.js";
 import { resolveCoachingMode } from "../lib/server/coachingMode.js";
+import { handleCors } from "../lib/server/cors.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -857,6 +858,7 @@ async function saveBriefing({
 }
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return;
   if (req.method !== "POST") {
     return sendJson(res, 405, {
       error: "Method not allowed"

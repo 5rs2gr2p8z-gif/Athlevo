@@ -4,6 +4,7 @@ import {
   getAppReturnOrigin
 } from "../../lib/server/stravaConfig.js";
 import { verifyOAuthState } from "../../lib/server/oauthState.js";
+import { handleCors } from "../../lib/server/cors.js";
 
 async function exchangeAuthorizationCode(code) {
   // Send the EXACT same canonical redirect_uri used in the authorization
@@ -216,6 +217,7 @@ function diag(fields) {
 }
 
 export default async function handler(request, response) {
+  if (handleCors(request, response)) return;
   // Canonical return origin (athlevo.org) — never the stale vercel.app URL.
   const appUrl = getAppReturnOrigin();
   const correlationId = crypto.randomUUID().slice(0, 8);

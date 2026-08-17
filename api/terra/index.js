@@ -1,3 +1,5 @@
+import { handleCors } from "../../lib/server/cors.js";
+
 /*
  * ══════════════════════════════════════════════════════════════════════
  *  Athlevo — Terra wearable gateway  (DORMANT — disabled by default)
@@ -26,6 +28,7 @@ function isTerraEnabled() {
 }
 
 export default async function handler(request, response) {
+  if (handleCors(request, response)) return;
   // Disabled by default: no Terra credentials are read, nothing runs.
   if (!isTerraEnabled()) {
     return response.status(404).json({

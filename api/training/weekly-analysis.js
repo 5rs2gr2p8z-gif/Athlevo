@@ -1,4 +1,5 @@
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
+import { handleCors } from "../../lib/server/cors.js";
 import {
   accessResponse,
   requirePaidAccess
@@ -170,6 +171,7 @@ function activityInRange(activity, startKey, endKey) {
 }
 
 export default async function handler(request, response) {
+  if (handleCors(request, response)) return;
   if (request.method !== "GET") {
     response.setHeader("Allow", "GET");
 

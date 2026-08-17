@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { handleCors } from "../lib/server/cors.js";
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { checkAiRateLimit, rateLimitResponse } from "../lib/server/rateLimit.js";
 import {
@@ -196,6 +197,7 @@ clean markdown.
 `.trim();
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return;
   if (req.method !== "POST") {
     return res.status(405).json({
       error: "Method not allowed"

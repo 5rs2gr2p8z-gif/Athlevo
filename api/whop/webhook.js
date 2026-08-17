@@ -27,6 +27,7 @@ import {
 import { makeWhopClient } from "../../lib/server/whopClient.js";
 import { captureServerEvent } from "../../lib/server/productAnalytics.js";
 import paymongoWebhookHandler from "../../lib/server/paymongoWebhookEndpoint.js";
+import { handleCors } from "../../lib/server/cors.js";
 
 // Disable Vercel's body parser so we receive the exact bytes Whop signed.
 export const config = { api: { bodyParser: false } };
@@ -126,6 +127,7 @@ async function upsertSubscription(userId, patch) {
 }
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return;
   if ((req.query && req.query.provider === "paymongo") || req.headers["paymongo-signature"]) {
     return paymongoWebhookHandler(req, res);
   }

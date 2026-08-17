@@ -5,6 +5,7 @@ import {
   getManilaDateParts,
   getMondayOfCurrentWeek
 } from "../../lib/server/dateUtils.js";
+import { handleCors } from "../../lib/server/cors.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -167,6 +168,7 @@ async function hasNextWeekPlan(userId, weekStart) {
 }
 
 export default async function handler(request, response) {
+  if (handleCors(request, response)) return;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return sendJson(response, 500, {
       error: "Supabase server configuration is missing."

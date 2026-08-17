@@ -1,4 +1,5 @@
 import { mapStrava, toActivityRow } from "../../lib/server/wearable/normalizer.js";
+import { handleCors } from "../../lib/server/cors.js";
 
 async function getAuthenticatedUser(accessToken) {
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -454,6 +455,7 @@ async function writeSyncLog(userId, status, imported, errorMessage = null) {
 }
 
 export default async function handler(request, response) {
+  if (handleCors(request, response)) return;
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
 

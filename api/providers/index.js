@@ -1,3 +1,5 @@
+import { handleCors } from "../../lib/server/cors.js";
+
 /*
  * ══════════════════════════════════════════════════════════════════════
  *  Athlevo — Generic training-data provider gateway
@@ -3499,6 +3501,7 @@ async function actionDeleteAccount(request, response) {
 }
 
 export default async function handler(request, response) {
+  if (handleCors(request, response)) return;
   const cid = newCorrelationId();
   const provider = String((request.query && request.query.provider) || "").toLowerCase();
   const action = String((request.query && request.query.action) || "").toLowerCase();
