@@ -5331,6 +5331,13 @@ function renderNavState(state) {
   // nav === 'auth' with the modal already closed: stale entry, ignore.
 }
 window.addEventListener('popstate', function (e) { renderNavState(e.state); });
+window.addEventListener('athlevo:native-back', function (event) {
+  if (event.defaultPrevented) return;
+  var modal = document.getElementById('authModal');
+  if (!modal || modal.style.display !== 'flex') return;
+  renderNavState({ athlevoNav: 'entry' });
+  event.preventDefault();
+});
 
 // ---- Signup ----
 // Guards against the two real failure modes we hit in private beta:
@@ -5588,6 +5595,7 @@ async function doLogin(bypassEmbeddedWarning) {
   msg.style.color = '#555';
   msg.textContent = 'Logging in...';
 
+  let authenticatedUser = null;
   try {
     const { data, error } = await withTimeout(
       supabaseClient.auth.signInWithPassword({ email, password }),
@@ -5620,16 +5628,28 @@ async function doLogin(bypassEmbeddedWarning) {
         AthlevoAnalytics.identifySafe(user.id);
       }
     } catch (e) {}
-    closeAuth();
-
-    // Single authoritative post-auth routing flow (Today/Train/Trends/…).
-    await routeAfterAuth(user.id);
+    authenticatedUser = user;
   } catch (e) {
     msg.style.color = 'var(--red)';
     msg.textContent = friendlyAuthError(e, 'login');
   } finally {
     loginInFlight = false;
     if (btn) { btn.disabled = false; btn.textContent = 'Log In'; }
+  }
+
+  if (!authenticatedUser) return;
+  msg.textContent = '';
+  closeAuth();
+
+  // Authentication is complete before app hydration begins. A later screen
+  // or API failure must not be presented as a rejected password.
+  try {
+    // Single authoritative post-auth routing flow (Today/Train/Trends/…).
+    const user = authenticatedUser;
+    await routeAfterAuth(user.id);
+  } catch (e) {
+    console.error('Post-login initialization failed:', e);
+    toast('Signed in. Some data is temporarily unavailable.');
   }
 }
 async function doLogout() {

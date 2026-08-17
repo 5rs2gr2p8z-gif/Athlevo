@@ -46,6 +46,7 @@
   let authClient = null;
   let nativeInitialized = false;
   let nativeOAuthPending = false;
+  let nativeAppReady = false;
   let originalFetch = null;
 
   function capacitor() {
@@ -253,6 +254,7 @@
       "#athlevoNativeState p{font:400 14px/1.5 var(--sans,-apple-system,sans-serif);color:var(--ink2,#666);margin:0}" +
       "#athlevoNativeState button{margin-top:20px;min-height:46px;border:0;border-radius:999px;" +
       "padding:12px 22px;background:var(--ink,#141416);color:#fff;font:650 14px/1 var(--sans,-apple-system,sans-serif)}" +
+      "html.athlevo-native-android,html.athlevo-native-android body{overscroll-behavior:none}" +
       "@media(prefers-reduced-motion:reduce){#athlevoNativeState *{animation:none!important;transition:none!important}}";
     doc.head.appendChild(style);
   }
@@ -303,6 +305,9 @@
   function installFetchBridge() {
     if (!isNative() || originalFetch || typeof root.fetch !== "function") return;
     originalFetch = root.fetch.bind(root);
+    root.addEventListener("athlevo:app-ready", () => {
+      nativeAppReady = true;
+    }, { once: true });
     root.fetch = async function athlevoNativeFetch(input, init) {
       let requestInput = input;
       const rewritten = nativeApiUrl(input);
@@ -313,17 +318,19 @@
           requestInput = new Request(rewritten, input);
         }
       }
+      const url = typeof rewritten === "string" ? rewritten : "";
+      const isBackendRequest = url.startsWith(API_ORIGIN + "/api/");
       try {
         const response = await originalFetch(requestInput, init);
-        const url = typeof rewritten === "string" ? rewritten : "";
-        if (url.startsWith(API_ORIGIN + "/api/")) {
+        if (isBackendRequest && !nativeAppReady) {
           if ([502, 503, 504].includes(response.status)) showNativeState("server");
           else if (response.ok) hideNativeState();
         }
         return response;
       } catch (error) {
         const online = !root.navigator || root.navigator.onLine !== false;
-        showNativeState(online ? "server" : "offline");
+        if (!online) showNativeState("offline");
+        else if (isBackendRequest && !nativeAppReady) showNativeState("server");
         throw error;
       }
     };
@@ -702,6 +709,17 @@
         }
         dispatch("athlevo:native-resume");
       });
+      if (isNativeAndroid()) {
+        App.addListener("backButton", event => {
+          const backEvent = new CustomEvent("athlevo:native-back", {
+            cancelable: true,
+            detail: { canGoBack: Boolean(event && event.canGoBack) }
+          });
+          root.dispatchEvent(backEvent);
+          if (backEvent.defaultPrevented) return;
+          if (typeof App.exitApp === "function") App.exitApp();
+        });
+      }
       if (typeof App.getLaunchUrl === "function") {
         App.getLaunchUrl().then(result => {
           if (result && result.url) return handleCallback(result.url);

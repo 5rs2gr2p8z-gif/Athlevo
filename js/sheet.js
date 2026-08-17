@@ -635,4 +635,12 @@
     },
     activeRoot: function () { return active ? active.root : null; }
   };
+
+  if (typeof root.addEventListener === "function") {
+    root.addEventListener("athlevo:native-back", function (event) {
+      if (!active) return;
+      event.preventDefault();
+      close(active.root);
+    });
+  }
 })(window);

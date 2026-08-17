@@ -2738,4 +2738,21 @@
     _state: function () { return { mode: _appMode, role: _role, coachName: _coachName, rosterSize: _roster.length, workspace: _workspace }; },
     COACH_MODE_VERSION: "coach-mode-v2"
   };
+
+  if (typeof window.addEventListener === "function") {
+    window.addEventListener("athlevo:native-back", function (event) {
+      if (event.defaultPrevented || _workspace !== "coach_workspace") return;
+      var activeScreen = document.querySelector(".screen.active");
+      var threadBack = activeScreen && activeScreen.querySelector(".cm-msg-thread-back");
+      if (threadBack) {
+        event.preventDefault();
+        threadBack.click();
+        return;
+      }
+      if (_athleteDetailId) {
+        event.preventDefault();
+        closeAthletePage();
+      }
+    });
+  }
 })();
