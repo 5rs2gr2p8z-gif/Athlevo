@@ -13,6 +13,7 @@
     trainingOffers: [
       {
         name: "Athlevo AI",
+        supportLevel: "Self-guided adaptive app.",
         headline: "Know what to train every day.",
         price: "₱597/month",
         description: "A training system that builds your plan, adjusts when things change, and keeps your training pointed at your goal — whether that’s your first 5K or your next marathon PR.",
@@ -30,6 +31,7 @@
       },
       {
         name: "Athlevo Plan",
+        supportLevel: "Built for you, run independently.",
         headline: "Your roadmap, built by a coach.",
         price: "₱1,998/month",
         description: "A coach learns your goal, schedule, and training history, then builds your personalized running + strength plan. You train independently, with a monthly review to keep it on track.",
@@ -41,10 +43,11 @@
           "Programming built around your race and schedule"
         ],
         cta: "Get My Plan",
-        href: "#coaching"
+        href: "mailto:support@athlevo.org?subject=Athlevo%20Plan%20Enquiry"
       },
       {
         name: "Athlevo Coaching",
+        supportLevel: "A coach with you every week.",
         headline: "A coach in your corner every week.",
         price: "₱4,998/month",
         description: "Your coach reviews how your training is going, gives feedback on key sessions, adjusts the plan when needed, and helps guide the build toward race day.",
@@ -56,10 +59,11 @@
           "Ongoing support across the full training block"
         ],
         cta: "Start Coaching",
-        href: "#coaching"
+        href: "mailto:support@athlevo.org?subject=Athlevo%20Coaching%20Enquiry"
       },
       {
         name: "Athlevo Elite",
+        supportLevel: "Founder-led, highest touch.",
         headline: "Train like your goal matters.",
         price: "₱7,998/month",
         description: "You don’t need to be fast or experienced. Elite is for athletes who want the highest level of attention Athlevo offers — whether you’re preparing for your first race or chasing a serious PR.",
@@ -71,13 +75,29 @@
           "Priority communication, calls when needed"
         ],
         cta: "Apply for Elite",
-        href: "#coaching"
+        href: "mailto:support@athlevo.org?subject=Athlevo%20Elite%20Enquiry"
       }
     ],
     // Approved athlete feedback and photography recovered from the original
     // Athlevo coaching-testimonial implementation (b6ba8d2 / a525584).
     // Keep quotes verbatim and add no result unless it is present in this data.
     athleteStories: [
+      {
+        image: "assets/testimonials/rodel-mark.jpg",
+        imageAlt: "Rodel Mark standing on a running track",
+        imagePosition: "center 45%",
+        name: "Rodel Mark",
+        context: "Athlete · Sub-19 5K",
+        quote: "“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”"
+      },
+      {
+        image: "assets/testimonials/miguel-bulado.jpg",
+        imageAlt: "Miguel Bulado holding his second-place award",
+        imagePosition: "center 44%",
+        name: "Miguel Bulado",
+        context: "Student Athlete",
+        quote: "“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”"
+      },
       {
         image: "assets/testimonials/christian-francia.jpg",
         imageAlt: "Christian Francia running in a race",
@@ -87,12 +107,12 @@
         quote: "“100% mai-improve ang fitness level mo at mas maaabot mo ang goals mo with the help of Athlevo Coaching.”"
       },
       {
-        image: "assets/testimonials/rodel-mark.jpg",
-        imageAlt: "Rodel Mark standing on a running track",
-        imagePosition: "center 45%",
-        name: "Rodel Mark",
-        context: "Athlete · Sub-19 5K",
-        quote: "“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”"
+        image: "assets/testimonials/jb-luna.jpg",
+        imageAlt: "JB Luna holding a race medal outdoors",
+        imagePosition: "center 40%",
+        name: "JB Luna",
+        context: "Recreational Runner",
+        quote: "“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”"
       },
       {
         image: "assets/testimonials/carl-zita.jpg",
@@ -109,22 +129,6 @@
         name: "Amir Paule",
         context: "Athlete",
         quote: "“Solid Athlevo! Mag-i-improve ka talaga.”"
-      },
-      {
-        image: "assets/testimonials/jb-luna.jpg",
-        imageAlt: "JB Luna holding a race medal outdoors",
-        imagePosition: "center 40%",
-        name: "JB Luna",
-        context: "Recreational Runner",
-        quote: "“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”"
-      },
-      {
-        image: "assets/testimonials/miguel-bulado.jpg",
-        imageAlt: "Miguel Bulado holding his second-place award",
-        imagePosition: "center 44%",
-        name: "Miguel Bulado",
-        context: "Student Athlete",
-        quote: "“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”"
       }
     ],
     methodPrinciples: [
@@ -142,8 +146,10 @@
       { question: "Can Athlevo account for tennis, cycling, hybrid training, or another sport?", answer: "Yes, when that activity and schedule context are available. Athlevo considers the work around your running instead of treating every session in isolation." },
       { question: "What is the difference between Athlevo AI and Human Coaching?", answer: "Athlevo AI is an adaptive system for independent athletes. Human Coaching adds a dedicated person reviewing progress, making adjustments, and guiding the process." },
       { question: "Can I move from AI to Human Coaching later?", answer: "Yes. You can start independently and speak with Athlevo when you want closer human support." },
+      { question: "What happens after I sign up?", answer: "You start with a short onboarding covering your goal, schedule, training history, and current fitness. With Athlevo AI, an adaptive plan is built from that so you know what to train next, and it keeps adjusting as you log sessions. With Plan, Coaching, and Elite, a coach uses your onboarding to build your program, then reviews and adjusts it over your training block." },
       { question: "Is Human Coaching online?", answer: "Yes. Athlevo Human Coaching is delivered remotely, so review and guidance can continue wherever you train." },
       { question: "Is strength training included?", answer: "Human Coaching can include personalized running and strength structure. Athlevo AI can also account for strength activity when that context is available." },
+      { question: "Can I cancel anytime?", answer: "Yes. You can cancel to stop future recurring charges. Cancelling prevents further billing; it does not automatically refund previous payments unless required by applicable law or Athlevo’s refund policy." },
       { question: "Do you guarantee race results?", answer: "No responsible coaching can guarantee a result. Athlevo provides individualized structure, feedback, and decision-making support; outcomes still depend on training, health, recovery, and race-day conditions." }
     ]
   };
@@ -172,8 +178,9 @@
       }
       const bestFor = node("div", "lp-offer-best");
       bestFor.append(node("span", "", "BEST FOR"), node("p", "", offer.bestFor));
+      article.append(node("p", "lp-offer-name", offer.name));
+      if (offer.supportLevel) article.append(node("p", "lp-offer-support", offer.supportLevel));
       article.append(
-        node("p", "lp-offer-name", offer.name),
         node("h3", "", offer.headline),
         node("p", "lp-offer-price", offer.price),
         node("p", "lp-offer-description", offer.description),

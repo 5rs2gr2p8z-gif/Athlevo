@@ -210,6 +210,110 @@
   ]
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Do I need to be fast already?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Athlevo starts with your current training, experience, availability, and goal—not an entry standard."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can beginners join?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Beginners can use Athlevo to build consistency and endurance with an appropriate starting structure."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I train only three days per week?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Training can be structured around the days you can realistically sustain."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I keep strength training?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Strength work can remain part of the plan and should be considered alongside your total endurance load."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can Athlevo account for tennis, cycling, hybrid training, or another sport?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, when that activity and schedule context are available. Athlevo considers the work around your running instead of treating every session in isolation."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between Athlevo AI and Human Coaching?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Athlevo AI is an adaptive system for independent athletes. Human Coaching adds a dedicated person reviewing progress, making adjustments, and guiding the process."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I move from AI to Human Coaching later?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You can start independently and speak with Athlevo when you want closer human support."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens after I sign up?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You start with a short onboarding covering your goal, schedule, training history, and current fitness. With Athlevo AI, an adaptive plan is built from that so you know what to train next, and it keeps adjusting as you log sessions. With Plan, Coaching, and Elite, a coach uses your onboarding to build your program, then reviews and adjusts it over your training block."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Human Coaching online?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Athlevo Human Coaching is delivered remotely, so review and guidance can continue wherever you train."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is strength training included?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Human Coaching can include personalized running and strength structure. Athlevo AI can also account for strength activity when that context is available."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I cancel anytime?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You can cancel to stop future recurring charges. Cancelling prevents further billing; it does not automatically refund previous payments unless required by applicable law or Athlevo’s refund policy."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do you guarantee race results?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No responsible coaching can guarantee a result. Athlevo provides individualized structure, feedback, and decision-making support; outcomes still depend on training, health, recovery, and race-day conditions."
+      }
+    }
+  ]
+}
+</script>
 
 <!-- ══════════════ PWA ══════════════ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -3190,6 +3294,14 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 .lp-offer-features li{padding:7px 0;border-top:1px solid var(--line);font-size:12px;font-weight:650;line-height:1.38;color:var(--text)}
 .lp-offer-swipe,.lp-story-swipe{display:none;margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
 .lp-offer-reassurance{margin:20px 0 0;font-size:12.5px;line-height:1.5;color:var(--ink3)}
+/* Conversion clarity additions — support-level contrast, hero proof line, proof strip */
+.lp-offer-support{margin:6px 0 0;font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red);line-height:1.4}
+.lp-hero-proof{margin:16px 0 0;font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:-.005em;color:var(--ink2);line-height:1.5}
+.lp-proofstrip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--paper)}
+.lp-proofstrip-in{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:16px 0;font-family:var(--sans);font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.lp-proofstrip-stat{color:var(--text)}
+.lp-proofstrip-sep{width:4px;height:4px;border-radius:50%;background:var(--red);display:inline-block;flex:0 0 auto}
+@media (max-width:560px){.lp-proofstrip-in{font-size:11px;gap:8px 14px}}
 
 .lp-founder-layout{display:grid;grid-template-columns:minmax(340px,1.08fr) minmax(0,.92fr);
   grid-template-areas:"media intro" "media story";column-gap:clamp(40px,7vw,100px);row-gap:30px;align-items:start}
@@ -3443,12 +3555,13 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div class="lp-skel"><div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start"><div><div class="skel-line xl" style="width:70%"></div><div class="skel-line xl" style="width:55%"></div><div class="skel-line xl" style="width:65%"></div><div class="skel-line md" style="width:90%;margin-top:20px"></div><div class="skel-line md" style="width:75%"></div><div style="display:flex;gap:12px;margin-top:24px"><div class="skel-block" style="width:140px;height:48px"></div><div class="skel-block" style="width:150px;height:48px"></div></div></div><div class="skel-block" style="height:clamp(400px,50vw,700px)"></div></div></div>
     <div class="lp-wrap lp-hero-grid">
       <div class="lp-hero-copy">
+        <span class="lp-kicker">ENDURANCE COACHING — AI + HUMAN, ONE PHILOSOPHY</span>
         <h1 class="lp-h1">Your training plan<br>should change<br>when your life<br>does.</h1>
-        <p class="lp-lead">Personalized endurance coaching built around your goals, training history, recovery, and the life you actually have to live.</p>
-        <p class="lp-categories">Running · Marathon · Hybrid · Strength · Performance</p>
+        <p class="lp-lead">Personalized endurance coaching — from an adaptive app you run yourself to a coach in your corner every week.</p>
+        <p class="lp-hero-proof">300+ runners coached · marathon, hybrid &amp; performance goals.</p>
         <div class="lp-cta">
-          <a class="lp-btn" href="#train-with-athlevo">Explore Athlevo</a>
-          <a class="lp-btn ghost" href="#method">See how we coach</a>
+          <button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree(this)">Start with Athlevo AI — ₱597/mo</button>
+          <a class="lp-btn ghost" href="#train-with-athlevo">See coaching options</a>
         </div>
       </div>
       <div class="lp-editorial-media lp-photo-hero">
@@ -3456,6 +3569,15 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       </div>
     </div>
   </header>
+
+  <!-- PROOF STRIP -->
+  <section class="lp-proofstrip" aria-label="Athlevo at a glance">
+    <div class="lp-wrap lp-proofstrip-in">
+      <span class="lp-proofstrip-stat">300+ runners coached</span>
+      <span class="lp-proofstrip-sep" aria-hidden="true"></span>
+      <span>Running · Marathon · Hybrid · Performance</span>
+    </div>
+  </section>
 
   <!-- 2. ATHLETE PHILOSOPHY -->
   <section class="lp-section lp-alt" id="athlete-first">
@@ -3503,7 +3625,26 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
   </section>
 
-  <!-- 5. FOUNDER STORY + METHOD -->
+  <!-- 5. WAYS TO TRAIN — rendered from js/landingContent.js -->
+  <section class="lp-section lp-alt" id="train-with-athlevo">
+    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:26%"></div><div class="skel-line xl" style="width:55%;margin:12px 0"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px"><div class="skel-block" style="height:380px"></div><div class="skel-block" style="height:380px"></div><div class="skel-block" style="height:380px"></div></div></div></div>
+    <div class="lp-wrap">
+      <span id="coaching" aria-hidden="true"></span>
+      <span id="ai" aria-hidden="true"></span>
+      <div class="lp-section-head">
+        <div>
+          <span class="lp-kicker">WAYS TO TRAIN</span>
+          <h2 class="lp-h2">One coaching philosophy.<br>Four levels of support.</h2>
+        </div>
+        <p class="lp-body">Choose how much guidance you want. Every Athlevo service follows the same performance-first coaching principles — from independent AI guidance to personal coaching with the founder.</p>
+      </div>
+      <p class="lp-offer-swipe" aria-hidden="true">Swipe to compare →</p>
+      <div class="lp-offer-rail" id="landingTrainingOffers" aria-label="Athlevo training options"></div>
+      <p class="lp-offer-reassurance">Want a human from day one? Start with Plan. Prefer to begin on your own? Athlevo AI starts instantly.</p>
+    </div>
+  </section>
+
+  <!-- 6. FOUNDER STORY + METHOD -->
   <section class="lp-section" id="about">
     <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:32%"></div><div class="skel-line xl" style="width:65%;margin:12px 0"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:24px"><div class="skel-block" style="height:480px"></div><div><div class="skel-line" style="width:95%"></div><div class="skel-line" style="width:85%"></div><div class="skel-line" style="width:90%"></div><div class="skel-line" style="width:60%"></div></div></div></div></div>
     <div class="lp-wrap lp-founder-layout">
@@ -3550,25 +3691,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
   </section>
 
-  <!-- 6. WAYS TO TRAIN — rendered from js/landingContent.js -->
-  <section class="lp-section lp-alt" id="train-with-athlevo">
-    <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:26%"></div><div class="skel-line xl" style="width:55%;margin:12px 0"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px"><div class="skel-block" style="height:380px"></div><div class="skel-block" style="height:380px"></div><div class="skel-block" style="height:380px"></div></div></div></div>
-    <div class="lp-wrap">
-      <span id="coaching" aria-hidden="true"></span>
-      <span id="ai" aria-hidden="true"></span>
-      <div class="lp-section-head">
-        <div>
-          <span class="lp-kicker">WAYS TO TRAIN</span>
-          <h2 class="lp-h2">One coaching philosophy.<br>Four levels of support.</h2>
-        </div>
-        <p class="lp-body">Choose how much guidance you want. Every Athlevo service follows the same performance-first coaching principles — from independent AI guidance to personal coaching with the founder.</p>
-      </div>
-      <p class="lp-offer-swipe" aria-hidden="true">Swipe to compare →</p>
-      <div class="lp-offer-rail" id="landingTrainingOffers" aria-label="Athlevo training options"></div>
-      <p class="lp-offer-reassurance">Not sure which one fits? Start with Plan and upgrade anytime.</p>
-    </div>
-  </section>
-
   <!-- 7. FAQ — rendered from js/landingContent.js -->
   <section class="lp-section">
     <div class="lp-skel"><div style="max-width:1200px;margin:0 auto"><div class="skel-line sm" style="width:22%"></div><div class="skel-line xl" style="width:38%;margin:12px 0"></div><div style="max-width:640px;margin-top:24px"><div class="skel-block" style="height:50px;margin-bottom:2px"></div><div class="skel-block" style="height:50px;margin-bottom:2px"></div><div class="skel-block" style="height:50px;margin-bottom:2px"></div><div class="skel-block" style="height:50px"></div></div></div></div>
@@ -3588,7 +3710,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <h2 class="lp-h2">Your training should make sense.</h2>
       <p class="lp-body">Whether you want an adaptive system you can follow independently or a coach actively guiding the process, there is a place to start with Athlevo.</p>
       <div class="lp-cta">
-        <a class="lp-btn light" href="#train-with-athlevo">Train With Athlevo</a>
+        <button class="lp-btn light" type="button" data-cta-location="final_ai" onclick="landingStartFree(this)">Start with Athlevo AI</button>
         <a class="lp-btn ghost-light" href="mailto:support@athlevo.org?subject=Athlevo%20Human%20Coaching">Talk to a Coach</a>
       </div>
       <p class="lp-enrollment">Already speaking with an Athlevo coach? <a href="mailto:support@athlevo.org?subject=Continue%20Athlevo%20Enrollment">Continue your enrollment.</a></p>
@@ -3606,8 +3728,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <a href="#athletes">Athletes</a>
         <a href="#about">About</a>
         <a onclick="landingSignIn()" style="cursor:pointer">Sign In</a>
-        <a onclick="openLegal(‘privacy’)" style="cursor:pointer">Privacy Policy</a>
-        <a onclick="openLegal(‘terms’)" style="cursor:pointer">Terms of Service</a>
+        <a onclick="openLegal('privacy')" style="cursor:pointer">Privacy Policy</a>
+        <a onclick="openLegal('terms')" style="cursor:pointer">Terms of Service</a>
       </div>
       <span class="lp-footer-copy">© Athlevo · athlevo.org</span>
     </div>
@@ -4899,9 +5021,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div class="appearance appearance-row">
     <span class="appearance-label">Appearance</span>
     <div class="seg" id="themeSeg" role="group" aria-label="Theme">
-      <button type="button" class="seg-btn" data-theme-choice="system" onclick="setAthlevoTheme(‘system’)">System</button>
-      <button type="button" class="seg-btn" data-theme-choice="light" onclick="setAthlevoTheme(‘light’)">Light</button>
-      <button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme(‘dark’)">Dark</button>
+      <button type="button" class="seg-btn" data-theme-choice="system" onclick="setAthlevoTheme('system')">System</button>
+      <button type="button" class="seg-btn" data-theme-choice="light" onclick="setAthlevoTheme('light')">Light</button>
+      <button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme('dark')">Dark</button>
     </div>
   </div>
 
@@ -4929,7 +5051,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <!-- ── Preferences ── -->
   <div class="pad"><div class="section-title">Preferences</div></div>
-  <button class="rowlink" type="button" onclick="toast(‘Notification settings coming soon’)">
+  <button class="rowlink" type="button" onclick="toast('Notification settings coming soon')">
     <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
   </button>
 
@@ -4937,7 +5059,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <!-- ── Account ── -->
   <div class="pad"><div class="section-title">Account</div></div>
-  <button class="rowlink" type="button" onclick="toast(‘Account settings coming soon’)">
+  <button class="rowlink" type="button" onclick="toast('Account settings coming soon')">
     <div><b>Account Settings</b><small>Manage your account details.</small></div><span class="arr">→</span>
   </button>
   <div class="settings-spacer"></div>
@@ -4957,11 +5079,11 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div><b>Support</b><small>Report a bug, share an idea, or get help.</small></div><span class="arr">→</span>
   </button>
   <div class="settings-spacer"></div>
-  <button class="rowlink" type="button" onclick="openLegal(‘privacy’)">
+  <button class="rowlink" type="button" onclick="openLegal('privacy')">
     <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
   </button>
   <div class="settings-spacer"></div>
-  <button class="rowlink" type="button" onclick="openLegal(‘terms’)">
+  <button class="rowlink" type="button" onclick="openLegal('terms')">
     <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
   </button>
 
@@ -8501,7 +8623,7 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/landingContent.js?v=77"></script>
+<script src="js/landingContent.js?v=78"></script>
 <script src="js/authSupport.js?v=73"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>

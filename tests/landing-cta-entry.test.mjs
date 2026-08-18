@@ -57,7 +57,7 @@ console.log("\n──── CTA markup and native interaction ────");
 const trainLinks = [...landing.matchAll(
   /<a class="lp-btn(?: sm| light)" href="#train-with-athlevo">Train With Athlevo<\/a>/g
 )];
-test("both Train With Athlevo CTAs are in-page anchor links to the offers section", trainLinks.length === 2);
+test("the remaining Train With Athlevo CTA is an in-page anchor to the offers section", trainLinks.length === 1);
 test("Train With Athlevo navigates to Ways to Train, not app entry", trainLinks.every(match => match[0].includes('href="#train-with-athlevo"') && !match[0].includes("landingOpenApp")));
 test("Start Training remains approved offer copy and signup location", /cta: "Start Training"[\s\S]*?appEntry: true,[\s\S]*?ctaLocation: "ai_product"/.test(content));
 test("Start Training renders as a native button", /node\(offer\.appEntry \? "button" : "a", "lp-btn lp-offer-cta", offer\.cta\)/.test(content) && /cta\.type = "button"/.test(content));
@@ -80,7 +80,7 @@ test("logout still records app-entry intent and opens welcome",
 test("CTA analytics remain attached to the shared entry handler",
   /trackAuthChoice\("signup_cta_clicked"/.test(landingStart) && /cta_location: locationName/.test(landingStart));
 test("cache-busted landing script prevents the stale fragment-link renderer from surviving deployment",
-  /<script src="js\/landingContent\.js\?v=77"><\/script>/.test(html));
+  /<script src="js\/landingContent\.js\?v=78"><\/script>/.test(html));
 
 console.log("\n──── Executable CTA routing ────");
 test("Train With Athlevo CTAs use in-page anchors, not JS handlers",
