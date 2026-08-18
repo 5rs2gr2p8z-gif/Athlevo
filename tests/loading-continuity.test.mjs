@@ -54,9 +54,11 @@ assert.match(html, /data-loading-surface="train"[\s\S]*?asl-week[\s\S]*?asl-trai
 assert.match(html, /data-loading-surface="trends"[\s\S]*?asl-metrics[\s\S]*?data-skeleton-region="chart"[\s\S]*?data-skeleton-region="status"/);
 const youSkeleton = html.slice(
   html.indexOf('data-loading-surface="you"'),
-  html.indexOf('<div class="profilehead">')
+  html.indexOf('<div class="you-header-row">') !== -1
+    ? html.indexOf('<div class="you-header-row">')
+    : html.indexOf('<div class="profilehead">')
 );
-assert.match(youSkeleton, /asl-profile[\s\S]*?asl-training-data[\s\S]*?asl-preferences-label[\s\S]*?asl-support-label[\s\S]*?asl-support-row/);
+assert.match(youSkeleton, /asl-profile[\s\S]*?asl-training-data[\s\S]*?asl-preference/);
 assert.doesNotMatch(youSkeleton, /Workspace|youWorkspaceSection/);
 
 for (const width of [375, 390, 430]) {

@@ -1182,7 +1182,22 @@ body.athlevo-sheet-locked{overflow:hidden}
 .rowlink-danger-subtle small{color:var(--ink2)}
 .rowlink-danger-subtle .arr{color:var(--danger);opacity:.5}
 .you-delete-divider{height:1px;background:var(--line,#e5e5e5);margin:16px 22px}
-.appearance-row{background:var(--card);border-radius:var(--r-lg);padding:16px 20px}
+.appearance-row{background:var(--card);border-radius:var(--r-lg);padding:10px 16px}
+/* ── Settings gear icon (You screen) ── */
+.you-header-row{display:flex;align-items:flex-start;justify-content:space-between}
+.you-gear{-webkit-appearance:none;appearance:none;background:none;border:0;padding:0;margin:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink2);border-radius:var(--r-md);-webkit-tap-highlight-color:transparent;transition:background var(--dur-base)}
+.you-gear:active{background:var(--line)}
+.you-gear:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.you-gear svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* ── Settings screen ── */
+.settings-back{-webkit-appearance:none;appearance:none;background:none;border:0;padding:0;margin:0 0 4px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink2);border-radius:var(--r-md);-webkit-tap-highlight-color:transparent;transition:background var(--dur-base)}
+.settings-back:active{background:var(--line)}
+.settings-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.settings-back svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+#screen-settings .section-title{margin-top:6px}
+#screen-settings .rowlink{margin-bottom:0}
+#screen-settings .rowlink+.rowlink{margin-top:0}
+.settings-spacer{height:8px}
 .delete-account-sheet{background:var(--surface-base);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
 .delete-account-btn:disabled{opacity:.4;cursor:not-allowed}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -2997,9 +3012,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 .lp-btn.ghost-light{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.42)}
 /* Appearance / theme segmented control (You settings) */
 .appearance{margin:0 22px}
-.appearance-label{display:block;font-size:var(--fs-caption);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px}
-.seg{display:flex;gap:var(--s-1);background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s-1)}
-.seg-btn{flex:1;min-height:44px;border:none;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:var(--fs-body);font-weight:650;letter-spacing:-.01em;border-radius:11px;cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
+.appearance-label{display:block;font-size:var(--fs-caption);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+.seg{display:flex;gap:var(--s-1);background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:3px}
+.seg-btn{flex:1;min-height:36px;border:none;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:650;letter-spacing:-.01em;border-radius:9px;cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
 .seg-btn.on{background:var(--paper);color:var(--text);box-shadow:var(--elev-1)}
 .seg-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .lp-install-row{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:16px 18px;cursor:pointer;text-align:left}
@@ -4818,12 +4833,10 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div class="athlevo-surface-skeleton" data-loading-surface="you" role="status" aria-label="Loading Profile">
     <div class="asl-profile"><div class="skel skel-circle asl-circle"></div><div class="asl-grow"><div class="skel asl-line is-medium"></div><div class="skel asl-line is-wide"></div></div></div>
     <div class="asl-card asl-training-data"><div class="skel asl-line is-short"></div><div class="skel asl-line is-wide"></div><div class="skel asl-line is-medium"></div></div>
-    <div class="skel asl-section-label asl-preferences-label"></div>
-    <div class="skel asl-preference"></div><div class="skel asl-preference"></div>
-    <div class="skel asl-section-label asl-support-label"></div>
-    <div class="skel asl-preference asl-support-row"></div><div class="skel asl-preference asl-support-row"></div>
+    <div class="skel asl-preference" style="height:52px"></div>
   </div>
-  <div class="profilehead">
+  <div class="you-header-row">
+  <div class="profilehead" style="flex:1;min-width:0">
   <div class="pfp serif" id="profileInitial">A</div>
 
   <div>
@@ -4833,6 +4846,10 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       Athlete profile
     </p>
   </div>
+  </div>
+  <button class="you-gear" type="button" onclick="openSettings()" aria-label="Settings">
+    <svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+  </button>
 </div>
 
  <div class="memory" id="coachMemorySection">
@@ -4852,10 +4869,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   </div>
 </div>
   <div class="spacer-md"></div>
-
-  <button class="rowlink rd-settings-link" type="button" onclick="openReadinessCheck()">
-    <div><b>Open today’s check-in</b><small>Update how you’re feeling whenever you need to.</small></div><span class="arr">→</span>
-  </button>
 
  <div class="integ">
   <!--
@@ -4882,8 +4895,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <div class="spacer-md"></div>
 
-  <!-- ── Preferences ── -->
-  <div class="pad" id="youPreferencesHeading"><div class="section-title">Preferences</div></div>
+  <!-- ── Appearance (compact) ── -->
   <div class="appearance appearance-row">
     <span class="appearance-label">Appearance</span>
     <div class="seg" id="themeSeg" role="group" aria-label="Theme">
@@ -4892,30 +4904,33 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme(‘dark’)">Dark</button>
     </div>
   </div>
+
+  <!-- Install Athlevo — hidden on native by runtimeEnvironment.js -->
   <div class="spacer-md" style="height:8px"></div>
   <button class="rowlink" id="youInstallRow" type="button" onclick="athlevoInstall()">
     <div><b>Install Athlevo</b><small id="youInstallSub">Add Athlevo to your home screen</small></div>
     <span class="arr">→</span>
   </button>
-  <div class="spacer-md" style="height:8px"></div>
+
+<div class="app-version">
+  <div>Athlevo</div>
+  <div id="appVersionDisplay">Version 0.6.0</div>
+</div>
+
+<div class="spacer-md"></div>
+</section>
+
+<!-- ══════════════ SETTINGS ══════════════ -->
+<section class="screen" id="screen-settings">
+  <button class="settings-back" type="button" onclick="closeSettings()" aria-label="Back">
+    <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <h1 class="serif" style="margin:0 22px 16px;font-size:var(--fs-h1)">Settings</h1>
+
+  <!-- ── Preferences ── -->
+  <div class="pad"><div class="section-title">Preferences</div></div>
   <button class="rowlink" type="button" onclick="toast(‘Notification settings coming soon’)">
     <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
-  </button>
-
-  <div class="spacer-md"></div>
-
-  <!-- ── Support & Legal ── -->
-  <div class="pad"><div class="section-title">Support &amp; Legal</div></div>
-  <button class="rowlink" type="button" onclick="openBetaFeedback()">
-    <div><b>Support</b><small>Report a bug, share an idea, or get help.</small></div><span class="arr">→</span>
-  </button>
-  <div class="spacer-md" style="height:8px"></div>
-  <button class="rowlink" type="button" onclick="openLegal(‘privacy’)">
-    <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
-  </button>
-  <div class="spacer-md" style="height:8px"></div>
-  <button class="rowlink" type="button" onclick="openLegal(‘terms’)">
-    <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
   </button>
 
   <div class="spacer-md"></div>
@@ -4925,7 +4940,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <button class="rowlink" type="button" onclick="toast(‘Account settings coming soon’)">
     <div><b>Account Settings</b><small>Manage your account details.</small></div><span class="arr">→</span>
   </button>
-  <div class="spacer-md" style="height:8px"></div>
+  <div class="settings-spacer"></div>
   <button class="rowlink" type="button" onclick="doLogout()">
     <div><b>Log Out</b><small>Sign out of your Athlevo account.</small></div><span class="arr">→</span>
   </button>
@@ -4934,12 +4949,27 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div><b>Delete Account</b><small>Permanently delete your account and all data.</small></div><span class="arr">→</span>
   </button>
 
-<div class="app-version">
-  <div>Athlevo</div>
-  <div id="appVersionDisplay">Version 0.6.0</div>
-</div>
+  <div class="spacer-md"></div>
 
-<div class="spacer-md"></div>
+  <!-- ── Support & Legal ── -->
+  <div class="pad"><div class="section-title">Support &amp; Legal</div></div>
+  <button class="rowlink" type="button" onclick="openBetaFeedback()">
+    <div><b>Support</b><small>Report a bug, share an idea, or get help.</small></div><span class="arr">→</span>
+  </button>
+  <div class="settings-spacer"></div>
+  <button class="rowlink" type="button" onclick="openLegal(‘privacy’)">
+    <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
+  </button>
+  <div class="settings-spacer"></div>
+  <button class="rowlink" type="button" onclick="openLegal(‘terms’)">
+    <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
+  </button>
+
+  <div class="app-version">
+    <div>Athlevo</div>
+    <div id="settingsVersionDisplay">Version 0.6.0</div>
+  </div>
+  <div class="spacer-md"></div>
 </section>
 
 <!-- ══════════════ COACH MODE ══════════════
@@ -5869,6 +5899,51 @@ function closeDeleteAccount() {
   document.getElementById('deleteAccountModal').classList.remove('show');
 }
 window.closeDeleteAccount = closeDeleteAccount;
+
+// ── Settings navigation ──
+var _youScrollY = 0;
+function openSettings() {
+  _youScrollY = document.getElementById('screen-you') ? document.getElementById('screen-you').scrollTop : 0;
+  // Update settings version display
+  var sv = document.getElementById('settingsVersionDisplay');
+  if (sv && window.ATHLEVO_VERSION) sv.textContent = 'Version ' + window.ATHLEVO_VERSION;
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  var settings = document.getElementById('screen-settings');
+  if (settings) { settings.classList.add('active'); settings.scrollTop = 0; }
+}
+window.openSettings = openSettings;
+
+function closeSettings() {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  var you = document.getElementById('screen-you');
+  if (you) { you.classList.add('active'); you.scrollTop = _youScrollY; }
+  // Re-select the You tab indicator
+  var youTab = document.querySelector('#tabbar .tab[data-screen="screen-you"]');
+  if (youTab) {
+    document.querySelectorAll('#tabbar .tab').forEach(function(t){ t.classList.remove('on'); });
+    youTab.classList.add('on');
+    if (typeof syncNavIndicatorToActiveTab === 'function') syncNavIndicatorToActiveTab(false);
+  }
+}
+window.closeSettings = closeSettings;
+
+// Android hardware back button support for Settings
+document.addEventListener('backbutton', function() {
+  var settings = document.getElementById('screen-settings');
+  if (settings && settings.classList.contains('active')) {
+    closeSettings();
+    return;
+  }
+}, false);
+// Capacitor App.backButton listener for Android
+if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+  window.Capacitor.Plugins.App.addListener('backButton', function() {
+    var settings = document.getElementById('screen-settings');
+    if (settings && settings.classList.contains('active')) {
+      closeSettings();
+    }
+  });
+}
 
 // Enable the delete button only when the user types DELETE exactly
 document.addEventListener('input', function(e) {
