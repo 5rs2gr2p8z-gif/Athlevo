@@ -440,24 +440,51 @@
 
   function mapAuthError(error, context) {
     const raw = String((error && error.message) || error || "").toLowerCase();
-    const status = error && (error.status || error.code);
+    const status = error && error.status;
+    const errorCode = String((error && error.code) || "").toLowerCase();
 
+    if (error && error.__timeout) {
+      return {
+        code: "AUTH_TIMEOUT",
+        message: context === "login"
+          ? "Login is taking longer than expected. Please wait a minute before trying again."
+          : "Signup is taking longer than expected. Check your email, then wait a minute before trying again."
+      };
+    }
     if (
-      error && error.__timeout ||
       (error && error.name === "AbortError") ||
       raw.includes("failed to fetch") ||
       raw.includes("networkerror") ||
       raw.includes("network request failed") ||
-      raw.includes("load failed") ||
-      raw.includes("timeout")
+      raw.includes("load failed")
     ) {
       return { code: "AUTH_NETWORK", message: "We couldn’t reach the server. Check your connection and try again." };
     }
     if (raw.includes("already registered") || raw.includes("already exists") || raw.includes("user already")) {
       return { code: "AUTH_EMAIL_EXISTS", message: "An account already exists for this email. Log in instead." };
     }
-    if (raw.includes("rate limit") || raw.includes("too many") || status === 429) {
-      return { code: "AUTH_RATE_LIMIT", message: "Too many signup attempts. Please wait a minute and try again." };
+    if (
+      errorCode === "over_email_send_rate_limit" ||
+      raw.includes("email rate limit") ||
+      raw.includes("too many emails")
+    ) {
+      return {
+        code: "AUTH_EMAIL_RATE_LIMIT",
+        message: "Confirmation emails are temporarily limited. Please try again later or continue with Google."
+      };
+    }
+    if (
+      errorCode === "over_request_rate_limit" ||
+      raw.includes("rate limit") ||
+      raw.includes("too many") ||
+      status === 429
+    ) {
+      return {
+        code: "AUTH_RATE_LIMIT",
+        message: context === "login"
+          ? "Too many login attempts were made from this network. Please wait a few minutes and try again."
+          : "Too many signup requests were made from this network. Please wait a few minutes and try again."
+      };
     }
     if (raw.includes("email not confirmed") || raw.includes("not confirmed") || raw.includes("confirm your email")) {
       return { code: "AUTH_CONFIRM_EMAIL", message: "Check your email to confirm your account, then log in." };

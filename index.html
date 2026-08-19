@@ -5379,7 +5379,9 @@ function authFailureCategory(error) {
     : { code: "AUTH_UNKNOWN" };
   const categories = {
     AUTH_NETWORK: "network",
+    AUTH_TIMEOUT: "network",
     AUTH_EMAIL_EXISTS: "existing_account",
+    AUTH_EMAIL_RATE_LIMIT: "rate_limit",
     AUTH_RATE_LIMIT: "rate_limit",
     AUTH_CONFIRM_EMAIL: "validation",
     AUTH_INVALID_LOGIN: "auth",
@@ -5623,6 +5625,9 @@ window.addEventListener('athlevo:native-back', function (event) {
 //      into onboarding (which needs auth.getUser) would break.
 // It works whether or not "Confirm email" is enabled in Supabase.
 let signupInFlight = false;
+let signupCompletedEmail = "";
+let signupRetryBlockedUntil = 0;
+let signupRetryTimer = null;
 
 // Accurate Supabase → user-facing mapping (with safe internal codes) lives
 // in js/authSupport.js so it is reusable and unit-testable. This wrapper
@@ -5654,6 +5659,7 @@ function withTimeout(promise, ms, label) {
 // change any authentication logic.
 function validateSignupPassword() {
   const pw = document.getElementById('suPassword')?.value || '';
+  const email = document.getElementById('suEmail')?.value.trim().toLowerCase() || '';
 
   const rules = {
     len: pw.length >= 8,
@@ -5675,7 +5681,14 @@ function validateSignupPassword() {
   const btn = document.getElementById('suBtn');
   // Don't fight the in-flight state set during an actual submit.
   if (btn && !signupInFlight) {
-    btn.disabled = !allPass;
+    const alreadyCreated = Boolean(email && signupCompletedEmail === email);
+    const retryBlocked = Date.now() < signupRetryBlockedUntil;
+    btn.disabled = !allPass || alreadyCreated || retryBlocked;
+    if (retryBlocked) {
+      btn.textContent = 'Please wait';
+    } else if (!alreadyCreated && btn.textContent !== 'Create Account') {
+      btn.textContent = 'Create Account';
+    }
   }
 
   return allPass;
@@ -5699,6 +5712,7 @@ async function doSignup(bypassEmbeddedWarning) {
   const name = document.getElementById('suName').value.trim();
   const email = document.getElementById('suEmail').value.trim();
   const password = document.getElementById('suPassword').value;
+  const normalizedEmail = email.toLowerCase();
 
   if (!email || !password) {
     msg.style.color = 'var(--red)';
@@ -5710,9 +5724,25 @@ async function doSignup(bypassEmbeddedWarning) {
     msg.textContent = 'Password must be at least 6 characters.';
     return;
   }
+  if (signupCompletedEmail && signupCompletedEmail === normalizedEmail) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Check your email'; }
+    msg.style.color = 'var(--good)';
+    msg.textContent = 'Check your email to confirm your account, then log in.';
+    return;
+  }
+  if (Date.now() < signupRetryBlockedUntil) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Please wait'; }
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Your last signup may still be processing. Check your email, then wait a minute before trying again.';
+    return;
+  }
 
   signupInFlight = true;
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating account...'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Creating account...';
+    btn.setAttribute('aria-busy', 'true');
+  }
   msg.style.color = '#555';
   msg.textContent = 'Creating account...';
 
@@ -5760,6 +5790,11 @@ async function doSignup(bypassEmbeddedWarning) {
       showLoginForm();
       return;
     }
+
+    // The account now exists. Keep this email locked in the current page so
+    // the confirmation state cannot be mistaken for a failed submit and send
+    // a second signUp/confirmation request.
+    signupCompletedEmail = normalizedEmail;
 
     // A non-empty identities array is Supabase's authoritative signal that
     // this signUp call created a genuinely new auth account. Existing emails
@@ -5835,9 +5870,32 @@ async function doSignup(bypassEmbeddedWarning) {
     // e may be a timeout/network error — map it, never log the password.
     msg.style.color = 'var(--red)';
     msg.textContent = friendlyAuthError(e, 'signup');
+    // Promise.race cannot cancel Supabase's underlying fetch. Prevent an
+    // immediate retry from overlapping a request whose outcome is unknown.
+    if (e && e.__timeout) {
+      signupRetryBlockedUntil = Date.now() + 60000;
+    }
   } finally {
     signupInFlight = false;
-    if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
+    if (btn) {
+      btn.setAttribute('aria-busy', 'false');
+      if (signupCompletedEmail === normalizedEmail) {
+        btn.disabled = true;
+        btn.textContent = 'Check your email';
+      } else if (Date.now() < signupRetryBlockedUntil) {
+        btn.disabled = true;
+        btn.textContent = 'Please wait';
+        if (signupRetryTimer) clearTimeout(signupRetryTimer);
+        signupRetryTimer = setTimeout(function () {
+          signupRetryTimer = null;
+          signupRetryBlockedUntil = 0;
+          validateSignupPassword();
+        }, Math.max(0, signupRetryBlockedUntil - Date.now()));
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    }
   }
 }
 
@@ -8466,7 +8524,7 @@ setTimeout(function () {
     <div id="signupForm">
       <h2>Create Account</h2>
       <input id="suName" type="text" placeholder="Full name" />
-      <input id="suEmail" type="email" placeholder="Email" />
+      <input id="suEmail" type="email" placeholder="Email" oninput="validateSignupPassword()" />
       <input id="suPassword" type="password" placeholder="Password" oninput="validateSignupPassword()" />
       <ul class="pw-check" id="pwCheck">
         <li data-rule="len"><span class="pw-dot"></span>8 characters</li>
@@ -8632,7 +8690,7 @@ setTimeout(function () {
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
 <script src="js/landingContent.js?v=78"></script>
-<script src="js/authSupport.js?v=73"></script>
+<script src="js/authSupport.js?v=74"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
 <script src="js/loadingContinuity.js?v=81"></script>
