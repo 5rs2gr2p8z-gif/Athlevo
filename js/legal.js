@@ -187,22 +187,41 @@ function openLegal(key) {
  */
 async function openPublicLegalRoute(pathname) {
   const normalizedPath = String(pathname || "/").replace(/\/+$/, "") || "/";
-  if (normalizedPath !== "/privacy") return false;
 
-  legalPublicRoute = true;
-  legalReturnScreen = "screen-landing";
-  document.body.classList.add("public-legal-active");
-  document.title = "Privacy Policy — Athlevo";
+  if (normalizedPath === "/privacy") {
+    legalPublicRoute = true;
+    legalReturnScreen = "screen-landing";
+    document.body.classList.add("public-legal-active");
+    document.title = "Privacy Policy — Athlevo";
 
-  if (typeof showScreen === "function") {
-    showScreen(LEGAL_DOCS.privacy.screen);
+    if (typeof showScreen === "function") {
+      showScreen(LEGAL_DOCS.privacy.screen);
+    }
+
+    const screenEl = document.getElementById(LEGAL_DOCS.privacy.screen);
+    if (screenEl) screenEl.scrollTop = 0;
+
+    await loadLegalDoc("privacy");
+    return true;
   }
 
-  const screenEl = document.getElementById(LEGAL_DOCS.privacy.screen);
-  if (screenEl) screenEl.scrollTop = 0;
+  if (normalizedPath === "/delete-account") {
+    legalPublicRoute = true;
+    legalReturnScreen = "screen-landing";
+    document.body.classList.add("public-legal-active");
+    document.title = "Delete Account — Athlevo";
 
-  await loadLegalDoc("privacy");
-  return true;
+    if (typeof showScreen === "function") {
+      showScreen("screen-delete-account");
+    }
+
+    const screenEl = document.getElementById("screen-delete-account");
+    if (screenEl) screenEl.scrollTop = 0;
+
+    return true;
+  }
+
+  return false;
 }
 
 /* Returns to the previous screen (and the signup sheet if applicable). */

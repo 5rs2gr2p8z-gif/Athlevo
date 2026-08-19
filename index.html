@@ -1371,7 +1371,8 @@ body.athlevo-sheet-locked{overflow:hidden}
   body.public-legal-active .device { max-width:none; margin:0; min-height:100dvh;
     height:100dvh; max-height:100dvh; border-radius:0; box-shadow:none; background:var(--paper); }
   body.public-legal-active #tabbar { display:none!important; }
-  body.public-legal-active #screen-privacy { padding-bottom:env(safe-area-inset-bottom); }
+  body.public-legal-active #screen-privacy,
+  body.public-legal-active #screen-delete-account { padding-bottom:env(safe-area-inset-bottom); }
   body.public-legal-active .legal-head { width:100%; max-width:724px; margin:0 auto; box-sizing:border-box; }
   /* subtle app version footer on the You page */
   .app-version { text-align:center; margin:22px 0 0; font-size:var(--fs-caption);
@@ -5292,6 +5293,53 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </button>
   </div>
   <div class="legal-wrap"><div class="legal-body" id="legalBodyBeta"></div></div>
+</section>
+
+<!-- ══════════════ DELETE ACCOUNT (public page) ══════════════ -->
+<section class="screen" id="screen-delete-account">
+  <div class="legal-head">
+    <button class="legal-back" type="button" onclick="closeLegal()">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+      Back
+    </button>
+  </div>
+  <div class="legal-wrap"><div class="legal-body" id="deleteAccountPublicBody">
+    <h1>Delete Your Athlevo Account</h1>
+    <p>Athlevo allows you to permanently delete your account and all associated data at any time.</p>
+
+    <h2>What gets deleted</h2>
+    <p>When your account is deleted, Athlevo removes the following data permanently:</p>
+    <ul>
+      <li>Your account profile and authentication credentials</li>
+      <li>All training plans, workout history, and activity data</li>
+      <li>AI coaching conversations and coach memory</li>
+      <li>Readiness check-ins, recovery scores, and daily briefs</li>
+      <li>Connected fitness provider tokens (e.g. Strava)</li>
+      <li>Subscription and billing records</li>
+      <li>Any other data associated with your account</li>
+    </ul>
+    <p>Certain information may be retained where required for legitimate legal, accounting, fraud prevention, or security purposes as described in our <a href="/privacy" style="color:var(--red);text-decoration:underline">Privacy Policy</a>. Backup systems may require additional time before data is permanently removed.</p>
+
+    <h2>How to delete your account</h2>
+    <h3>Option 1: Delete from within the app</h3>
+    <p>If you are signed in to Athlevo, you can delete your account directly:</p>
+    <ul>
+      <li>Open Athlevo and sign in</li>
+      <li>Go to the <strong>You</strong> tab</li>
+      <li>Tap <strong>Delete Account</strong></li>
+      <li>Type <strong>DELETE</strong> to confirm</li>
+      <li>Tap <strong>Delete my account</strong></li>
+    </ul>
+    <p>Your account and all data will be permanently removed immediately.</p>
+
+    <h3>Option 2: Request deletion by email</h3>
+    <p>If you are unable to sign in or prefer to request deletion manually, email us at:</p>
+    <p><a href="mailto:support@athlevo.org" style="color:var(--red);text-decoration:underline">support@athlevo.org</a></p>
+    <p>Include the email address associated with your Athlevo account. We will verify your identity and process the deletion within 7 business days.</p>
+
+    <h2>After deletion</h2>
+    <p>Once your account is deleted, this action cannot be undone. You will need to create a new account if you wish to use Athlevo again. Any active subscriptions will be cancelled as part of the deletion process.</p>
+  </div></div>
 </section>
 
 <!-- ══════════════ TAB BAR ══════════════ -->
