@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/privacy",
+      "destination": "/index.html"
+    },
+    {
       "source": "/api/paymongo/checkout",
       "destination": "/api/providers?action=paymongo_checkout"
     },

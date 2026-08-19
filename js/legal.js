@@ -15,7 +15,7 @@ console.log("Athlevo Legal Loaded");
 
 const LEGAL_DOCS = {
   privacy: {
-    file: "legal/privacy-policy.md",
+    file: "/legal/privacy-policy.md",
     screen: "screen-privacy",
     body: "legalBodyPrivacy"
   },
@@ -34,6 +34,7 @@ const LEGAL_DOCS = {
 const legalRenderedCache = {};
 let legalReturnScreen = "screen-welcome";
 let legalReturnToSignup = false;
+let legalPublicRoute = false;
 
 function legalEscapeHtml(text) {
   return String(text)
@@ -180,8 +181,37 @@ function openLegal(key) {
   loadLegalDoc(key);
 }
 
+/*
+ * Opens a legal document as a public, direct URL without restoring an auth
+ * session. The same markdown source and renderer are used by the in-app view.
+ */
+async function openPublicLegalRoute(pathname) {
+  const normalizedPath = String(pathname || "/").replace(/\/+$/, "") || "/";
+  if (normalizedPath !== "/privacy") return false;
+
+  legalPublicRoute = true;
+  legalReturnScreen = "screen-landing";
+  document.body.classList.add("public-legal-active");
+  document.title = "Privacy Policy — Athlevo";
+
+  if (typeof showScreen === "function") {
+    showScreen(LEGAL_DOCS.privacy.screen);
+  }
+
+  const screenEl = document.getElementById(LEGAL_DOCS.privacy.screen);
+  if (screenEl) screenEl.scrollTop = 0;
+
+  await loadLegalDoc("privacy");
+  return true;
+}
+
 /* Returns to the previous screen (and the signup sheet if applicable). */
 function closeLegal() {
+  if (legalPublicRoute) {
+    window.location.assign("/");
+    return;
+  }
+
   if (typeof showScreen === "function") {
     showScreen(legalReturnScreen || "screen-welcome");
   }
@@ -194,3 +224,4 @@ function closeLegal() {
 
 window.openLegal = openLegal;
 window.closeLegal = closeLegal;
+window.openPublicLegalRoute = openPublicLegalRoute;

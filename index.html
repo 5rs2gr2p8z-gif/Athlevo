@@ -1365,6 +1365,14 @@ body.athlevo-sheet-locked{overflow:hidden}
   .legal-body li { font-size:var(--fs-body); line-height:1.65; color:var(--ink2); margin:6px 0; }
   .legal-body strong { color:var(--text); font-weight:650; }
   .legal-loading { font-size:var(--fs-body); color:var(--ink3); padding:20px 0; }
+  /* Dedicated public legal URL: retain the legal typography while allowing
+     the document to use the responsive web canvas instead of the app frame. */
+  body.public-legal-active { background:var(--paper); }
+  body.public-legal-active .device { max-width:none; margin:0; min-height:100dvh;
+    height:100dvh; max-height:100dvh; border-radius:0; box-shadow:none; background:var(--paper); }
+  body.public-legal-active #tabbar { display:none!important; }
+  body.public-legal-active #screen-privacy { padding-bottom:env(safe-area-inset-bottom); }
+  body.public-legal-active .legal-head { width:100%; max-width:724px; margin:0 auto; box-sizing:border-box; }
   /* subtle app version footer on the You page */
   .app-version { text-align:center; margin:22px 0 0; font-size:var(--fs-caption);
     line-height:var(--lh-body); color:var(--ink3); letter-spacing:.02em; }
@@ -8689,7 +8697,7 @@ setTimeout(function () {
 <script src="js/readiness.js?v=79"></script>
 <script src="js/morningCheckIn.js?v=71"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>
-<script src="js/legal.js?v=67"></script>
+<script src="js/legal.js?v=68"></script>
 <script src="js/onboarding.js?v=70"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
@@ -9388,6 +9396,12 @@ setTimeout(function () {
 
   async function initializeAthlevoApp() {
     const url = new URL(window.location.href);
+    if (typeof window.openPublicLegalRoute === "function" &&
+        await window.openPublicLegalRoute(url.pathname)) {
+      endBootGate();
+      return;
+    }
+
     const nativeProviderReturn = window.__athlevoNativeProviderReturn || null;
     const stravaResult = nativeProviderReturn && nativeProviderReturn.state
       ? nativeProviderReturn.state
