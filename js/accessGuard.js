@@ -828,6 +828,64 @@
     paymentReturnNotice("Your payment is still being confirmed.");
   });
 
+  /* ─────────────── trial countdown ────────────────────────────────── */
+
+  let trialIndicatorTimer = null;
+
+  function renderTrialIndicator() {
+    if (!window.AthlevoPlan || typeof window.AthlevoPlan.entitlement !== "function") return;
+    const ent = window.AthlevoPlan.entitlement();
+    const existing = document.getElementById("athlevoTrialIndicator");
+
+    if (!ent || !ent.isPerformanceTrial || !ent.trialExpiresAt) {
+      if (existing) existing.remove();
+      if (trialIndicatorTimer) { clearInterval(trialIndicatorTimer); trialIndicatorTimer = null; }
+      return;
+    }
+
+    const expiresMs = new Date(ent.trialExpiresAt).getTime();
+    const remainMs = Math.max(0, expiresMs - Date.now());
+
+    if (remainMs <= 0) {
+      if (existing) existing.remove();
+      if (trialIndicatorTimer) { clearInterval(trialIndicatorTimer); trialIndicatorTimer = null; }
+      return;
+    }
+
+    const hours = Math.floor(remainMs / 3600000);
+    const mins = Math.floor((remainMs % 3600000) / 60000);
+    const label = hours > 0
+      ? "Performance access · " + hours + "h " + mins + "m remaining"
+      : "Performance access · " + mins + "m remaining";
+
+    if (existing) {
+      existing.textContent = label;
+    } else {
+      const el = document.createElement("div");
+      el.id = "athlevoTrialIndicator";
+      el.className = "ag-trial-indicator";
+      el.textContent = label;
+      // Insert at top of active screen or body
+      const today = document.getElementById("screen-today");
+      if (today) {
+        today.insertBefore(el, today.firstChild);
+      } else {
+        document.body.appendChild(el);
+      }
+    }
+
+    if (!trialIndicatorTimer) {
+      trialIndicatorTimer = setInterval(renderTrialIndicator, 60000);
+    }
+  }
+
+  // Refresh trial indicator whenever entitlement loads
+  if (document && typeof document.addEventListener === "function") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") renderTrialIndicator();
+    });
+  }
+
   /* ─────────────── public API ────────────────────────────────────── */
 
   window.AthlevoAccessGuard = {
@@ -844,6 +902,7 @@
     closeUpgradeSheet,
     trackPremiumView,
     refreshPremiumViews,
-    VERSION: "access-guard-v4"
+    renderTrialIndicator,
+    VERSION: "access-guard-v5"
   };
 })();

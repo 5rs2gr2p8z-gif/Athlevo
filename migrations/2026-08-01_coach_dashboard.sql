@@ -170,7 +170,8 @@ create policy "Coach reads assigned athlete profile"
   using (public.athlevo_is_active_coach_of(id));
 
 do $$
-declare tbl text;
+declare
+  tbl text;
 begin
   foreach tbl in array array[
     'activities',
@@ -180,12 +181,37 @@ begin
     'weekly_progress_summaries',
     'training_sessions'
   ] loop
+
+    -- Skip tables that do not exist in this project.
+    if to_regclass(format('public.%I', tbl)) is null then
+      raise notice 'Skipping missing table: public.%', tbl;
+      continue;
+    end if;
+
+    -- Skip tables that do not have the expected user_id column.
+    if not exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = tbl
+        and column_name = 'user_id'
+    ) then
+      raise notice 'Skipping table without user_id: public.%', tbl;
+      continue;
+    end if;
+
     execute format(
       'drop policy if exists %I on public.%I',
-      'Coach reads assigned athlete data', tbl);
+      'Coach reads assigned athlete data',
+      tbl
+    );
+
     execute format(
       'create policy %I on public.%I for select using (public.athlevo_is_active_coach_of(user_id))',
-      'Coach reads assigned athlete data', tbl);
+      'Coach reads assigned athlete data',
+      tbl
+    );
+
   end loop;
 end $$;
 

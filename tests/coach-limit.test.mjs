@@ -496,6 +496,76 @@ section("Entitlement loading and analytics privacy");
     }));
 }
 
+section("dist/js sync — root cause verification");
+{
+  const distCoach = readFileSync("./dist/js/coach.js", "utf8");
+  const distRegistry = readFileSync("./dist/js/analyticsRegistry.js", "utf8");
+  const distAccessGuard = readFileSync("./dist/js/accessGuard.js", "utf8");
+  const distFeatures = readFileSync("./dist/js/features.js", "utf8");
+
+  // Root cause: dist had FREE_LIMIT_REACHED instead of COACH_WEEKLY_LIMIT_REACHED
+  test("dist/js/coach.js uses COACH_WEEKLY_LIMIT_REACHED (not FREE_LIMIT_REACHED)",
+    distCoach.includes("COACH_WEEKLY_LIMIT_REACHED") &&
+    !distCoach.includes("FREE_LIMIT_REACHED"));
+
+  test("dist/js/coach.js has classifyCoachFailure",
+    distCoach.includes("function classifyCoachFailure("));
+  test("dist/js/coach.js has resolveCoachAccessState",
+    distCoach.includes("async function resolveCoachAccessState("));
+  test("dist/js/coach.js has restoreCoachDraft",
+    distCoach.includes("function restoreCoachDraft("));
+  test("dist/js/coach.js has showCoachLimitUpgrade",
+    distCoach.includes("function showCoachLimitUpgrade("));
+  test("dist/js/coach.js has claimCoachRequest",
+    distCoach.includes("function claimCoachRequest("));
+  test("dist/js/coach.js has trackCoachEvent",
+    distCoach.includes("function trackCoachEvent("));
+
+  test("dist/js/coach.js saves user message only after success",
+    (() => {
+      const saveIdx = distCoach.indexOf("saveConversationMessage(\"user\"");
+      const answerGuard = distCoach.lastIndexOf("if (data.answer)", saveIdx);
+      return saveIdx > 0 && answerGuard > 0 && answerGuard < saveIdx;
+    })());
+
+  test("dist/js/analyticsRegistry.js has coach_weekly_limit_reached",
+    distRegistry.includes("coach_weekly_limit_reached"));
+  test("dist/js/analyticsRegistry.js has coach_message_submitted",
+    distRegistry.includes("coach_message_submitted"));
+  test("dist/js/analyticsRegistry.js has coach_request_failed",
+    distRegistry.includes("coach_request_failed"));
+
+  test("dist/js/accessGuard.js showUpgradeSheet accepts 3 params (feature, surface, copy)",
+    distAccessGuard.includes("function showUpgradeSheet(feature, surface, copy)"));
+  test("dist/js/accessGuard.js has configureUpgradeSheet",
+    distAccessGuard.includes("function configureUpgradeSheet("));
+
+  test("dist/js/features.js has loadFailed method",
+    distFeatures.includes("loadFailed()"));
+
+  // Verify source and dist are identical for coach.js
+  test("dist/js/coach.js matches js/coach.js exactly",
+    distCoach === coachSource);
+  test("dist/js/analyticsRegistry.js matches js/analyticsRegistry.js exactly",
+    distRegistry === registrySource);
+}
+
+section("Error response never leaks internal details");
+{
+  const world = createWorld();
+  globalThis.fetch = world.fetchMock;
+  world.failModelOnce();
+  const res = await world.call("leak-user");
+  const body = JSON.stringify(res.body || {});
+  test("provider failure response body has no stack trace or provider key",
+    !body.includes("openai") &&
+    !body.includes("stack") &&
+    !body.includes("api.openai.com") &&
+    !body.includes("OPENAI_API_KEY") &&
+    !body.includes("private upstream detail") &&
+    res.body?.code === "COACH_PROVIDER_UNAVAILABLE");
+}
+
 globalThis.fetch = originalFetch;
 
 console.log(`\n${passed} passed, ${failed} failed`);

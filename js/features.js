@@ -118,6 +118,23 @@ function resolveEntitlement(subscription, now) {
     paidTier === 0 ||
     !recognisedPaid
   ) {
+    // ── 24-hour performance trial for free users ──────────────────
+    var trialStart = toTime(subscription.trial_started_at);
+    var TRIAL_DURATION_MS = 24 * 60 * 60 * 1000;
+    if (trialStart && (trialStart + TRIAL_DURATION_MS) > now) {
+      return {
+        accessState: ACCESS_STATES.PAID_ACTIVE,
+        planId: "performance",
+        tier: tierOf("performance"),
+        status: "trialing",
+        entitled: true,
+        inGrace: false,
+        isFounder: isFounder,
+        reason: "performance_trial",
+        isPerformanceTrial: true,
+        trialExpiresAt: new Date(trialStart + TRIAL_DURATION_MS).toISOString()
+      };
+    }
     return Object.assign({}, free, { planId: planId, isFounder: isFounder });
   }
 
@@ -221,12 +238,32 @@ async function loadSubscription() {
       return null;
     }
 
-    // A missing row means Free — never an error state.
-    const { data, error } = await supabaseClient
-      .from("subscriptions")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    // ensure_free_trial creates a subscription row with trial_started_at
+    // if none exists, or backfills trial_started_at on existing rows.
+    // Falls back to a plain SELECT if the RPC is not yet deployed.
+    let data = null;
+    let error = null;
+    try {
+      const rpcResult = await supabaseClient
+        .rpc("ensure_free_trial", { p_user_id: user.id })
+        .maybeSingle();
+      data = rpcResult.data;
+      error = rpcResult.error;
+    } catch (rpcErr) {
+      // RPC not deployed yet — fall back to plain SELECT
+      data = null;
+      error = { message: "rpc_fallback" };
+    }
+    if (error) {
+      // Fallback: plain SELECT (pre-migration or RPC unavailable)
+      const fallback = await supabaseClient
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       console.warn("Subscription load failed; access remains unresolved.");
@@ -237,6 +274,13 @@ async function loadSubscription() {
       currentSubscription = data || null;
       subscriptionLoaded = true;
     }
+    // Render trial countdown if active
+    try {
+      if (window.AthlevoAccessGuard &&
+          typeof window.AthlevoAccessGuard.renderTrialIndicator === "function") {
+        window.AthlevoAccessGuard.renderTrialIndicator();
+      }
+    } catch (e) {}
     return currentSubscription;
   } catch (error) {
     console.warn("Subscription load error; access remains unresolved.");

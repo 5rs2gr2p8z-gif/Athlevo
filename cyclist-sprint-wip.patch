@@ -1,0 +1,873 @@
+diff --git a/api/coach.js b/api/coach.js
+index 013274c..ca216a9 100644
+--- a/api/coach.js
++++ b/api/coach.js
+@@ -190,6 +190,27 @@ HOW TO USE THE RESPONSE FIELDS
+ - suggested_replies: 0–3 short follow-ups in the athlete's voice, or none.
+ - confidence: internal only; never mention or imply it.
+ 
++MULTI-SPORT AWARENESS
++- Each recent activity carries an explicit "sport" (run, ride, strength,
++  swim, walk, hike, mobility, cross_training, other) plus subtype, duration,
++  distance, load, heart rate, and — for rides — speed, power and cadence.
++  Trust the sport label. A ride is NOT a run: never treat cycling distance
++  as running mileage, and never read a ride's speed as running pace.
++- Cycling and other aerobic work DO contribute cardiovascular fatigue and
++  systemic load, so a hard ride yesterday still costs something before a
++  quality run today. But cycling does not replace run-specific impact and
++  durability preparation — the legs still need running to be run-ready.
++- Strength is not aerobic mileage. Lower-body strength adds leg fatigue that
++  affects both running and riding; upper-body strength has far less
++  lower-limb impact. Weigh it accordingly.
++- An easy ride can be appropriate recovery or aerobic maintenance depending
++  on context; it does not automatically cancel a planned run, and a missed
++  easy run "made up" with an easy ride is not equivalent run durability.
++- Capability honesty: if asked whether Athlevo coaches cyclists, tell the
++  truth — Athlevo can already understand and analyze cycling activities, but
++  full cycling-specific plan generation is still being expanded. Do not
++  claim to be a complete cycling coach or generate a structured cycling plan.
++
+ FORMAT FOR A PHONE
+ Short paragraphs. Breathing room between ideas. No walls of text. Minimal,
+ clean markdown.
+diff --git a/api/strava/sync.js b/api/strava/sync.js
+index 3b1bb4f..1397af3 100644
+--- a/api/strava/sync.js
++++ b/api/strava/sync.js
+@@ -362,6 +362,42 @@ function mapStravaActivity(userId, activity) {
+   return row;
+ }
+ 
++/*
++ * Emit categorical classification analytics for a batch of normalized rows.
++ * Only canonical sport + mapping status counts (and, for unmapped rows, the
++ * raw provider TYPE string — a low-cardinality category, not user content) are
++ * logged. No athlete identifier, distance, power, HR, title or payload.
++ */
++function logClassificationSummary(provider, rows) {
++  const bySport = {};
++  const unmappedTypes = {};
++  let unmapped = 0;
++  for (const row of rows || []) {
++    const c = (row && row.raw_data && row.raw_data.classification) || {};
++    const sport = c.canonical_sport || "other";
++    bySport[sport] = (bySport[sport] || 0) + 1;
++    if (c.status === "unmapped") {
++      unmapped += 1;
++      const t = c.providerActivityType || "unknown";
++      unmappedTypes[t] = (unmappedTypes[t] || 0) + 1;
++    }
++  }
++  console.log(JSON.stringify({
++    event: "activity_classified",
++    provider,
++    classified: (rows || []).length,
++    by_sport: bySport
++  }));
++  if (unmapped > 0) {
++    console.log(JSON.stringify({
++      event: "activity_type_unmapped",
++      provider,
++      unmapped_count: unmapped,
++      unmapped_types: unmappedTypes
++    }));
++  }
++}
++
+ async function saveActivities(activities) {
+   if (!activities.length) {
+     return [];
+@@ -505,6 +541,12 @@ export default async function handler(request, response) {
+       mapStravaActivity(authenticatedUser.id, activity)
+     );
+ 
++    // Privacy-safe categorical classification analytics. Aggregates by
++    // canonical sport + mapping status only — NEVER titles, distance, power,
++    // HR, ids or raw payloads. Unmapped provider types are surfaced (by their
++    // categorical type string alone) so the mapping table can be extended.
++    logClassificationSummary("strava", mappedActivities);
++
+     const savedActivities = await saveActivities(mappedActivities);
+ 
+     await writeSyncLog(
+diff --git a/index.html b/index.html
+index 0eab14e..f061a27 100644
+--- a/index.html
++++ b/index.html
+@@ -7169,6 +7169,7 @@ setTimeout(function () {
+      window.AthlevoSession (bounded wait-for-session). No product features. -->
+ <script src="js/authSupport.js?v=71"></script>
+ <script src="js/recoveryScore.js?v=69"></script>
++<script src="js/sportClassification.js?v=74"></script>
+ <script src="js/brain.js?v=68"></script>
+ <script src="js/syncStatus.js?v=67"></script>
+ <script src="js/performance.js?v=67"></script>
+diff --git a/js/analyticsRegistry.js b/js/analyticsRegistry.js
+index bc6f0f9..1072a8f 100644
+--- a/js/analyticsRegistry.js
++++ b/js/analyticsRegistry.js
+@@ -63,6 +63,11 @@
+     first_sync_started:            { kind: "milestone",   props: ["provider_type"] },
+     first_activity_imported:       { kind: "milestone",   props: ["activity_type", "activity_count_bucket"] },
+     activity_imported:             { kind: "behavioural", props: ["activity_type"] },
++    // Multi-sport classification taxonomy. Categorical only — never distance,
++    // power, HR, titles, athlete ids, or raw payloads.
++    activity_classified:           { kind: "behavioural", props: ["canonical_sport", "provider", "classification_source", "mapping_status"] },
++    activity_type_unmapped:        { kind: "behavioural", props: ["provider", "classification_source", "mapping_status"] },
++    sport_filter_viewed:           { kind: "behavioural", props: ["canonical_sport"] },
+     first_workout_analysis_viewed: { kind: "milestone",   props: ["workout_type"] },
+     plan_generation_started:       { kind: "behavioural", props: ["plan_goal_type"] },
+     first_plan_generated:          { kind: "milestone",   props: ["plan_goal_type", "user_id", "goal_distance", "plan_start_date"] },
+diff --git a/js/athleteEngine.js b/js/athleteEngine.js
+index 9e95520..cd6ccbc 100644
+--- a/js/athleteEngine.js
++++ b/js/athleteEngine.js
+@@ -54,6 +54,20 @@
+     const t = String(a?.activity_type || a?.sport_type || a?.type || "").toLowerCase();
+     return /run|jog|tempo|interval|threshold|long|track/.test(t);
+   }
++  // Canonical sport resolver (authoritative when SportClassification is loaded).
++  function sportOf(a) {
++    const SC = window.SportClassification;
++    if (SC) return SC.canonicalSportOf(a);
++    return isRunActivity(a) ? "run" : "other";
++  }
++  function loadBucketForSport(sport) {
++    const SC = window.SportClassification;
++    if (SC) return SC.loadBucketForSport(sport);
++    if (sport === "run") return "run";
++    if (sport === "ride") return "ride";
++    if (sport === "strength") return "strength";
++    return "other";
++  }
+   function formatPaceSec(secPerKm) {
+     if (secPerKm == null || !Number.isFinite(secPerKm) || secPerKm <= 0) return null;
+     const total = Math.round(secPerKm);
+@@ -117,6 +131,7 @@
+         status: e.status,
+         performed,
+         isRun: isRunActivity({ activity_type: snap.session_type || (linked && (linked.sport_type || linked.activity_type)) }),
++        sport: linked ? sportOf(linked) : sportOf({ activity_type: snap.session_type, name: snap.title }),
+         distanceKm: km || 0,
+         durationMin: durMin || 0,
+         elapsedMin: linked && num(linked.elapsed_time_seconds) != null ? num(linked.elapsed_time_seconds) / 60 : (durMin || 0),
+@@ -144,6 +159,7 @@
+         status: "activity",
+         performed: true,
+         isRun: isRunActivity(a),
++        sport: sportOf(a),
+         distanceKm: km || 0,
+         durationMin: durMin || 0,
+         elapsedMin: num(a.elapsed_time_seconds) != null ? num(a.elapsed_time_seconds) / 60 : (durMin || 0),
+@@ -262,6 +278,18 @@
+       daily[idx] += ci.load;
+     }
+ 
++    // Per-sport 7-day load breakdown (mirror of the server engine). Total
++    // systemic load is preserved; this splits it so ride load is never
++    // mislabeled as run load.
++    const loadBySport = { run: 0, ride: 0, strength: 0, other: 0 };
++    for (const ci of classifiedItems) {
++      const age = ageDays(ci.item.timestamp, nowMs);
++      if (age < 0 || age >= 7) continue;
++      const bucket = loadBucketForSport(ci.item.sport || "other");
++      loadBySport[bucket] += ci.load;
++    }
++    Object.keys(loadBySport).forEach(k => { loadBySport[k] = Math.round(loadBySport[k]); });
++
+     const last7 = daily.slice(DAYS - 7);
+     const prev7 = daily.slice(DAYS - 14, DAYS - 7);
+ 
+@@ -292,6 +320,11 @@
+ 
+     return {
+       weekly_training_load: weeklyLoad,
++      weekly_load_run: loadBySport.run,
++      weekly_load_ride: loadBySport.ride,
++      weekly_load_strength: loadBySport.strength,
++      weekly_load_other: loadBySport.other,
++      weekly_load_by_sport: loadBySport,
+       acute_load: Math.round(acute),
+       chronic_load: Math.round(chronic),
+       acwr: acwr != null ? Math.round(acwr * 100) / 100 : null,
+diff --git a/js/brain.js b/js/brain.js
+index 6ab7d06..af59efd 100644
+--- a/js/brain.js
++++ b/js/brain.js
+@@ -157,10 +157,46 @@ function buildCoachingContext(
+           ? Math.round(movingTimeSeconds / 60)
+           : null;
+ 
+-      const averagePacePerKilometer = formatPacePerKm(
+-        distanceMeters,
+-        movingTimeSeconds
+-      );
++      // Canonical sport classification (authoritative). Falls back safely if
++      // the classifier isn't loaded. Pace is a RUNNING metric — never present
++      // a per-km pace for a ride/strength/etc. The coach must see a ride as a
++      // ride, not a run.
++      const SC = window.SportClassification;
++      const canonicalSport = SC ? SC.canonicalSportOf(activity) : null;
++      const classification = SC
++        ? SC.classifyActivity({
++            provider: activity.source,
++            providerActivityType:
++              activity.activity_type || activity.sport_type,
++            name: activity.name,
++            trainer: activity.trainer
++          })
++        : null;
++      const dq = SC ? SC.activityDataQuality(activity) : null;
++      const isRun = canonicalSport ? canonicalSport === "run" : true;
++
++      const averagePacePerKilometer = isRun
++        ? formatPacePerKm(distanceMeters, movingTimeSeconds)
++        : null;
++
++      // Speed (km/h) is the ride-family headline metric.
++      const averageSpeedKph =
++        !isRun && distanceMeters > 0 && movingTimeSeconds > 0
++          ? Number(((distanceMeters / movingTimeSeconds) * 3.6).toFixed(1))
++          : null;
++
++      const rawData =
++        activity.raw_data && typeof activity.raw_data === "object"
++          ? activity.raw_data
++          : {};
++      const averagePowerWatts =
++        Number(rawData.average_power_watts) > 0
++          ? Math.round(Number(rawData.average_power_watts))
++          : null;
++      const trainingLoad =
++        Number(rawData.training_load) > 0
++          ? Math.round(Number(rawData.training_load))
++          : null;
+ 
+       return {
+         // Exposed so the coach can target this activity in a correction
+@@ -173,6 +209,11 @@ function buildCoachingContext(
+           activity.activity_type ||
+           "Activity",
+ 
++        // Authoritative canonical sport + provenance, plus the raw provider
++        // string kept for transparency/debugging.
++        sport: canonicalSport || "unknown",
++        subtype: classification ? classification.subtype : null,
++        indoor: classification ? classification.indoor : Boolean(activity.trainer),
+         sportType:
+           activity.sport_type ||
+           activity.activity_type ||
+@@ -182,6 +223,14 @@ function buildCoachingContext(
+         distanceKilometers,
+         durationMinutes,
+         averagePacePerKilometer,
++        averageSpeedKph,
++        averagePowerWatts,
++        averageCadence:
++          Number(activity.average_cadence) > 0
++            ? Math.round(Number(activity.average_cadence))
++            : null,
++        trainingLoad,
++        dataQuality: dq,
+ 
+         averageHeartRate:
+           Number(activity.average_heartrate) > 0
+@@ -258,6 +307,13 @@ function buildCoachingContext(
+       targetRace: profile.target_race || null,
+       targetRaceDate: profile.target_race_date || null,
+ 
++      // Athlete sport profile. primary_sport already exists; secondary/goal
++      // sport are surfaced when present (schema expansion tracked separately).
++      // Athlevo is running-first today, so these default accordingly.
++      primarySport: profile.primary_sport || "Running",
++      secondarySport: profile.secondary_sport || null,
++      goalSport: profile.goal_sport || profile.primary_sport || "Running",
++
+       injuryHistory:
+         profile.injury_history || "None reported",
+ 
+@@ -2371,13 +2427,33 @@ function buildActivitySummary(activities = []) {
+   const sevenDaysAgo = new Date(now);
+   sevenDaysAgo.setDate(now.getDate() - 7);
+ 
++  // Canonical sport gate. `sevenDayDistanceKilometers` and weekly volumes are
++  // presented as RUNNING mileage, so cycling / walking / strength distance must
++  // never be folded in. Falls back to "treat as run" only when the classifier
++  // is unavailable (keeps legacy behaviour rather than dropping data).
++  const SC = window.SportClassification;
++  const isRun = activity => (SC ? SC.isRunRow(activity) : true);
++  const isRide = activity => (SC ? SC.isRideRow(activity) : false);
++  const metersOf = activity => Number(activity.distance_meters) || 0;
++
+   const recentActivities = sortedActivities.filter(
+     activity => new Date(activity.start_date) >= sevenDaysAgo
+   );
++  const recentRuns = recentActivities.filter(isRun);
++  const recentRides = recentActivities.filter(isRide);
+ 
+-  const sevenDayDistanceMeters = recentActivities.reduce(
+-    (total, activity) =>
+-      total + (Number(activity.distance_meters) || 0),
++  // Run-only mileage (authoritative running distance).
++  const sevenDayDistanceMeters = recentRuns.reduce(
++    (total, a) => total + metersOf(a),
++    0
++  );
++  // Kept separately so nothing conflates them.
++  const sevenDayRideDistanceMeters = recentRides.reduce(
++    (total, a) => total + metersOf(a),
++    0
++  );
++  const sevenDayTotalDistanceMeters = recentActivities.reduce(
++    (total, a) => total + metersOf(a),
+     0
+   );
+ 
+@@ -2416,9 +2492,15 @@ function buildActivitySummary(activities = []) {
+       return activityDate >= weekStart && activityDate < weekEnd;
+     });
+ 
+-    const distanceMeters = weekActivities.reduce(
+-      (total, activity) =>
+-        total + (Number(activity.distance_meters) || 0),
++    // Run-only distance is the "weekly mileage" figure; ride/total kept apart.
++    const runMeters = weekActivities
++      .filter(isRun)
++      .reduce((total, a) => total + metersOf(a), 0);
++    const rideMeters = weekActivities
++      .filter(isRide)
++      .reduce((total, a) => total + metersOf(a), 0);
++    const totalMeters = weekActivities.reduce(
++      (total, a) => total + metersOf(a),
+       0
+     );
+ 
+@@ -2426,14 +2508,22 @@ function buildActivitySummary(activities = []) {
+       startDate: weekStart.toISOString(),
+       endDate: weekEnd.toISOString(),
+       activityCount: weekActivities.length,
+-      distanceKilometers: distanceMeters / 1000
++      distanceKilometers: runMeters / 1000,
++      rideDistanceKilometers: rideMeters / 1000,
++      totalDistanceKilometers: totalMeters / 1000
+     });
+   }
+ 
+   return {
+     latestActivity,
+     sevenDayActivityCount: recentActivities.length,
++    sevenDayRunCount: recentRuns.length,
++    sevenDayRideCount: recentRides.length,
++    // Authoritative running mileage (run-only).
+     sevenDayDistanceKilometers: sevenDayDistanceMeters / 1000,
++    // Sport-separated companions so nothing conflates cycling with running.
++    sevenDayRideDistanceKilometers: sevenDayRideDistanceMeters / 1000,
++    sevenDayTotalDistanceKilometers: sevenDayTotalDistanceMeters / 1000,
+     sevenDayTrainingHours: sevenDayMovingSeconds / 3600,
+     sevenDayAverageHeartRate,
+     weeklyVolumes
+diff --git a/js/trainCalendar.js b/js/trainCalendar.js
+index c816d9b..33c25c1 100644
+--- a/js/trainCalendar.js
++++ b/js/trainCalendar.js
+@@ -129,7 +129,25 @@
+   const STATUS_LABEL = { done: "Completed", mod: "Modified", skip: "Skipped", planned: "Planned", rest: "Rest day", activity: "Activity" };
+   function section(label, inner) { return `<div class="tcp-sec"><div class="tcp-sec-label">${esc(label)}</div>${inner}</div>`; }
+   function listOr(label, arr) { const items = (Array.isArray(arr) ? arr : []).map(x => x == null ? "" : String(x)).filter(Boolean); return items.length ? section(label, `<ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`) : ""; }
+-  const sportLabel = a => { const s = String(a.sport_type || a.activity_type || "").toLowerCase(); if (/ride|bike|cycl/.test(s)) return "Ride"; if (/swim/.test(s)) return "Swim"; if (/weight|gym|strength/.test(s)) return "Gym"; if (/brick/.test(s)) return "Brick"; if (/walk|hike/.test(s)) return "Walk"; return "Run"; };
++  // Canonical sport → short display label (authoritative when the classifier
++  // is loaded; falls back to a small heuristic so the UI never breaks).
++  const CANON_SPORT_LABEL = {
++    run: "Run", ride: "Ride", strength: "Strength", swim: "Swim",
++    walk: "Walk", hike: "Hike", mobility: "Mobility",
++    cross_training: "Cross-train", rest: "Rest", other: "Activity"
++  };
++  const canonSport = a => {
++    const SC = window.SportClassification;
++    if (SC) return SC.canonicalSportOf(a);
++    const s = String(a.sport_type || a.activity_type || "").toLowerCase();
++    if (/ride|bike|cycl/.test(s)) return "ride";
++    if (/swim/.test(s)) return "swim";
++    if (/weight|gym|strength/.test(s)) return "strength";
++    if (/walk/.test(s)) return "walk";
++    if (/hike/.test(s)) return "hike";
++    return "run";
++  };
++  const sportLabel = a => CANON_SPORT_LABEL[canonSport(a)] || "Activity";
+ 
+   function renderPanel() {
+     const el = document.getElementById("trainDayPanel");
+@@ -363,19 +381,45 @@
+         html += `</div>`;
+       }
+ 
+-      // 5. Raw metrics — near the bottom.
++      // 5. Raw metrics — near the bottom. Units are SPORT-AWARE: a ride shows
++      // speed (km/h) and power, never running pace; strength shows duration and
++      // category rather than distance/pace. Only runs show min/km pace.
+       html += `<div class="twm-block"><div class="twm-block-h">Metrics</div>`;
++      const sport = act ? canonSport(act) : "run";
++      const rawData = (act && act.raw_data && typeof act.raw_data === "object") ? act.raw_data : {};
+       const km = act && act.distance_meters ? (act.distance_meters / 1000).toFixed(1) + " km" : (ex && ex.actual_distance_km ? ex.actual_distance_km + " km" : null);
+       const min = act && act.moving_time_seconds ? Math.round(act.moving_time_seconds / 60) + " min" : (ex && ex.actual_duration_minutes ? Math.round(ex.actual_duration_minutes) + " min" : null);
+       const avgHr = act && act.average_heartrate ? Math.round(act.average_heartrate) + " bpm" : (ex && ex.actual_average_hr ? ex.actual_average_hr + " bpm" : null);
+       const maxHr = act && act.max_heartrate ? Math.round(act.max_heartrate) + " bpm" : null;
+       const pace = ex && ex.actual_average_pace ? ex.actual_average_pace + "/km" : (act && act.distance_meters && act.moving_time_seconds ? fmtPace(act.moving_time_seconds / (act.distance_meters / 1000)) : null);
+-      const cadence = act && act.average_cadence ? Math.round(act.average_cadence) + " spm" : null;
++      const speedKph = act && act.distance_meters && act.moving_time_seconds ? ((act.distance_meters / act.moving_time_seconds) * 3.6).toFixed(1) + " km/h" : null;
++      const powerW = Number(rawData.average_power_watts) > 0 ? Math.round(Number(rawData.average_power_watts)) + " W" : null;
++      const cadence = act && act.average_cadence ? Math.round(act.average_cadence) + (sport === "ride" ? " rpm" : " spm") : null;
+       const elev = act && act.elevation_gain_meters ? Math.round(act.elevation_gain_meters) + " m" : null;
+       html += planRow("Status", ex ? (ex.status === "completed" ? "Completed" : ex.status === "modified" ? "Modified" : "Skipped") : "Imported");
+-      html += planRow("Distance", km) + planRow("Duration", min) + planRow("Average pace", pace) +
+-        planRow("Average HR", avgHr) + planRow("Max HR", maxHr) + planRow("Cadence", cadence) + planRow("Elevation", elev) +
+-        planRow("Athlete RPE", ex && ex.actual_rpe ? String(ex.actual_rpe) : null) +
++      html += planRow("Sport", CANON_SPORT_LABEL[sport] || "Activity");
++      if (sport === "ride") {
++        // Ride: duration + distance + speed + power/cadence. No running pace.
++        html += planRow("Duration", min) + planRow("Distance", km) +
++          planRow("Average speed", speedKph) + planRow("Average power", powerW) +
++          planRow("Average HR", avgHr) + planRow("Max HR", maxHr) +
++          planRow("Cadence", cadence) + planRow("Elevation", elev);
++      } else if (sport === "strength" || sport === "mobility") {
++        // Strength/mobility: duration + training category. No distance/pace.
++        html += planRow("Duration", min) +
++          planRow("Category", CANON_SPORT_LABEL[sport]) +
++          planRow("Average HR", avgHr) + planRow("Max HR", maxHr);
++      } else if (sport === "run") {
++        // Run: distance + pace (min/km).
++        html += planRow("Distance", km) + planRow("Duration", min) + planRow("Average pace", pace) +
++          planRow("Average HR", avgHr) + planRow("Max HR", maxHr) + planRow("Cadence", cadence) + planRow("Elevation", elev);
++      } else {
++        // Swim/walk/hike/cross-train/other: duration-first, distance if any,
++        // but never running pace.
++        html += planRow("Duration", min) + planRow("Distance", km) +
++          planRow("Average HR", avgHr) + planRow("Max HR", maxHr) + planRow("Elevation", elev);
++      }
++      html += planRow("Athlete RPE", ex && ex.actual_rpe ? String(ex.actual_rpe) : null) +
+         planRow("Feeling", ex && ex.overall_feeling ? String(ex.overall_feeling) : null);
+       html += `</div>`;
+ 
+diff --git a/lib/server/athleteEngine.js b/lib/server/athleteEngine.js
+index d95246d..2a4d7ce 100644
+--- a/lib/server/athleteEngine.js
++++ b/lib/server/athleteEngine.js
+@@ -32,6 +32,7 @@ import {
+   trainingPaces,
+   currentRunningLevel
+ } from "./performance.js";
++import { canonicalSportOf, loadBucketForSport } from "./sportClassification.js";
+ 
+ /* ─────────────────────────── small helpers ──────────────────────────── */
+ 
+@@ -152,6 +153,9 @@ export function mergeTrainingItems(activities, executions) {
+       status: e.status,
+       performed,
+       isRun: isRunActivity({ activity_type: snap.session_type || (linked && (linked.sport_type || linked.activity_type)) }),
++      sport: linked
++        ? canonicalSportOf(linked)
++        : canonicalSportOf({ activity_type: snap.session_type, name: snap.title }),
+       distanceKm: km || 0,
+       durationMin: durMin || 0,
+       elapsedMin: linked && num(linked.elapsed_time_seconds) != null ? num(linked.elapsed_time_seconds) / 60 : (durMin || 0),
+@@ -179,6 +183,7 @@ export function mergeTrainingItems(activities, executions) {
+       status: "activity",
+       performed: true,
+       isRun: isRunActivity(a),
++      sport: canonicalSportOf(a),
+       distanceKm: km || 0,
+       durationMin: durMin || 0,
+       elapsedMin: num(a.elapsed_time_seconds) != null ? num(a.elapsed_time_seconds) / 60 : (durMin || 0),
+@@ -327,6 +332,21 @@ export function computeTrainingLoad(classifiedItems, nowMs) {
+     daily[idx] += ci.load;
+   }
+ 
++  // Per-sport load breakdown for the last 7 days. Total systemic load is
++  // preserved (weekly_training_load below); this splits it so ride load is
++  // never mislabeled as run load and lower-body strength is never treated as
++  // running volume. Buckets: run | ride | strength | other.
++  const loadBySport = { run: 0, ride: 0, strength: 0, other: 0 };
++  for (const ci of classifiedItems) {
++    const age = ageDays(ci.item.timestamp, nowMs);
++    if (age < 0 || age >= 7) continue;
++    const bucket = loadBucketForSport(ci.item.sport || "other");
++    loadBySport[bucket] += ci.load;
++  }
++  Object.keys(loadBySport).forEach(k => {
++    loadBySport[k] = Math.round(loadBySport[k]);
++  });
++
+   const last7 = daily.slice(DAYS - 7);
+   const last28 = daily.slice(DAYS - 28);
+   const prev7 = daily.slice(DAYS - 14, DAYS - 7);
+@@ -361,6 +381,12 @@ export function computeTrainingLoad(classifiedItems, nowMs) {
+ 
+   return {
+     weekly_training_load: weeklyLoad,
++    // Sport-separated 7-day load. Sum ≈ weekly_training_load (rounding aside).
++    weekly_load_run: loadBySport.run,
++    weekly_load_ride: loadBySport.ride,
++    weekly_load_strength: loadBySport.strength,
++    weekly_load_other: loadBySport.other,
++    weekly_load_by_sport: loadBySport,
+     acute_load: Math.round(acute),
+     chronic_load: Math.round(chronic),
+     acwr: acwr != null ? Math.round(acwr * 100) / 100 : null,
+diff --git a/lib/server/wearable/normalizer.js b/lib/server/wearable/normalizer.js
+index af6625e..2aa9bd6 100644
+--- a/lib/server/wearable/normalizer.js
++++ b/lib/server/wearable/normalizer.js
+@@ -1,4 +1,5 @@
+ import { recognizeWorkout } from "../workoutRecognition.js";
++import { classifyActivity } from "../sportClassification.js";
+ 
+ /*
+  * ══════════════════════════════════════════════════════════════════════
+@@ -45,7 +46,11 @@ export function emptyWorkout() {
+     providerUserId: null,      // provider's user id, when supplied
+     externalId: null,          // provider's activity id
+     device: null,              // underlying device / app (e.g. "Garmin Forerunner")
+-    sport: null,               // normalized: run | ride | swim | walk | other
++    sport: null,               // canonical: run|ride|strength|swim|walk|hike|mobility|cross_training|rest|other
++    subtype: null,             // conservative canonical subtype (e.g. treadmill_run) | null
++    indoor: null,              // boolean | null — indoor/virtual/trainer session
++    classificationSource: null,// "provider_type" | "heuristic" | "unmapped"
++    mappingStatus: null,       // "mapped" | "heuristic" | "unmapped"
+     activityType: null,        // raw provider type string (e.g. "Run", "running")
+     name: null,
+     startDate: null,           // ISO 8601 (start_time)
+@@ -65,6 +70,7 @@ export function emptyWorkout() {
+     caloriesKcal: null,
+     averageCadence: null,
+     averagePowerWatts: null,
++    normalizedPowerWatts: null,// NP / weighted-average power, when the device gives it
+     trainingLoad: null,        // TSS / load if the device provides it
+     hasGps: false,
+     hasHeartRate: false,
+@@ -73,14 +79,30 @@ export function emptyWorkout() {
+   };
+ }
+ 
+-// Normalized sport from a provider's sport string.
+-export function normalizeSport(raw) {
+-  const s = String(raw || "").toLowerCase();
+-  if (/run|jog|treadmill|track/.test(s)) return "run";
+-  if (/ride|cycl|bike|biking/.test(s)) return "ride";
+-  if (/swim/.test(s)) return "swim";
+-  if (/walk|hike/.test(s)) return "walk";
+-  return "other";
++// Normalized (canonical) sport from a provider's sport string. Now delegates
++// to the authoritative classifier so there is ONE mapping table for the whole
++// app. Kept as a named export for backward compatibility with existing callers.
++export function normalizeSport(raw, provider) {
++  return classifyActivity({ provider: provider || null, providerActivityType: raw }).sport;
++}
++
++// Populate a normalized workout's canonical classification fields (sport,
++// subtype, indoor, and the classification provenance) from the provider's raw
++// activity type. Provider type is the primary signal; the `trainer` flag only
++// refines the indoor determination. Never overwrites a stronger indoor signal.
++function applyClassification(w, rawType, trainer) {
++  const c = classifyActivity({
++    provider: w.provider,
++    providerActivityType: rawType,
++    name: w.name,
++    trainer
++  });
++  w.sport = c.sport;
++  w.subtype = c.subtype;
++  w.indoor = c.indoor;
++  w.classificationSource = c.classificationSource;
++  w.mappingStatus = c.mappingStatus;
++  return c;
+ }
+ 
+ function derivePace(distanceMeters, movingSeconds) {
+@@ -97,9 +119,9 @@ export function mapStrava(raw) {
+   w.providerUserId = str(get(raw, "athlete.id"));
+   w.externalId = str(raw.id);
+   w.device = str(raw.device_name) || "Strava";
+-  w.sport = normalizeSport(raw.sport_type || raw.type);
+   w.activityType = str(raw.sport_type || raw.type);
+   w.name = str(raw.name);
++  applyClassification(w, raw.sport_type || raw.type, Boolean(raw.trainer));
+   w.startDate = str(raw.start_date);
+   w.timezone = str(raw.timezone);
+   w.distanceMeters = num(raw.distance);
+@@ -114,6 +136,8 @@ export function mapStrava(raw) {
+     : (num(raw.kilojoules) != null ? Math.round(num(raw.kilojoules) / 4.184) : null);
+   w.averageCadence = num(raw.average_cadence);
+   w.averagePowerWatts = num(raw.average_watts) ?? num(raw.weighted_average_watts);
++  // Strava's weighted average power is its normalized-power proxy for rides.
++  w.normalizedPowerWatts = num(raw.weighted_average_watts);
+   w.trainingLoad = num(raw.suffer_score); // Strava's relative-effort proxy
+   w.hasGps = Boolean(raw.start_latlng && raw.start_latlng.length) ||
+     Boolean(get(raw, "map.summary_polyline"));
+@@ -148,8 +172,9 @@ export function mapTerra(raw) {
+   w.providerUserId = str(get(raw, "user.user_id") || get(raw, "user.reference_id"));
+   w.externalId = str(meta.summary_id || meta.id || raw.summary_id || meta.start_time);
+   w.device = str(dev.name || dev.manufacturer) || "Terra device";
+-  w.sport = normalizeSport(meta.type || meta.name || meta.activity_type);
+   w.activityType = str(meta.type || meta.activity_type);
++  const terraTrainer = Boolean(meta.type && /indoor|treadmill|virtual/i.test(String(meta.type)));
++  applyClassification(w, meta.type || meta.name || meta.activity_type, terraTrainer);
+   w.name = str(meta.name) || (w.sport ? w.sport[0].toUpperCase() + w.sport.slice(1) : null);
+   w.startDate = str(meta.start_time || raw.start_time);
+   w.timezone = str(meta.timezone || raw.timezone);
+@@ -166,6 +191,7 @@ export function mapTerra(raw) {
+   w.caloriesKcal = num(cal.total_burned_calories) ?? num(cal.net_activity_calories);
+   w.averageCadence = num(get(cadence, "avg_cadence")) ?? num(cadence.avg_cadence_rpm);
+   w.averagePowerWatts = num(power.avg_watts) ?? num(get(power, "avg_power_watts"));
++  w.normalizedPowerWatts = num(power.normalized_power_watts) ?? num(get(power, "np_watts"));
+   w.trainingLoad = num(raw.TSS) ?? num(get(raw, "strain_data.strain")) ?? num(raw.training_load);
+   w.hasGps = Boolean(get(dist, "detailed.distance_samples")) || Boolean(distSummary.distance_meters);
+   w.hasHeartRate = w.averageHeartrate != null;
+@@ -195,9 +221,13 @@ export function mapIntervals(raw) {
+   w.providerUserId = str(raw.athlete_id || get(raw, "athlete.id"));
+   w.externalId = str(raw.id);
+   w.device = str(raw.device_name || raw.deviceName) || "Intervals.icu";
+-  w.sport = normalizeSport(raw.type || raw.sport);
+   w.activityType = str(raw.type || raw.sport);
+   w.name = str(raw.name);
++  applyClassification(
++    w,
++    raw.type || raw.sport,
++    Boolean(raw.trainer) || /indoor|treadmill|virtual/i.test(String(raw.type || ""))
++  );
+ 
+   // Intervals.icu always returns start_date_local; the UTC instant is
+   // sometimes present as start_date. Prefer the absolute instant when given.
+@@ -217,6 +247,7 @@ export function mapIntervals(raw) {
+   w.averageCadence = num(raw.average_cadence) ?? num(raw.icu_average_cadence);
+   w.averagePowerWatts = num(raw.icu_average_watts) ?? num(raw.average_watts) ??
+     num(raw.icu_weighted_avg_watts);
++  w.normalizedPowerWatts = num(raw.icu_weighted_avg_watts) ?? num(raw.normalized_power);
+   // Intervals.icu computes its own training load (TSS-equivalent).
+   w.trainingLoad = num(raw.icu_training_load) ?? num(raw.training_load);
+ 
+@@ -275,10 +306,29 @@ export function toActivityRow(userId, workout, rawPayload, opts) {
+       device: w.device,
+       calories_kcal: num(w.caloriesKcal),
+       average_power_watts: num(w.averagePowerWatts),
++      normalized_power_watts: num(w.normalizedPowerWatts),
+       training_load: num(w.trainingLoad),
+       has_gps: Boolean(w.hasGps),
+       has_heart_rate: Boolean(w.hasHeartRate),
+       average_pace_sec_per_km: num(w.averagePaceSecPerKm),
++      // ── Canonical sport classification (authoritative, read anywhere) ────
++      // The raw provider type is preserved (classification.providerActivityType)
++      // for debugging and future remapping; downstream reads canonical_sport.
++      classification: {
++        canonical_sport: w.sport,
++        subtype: w.subtype || null,
++        indoor: w.indoor,
++        source: w.classificationSource,
++        status: w.mappingStatus,
++        providerActivityType: w.activityType
++      },
++      // Data-quality indicators — reports availability, never fabricates.
++      data_quality: {
++        power_available: num(w.averagePowerWatts) != null || num(w.normalizedPowerWatts) != null,
++        heart_rate_available: num(w.averageHeartrate) != null,
++        cadence_available: num(w.averageCadence) != null,
++        load_available: num(w.trainingLoad) != null
++      },
+       // Gateway provenance — used by cross-provider deduplication.
+       upstream_source: w.upstreamSource || null,
+       upstream_id: w.upstreamId || null,
+diff --git a/lib/server/weeklyAnalysis.js b/lib/server/weeklyAnalysis.js
+index d856a3f..6f7c74f 100644
+--- a/lib/server/weeklyAnalysis.js
++++ b/lib/server/weeklyAnalysis.js
+@@ -7,6 +7,8 @@
+  * "insufficient" results and the narrative says so.
+  */
+ 
++import { canonicalSportOf } from "./sportClassification.js";
++
+ /* ─── generic helpers ─────────────────────────────────────────── */
+ 
+ export function toNumber(value) {
+@@ -48,11 +50,14 @@ export function isRestSession(session) {
+ }
+ 
+ export function isRunActivity(activity) {
+-  const sport = String(
+-    activity?.sport_type || activity?.activity_type || ""
+-  ).toLowerCase();
++  // Authoritative: read the canonical sport (handles the provider naming
++  // inconsistency and correctly EXCLUDES rides/strength/etc.). A ride titled
++  // "Threshold" no longer leaks into running metrics.
++  return canonicalSportOf(activity) === "run";
++}
+ 
+-  return sport.includes("run");
++export function isRideActivity(activity) {
++  return canonicalSportOf(activity) === "ride";
+ }
+ 
+ function median(values) {
+@@ -112,7 +117,23 @@ export function matchPlannedSessions(sessions, activities, executionMap) {
+         String(session.session_date || "").slice(0, 10)
+       ) || [];
+ 
+-    const best = dayActivities.reduce(
++    // Sport-aware matching. A planned RUN must be completed by a RUN, not by
++    // whatever same-day activity happened to be longest. Otherwise a 2h ride
++    // "completes" a planned easy run and inflates run adherence/durability.
++    // The planned sport comes from the session; unknown defaults to run (this
++    // is a running plan). Explicit athlete feedback still overrides below.
++    const plannedSport =
++      canonicalSportOf({
++        activity_type: session.session_type,
++        sport_type: session.sport,
++        name: session.title
++      }) || "run";
++
++    const sameSportActivities = dayActivities.filter(
++      activity => canonicalSportOf(activity) === plannedSport
++    );
++
++    const best = sameSportActivities.reduce(
+       (longest, activity) =>
+         (toNumber(activity.moving_time_seconds) || 0) >
+         (toNumber(longest?.moving_time_seconds) || 0)
+@@ -121,6 +142,12 @@ export function matchPlannedSessions(sessions, activities, executionMap) {
+       null
+     );
+ 
++    // Was there a same-day activity of a DIFFERENT sport? Surfaced so Today /
++    // Coach can reason about cross-sport fatigue and substitutions.
++    const crossSportActivityPresent = dayActivities.some(
++      activity => canonicalSportOf(activity) !== plannedSport
++    );
++
+     const plannedMinutes = toNumber(session.duration_minutes);
+     const activityMinutes = best
+       ? Math.round((toNumber(best.moving_time_seconds) || 0) / 60)
+@@ -156,6 +183,8 @@ export function matchPlannedSessions(sessions, activities, executionMap) {
+       session_date: session.session_date,
+       title: session.title || null,
+       session_type: session.session_type || null,
++      planned_sport: plannedSport,
++      cross_sport_activity_present: crossSportActivityPresent,
+       planned_minutes: plannedMinutes,
+       actual_minutes: actualMinutes,
+       completed,
+@@ -326,12 +355,20 @@ export function findComparableRuns(weekActivities, baselineActivities) {
+ 
+ export function summarizeActivityTotals(activities) {
+   let seconds = 0;
+-  let meters = 0;
++  let runMeters = 0;
++  let rideMeters = 0;
++  let totalMeters = 0;
+   const activeDays = new Set();
+ 
+   (activities || []).forEach(activity => {
++    // Minutes are legitimately cross-sport (total training time). Distance is
++    // NOT: `distanceKm` is running mileage, so only runs contribute to it.
+     seconds += toNumber(activity.moving_time_seconds) || 0;
+-    meters += toNumber(activity.distance_meters) || 0;
++    const m = toNumber(activity.distance_meters) || 0;
++    totalMeters += m;
++    const sport = canonicalSportOf(activity);
++    if (sport === "run") runMeters += m;
++    else if (sport === "ride") rideMeters += m;
+ 
+     const key = manilaDateKey(activity.start_date);
+ 
+@@ -342,7 +379,11 @@ export function summarizeActivityTotals(activities) {
+ 
+   return {
+     minutes: Math.round(seconds / 60),
+-    distanceKm: Number((meters / 1000).toFixed(1)),
++    // Running mileage — cycling/walking distance is never added here.
++    distanceKm: Number((runMeters / 1000).toFixed(1)),
++    // Sport-separated companions.
++    rideDistanceKm: Number((rideMeters / 1000).toFixed(1)),
++    totalDistanceKm: Number((totalMeters / 1000).toFixed(1)),
+     activityCount: (activities || []).length,
+     activeDayCount: activeDays.size
+   };
+diff --git a/tests/coach-limit.test.mjs b/tests/coach-limit.test.mjs
+index 95175db..0b8668d 100644
+--- a/tests/coach-limit.test.mjs
++++ b/tests/coach-limit.test.mjs
+@@ -496,6 +496,76 @@ section("Entitlement loading and analytics privacy");
+     }));
+ }
+ 
++section("dist/js sync — root cause verification");
++{
++  const distCoach = readFileSync("./dist/js/coach.js", "utf8");
++  const distRegistry = readFileSync("./dist/js/analyticsRegistry.js", "utf8");
++  const distAccessGuard = readFileSync("./dist/js/accessGuard.js", "utf8");
++  const distFeatures = readFileSync("./dist/js/features.js", "utf8");
++
++  // Root cause: dist had FREE_LIMIT_REACHED instead of COACH_WEEKLY_LIMIT_REACHED
++  test("dist/js/coach.js uses COACH_WEEKLY_LIMIT_REACHED (not FREE_LIMIT_REACHED)",
++    distCoach.includes("COACH_WEEKLY_LIMIT_REACHED") &&
++    !distCoach.includes("FREE_LIMIT_REACHED"));
++
++  test("dist/js/coach.js has classifyCoachFailure",
++    distCoach.includes("function classifyCoachFailure("));
++  test("dist/js/coach.js has resolveCoachAccessState",
++    distCoach.includes("async function resolveCoachAccessState("));
++  test("dist/js/coach.js has restoreCoachDraft",
++    distCoach.includes("function restoreCoachDraft("));
++  test("dist/js/coach.js has showCoachLimitUpgrade",
++    distCoach.includes("function showCoachLimitUpgrade("));
++  test("dist/js/coach.js has claimCoachRequest",
++    distCoach.includes("function claimCoachRequest("));
++  test("dist/js/coach.js has trackCoachEvent",
++    distCoach.includes("function trackCoachEvent("));
++
++  test("dist/js/coach.js saves user message only after success",
++    (() => {
++      const saveIdx = distCoach.indexOf("saveConversationMessage(\"user\"");
++      const answerGuard = distCoach.lastIndexOf("if (data.answer)", saveIdx);
++      return saveIdx > 0 && answerGuard > 0 && answerGuard < saveIdx;
++    })());
++
++  test("dist/js/analyticsRegistry.js has coach_weekly_limit_reached",
++    distRegistry.includes("coach_weekly_limit_reached"));
++  test("dist/js/analyticsRegistry.js has coach_message_submitted",
++    distRegistry.includes("coach_message_submitted"));
++  test("dist/js/analyticsRegistry.js has coach_request_failed",
++    distRegistry.includes("coach_request_failed"));
++
++  test("dist/js/accessGuard.js showUpgradeSheet accepts 3 params (feature, surface, copy)",
++    distAccessGuard.includes("function showUpgradeSheet(feature, surface, copy)"));
++  test("dist/js/accessGuard.js has configureUpgradeSheet",
++    distAccessGuard.includes("function configureUpgradeSheet("));
++
++  test("dist/js/features.js has loadFailed method",
++    distFeatures.includes("loadFailed()"));
++
++  // Verify source and dist are identical for coach.js
++  test("dist/js/coach.js matches js/coach.js exactly",
++    distCoach === coachSource);
++  test("dist/js/analyticsRegistry.js matches js/analyticsRegistry.js exactly",
++    distRegistry === registrySource);
++}
++
++section("Error response never leaks internal details");
++{
++  const world = createWorld();
++  globalThis.fetch = world.fetchMock;
++  world.failModelOnce();
++  const res = await world.call("leak-user");
++  const body = JSON.stringify(res.body || {});
++  test("provider failure response body has no stack trace or provider key",
++    !body.includes("openai") &&
++    !body.includes("stack") &&
++    !body.includes("api.openai.com") &&
++    !body.includes("OPENAI_API_KEY") &&
++    !body.includes("private upstream detail") &&
++    res.body?.code === "COACH_PROVIDER_UNAVAILABLE");
++}
++
+ globalThis.fetch = originalFetch;
+ 
+ console.log(`\n${passed} passed, ${failed} failed`);

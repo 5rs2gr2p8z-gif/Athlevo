@@ -1914,7 +1914,28 @@ const weekEnd =
       });
     }
 
-    if (!access.paid && usablePlan) {
+    // Free users (including trial users) get ONE plan generation.
+    // The free_plan_generated flag is the server-side authoritative record.
+    // Trial users can generate if they haven't used their one-time allowance.
+    // Paid (non-trial) users can regenerate freely.
+    const isTrialUser = access.isPerformanceTrial === true;
+    const hasFreeGeneration = access.subscription &&
+      access.subscription.free_plan_generated === true;
+
+    if (isTrialUser && usablePlan) {
+      return accessResponse(response, {
+        allowed: false,
+        feature: "additional_plan_generation",
+        code: "FREE_PLAN_ACTIVE",
+        title: "Your free training plan is already active.",
+        error: "You've used your one free plan generation. Upgrade to Athlevo Performance for ongoing plan changes.",
+        action: "upgrade",
+        secondaryAction: "viewPlan",
+        period: "lifetime"
+      }, user.id);
+    }
+
+    if (!access.paid && !isTrialUser && (usablePlan || hasFreeGeneration)) {
       return accessResponse(response, {
         allowed: false,
         feature: "additional_plan_generation",
@@ -2085,6 +2106,23 @@ const weekEnd =
 
         weekStart
       });
+
+    // Mark free_plan_generated so a free/trial user cannot regenerate.
+    // Best-effort: a failure here does not invalidate the saved plan.
+    if (isTrialUser || !access.paid) {
+      try {
+        await supabaseRequest(
+          `subscriptions?user_id=eq.${encodeURIComponent(user.id)}`,
+          {
+            method: "PATCH",
+            body: { free_plan_generated: true, updated_at: new Date().toISOString() },
+            headers: { Prefer: "return=minimal" }
+          }
+        );
+      } catch (flagErr) {
+        console.warn("Could not set free_plan_generated flag:", flagErr?.message);
+      }
+    }
 
     return sendJson(
       response,
