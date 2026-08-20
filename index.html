@@ -1296,7 +1296,7 @@ body.athlevo-sheet-locked{overflow:hidden}
 }
 @media(prefers-reduced-transparency:reduce){
   :root{--backdrop-blur:0px;--backdrop:rgba(20,20,22,.72)}
-  .athlevo-sheet-overlay,.modal-back,.tw-modal-ov,.apl-modal,.performance-upgrade-back{
+  .athlevo-sheet-overlay,.modal-back,.tw-modal-ov,.apl-modal,.performance-upgrade-back,.trial-info-back{
     backdrop-filter:none;-webkit-backdrop-filter:none}
   .tabbar,#tabbar,.legal-head,.lp-nav,#screen-landing .lp-nav{background:var(--paper);
     backdrop-filter:none;-webkit-backdrop-filter:none}
@@ -3928,7 +3928,44 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .ag-cta-sub{font-size:var(--fs-caption);color:var(--ink3);margin-top:10px}
 
   /* Trial countdown indicator */
-  .ag-trial-indicator{position:sticky;top:0;z-index:5;text-align:center;font-size:var(--fs-caption);font-weight:600;letter-spacing:.02em;color:var(--ink2);background:var(--card);border-bottom:1px solid var(--line);padding:6px 16px;opacity:.85}
+  .ag-trial-indicator{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;border:none;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;letter-spacing:.02em;color:var(--ink2);background:var(--card);border-bottom:1px solid var(--line);padding:6px 16px;opacity:.85;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity var(--dur-fast)}
+  .ag-trial-indicator:active{opacity:.65}
+  .ag-trial-label{flex:1;text-align:center}
+  .ag-trial-chevron{flex:none;font-size:1.1em;color:var(--ink3);margin-left:2px}
+
+  /* Trial info bottom sheet */
+  .trial-info-back{position:fixed;inset:0;z-index:90;display:none;
+    align-items:flex-end;justify-content:center;background:var(--backdrop);
+    padding-top:env(safe-area-inset-top)}
+  .trial-info-back.show{display:flex;animation:fadeIn var(--motion-screen) var(--ease-standard)}
+  .trial-info-sheet{position:relative;width:100%;max-width:560px;background:var(--surface-base);
+    border:1px solid var(--border-default);border-bottom:0;border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;
+    padding:22px 22px calc(22px + env(safe-area-inset-bottom));
+    max-height:90vh;overflow-y:auto;box-sizing:border-box;
+    box-shadow:var(--elev-3);animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
+  .trial-info-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;
+    background:var(--paper);border-radius:50%;font-size:18px;line-height:32px;text-align:center;
+    color:var(--ink2);cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .trial-info-close:active{opacity:.6}
+  .trial-info-sheet .trial-info-eyebrow{font-size:var(--fs-micro);font-weight:750;
+    letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--red)}
+  .trial-info-sheet h2{margin:7px 0 4px;font-family:var(--serif);
+    font-size:var(--fs-h1);font-weight:500;line-height:var(--lh-heading);color:var(--text)}
+  .trial-info-sub{margin:0 0 16px;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2)}
+  .trial-info-countdown-row{display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;
+    font-size:var(--fs-body-sm);color:var(--ink3)}
+  .trial-info-countdown-dot{width:6px;height:6px;border-radius:50%;background:var(--red);flex:none}
+  .trial-info-section{margin-bottom:16px}
+  .trial-info-section-title{font-size:var(--fs-body-sm);font-weight:700;color:var(--text);margin:0 0 6px}
+  .trial-info-list{margin:0;padding:0;list-style:none}
+  .trial-info-list li{position:relative;padding:5px 0 5px 15px;font-size:var(--fs-body-sm);color:var(--ink2);line-height:var(--lh-body)}
+  .trial-info-list li::before{content:"";position:absolute;left:1px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+  .trial-info-note{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink3);margin:0 0 16px}
+  .trial-info-divider{border:none;border-top:1px solid var(--line);margin:0 0 16px}
+  .trial-info-cta{width:100%;border:none;border-radius:var(--r-pill);background:var(--red);color:#fff;
+    font-family:var(--sans);font-weight:700;font-size:var(--fs-body);letter-spacing:-.01em;
+    padding:15px;cursor:pointer;transition:transform var(--dur-fast);margin-top:4px;-webkit-tap-highlight-color:transparent}
+  .trial-info-cta:active{transform:scale(.97)}
 
   /* One reusable Athlevo Performance sheet. Feature previews open this
      explanation; only its primary action opens checkout. */
@@ -5222,6 +5259,53 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <button class="performance-upgrade-secondary" id="performanceUpgradeSecondary" type="button"
         onclick="AthlevoAccessGuard.closeUpgradeSheet()">Not now</button>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════ TRIAL INFO MODAL ══════════════ -->
+<div class="trial-info-back" id="trialInfoModal" role="dialog"
+  aria-modal="true" aria-hidden="true" aria-labelledby="trialInfoTitle"
+  onclick="if(event.target===this)AthlevoAccessGuard.closeTrialInfo()">
+  <div class="trial-info-sheet">
+    <button class="trial-info-close" type="button" aria-label="Close"
+      onclick="AthlevoAccessGuard.closeTrialInfo()">&times;</button>
+    <span class="trial-info-eyebrow">Athlevo Performance</span>
+    <h2 id="trialInfoTitle">Your Performance access</h2>
+    <p class="trial-info-sub">You have full access to Athlevo Performance for your first 24 hours.</p>
+    <div class="trial-info-countdown-row">
+      <span class="trial-info-countdown-dot"></span>
+      <span id="trialInfoCountdown"></span>
+    </div>
+
+    <div class="trial-info-section">
+      <p class="trial-info-section-title">During your access period</p>
+      <ul class="trial-info-list">
+        <li>Performance Trends are unlocked</li>
+        <li>Readiness, Training Load, and Recovery insights are unlocked</li>
+        <li>Performance graphs and analytics are unlocked</li>
+        <li>You can generate your personalized training plan once</li>
+      </ul>
+    </div>
+
+    <div class="trial-info-section">
+      <p class="trial-info-section-title">Your AI Coach</p>
+      <p class="trial-info-note">Coach usage is separate from Performance access and still follows the free usage limit.</p>
+    </div>
+
+    <hr class="trial-info-divider">
+
+    <div class="trial-info-section">
+      <p class="trial-info-section-title">After 24 hours</p>
+      <p class="trial-info-note">When your access period ends, Performance features will lock again. Your training plan, profile, workouts, and saved data will stay available.</p>
+    </div>
+
+    <div class="trial-info-section">
+      <p class="trial-info-section-title">Want to keep Performance?</p>
+      <p class="trial-info-note">Athlevo Performance will let you keep these features unlocked after your free access ends.</p>
+    </div>
+
+    <button class="trial-info-cta" type="button"
+      onclick="AthlevoAccessGuard.trialInfoUpgrade()">Upgrade to Athlevo Performance</button>
   </div>
 </div>
 

@@ -832,6 +832,14 @@
 
   let trialIndicatorTimer = null;
 
+  function formatTrialRemaining(remainMs) {
+    const hours = Math.floor(remainMs / 3600000);
+    const mins = Math.floor((remainMs % 3600000) / 60000);
+    return hours > 0
+      ? hours + "h " + mins + "m remaining"
+      : mins + "m remaining";
+  }
+
   function renderTrialIndicator() {
     if (!window.AthlevoPlan || typeof window.AthlevoPlan.entitlement !== "function") return;
     const ent = window.AthlevoPlan.entitlement();
@@ -852,19 +860,37 @@
       return;
     }
 
-    const hours = Math.floor(remainMs / 3600000);
-    const mins = Math.floor((remainMs % 3600000) / 60000);
-    const label = hours > 0
-      ? "Performance access · " + hours + "h " + mins + "m remaining"
-      : "Performance access · " + mins + "m remaining";
+    const timeText = formatTrialRemaining(remainMs);
+    const label = "Performance access · " + timeText;
 
     if (existing) {
-      existing.textContent = label;
+      // Update only the text span, keep structure intact
+      const span = existing.querySelector(".ag-trial-label");
+      if (span) span.textContent = label;
     } else {
-      const el = document.createElement("div");
+      const el = document.createElement("button");
       el.id = "athlevoTrialIndicator";
       el.className = "ag-trial-indicator";
-      el.textContent = label;
+      el.type = "button";
+      el.setAttribute("aria-label", label + ". Tap to learn more.");
+
+      const span = document.createElement("span");
+      span.className = "ag-trial-label";
+      span.textContent = label;
+      el.appendChild(span);
+
+      const chevron = document.createElement("span");
+      chevron.className = "ag-trial-chevron";
+      chevron.textContent = "›";
+      chevron.setAttribute("aria-hidden", "true");
+      el.appendChild(chevron);
+
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openTrialInfo();
+      });
+
       // Insert at top of active screen or body
       const today = document.getElementById("screen-today");
       if (today) {
@@ -886,6 +912,110 @@
     });
   }
 
+  /* ─────────────── trial info modal ──────────────────────────────── */
+
+  let trialInfoTimer = null;
+
+  function updateTrialInfoCountdown() {
+    const el = document.getElementById("trialInfoCountdown");
+    if (!el) return;
+    if (!window.AthlevoPlan || typeof window.AthlevoPlan.entitlement !== "function") return;
+    const ent = window.AthlevoPlan.entitlement();
+    if (!ent || !ent.trialExpiresAt) return;
+    const remainMs = Math.max(0, new Date(ent.trialExpiresAt).getTime() - Date.now());
+    if (remainMs <= 0) {
+      el.textContent = "Expired";
+      return;
+    }
+    el.textContent = formatTrialRemaining(remainMs);
+  }
+
+  function openTrialInfo() {
+    const modal = document.getElementById("trialInfoModal");
+    if (!modal) return;
+
+    // Update countdown on open
+    updateTrialInfoCountdown();
+
+    modal.classList.add("show");
+    modal.setAttribute("aria-hidden", "false");
+
+    if (window.AthlevoSheet) {
+      window.AthlevoSheet.open({
+        root: modal,
+        sheet: ".trial-info-sheet",
+        draggable: false,
+        initialFocus: ".trial-info-close",
+        fallbackFocus: "#tabbar .tab.on",
+        onRequestClose: function () {
+          closeTrialInfo();
+          return false;
+        }
+      });
+    } else {
+      // Fallback focus management
+      var closeBtn = modal.querySelector(".trial-info-close");
+      if (closeBtn) closeBtn.focus();
+    }
+
+    // Live-tick the countdown while modal is open
+    if (trialInfoTimer) clearInterval(trialInfoTimer);
+    trialInfoTimer = setInterval(updateTrialInfoCountdown, 60000);
+
+    // Keyboard trap
+    if (modal.dataset.keyBound !== "true") {
+      modal.addEventListener("keydown", onTrialInfoKeydown);
+      modal.dataset.keyBound = "true";
+    }
+  }
+
+  function closeTrialInfo() {
+    var modal = document.getElementById("trialInfoModal");
+    if (!modal) return;
+
+    if (window.AthlevoSheet && window.AthlevoSheet.isOpen(modal)) {
+      window.AthlevoSheet.close(modal, {
+        onAfterClose: function () {
+          modal.classList.remove("show");
+          modal.setAttribute("aria-hidden", "true");
+        }
+      });
+    } else {
+      modal.classList.remove("show");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    if (trialInfoTimer) { clearInterval(trialInfoTimer); trialInfoTimer = null; }
+  }
+
+  function onTrialInfoKeydown(event) {
+    var modal = document.getElementById("trialInfoModal");
+    if (!modal || !modal.classList.contains("show")) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeTrialInfo();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    var nodes = focusableIn(modal);
+    if (!nodes.length) return;
+    var first = nodes[0];
+    var last = nodes[nodes.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function trialInfoUpgrade() {
+    closeTrialInfo();
+    // Open the existing upgrade sheet which handles payment safely
+    showUpgradeSheet("trends", "upgrade_sheet");
+  }
+
   /* ─────────────── public API ────────────────────────────────────── */
 
   window.AthlevoAccessGuard = {
@@ -900,9 +1030,12 @@
     checkoutLocalFromUpgrade,
     showUpgradeSheet,
     closeUpgradeSheet,
+    openTrialInfo,
+    closeTrialInfo,
+    trialInfoUpgrade,
     trackPremiumView,
     refreshPremiumViews,
     renderTrialIndicator,
-    VERSION: "access-guard-v5"
+    VERSION: "access-guard-v6"
   };
 })();

@@ -567,6 +567,248 @@ suite("21. accessGuard.js has trial indicator", async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────
+// 22. Trial bar is a clickable button (not a plain div)
+// ─────────────────────────────────────────────────────────────────────
+suite("22. Trial bar is a clickable button element", async () => {
+  const fs = await import("fs");
+  const guardSrc = fs.readFileSync(
+    new URL("../js/accessGuard.js", import.meta.url),
+    "utf-8"
+  );
+
+  assert(guardSrc.includes('createElement("button")'),
+    "Trial indicator creates a <button> element (clickable)");
+  assert(guardSrc.includes("ag-trial-chevron"),
+    "Trial indicator includes chevron affordance");
+  assert(guardSrc.includes("openTrialInfo"),
+    "Trial indicator click handler calls openTrialInfo");
+  assert(guardSrc.includes('aria-label'),
+    "Trial indicator has aria-label for accessibility");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 23. Trial info modal opens and has correct structure
+// ─────────────────────────────────────────────────────────────────────
+suite("23. Trial info modal opens with correct structure", async () => {
+  const fs = await import("fs");
+  const guardSrc = fs.readFileSync(
+    new URL("../js/accessGuard.js", import.meta.url),
+    "utf-8"
+  );
+
+  assert(guardSrc.includes("function openTrialInfo"),
+    "accessGuard.js has openTrialInfo function");
+  assert(guardSrc.includes("function closeTrialInfo"),
+    "accessGuard.js has closeTrialInfo function");
+  assert(guardSrc.includes("trialInfoModal"),
+    "accessGuard.js references trialInfoModal element");
+  assert(guardSrc.includes('Escape'),
+    "Trial info modal handles Escape key to close");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 24. Trial info modal HTML has correct active-trial copy
+// ─────────────────────────────────────────────────────────────────────
+suite("24. Trial info modal HTML has correct copy", async () => {
+  const fs = await import("fs");
+  const htmlSrc = fs.readFileSync(
+    new URL("../index.html", import.meta.url),
+    "utf-8"
+  );
+
+  assert(htmlSrc.includes("Your Performance access"),
+    "Modal title: 'Your Performance access'");
+  assert(htmlSrc.includes("full access to Athlevo Performance for your first 24 hours"),
+    "Modal subheading explains 24-hour access");
+  assert(htmlSrc.includes("During your access period"),
+    "Modal has 'During your access period' section");
+  assert(htmlSrc.includes("Performance Trends are unlocked"),
+    "Modal lists Performance Trends");
+  assert(htmlSrc.includes("Readiness, Training Load, and Recovery insights are unlocked"),
+    "Modal lists Readiness/Training Load/Recovery");
+  assert(htmlSrc.includes("Performance graphs and analytics are unlocked"),
+    "Modal lists graphs and analytics");
+  assert(htmlSrc.includes("generate your personalized training plan once"),
+    "Modal mentions one-time plan generation");
+  assert(htmlSrc.includes("Your AI Coach"),
+    "Modal has 'Your AI Coach' section");
+  assert(htmlSrc.includes("Coach usage is separate from Performance access"),
+    "Modal explains Coach limits are separate");
+  assert(htmlSrc.includes("After 24 hours"),
+    "Modal has 'After 24 hours' section");
+  assert(htmlSrc.includes("Performance features will lock again"),
+    "Modal explains features lock after trial");
+  assert(htmlSrc.includes("training plan, profile, workouts, and saved data will stay available"),
+    "Modal explains saved data persists");
+  assert(htmlSrc.includes("Want to keep Performance?"),
+    "Modal has 'Want to keep Performance?' section");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 25. Trial expiry in modal uses existing entitlement (no second timer)
+// ─────────────────────────────────────────────────────────────────────
+suite("25. Modal countdown reuses entitlement state", async () => {
+  const fs = await import("fs");
+  const guardSrc = fs.readFileSync(
+    new URL("../js/accessGuard.js", import.meta.url),
+    "utf-8"
+  );
+
+  assert(guardSrc.includes("updateTrialInfoCountdown"),
+    "accessGuard.js has updateTrialInfoCountdown function");
+  assert(guardSrc.includes("AthlevoPlan.entitlement()"),
+    "Modal countdown reads from AthlevoPlan.entitlement()");
+  assert(guardSrc.includes("trialExpiresAt"),
+    "Modal countdown uses trialExpiresAt from entitlement");
+  // Must NOT create a separate countdown system
+  assert(!guardSrc.includes("new Date(subscription"),
+    "Modal does not access raw subscription — uses entitlement API");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 26. Paid users do not see trial bar or trial modal
+// ─────────────────────────────────────────────────────────────────────
+suite("26. Paid users excluded from trial indicator", () => {
+  // Whop paid user — isPerformanceTrial is NOT set
+  const whopSub = {
+    plan_id: "performance",
+    status: "active",
+    provider: "whop",
+    current_period_end: hoursFromNow(720)
+  };
+  const ent = resolveEntitlement(whopSub, NOW);
+  assert(ent.isPerformanceTrial !== true,
+    "Whop paid user — isPerformanceTrial is not true");
+  assert(!ent.trialExpiresAt,
+    "Whop paid user — trialExpiresAt is not set");
+  // renderTrialIndicator checks these flags; if both are falsy,
+  // the indicator is removed and the modal has nothing to show.
+
+  // PayMongo paid user
+  const paymongoSub = {
+    plan_id: "performance",
+    status: "active",
+    provider: "paymongo",
+    paid_until: hoursFromNow(720)
+  };
+  const ent2 = resolveEntitlement(paymongoSub, NOW);
+  assert(ent2.isPerformanceTrial !== true,
+    "PayMongo paid user — isPerformanceTrial is not true");
+  assert(!ent2.trialExpiresAt,
+    "PayMongo paid user — trialExpiresAt is not set");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 27. Expired free users do not see active trial countdown
+// ─────────────────────────────────────────────────────────────────────
+suite("27. Expired trial users get no active countdown", () => {
+  const expiredSub = {
+    plan_id: "free",
+    status: "active",
+    trial_started_at: hoursAgo(25)
+  };
+  const ent = resolveEntitlement(expiredSub, NOW);
+  assert(ent.isPerformanceTrial !== true,
+    "Expired trial — isPerformanceTrial is not true");
+  assert(!ent.trialExpiresAt,
+    "Expired trial — trialExpiresAt is not set");
+  assertEqual(ent.accessState, ACCESS_STATES.FREE,
+    "Expired trial — accessState is FREE");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 28. CTA does not launch unfinished payment — routes through upgrade sheet
+// ─────────────────────────────────────────────────────────────────────
+suite("28. CTA routes through existing upgrade sheet", async () => {
+  const fs = await import("fs");
+  const guardSrc = fs.readFileSync(
+    new URL("../js/accessGuard.js", import.meta.url),
+    "utf-8"
+  );
+  const htmlSrc = fs.readFileSync(
+    new URL("../index.html", import.meta.url),
+    "utf-8"
+  );
+
+  // The trial info CTA calls trialInfoUpgrade, not checkout directly
+  assert(htmlSrc.includes("trialInfoUpgrade()"),
+    "Trial info CTA calls trialInfoUpgrade, not direct checkout");
+  assert(!htmlSrc.includes('trial-info-cta" type="button"') ||
+    !htmlSrc.includes('onclick="AthlevoAccessGuard.checkout'),
+    "Trial info CTA does not call checkout directly");
+
+  // trialInfoUpgrade closes the trial modal, then opens the upgrade sheet
+  assert(guardSrc.includes("function trialInfoUpgrade"),
+    "trialInfoUpgrade function exists");
+  assert(guardSrc.includes("closeTrialInfo()"),
+    "trialInfoUpgrade closes the trial info modal first");
+  assert(guardSrc.includes("showUpgradeSheet"),
+    "trialInfoUpgrade routes to existing showUpgradeSheet");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 29. Trial info modal closes via X, backdrop, and Escape
+// ─────────────────────────────────────────────────────────────────────
+suite("29. Trial info modal has all close affordances", async () => {
+  const fs = await import("fs");
+  const htmlSrc = fs.readFileSync(
+    new URL("../index.html", import.meta.url),
+    "utf-8"
+  );
+  const guardSrc = fs.readFileSync(
+    new URL("../js/accessGuard.js", import.meta.url),
+    "utf-8"
+  );
+
+  // X button
+  assert(htmlSrc.includes("trial-info-close"),
+    "Modal has close button with trial-info-close class");
+  assert(htmlSrc.includes('closeTrialInfo()'),
+    "Close button calls closeTrialInfo");
+
+  // Backdrop click
+  assert(htmlSrc.includes('if(event.target===this)AthlevoAccessGuard.closeTrialInfo()'),
+    "Backdrop click closes trial info modal");
+
+  // Escape key
+  assert(guardSrc.includes("onTrialInfoKeydown"),
+    "Keyboard handler is registered on trial info modal");
+  assert(guardSrc.includes('"Escape"'),
+    "Escape key handling exists");
+
+  // Focus trap (Tab key)
+  assert(guardSrc.includes('event.key !== "Tab"'),
+    "Tab key focus trap is implemented");
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// 30. Trial bar has visible clickable affordance (chevron)
+// ─────────────────────────────────────────────────────────────────────
+suite("30. Trial bar has visible clickable affordance", async () => {
+  const fs = await import("fs");
+  const htmlSrc = fs.readFileSync(
+    new URL("../index.html", import.meta.url),
+    "utf-8"
+  );
+  const guardSrc = fs.readFileSync(
+    new URL("../js/accessGuard.js", import.meta.url),
+    "utf-8"
+  );
+
+  // The bar creates a chevron element
+  assert(guardSrc.includes("ag-trial-chevron"),
+    "Trial bar includes chevron class");
+  assert(guardSrc.includes('"›"'),
+    "Trial bar uses › character as chevron");
+
+  // CSS makes the bar look interactive
+  assert(htmlSrc.includes("cursor:pointer"),
+    "Trial bar has cursor:pointer in CSS");
+  assert(htmlSrc.includes(".ag-trial-indicator:active"),
+    "Trial bar has :active state for tap feedback");
+});
+
+// ─────────────────────────────────────────────────────────────────────
 // Summary
 // ─────────────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(60)}`);
