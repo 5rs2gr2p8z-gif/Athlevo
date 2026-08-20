@@ -26,13 +26,16 @@
    *
    * Apple is intentionally FALSE. It requires a paid Apple Developer
    * account, an App ID + Services ID, a private key, and a generated client
-   * secret that expires every 6 months — none of which exists yet. Shipping
-   * a visible Apple button before that is done guarantees an immediate
-   * failure for anyone who taps it.
+   * secret that expires every 6 months — none of which exists yet.
+   *
+   * visibleWhenDisabled: the welcome screen shows a "Continue with Apple"
+   * button as a coming-soon UI element. The button's click handler never
+   * calls signInWithProvider — it shows a toast instead — so enabled:false
+   * is the safety net, not the primary gate.
    */
   const PROVIDERS = {
     google: { enabled: true,  label: "Google" },
-    apple:  { enabled: false, label: "Apple" }
+    apple:  { enabled: false, label: "Apple", visibleWhenDisabled: true }
   };
 
   function trackSignupFailure(category) {
@@ -269,11 +272,17 @@
   /*
    * Hide any provider button that is not configured. Called on boot so a
    * disabled provider never renders, rather than rendering and failing.
+   *
+   * Exception: a provider with visibleWhenDisabled:true stays visible even
+   * when its OAuth flow is disabled — used for coming-soon UI elements
+   * whose click handler shows a message instead of starting OAuth.
    */
   function applyProviderVisibility() {
     Object.keys(PROVIDERS).forEach(key => {
       const el = document.getElementById(`authBtn${key.charAt(0).toUpperCase()}${key.slice(1)}`);
-      if (el) el.style.display = PROVIDERS[key].enabled ? "" : "none";
+      if (!el) return;
+      const cfg = PROVIDERS[key];
+      el.style.display = (cfg.enabled || cfg.visibleWhenDisabled) ? "" : "none";
     });
   }
 
