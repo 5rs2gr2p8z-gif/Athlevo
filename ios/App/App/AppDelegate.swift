@@ -1,14 +1,49 @@
 import UIKit
+import WebKit
 import Capacitor
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UIScrollViewDelegate {
 
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+
+        // ── Disable pinch-to-zoom on the Capacitor WKWebView ──
+        // Runs after a short delay so the Capacitor bridge has time to
+        // create its WKWebView.  Setting min/max zoom to 1.0 prevents
+        // the scroll-view-level zoom that iOS applies even when the
+        // viewport meta tag says user-scalable=no.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.disableWebViewZoom()
+        }
+
         return true
+    }
+
+    /// Find the WKWebView inside the view hierarchy and lock its zoom scale.
+    private func disableWebViewZoom() {
+        guard let rootVC = window?.rootViewController else { return }
+        if let webView = findWKWebView(in: rootVC.view) {
+            webView.scrollView.minimumZoomScale = 1.0
+            webView.scrollView.maximumZoomScale = 1.0
+            webView.scrollView.delegate = self
+        }
+    }
+
+    private func findWKWebView(in view: UIView) -> WKWebView? {
+        if let webView = view as? WKWebView { return webView }
+        for subview in view.subviews {
+            if let found = findWKWebView(in: subview) { return found }
+        }
+        return nil
+    }
+
+    // MARK: - UIScrollViewDelegate
+    /// Return nil so the scroll view has no zoom target — prevents pinch zoom.
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        return nil
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
