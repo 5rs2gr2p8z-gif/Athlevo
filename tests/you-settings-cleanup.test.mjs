@@ -1,8 +1,8 @@
 /*
  * Athlevo — You / Settings cleanup.
  *
- * Verifies the simplified You screen and the new dedicated Settings surface
- * against the REAL shipped files.
+ * Verifies the redesigned You screen with inline settings sections and the
+ * Profile Settings screen against the REAL shipped files.
  *
  * Run: node tests/you-settings-cleanup.test.mjs
  */
@@ -35,41 +35,86 @@ section("You screen — removed items");
 {
   t("no 'Open today's check-in' row",
     !youHTML.includes("Open today's check-in") && !youHTML.includes("open today's check-in"));
-  t("no Notification Settings row",
-    !youHTML.includes(">Notification Settings<"));
-  t("no Support row",
-    !youHTML.includes(">Support<"));
-  t("no Privacy Policy row",
-    !youHTML.includes(">Privacy Policy<"));
-  t("no Terms of Service row",
-    !youHTML.includes(">Terms of Service<"));
-  t("no Account Settings row",
-    !youHTML.includes(">Account Settings<"));
-  t("no Log Out row",
-    !youHTML.includes(">Log Out<"));
-  t("no Delete Account row",
-    !youHTML.includes(">Delete Account<"));
+  t("no settings gear button",
+    !youHTML.includes('class="you-gear"'));
+}
+
+section("You screen — Settings section (inline)");
+{
+  t("Settings section title present",
+    youHTML.includes(">Settings<"));
+  t("Profile Settings row present",
+    youHTML.includes(">Profile Settings<"));
+  t("Appearance control remains",
+    youHTML.includes('id="themeSeg"'));
+  t("Appearance has System/Light/Dark",
+    youHTML.includes("System") && youHTML.includes("Light") && youHTML.includes("Dark"));
+  t("Notification Settings present",
+    youHTML.includes(">Notification Settings<"));
+  t("Install Athlevo row present",
+    youHTML.includes('id="youInstallRow"'));
+}
+
+section("You screen — Support & Legal section (inline)");
+{
+  t("Support & Legal section title present",
+    youHTML.includes("Support &amp; Legal") || youHTML.includes("Support & Legal"));
+  t("Support row present",
+    youHTML.includes(">Support<"));
+  t("Privacy Policy row present",
+    youHTML.includes(">Privacy Policy<"));
+  t("Terms of Service row present",
+    youHTML.includes(">Terms of Service<"));
+}
+
+section("You screen — Delete Account (quiet)");
+{
+  t("Delete Account present",
+    youHTML.includes("Delete Account"));
+  t("Delete Account uses you-delete-row (quiet style)",
+    youHTML.includes("you-delete-row"));
+  t("Delete Account NOT in a rowlink-danger card",
+    !youHTML.includes('rowlink-danger-subtle'));
+  t("Delete Account calls openDeleteAccount",
+    youHTML.includes("openDeleteAccount()"));
+}
+
+section("You screen — Log Out (bottom, neutral)");
+{
+  t("Log Out present",
+    youHTML.includes("Log Out"));
+  t("Log Out uses you-logout-row (neutral style)",
+    youHTML.includes("you-logout-row"));
+  t("Log Out calls doLogout",
+    youHTML.includes("doLogout()"));
+  t("Log Out appears after Delete Account",
+    youHTML.indexOf("you-logout-row") > youHTML.indexOf("you-delete-row"));
 }
 
 section("You screen — kept items");
 {
   t("Training Data card remains (syncStatusCard)",
     youHTML.includes('id="syncStatusCard"'));
-  t("Appearance control remains",
-    youHTML.includes('id="themeSeg"'));
-  t("Appearance has System/Light/Dark",
-    youHTML.includes("System") && youHTML.includes("Light") && youHTML.includes("Dark"));
   t("Profile header remains (profileName)",
     youHTML.includes('id="profileName"'));
   t("Profile initial remains (profileInitial)",
     youHTML.includes('id="profileInitial"'));
   t("App version footer remains",
     youHTML.includes('id="appVersionDisplay"'));
+  t("Coach memory section still exists",
+    youHTML.includes('id="coachMemorySection"'));
+}
+
+section("You screen — profile photo CSS");
+{
+  t("pfp img style for photo display",
+    html.includes(".pfp img{"));
+  t("pfp has overflow:hidden",
+    html.includes(".pfp{") && html.match(/\.pfp\{[^}]*overflow:hidden/));
 }
 
 section("You screen — compact Appearance");
 {
-  // The seg control should have reduced padding/height
   const segCSS = html.match(/\.seg\{[^}]+\}/);
   t("seg control has compact padding (3px)",
     segCSS && segCSS[0].includes("padding:3px"));
@@ -83,26 +128,6 @@ section("You screen — compact Appearance");
     appearanceRowCSS && appearanceRowCSS[0].includes("padding:10px 16px"));
 }
 
-section("You screen — gear icon");
-{
-  t("gear button exists with aria-label='Settings'",
-    youHTML.includes('aria-label="Settings"'));
-  t("gear uses .you-gear class",
-    youHTML.includes('class="you-gear"'));
-  t("gear calls openSettings()",
-    youHTML.includes('onclick="openSettings()"'));
-  // CSS: 44x44 tap target
-  const gearCSS = html.match(/\.you-gear\{[^}]+\}/);
-  t("gear has 44px width tap target",
-    gearCSS && gearCSS[0].includes("width:44px"));
-  t("gear has 44px height tap target",
-    gearCSS && gearCSS[0].includes("height:44px"));
-  // SVG size ~20px
-  const gearSvgCSS = html.match(/\.you-gear svg\{[^}]+\}/);
-  t("gear SVG is 20px",
-    gearSvgCSS && gearSvgCSS[0].includes("width:20px"));
-}
-
 section("You screen — Install Athlevo on native");
 {
   t("youInstallRow still exists in markup for web/PWA",
@@ -111,42 +136,28 @@ section("You screen — Install Athlevo on native");
     runtimeEnv.includes("youInstallRow") && runtimeEnv.includes("display:none"));
 }
 
-/* ══════════════ SETTINGS SCREEN ═════════════════════════════════════ */
+/* ══════════════ SETTINGS (Profile Settings) SCREEN ═════════════════ */
 
-section("Settings screen — accessible items");
+section("Settings screen — Profile Settings");
 {
-  t("Notification Settings accessible",
-    settingsHTML.includes(">Notification Settings<"));
-  t("Account Settings accessible",
-    settingsHTML.includes(">Account Settings<"));
-  t("Support accessible",
-    settingsHTML.includes(">Support<"));
-  t("Privacy Policy accessible",
-    settingsHTML.includes(">Privacy Policy<"));
-  t("Terms of Service accessible",
-    settingsHTML.includes(">Terms of Service<"));
-  t("Log Out accessible",
-    settingsHTML.includes(">Log Out<"));
-  t("Delete Account accessible",
-    settingsHTML.includes(">Delete Account<"));
-  t("Delete Account uses danger styling",
-    settingsHTML.includes("rowlink-danger-subtle"));
-}
-
-section("Settings screen — structure");
-{
+  t("has 'Profile Settings' title",
+    settingsHTML.includes(">Profile Settings<"));
   t("has back button with aria-label='Back'",
     settingsHTML.includes('aria-label="Back"'));
   t("back calls closeSettings()",
     settingsHTML.includes('onclick="closeSettings()"'));
-  t("has 'Settings' title",
-    settingsHTML.includes(">Settings<"));
-  t("has Preferences section",
-    settingsHTML.includes(">Preferences<"));
-  t("has Account section",
-    settingsHTML.includes(">Account<"));
-  t("has Support & Legal section",
-    settingsHTML.includes("Support &amp; Legal") || settingsHTML.includes("Support & Legal"));
+  t("has profile photo area",
+    settingsHTML.includes("settingsProfilePhoto"));
+  t("has Change photo button",
+    settingsHTML.includes("changePhotoBtn") || settingsHTML.includes("Change photo"));
+  t("has Remove photo button",
+    settingsHTML.includes("removePhotoBtn") || settingsHTML.includes("Remove"));
+  t("has file input for photo selection",
+    settingsHTML.includes('id="profilePhotoInput"'));
+  t("has account name display",
+    settingsHTML.includes("settingsAccountName"));
+  t("has account email display",
+    settingsHTML.includes("settingsAccountEmail"));
   t("has version display",
     settingsHTML.includes("settingsVersionDisplay"));
 }
@@ -173,12 +184,34 @@ section("Navigation");
     html.includes("_youScrollY"));
 }
 
+/* ══════════════ PROFILE PHOTO LOGIC ════════════════════════════════ */
+
+section("Profile photo");
+{
+  t("updateAllProfilePhotos function exists",
+    html.includes("function updateAllProfilePhotos"));
+  t("renderProfilePhotoElement function exists",
+    html.includes("function renderProfilePhotoElement"));
+  t("changeProfilePhoto function exists",
+    html.includes("function changeProfilePhoto"));
+  t("handleProfilePhotoSelect function exists",
+    html.includes("function handleProfilePhotoSelect"));
+  t("removeProfilePhoto function exists",
+    html.includes("function removeProfilePhoto"));
+  t("Google avatar fallback cached (_athlevoGoogleAvatarUrl)",
+    html.includes("_athlevoGoogleAvatarUrl"));
+  t("Custom photo takes priority (_athlevoProfilePhotoUrl)",
+    html.includes("_athlevoProfilePhotoUrl"));
+  t("Profile photo cleared on logout",
+    html.includes("_athlevoProfilePhotoUrl = null") &&
+    html.includes("_athlevoGoogleAvatarUrl = null"));
+}
+
 /* ══════════════ LOADING SKELETON ════════════════════════════════════ */
 
 section("Loading skeleton");
 {
   const skelStart = html.indexOf('data-loading-surface="you"');
-  // Grab ~600 chars which covers the full skeleton block
   const skeleton = html.slice(skelStart, skelStart + 600);
   t("skeleton has profile block",
     skeleton.includes("asl-profile"));
@@ -189,7 +222,6 @@ section("Loading skeleton");
   t("skeleton does NOT have support label",
     !skeleton.includes("asl-support-label"));
   t("skeleton does NOT have old preferences rows (multiple asl-preference for admin)",
-    // Only one compact appearance placeholder, not two+ preference rows
     (skeleton.match(/asl-preference/g) || []).length <= 1);
 }
 
@@ -210,8 +242,8 @@ section("Coach / workspace integrity");
 section("Service worker cache");
 {
   const sw = readFileSync("./service-worker.js", "utf8");
-  t("cache version bumped (≥v84)",
-    /athlevo-shell-v(8[4-9]|9\d|\d{3,})/.test(sw));
+  t("cache version bumped (≥v86)",
+    /athlevo-shell-v(8[6-9]|9\d|\d{3,})/.test(sw));
 }
 
 /* ══════════════ SUMMARY ════════════════════════════════════════════ */

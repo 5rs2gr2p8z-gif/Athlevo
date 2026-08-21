@@ -33,7 +33,7 @@ test("one canonical card rule owns border, radius, padding, and elevation",
 
 console.log("\n──── App-only interaction and accessibility contract ────");
 test("shared refinements are explicitly excluded from the landing page",
-  (html.match(/body:not\(\.landing-active\) \.device/g) || []).length >= 8);
+  (html.match(/body:not\(\.landing-active\) \.device/g) || []).length >= 7);
 test("interactive rows and app actions receive subtle tokenized press feedback",
   /:active:not\(:disabled\):not\(\[disabled\]\):not\(\[aria-disabled="true"\]\):not\(\.is-disabled\):not\(\.is-loading\)\{\s*opacity:\.92;transform:scale\(\.985\)/.test(html) &&
   /var\(--motion-press\) var\(--ease-standard\)/.test(html));
@@ -43,7 +43,7 @@ test("inputs share control height, font, caret, placeholder, and disabled behavi
   /min-height:var\(--control-height\);font-family:var\(--font-ui\)/.test(html) &&
   /caret-color:var\(--athlevo-red\)/.test(html) && /::placeholder\{color:var\(--text-muted\)/.test(html));
 test("profile action rows are native buttons rather than clickable divs",
-  !/<div class="rowlink(?: |")/.test(html) && (html.match(/<button class="rowlink/g) || []).length >= 8);
+  !/<div class="rowlink(?: |")/.test(html) && (html.match(/<button class="rowlink/g) || []).length >= 7);
 test("global reduced-motion coverage remains authoritative",
   /prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important[\s\S]*?transition-duration:\.001ms!important/.test(html));
 

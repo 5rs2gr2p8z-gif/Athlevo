@@ -1032,7 +1032,8 @@ input,textarea,select{color:var(--text)}
 
 /* ---------- you / integrations / coach mode ---------- */
 .profilehead{padding:26px 22px 8px;display:flex;align-items:center;gap:var(--s-4)}
-.pfp{width:60px;height:60px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--serif);font-size:var(--fs-h1);display:flex;align-items:center;justify-content:center}
+.pfp{width:60px;height:60px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--serif);font-size:var(--fs-h1);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.pfp img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 .profilehead h1{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500}
 .profilehead p{font-size:var(--fs-body-sm);color:var(--ink2)}
 .founding-beta-banner{margin:12px 22px 0;padding:14px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg)}
@@ -1398,6 +1399,23 @@ body.athlevo-sheet-locked{overflow:hidden}
 .rowlink-danger-subtle small{color:var(--ink2)}
 .rowlink-danger-subtle .arr{color:var(--danger);opacity:.5}
 .you-delete-divider{height:1px;background:var(--line,#e5e5e5);margin:16px 22px}
+/* ── You page: inline settings section ── */
+.you-section-title{font-family:var(--font-ui);font-size:var(--fs-micro);font-weight:var(--fw-bold);line-height:var(--lh-caption);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--text-muted);margin:0 22px var(--s-3)}
+/* Delete Account — quiet, deliberate */
+.you-delete-row{margin:0 22px;padding:14px 0;display:flex;align-items:center;justify-content:center}
+.you-delete-row button{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:500;color:var(--danger);cursor:pointer;opacity:.7;padding:4px 8px;letter-spacing:.01em;-webkit-tap-highlight-color:transparent}
+.you-delete-row button:active{opacity:1}
+/* Log Out — bottom, neutral */
+.you-logout-row{margin:0 22px;padding:14px 0;display:flex;align-items:center;justify-content:center}
+.you-logout-row button{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body);font-weight:600;color:var(--ink2);cursor:pointer;padding:6px 12px;-webkit-tap-highlight-color:transparent}
+.you-logout-row button:active{color:var(--text)}
+/* Profile Settings photo controls */
+.profile-settings-photo{display:flex;align-items:center;gap:14px;padding:12px 22px}
+.profile-settings-photo .pfp{width:56px;height:56px;font-size:20px;flex-shrink:0}
+.profile-settings-photo-actions{display:flex;gap:8px}
+.profile-settings-photo-actions button{background:none;border:1px solid var(--line);border-radius:var(--r-pill);font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--text);padding:6px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.profile-settings-photo-actions button:active{background:var(--line)}
+.profile-settings-photo-actions button.remove-photo{color:var(--ink3);border-color:transparent}
 .appearance-row{background:var(--card);border-radius:var(--r-lg);padding:10px 16px}
 /* ── Settings gear icon (You screen) ── */
 .you-header-row{display:flex;align-items:flex-start;justify-content:space-between}
@@ -5122,8 +5140,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div class="asl-card asl-training-data"><div class="skel asl-line is-short"></div><div class="skel asl-line is-wide"></div><div class="skel asl-line is-medium"></div></div>
     <div class="skel asl-preference" style="height:52px"></div>
   </div>
-  <div class="you-header-row">
-  <div class="profilehead" style="flex:1;min-width:0">
+  <div class="profilehead">
   <div class="pfp serif" id="profileInitial">A</div>
 
   <div>
@@ -5134,10 +5151,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </p>
   </div>
   </div>
-  <button class="you-gear" type="button" onclick="openSettings()" aria-label="Settings">
-    <svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-  </button>
-</div>
 
  <div class="memory" id="coachMemorySection">
   <span class="eyebrow">Coach memory</span>
@@ -5182,7 +5195,16 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <div class="spacer-md"></div>
 
-  <!-- ── Appearance (compact) ── -->
+  <!-- ══ Settings ══ -->
+  <div class="you-section-title">Settings</div>
+
+  <!-- Profile Settings -->
+  <button class="rowlink" type="button" onclick="openSettings()">
+    <div><b>Profile Settings</b><small>Photo, name, and account details.</small></div><span class="arr">→</span>
+  </button>
+  <div class="settings-spacer"></div>
+
+  <!-- Appearance (compact) -->
   <div class="appearance appearance-row">
     <span class="appearance-label">Appearance</span>
     <div class="seg" id="themeSeg" role="group" aria-label="Theme">
@@ -5191,55 +5213,25 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme('dark')">Dark</button>
     </div>
   </div>
+  <div class="settings-spacer"></div>
+
+  <!-- Notifications -->
+  <button class="rowlink" type="button" onclick="toast('Notification settings coming soon')">
+    <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
+  </button>
+  <div class="settings-spacer"></div>
 
   <!-- Install Athlevo — hidden on native by runtimeEnvironment.js -->
-  <div class="spacer-md" style="height:8px"></div>
   <button class="rowlink" id="youInstallRow" type="button" onclick="athlevoInstall()">
     <div><b>Install Athlevo</b><small id="youInstallSub">Add Athlevo to your home screen</small></div>
     <span class="arr">→</span>
   </button>
 
-<div class="app-version">
-  <div>Athlevo</div>
-  <div id="appVersionDisplay">Version 0.6.0</div>
-</div>
-
-<div class="spacer-md"></div>
-</section>
-
-<!-- ══════════════ SETTINGS ══════════════ -->
-<section class="screen" id="screen-settings">
-  <button class="settings-back" type="button" onclick="closeSettings()" aria-label="Back">
-    <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-  </button>
-  <h1 class="serif" style="margin:0 22px 16px;font-size:var(--fs-h1)">Settings</h1>
-
-  <!-- ── Preferences ── -->
-  <div class="pad"><div class="section-title">Preferences</div></div>
-  <button class="rowlink" type="button" onclick="toast('Notification settings coming soon')">
-    <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
-  </button>
-
   <div class="spacer-md"></div>
 
-  <!-- ── Account ── -->
-  <div class="pad"><div class="section-title">Account</div></div>
-  <button class="rowlink" type="button" onclick="toast('Account settings coming soon')">
-    <div><b>Account Settings</b><small>Manage your account details.</small></div><span class="arr">→</span>
-  </button>
-  <div class="settings-spacer"></div>
-  <button class="rowlink" type="button" onclick="doLogout()">
-    <div><b>Log Out</b><small>Sign out of your Athlevo account.</small></div><span class="arr">→</span>
-  </button>
-  <div class="you-delete-divider"></div>
-  <button class="rowlink rowlink-danger-subtle" type="button" onclick="openDeleteAccount()">
-    <div><b>Delete Account</b><small>Permanently delete your account and all data.</small></div><span class="arr">→</span>
-  </button>
+  <!-- ══ Support & Legal ══ -->
+  <div class="you-section-title">Support &amp; Legal</div>
 
-  <div class="spacer-md"></div>
-
-  <!-- ── Support & Legal ── -->
-  <div class="pad"><div class="section-title">Support &amp; Legal</div></div>
   <button class="rowlink" type="button" onclick="openBetaFeedback()">
     <div><b>Support</b><small>Report a bug, share an idea, or get help.</small></div><span class="arr">→</span>
   </button>
@@ -5250,6 +5242,52 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div class="settings-spacer"></div>
   <button class="rowlink" type="button" onclick="openLegal('terms')">
     <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
+  </button>
+
+  <div class="spacer-md"></div>
+
+  <!-- ══ Delete Account ══ -->
+  <div class="you-delete-divider"></div>
+  <div class="you-delete-row">
+    <button type="button" onclick="openDeleteAccount()">Delete Account</button>
+  </div>
+
+  <!-- ══ Log Out ══ -->
+  <div class="you-logout-row">
+    <button type="button" onclick="doLogout()">Log Out</button>
+  </div>
+
+<div class="app-version">
+  <div>Athlevo</div>
+  <div id="appVersionDisplay">Version 0.6.0</div>
+</div>
+
+<div class="spacer-md"></div>
+</section>
+
+<!-- ══════════════ SETTINGS (Profile Settings) ══════════════ -->
+<section class="screen" id="screen-settings">
+  <button class="settings-back" type="button" onclick="closeSettings()" aria-label="Back">
+    <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <h1 class="serif" style="margin:0 22px 16px;font-size:var(--fs-h1)">Profile Settings</h1>
+
+  <!-- Profile photo -->
+  <div class="profile-settings-photo">
+    <div class="pfp serif" id="settingsProfilePhoto">A</div>
+    <div class="profile-settings-photo-actions">
+      <button type="button" id="changePhotoBtn" onclick="changeProfilePhoto()">Change photo</button>
+      <button type="button" id="removePhotoBtn" class="remove-photo" onclick="removeProfilePhoto()" style="display:none">Remove</button>
+    </div>
+    <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoSelect(event)">
+  </div>
+
+  <div class="spacer-md"></div>
+
+  <!-- Account details -->
+  <div class="pad"><div class="section-title">Account</div></div>
+  <button class="rowlink" type="button" onclick="toast('Account settings coming soon')">
+    <div><b id="settingsAccountName">Athlete</b><small id="settingsAccountEmail">—</small></div><span class="arr">→</span>
   </button>
 
   <div class="app-version">
@@ -6257,6 +6295,11 @@ async function doLogout() {
 
   athlevoSessionUserId = null;
 
+  // Clear profile photo state so the next user starts fresh
+  window._athlevoProfilePhotoUrl = null;
+  window._athlevoGoogleAvatarUrl = null;
+  window._athlevoUserEmail = null;
+
   /*
    * Clear in-app state that must not outlive the session.
    *
@@ -6346,11 +6389,155 @@ function openSettings() {
   // Update settings version display
   var sv = document.getElementById('settingsVersionDisplay');
   if (sv && window.ATHLEVO_VERSION) sv.textContent = 'Version ' + window.ATHLEVO_VERSION;
+  // Populate profile settings fields
+  var nameEl = document.getElementById('settingsAccountName');
+  var emailEl = document.getElementById('settingsAccountEmail');
+  var pName = document.getElementById('profileName');
+  if (nameEl && pName) nameEl.textContent = pName.textContent;
+  if (emailEl && window._athlevoUserEmail) emailEl.textContent = window._athlevoUserEmail;
+  // Sync the settings profile photo to match the main pfp
+  syncSettingsProfilePhoto();
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   var settings = document.getElementById('screen-settings');
   if (settings) { settings.classList.add('active'); settings.scrollTop = 0; }
 }
 window.openSettings = openSettings;
+
+/* ══════════════ PROFILE PHOTO ══════════════ */
+/*
+ * Priority: 1. custom Athlevo profile photo (profile_photo_url)
+ *           2. Google OAuth avatar (user_metadata.avatar_url or .picture)
+ *           3. initials fallback
+ *
+ * updateProfilePhoto(url) renders a photo into all .pfp elements on the You
+ * and Settings screens. clearProfilePhoto() restores the initials fallback.
+ */
+
+// Cache the current profile photo state
+window._athlevoProfilePhotoUrl = null;
+window._athlevoGoogleAvatarUrl = null;
+window._athlevoUserEmail = null;
+
+function renderProfilePhotoElement(el, url, initial) {
+  if (!el) return;
+  if (url) {
+    var img = el.querySelector('img');
+    if (img) {
+      img.src = url;
+    } else {
+      el.textContent = '';
+      img = document.createElement('img');
+      img.src = url;
+      img.alt = 'Profile photo';
+      img.onerror = function() {
+        // Fallback to initials on image load failure
+        this.remove();
+        el.textContent = initial || 'A';
+      };
+      el.appendChild(img);
+    }
+  } else {
+    var existingImg = el.querySelector('img');
+    if (existingImg) existingImg.remove();
+    el.textContent = initial || 'A';
+  }
+}
+
+function updateAllProfilePhotos() {
+  var url = window._athlevoProfilePhotoUrl || window._athlevoGoogleAvatarUrl || null;
+  var initialEl = document.getElementById('profileInitial');
+  var initial = initialEl ? initialEl.textContent.trim() : 'A';
+  // If the element has an image, the text content is empty; use cached initial
+  if (!initial || initial === '') {
+    var pName = document.getElementById('profileName');
+    initial = pName ? pName.textContent.trim().charAt(0).toUpperCase() : 'A';
+  }
+  renderProfilePhotoElement(document.getElementById('profileInitial'), url, initial);
+  renderProfilePhotoElement(document.getElementById('settingsProfilePhoto'), url, initial);
+  // Show/hide remove button
+  var removeBtn = document.getElementById('removePhotoBtn');
+  if (removeBtn) removeBtn.style.display = window._athlevoProfilePhotoUrl ? '' : 'none';
+}
+
+function syncSettingsProfilePhoto() {
+  var url = window._athlevoProfilePhotoUrl || window._athlevoGoogleAvatarUrl || null;
+  var pName = document.getElementById('profileName');
+  var initial = pName ? pName.textContent.trim().charAt(0).toUpperCase() : 'A';
+  renderProfilePhotoElement(document.getElementById('settingsProfilePhoto'), url, initial);
+  var removeBtn = document.getElementById('removePhotoBtn');
+  if (removeBtn) removeBtn.style.display = window._athlevoProfilePhotoUrl ? '' : 'none';
+}
+
+function changeProfilePhoto() {
+  var input = document.getElementById('profilePhotoInput');
+  if (input) input.click();
+}
+window.changeProfilePhoto = changeProfilePhoto;
+
+async function handleProfilePhotoSelect(event) {
+  var file = event.target.files && event.target.files[0];
+  if (!file) return;
+  // Validate file type and size
+  if (!file.type.startsWith('image/')) {
+    toast('Please select an image file.');
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    toast('Image must be under 5 MB.');
+    return;
+  }
+  try {
+    var session = (await supabaseClient.auth.getSession()).data.session;
+    if (!session) { toast('Please sign in first.'); return; }
+    var userId = session.user.id;
+    var ext = file.name.split('.').pop() || 'jpg';
+    var filePath = userId + '/profile.' + ext;
+    // Upload to Supabase Storage (profile-photos bucket)
+    var { error: uploadErr } = await supabaseClient.storage
+      .from('profile-photos')
+      .upload(filePath, file, { upsert: true, contentType: file.type });
+    if (uploadErr) {
+      console.warn('Profile photo upload failed:', uploadErr.message);
+      toast('Photo upload failed. Please try again.');
+      return;
+    }
+    // Get public URL
+    var { data: urlData } = supabaseClient.storage
+      .from('profile-photos')
+      .getPublicUrl(filePath);
+    var publicUrl = urlData.publicUrl + '?t=' + Date.now();
+    // Save URL to profile
+    await supabaseClient.from('profiles').update({ profile_photo_url: publicUrl }).eq('id', userId);
+    window._athlevoProfilePhotoUrl = publicUrl;
+    updateAllProfilePhotos();
+    toast('Profile photo updated.');
+  } catch (e) {
+    console.warn('Profile photo update failed:', e);
+    toast('Could not update photo. Please try again.');
+  }
+  // Reset input so the same file can be re-selected
+  event.target.value = '';
+}
+window.handleProfilePhotoSelect = handleProfilePhotoSelect;
+
+async function removeProfilePhoto() {
+  try {
+    var session = (await supabaseClient.auth.getSession()).data.session;
+    if (!session) { toast('Please sign in first.'); return; }
+    var userId = session.user.id;
+    // Clear the profile_photo_url in the database
+    await supabaseClient.from('profiles').update({ profile_photo_url: null }).eq('id', userId);
+    // Attempt to remove from storage (non-blocking)
+    supabaseClient.storage.from('profile-photos').remove([userId + '/profile.jpg', userId + '/profile.png', userId + '/profile.jpeg', userId + '/profile.webp']).catch(function(){});
+    window._athlevoProfilePhotoUrl = null;
+    updateAllProfilePhotos();
+    toast('Profile photo removed.');
+  } catch (e) {
+    console.warn('Profile photo removal failed:', e);
+    toast('Could not remove photo. Please try again.');
+  }
+}
+window.removeProfilePhoto = removeProfilePhoto;
 
 function closeSettings() {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
@@ -8480,6 +8667,20 @@ async function routeAfterAuth(userId) {
   // profile + Strava state; then the brief and the weekly plan load.
   await AthlevoBrain.refreshAthleteUI();
   if (!routeIsCurrent()) return;
+
+  // ── Profile photo: load from profile + Google avatar ──
+  try {
+    var _pUser = (await supabaseClient.auth.getUser()).data.user;
+    if (_pUser) {
+      window._athlevoUserEmail = _pUser.email || '';
+      var _meta = _pUser.user_metadata || {};
+      window._athlevoGoogleAvatarUrl = _meta.avatar_url || _meta.picture || null;
+      // profile_photo_url comes from the profile row (loaded by brain.js via select("*"))
+      var _pProfile = (await supabaseClient.from('profiles').select('profile_photo_url').eq('id', _pUser.id).maybeSingle()).data;
+      window._athlevoProfilePhotoUrl = (_pProfile && _pProfile.profile_photo_url) || null;
+      if (typeof updateAllProfilePhotos === 'function') updateAllProfilePhotos();
+    }
+  } catch (_photoErr) { /* non-fatal — falls back to initials */ }
 
   // The sync status card may have initialised at DOMContentLoaded (before
   // the session was ready) and painted "No wearable connected". Now the
