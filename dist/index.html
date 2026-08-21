@@ -1166,16 +1166,18 @@ input,textarea,select{color:var(--text)}
 .w-mark{font-family:"Space Grotesk",var(--sans);font-size:38px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .w-mark i{font-style:normal;color:var(--red)}
 .w-tag{font-size:var(--fs-h3);color:var(--ink2);margin:18px auto 0;line-height:var(--lh-body);max-width:300px}
-.w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:10px}
-.w-btn.google{background:var(--paper);border:1px solid var(--line)}
-.w-signup-link{margin:8px 0 0;text-align:center;font-size:var(--fs-body-sm);color:var(--ink3);line-height:var(--lh-body)}
+.w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:12px}
 .w-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:15px var(--s-4);border-radius:var(--r-pill);cursor:pointer;border:1px solid var(--line);background:var(--paper);color:var(--text);transition:transform var(--dur-fast),opacity var(--dur-base);-webkit-tap-highlight-color:transparent}
+.w-btn:active{transform:scale(.97)}
 .w-btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
 #authBtnEmail{background:var(--red);border-color:var(--red);color:#fff}
 .w-btn.apple{background:#000;border-color:#000;color:#fff}
-.w-btn:active{transform:scale(.97)}
+.w-btn.google{background:var(--paper);border:1px solid var(--line)}
 .w-btn[disabled]{opacity:.5;cursor:not-allowed}
 .w-btn .w-btn-icon{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.w-signup-link{margin:8px 0 0;text-align:center;font-size:var(--fs-body-sm);color:var(--ink3);line-height:var(--lh-body)}
+.w-signup-link a{color:var(--text);font-weight:650;cursor:pointer;text-decoration:none}
+.w-signup-link a:hover{text-decoration:underline}
 .w-skip{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body-sm);color:var(--ink3);padding:10px;cursor:pointer}
 
 /* ---------- onboarding interview ---------- */
@@ -1189,22 +1191,28 @@ input,textarea,select{color:var(--text)}
 .ob2-top{display:flex;align-items:center;gap:14px;padding:16px 22px calc(16px + env(safe-area-inset-top));flex-shrink:0}
 .ob2-back{width:34px;height:34px;flex-shrink:0;border:none;background:var(--card);border-radius:50%;color:var(--text);font-size:var(--fs-h1);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity var(--dur-base),background var(--dur-base),transform var(--dur-fast)}
 .ob2-back[disabled]{opacity:0;pointer-events:none}
-.ob2-progress{flex:1;height:5px;background:var(--line);border-radius:var(--r-pill);overflow:hidden}
-.ob2-progress-fill{height:100%;width:16.6%;background:var(--red);border-radius:var(--r-pill);transition:width .55s var(--ease-standard)}
-.ob2-count{font-size:var(--fs-caption);font-weight:700;color:var(--ink3);font-variant-numeric:tabular-nums;flex-shrink:0;min-width:34px;text-align:right}
+/* One thin, understated progress line — recedes while the athlete reads the
+   question; the single fill eases from its current value, never jumps. */
+.ob2-progress{flex:1;height:2px;background:var(--line);border-radius:2px;overflow:hidden}
+.ob2-fill{display:block;height:100%;background:var(--red);transform:scaleX(0);transform-origin:left center;transition:transform .45s var(--ease-standard)}
 
-.ob2-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:8px 22px 24px;-webkit-overflow-scrolling:touch}
+.ob2-body{flex:1;min-height:0;position:relative;overflow-y:auto;overflow-x:hidden;padding:8px 22px 24px;-webkit-overflow-scrolling:touch}
+.ob2-body.ob2-transitioning{overflow:hidden;touch-action:pan-y}
+/* During a WAAPI screen transition / drag, WAAPI owns the motion — suppress the
+   CSS entrance so the two never double-animate the same transform. */
+.ob2-body.ob2-transitioning .ob2-step{animation:none}
 @keyframes ob2In{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .ob2-step{animation:ob2In var(--dur-slow) var(--ease-standard)}
-.ob2-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--red)}
-.ob2-title{font-family:var(--serif);font-size:var(--fs-display);font-weight:500;letter-spacing:-.02em;line-height:1.12;margin:10px 0 8px}
-.ob2-sub{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin-bottom:26px;max-width:34ch}
+/* Phase label is deliberately secondary; the question headline dominates. */
+.ob2-eyebrow{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red);opacity:.72}
+.ob2-title{font-family:var(--serif);font-size:var(--fs-display);font-weight:500;letter-spacing:-.02em;line-height:1.1;margin:9px 0 7px}
+.ob2-sub{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin-bottom:26px;max-width:36ch}
 
 .ob2-field{margin-bottom:22px}
 .ob2-field:last-child{margin-bottom:4px}
 .ob2-label{font-size:var(--fs-body-sm);font-weight:700;letter-spacing:.01em;color:var(--text);display:block;margin-bottom:10px}
 .ob2-label .opt{font-weight:600;color:var(--ink3);letter-spacing:0}
-.ob2-input{width:100%;border:1.5px solid var(--line);background:var(--card2);border-radius:var(--r-md);padding:15px 17px;font-family:var(--sans);font-size:var(--fs-h3);color:var(--text);outline:none;transition:border-color var(--dur-base),background var(--dur-base)}
+.ob2-input{width:100%;border:1px solid var(--line);background:var(--field);border-radius:var(--r-sm);padding:15px 16px;font-family:var(--sans);font-size:var(--fs-h3);color:var(--text);outline:none;transition:border-color var(--dur-base),background var(--dur-base)}
 .ob2-input::placeholder{color:var(--ink3)}
 .ob2-input:focus{border-color:var(--text);background:var(--paper)}
 textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
@@ -1215,18 +1223,91 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .ob2-row .ob2-field{flex:1;margin-bottom:0}
 
 .ob2-chips{display:flex;flex-wrap:wrap;gap:9px}
-.ob2-chip{background:var(--paper);border:1.5px solid var(--line);border-radius:var(--r-pill);padding:12px 18px;min-height:46px;display:inline-flex;align-items:center;font-family:var(--sans);font-size:var(--fs-body);font-weight:600;color:var(--text);cursor:pointer;transition:border-color var(--dur-base),background var(--dur-base),color var(--dur-base),transform var(--dur-fast)}
-.ob2-chip.sel{background:var(--ink);border-color:var(--text);color:#fff}
-.ob2-chip.sel.red{background:var(--red);border-color:var(--red)}
+.ob2-chip{background:transparent;border:1px solid var(--line);border-radius:9px;padding:11px 16px;min-height:44px;display:inline-flex;align-items:center;font-family:var(--sans);font-size:var(--fs-body);font-weight:500;color:var(--text);cursor:pointer;transition:border-color var(--dur-base),background var(--dur-base),color var(--dur-base),transform var(--dur-fast)}
 .ob2-days{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
-.ob2-day{aspect-ratio:1;border:1.5px solid var(--line);background:var(--paper);border-radius:var(--r-sm);font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--ink2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color var(--dur-base),background var(--dur-base),color var(--dur-base),transform var(--dur-fast)}
-.ob2-day.sel{background:var(--ink);border-color:var(--text);color:#fff}
+.ob2-day{aspect-ratio:1;border:1px solid var(--line);background:transparent;border-radius:var(--r-sm);font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--ink2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color var(--dur-base),background var(--dur-base),color var(--dur-base),transform var(--dur-fast)}
 
 .ob2-foot{flex-shrink:0;padding:12px 22px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--paper) 62%,rgba(255,255,255,0));border-top:1px solid var(--line)}
 .ob2-msg{font-size:var(--fs-body-sm);font-weight:600;color:var(--red);min-height:18px;margin-bottom:8px;text-align:center}
-.ob2-continue{width:100%;font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:.01em;padding:var(--s-4);border-radius:var(--r-pill);border:none;background:var(--ink);color:#fff;cursor:pointer;transition:opacity var(--dur-base),transform var(--dur-fast)}
-.ob2-continue[disabled]{opacity:.5;pointer-events:none}
-.ob2-continue.done{background:var(--red)}
+/* Muted / inactive by default; flips to Athlevo red the moment the answer is
+   valid — a responsive, satisfying activation. */
+.ob2-continue{width:100%;font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:.01em;padding:var(--s-4);border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink3);cursor:pointer;transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base),transform var(--dur-fast)}
+.ob2-continue.ready,.ob2-continue.done{background:var(--red);color:#fff;border-color:var(--red)}
+.ob2-continue[disabled]{opacity:.6;pointer-events:none}
+.ob2-continue:active{transform:scale(.985)}
+
+/* ── v3: large answer cards for high-impact single-choice screens ──
+   The whole card is the control. Unselected: white/soft surface, subtle border,
+   quiet indicator. Selected: red border + faint red tint + stronger text and a
+   small clear tick — obvious, never loud. */
+.ob2-cards-choice{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.ob2-card{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+  text-align:left;font-family:var(--sans);cursor:pointer;
+  background:transparent;border:none;border-bottom:1px solid var(--line);border-radius:0;
+  padding:16px 2px;min-height:56px;
+  transition:color var(--dur-base),transform var(--dur-fast)}
+.ob2-card:active{transform:scale(.995)}
+.ob2-card-label{font-size:var(--fs-h3);font-weight:500;color:var(--text);letter-spacing:-.01em;transition:color var(--dur-base),font-weight var(--dur-base)}
+/* No indicator unless selected — then a small red check (no circle). */
+.ob2-card-tick{flex:0 0 auto;width:16px;height:16px;position:relative;opacity:0;transition:opacity var(--dur-base)}
+.ob2-card-tick::after{content:"";position:absolute;left:5px;top:0;width:5px;height:10px;
+  border:solid var(--red);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ob2-card.sel .ob2-card-label{color:var(--red);font-weight:600}
+.ob2-card.sel .ob2-card-tick{opacity:1}
+
+/* Press feedback on chips / day cells. */
+.ob2-chip:active{transform:scale(.97)}
+.ob2-day:active{transform:scale(.95)}
+/* Restrained selected state — red border + red text + a whisper of red tint,
+   not a loud solid fill. */
+.ob2-chip.sel{border-color:var(--red);color:var(--red);background:color-mix(in srgb,var(--red) 6%,var(--paper));font-weight:600}
+.ob2-day.sel{border-color:var(--red);color:var(--red);background:color-mix(in srgb,var(--red) 7%,var(--paper));font-weight:700}
+
+/* ── v3: "Athlevo is learning" insight beat ── */
+.ob2-insight{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:18px;padding:40px 14px;cursor:pointer}
+.ob2-insight-mark{width:44px;height:44px;border-radius:50%;background:var(--red-soft);position:relative;flex:0 0 auto}
+.ob2-insight-mark::after{content:"";position:absolute;left:50%;top:50%;width:16px;height:16px;transform:translate(-50%,-50%);
+  border-radius:50%;background:var(--red);animation:ob2Pulse 1.6s var(--ease-standard) infinite}
+@keyframes ob2Pulse{0%{transform:translate(-50%,-50%) scale(.7);opacity:.55}50%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(.7);opacity:.55}}
+.ob2-insight-text{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;line-height:1.3;letter-spacing:-.01em;color:var(--text);max-width:26ch}
+.ob2-insight-hint{font-size:var(--fs-caption);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+
+/* ── v3: profile payoff ── */
+.ob2-build[hidden],.ob2-summary[hidden]{display:none}
+.ob2-payoff{min-height:100%;display:flex;flex-direction:column;justify-content:center;padding:14px 0}
+.ob2-build{display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px;padding:30px 0}
+.ob2-build-ring{width:56px;height:56px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--red);
+  animation:ob2Spin 900ms linear infinite}
+.ob2-build-ring span{display:none}
+@keyframes ob2Spin{to{transform:rotate(360deg)}}
+.ob2-build .ob2-title{margin:0}
+.ob2-build-lines{list-style:none;display:flex;flex-direction:column;gap:12px;margin:6px 0 0;padding:0;text-align:left}
+.ob2-build-lines li{display:flex;align-items:center;gap:11px;font-size:var(--fs-body);color:var(--ink3);
+  opacity:.35;transform:translateY(4px);transition:opacity var(--dur-slow) var(--ease-standard),transform var(--dur-slow) var(--ease-standard)}
+.ob2-build-lines li i{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--line);flex:0 0 auto;position:relative}
+.ob2-build-lines li.on{opacity:1;transform:none;color:var(--text)}
+.ob2-build-lines li.on i{background:var(--red);border-color:var(--red)}
+.ob2-build-lines li.on i::after{content:"";position:absolute;left:5.5px;top:2.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ob2-summary{display:flex;flex-direction:column}
+.ob2-summary .ob2-title{margin:8px 0 6px}
+/* Editorial summary — a clean vertical list; hierarchy from type + hairline
+   dividers, no cards and no accent bars. */
+.ob2-summary-list{margin:22px 0 28px;border-top:1px solid var(--line)}
+.ob2-sumrow{display:flex;flex-direction:column;gap:4px;padding:15px 0;border-bottom:1px solid var(--line);margin:0}
+.ob2-sumlabel{margin:0;font-size:var(--fs-micro);font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+.ob2-sumvalue{margin:0;font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--text);line-height:1.15;letter-spacing:-.01em}
+
+/* Reduced motion — strip spring travel, keep state changes + feedback. */
+@media(prefers-reduced-motion:reduce){
+  .ob2-fill{transition:none}
+  .ob2-card-tick{transition:none}
+  .ob2-build-lines li{transition:none}
+  .ob2-build-ring{animation:none;border-top-color:var(--red)}
+  .ob2-insight-mark::after{animation:none}
+  .ob2-step{animation:none}
+  .ob2-chip:active,.ob2-day:active,.ob2-card:active,.ob2-continue:active{transform:none}
+}
 
 .connect-card{margin-top:12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s-4);text-align:center}
 .connect-card .ilogo{margin:0 auto 10px}
@@ -1298,7 +1379,7 @@ body.athlevo-sheet-locked{overflow:hidden}
 }
 @media(prefers-reduced-transparency:reduce){
   :root{--backdrop-blur:0px;--backdrop:rgba(20,20,22,.72)}
-  .athlevo-sheet-overlay,.modal-back,.tw-modal-ov,.apl-modal,.performance-upgrade-back{
+  .athlevo-sheet-overlay,.modal-back,.tw-modal-ov,.apl-modal,.performance-upgrade-back,.trial-info-back{
     backdrop-filter:none;-webkit-backdrop-filter:none}
   .tabbar,#tabbar,.legal-head,.lp-nav,#screen-landing .lp-nav{background:var(--paper);
     backdrop-filter:none;-webkit-backdrop-filter:none}
@@ -3807,15 +3888,12 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
     <div class="ob2-top">
         <button class="ob2-back" id="ob2Back" type="button" aria-label="Go back" disabled>‹</button>
-        <div class="ob2-progress">
-            <div class="ob2-progress-fill" id="ob2ProgressFill"></div>
-        </div>
-        <span class="ob2-count" id="ob2Count">1&nbsp;/&nbsp;6</span>
+        <div class="ob2-progress" id="ob2Progress" role="img" aria-label="Onboarding progress"></div>
     </div>
 
     <div class="ob2-body" id="ob2Body"></div>
 
-    <div class="ob2-foot">
+    <div class="ob2-foot" id="ob2-foot">
         <p class="ob2-msg" id="ob2Msg" role="status" aria-live="polite"></p>
         <button class="ob2-continue" id="ob2Continue" type="button">Continue</button>
     </div>
@@ -3935,7 +4013,44 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .ag-cta-sub{font-size:var(--fs-caption);color:var(--ink3);margin-top:10px}
 
   /* Trial countdown indicator */
-  .ag-trial-indicator{position:sticky;top:0;z-index:5;text-align:center;font-size:var(--fs-caption);font-weight:600;letter-spacing:.02em;color:var(--ink2);background:var(--card);border-bottom:1px solid var(--line);padding:6px 16px;opacity:.85}
+  .ag-trial-indicator{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;border:none;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;letter-spacing:.02em;color:var(--ink2);background:var(--card);border-bottom:1px solid var(--line);padding:6px 16px;opacity:.85;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity var(--dur-fast)}
+  .ag-trial-indicator:active{opacity:.65}
+  .ag-trial-label{flex:1;text-align:center}
+  .ag-trial-chevron{flex:none;font-size:1.1em;color:var(--ink3);margin-left:2px}
+
+  /* Trial info bottom sheet */
+  .trial-info-back{position:fixed;inset:0;z-index:90;display:none;
+    align-items:flex-end;justify-content:center;background:var(--backdrop);
+    padding-top:env(safe-area-inset-top)}
+  .trial-info-back.show{display:flex;animation:fadeIn var(--motion-screen) var(--ease-standard)}
+  .trial-info-sheet{position:relative;width:100%;max-width:560px;background:var(--surface-base);
+    border:1px solid var(--border-default);border-bottom:0;border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;
+    padding:22px 22px calc(22px + env(safe-area-inset-bottom));
+    max-height:90vh;overflow-y:auto;box-sizing:border-box;
+    box-shadow:var(--elev-3);animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
+  .trial-info-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;
+    background:var(--paper);border-radius:50%;font-size:18px;line-height:32px;text-align:center;
+    color:var(--ink2);cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .trial-info-close:active{opacity:.6}
+  .trial-info-sheet .trial-info-eyebrow{font-size:var(--fs-micro);font-weight:750;
+    letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--red)}
+  .trial-info-sheet h2{margin:7px 0 4px;font-family:var(--serif);
+    font-size:var(--fs-h1);font-weight:500;line-height:var(--lh-heading);color:var(--text)}
+  .trial-info-sub{margin:0 0 16px;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2)}
+  .trial-info-countdown-row{display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;
+    font-size:var(--fs-body-sm);color:var(--ink3)}
+  .trial-info-countdown-dot{width:6px;height:6px;border-radius:50%;background:var(--red);flex:none}
+  .trial-info-section{margin-bottom:16px}
+  .trial-info-section-title{font-size:var(--fs-body-sm);font-weight:700;color:var(--text);margin:0 0 6px}
+  .trial-info-list{margin:0;padding:0;list-style:none}
+  .trial-info-list li{position:relative;padding:5px 0 5px 15px;font-size:var(--fs-body-sm);color:var(--ink2);line-height:var(--lh-body)}
+  .trial-info-list li::before{content:"";position:absolute;left:1px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+  .trial-info-note{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink3);margin:0 0 16px}
+  .trial-info-divider{border:none;border-top:1px solid var(--line);margin:0 0 16px}
+  .trial-info-cta{width:100%;border:none;border-radius:var(--r-pill);background:var(--red);color:#fff;
+    font-family:var(--sans);font-weight:700;font-size:var(--fs-body);letter-spacing:-.01em;
+    padding:15px;cursor:pointer;transition:transform var(--dur-fast);margin-top:4px;-webkit-tap-highlight-color:transparent}
+  .trial-info-cta:active{transform:scale(.97)}
 
   /* One reusable Athlevo Performance sheet. Feature previews open this
      explanation; only its primary action opens checkout. */
@@ -5229,6 +5344,53 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <button class="performance-upgrade-secondary" id="performanceUpgradeSecondary" type="button"
         onclick="AthlevoAccessGuard.closeUpgradeSheet()">Not now</button>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════ TRIAL INFO MODAL ══════════════ -->
+<div class="trial-info-back" id="trialInfoModal" role="dialog"
+  aria-modal="true" aria-hidden="true" aria-labelledby="trialInfoTitle"
+  onclick="if(event.target===this)AthlevoAccessGuard.closeTrialInfo()">
+  <div class="trial-info-sheet">
+    <button class="trial-info-close" type="button" aria-label="Close"
+      onclick="AthlevoAccessGuard.closeTrialInfo()">&times;</button>
+    <span class="trial-info-eyebrow">Athlevo Performance</span>
+    <h2 id="trialInfoTitle">Your Performance access</h2>
+    <p class="trial-info-sub">You have full access to Athlevo Performance for your first 24 hours.</p>
+    <div class="trial-info-countdown-row">
+      <span class="trial-info-countdown-dot"></span>
+      <span id="trialInfoCountdown"></span>
+    </div>
+
+    <div class="trial-info-section">
+      <p class="trial-info-section-title">During your access period</p>
+      <ul class="trial-info-list">
+        <li>Performance Trends are unlocked</li>
+        <li>Readiness, Training Load, and Recovery insights are unlocked</li>
+        <li>Performance graphs and analytics are unlocked</li>
+        <li>You can generate your personalized training plan once</li>
+      </ul>
+    </div>
+
+    <div class="trial-info-section">
+      <p class="trial-info-section-title">Your AI Coach</p>
+      <p class="trial-info-note">Coach usage is separate from Performance access and still follows the free usage limit.</p>
+    </div>
+
+    <hr class="trial-info-divider">
+
+    <div class="trial-info-section">
+      <p class="trial-info-section-title">After 24 hours</p>
+      <p class="trial-info-note">When your access period ends, Performance features will lock again. Your training plan, profile, workouts, and saved data will stay available.</p>
+    </div>
+
+    <div class="trial-info-section">
+      <p class="trial-info-section-title">Want to keep Performance?</p>
+      <p class="trial-info-note">Athlevo Performance will let you keep these features unlocked after your free access ends.</p>
+    </div>
+
+    <button class="trial-info-cta" type="button"
+      onclick="AthlevoAccessGuard.trialInfoUpgrade()">Upgrade to Athlevo Performance</button>
   </div>
 </div>
 
@@ -8850,7 +9012,7 @@ setTimeout(function () {
 <script src="js/morningCheckIn.js?v=71"></script>
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=68"></script>
-<script src="js/onboarding.js?v=70"></script>
+<script src="js/onboarding.js?v=71"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's
@@ -9115,8 +9277,7 @@ setTimeout(function () {
   }
 
   async function continueWithApple() {
-    const result = await AthlevoSocialAuth.signInWithApple();
-    if (!result.ok && result.message && typeof toast === "function") toast(result.message);
+    if (typeof toast === "function") toast("Apple sign-in is coming soon. Please use Google or email for now.");
   }
 
   window.continueWithGoogle = continueWithGoogle;
@@ -9543,7 +9704,8 @@ setTimeout(function () {
   }
 
   // Only offer a provider that is actually configured. A button that fails
-  // the instant it is pressed is worse than no button at all.
+  // the instant it is pressed is worse than no button at all. Apple is
+  // visibleWhenDisabled (coming-soon UI) — see PROVIDERS in socialAuth.js.
   if (window.AthlevoSocialAuth) AthlevoSocialAuth.applyProviderVisibility();
 
   async function initializeAthlevoApp() {

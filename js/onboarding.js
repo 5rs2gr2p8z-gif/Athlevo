@@ -157,192 +157,203 @@ const WEEK_DAYS = [
   "Friday", "Saturday", "Sunday"
 ];
 
-const OB_STEPS = [
-  {
-    key: "about",
-    eyebrow: "Step 1 · About you",
-    title: "Let's start with you",
-    sub: "The basics so your coach knows who it's training.",
-    fields: [
-      { id: "name", type: "text", label: "Your name", placeholder: "e.g. Dean", required: true },
-      {
-        id: "age", type: "number", label: "Age", unit: "yrs",
-        min: 13, max: 100, integer: true, required: true, placeholder: "28", half: true
-      },
-      {
-        id: "sex", type: "chips", label: "Sex", required: true,
-        options: [
-          { label: "Male", value: "Male" },
-          { label: "Female", value: "Female" }
-        ]
-      },
-      { id: "location", type: "text", label: "Where you train", optional: true,
-        placeholder: "City, country — helps with climate" }
-    ]
-  },
-  {
-    key: "body",
-    eyebrow: "Step 2 · Body metrics",
+/*
+ * ── Onboarding v3 — phase / screen model ──────────────────────────────
+ *
+ * v2 grouped ~24 questions into six dense steps. v3 keeps EVERY field and the
+ * exact same field specs (so obBuildUpdates / obPrefillFromProfile / validation
+ * and every profile column are untouched) but re-organises them into a
+ * one-primary-question-per-screen flow across five phases. Only genuinely
+ * paired, low-friction fields share a screen. Nothing about the data model,
+ * persistence, or resume semantics changes — this is a presentation refactor.
+ *
+ * Four INPUT phases drive the milestone progress; the fifth ("payoff") is the
+ * reward and is rendered separately, so the athlete always sees a finite path.
+ */
+const OB_PHASES = [
+  { key: "identity", label: "Goal" },
+  { key: "ability",  label: "Ability" },
+  { key: "reality",  label: "Schedule" },
+  { key: "personal", label: "You" }
+];
+
+/* Field specs — identical ids/types/options/validation to v2. */
+const F = {
+  name:    { id: "name", type: "text", label: "Your name", placeholder: "e.g. Dean", required: true },
+  age:     { id: "age", type: "number", label: "Age", unit: "yrs", min: 13, max: 100, integer: true, required: true, placeholder: "28", half: true },
+  sex:     { id: "sex", type: "chips", label: "Sex", required: true,
+             options: [{ label: "Male", value: "Male" }, { label: "Female", value: "Female" }] },
+  location:{ id: "location", type: "text", label: "Where you train", optional: true,
+             placeholder: "City, country — helps with climate" },
+  height:  { id: "height", type: "number", label: "Height", unitKey: "height", required: true, half: true },
+  weight:  { id: "weight", type: "number", label: "Weight", unitKey: "weight", required: true, half: true },
+  experience: { id: "experience", bare: true, type: "chips", label: "Running experience", required: true, layout: "cards",
+             options: [
+               { label: "New to running", value: 0 },
+               { label: "1–2 years", value: 1 },
+               { label: "3–5 years", value: 4 },
+               { label: "5+ years", value: 8 }
+             ] },
+  mileage: { id: "mileage", type: "number", label: "Current weekly mileage", unit: "km",
+             min: 0, max: 1000, required: true, placeholder: "40", half: true },
+  hours:   { id: "hours", type: "number", label: "Weekly training hours", unit: "hrs",
+             min: 0, max: 100, optional: true, placeholder: "5", half: true },
+  status:  { id: "status", bare: true, type: "chips", label: "Current training status", required: true, layout: "cards",
+             options: [
+               { label: "Just starting", value: "Just starting" },
+               { label: "Building base", value: "Building base" },
+               { label: "In a training block", value: "In a training block" },
+               { label: "Returning from a break", value: "Returning from a break" },
+               { label: "Maintaining fitness", value: "Maintaining fitness" }
+             ] },
+  injuries:{ id: "injuries", type: "text", label: "Injuries or recurring niggles", optional: true,
+             placeholder: "Anything nagging? Leave blank if none" },
+  distance:{ id: "distance", bare: true, type: "chips", label: "Goal distance", required: true, layout: "cards",
+             options: [
+               { label: "5K", value: "5K" },
+               { label: "10K", value: "10K" },
+               { label: "Half marathon", value: "Half marathon" },
+               { label: "Marathon", value: "Marathon" },
+               { label: "Ultra", value: "Ultra" },
+               { label: "General fitness", value: "General fitness" },
+               { label: "Other", value: "Other" }
+             ] },
+  /*
+   * Shown only when "Other" is chosen. Plenty of real goals aren't on a
+   * six-item list — 1 mile, 10 mile, 15K, 50K, a local trail race — and
+   * forcing those athletes to pick a wrong answer corrupts their plan.
+   */
+  customDistance: { id: "customDistance", type: "text", label: "Your distance", optional: true,
+             placeholder: "e.g. 10 miles, 15 km, 50 km", showWhen: { distance: "Other" } },
+  race:    { id: "race", type: "text", label: "Goal race or event", optional: true,
+             placeholder: "e.g. Chicago Marathon" },
+  date:    { id: "date", type: "date", label: "Race date", optional: true },
+  time:    { id: "time", type: "text", label: "Goal finish time", optional: true,
+             placeholder: "e.g. sub-4:00" },
+  recentDist: { id: "recentDist", type: "chips", label: "Recent race distance", optional: true,
+             options: [
+               { label: "5K", value: 5000 },
+               { label: "10K", value: 10000 },
+               { label: "Half", value: 21097.5 },
+               { label: "Marathon", value: 42195 }
+             ] },
+  recentDistKm: { id: "recentDistKm", type: "number", label: "Other distance", unit: "km",
+             min: 0.4, max: 500, optional: true, placeholder: "e.g. 15", half: true },
+  recentTime: { id: "recentTime", type: "text", label: "Finish time", optional: true,
+             placeholder: "e.g. 22:30 or 1:45:00", half: true },
+  recentDate: { id: "recentDate", type: "date", label: "Date of race", optional: true },
+  recentType: { id: "recentType", type: "chips", label: "Race type", optional: true,
+             options: [
+               { label: "Official race", value: "official" },
+               { label: "Time trial", value: "time_trial" },
+               { label: "Training effort", value: "training_effort" }
+             ] },
+  days:    { id: "days", bare: true, type: "chips", label: "Days you can train each week", required: true,
+             options: [1, 2, 3, 4, 5, 6, 7].map(n => ({ label: String(n), value: n })) },
+  longRun: { id: "longRun", bare: true, type: "days", label: "Preferred long run day", required: true },
+  trainTime: { id: "trainTime", type: "chips", label: "Preferred training time", required: true,
+             options: [
+               { label: "Early morning", value: "Early morning" },
+               { label: "Midday", value: "Midday" },
+               { label: "After work", value: "After work" },
+               { label: "Evening", value: "Evening" },
+               { label: "Varies", value: "Varies" }
+             ] },
+  schedule:{ id: "schedule", type: "text", label: "Work or study schedule", optional: true,
+             placeholder: "Shift work, long commute, etc." },
+  devices: { id: "devices", type: "multichips", label: "What do you use to track?", required: true,
+             options: [
+               { label: "Garmin", value: "Garmin" },
+               { label: "COROS", value: "COROS" },
+               { label: "Apple Watch", value: "Apple Watch" },
+               { label: "Strava", value: "Strava" },
+               { label: "TrainingPeaks", value: "TrainingPeaks" },
+               { label: "Other", value: "Other" },
+               { label: "None", value: "None", exclusive: true }
+             ] },
+  diet:    { id: "diet", type: "text", label: "Diet, allergies or fuelling needs", optional: true,
+             placeholder: "e.g. vegetarian, lactose intolerant" },
+  notes:   { id: "notes", type: "textarea", label: "Anything else your coach should know", optional: true,
+             placeholder: "Motivation, health context, responsibilities…" }
+};
+
+/*
+ * The v3 screen list. `autoAdvance` marks a single-choice screen that moves on
+ * by itself once answered (never on multi-select or grouped-review screens, and
+ * never when the answer opens a conditional field). `insightAfter` attaches a
+ * short, skippable "Athlevo is learning" beat shown after the screen.
+ */
+const OB_SCREENS = [
+  // ── Phase 1 · Athlete identity ──
+  { key: "goal", phase: "identity",
+    eyebrow: "Your goal",
+    title: "What are you training for?",
+    sub: "Pick the distance you want to build toward.",
+    fields: [F.distance, F.customDistance], autoAdvance: true },
+  { key: "race", phase: "identity",
+    eyebrow: "Your goal",
+    title: "Have a race in mind?",
+    sub: "Optional — a date and target sharpen your plan.",
+    fields: [F.race, F.date, F.time] },
+  { key: "experience", phase: "identity",
+    eyebrow: "Your background",
+    title: "How long have you been running?",
+    sub: "This sets how quickly Athlevo builds you up.",
+    fields: [F.experience], autoAdvance: true },
+  { key: "status", phase: "identity",
+    eyebrow: "Your background",
+    title: "Where's your training right now?",
+    sub: "So we meet you exactly where you are.",
+    fields: [F.status], autoAdvance: true },
+
+  // ── Phase 2 · Current ability ──
+  { key: "basics", phase: "ability",
+    eyebrow: "About you",
+    title: "The basics",
+    sub: "A few details so your coaching is truly yours.",
+    fields: [F.name, F.age, F.sex, F.location] },
+  { key: "body", phase: "ability",
+    eyebrow: "About you",
     title: "Your body metrics",
     sub: "Used to personalise pacing, fuelling and load.",
     unitToggle: true,
-    fields: [
-      { id: "height", type: "number", label: "Height", unitKey: "height",
-        required: true, half: true },
-      { id: "weight", type: "number", label: "Weight", unitKey: "weight",
-        required: true, half: true }
-    ]
-  },
-  {
-    key: "profile",
-    eyebrow: "Step 3 · Athlete profile",
-    title: "Where you're at",
-    sub: "Your current running background and shape.",
-    fields: [
-      {
-        id: "experience", type: "chips", label: "Running experience", required: true,
-        options: [
-          { label: "New to running", value: 0 },
-          { label: "1–2 years", value: 1 },
-          { label: "3–5 years", value: 4 },
-          { label: "5+ years", value: 8 }
-        ]
-      },
-      {
-        id: "mileage", type: "number", label: "Current weekly mileage", unit: "km",
-        min: 0, max: 1000, required: true, placeholder: "40", half: true
-      },
-      {
-        id: "hours", type: "number", label: "Weekly training hours", unit: "hrs",
-        min: 0, max: 100, optional: true, placeholder: "5", half: true
-      },
-      {
-        id: "status", type: "chips", label: "Current training status", required: true,
-        options: [
-          { label: "Just starting", value: "Just starting" },
-          { label: "Building base", value: "Building base" },
-          { label: "In a training block", value: "In a training block" },
-          { label: "Returning from a break", value: "Returning from a break" },
-          { label: "Maintaining fitness", value: "Maintaining fitness" }
-        ]
-      },
-      {
-        id: "injuries", type: "text", label: "Injuries or recurring niggles", optional: true,
-        placeholder: "Anything nagging? Leave blank if none"
-      }
-    ]
-  },
-  {
-    key: "goals",
-    eyebrow: "Step 4 · Goals",
-    title: "What you're chasing",
-    sub: "Give your training a target to build toward.",
-    fields: [
-      {
-        id: "distance", type: "chips", label: "Goal distance", required: true,
-        options: [
-          { label: "5K", value: "5K" },
-          { label: "10K", value: "10K" },
-          { label: "Half marathon", value: "Half marathon" },
-          { label: "Marathon", value: "Marathon" },
-          { label: "Ultra", value: "Ultra" },
-          { label: "General fitness", value: "General fitness" },
-          { label: "Other", value: "Other" }
-        ]
-      },
-      /*
-       * Shown only when "Other" is chosen. Plenty of real goals aren't on a
-       * six-item list — 1 mile, 10 mile, 15K, 50K, a local trail race — and
-       * forcing those athletes to pick a wrong answer corrupts their plan.
-       */
-      { id: "customDistance", type: "text", label: "Your distance", optional: true,
-        placeholder: "e.g. 10 miles, 15 km, 50 km", showWhen: { distance: "Other" } },
-      { id: "race", type: "text", label: "Goal race or event", optional: true,
-        placeholder: "e.g. Chicago Marathon" },
-      { id: "date", type: "date", label: "Race date", optional: true },
-      { id: "time", type: "text", label: "Goal finish time", optional: true,
-        placeholder: "e.g. sub-4:00" }
-    ]
-  },
-  {
-    key: "performance",
-    eyebrow: "Step 5 · Recent performance",
+    fields: [F.height, F.weight] },
+  { key: "volume", phase: "ability",
+    eyebrow: "Current ability",
+    title: "How much are you running now?",
+    sub: "Your current week — roughly is fine.",
+    fields: [F.mileage, F.hours],
+    insightAfter: "Your recent mileage helps Athlevo set a safe starting load and avoid progressing too aggressively." },
+  { key: "recent", phase: "ability",
+    eyebrow: "Current ability",
     title: "Your latest result",
-    sub: "A recent race sets your starting fitness. Skip it and Athlevo will estimate from your imported runs.",
-    fields: [
-      {
-        id: "recentDist", type: "chips", label: "Recent race distance", optional: true,
-        options: [
-          { label: "5K", value: 5000 },
-          { label: "10K", value: 10000 },
-          { label: "Half", value: 21097.5 },
-          { label: "Marathon", value: 42195 }
-        ]
-      },
-      { id: "recentDistKm", type: "number", label: "Other distance", unit: "km",
-        min: 0.4, max: 500, optional: true, placeholder: "e.g. 15", half: true },
-      { id: "recentTime", type: "text", label: "Finish time", optional: true,
-        placeholder: "e.g. 22:30 or 1:45:00", half: true },
-      { id: "recentDate", type: "date", label: "Date of race", optional: true },
-      {
-        id: "recentType", type: "chips", label: "Race type", optional: true,
-        options: [
-          { label: "Official race", value: "official" },
-          { label: "Time trial", value: "time_trial" },
-          { label: "Training effort", value: "training_effort" }
-        ]
-      }
-    ]
-  },
-  {
-    key: "schedule",
-    eyebrow: "Step 6 · Training schedule",
-    title: "How your week works",
-    sub: "So your plan fits your real life, not the other way around.",
-    fields: [
-      {
-        id: "days", type: "chips", label: "Days you can train each week", required: true,
-        options: [1, 2, 3, 4, 5, 6, 7].map(n => ({ label: String(n), value: n }))
-      },
-      { id: "longRun", type: "days", label: "Preferred long run day", required: true },
-      {
-        id: "trainTime", type: "chips", label: "Preferred training time", required: true,
-        options: [
-          { label: "Early morning", value: "Early morning" },
-          { label: "Midday", value: "Midday" },
-          { label: "After work", value: "After work" },
-          { label: "Evening", value: "Evening" },
-          { label: "Varies", value: "Varies" }
-        ]
-      },
-      { id: "schedule", type: "text", label: "Work or study schedule", optional: true,
-        placeholder: "Shift work, long commute, etc." }
-    ]
-  },
-  {
-    key: "setup",
-    eyebrow: "Step 7 · Your setup",
-    title: "Devices & fuelling",
-    sub: "Last one — then your coach gets to work.",
-    fields: [
-      {
-        id: "devices", type: "multichips", label: "What do you use to track?", required: true,
-        options: [
-          { label: "Garmin", value: "Garmin" },
-          { label: "COROS", value: "COROS" },
-          { label: "Apple Watch", value: "Apple Watch" },
-          { label: "Strava", value: "Strava" },
-          { label: "TrainingPeaks", value: "TrainingPeaks" },
-          { label: "Other", value: "Other" },
-          { label: "None", value: "None", exclusive: true }
-        ]
-      },
-      { id: "diet", type: "text", label: "Diet, allergies or fuelling needs", optional: true,
-        placeholder: "e.g. vegetarian, lactose intolerant" },
-      { id: "notes", type: "textarea", label: "Anything else your coach should know", optional: true,
-        placeholder: "Motivation, health context, responsibilities…" }
-    ]
-  }
+    sub: "A recent race sets your starting fitness — skip it if you don't have one.",
+    fields: [F.recentDist, F.recentDistKm, F.recentTime, F.recentDate, F.recentType] },
+
+  // ── Phase 3 · Training reality ──
+  { key: "days", phase: "reality",
+    eyebrow: "Your week",
+    title: "How many days can you train?",
+    sub: "Be honest — consistency beats ambition.",
+    fields: [F.days], autoAdvance: true },
+  { key: "longRun", phase: "reality",
+    eyebrow: "Your week",
+    title: "Where does your long run fit best?",
+    sub: "The anchor of your training week.",
+    fields: [F.longRun] },
+  { key: "when", phase: "reality",
+    eyebrow: "Your week",
+    title: "When do you usually train?",
+    sub: "And what you use to track it.",
+    fields: [F.trainTime, F.schedule, F.devices],
+    insightAfter: "Your schedule shapes how Athlevo places quality sessions and recovery days." },
+
+  // ── Phase 4 · Personalization ──
+  { key: "personal", phase: "personal",
+    eyebrow: "Personalise",
+    title: "Anything Athlevo should know?",
+    sub: "All optional — it helps tailor your plan and keep you healthy.",
+    fields: [F.injuries, F.diet, F.notes] }
 ];
 
 /* ───────────────────────────── state ────────────────────────────────── */
@@ -688,7 +699,11 @@ function obRenderField(rawField) {
   const optTag = field.optional
     ? ` <span class="opt">· optional</span>`
     : "";
-  const label = `<label class="ob2-label" for="obf-${field.id}">${obEscape(field.label)}${optTag}</label>`;
+  // Single-question screens set `bare` so the field label doesn't repeat the
+  // headline — typography carries the hierarchy instead of a boxed label.
+  const label = field.bare
+    ? ""
+    : `<label class="ob2-label" for="obf-${field.id}">${obEscape(field.label)}${optTag}</label>`;
 
   if (field.type === "text" || field.type === "number" || field.type === "date") {
     const value = obData[field.id] != null ? obEscape(obData[field.id]) : "";
@@ -712,6 +727,18 @@ function obRenderField(rawField) {
   if (field.type === "textarea") {
     const value = obData[field.id] != null ? obEscape(obData[field.id]) : "";
     return `<div class="ob2-field">${label}<textarea class="ob2-input" id="obf-${field.id}" placeholder="${obEscape(field.placeholder || "")}">${value}</textarea></div>`;
+  }
+
+  // Large stacked answer cards for high-impact single-choice screens.
+  if (field.type === "chips" && field.layout === "cards") {
+    const selected = obData[field.id];
+    const cards = field.options.map(opt => {
+      const isSel = selected != null && String(selected) === String(opt.value);
+      return `<button type="button" class="ob2-card${isSel ? " sel" : ""}" data-field="${field.id}" data-value="${obEscape(opt.value)}" data-multi="0">` +
+        `<span class="ob2-card-label">${obEscape(opt.label)}</span>` +
+        `<span class="ob2-card-tick" aria-hidden="true"></span></button>`;
+    }).join("");
+    return `<div class="ob2-field">${label}<div class="ob2-cards-choice">${cards}</div></div>`;
   }
 
   if (field.type === "chips" || field.type === "multichips") {
@@ -782,60 +809,257 @@ function obVisibleFields(fields) {
   });
 }
 
-function obRenderStep() {
-  const step = OB_STEPS[obStepIndex];
-  const body = document.getElementById("ob2Body");
-  if (!step || !body) return;
+/*
+ * ══════════════════════════════════════════════════════════════════════
+ *  Motion layer — built on the SAME WAAPI + pointer primitives proven in
+ *  js/sheet.js (interruptible animation, presentation-state reads, pointer
+ *  velocity, projection, edge resistance). No new dependency. Every screen
+ *  transition and the swipe gesture are interruptible and never lock input.
+ * ══════════════════════════════════════════════════════════════════════
+ */
 
-  body.innerHTML = `
-    <div class="ob2-step">
-      <span class="ob2-eyebrow">${obEscape(step.eyebrow)}</span>
-      <h2 class="ob2-title">${obEscape(step.title)}</h2>
-      <p class="ob2-sub">${obEscape(step.sub)}</p>
-      ${step.unitToggle ? obRenderUnitToggle() : ""}
-      ${obGroupFields(obVisibleFields(step.fields))}
-    </div>
-  `;
-  body.scrollTop = 0;
+let obMode = "screen";          // "screen" | "role" | "coach" | "insight" | "payoff"
+let obTransition = null;        // { anims:[...], outgoing, incoming } — active screen transition
+let obAdvanceTimer = null;      // pending auto-advance timer
+let obInsightTimer = null;      // pending insight dwell timer
 
-  // Progress + chrome.
-  const fill = document.getElementById("ob2ProgressFill");
-  if (fill) fill.style.width = `${((obStepIndex + 1) / OB_STEPS.length) * 100}%`;
+const OB_EASE = "cubic-bezier(.2,.7,.2,1)";      // matches --ease-standard
+const OB_EASE_OUT = "cubic-bezier(.22,.8,.28,1)"; // decelerating settle
 
-  const count = document.getElementById("ob2Count");
-  if (count) count.innerHTML = `${obStepIndex + 1}&nbsp;/&nbsp;${OB_STEPS.length}`;
+function obReducedMotion() {
+  return Boolean(window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+function obCanAnimate(el) {
+  return !obReducedMotion() && el && typeof el.animate === "function";
+}
+
+// Read the element's ACTUAL on-screen X (presentation state), so an
+// interrupted/retargeted animation continues from where it really is.
+function obPresentationX(el) {
+  if (!el || !window.getComputedStyle) return 0;
+  const t = getComputedStyle(el).transform;
+  if (!t || t === "none") return 0;
+  if (window.DOMMatrixReadOnly) {
+    try { return new DOMMatrixReadOnly(t).m41 || 0; } catch (e) {}
+  }
+  const m = t.match(/matrix\(([^)]+)\)/);
+  if (m) return Number(m[1].split(",")[4]) || 0;
+  const m3 = t.match(/matrix3d\(([^)]+)\)/);
+  if (m3) return Number(m3[1].split(",")[12]) || 0;
+  return 0;
+}
+
+// Velocity projection (UIScrollView-style) — where a flick is headed.
+function obProject(velocity, decel) {
+  decel = decel == null ? 0.99 : decel;
+  return (velocity / 1000) * decel / (1 - decel);
+}
+
+// Progressive rubber-band for dragging past a boundary — asymptotic, so the
+// UI reads "responsive, but there's no more content" rather than "frozen".
+function obRubber(delta, dim) {
+  const d = Math.abs(delta);
+  const max = Math.max(1, dim) * 0.55;
+  const damped = max * (1 - Math.exp(-d / Math.max(1, dim)));
+  return delta < 0 ? -damped : damped;
+}
+
+/* ─────────────────────────── field rendering ────────────────────────── */
+
+function obStepHTML(index) {
+  const screen = OB_SCREENS[index];
+  return `<div class="ob2-step" data-screen="${obEscape(screen.key)}">
+      <span class="ob2-eyebrow">${obEscape(screen.eyebrow)}</span>
+      <h2 class="ob2-title">${obEscape(screen.title)}</h2>
+      <p class="ob2-sub">${obEscape(screen.sub)}</p>
+      ${screen.unitToggle ? obRenderUnitToggle() : ""}
+      ${obGroupFields(obVisibleFields(screen.fields))}
+    </div>`;
+}
+
+function obBuildStepEl(index) {
+  const tpl = document.createElement("template");
+  tpl.innerHTML = obStepHTML(index).trim();
+  return tpl.content.firstElementChild;
+}
+
+/*
+ * One thin continuous progress line — deliberately understated so it recedes
+ * while the athlete reads the question. A single fill grows via scaleX, easing
+ * from its current value, so it never jumps between states.
+ */
+function obSetProgress(fraction) {
+  const container = document.getElementById("ob2Progress");
+  if (!container) return;
+  let fill = container.firstElementChild;
+  if (!fill || !fill.classList.contains("ob2-fill")) {
+    container.innerHTML = `<i class="ob2-fill"></i>`;
+    fill = container.firstElementChild;
+  }
+  const x = Math.max(0.0001, Math.min(1, fraction));
+  fill.style.transform = `scaleX(${x})`;
+}
+
+// Toggle the Continue button between its muted (inactive) and Athlevo-red
+// (actionable) states based on live validity — a responsive, satisfying flip.
+function obUpdateContinueState() {
+  if (obMode !== "screen") return;
+  const cont = document.getElementById("ob2Continue");
+  if (!cont) return;
+  const last = obStepIndex === OB_SCREENS.length - 1;
+  cont.classList.toggle("ready", last || !obValidateStep());
+}
+
+function obApplyChrome(index) {
+  obSetProgress((index + 1) / OB_SCREENS.length);
 
   const back = document.getElementById("ob2Back");
-  if (back) back.disabled = obStepIndex === 0;
+  if (back) back.disabled = index === 0;
 
   const cont = document.getElementById("ob2Continue");
   if (cont) {
-    const last = obStepIndex === OB_STEPS.length - 1;
-    cont.textContent = last ? "Finish setup" : "Continue";
+    const last = index === OB_SCREENS.length - 1;
+    cont.textContent = last ? "See my profile" : "Continue";
     cont.classList.toggle("done", last);
+    cont.disabled = false;
   }
-
-  obMessage("");
-  obWireStep();
+  obUpdateContinueState();
 }
 
-/* Chip / day tap handling (writes straight into obData). */
-function obWireStep() {
+/* Instant (non-animated) render of the current screen. Used for the first
+   screen, unit-toggle re-render, conditional-field reveal and reduced motion. */
+function obRenderStep() {
+  const body = document.getElementById("ob2Body");
+  const screen = OB_SCREENS[obStepIndex];
+  if (!screen || !body) return;
+  obFinalizeTransition();
+  obMode = "screen";
+  body.innerHTML = obStepHTML(obStepIndex);
+  body.scrollTop = 0;
+  obApplyChrome(obStepIndex);
+  obMessage("");
+  obWireStep(body.querySelector(".ob2-step"));
+}
+
+/* Finish any in-flight transition immediately (cancel anims, drop the
+   outgoing element, settle the incoming one) so a new navigation can start
+   cleanly from the real current state. */
+function obFinalizeTransition() {
+  if (!obTransition) return;
+  const t = obTransition;
+  obTransition = null;
+  (t.anims || []).forEach(a => { try { a.cancel(); } catch (e) {} });
+  const body = document.getElementById("ob2Body");
+  if (body) {
+    body.classList.remove("ob2-transitioning");
+    // Keep only the newest incoming step; strip the rest.
+    Array.from(body.querySelectorAll(".ob2-step")).forEach(el => {
+      if (el !== t.incoming) el.remove();
+    });
+    if (t.incoming) {
+      t.incoming.style.position = "";
+      t.incoming.style.inset = "";
+      t.incoming.style.transform = "";
+      t.incoming.style.opacity = "";
+      t.incoming.style.willChange = "";
+    }
+  }
+}
+
+/*
+ * Animated navigation to a screen index. `dir` = +1 forward, -1 back.
+ * Interruptible: if a transition is already running it is finalized first,
+ * and the incoming step animates from its current presentation X.
+ */
+function obGoToScreen(nextIndex, dir) {
   const body = document.getElementById("ob2Body");
   if (!body) return;
+  if (nextIndex < 0 || nextIndex >= OB_SCREENS.length) return;
 
-  body.querySelectorAll("[data-field]").forEach(el => {
+  obClearAdvanceTimer();
+  obFinalizeTransition();
+
+  const outgoing = body.querySelector(".ob2-step");
+  obStepIndex = nextIndex;
+  obMode = "screen";
+  obApplyChrome(nextIndex);
+  obMessage("");
+
+  const incoming = obBuildStepEl(nextIndex);
+
+  if (!obCanAnimate(incoming) || !outgoing) {
+    body.innerHTML = "";
+    body.appendChild(incoming);
+    body.scrollTop = 0;
+    obWireStep(incoming);
+    return;
+  }
+
+  const width = body.clientWidth || 360;
+  const travel = Math.round(Math.min(width, 480) * 0.16);
+  const outTo = dir >= 0 ? -travel : travel;
+  const inFrom = dir >= 0 ? travel : -travel;
+
+  body.classList.add("ob2-transitioning");
+  outgoing.style.position = "absolute";
+  outgoing.style.inset = "0";
+  outgoing.style.willChange = "transform, opacity";
+  incoming.style.position = "absolute";
+  incoming.style.inset = "0";
+  incoming.style.willChange = "transform, opacity";
+  body.appendChild(incoming);
+  body.scrollTop = 0;
+  obWireStep(incoming);
+
+  const outAnim = outgoing.animate(
+    [{ transform: "translateX(0)", opacity: 1 },
+     { transform: `translateX(${outTo}px)`, opacity: 0 }],
+    { duration: 240, easing: OB_EASE, fill: "both" });
+  const inAnim = incoming.animate(
+    [{ transform: `translateX(${inFrom}px)`, opacity: 0 },
+     { transform: "translateX(0)", opacity: 1 }],
+    { duration: 300, easing: OB_EASE, fill: "both" });
+
+  const t = { anims: [outAnim, inAnim], outgoing, incoming };
+  obTransition = t;
+  inAnim.onfinish = () => { if (obTransition === t) obFinalizeTransition(); };
+}
+
+// Subtle spring pop on a freshly-selected control — the tactile "it took"
+// moment. Reads/writes transform only, respects reduced motion.
+function obPop(el) {
+  if (!obCanAnimate(el)) return;
+  el.animate(
+    [{ transform: "scale(.97)" }, { transform: "scale(1.015)" }, { transform: "scale(1)" }],
+    { duration: 240, easing: OB_EASE_OUT });
+}
+
+/* Chip / day / card tap handling (writes straight into obData). Scoped to the
+   passed root so two screens can briefly coexist during a transition. */
+function obWireStep(root) {
+  root = root || document.getElementById("ob2Body");
+  if (!root) return;
+
+  root.querySelectorAll("[data-field]").forEach(el => {
     if (!el.dataset || (!el.dataset.value && el.dataset.value !== "0")) return;
     if (el.tagName !== "BUTTON") return;
 
     el.addEventListener("click", () => {
       const fieldId = el.dataset.field;
       const raw = el.dataset.value;
+      const scope = el.closest(".ob2-step") || root;
+      obClearAdvanceTimer();
 
       // Days: single select toggle.
       if (el.dataset.day === "1") {
-        obData[fieldId] = obData[fieldId] === raw ? null : raw;
-        obRefreshSelections(fieldId);
+        const selecting = obData[fieldId] !== raw;
+        obData[fieldId] = selecting ? raw : null;
+        obRefreshSelections(fieldId, scope);
+        if (selecting) obPop(el);
+        obUpdateContinueState();
+        const screen = OB_SCREENS[obStepIndex];
+        if (selecting && screen && screen.autoAdvance && !obValidateStep()) obScheduleAutoAdvance();
         return;
       }
 
@@ -850,32 +1074,80 @@ function obWireStep() {
             ? withoutExclusive.filter(v => v !== raw)
             : withoutExclusive.concat(raw);
         }
-        obRefreshSelections(fieldId);
+        obRefreshSelections(fieldId, scope);
+        if (el.classList.contains("sel")) obPop(el);
+        obUpdateContinueState();
         return;
       }
 
-      // Single-select chips — coerce numeric option values back to number.
+      // Single-select chips / cards — coerce numeric option values back to number.
       const opt = obFindOption(fieldId, raw);
-      obData[fieldId] = opt ? opt.value : raw;
-      obRefreshSelections(fieldId);
+      const value = opt ? opt.value : raw;
+      const prevValue = obData[fieldId];
+      obData[fieldId] = value;
+
+      // A field can gate a conditional field (distance → customDistance). Only
+      // re-render when that conditional's VISIBILITY actually changes — so
+      // ordinary re-selections stay instant (no entrance replay, keeps the pop).
+      const screen = OB_SCREENS[obStepIndex];
+      const revealsNow = screen && screen.fields.some(
+        f => f.showWhen && String(f.showWhen[fieldId]) === String(value));
+      const revealedBefore = screen && screen.fields.some(
+        f => f.showWhen && String(f.showWhen[fieldId]) === String(prevValue));
+
+      if (revealsNow !== revealedBefore) {
+        obRenderStep();                       // visibility changed → rebuild
+      } else {
+        obRefreshSelections(fieldId, scope);
+        obPop(el);
+        obUpdateContinueState();
+      }
+
+      // Auto-advance single-choice screens once satisfied — never when a
+      // conditional field just opened (the athlete still has to fill it).
+      if (screen && screen.autoAdvance && !revealsNow && !obValidateStep()) {
+        obScheduleAutoAdvance();
+      }
     });
+  });
+
+  // Live CTA state: as text/number/date inputs change, keep obData current and
+  // flip the Continue button between muted and actionable.
+  root.querySelectorAll("input, textarea").forEach(el => {
+    const sync = () => { obCollectInputs(); obUpdateContinueState(); };
+    el.addEventListener("input", sync);
+    el.addEventListener("change", sync);
   });
 }
 
+function obScheduleAutoAdvance() {
+  obClearAdvanceTimer();
+  // Long enough that the selected state + spring are clearly seen, short enough
+  // to feel immediate. Faster (but still visible) under reduced motion.
+  const delay = obReducedMotion() ? 140 : 300;
+  obAdvanceTimer = setTimeout(() => {
+    obAdvanceTimer = null;
+    if (obMode === "screen") obContinue();
+  }, delay);
+}
+function obClearAdvanceTimer() {
+  if (obAdvanceTimer) { clearTimeout(obAdvanceTimer); obAdvanceTimer = null; }
+}
+
 function obFindOption(fieldId, rawValue) {
-  const step = OB_STEPS[obStepIndex];
-  const field = step.fields.find(f => f.id === fieldId);
+  const screen = OB_SCREENS[obStepIndex];
+  const field = screen.fields.find(f => f.id === fieldId);
   if (!field || !field.options) return null;
   return field.options.find(o => String(o.value) === String(rawValue)) || null;
 }
 
-// Re-paint only the selected state for one field (no full re-render, so
-// text inputs keep focus / caret while chips update instantly).
-function obRefreshSelections(fieldId) {
-  const body = document.getElementById("ob2Body");
-  if (!body) return;
+// Re-paint only the selected state for one field (no full re-render, so text
+// inputs keep focus / caret while chips update instantly).
+function obRefreshSelections(fieldId, scope) {
+  scope = scope || document.getElementById("ob2Body");
+  if (!scope) return;
   const value = obData[fieldId];
-  body.querySelectorAll(`[data-field="${fieldId}"]`).forEach(el => {
+  scope.querySelectorAll(`[data-field="${fieldId}"]`).forEach(el => {
     const raw = el.dataset.value;
     let on;
     if (Array.isArray(value)) on = value.map(String).includes(raw);
@@ -884,10 +1156,11 @@ function obRefreshSelections(fieldId) {
   });
 }
 
-/* Pull the current step's text/number/date inputs into obData. */
+/* Pull the current screen's text/number/date inputs into obData. */
 function obCollectInputs() {
-  const step = OB_STEPS[obStepIndex];
-  step.fields.forEach(field => {
+  const screen = OB_SCREENS[obStepIndex];
+  if (!screen) return;
+  screen.fields.forEach(field => {
     if (["text", "number", "date", "textarea"].includes(field.type)) {
       const el = document.getElementById(`obf-${field.id}`);
       if (el) obData[field.id] = el.value;
@@ -898,9 +1171,9 @@ function obCollectInputs() {
 /* ─────────────────────────── validation ─────────────────────────────── */
 
 function obValidateStep() {
-  const step = OB_STEPS[obStepIndex];
+  const screen = OB_SCREENS[obStepIndex];
 
-  for (const field of step.fields) {
+  for (const field of screen.fields) {
     const value = obData[field.id];
 
     if (field.required) {
@@ -935,7 +1208,10 @@ async function obSaveProgress(complete) {
   const user = await obUser();
   const updates = obBuildUpdates();
 
-  updates.onboarding_step = complete ? OB_STEPS.length : obStepIndex + 1;
+  // Screen-level persistence keeps resume rock-solid (every answer is saved
+  // before advancing). onboarding_step tracks the furthest screen reached;
+  // onboarding_complete stays the authoritative "questions finished" flag.
+  updates.onboarding_step = complete ? OB_SCREENS.length : obStepIndex + 1;
   updates.updated_at = new Date().toISOString();
   if (complete) updates.onboarding_complete = true;
 
@@ -955,7 +1231,7 @@ async function obSaveProgress(complete) {
 
 async function obContinue() {
   if (obBusy) return;
-
+  obClearAdvanceTimer();
   obCollectInputs();
 
   const problem = obValidateStep();
@@ -964,31 +1240,34 @@ async function obContinue() {
     return;
   }
 
+  const lastStep = obStepIndex === OB_SCREENS.length - 1;
   obBusy = true;
   const cont = document.getElementById("ob2Continue");
-  const lastStep = obStepIndex === OB_STEPS.length - 1;
   if (cont) {
     cont.disabled = true;
-    cont.textContent = lastStep ? "Finishing…" : "Saving…";
+    cont.textContent = lastStep ? "Building…" : "Saving…";
   }
 
   try {
     await obSaveProgress(lastStep);
 
     if (lastStep) {
-      await obFinish();
+      obShowPayoff();
       return;
     }
 
-    obStepIndex += 1;
-    obRenderStep();
+    const screen = OB_SCREENS[obStepIndex];
+    const next = obStepIndex + 1;
+    if (screen.insightAfter) {
+      obShowInsight(screen.insightAfter, () => obGoToScreen(next, 1));
+    } else {
+      obGoToScreen(next, 1);
+    }
   } catch (error) {
     obTrackFailure("profile_save", error);
     console.warn("Could not save onboarding step:", obFailureCategory(error));
     obMessage("Couldn't save that — check your connection and try again.");
-    if (cont) {
-      cont.textContent = lastStep ? "Finish setup" : "Continue";
-    }
+    if (cont) cont.textContent = lastStep ? "See my profile" : "Continue";
   } finally {
     obBusy = false;
     const c = document.getElementById("ob2Continue");
@@ -998,9 +1277,193 @@ async function obContinue() {
 
 function obBack() {
   if (obBusy || obStepIndex === 0) return;
+  obClearAdvanceTimer();
   obCollectInputs();
-  obStepIndex -= 1;
-  obRenderStep();
+  obGoToScreen(obStepIndex - 1, -1);
+}
+
+/* ════════════════════════ "Athlevo is learning" beats ════════════════════
+ * A short, skippable interstitial that shows causality between an answer and
+ * what Athlevo does with it. Auto-continues, or tap / Continue to skip. */
+function obShowInsight(text, done) {
+  const body = document.getElementById("ob2Body");
+  if (!body) { done && done(); return; }
+  obMode = "insight";
+  obClearAdvanceTimer();
+  if (obInsightTimer) { clearTimeout(obInsightTimer); obInsightTimer = null; }
+  const foot = document.getElementById("ob2-foot");
+  if (foot) foot.style.display = "none";      // the beat owns the screen
+
+  body.innerHTML = `
+    <div class="ob2-insight" id="obInsight">
+      <span class="ob2-insight-mark" aria-hidden="true"></span>
+      <p class="ob2-insight-text">${obEscape(text)}</p>
+      <span class="ob2-insight-hint">Tap to continue</span>
+    </div>`;
+  body.scrollTop = 0;
+
+  const el = document.getElementById("obInsight");
+  if (obCanAnimate(el)) {
+    el.animate([{ opacity: 0, transform: "translateY(12px)" },
+                { opacity: 1, transform: "none" }],
+      { duration: 340, easing: OB_EASE, fill: "both" });
+  }
+
+  let finished = false;
+  const proceed = () => {
+    if (finished) return;
+    finished = true;
+    if (obInsightTimer) { clearTimeout(obInsightTimer); obInsightTimer = null; }
+    if (el) el.removeEventListener("click", proceed);
+    const ft = document.getElementById("ob2-foot");
+    if (ft) ft.style.display = "";             // restore for the next screen
+    obMode = "screen";
+    done && done();
+  };
+  if (el) el.addEventListener("click", proceed);
+  const dwell = obReducedMotion() ? 500 : 1600;
+  obInsightTimer = setTimeout(proceed, dwell);
+}
+
+/* ════════════════════════════ profile payoff ════════════════════════════
+ * Phase 5. A synthesis moment ("Building your athlete profile…") followed by a
+ * concise summary derived ONLY from the athlete's real answers, then the CTA
+ * into the existing training-data / plan pipeline. No fabricated analysis. */
+
+// Human labels for the summary, all sourced from what the athlete entered.
+function obPayoffModel() {
+  const d = obData;
+  const updates = obBuildUpdates();   // same values that were just persisted
+
+  // Primary goal — the composed goal line the coach actually reads.
+  const goal = updates.goal || (d.distance && d.distance !== "Other" ? d.distance : null)
+    || "General endurance fitness";
+
+  // Current level — from experience band + current status (real inputs).
+  const expMap = { 0: "New runner", 1: "Developing runner", 4: "Experienced runner", 8: "Seasoned runner" };
+  const level = expMap[Number(d.experience)] || (d.status ? d.status : "Getting started");
+
+  // Recommended starting frequency = the days they told us they can train.
+  const days = Number(d.days);
+  const freq = Number.isFinite(days) && days > 0
+    ? `${days} day${days === 1 ? "" : "s"} / week` : null;
+
+  // Starting weekly volume = their current weekly distance (the safe baseline
+  // Athlevo builds from). Shown in the athlete's preferred units.
+  let volume = null;
+  const km = Number(updates.weekly_distance);
+  if (Number.isFinite(km) && km > 0) {
+    volume = obUnits() === "imperial"
+      ? `${Math.round(OB_CONVERT.kmToMi(km))} mi / week`
+      : `${Math.round(km)} km / week`;
+  }
+
+  return { goal, level, freq, volume, status: d.status || null };
+}
+
+function obShowPayoff() {
+  const body = document.getElementById("ob2Body");
+  if (!body) { obFinish(); return; }
+  obMode = "payoff";
+  obClearAdvanceTimer();
+  obFinalizeTransition();
+
+  // Hide the question chrome — the payoff is the reward, not another step.
+  const progress = document.getElementById("ob2Progress");
+  const foot = document.getElementById("ob2-foot");
+  const back = document.getElementById("ob2Back");
+  if (progress) progress.style.visibility = "hidden";
+  if (foot) foot.style.display = "none";
+  if (back) back.disabled = true;
+
+  const model = obPayoffModel();
+
+  const buildLines = [
+    "Reading your goal and experience",
+    "Setting a safe starting load",
+    "Shaping your training week"
+  ];
+
+  body.innerHTML = `
+    <div class="ob2-payoff" id="obPayoff">
+      <div class="ob2-build" id="obBuild">
+        <div class="ob2-build-ring" aria-hidden="true"><span></span></div>
+        <h2 class="ob2-title">Building your athlete profile…</h2>
+        <ul class="ob2-build-lines">
+          ${buildLines.map(l => `<li><i></i>${obEscape(l)}</li>`).join("")}
+        </ul>
+      </div>
+
+      <div class="ob2-summary" id="obSummary" hidden>
+        <span class="ob2-eyebrow">Your Athlevo profile</span>
+        <h2 class="ob2-title">Your profile is ready.</h2>
+        <p class="ob2-sub">Built from what you told us. This is where your training starts.</p>
+        <dl class="ob2-summary-list">
+          ${obSummaryRow("Primary goal", model.goal)}
+          ${obSummaryRow("Current level", model.level)}
+          ${model.freq ? obSummaryRow("Recommended frequency", model.freq) : ""}
+          ${model.volume ? obSummaryRow("Starting weekly volume", model.volume) : ""}
+        </dl>
+        <button type="button" class="ob2-continue done" id="obBuildPlan">Build my training plan</button>
+      </div>
+    </div>`;
+  body.scrollTop = 0;
+
+  const buildEl = document.getElementById("obBuild");
+  const summaryEl = document.getElementById("obSummary");
+  const lines = buildEl ? Array.from(buildEl.querySelectorAll(".ob2-build-lines li")) : [];
+
+  const reveal = () => {
+    if (buildEl) buildEl.hidden = true;
+    if (summaryEl) {
+      summaryEl.hidden = false;
+      if (obCanAnimate(summaryEl)) {
+        summaryEl.animate([{ opacity: 0, transform: "translateY(14px)" },
+                           { opacity: 1, transform: "none" }],
+          { duration: 420, easing: OB_EASE, fill: "both" });
+      }
+    }
+    if (progress) progress.style.visibility = "";
+    const cta = document.getElementById("obBuildPlan");
+    if (cta) cta.addEventListener("click", obPayoffContinue);
+  };
+
+  if (obReducedMotion()) {
+    // No theatre for reduced motion — show the result immediately.
+    reveal();
+  } else {
+    // Progressive "learning" tick, then reveal the synthesised summary.
+    lines.forEach((li, i) => setTimeout(() => li.classList.add("on"), 260 + i * 360));
+    setTimeout(reveal, 260 + lines.length * 360 + 360);
+  }
+}
+
+// Editorial summary row — a quiet label above a strong value, separated by
+// spacing and a hairline divider. No card, no accent bar.
+function obSummaryRow(label, value) {
+  return `<div class="ob2-sumrow">
+      <dt class="ob2-sumlabel">${obEscape(label)}</dt>
+      <dd class="ob2-sumvalue">${obEscape(value)}</dd>
+    </div>`;
+}
+
+async function obPayoffContinue() {
+  if (obBusy) return;
+  obBusy = true;
+  const cta = document.getElementById("obBuildPlan");
+  if (cta) { cta.disabled = true; cta.textContent = "Getting things ready…"; }
+  // Restore chrome defaults the connect flow expects, then hand off exactly as
+  // the previous flow did (recent-race write, UI refresh, connect wizard).
+  const foot = document.getElementById("ob2-foot");
+  if (foot) foot.style.display = "";
+  try {
+    await obFinish();
+  } catch (error) {
+    console.warn("Payoff handoff failed:", error);
+    if (cta) { cta.disabled = false; cta.textContent = "Build my training plan"; }
+  } finally {
+    obBusy = false;
+  }
 }
 
 /*
@@ -1107,17 +1570,20 @@ async function obFinish() {
   showScreen("screen-today");
 }
 
-/* Find the first step still missing a required answer (post-prefill). */
+/* Find the first screen still missing a required answer (post-prefill), so a
+   resumed athlete lands exactly where they left off. */
 function obFirstIncompleteStep() {
-  for (let i = 0; i < OB_STEPS.length; i += 1) {
-    const missing = OB_STEPS[i].fields.some(field => {
+  for (let i = 0; i < OB_SCREENS.length; i += 1) {
+    const missing = OB_SCREENS[i].fields.some(field => {
       if (!field.required) return false;
       const v = obData[field.id];
       return v == null || v === "" || (Array.isArray(v) && v.length === 0);
     });
     if (missing) return i;
   }
-  return 0;
+  // Everything required is already answered → resume on the last screen so they
+  // can review and finish rather than being dropped straight into the payoff.
+  return OB_SCREENS.length - 1;
 }
 
 /* ─────────────────────────── profile loading ────────────────────────── */
@@ -1278,6 +1744,9 @@ function obTrackOnboardingEvent(eventName, props) {
 function obRenderRoleChoice() {
   const body = document.getElementById("ob2Body");
   if (!body) return;
+  obMode = "role";
+  obClearAdvanceTimer();
+  obFinalizeTransition();
   const coachLocked = !obCoachPublicAccessEnabled();
 
   // Hide progress bar and footer during role choice
@@ -1285,6 +1754,8 @@ function obRenderRoleChoice() {
   const foot = document.getElementById("ob2-foot");
   if (progress) progress.style.display = "none";
   if (foot) foot.style.display = "none";
+  const back = document.getElementById("ob2Back");
+  if (back) back.disabled = true;
 
   body.innerHTML = `
     <div class="ob2-step" style="text-align:center">
@@ -1352,7 +1823,7 @@ function obRenderRoleChoice() {
 function obRestoreChrome() {
   const progress = document.getElementById("ob2Progress");
   const foot = document.getElementById("ob2-foot");
-  if (progress) progress.style.display = "";
+  if (progress) { progress.style.display = ""; progress.style.visibility = ""; }
   if (foot) foot.style.display = "";
 }
 
@@ -1413,13 +1884,10 @@ function obRenderCoachStep() {
     </div>
   `;
   body.scrollTop = 0;
+  obMode = "coach";
 
-  // Progress
-  const fill = document.getElementById("ob2ProgressFill");
-  if (fill) fill.style.width = `${((coachObStepIndex + 1) / COACH_OB_STEPS.length) * 100}%`;
-
-  const count = document.getElementById("ob2Count");
-  if (count) count.innerHTML = `${coachObStepIndex + 1}&nbsp;/&nbsp;${COACH_OB_STEPS.length}`;
+  // Progress — coach flow reuses the same continuous line.
+  obSetProgress((coachObStepIndex + 1) / COACH_OB_STEPS.length);
 
   const back = document.getElementById("ob2Back");
   if (back) back.disabled = false; // Back always enabled — goes to role choice from step 0
@@ -1429,6 +1897,9 @@ function obRenderCoachStep() {
     const last = coachObStepIndex === COACH_OB_STEPS.length - 1;
     cont.textContent = last ? "Submit application" : "Continue";
     cont.classList.toggle("done", last);
+    // Coach steps validate on submit; keep the CTA in its actionable red state
+    // rather than the athlete flow's live-muted treatment.
+    cont.classList.add("ready");
   }
 
   obMessage("");
@@ -1864,6 +2335,226 @@ async function startAthlevoOnboarding() {
   }
 }
 
+/* ══════════════════════════ swipe gesture ════════════════════════════════
+ * Horizontal drag on the question body. BACK gets a full live preview with
+ * velocity, projection and edge resistance — dragging right progressively
+ * exposes the previous screen and the release velocity is carried into the
+ * settle (no seam). FORWARD is a flick that hands off to obContinue(), so the
+ * server save + validation are never bypassed. Vertical drags fall through to
+ * native scroll. Never locks input; always reads the real on-screen position.
+ */
+let obDrag = null;
+
+function obGestureEligible(target) {
+  if (obMode !== "screen" || obBusy) return false;
+  if (!target || !target.closest) return true;
+  // Let taps, carets and scrolls own their targets.
+  return !target.closest(
+    'input, textarea, select, button, [contenteditable="true"], .ob2-units');
+}
+
+function obGestureStart(e) {
+  if (obDrag || !e.isPrimary) return;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  if (!obGestureEligible(e.target)) return;
+
+  const body = document.getElementById("ob2Body");
+  const dragEl = body && body.querySelector(".ob2-step");
+  if (!body || !dragEl) return;
+  obFinalizeTransition();
+
+  obDrag = {
+    id: e.pointerId, body, dragEl, preview: null,
+    startX: e.clientX, startY: e.clientY,
+    lastX: e.clientX, lastT: e.timeStamp || Date.now(),
+    vx: 0, intent: null, dir: 0, allowed: false,
+    width: body.clientWidth || 360
+  };
+  body.addEventListener("pointermove", obGestureMove, { passive: false });
+  body.addEventListener("pointerup", obGestureEnd);
+  body.addEventListener("pointercancel", obGestureCancel);
+}
+
+function obGestureMove(e) {
+  const g = obDrag;
+  if (!g || e.pointerId !== g.id) return;
+  const dx = e.clientX - g.startX;
+  const dy = e.clientY - g.startY;
+
+  if (!g.intent) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 10) return;
+    if (Math.abs(dx) <= Math.abs(dy) * 1.2) { obGestureTeardown(); return; } // vertical → scroll
+    g.intent = "horizontal";
+    g.dir = dx > 0 ? -1 : 1;                 // right = back, left = forward
+    try { g.body.setPointerCapture(g.id); } catch (err) {}
+    obCollectInputs();                        // keep any typed text before we move
+    if (g.dir === -1 && obStepIndex > 0) {
+      g.allowed = true;
+      g.body.classList.add("ob2-transitioning");
+      g.dragEl.style.position = "absolute"; g.dragEl.style.inset = "0";
+      g.dragEl.style.willChange = "transform";
+      const prev = obBuildStepEl(obStepIndex - 1);
+      prev.style.position = "absolute"; prev.style.inset = "0";
+      prev.style.transform = `translateX(${-g.width}px)`;
+      prev.style.willChange = "transform";
+      g.body.appendChild(prev);
+      obWireStep(prev);
+      g.preview = prev;
+    }
+  }
+
+  e.preventDefault();
+  const now = e.timeStamp || Date.now();
+  const dt = Math.max(1, now - g.lastT);
+  g.vx = (e.clientX - g.lastX) / dt;          // px per ms
+  g.lastX = e.clientX; g.lastT = now;
+  g.lastDx = dx;
+
+  if (g.dir === -1 && g.allowed) {
+    const off = Math.max(0, dx);              // only rightward reveals prev
+    g.dragEl.style.transform = `translateX(${off}px)`;
+    if (g.preview) g.preview.style.transform = `translateX(${-g.width + off}px)`;
+  } else {
+    // No target that way (first screen, or forward pending validation): resist.
+    g.dragEl.style.transform = `translateX(${obRubber(dx, g.width)}px)`;
+  }
+}
+
+function obGestureEnd(e) {
+  const g = obDrag;
+  if (!g || e.pointerId !== g.id) return;
+  const dx = g.lastDx || 0;
+  const vSec = g.vx * 1000;                    // px per second
+  const projected = dx + obProject(vSec, 0.99);
+  const dir = g.dir;
+  const width = g.width;
+  const dragEl = g.dragEl;
+  const preview = g.preview;
+  const allowed = g.allowed;
+  obGestureTeardown();
+
+  if (dir === -1 && allowed) {
+    const commit = projected > width * 0.3 || vSec > 550;
+    if (commit) obGestureCommitBack(dragEl, preview, vSec);
+    else obGestureSettleBack(dragEl, preview, vSec);
+    return;
+  }
+
+  // Reset any rubber-band offset.
+  obGestureReset(dragEl);
+  if (dir === 1) {
+    const commit = projected < -width * 0.3 || vSec < -550;
+    if (commit) obContinue();                 // validated + saved handoff
+  }
+}
+
+function obGestureCancel(e) {
+  const g = obDrag;
+  if (!g || e.pointerId !== g.id) return;
+  const dragEl = g.dragEl, preview = g.preview, allowed = g.allowed, dir = g.dir;
+  obGestureTeardown();
+  if (dir === -1 && allowed) obGestureSettleBack(dragEl, preview, 0);
+  else obGestureReset(dragEl);
+}
+
+// Remove listeners / release capture but leave any presentation to the settle.
+function obGestureTeardown() {
+  const g = obDrag;
+  if (!g) return;
+  g.body.removeEventListener("pointermove", obGestureMove);
+  g.body.removeEventListener("pointerup", obGestureEnd);
+  g.body.removeEventListener("pointercancel", obGestureCancel);
+  try { g.body.releasePointerCapture(g.id); } catch (err) {}
+  obDrag = null;
+}
+
+// Velocity-aware duration so the settle starts at ~the release speed (no seam).
+function obSettleDuration(remaining, vSec) {
+  const speed = Math.max(Math.abs(vSec), 60);
+  return Math.max(140, Math.min(460, Math.abs(remaining) / speed * 1000));
+}
+
+function obGestureReset(dragEl) {
+  if (!dragEl) return;
+  const body = document.getElementById("ob2Body");
+  const from = obPresentationX(dragEl);
+  const finish = () => {
+    dragEl.style.transform = ""; dragEl.style.position = "";
+    dragEl.style.inset = ""; dragEl.style.willChange = "";
+    if (body) body.classList.remove("ob2-transitioning");
+  };
+  if (!obCanAnimate(dragEl) || Math.abs(from) < 1) { finish(); return; }
+  const anim = dragEl.animate(
+    [{ transform: `translateX(${from}px)` }, { transform: "translateX(0)" }],
+    { duration: obSettleDuration(from, 0), easing: OB_EASE_OUT, fill: "both" });
+  anim.onfinish = () => { try { anim.cancel(); } catch (e) {} finish(); };
+}
+
+// Release near the start → spring both back to the original screen.
+function obGestureSettleBack(dragEl, preview, vSec) {
+  const body = document.getElementById("ob2Body");
+  const fromEl = obPresentationX(dragEl);
+  const fromPrev = preview ? obPresentationX(preview) : 0;
+  const width = body ? (body.clientWidth || 360) : 360;
+  const cleanup = () => {
+    if (preview && preview.parentNode) preview.remove();
+    if (dragEl) {
+      dragEl.style.transform = ""; dragEl.style.position = "";
+      dragEl.style.inset = ""; dragEl.style.willChange = "";
+    }
+    if (body) body.classList.remove("ob2-transitioning");
+  };
+  if (!obCanAnimate(dragEl)) { cleanup(); return; }
+  const dur = obSettleDuration(fromEl, vSec);
+  const a1 = dragEl.animate(
+    [{ transform: `translateX(${fromEl}px)` }, { transform: "translateX(0)" }],
+    { duration: dur, easing: OB_EASE_OUT, fill: "both" });
+  if (preview) preview.animate(
+    [{ transform: `translateX(${fromPrev}px)` }, { transform: `translateX(${-width}px)` }],
+    { duration: dur, easing: OB_EASE_OUT, fill: "both" });
+  a1.onfinish = () => { try { a1.cancel(); } catch (e) {} cleanup(); };
+}
+
+// Release past threshold → complete the back navigation from the current spot.
+function obGestureCommitBack(dragEl, preview, vSec) {
+  const body = document.getElementById("ob2Body");
+  const width = body ? (body.clientWidth || 360) : 360;
+  const fromEl = obPresentationX(dragEl);
+  const fromPrev = preview ? obPresentationX(preview) : -width;
+
+  const settleIndex = obStepIndex - 1;
+  const finalize = () => {
+    obStepIndex = settleIndex;
+    if (dragEl && dragEl.parentNode) dragEl.remove();
+    if (preview) {
+      preview.style.transform = ""; preview.style.position = "";
+      preview.style.inset = ""; preview.style.willChange = "";
+    }
+    if (body) body.classList.remove("ob2-transitioning");
+    obMode = "screen";
+    obApplyChrome(settleIndex);
+    obMessage("");
+  };
+  if (!obCanAnimate(preview)) { finalize(); return; }
+  const remaining = width - fromEl;
+  const dur = obSettleDuration(remaining, vSec);
+  dragEl.animate(
+    [{ transform: `translateX(${fromEl}px)`, opacity: 1 },
+     { transform: `translateX(${width}px)`, opacity: 0 }],
+    { duration: dur, easing: OB_EASE_OUT, fill: "both" });
+  const a = preview.animate(
+    [{ transform: `translateX(${fromPrev}px)` }, { transform: "translateX(0)" }],
+    { duration: dur, easing: OB_EASE_OUT, fill: "both" });
+  a.onfinish = () => { try { a.cancel(); } catch (e) {} finalize(); };
+}
+
+function obInstallGesture() {
+  const body = document.getElementById("ob2Body");
+  if (!body || body.dataset.obGesture === "1") return;
+  body.dataset.obGesture = "1";
+  body.addEventListener("pointerdown", obGestureStart);
+}
+
 /* ─────────────────────────── wiring ─────────────────────────────────── */
 
 function setupOnboardingInterface() {
@@ -1872,6 +2563,7 @@ function setupOnboardingInterface() {
   // Use dispatchers so the same buttons work for both flows
   if (cont) cont.addEventListener("click", obContinueDispatch);
   if (back) back.addEventListener("click", obBackDispatch);
+  obInstallGesture();
 }
 
 window.startOnboarding = startAthlevoOnboarding;
