@@ -1398,13 +1398,17 @@ body.athlevo-sheet-locked{overflow:hidden}
 .rowlink-danger-subtle b{color:var(--danger);font-weight:600}
 .rowlink-danger-subtle small{color:var(--ink2)}
 .rowlink-danger-subtle .arr{color:var(--danger);opacity:.5}
-.you-delete-divider{height:1px;background:var(--line,#e5e5e5);margin:16px 22px}
 /* ── You page: inline settings section ── */
 .you-section-title{font-family:var(--font-ui);font-size:var(--fs-micro);font-weight:var(--fw-bold);line-height:var(--lh-caption);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--text-muted);margin:0 22px var(--s-3)}
-/* Delete Account — quiet, deliberate */
-.you-delete-row{margin:0 22px;padding:14px 0;display:flex;align-items:center;justify-content:center}
-.you-delete-row button{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:500;color:var(--danger);cursor:pointer;opacity:.7;padding:4px 8px;letter-spacing:.01em;-webkit-tap-highlight-color:transparent}
-.you-delete-row button:active{opacity:1}
+/* Danger zone */
+.you-danger-zone{margin:0 22px;padding:20px 0 8px}
+.you-danger-divider{height:1px;background:var(--line,#e5e5e5);margin:0 0 20px}
+.you-danger-title{font-family:var(--font-ui);font-size:var(--fs-micro);font-weight:var(--fw-bold);line-height:var(--lh-caption);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--danger);margin:0 0 6px;opacity:.85}
+.you-danger-caption{font-family:var(--sans);font-size:var(--fs-caption);color:var(--ink2);line-height:1.4;margin:0 0 14px}
+.you-danger-btn{background:none;border:1px solid var(--danger);border-radius:var(--r-pill,999px);font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--danger);cursor:pointer;padding:7px 18px;display:inline-flex;align-items:center;gap:6px;opacity:.85;-webkit-tap-highlight-color:transparent;transition:opacity .15s,background .15s}
+.you-danger-btn:hover{opacity:1}
+.you-danger-btn:active{opacity:1;background:color-mix(in srgb,var(--danger) 8%,transparent)}
+.you-danger-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* Log Out — bottom, neutral */
 .you-logout-row{margin:0 22px;padding:14px 0;display:flex;align-items:center;justify-content:center}
 .you-logout-row button{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body);font-weight:600;color:var(--ink2);cursor:pointer;padding:6px 12px;-webkit-tap-highlight-color:transparent}
@@ -5244,13 +5248,20 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
   </button>
 
-  <div class="spacer-md"></div>
+  <div class="spacer-lg"></div>
 
-  <!-- ══ Delete Account ══ -->
-  <div class="you-delete-divider"></div>
-  <div class="you-delete-row">
-    <button type="button" onclick="openDeleteAccount()">Delete Account</button>
+  <!-- ══ Danger Zone ══ -->
+  <div class="you-danger-zone">
+    <div class="you-danger-divider"></div>
+    <div class="you-danger-title">Danger zone</div>
+    <p class="you-danger-caption">Permanently delete your account and all associated data. This action cannot be undone.</p>
+    <button class="you-danger-btn" type="button" onclick="openDeleteAccount()">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      Delete account
+    </button>
   </div>
+
+  <div class="spacer-lg"></div>
 
   <!-- ══ Log Out ══ -->
   <div class="you-logout-row">

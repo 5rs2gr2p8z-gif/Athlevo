@@ -67,16 +67,26 @@ section("You screen — Support & Legal section (inline)");
     youHTML.includes(">Terms of Service<"));
 }
 
-section("You screen — Delete Account (quiet)");
+section("You screen — Danger zone");
 {
-  t("Delete Account present",
-    youHTML.includes("Delete Account"));
-  t("Delete Account uses you-delete-row (quiet style)",
-    youHTML.includes("you-delete-row"));
+  t("Danger zone section present",
+    youHTML.includes("you-danger-zone"));
+  t("Danger zone title present",
+    youHTML.includes("Danger zone"));
+  t("Danger zone explanatory copy present",
+    youHTML.includes("Permanently delete your account"));
+  t("Danger zone divider present",
+    youHTML.includes("you-danger-divider"));
+  t("Delete button uses you-danger-btn class",
+    youHTML.includes("you-danger-btn"));
+  t("Delete button has trash icon (svg)",
+    youHTML.includes("you-danger-btn") && youHTML.match(/you-danger-btn[\s\S]{0,200}<svg/));
+  t("Delete button text is 'Delete account'",
+    youHTML.includes("Delete account"));
+  t("Delete button calls openDeleteAccount",
+    youHTML.includes("openDeleteAccount()"));
   t("Delete Account NOT in a rowlink-danger card",
     !youHTML.includes('rowlink-danger-subtle'));
-  t("Delete Account calls openDeleteAccount",
-    youHTML.includes("openDeleteAccount()"));
 }
 
 section("You screen — Log Out (bottom, neutral)");
@@ -87,8 +97,8 @@ section("You screen — Log Out (bottom, neutral)");
     youHTML.includes("you-logout-row"));
   t("Log Out calls doLogout",
     youHTML.includes("doLogout()"));
-  t("Log Out appears after Delete Account",
-    youHTML.indexOf("you-logout-row") > youHTML.indexOf("you-delete-row"));
+  t("Log Out appears after Danger zone",
+    youHTML.indexOf("you-logout-row") > youHTML.indexOf("you-danger-zone"));
 }
 
 section("You screen — kept items");
@@ -126,6 +136,24 @@ section("You screen — compact Appearance");
   const appearanceRowCSS = html.match(/\.appearance-row\{[^}]+\}/);
   t("appearance-row has reduced padding (10px 16px)",
     appearanceRowCSS && appearanceRowCSS[0].includes("padding:10px 16px"));
+}
+
+section("You screen — Danger zone CSS");
+{
+  t("you-danger-zone CSS exists",
+    html.includes(".you-danger-zone{"));
+  t("you-danger-btn CSS exists",
+    html.includes(".you-danger-btn{"));
+  t("danger btn has outlined border (border:1px solid var(--danger))",
+    html.match(/\.you-danger-btn\{[^}]*border:1px solid var\(--danger\)/));
+  t("danger btn uses pill radius",
+    html.match(/\.you-danger-btn\{[^}]*border-radius:var\(--r-pill/));
+  t("danger btn has restrained red text",
+    html.match(/\.you-danger-btn\{[^}]*color:var\(--danger\)/));
+  t("danger btn does NOT have red background",
+    html.match(/\.you-danger-btn\{[^}]*background:none/));
+  t("danger title uses uppercase + danger color",
+    html.match(/\.you-danger-title\{[^}]*color:var\(--danger\)/));
 }
 
 section("You screen — Install Athlevo on native");
