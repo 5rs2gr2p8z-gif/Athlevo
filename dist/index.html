@@ -1166,17 +1166,17 @@ input,textarea,select{color:var(--text)}
 .w-mark{font-family:"Space Grotesk",var(--sans);font-size:38px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .w-mark i{font-style:normal;color:var(--red)}
 .w-tag{font-size:var(--fs-h3);color:var(--ink2);margin:18px auto 0;line-height:var(--lh-body);max-width:300px}
-.w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:12px}
+.w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:10px}
+/* "or continue in one tap" separator — a hairline with a centred label. */
+.w-or{display:flex;align-items:center;gap:var(--s-3);margin:6px 2px;color:var(--ink3);font-size:var(--fs-caption)}
+.w-or::before,.w-or::after{content:"";flex:1;height:1px;background:var(--line)}
+/* Reassurance microcopy that removes the "which button?" hesitation. */
+.w-help{margin:12px 4px 0;text-align:center;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink3)}
 .w-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:15px var(--s-4);border-radius:var(--r-pill);cursor:pointer;border:1px solid var(--line);background:var(--paper);color:var(--text);transition:transform var(--dur-fast),opacity var(--dur-base);-webkit-tap-highlight-color:transparent}
-.w-btn:active{transform:scale(.97)}
-.w-btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.w-btn.primary{background:var(--ink);border-color:var(--text);color:#fff}
 .w-btn.apple{background:#000;border-color:#000;color:#fff}
-.w-btn.google{background:var(--paper);border:1px solid var(--line)}
-.w-btn[disabled]{opacity:.5;cursor:not-allowed}
+.w-btn:active{transform:scale(.97)}
 .w-btn .w-btn-icon{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-.w-signup-link{margin:8px 0 0;text-align:center;font-size:var(--fs-body-sm);color:var(--ink3);line-height:var(--lh-body)}
-.w-signup-link a{color:var(--text);font-weight:650;cursor:pointer;text-decoration:none}
-.w-signup-link a:hover{text-decoration:underline}
 .w-skip{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body-sm);color:var(--ink3);padding:10px;cursor:pointer}
 
 /* ---------- onboarding interview ---------- */
@@ -1299,7 +1299,7 @@ body.athlevo-sheet-locked{overflow:hidden}
 }
 @media(prefers-reduced-transparency:reduce){
   :root{--backdrop-blur:0px;--backdrop:rgba(20,20,22,.72)}
-  .athlevo-sheet-overlay,.modal-back,.tw-modal-ov,.apl-modal,.performance-upgrade-back,.trial-info-back{
+  .athlevo-sheet-overlay,.modal-back,.tw-modal-ov,.apl-modal,.performance-upgrade-back{
     backdrop-filter:none;-webkit-backdrop-filter:none}
   .tabbar,#tabbar,.legal-head,.lp-nav,#screen-landing .lp-nav{background:var(--paper);
     backdrop-filter:none;-webkit-backdrop-filter:none}
@@ -3787,19 +3787,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
   </div>
   <div class="w-btns">
+    <!-- Answers beta pain #1 ("Google or create an account?") before it's asked:
+         any option creates the account; Google/Apple are the one-tap path. -->
+    <button class="w-btn primary" onclick="openSignup(true)">Create account</button>
+    <button class="w-btn" onclick="openLogin(true)">Log in</button>
+    <div class="w-or"><span>or continue in one tap</span></div>
     <button class="w-btn apple" id="authBtnApple" onclick="continueWithApple()">
       <span class="w-btn-icon"><svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.94 11.58c-.02-2.17 1.77-3.21 1.85-3.26-1.01-1.47-2.57-1.67-3.13-1.7-1.33-.13-2.6.79-3.27.79-.68 0-1.72-.77-2.83-.75-1.46.02-2.8.85-3.55 2.15-1.52 2.63-.39 6.52 1.09 8.66.72 1.05 1.58 2.22 2.72 2.18 1.09-.04 1.5-.71 2.82-.71 1.31 0 1.68.71 2.83.69 1.17-.02 1.92-1.06 2.63-2.11.83-1.21 1.17-2.39 1.19-2.45-.03-.01-2.28-.87-2.35-3.49zM12.78 4.87c.6-.73 1.01-1.73.9-2.74-.87.04-1.92.58-2.54 1.3-.56.64-1.05 1.68-.92 2.66.97.08 1.96-.49 2.56-1.22z" fill="#fff"/></svg></span>
       Continue with Apple
     </button>
-    <button class="w-btn google" id="authBtnGoogle" onclick="continueWithGoogle()">
-      <span class="w-btn-icon"><svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.08 24.08 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span>
-      Continue with Google
-    </button>
-    <button class="w-btn primary" id="authBtnEmail" onclick="openLogin(true)">
-      <span class="w-btn-icon"><svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="19" height="15" rx="2.5" stroke="#fff" stroke-width="1.2" fill="none"/><path d="M1 1l9 7 9-7" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
-      Continue with Email
-    </button>
-    <p class="w-signup-link">Don't have an account? <a onclick="openSignup(true)">Sign up</a></p>
+    <button class="w-btn" id="authBtnGoogle" onclick="continueWithGoogle()">G&ensp;Continue with Google</button>
+    <p class="w-help">New to Athlevo? Any option above creates your account automatically — Continue with Google is the quickest.</p>
   </div>
 </section>
 
@@ -3936,44 +3934,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .ag-cta-sub{font-size:var(--fs-caption);color:var(--ink3);margin-top:10px}
 
   /* Trial countdown indicator */
-  .ag-trial-indicator{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;border:none;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;letter-spacing:.02em;color:var(--ink2);background:var(--card);border-bottom:1px solid var(--line);padding:6px 16px;opacity:.85;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity var(--dur-fast)}
-  .ag-trial-indicator:active{opacity:.65}
-  .ag-trial-label{flex:1;text-align:center}
-  .ag-trial-chevron{flex:none;font-size:1.1em;color:var(--ink3);margin-left:2px}
-
-  /* Trial info bottom sheet */
-  .trial-info-back{position:fixed;inset:0;z-index:90;display:none;
-    align-items:flex-end;justify-content:center;background:var(--backdrop);
-    padding-top:env(safe-area-inset-top)}
-  .trial-info-back.show{display:flex;animation:fadeIn var(--motion-screen) var(--ease-standard)}
-  .trial-info-sheet{position:relative;width:100%;max-width:560px;background:var(--surface-base);
-    border:1px solid var(--border-default);border-bottom:0;border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;
-    padding:22px 22px calc(22px + env(safe-area-inset-bottom));
-    max-height:90vh;overflow-y:auto;box-sizing:border-box;
-    box-shadow:var(--elev-3);animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
-  .trial-info-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;
-    background:var(--paper);border-radius:50%;font-size:18px;line-height:32px;text-align:center;
-    color:var(--ink2);cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .trial-info-close:active{opacity:.6}
-  .trial-info-sheet .trial-info-eyebrow{font-size:var(--fs-micro);font-weight:750;
-    letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--red)}
-  .trial-info-sheet h2{margin:7px 0 4px;font-family:var(--serif);
-    font-size:var(--fs-h1);font-weight:500;line-height:var(--lh-heading);color:var(--text)}
-  .trial-info-sub{margin:0 0 16px;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2)}
-  .trial-info-countdown-row{display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;
-    font-size:var(--fs-body-sm);color:var(--ink3)}
-  .trial-info-countdown-dot{width:6px;height:6px;border-radius:50%;background:var(--red);flex:none}
-  .trial-info-section{margin-bottom:16px}
-  .trial-info-section-title{font-size:var(--fs-body-sm);font-weight:700;color:var(--text);margin:0 0 6px}
-  .trial-info-list{margin:0;padding:0;list-style:none}
-  .trial-info-list li{position:relative;padding:5px 0 5px 15px;font-size:var(--fs-body-sm);color:var(--ink2);line-height:var(--lh-body)}
-  .trial-info-list li::before{content:"";position:absolute;left:1px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--red)}
-  .trial-info-note{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink3);margin:0 0 16px}
-  .trial-info-divider{border:none;border-top:1px solid var(--line);margin:0 0 16px}
-  .trial-info-cta{width:100%;border:none;border-radius:var(--r-pill);background:var(--red);color:#fff;
-    font-family:var(--sans);font-weight:700;font-size:var(--fs-body);letter-spacing:-.01em;
-    padding:15px;cursor:pointer;transition:transform var(--dur-fast);margin-top:4px;-webkit-tap-highlight-color:transparent}
-  .trial-info-cta:active{transform:scale(.97)}
+  .ag-trial-indicator{position:sticky;top:0;z-index:5;text-align:center;font-size:var(--fs-caption);font-weight:600;letter-spacing:.02em;color:var(--ink2);background:var(--card);border-bottom:1px solid var(--line);padding:6px 16px;opacity:.85}
 
   /* One reusable Athlevo Performance sheet. Feature previews open this
      explanation; only its primary action opens checkout. */
@@ -5267,53 +5228,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <button class="performance-upgrade-secondary" id="performanceUpgradeSecondary" type="button"
         onclick="AthlevoAccessGuard.closeUpgradeSheet()">Not now</button>
     </div>
-  </div>
-</div>
-
-<!-- ══════════════ TRIAL INFO MODAL ══════════════ -->
-<div class="trial-info-back" id="trialInfoModal" role="dialog"
-  aria-modal="true" aria-hidden="true" aria-labelledby="trialInfoTitle"
-  onclick="if(event.target===this)AthlevoAccessGuard.closeTrialInfo()">
-  <div class="trial-info-sheet">
-    <button class="trial-info-close" type="button" aria-label="Close"
-      onclick="AthlevoAccessGuard.closeTrialInfo()">&times;</button>
-    <span class="trial-info-eyebrow">Athlevo Performance</span>
-    <h2 id="trialInfoTitle">Your Performance access</h2>
-    <p class="trial-info-sub">You have full access to Athlevo Performance for your first 24 hours.</p>
-    <div class="trial-info-countdown-row">
-      <span class="trial-info-countdown-dot"></span>
-      <span id="trialInfoCountdown"></span>
-    </div>
-
-    <div class="trial-info-section">
-      <p class="trial-info-section-title">During your access period</p>
-      <ul class="trial-info-list">
-        <li>Performance Trends are unlocked</li>
-        <li>Readiness, Training Load, and Recovery insights are unlocked</li>
-        <li>Performance graphs and analytics are unlocked</li>
-        <li>You can generate your personalized training plan once</li>
-      </ul>
-    </div>
-
-    <div class="trial-info-section">
-      <p class="trial-info-section-title">Your AI Coach</p>
-      <p class="trial-info-note">Coach usage is separate from Performance access and still follows the free usage limit.</p>
-    </div>
-
-    <hr class="trial-info-divider">
-
-    <div class="trial-info-section">
-      <p class="trial-info-section-title">After 24 hours</p>
-      <p class="trial-info-note">When your access period ends, Performance features will lock again. Your training plan, profile, workouts, and saved data will stay available.</p>
-    </div>
-
-    <div class="trial-info-section">
-      <p class="trial-info-section-title">Want to keep Performance?</p>
-      <p class="trial-info-note">Athlevo Performance will let you keep these features unlocked after your free access ends.</p>
-    </div>
-
-    <button class="trial-info-cta" type="button"
-      onclick="AthlevoAccessGuard.trialInfoUpgrade()">Upgrade to Athlevo Performance</button>
   </div>
 </div>
 
@@ -9192,7 +9106,7 @@ setTimeout(function () {
     if (btn) { btn.disabled = true; btn.textContent = "Opening Google…"; }
     const result = await AthlevoSocialAuth.signInWithGoogle();
     if (!result.ok) {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="w-btn-icon"><svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.08 24.08 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span> Continue with Google'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = "G&ensp;Continue with Google"; }
       // handled === true means a notice was already shown (in-app browser).
       if (!result.handled && result.message && typeof toast === "function") toast(result.message);
     }
@@ -9200,7 +9114,8 @@ setTimeout(function () {
   }
 
   async function continueWithApple() {
-    if (typeof toast === "function") toast("Apple sign-in is coming soon. Please use Google or email for now.");
+    const result = await AthlevoSocialAuth.signInWithApple();
+    if (!result.ok && result.message && typeof toast === "function") toast(result.message);
   }
 
   window.continueWithGoogle = continueWithGoogle;
@@ -9627,8 +9542,7 @@ setTimeout(function () {
   }
 
   // Only offer a provider that is actually configured. A button that fails
-  // the instant it is pressed is worse than no button at all. Apple is
-  // visibleWhenDisabled (coming-soon UI) — see PROVIDERS in socialAuth.js.
+  // the instant it is pressed is worse than no button at all.
   if (window.AthlevoSocialAuth) AthlevoSocialAuth.applyProviderVisibility();
 
   async function initializeAthlevoApp() {
