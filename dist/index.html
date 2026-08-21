@@ -1167,15 +1167,14 @@ input,textarea,select{color:var(--text)}
 .w-mark i{font-style:normal;color:var(--red)}
 .w-tag{font-size:var(--fs-h3);color:var(--ink2);margin:18px auto 0;line-height:var(--lh-body);max-width:300px}
 .w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:10px}
-/* "or continue in one tap" separator — a hairline with a centred label. */
-.w-or{display:flex;align-items:center;gap:var(--s-3);margin:6px 2px;color:var(--ink3);font-size:var(--fs-caption)}
-.w-or::before,.w-or::after{content:"";flex:1;height:1px;background:var(--line)}
-/* Reassurance microcopy that removes the "which button?" hesitation. */
-.w-help{margin:12px 4px 0;text-align:center;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink3)}
+.w-btn.google{background:var(--paper);border:1px solid var(--line)}
+.w-signup-link{margin:8px 0 0;text-align:center;font-size:var(--fs-body-sm);color:var(--ink3);line-height:var(--lh-body)}
 .w-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:15px var(--s-4);border-radius:var(--r-pill);cursor:pointer;border:1px solid var(--line);background:var(--paper);color:var(--text);transition:transform var(--dur-fast),opacity var(--dur-base);-webkit-tap-highlight-color:transparent}
-.w-btn.primary{background:var(--ink);border-color:var(--text);color:#fff}
+.w-btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+#authBtnEmail{background:var(--red);border-color:var(--red);color:#fff}
 .w-btn.apple{background:#000;border-color:#000;color:#fff}
 .w-btn:active{transform:scale(.97)}
+.w-btn[disabled]{opacity:.5;cursor:not-allowed}
 .w-btn .w-btn-icon{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .w-skip{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body-sm);color:var(--ink3);padding:10px;cursor:pointer}
 
@@ -3787,17 +3786,19 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
   </div>
   <div class="w-btns">
-    <!-- Answers beta pain #1 ("Google or create an account?") before it's asked:
-         any option creates the account; Google/Apple are the one-tap path. -->
-    <button class="w-btn primary" onclick="openSignup(true)">Create account</button>
-    <button class="w-btn" onclick="openLogin(true)">Log in</button>
-    <div class="w-or"><span>or continue in one tap</span></div>
     <button class="w-btn apple" id="authBtnApple" onclick="continueWithApple()">
       <span class="w-btn-icon"><svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.94 11.58c-.02-2.17 1.77-3.21 1.85-3.26-1.01-1.47-2.57-1.67-3.13-1.7-1.33-.13-2.6.79-3.27.79-.68 0-1.72-.77-2.83-.75-1.46.02-2.8.85-3.55 2.15-1.52 2.63-.39 6.52 1.09 8.66.72 1.05 1.58 2.22 2.72 2.18 1.09-.04 1.5-.71 2.82-.71 1.31 0 1.68.71 2.83.69 1.17-.02 1.92-1.06 2.63-2.11.83-1.21 1.17-2.39 1.19-2.45-.03-.01-2.28-.87-2.35-3.49zM12.78 4.87c.6-.73 1.01-1.73.9-2.74-.87.04-1.92.58-2.54 1.3-.56.64-1.05 1.68-.92 2.66.97.08 1.96-.49 2.56-1.22z" fill="#fff"/></svg></span>
       Continue with Apple
     </button>
-    <button class="w-btn" id="authBtnGoogle" onclick="continueWithGoogle()">G&ensp;Continue with Google</button>
-    <p class="w-help">New to Athlevo? Any option above creates your account automatically — Continue with Google is the quickest.</p>
+    <button class="w-btn google" id="authBtnGoogle" onclick="continueWithGoogle()">
+      <span class="w-btn-icon"><svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.08 24.08 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span>
+      Continue with Google
+    </button>
+    <button class="w-btn primary" id="authBtnEmail" onclick="openLogin(true)">
+      <span class="w-btn-icon"><svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="19" height="15" rx="2.5" stroke="#fff" stroke-width="1.2" fill="none"/><path d="M1 1l9 7 9-7" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+      Continue with Email
+    </button>
+    <p class="w-signup-link">Don't have an account? <a onclick="openSignup(true)">Sign up</a></p>
   </div>
 </section>
 
@@ -9106,7 +9107,7 @@ setTimeout(function () {
     if (btn) { btn.disabled = true; btn.textContent = "Opening Google…"; }
     const result = await AthlevoSocialAuth.signInWithGoogle();
     if (!result.ok) {
-      if (btn) { btn.disabled = false; btn.innerHTML = "G&ensp;Continue with Google"; }
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="w-btn-icon"><svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.08 24.08 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span> Continue with Google'; }
       // handled === true means a notice was already shown (in-app browser).
       if (!result.handled && result.message && typeof toast === "function") toast(result.message);
     }
