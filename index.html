@@ -1237,21 +1237,22 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .ob2-continue:active{transform:scale(.985)}
 
 /* ── v3: large answer cards for high-impact single-choice screens ──
-   The whole card is the control. Unselected: white/soft surface, subtle border,
-   quiet indicator. Selected: red border + faint red tint + stronger text and a
-   small clear tick — obvious, never loud. */
-.ob2-cards-choice{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+   Rounded tappable cards — clearly interactive. Unselected: white/soft surface,
+   thin neutral border, moderate radius, generous padding, full-width tap target.
+   Selected: red border + faint red tint + stronger text + small check. */
+.ob2-cards-choice{display:flex;flex-direction:column;gap:10px}
 .ob2-card{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
   text-align:left;font-family:var(--sans);cursor:pointer;
-  background:transparent;border:none;border-bottom:1px solid var(--line);border-radius:0;
-  padding:16px 2px;min-height:56px;
-  transition:color var(--dur-base),transform var(--dur-fast)}
-.ob2-card:active{transform:scale(.995)}
+  background:var(--paper);border:1.5px solid var(--line);border-radius:var(--r-md);
+  padding:16px 18px;min-height:56px;
+  transition:border-color var(--dur-base),background var(--dur-base),color var(--dur-base),box-shadow var(--dur-base),transform var(--dur-fast)}
+.ob2-card:active{transform:scale(.985)}
 .ob2-card-label{font-size:var(--fs-h3);font-weight:500;color:var(--text);letter-spacing:-.01em;transition:color var(--dur-base),font-weight var(--dur-base)}
-/* No indicator unless selected — then a small red check (no circle). */
-.ob2-card-tick{flex:0 0 auto;width:16px;height:16px;position:relative;opacity:0;transition:opacity var(--dur-base)}
-.ob2-card-tick::after{content:"";position:absolute;left:5px;top:0;width:5px;height:10px;
+/* Subtle indicator — fades in on selection. */
+.ob2-card-tick{flex:0 0 auto;width:18px;height:18px;position:relative;opacity:0;transition:opacity var(--dur-base)}
+.ob2-card-tick::after{content:"";position:absolute;left:6px;top:1px;width:5px;height:10px;
   border:solid var(--red);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ob2-card.sel{border-color:var(--red);background:color-mix(in srgb,var(--red) 5%,var(--paper))}
 .ob2-card.sel .ob2-card-label{color:var(--red);font-weight:600}
 .ob2-card.sel .ob2-card-tick{opacity:1}
 
@@ -3582,6 +3583,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .wsv__more:hover{color:var(--text)}
   .ob-chip:hover,.sc-act:hover,.sc-act-edit-btn:hover,.rdc-opt:hover{border-color:var(--text)}
   .ob2-chip:hover{border-color:var(--ink3)}
+  .ob2-card:hover{border-color:var(--ink3)}
+  .ob2-card.sel:hover{border-color:var(--red)}
   .lp-link:hover,.lp-footer-links a:hover{color:var(--red)}
   .lp-btn:hover{transform:translateY(-1px);background:#000;box-shadow:var(--elev-3)}
   .lp-btn.ghost:hover{background:var(--card);border-color:var(--text);box-shadow:none}
