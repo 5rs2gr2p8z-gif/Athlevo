@@ -4,3 +4,4 @@ node_modules/
 dist/
 ios/App/DerivedData/
 ios/DerivedData/
+android/keystore.properties

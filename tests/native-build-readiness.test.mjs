@@ -43,8 +43,8 @@ test("native identities and release versions are coherent", () => {
   assert.match(appGradle, /applicationId "org\.athlevo\.app"/);
   assert.match(read("android/app/src/main/java/org/athlevo/app/MainActivity.java"), /package org\.athlevo\.app;/);
   assert.match(read("android/app/src/androidTest/java/org/athlevo/app/ExampleInstrumentedTest.java"), /org\.athlevo\.app/);
-  assert.match(appGradle, /versionCode 1/);
-  assert.match(appGradle, /versionName "0\.6\.0"/);
+  assert.match(appGradle, /versionCode 3/);
+  assert.match(appGradle, /versionName "0\.6\.2"/);
   assert.equal((project.match(/MARKETING_VERSION = 0\.6\.0;/g) || []).length, 2);
   assert.equal((project.match(/CURRENT_PROJECT_VERSION = 1;/g) || []).length, 2);
 });
