@@ -3446,6 +3446,57 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 .lp-proofstrip-sep{width:4px;height:4px;border-radius:50%;background:var(--red);display:inline-block;flex:0 0 auto}
 @media (max-width:560px){.lp-proofstrip-in{font-size:11px;gap:8px 14px}}
 
+/* ── Product showcase (MEET ATHLEVO) — horizontal product gallery ── */
+.lp-appshow{background:var(--paper);overflow:hidden}
+.lp-appshow-head{max-width:640px}
+.lp-appshow-lead{max-width:52ch;margin-top:var(--s-4)}
+.lp-appshow-gallery{margin-top:clamp(28px,4vw,44px)}
+/* rail gutter aligns the first card with the centered content column (1120px) */
+.lp-gallery-rail{
+  --rail-gutter:max(clamp(20px,5vw,40px), calc(50vw - 560px));
+  display:flex;gap:clamp(14px,2vw,24px);
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;scroll-behavior:smooth;
+  padding:6px var(--rail-gutter) 12px;
+  scroll-padding-left:var(--rail-gutter);
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;overscroll-behavior-x:contain;cursor:grab;
+}
+.lp-gallery-rail::-webkit-scrollbar{display:none}
+.lp-gallery-rail:active{cursor:grabbing}
+.lp-gallery-rail:focus-visible{outline:2px solid var(--red);outline-offset:3px;border-radius:var(--r-sm)}
+.lp-gallery-card{
+  flex:0 0 auto;width:84vw;max-width:340px;margin:0;
+  scroll-snap-align:start;
+  border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;
+  background:var(--card);
+  box-shadow:0 12px 34px -20px rgba(20,20,22,.30);
+  transition:transform var(--dur-base) var(--ease-standard),box-shadow var(--dur-base) var(--ease-standard);
+}
+.lp-gallery-card img{display:block;width:100%;height:auto;max-width:100%}
+@media (min-width:600px){.lp-gallery-card{width:46vw;max-width:360px}}
+@media (min-width:860px){
+  .lp-gallery-card{width:34vw;max-width:400px}
+  .lp-gallery-card:hover{transform:translateY(-4px);box-shadow:0 20px 44px -22px rgba(20,20,22,.34)}
+}
+.lp-gallery-nav{display:none}
+@media (min-width:860px) and (pointer:fine){
+  .lp-gallery-nav{display:flex;gap:10px;justify-content:flex-end;max-width:1120px;margin:16px auto 0;padding:0 clamp(20px,5vw,40px);box-sizing:border-box}
+}
+.lp-gallery-arrow{
+  width:44px;height:44px;border-radius:var(--r-pill);border:1px solid var(--line);
+  background:var(--paper);color:var(--text);font-size:20px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard);
+}
+.lp-gallery-arrow:hover{border-color:var(--red)}
+.lp-gallery-arrow:active{transform:scale(.94)}
+.lp-gallery-arrow:disabled{opacity:.32;cursor:default;border-color:var(--line)}
+.lp-gallery-arrow:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.lp-appshow-foot{margin-top:clamp(30px,4.5vw,48px);display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-5)}
+.lp-appshow-close{font-family:var(--serif);font-weight:500;font-size:clamp(21px,2.7vw,30px);line-height:1.22;letter-spacing:-.02em;color:var(--text);max-width:22ch;margin:0}
+@media (prefers-reduced-motion:reduce){.lp-gallery-rail{scroll-behavior:auto}}
+
 .lp-founder-layout{display:grid;grid-template-columns:minmax(340px,1.08fr) minmax(0,.92fr);
   grid-template-areas:"media intro" "media story";column-gap:clamp(40px,7vw,100px);row-gap:30px;align-items:start}
 .lp-founder-intro{grid-area:intro;max-width:590px}
@@ -3705,8 +3756,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <p class="lp-lead">Personalized endurance coaching — from an adaptive app you run yourself to a coach in your corner every week.</p>
         <p class="lp-hero-proof">300+ runners coached · marathon, hybrid &amp; performance goals.</p>
         <div class="lp-cta">
-          <button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree(this)">Start with Athlevo AI — ₱597/mo</button>
-          <a class="lp-btn ghost" href="#train-with-athlevo">See coaching options</a>
+          <button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree(this)">Install Athlevo — Free</button>
+          <a class="lp-btn ghost" href="#train-with-athlevo">Explore Coaching</a>
         </div>
       </div>
       <div class="lp-editorial-media lp-photo-hero">
@@ -3723,6 +3774,92 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <span>Running · Marathon · Hybrid · Performance</span>
     </div>
   </section>
+
+  <!-- ATHLEVO PRODUCT SHOWCASE (app-first) -->
+  <section class="lp-section lp-appshow" id="product" aria-labelledby="lp-appshow-title">
+    <div class="lp-wrap lp-appshow-head">
+      <span class="lp-kicker">MEET ATHLEVO</span>
+      <h2 class="lp-h2" id="lp-appshow-title">Everything your training needs, in one place.</h2>
+      <p class="lp-lead lp-appshow-lead">A personalized endurance coach that plans your training, learns from your feedback, tracks your workload, and evolves with you.</p>
+    </div>
+
+    <div class="lp-appshow-gallery">
+      <div class="lp-gallery-rail" id="lpGalleryRail" role="group" aria-roledescription="carousel" aria-label="Athlevo product features" tabindex="0">
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-01.jpg" width="1000" height="1250" loading="eager" decoding="async"
+               alt="The Evolution of Coaching — Athlevo's Today screen with the athlete's morning brief, the prescribed Foundation Run, and readiness, training-load and recovery status.">
+        </figure>
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-02.jpg" width="1000" height="1250" loading="lazy" decoding="async"
+               alt="A Coach That Knows You — the in-app coach answering a missed-run question with reasoning about the athlete's knee, feedback and next move, not a generic reply.">
+        </figure>
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-03.jpg" width="1000" height="1250" loading="lazy" decoding="async"
+               alt="Training That Evolves With You — the training calendar with a prescribed workout, weekly progress and training context for the current race block.">
+        </figure>
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-04.jpg" width="1000" height="1250" loading="lazy" decoding="async"
+               alt="Know When to Rest or Train — fitness versus fatigue trends and training load, showing how recent work is affecting the athlete.">
+        </figure>
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-05.jpg" width="1000" height="1250" loading="lazy" decoding="async"
+               alt="See How You're Evolving — long-term fitness, fatigue and form tracked over months to show progression.">
+        </figure>
+      </div>
+      <div class="lp-gallery-nav">
+        <button class="lp-gallery-arrow" type="button" data-dir="prev" aria-controls="lpGalleryRail" aria-label="Show previous features">‹</button>
+        <button class="lp-gallery-arrow" type="button" data-dir="next" aria-controls="lpGalleryRail" aria-label="Show more features">›</button>
+      </div>
+    </div>
+
+    <div class="lp-wrap lp-appshow-foot">
+      <p class="lp-appshow-close">Your plan. Your coach. Your training data. One system.</p>
+      <button class="lp-btn" type="button" data-cta-location="showcase_ai" onclick="landingStartFree(this)">Install Athlevo — Free</button>
+    </div>
+  </section>
+  <script>
+  (function(){
+    var rail = document.getElementById('lpGalleryRail');
+    if (!rail) return;
+    var prev = document.querySelector('.lp-gallery-arrow[data-dir="prev"]');
+    var next = document.querySelector('.lp-gallery-arrow[data-dir="next"]');
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    function stepBy(){
+      var card = rail.querySelector('.lp-gallery-card');
+      var gap = parseFloat(getComputedStyle(rail).columnGap || getComputedStyle(rail).gap) || 20;
+      return card ? card.getBoundingClientRect().width + gap : Math.round(rail.clientWidth * 0.8);
+    }
+    function update(){
+      if (!prev || !next) return;
+      var max = rail.scrollWidth - rail.clientWidth - 2;
+      prev.disabled = rail.scrollLeft <= 2;
+      next.disabled = rail.scrollLeft >= max;
+    }
+    function go(dir){ rail.scrollBy({ left: dir * stepBy(), behavior: reduce ? 'auto' : 'smooth' }); }
+    if (prev) prev.addEventListener('click', function(){ go(-1); });
+    if (next) next.addEventListener('click', function(){ go(1); });
+    rail.addEventListener('scroll', function(){ window.requestAnimationFrame(update); }, { passive:true });
+    window.addEventListener('resize', update);
+    /* pointer drag-to-scroll (mouse only; touch already drags natively) */
+    var down=false, startX=0, startLeft=0, moved=false;
+    rail.addEventListener('pointerdown', function(e){
+      if (e.pointerType !== 'mouse') return;
+      down=true; moved=false; startX=e.clientX; startLeft=rail.scrollLeft;
+      try{ rail.setPointerCapture(e.pointerId); }catch(_){}
+    });
+    rail.addEventListener('pointermove', function(e){
+      if (!down) return;
+      var dx = e.clientX - startX;
+      if (Math.abs(dx) > 3) moved=true;
+      rail.scrollLeft = startLeft - dx;
+    });
+    function endDrag(){ down=false; }
+    rail.addEventListener('pointerup', endDrag);
+    rail.addEventListener('pointercancel', endDrag);
+    rail.addEventListener('click', function(e){ if (moved){ e.preventDefault(); } }, true);
+    update();
+  })();
+  </script>
 
   <!-- 2. ATHLETE PHILOSOPHY -->
   <section class="lp-section lp-alt" id="athlete-first">

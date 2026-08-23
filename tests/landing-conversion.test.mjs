@@ -59,12 +59,12 @@ test("subheadline communicates the app-to-coach ladder",
   /from an adaptive app you run yourself to a coach in your corner every week/.test(hero));
 test("hero carries the supported proof line (300\\+ runners)",
   /<p class="lp-hero-proof">300\+ runners coached · marathon, hybrid &amp; performance goals\.<\/p>/.test(hero));
-test("primary hero CTA is a priced Athlevo AI app-entry button",
-  /<button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree\(this\)">Start with Athlevo AI — ₱597\/mo<\/button>/.test(hero));
-test("hero price is ₱597",
-  /Start with Athlevo AI — ₱597\/mo/.test(hero));
+test("primary hero CTA is the free Athlevo app-entry button",
+  /<button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree\(this\)">Install Athlevo — Free<\/button>/.test(hero));
+test("hero does not emphasize price (free, low-friction app entry)",
+  !/₱|\/mo\b|\/month/.test(hero));
 test("secondary hero CTA is a subordinate scroll link, not a second app-entry",
-  /<a class="lp-btn ghost" href="#train-with-athlevo">See coaching options<\/a>/.test(hero) &&
+  /<a class="lp-btn ghost" href="#train-with-athlevo">Explore Coaching<\/a>/.test(hero) &&
   (hero.match(/landingStartFree/g) || []).length === 1);
 
 console.log("\n──── 5. Thin editorial proof strip below the hero ────");
