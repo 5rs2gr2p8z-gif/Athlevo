@@ -948,38 +948,54 @@ body{
   padding:7px 13px;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--ink2);
   cursor:pointer;transition:border-color var(--dur-base) var(--ease-standard),
   background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
-/* Suggested-reply chips get the same instant press cue as every other
-   tap surface so they never feel like dead pixels. */
-
 /* ── Composer (textarea replaces input for multi-line) ────────────── */
-.composer{display:flex;align-items:flex-end;gap:var(--s-2);padding:6px 6px 6px 16px;
-  flex-shrink:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--field);
-  transition:border-color var(--dur-base) var(--ease-standard),
-  box-shadow var(--dur-base) var(--ease-standard)}
-.composer:focus-within{border-color:var(--ink3);outline:2px solid var(--focus-ring);outline-offset:2px;box-shadow:none}
-.composer textarea{flex:1;min-height:36px;border:none;background:transparent;color:var(--text);
-  padding:8px 0;font-family:var(--sans);font-size:var(--fs-body);outline:none;resize:none;
-  overflow-y:auto;max-height:120px;line-height:var(--lh-body)}
-.composer textarea:focus{border-color:transparent}
+.composer{--focus-ring:color-mix(in srgb,var(--text) 50%,transparent);
+  display:flex;align-items:flex-end;gap:var(--s-2);min-width:0;padding:6px 6px 6px 16px;
+  flex-shrink:0;border:1px solid var(--border-default);border-radius:var(--r-lg);background:var(--paper);
+  transition:border-color var(--motion-fast) var(--ease-standard),
+  box-shadow var(--motion-fast) var(--ease-standard),transform var(--motion-fast) var(--ease-standard)}
+#screen-coachai .composer:focus-within{border-color:color-mix(in srgb,var(--text) 30%,var(--line));
+  outline:none;box-shadow:var(--elev-1);transform:translateY(-1px)}
+/* Text-entry controls are focus-visible on Safari even after a pointer click.
+   Keep the textarea visually transparent and move the accessible state to the
+   unified composer surface. Keyboard focus gets a slightly stronger neutral
+   halo without falling back to the global blue control ring. */
+#screen-coachai .composer:has(textarea:focus-visible){
+  border-color:color-mix(in srgb,var(--text) 42%,var(--line));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--text) 14%,transparent),var(--elev-1)}
+#screen-coachai .composer textarea{flex:1;width:100%;min-width:0;min-height:36px;max-height:120px;
+  border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--text);
+  padding:8px 0;font-family:var(--font-ui);font-size:var(--fs-body);line-height:var(--lh-body);
+  outline:none;resize:none;overflow-y:auto;-webkit-appearance:none;appearance:none}
+#screen-coachai .composer textarea:focus,
+#screen-coachai .composer textarea:focus-visible{border:0;outline:none;outline-offset:0;box-shadow:none}
 .composer textarea::placeholder,.ci-input::placeholder{color:var(--ink3);opacity:1}
-/* Legacy input support (other composers) */
-.composer input{flex:1;border:1px solid var(--line);background:var(--field);color:var(--text);border-radius:var(--r-pill);padding:13px 18px;font-family:var(--sans);font-size:var(--fs-body);outline:none;transition:border-color var(--dur-base)}
-.composer input:focus{border-color:var(--ink3)}
-.composer input::placeholder{color:var(--ink3);opacity:1}
 /* Form-control contrast safety in both themes. */
 input,textarea,select{color:var(--text)}
 .send{width:36px;height:36px;border-radius:var(--r-md);background:var(--ink);border:none;cursor:pointer;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  transition:transform var(--dur-fast) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard)}
+  transition:transform var(--motion-fast) var(--ease-standard),opacity var(--motion-fast) var(--ease-standard),
+  background-color var(--motion-fast) var(--ease-standard),box-shadow var(--motion-fast) var(--ease-standard)}
 /* While a message is in flight the send button visibly stands down and
    swallows further taps so a double-tap can't submit twice. */
 .send.is-sending{opacity:.55;pointer-events:none}
-.send:disabled{opacity:.5;cursor:default}
-.send:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.send:disabled{opacity:.42;cursor:default}
+#screen-coachai .composer .send:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+#screen-coachai .composer .send:active:not(:disabled):not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.is-loading):not(.is-sending){
+  opacity:1;transform:scale(.96)}
+#screen-coachai .coach-composer .chip:active:not(:disabled):not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.is-loading){
+  opacity:1;transform:scale(.98)}
 .send.is-sending svg.send-arrow{display:none}
 .send.is-sending svg.send-stop{display:block!important}
 .send svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .send svg.send-stop{stroke:none;width:16px;height:16px}
+@media (max-width:600px){
+  #screen-coachai .composer textarea{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  #screen-coachai .composer,#screen-coachai .composer:focus-within,
+  #screen-coachai .composer .send,#screen-coachai .coach-composer .chip{transition:none;transform:none}
+}
 #screen-coachai{padding-bottom:56px}
 
 /* ---------- train ---------- */
@@ -3668,6 +3684,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .why-toggle:hover{background:rgba(255,255,255,.16)}
   .coach-starter:hover{border-color:var(--ink3);background:var(--card2)}
   .coach-error-retry:hover,.coach-jump-latest:hover,.chip:hover{border-color:var(--ink3)}
+  #screen-coachai .composer .send:not(:disabled):hover{background:color-mix(in srgb,var(--ink) 88%,var(--paper));box-shadow:var(--elev-1)}
+  #screen-coachai .coach-composer .chip:hover{background:color-mix(in srgb,var(--card2) 76%,var(--paper))}
   .wsv__segment:hover{filter:brightness(1.05)}
   .wsv__more:hover{color:var(--text)}
   .ob-chip:hover,.sc-act:hover,.sc-act-edit-btn:hover,.rdc-opt:hover{border-color:var(--text)}
