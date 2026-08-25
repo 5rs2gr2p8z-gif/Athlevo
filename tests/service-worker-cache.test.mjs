@@ -214,9 +214,9 @@ section("Worker activation and product UI contracts");
   test("obsolete trial screen and handler do not exist",
     !/screen-paywall|AthlevoPaywall|paywallBody/.test(productSource));
   test("paid action uses the explicit approved label",
-    /Upgrade to Athlevo Performance/.test(accessGuardSource));
+    /Unlock Athlevo Pro/.test(accessGuardSource));
   test("Whop opener remains isolated to the explicit checkout handler",
-    /function checkout\(context\)[\s\S]*AthlevoRuntime\.openExternal\(checkoutUrl\(\)\)[\s\S]*window\.open\(checkoutUrl\(\)/.test(accessGuardSource));
+    /function checkout\(context\)[\s\S]*runtime\.openExternal\(url\)[\s\S]*window\.location\.assign\(url\)/.test(accessGuardSource));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -569,9 +569,15 @@
     const safe = categoricalContext(context, "upgrade_sheet");
     trackCategorical("upgrade_clicked", safe);
     try {
-      let opened = null;
-      if (window.AthlevoRuntime && window.AthlevoRuntime.openExternal) {
-        opened = await window.AthlevoRuntime.openExternal(checkoutUrl());
+      const url = checkoutUrl();
+      const runtime = window.AthlevoRuntime;
+      const nativeApp = Boolean(
+        runtime && typeof runtime.isNative === "function" && runtime.isNative()
+      );
+      if (nativeApp) {
+        const opened = runtime && typeof runtime.openExternal === "function"
+          ? await runtime.openExternal(url)
+          : null;
         if (!opened || opened.ok !== true) {
           trackCategorical("checkout_failed", {
             surface: "upgrade_sheet",
@@ -580,18 +586,15 @@
           });
           return false;
         }
-      } else {
-        opened = window.open(checkoutUrl(), "_blank", "noopener");
-        if (!opened) {
-          trackCategorical("checkout_failed", {
-            surface: "upgrade_sheet",
-            failure_category: "popup_blocked",
-            stage: "checkout_open"
-          });
-          return false;
-        }
+        trackCategorical("checkout_started", safe);
+        return true;
       }
       trackCategorical("checkout_started", safe);
+      if (window.location && typeof window.location.assign === "function") {
+        window.location.assign(url);
+      } else {
+        window.location.href = url;
+      }
       return true;
     } catch (e) {
       trackCategorical("checkout_failed", {
@@ -805,8 +808,8 @@
   }
 
   async function checkoutFromUpgrade() {
-    await checkout(upgradeContext);
-    closeUpgradeSheet();
+    const opened = await checkout(upgradeContext);
+    if (opened) closeUpgradeSheet();
   }
 
   async function checkoutLocalFromUpgrade() {

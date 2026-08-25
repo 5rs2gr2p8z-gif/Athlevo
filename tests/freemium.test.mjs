@@ -232,7 +232,7 @@ section("Freemium onboarding, upgrade UI, and removed trial copy");
     /₱597\/month/.test(accessGuard));
   test("Whop opens only from the explicit upgrade handler",
     /function checkout\(context\)/.test(accessGuard) &&
-    /window\.open\(checkoutUrl\(\)/.test(accessGuard));
+    /window\.location\.assign\(url\)/.test(accessGuard));
 }
 
 section("Privacy-safe analytics");

@@ -23,6 +23,7 @@ function browser(subscription) {
   const mounts = {};
   const analytics = [];
   const opened = [];
+  const assigned = [];
   const document = {
     getElementById(id) {
       if (!mounts[id]) mounts[id] = { style: {}, children: [], querySelector: () => null };
@@ -48,12 +49,16 @@ function browser(subscription) {
     },
     open: (url, target, features) => opened.push({ url, target, features }),
     URL,
-    location: { origin: "https://preview.vercel.app", pathname: "/app" }
+    location: {
+      origin: "https://preview.vercel.app",
+      pathname: "/app",
+      assign: url => assigned.push(url)
+    }
   };
   sandbox.window = sandbox;
   new Function(...Object.keys(sandbox), featuresSource)(...Object.values(sandbox));
   new Function(...Object.keys(sandbox), guardSource)(...Object.values(sandbox));
-  return { sandbox, mounts, analytics, opened };
+  return { sandbox, mounts, analytics, opened, assigned };
 }
 
 section("Free navigation");
@@ -66,7 +71,7 @@ section("Free navigation");
   test("advanced Trends has a static Performance preview entry",
     /id="trendsPerformancePreview"/.test(indexSource) &&
     /Unlock your performance trends/.test(indexSource) &&
-    /showUpgradeSheet\('trends','trends'\)/.test(indexSource));
+    /AthlevoAccessGuard\.checkout\(\{feature:'trends',surface:'trends'\}\)/.test(indexSource));
   test("Today is never blocked",
     await sandbox.AthlevoAccessGuard.guardTab("screen-today") === false);
 }
@@ -107,25 +112,24 @@ section("Onboarding and limits");
     /COACH_WEEKLY_LIMIT_REACHED/.test(coachClientSource) &&
     /classifyCoachFailure/.test(coachClientSource));
   test("Coach client uses the reusable Performance upgrade sheet",
-    /Keep coaching with Athlevo Performance/.test(coachClientSource) &&
-    /AthlevoAccessGuard\.showUpgradeSheet/.test(coachClientSource));
+    /AthlevoAccessGuard\.openPaywall\("coach-limit"\)/.test(coachClientSource));
 }
 
 section("Upgrade and safety");
 {
-  const { sandbox, analytics, opened } = browser(null);
-  sandbox.AthlevoAccessGuard.checkout();
+  const { sandbox, analytics, opened, assigned } = browser(null);
+  await sandbox.AthlevoAccessGuard.checkout();
   test("upgrade click is tracked", analytics.some(e =>
     e.name === "upgrade_clicked" && e.props.surface === "upgrade_sheet"));
   test("explicit upgrade click opens Whop once",
-    opened.length === 1 && /whop\.com/.test(opened[0].url));
+    opened.length === 0 && assigned.length === 1 && /whop\.com/.test(assigned[0]));
   test("confirmed checkout handoff is tracked",
     analytics.some(e => e.name === "checkout_started"));
   test("upgrade UI shows the exact price",
-    /Athlevo Performance/.test(guardSource) && /₱597\/month/.test(guardSource));
+    /Athlevo Pro/.test(guardSource) && /₱597\/month/.test(indexSource));
   test("checkout keeps a current-origin return URL",
     /redirect_url/.test(guardSource) &&
-    /preview\.vercel\.app/.test(decodeURIComponent(opened[0].url)));
+    /preview\.vercel\.app/.test(decodeURIComponent(assigned[0])));
   test("app navigation still invokes the access guard",
     /AthlevoAccessGuard.*guardTab/.test(indexSource));
   test("obsolete paywall screen and bundle are removed",

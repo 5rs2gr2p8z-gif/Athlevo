@@ -19,10 +19,11 @@ const planSetupSource = readFileSync("./js/planSetup.js", "utf8");
 const trainSource = readFileSync("./js/train.js", "utf8");
 const coachSource = readFileSync("./js/coach.js", "utf8");
 const dailyBriefSource = readFileSync("./js/dailyBrief.js", "utf8");
+const trendsAnalyticsSource = readFileSync("./js/trendsAnalytics.js", "utf8");
 const indexSource = readFileSync("./index.html", "utf8");
 
-function browser({ subscription = null, profile = {}, connected = true } = {}) {
-  const screens = [], product = [], opened = [], mounts = {};
+function browser({ subscription = null, profile = {}, connected = true, native = false } = {}) {
+  const screens = [], product = [], opened = [], assigned = [], external = [], mounts = {};
   let planExists = false;
   const classList = () => {
     const values = new Set();
@@ -97,7 +98,8 @@ function browser({ subscription = null, profile = {}, connected = true } = {}) {
       origin: "https://athlevo-preview.vercel.app",
       pathname: "/app",
       search: "",
-      hash: ""
+      hash: "",
+      assign: url => assigned.push(url)
     },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     matchMedia: () => ({ matches: true }),
@@ -108,13 +110,22 @@ function browser({ subscription = null, profile = {}, connected = true } = {}) {
     AbortController: class { constructor() { this.signal = {}; } abort() {} },
     scrollTo() {}
   };
+  if (native) {
+    sandbox.AthlevoRuntime = {
+      isNative: () => true,
+      openExternal: async url => {
+        external.push(url);
+        return { ok: true, target: "system-browser" };
+      }
+    };
+  }
   sandbox.window = sandbox;
   new Function(...Object.keys(sandbox), featuresSource)(...Object.values(sandbox));
   new Function(...Object.keys(sandbox), guardSource)(...Object.values(sandbox));
   new Function(...Object.keys(sandbox), planSetupSource.replace(/\}\)\(\);?\s*$/, "})()"))(
     ...Object.values(sandbox)
   );
-  return { sandbox, screens, product, opened, mounts };
+  return { sandbox, screens, product, opened, assigned, external, mounts };
 }
 
 section("Free onboarding and plan journey");
@@ -140,22 +151,37 @@ section("Free onboarding and plan journey");
 section("Explicit paid upgrade");
 {
   const w = browser();
-  test("nothing opens before an explicit upgrade click", w.opened.length === 0);
-  w.sandbox.AthlevoAccessGuard.checkout();
-  test("one explicit click opens Whop once",
-    w.opened.length === 1 && /whop\.com/.test(w.opened[0].url));
-  test("checkout uses a new noopener tab",
-    w.opened[0].target === "_blank" && w.opened[0].features === "noopener");
+  test("nothing opens before an explicit upgrade click", w.assigned.length === 0);
+  await w.sandbox.AthlevoAccessGuard.checkout();
+  test("one explicit click navigates to Whop once",
+    w.assigned.length === 1 && /whop\.com/.test(w.assigned[0]));
+  test("web checkout uses deterministic same-page navigation",
+    w.opened.length === 0 && w.assigned.length === 1);
   test("checkout return preserves the current preview origin",
-    /athlevo-preview\.vercel\.app/.test(decodeURIComponent(w.opened[0].url)));
+    /athlevo-preview\.vercel\.app/.test(decodeURIComponent(w.assigned[0])));
   test("upgrade click is tracked",
     w.product.some(event => event.name === "upgrade_clicked"));
   test("confirmed checkout handoff is tracked",
     w.product.some(event => event.name === "checkout_started"));
   test("checkout goes directly to the configured paid Whop plan",
-    /whop\.com\/checkout\/plan_/.test(w.opened[0].url));
+    /whop\.com\/checkout\/plan_/.test(w.assigned[0]));
   test("checkout sends no timed-trial parameter",
-    !/trial|free_period|defer/i.test(w.opened[0].url));
+    !/trial|free_period|defer/i.test(w.assigned[0]));
+  test("locked Trends CTA invokes checkout directly",
+    /AthlevoAccessGuard\.checkout\(\{feature:'trends',surface:'trends'\}\)[^>]*>Unlock Athlevo Pro — ₱597\/month/.test(indexSource));
+  test("paid users render Trends content with the locked CTA hidden",
+    /if \(access !== "paid_active"\) \{\s*renderPerformancePreview\(\)/.test(trendsAnalyticsSource) &&
+    /function renderData\([\s\S]*?if \(preview\) preview\.hidden = true;/.test(trendsAnalyticsSource));
+}
+
+section("Native checkout handoff");
+{
+  const w = browser({ native: true });
+  await w.sandbox.AthlevoAccessGuard.checkout({ feature: "trends", surface: "trends" });
+  test("native checkout uses the existing external-browser helper",
+    w.external.length === 1 && /whop\.com\/checkout\/plan_/.test(w.external[0]));
+  test("native checkout never navigates the local WebView",
+    w.assigned.length === 0 && w.opened.length === 0);
 }
 
 section("Removed timed screen");
