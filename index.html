@@ -1482,6 +1482,10 @@ body.athlevo-sheet-locked{overflow:hidden}
   .auth-msg { min-height:18px; margin:10px 0 0; font-size:var(--fs-body-sm); color:var(--red); }
   .auth-switch { margin:14px 0 0; font-size:var(--fs-body-sm); text-align:center; color:var(--ink2); }
   .auth-switch a { color:var(--red); cursor:pointer; text-decoration:underline; }
+  .auth-forgot { margin:-6px 0 14px; text-align:right; }
+  .auth-forgot a { font-size:var(--fs-caption); color:var(--ink3); cursor:pointer; text-decoration:none; transition:color var(--dur-base); }
+  .auth-forgot a:hover { color:var(--red); }
+  .auth-subtitle { font-size:var(--fs-body-sm); line-height:var(--lh-body); color:var(--ink2); margin:0 0 16px; }
   .auth-box > div > button:disabled { opacity:.45; cursor:not-allowed; }
   /* subtle legal consent line under Create Account */
   .auth-legal { margin:14px 0 0; font-size:var(--fs-caption); line-height:var(--lh-body); color:var(--text-muted); text-align:center; }
@@ -5949,6 +5953,8 @@ function showSignupForm(userChoseSignup) {
   }
   document.getElementById('signupForm').style.display = 'block';
   document.getElementById('loginForm').style.display = 'none';
+  var fp = document.getElementById('forgotForm'); if (fp) fp.style.display = 'none';
+  var rp = document.getElementById('resetForm'); if (rp) rp.style.display = 'none';
   if (userChoseSignup === true && !athlevoSessionUserId) {
     trackAuthChoice("email_signup_clicked");
     beginEmailSignupIntent();
@@ -5958,12 +5964,318 @@ function showSignupForm(userChoseSignup) {
 function showLoginForm(userChoseLogin, entrySource) {
   document.getElementById('signupForm').style.display = 'none';
   document.getElementById('loginForm').style.display = 'block';
+  var fp = document.getElementById('forgotForm'); if (fp) fp.style.display = 'none';
+  var rp = document.getElementById('resetForm'); if (rp) rp.style.display = 'none';
+  var closeBtn = document.querySelector('.auth-close'); if (closeBtn) closeBtn.style.display = '';
   if (userChoseLogin === true && !athlevoSessionUserId) {
     trackAuthChoice("login_clicked", {
       entry_source: entrySource || "auth_screen"
     });
   }
 }
+
+/* ══════════════ FORGOT / RESET PASSWORD ════════════════════════════════════
+ * Uses Supabase's built-in password recovery flow (resetPasswordForEmail →
+ * onAuthStateChange PASSWORD_RECOVERY event → updateUser). No custom
+ * backend, no extra tables — just the Supabase auth primitives.
+ */
+
+function showForgotForm() {
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'block';
+  document.getElementById('resetForm').style.display = 'none';
+  // Pre-fill email from login form if available
+  var liEmail = document.getElementById('liEmail');
+  var fpEmail = document.getElementById('fpEmail');
+  if (liEmail && fpEmail && liEmail.value.trim()) {
+    fpEmail.value = liEmail.value.trim();
+  }
+  var msg = document.getElementById('fpMsg');
+  if (msg) { msg.textContent = ''; msg.style.color = ''; }
+}
+
+let forgotInFlight = false;
+async function doForgotPassword() {
+  if (forgotInFlight) return;
+
+  var msg = document.getElementById('fpMsg');
+  var btn = document.getElementById('fpBtn');
+  var email = (document.getElementById('fpEmail').value || '').trim();
+
+  if (!email) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Enter your email address.';
+    return;
+  }
+  // Basic email format check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Enter a valid email address.';
+    return;
+  }
+
+  forgotInFlight = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+  msg.style.color = 'var(--ink2)';
+  msg.textContent = 'Sending reset link...';
+
+  try {
+    var redirectUrl = (window.location.origin || 'https://athlevo.org') + '/reset-password';
+    var { error } = await withTimeout(
+      supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
+      }),
+      15000, 'Request timed out'
+    );
+
+    if (error) {
+      // Rate limit errors
+      var raw = String(error.message || '').toLowerCase();
+      var code = String(error.code || '').toLowerCase();
+      if (code === 'over_email_send_rate_limit' || raw.includes('rate limit') || raw.includes('too many')) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'Too many requests. Please wait a few minutes and try again.';
+        return;
+      }
+      // For security, don't reveal whether the email exists
+      // Supabase may return an error for non-existent emails depending on config
+    }
+
+    // Always show success (don't reveal whether email exists)
+    msg.style.color = 'var(--success, #22863a)';
+    msg.textContent = 'If an account exists for that email, a reset link has been sent. Check your inbox.';
+    if (btn) btn.textContent = 'Link sent';
+
+  } catch (e) {
+    var raw = String(e && e.message || '').toLowerCase();
+    if (e && e.__timeout) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Request timed out. Please check your connection and try again.';
+    } else if (raw.includes('failed to fetch') || raw.includes('networkerror') || raw.includes('load failed')) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Could not reach the server. Check your connection and try again.';
+    } else {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Something went wrong. Please try again.';
+    }
+  } finally {
+    forgotInFlight = false;
+    if (btn) {
+      btn.disabled = false;
+      if (btn.textContent === 'Sending...') btn.textContent = 'Send reset link';
+    }
+  }
+}
+
+// ── Reset password form (shown after clicking the emailed link) ──
+
+function showResetForm() {
+  window.__athlevoRecoveryHandled = true;
+  // Show the auth modal with the reset form
+  document.getElementById('authModal').style.display = 'flex';
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'none';
+  document.getElementById('resetForm').style.display = 'block';
+  // Hide close button — must complete or navigate away
+  var closeBtn = document.querySelector('.auth-close');
+  if (closeBtn) closeBtn.style.display = 'none';
+  var msg = document.getElementById('rpMsg');
+  if (msg) { msg.textContent = ''; msg.style.color = ''; }
+  validateResetPassword();
+}
+
+function validateResetPassword() {
+  var pw = (document.getElementById('rpPassword') || {}).value || '';
+  var confirm = (document.getElementById('rpConfirm') || {}).value || '';
+
+  var rules = {
+    len: pw.length >= 8,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    num: /[0-9]/.test(pw)
+  };
+
+  var list = document.getElementById('rpPwCheck');
+  if (list) {
+    Object.keys(rules).forEach(function(key) {
+      var item = list.querySelector('[data-rule="' + key + '"]');
+      if (item) item.classList.toggle('ok', rules[key]);
+    });
+  }
+
+  var allPass = rules.len && rules.upper && rules.lower && rules.num;
+  var match = pw && confirm && pw === confirm;
+  var btn = document.getElementById('rpBtn');
+  if (btn && !resetInFlight) btn.disabled = !(allPass && match);
+
+  // Show mismatch hint only if confirm has content
+  var msg = document.getElementById('rpMsg');
+  if (msg && confirm && !match && !resetInFlight) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Passwords do not match.';
+  } else if (msg && !resetInFlight) {
+    msg.textContent = '';
+  }
+
+  return allPass && match;
+}
+
+let resetInFlight = false;
+async function doResetPassword() {
+  if (resetInFlight) return;
+  if (!validateResetPassword()) return;
+
+  var msg = document.getElementById('rpMsg');
+  var btn = document.getElementById('rpBtn');
+  var pw = document.getElementById('rpPassword').value;
+
+  resetInFlight = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+  msg.style.color = 'var(--ink2)';
+  msg.textContent = 'Updating your password...';
+
+  try {
+    var { error } = await withTimeout(
+      supabaseClient.auth.updateUser({ password: pw }),
+      15000, 'Request timed out'
+    );
+
+    if (error) {
+      var raw = String(error.message || '').toLowerCase();
+      if (raw.includes('same') || raw.includes('different')) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'New password must be different from your current password.';
+      } else if (raw.includes('weak') || raw.includes('short')) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'Password is too weak. Please choose a stronger one.';
+      } else if (raw.includes('session') || raw.includes('not authenticated') || raw.includes('expired') || raw.includes('invalid')) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'This reset link has expired. Please request a new one.';
+      } else {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'Could not update your password. Please try again.';
+      }
+      return;
+    }
+
+    // Success
+    msg.style.color = 'var(--success, #22863a)';
+    msg.textContent = 'Password updated. You can now log in.';
+    if (btn) { btn.textContent = 'Done'; btn.disabled = true; }
+
+    // After a short pause, transition to login
+    setTimeout(function() {
+      // Restore close button
+      var closeBtn = document.querySelector('.auth-close');
+      if (closeBtn) closeBtn.style.display = '';
+      // Clear the reset URL from the address bar
+      try {
+        window.history.replaceState({}, '', window.location.origin + '/');
+      } catch (e) {}
+      showLoginForm(false);
+      // Pre-fill success state in login
+      var liMsg = document.getElementById('liMsg');
+      if (liMsg) {
+        liMsg.style.color = 'var(--success, #22863a)';
+        liMsg.textContent = 'Password updated. Log in with your new password.';
+      }
+    }, 1800);
+
+  } catch (e) {
+    if (e && e.__timeout) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Request timed out. Please try again.';
+    } else {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Something went wrong. Please try again.';
+    }
+  } finally {
+    resetInFlight = false;
+    if (btn && btn.textContent === 'Updating...') {
+      btn.disabled = false;
+      btn.textContent = 'Update password';
+    }
+  }
+}
+
+// ── Detect Supabase PASSWORD_RECOVERY event ──
+// The implicit flow delivers recovery tokens in the URL hash fragment:
+//   /reset-password#access_token=…&type=recovery
+// Supabase's detectSessionInUrl (inside getSession) parses the hash,
+// creates a session, and fires PASSWORD_RECOVERY via onAuthStateChange.
+//
+// Detection strategy (deterministic, no guesswork):
+//   1. Check the hash for type=recovery BEFORE Supabase consumes it.
+//   2. If found, set a flag so restoreSession() skips routeAfterAuth().
+//   3. The PASSWORD_RECOVERY listener is the canonical trigger for showResetForm().
+//   4. A conservative 12-second fallback catches edge cases where the event
+//      never fires (corrupted token, network partition during exchange).
+//
+// This avoids both the "flash of dashboard" and false expired-link errors
+// on slow mobile connections.
+
+// Deterministic: check BEFORE Supabase strips the hash.
+window.__athlevoRecoveryIntent = false;
+window.__athlevoRecoveryHandled = false;
+
+(function detectRecoveryUrl() {
+  // Check hash fragment for type=recovery (Supabase implicit flow format)
+  try {
+    var hash = window.location.hash || '';
+    if (/[#&]type=recovery/.test(hash)) {
+      window.__athlevoRecoveryIntent = true;
+      return;
+    }
+  } catch (e) {}
+  // Also set the flag if we're on /reset-password with any hash tokens
+  // (access_token present means Supabase is about to process a recovery)
+  try {
+    if (window.location.pathname === '/reset-password' &&
+        /[#&]access_token=/.test(window.location.hash || '')) {
+      window.__athlevoRecoveryIntent = true;
+    }
+  } catch (e) {}
+})();
+
+(function() {
+  if (!supabaseClient || !supabaseClient.auth) return;
+
+  // Primary: PASSWORD_RECOVERY event from Supabase (fires exactly once
+  // per recovery-token exchange, so duplicate showResetForm is guarded).
+  supabaseClient.auth.onAuthStateChange(function(event, session) {
+    if (event === 'PASSWORD_RECOVERY' && !window.__athlevoRecoveryHandled) {
+      window.__athlevoRecoveryHandled = true;
+      showResetForm();
+    }
+  });
+
+  // Fallback for /reset-password without tokens (expired or invalid link,
+  // or the user navigated here manually). Only needed when NO recovery
+  // intent was detected in the URL — those are handled by the listener
+  // above. A generous 12-second timeout avoids false positives on slow
+  // mobile connections where Supabase token exchange takes several seconds.
+  if (window.location.pathname === '/reset-password' && !window.__athlevoRecoveryIntent) {
+    // No hash tokens at all — this is either an expired link whose
+    // fragment was already consumed, or a direct navigation. Wait for
+    // a PASSWORD_RECOVERY event in case Supabase still resolves something
+    // from localStorage, but show the expired state if nothing comes.
+    setTimeout(function() {
+      if (window.__athlevoRecoveryHandled) return; // already showing reset form
+      document.getElementById('authModal').style.display = 'flex';
+      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('forgotForm').style.display = 'block';
+      document.getElementById('resetForm').style.display = 'none';
+      var fpMsg = document.getElementById('fpMsg');
+      if (fpMsg) {
+        fpMsg.style.color = 'var(--red)';
+        fpMsg.textContent = 'This reset link has expired or is invalid. Please request a new one.';
+      }
+    }, 12000);
+  }
+})();
 
 /* ══════════════ APP ENTRY (welcome) — landing CTA destination ══════════════
  * The original app entry screen (#screen-welcome: logo, title, tagline,
@@ -9115,6 +9427,34 @@ async function restoreSession(opts) {
 
   athlevoSessionUserId = session ? session.user.id : null;
 
+  // ── Password recovery intercept ──
+  // When the user arrives via a recovery link, Supabase creates a valid
+  // session. We must NOT route into the app — the PASSWORD_RECOVERY
+  // listener will show the reset form instead. Show the auth modal with
+  // a brief loading state so the user sees a calm transition.
+  if (session && window.__athlevoRecoveryIntent && !window.__athlevoRecoveryHandled) {
+    console.log("Recovery session detected — waiting for PASSWORD_RECOVERY event.");
+    document.getElementById('authModal').style.display = 'flex';
+    document.getElementById('signupForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'none';
+    document.getElementById('resetForm').style.display = 'none';
+    // The PASSWORD_RECOVERY listener (already registered) will call
+    // showResetForm() once Supabase finishes processing the token.
+    // Safety: if it still hasn't fired after 12 s, show the expired state.
+    setTimeout(function() {
+      if (window.__athlevoRecoveryHandled) return;
+      window.__athlevoRecoveryHandled = true;
+      document.getElementById('forgotForm').style.display = 'block';
+      var fpMsg = document.getElementById('fpMsg');
+      if (fpMsg) {
+        fpMsg.style.color = 'var(--red)';
+        fpMsg.textContent = 'This reset link has expired or is invalid. Please request a new one.';
+      }
+    }, 12000);
+    return false;
+  }
+
   // Authenticated → into the app, in BOTH browser and installed PWA.
   // routeAfterAuth is onboarding-aware, so a first-time athlete still gets
   // onboarding rather than being dropped into an empty Today.
@@ -9251,11 +9591,38 @@ setTimeout(function () {
       <h2>Log In</h2>
       <input id="liEmail" type="email" placeholder="Email" />
       <input id="liPassword" type="password" placeholder="Password" />
+      <p class="auth-forgot"><a onclick="showForgotForm()">Forgot password?</a></p>
       <button id="liBtn" onclick="doLogin()">Log In</button>
       <p class="auth-msg" id="liMsg"></p>
       <p class="auth-switch">No account yet?
         <a onclick="showSignupForm(true)">Create one</a></p>
     </div>
+
+    <!-- Forgot Password -->
+    <div id="forgotForm" style="display:none;">
+      <h2>Reset Password</h2>
+      <p class="auth-subtitle">Enter your email and we'll send you a link to create a new password.</p>
+      <input id="fpEmail" type="email" placeholder="Email" />
+      <button id="fpBtn" onclick="doForgotPassword()">Send reset link</button>
+      <p class="auth-msg" id="fpMsg"></p>
+      <p class="auth-switch"><a onclick="showLoginForm(true)">Back to log in</a></p>
+    </div>
+
+    <!-- Set New Password (after clicking reset link) -->
+    <div id="resetForm" style="display:none;">
+      <h2>Create new password</h2>
+      <input id="rpPassword" type="password" placeholder="New password" oninput="validateResetPassword()" />
+      <input id="rpConfirm" type="password" placeholder="Confirm new password" oninput="validateResetPassword()" />
+      <ul class="pw-check" id="rpPwCheck">
+        <li data-rule="len"><span class="pw-dot"></span>8 characters</li>
+        <li data-rule="upper"><span class="pw-dot"></span>Uppercase</li>
+        <li data-rule="lower"><span class="pw-dot"></span>Lowercase</li>
+        <li data-rule="num"><span class="pw-dot"></span>Number</li>
+      </ul>
+      <button id="rpBtn" onclick="doResetPassword()" disabled>Update password</button>
+      <p class="auth-msg" id="rpMsg"></p>
+    </div>
+
   </div>
 </div>
 

@@ -19,6 +19,10 @@
     {
       "source": "/api/paymongo/webhook",
       "destination": "/api/whop/webhook?provider=paymongo"
+    },
+    {
+      "source": "/reset-password",
+      "destination": "/index.html"
     }
   ]
 }
