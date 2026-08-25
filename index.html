@@ -10062,6 +10062,15 @@ setTimeout(function () {
 
   async function initializeAthlevoApp() {
     const url = new URL(window.location.href);
+
+    // Direct /ai route: treat as an app-entry intent so unauthenticated
+    // visitors see the auth/welcome screen instead of the marketing landing.
+    // Authenticated visitors are routed into the app by restoreSession as usual.
+    var aiPath = url.pathname.replace(/\/+$/, "");
+    if (aiPath === "/ai") {
+      rememberAppEntryIntent("ai");
+    }
+
     if (typeof window.openPublicLegalRoute === "function" &&
         await window.openPublicLegalRoute(url.pathname)) {
       endBootGate();
