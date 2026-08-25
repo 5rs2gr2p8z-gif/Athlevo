@@ -36,12 +36,66 @@
   let upgradeContext = { feature: "trends", surface: "upgrade_sheet" };
   let restoreFocusTo = null;
   const DEFAULT_UPGRADE_COPY = Object.freeze({
-    title: "Upgrade to Athlevo Performance",
+    title: "Unlock Athlevo Pro",
     body: "",
     primary: "Continue",
     secondary: "Not now",
     hideBenefits: false
   });
+
+  /* ─────────────── context-aware paywall copy ───────────────────── */
+
+  const PAYWALL_CONTEXTS = Object.freeze({
+    "athlete-status": Object.freeze({
+      title: "Unlock your Athlete Status",
+      body: "See your readiness, training load, recovery, and performance context so Athlevo can help you decide when to push and when to recover.",
+      hideBenefits: true,
+      feature: "training_load",
+      surface: "today"
+    }),
+    "training-plan": Object.freeze({
+      title: "Build your personalized training plan",
+      body: "Athlevo creates and adapts your training around your fitness, schedule, race goals, and recent training.",
+      hideBenefits: true,
+      feature: "trends",
+      surface: "today"
+    }),
+    "trends": Object.freeze({
+      title: "Unlock your performance trends",
+      body: "See how your fitness, fatigue, form, training load, and performance change over time.",
+      hideBenefits: true,
+      feature: "trends",
+      surface: "trends"
+    }),
+    "coach-limit": Object.freeze({
+      title: "Keep coaching with Athlevo",
+      body: "You’ve used your free Coach messages. Unlock full AI coaching, personalized training adjustments, and complete performance insights.",
+      hideBenefits: true,
+      feature: "coach_message",
+      surface: "coach"
+    }),
+    "general-upgrade": Object.freeze({
+      title: "Unlock Athlevo Pro",
+      body: "Your complete AI endurance coach. Get personalized training, performance analytics, recovery insights, and full AI coaching access.",
+      hideBenefits: false,
+      feature: "trends",
+      surface: "today"
+    })
+  });
+
+  /**
+   * Opens the global upgrade modal with context-specific copy.
+   * @param {string} contextKey — one of the PAYWALL_CONTEXTS keys
+   */
+  function openPaywall(contextKey) {
+    const ctx = PAYWALL_CONTEXTS[contextKey] || PAYWALL_CONTEXTS["general-upgrade"];
+    showUpgradeSheet(ctx.feature, ctx.surface, {
+      title: ctx.title,
+      body: ctx.body,
+      hideBenefits: ctx.hideBenefits,
+      secondary: "Not now"
+    });
+  }
 
   /* ─────────────── entitlement helpers ───────────────────────────── */
 
@@ -96,9 +150,9 @@
 
   const UPGRADE_CTA_HTML = `
     <div class="ag-cta">
-      <div class="ag-cta-badge">Athlevo Performance</div>
-      <p class="ag-cta-text">Unlock adaptive plan changes, deeper analysis, Daily Brief, and the full paid Coach allowance.</p>
-      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Upgrade to Athlevo Performance</button>
+      <div class="ag-cta-badge">Athlevo Pro</div>
+      <p class="ag-cta-text">Unlock adaptive plan changes, deeper analysis, Daily Brief, and full AI coaching access.</p>
+      <button class="ag-cta-btn" type="button" onclick="AthlevoAccessGuard.checkout()">Unlock Athlevo Pro</button>
       <p class="ag-cta-sub">₱597/month · Cancel anytime</p>
     </div>`;
 
@@ -802,7 +856,7 @@
         if (cachedAccessState() === "paid_active") {
           unlockAll();
           refreshPremiumViews();
-          paymentReturnNotice("Athlevo Performance access confirmed.");
+          paymentReturnNotice("Athlevo Pro access confirmed.");
           return;
         }
       }
@@ -1030,12 +1084,13 @@
     checkoutLocalFromUpgrade,
     showUpgradeSheet,
     closeUpgradeSheet,
+    openPaywall,
     openTrialInfo,
     closeTrialInfo,
     trialInfoUpgrade,
     trackPremiumView,
     refreshPremiumViews,
     renderTrialIndicator,
-    VERSION: "access-guard-v6"
+    VERSION: "access-guard-v7"
   };
 })();

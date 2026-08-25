@@ -218,26 +218,25 @@ function createWorld() {
 
 const originalFetch = globalThis.fetch;
 
-section("Authoritative weekly allowance");
+section("Authoritative lifetime allowance");
 {
   const world = createWorld();
   globalThis.fetch = world.fetchMock;
   const first = await world.call("free-user");
   const second = await world.call("free-user");
   const third = await world.call("free-user");
-  const fourth = await world.call("free-user");
 
-  test("free messages 1–3 succeed",
-    [first, second, third].every(result => result.statusCode === 200));
-  test("free message 4 is blocked with the categorical 402 contract",
-    fourth.statusCode === 402 &&
-    fourth.body?.code === "COACH_WEEKLY_LIMIT_REACHED" &&
-    fourth.body?.limit === 3 &&
-    fourth.body?.period === "week");
-  test("blocked message 4 does not invoke the model",
-    world.modelCalls() === 3);
+  test("free messages 1–2 succeed",
+    [first, second].every(result => result.statusCode === 200));
+  test("free message 3 is blocked with the categorical 402 contract",
+    third.statusCode === 402 &&
+    third.body?.code === "COACH_LIMIT_REACHED" &&
+    third.body?.limit === 2 &&
+    third.body?.period === "lifetime");
+  test("blocked message 3 does not invoke the model",
+    world.modelCalls() === 2);
   test("a blocked attempt does not inflate the successful-use count",
-    world.freeCountFor("free-user") === 3);
+    world.freeCountFor("free-user") === 2);
 }
 
 section("Failure release, paid bypass, and concurrency");
@@ -272,12 +271,12 @@ section("Failure release, paid bypass, and concurrency");
     world.freeCountFor("paid-user") === 0);
 
   const concurrent = await Promise.all(
-    Array.from({ length: 4 }, () => world.call("concurrent-user"))
+    Array.from({ length: 3 }, () => world.call("concurrent-user"))
   );
-  test("concurrent requests cannot exceed three successful free responses",
-    concurrent.filter(result => result.statusCode === 200).length === 3 &&
+  test("concurrent requests cannot exceed two successful free responses",
+    concurrent.filter(result => result.statusCode === 200).length === 2 &&
     concurrent.filter(result => result.statusCode === 402).length === 1 &&
-    world.freeCountFor("concurrent-user") === 3);
+    world.freeCountFor("concurrent-user") === 2);
 }
 
 section("Authentication, input, context, and abuse-rate errors");
@@ -314,7 +313,7 @@ section("Authentication, input, context, and abuse-rate errors");
     world.freeCountFor("rate-user") === 0);
 }
 
-section("Deterministic Manila-week reset");
+section("Lifetime limit does not reset across weeks");
 {
   const world = createWorld();
   globalThis.fetch = world.fetchMock;
@@ -322,7 +321,7 @@ section("Deterministic Manila-week reset");
   const beforeReset = Date.parse("2026-08-02T15:59:59.000Z");
   const afterReset = Date.parse("2026-08-02T16:00:00.000Z");
   const before = [];
-  for (let i = 0; i < 4; i += 1) {
+  for (let i = 0; i < 3; i += 1) {
     before.push(await consumeFreeUsage(
       "reset-user",
       "coach_message",
@@ -334,12 +333,12 @@ section("Deterministic Manila-week reset");
     "coach_message",
     afterReset
   );
-  test("the fourth use is blocked before the Manila Monday boundary",
-    before.slice(0, 3).every(result => result.allowed) &&
-    before[3].allowed === false);
-  test("a new allowance begins at Monday 00:00 Asia/Manila",
-    after.allowed === true &&
-    after.windowStart === "2026-08-02T16:00:00.000Z");
+  test("the third use is blocked before the Manila Monday boundary",
+    before.slice(0, 2).every(result => result.allowed) &&
+    before[2].allowed === false);
+  test("lifetime limit remains blocked after Monday 00:00 Asia/Manila",
+    after.allowed === false &&
+    after.windowStart === "1970-01-01T00:00:00.000Z");
 }
 
 section("Client mapping, draft preservation, and duplicate taps");
@@ -388,11 +387,12 @@ section("Client mapping, draft preservation, and duplicate taps");
     userMessage.removed &&
     loadingMessage.removed);
 
-  const sheetCalls = [];
+  const paywallCalls = [];
   const analytics = [];
   const fakeWindow = {
     AthlevoAccessGuard: {
-      showUpgradeSheet(...args) { sheetCalls.push(args); },
+      openPaywall(ctx) { paywallCalls.push(ctx); },
+      showUpgradeSheet(...args) { paywallCalls.push(args); },
       closeUpgradeSheet() {}
     },
     AthlevoProductAnalytics: {
@@ -412,15 +412,9 @@ section("Client mapping, draft preservation, and duplicate taps");
     fakeWindow.AthlevoProductAnalytics
   );
   showCoachLimitUpgrade("free");
-  fakeWindow.AthlevoAccessGuard.closeUpgradeSheet();
-  const copy = sheetCalls[0]?.[2] || {};
-  test("weekly-limit response opens the reusable Coach upgrade sheet",
-    sheetCalls.length === 1 &&
-    sheetCalls[0][0] === "coach_message" &&
-    sheetCalls[0][1] === "coach" &&
-    copy.title === "Keep coaching with Athlevo Performance" &&
-    copy.primary === "Upgrade to Performance" &&
-    copy.secondary === "Not now");
+  test("coach-limit response opens the reusable paywall with coach-limit context",
+    paywallCalls.length === 1 &&
+    paywallCalls[0] === "coach-limit");
   test("typed question remains after the sheet is dismissed",
     input.value === "Should I run today?");
   test("Coach delegates upgrade-sheet analytics to the visible sheet",

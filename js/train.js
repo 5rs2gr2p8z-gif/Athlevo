@@ -100,7 +100,7 @@ function renderNoPlan() {
         hasActivities = typeof cached === "number" ? cached > 0 : false;
     } catch (e) {}
 
-    const build = "window.AthlevoPlan ? AthlevoPlan.start() : generateWeek()";
+    const build = "typeof todayStartPlan==='function' ? todayStartPlan() : (window.AthlevoPlan ? AthlevoPlan.start() : generateWeek())";
     document.getElementById("trainHeader").innerHTML = hasActivities
         ? `
         <div class="train-empty">
@@ -2404,8 +2404,10 @@ async function generateWeek(){
         event.target;
 
     if (!await canUseTrainingFeature("additional_plan_generation")) {
-        if (typeof toast === "function") {
-            toast("Additional plans are available with Athlevo Performance. Choose Upgrade to Athlevo Performance when you're ready.");
+        if (window.AthlevoAccessGuard && typeof AthlevoAccessGuard.openPaywall === "function") {
+            AthlevoAccessGuard.openPaywall("training-plan");
+        } else if (typeof toast === "function") {
+            toast("Additional plans are available with Athlevo Pro.");
         }
         return;
     }

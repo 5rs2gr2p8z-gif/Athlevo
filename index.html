@@ -2497,7 +2497,11 @@ html.athlevo-native-android .asc-radar-area{filter:none}
   line-height:var(--lh-body);color:var(--ink2)}
 .trends-preview-stack{display:grid;gap:var(--s-3)}
 .trends-preview-chart{position:relative;min-height:118px;overflow:hidden;background:var(--paper);
-  border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
+  border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;cursor:pointer;
+  transition:box-shadow var(--dur-fast) var(--ease-standard)}
+@media (hover:hover) and (pointer:fine){
+  .trends-preview-chart:hover{box-shadow:var(--elev-2)}
+}
 .trends-preview-chart h3{font-size:var(--fs-body);font-weight:700;color:var(--text);margin:0 0 9px}
 .trends-preview-chart svg{display:block;width:100%;height:66px;color:var(--ink3);opacity:.38}
 .trends-preview-chart path,.trends-preview-chart polyline{fill:none;stroke:currentColor;
@@ -4291,6 +4295,41 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
   </header>
 
+  <!-- ===== PRO UPGRADE CARD (free users only) ===== -->
+  <style>
+    .today-pro-card{display:none;margin:14px 22px 0;padding:20px;background:var(--paper);
+      border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--elev-2);
+      box-sizing:border-box;cursor:pointer;transition:box-shadow var(--dur-fast) var(--ease-standard)}
+    .today-pro-card.is-visible{display:block}
+    @media (hover:hover) and (pointer:fine){
+      .today-pro-card:hover{box-shadow:var(--elev-3)}
+    }
+    .today-pro-eyebrow{display:block;font-size:var(--fs-micro);font-weight:750;
+      letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
+    .today-pro-card h2{margin:0 0 8px;font-family:var(--serif);font-size:var(--fs-h2);
+      font-weight:500;line-height:var(--lh-heading);color:var(--text)}
+    .today-pro-card p{margin:0 0 16px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
+    .today-pro-btn{width:100%;min-height:48px;border:1px solid var(--red);border-radius:var(--r-pill);
+      background:var(--red);color:#fff;font-family:var(--sans);font-size:var(--fs-body-sm);
+      font-weight:750;cursor:pointer;transition:opacity var(--dur-fast) var(--ease-standard)}
+    .today-pro-btn:active{opacity:.85}
+    .today-pro-price{display:block;margin-top:8px;text-align:center;font-size:var(--fs-caption);
+      color:var(--ink3);font-weight:600}
+    @media (min-width:700px){
+      .today-pro-card{margin-left:auto;margin-right:auto;width:min(100% - 44px,620px)}
+    }
+  </style>
+  <article class="today-pro-card" id="todayProUpgradeCard"
+    onclick="AthlevoAccessGuard.openPaywall('general-upgrade')"
+    role="button" tabindex="0" aria-label="Unlock Athlevo Pro">
+    <span class="today-pro-eyebrow">Athlevo Pro</span>
+    <h2>Unlock Athlevo Pro</h2>
+    <p>Your complete AI endurance coach. Get personalized training, performance analytics, recovery insights, and full AI coaching access.</p>
+    <button type="button" class="today-pro-btn"
+      onclick="event.stopPropagation();AthlevoAccessGuard.openPaywall('general-upgrade')">Unlock Full Access</button>
+    <span class="today-pro-price">₱597/month</span>
+  </article>
+
   <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
   <style>
     .today-install{display:none;align-items:center;gap:var(--s-3);margin:18px 22px 0;
@@ -4431,6 +4470,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       letter-spacing:.12em;color:var(--ink3)}
     .direction-signal[data-premium-state="locked"] .direction-signal-lock{display:flex}
     .direction-signal[data-premium-state="locked"] .direction-signal-quality{display:none}
+    .direction-signal[data-premium-state="locked"]{cursor:pointer}
     .direction-premium-teaser{display:flex;align-items:center;justify-content:space-between;
       gap:var(--s-3);margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
     .direction-premium-teaser[hidden]{display:none}
@@ -4638,7 +4678,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="direction-premium-teaser" id="todayPremiumInsightTeaser" hidden>
         <p>See how recovery and recent training load shaped today’s recommendation.</p>
         <button type="button"
-          onclick="AthlevoAccessGuard.showUpgradeSheet('recovery','today')">Unlock insights</button>
+          onclick="AthlevoAccessGuard.openPaywall(‘athlete-status’)">Unlock insights</button>
       </div>
     </section>
 
@@ -5154,8 +5194,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <p>See how your fitness, fatigue, Form, and training load change over time.</p>
     </div>
 
-    <div class="trends-preview-stack" aria-label="Generic Athlevo Performance chart previews, not personal training data">
-      <article class="trends-preview-chart">
+    <div class="trends-preview-stack" aria-label="Generic Athlevo Pro chart previews, not personal training data">
+      <article class="trends-preview-chart" onclick="AthlevoAccessGuard.openPaywall('trends')">
         <h3>Training Status</h3>
         <svg viewBox="0 0 320 66" aria-hidden="true">
           <line x1="0" y1="18" x2="320" y2="18"></line>
@@ -5167,7 +5207,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </div>
       </article>
 
-      <article class="trends-preview-chart">
+      <article class="trends-preview-chart" onclick="AthlevoAccessGuard.openPaywall('trends')">
         <h3>Fitness vs Fatigue</h3>
         <svg viewBox="0 0 320 66" aria-hidden="true">
           <line x1="0" y1="18" x2="320" y2="18"></line>
@@ -5180,7 +5220,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </div>
       </article>
 
-      <article class="trends-preview-chart">
+      <article class="trends-preview-chart" onclick="AthlevoAccessGuard.openPaywall('trends')">
         <h3>Training Load</h3>
         <svg viewBox="0 0 320 66" aria-hidden="true">
           <line x1="0" y1="52" x2="320" y2="52"></line>
@@ -5196,8 +5236,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <h3>Unlock your performance trends</h3>
       <p>Understand your fitness, fatigue, recovery, and training load over time.</p>
       <button type="button"
-        onclick="AthlevoAccessGuard.showUpgradeSheet('trends','trends')">Upgrade to Athlevo Performance</button>
-      <span class="trends-preview-price">₱597/month · Cancel anytime</span>
+        onclick="AthlevoAccessGuard.openPaywall('trends')">Unlock Athlevo Pro — ₱597/month</button>
+      <span class="trends-preview-price">Cancel anytime</span>
     </div>
   </div>
 
@@ -5504,17 +5544,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   aria-modal="true" aria-hidden="true" aria-labelledby="performanceUpgradeTitle"
   onclick="if(event.target===this)AthlevoAccessGuard.closeUpgradeSheet()">
   <div class="performance-upgrade-sheet">
-    <span class="performance-upgrade-eyebrow">Athlevo Performance</span>
-    <h2 id="performanceUpgradeTitle">Upgrade to Athlevo Performance</h2>
+    <span class="performance-upgrade-eyebrow">Athlevo Pro</span>
+    <h2 id="performanceUpgradeTitle">Unlock Athlevo Pro</h2>
     <p class="performance-upgrade-body" id="performanceUpgradeBody" hidden></p>
     <ul class="performance-upgrade-benefits" id="performanceUpgradeBenefits">
       <li>Recovery and Training Load insights</li>
       <li>Fitness, Fatigue, Form, and Load trends</li>
       <li>Adaptive plan changes</li>
       <li>Deeper workout analysis</li>
-      <li>Ongoing AI coaching</li>
+      <li>Full AI coaching access</li>
     </ul>
-    <p class="performance-upgrade-price">₱597</p>
+    <p class="performance-upgrade-price">₱597/month</p>
     <p class="performance-payment-heading">Choose how to pay</p>
     <div class="performance-payment-options">
       <div class="performance-payment-option">
@@ -5551,9 +5591,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div class="trial-info-sheet">
     <button class="trial-info-close" type="button" aria-label="Close"
       onclick="AthlevoAccessGuard.closeTrialInfo()">&times;</button>
-    <span class="trial-info-eyebrow">Athlevo Performance</span>
-    <h2 id="trialInfoTitle">Your Performance access</h2>
-    <p class="trial-info-sub">You have full access to Athlevo Performance for your first 24 hours.</p>
+    <span class="trial-info-eyebrow">Athlevo Pro</span>
+    <h2 id="trialInfoTitle">Your Pro access</h2>
+    <p class="trial-info-sub">You have full access to Athlevo Pro for your first 24 hours.</p>
     <div class="trial-info-countdown-row">
       <span class="trial-info-countdown-dot"></span>
       <span id="trialInfoCountdown"></span>
@@ -5562,32 +5602,32 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div class="trial-info-section">
       <p class="trial-info-section-title">During your access period</p>
       <ul class="trial-info-list">
-        <li>Performance Trends are unlocked</li>
+        <li>Pro Trends are unlocked</li>
         <li>Readiness, Training Load, and Recovery insights are unlocked</li>
-        <li>Performance graphs and analytics are unlocked</li>
+        <li>Pro graphs and analytics are unlocked</li>
         <li>You can generate your personalized training plan once</li>
       </ul>
     </div>
 
     <div class="trial-info-section">
       <p class="trial-info-section-title">Your AI Coach</p>
-      <p class="trial-info-note">Coach usage is separate from Performance access and still follows the free usage limit.</p>
+      <p class="trial-info-note">Coach usage is separate from Pro access and still follows the free usage limit.</p>
     </div>
 
     <hr class="trial-info-divider">
 
     <div class="trial-info-section">
       <p class="trial-info-section-title">After 24 hours</p>
-      <p class="trial-info-note">When your access period ends, Performance features will lock again. Your training plan, profile, workouts, and saved data will stay available.</p>
+      <p class="trial-info-note">When your access period ends, Pro features will lock again. Your training plan, profile, workouts, and saved data will stay available.</p>
     </div>
 
     <div class="trial-info-section">
-      <p class="trial-info-section-title">Want to keep Performance?</p>
-      <p class="trial-info-note">Athlevo Performance will let you keep these features unlocked after your free access ends.</p>
+      <p class="trial-info-section-title">Want to keep Pro?</p>
+      <p class="trial-info-note">Athlevo Pro will keep these features unlocked after your free access ends.</p>
     </div>
 
     <button class="trial-info-cta" type="button"
-      onclick="AthlevoAccessGuard.trialInfoUpgrade()">Upgrade to Athlevo Performance</button>
+      onclick="AthlevoAccessGuard.trialInfoUpgrade()">Unlock Athlevo Pro</button>
   </div>
 </div>
 
@@ -7173,6 +7213,7 @@ async function go(btn){
   }
   if (screenId === "screen-today") {
     await refreshTodayAfterPlanChange("screen-enter");
+    if (typeof refreshTodayProCard === "function") refreshTodayProCard();
     animateRing();
     if (
       window.AthlevoMorningCheckIn &&
@@ -7413,15 +7454,26 @@ function todayDirectionPrimaryAction(){
     return;
   }
   if (button.dataset.action === "build"){
-    if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function"){
-      window.AthlevoPlan.start();
-    }
+    todayStartPlan();
     return;
   }
   todayGoToTrain();
 }
 
-function todayStartPlan(){
+async function todayStartPlan(){
+  // Free users see the upgrade modal instead of starting plan generation.
+  if (window.AthlevoAccessGuard) {
+    var access = typeof AthlevoAccessGuard.cachedAccessState === "function"
+      ? AthlevoAccessGuard.cachedAccessState()
+      : "unknown";
+    if (access === "unknown" && typeof AthlevoAccessGuard.accessState === "function") {
+      access = await AthlevoAccessGuard.accessState();
+    }
+    if (access !== "paid_active") {
+      AthlevoAccessGuard.openPaywall("training-plan");
+      return;
+    }
+  }
   if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function"){
     window.AthlevoPlan.start();
   }
@@ -8360,11 +8412,11 @@ async function renderTodayPassiveStatus(profile){
     root.style.setProperty("--signal-progress", "38");
     valueNode.textContent = "••";
     valueNode.dataset.long = "false";
-    noteNode.textContent = "Performance";
+    noteNode.textContent = "Pro";
     if (qualityNode) qualityNode.textContent = "";
     root.setAttribute(
       "aria-label",
-      name + ", available with Athlevo Performance"
+      name + ", available with Athlevo Pro"
     );
   }
 
@@ -8458,7 +8510,7 @@ async function renderTodayPassiveStatus(profile){
     if (why) {
       why.textContent = paid
         ? value.why
-        : "Athlevo Performance explains how recovery and recent training load shaped this recommendation.";
+        : "Athlevo Pro explains how recovery and recent training load shaped this recommendation.";
     }
   }
 
@@ -8566,6 +8618,43 @@ window.renderTodayRecommendation = renderTodayRecommendation;
 window.renderTodayPassiveStatus = renderTodayPassiveStatus;
 window.renderTodayTrainingContext = renderTodayTrainingContext;
 window.refreshTodayAfterPlanChange = refreshTodayAfterPlanChange;
+
+/* ─── PRO UPGRADE CARD VISIBILITY ──────────────────────────────────
+   Shows the card only for free users. Called after subscription loads. */
+function refreshTodayProCard(){
+  var card = document.getElementById("todayProUpgradeCard");
+  if (!card) return;
+  var isPaid = window.AthlevoAccessGuard &&
+    typeof AthlevoAccessGuard.cachedAccessState === "function" &&
+    AthlevoAccessGuard.cachedAccessState() === "paid_active";
+  card.classList.toggle("is-visible", !isPaid);
+}
+// Re-check whenever subscription state loads or changes.
+if (window.AthlevoPlan) {
+  var _origLoad = window.AthlevoPlan.load;
+  window.AthlevoPlan.load = async function() {
+    var result = await _origLoad.apply(this, arguments);
+    refreshTodayProCard();
+    return result;
+  };
+}
+// Also refresh when the Today screen shows.
+window.refreshTodayProCard = refreshTodayProCard;
+
+/* ─── LOCKED ATHLETE STATUS → PAYWALL ────────────────────────────
+   Event delegation: clicking a locked signal opens the upgrade modal. */
+(function initLockedSignalClicks(){
+  var statusCard = document.getElementById("todayAthleteStatusCard");
+  if (!statusCard) return;
+  statusCard.addEventListener("click", function(e){
+    var signal = e.target.closest(".direction-signal[data-premium-state='locked']");
+    if (signal && window.AthlevoAccessGuard) {
+      e.preventDefault();
+      e.stopPropagation();
+      AthlevoAccessGuard.openPaywall("athlete-status");
+    }
+  });
+})();
 
 (function initTodayPlanRevalidation(){
   function todayIsActive(){

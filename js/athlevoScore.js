@@ -669,8 +669,8 @@
     // accessibility value in the free preview.
     mount.innerHTML = `
       <button class="asc-radar-summary asc-radar-summary--locked" type="button"
-        aria-label="Unlock Athlevo Score with Athlevo Performance"
-        onclick="AthlevoAccessGuard.showUpgradeSheet('athlevo_score','today')">
+        aria-label="Unlock Athlevo Score with Athlevo Pro"
+        onclick="AthlevoAccessGuard.openPaywall('athlete-status')">
         <span class="asc-radar-graphic">${buildRadarPreview({}, false)}</span>
         <strong class="asc-radar-score" aria-hidden="true">••</strong>
         <span class="asc-radar-trend">Performance</span>

@@ -639,7 +639,7 @@
     if (content) content.hidden = true;
     if (preview) preview.hidden = true;
     if (ranges) ranges.hidden = true;
-    if (summary) summary.textContent = "Checking Athlevo Performance access…";
+    if (summary) summary.textContent = "Checking Athlevo Pro access…";
   }
 
   function renderPerformancePreview() {
@@ -653,7 +653,7 @@
     if (content) content.hidden = true;
     if (preview) preview.hidden = false;
     if (ranges) ranges.hidden = true;
-    if (summary) summary.textContent = "Athlevo Performance analytics";
+    if (summary) summary.textContent = "Athlevo Pro analytics";
     try {
       if (root.AthlevoAccessGuard) {
         root.AthlevoAccessGuard.trackPremiumView(

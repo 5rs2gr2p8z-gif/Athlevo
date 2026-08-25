@@ -861,13 +861,17 @@ async function resolveCoachAccessState() {
 function classifyCoachFailure(code, status) {
   var value = String(code || "");
   var map = {
+    COACH_LIMIT_REACHED: {
+      category: "coach_limit", upgrade: true,
+      message: "You’ve used your 2 free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
+    },
     COACH_WEEKLY_LIMIT_REACHED: {
-      category: "weekly_limit", upgrade: true,
-      message: "You’ve used your 3 free Coach messages for this week."
+      category: "coach_limit", upgrade: true,
+      message: "You’ve used your free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
     },
     PERFORMANCE_REQUIRED: {
       category: "premium_required", upgrade: true,
-      message: "This coaching feature requires Athlevo Performance."
+      message: "This feature requires Athlevo Pro."
     },
     AUTH_REQUIRED: {
       category: "auth", retryable: false,
@@ -927,18 +931,23 @@ function restoreCoachDraft(question, userMessage, loadingMessage) {
 }
 
 function showCoachLimitUpgrade(accessTier) {
-  if (!window.AthlevoAccessGuard ||
-      typeof AthlevoAccessGuard.showUpgradeSheet !== "function") {
-    return false;
+  if (window.AthlevoAccessGuard &&
+      typeof AthlevoAccessGuard.openPaywall === "function") {
+    AthlevoAccessGuard.openPaywall("coach-limit");
+    return true;
   }
-  AthlevoAccessGuard.showUpgradeSheet("coach_message", "coach", {
-    title: "Keep coaching with Athlevo Performance",
-    body: "You’ve used your 3 free Coach messages for this week. Upgrade for unlimited questions, deeper training analysis, and ongoing coaching guidance.",
-    primary: "Upgrade to Performance",
-    secondary: "Not now",
-    hideBenefits: true
-  });
-  return true;
+  if (window.AthlevoAccessGuard &&
+      typeof AthlevoAccessGuard.showUpgradeSheet === "function") {
+    AthlevoAccessGuard.showUpgradeSheet("coach_message", "coach", {
+      title: "Keep coaching with Athlevo",
+      body: "You’ve used your free Coach messages. Unlock full AI coaching, personalized training adjustments, and complete performance insights.",
+      primary: "Unlock Athlevo Pro",
+      secondary: "Not now",
+      hideBenefits: true
+    });
+    return true;
+  }
+  return false;
 }
 
 function renderCoachError(container, question, failure) {
@@ -1201,9 +1210,9 @@ context.recentConversation = (await loadRecentConversationForCoach())
       if (failure.upgrade === true) {
         stopThinkingLabelRotation();
         restoreCoachDraft(cleanQuestion, userMessage, loadingMessage);
-        if (failure.category === "weekly_limit") {
+        if (failure.category === "coach_limit") {
           trackCoachEvent(
-            "coach_weekly_limit_reached",
+            "coach_limit_reached",
             coachAccessTier
           );
         }

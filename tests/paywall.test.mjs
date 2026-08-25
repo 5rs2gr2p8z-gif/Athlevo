@@ -24,14 +24,29 @@ const indexSource = readFileSync("./index.html", "utf8");
 function browser({ subscription = null, profile = {}, connected = true } = {}) {
   const screens = [], product = [], opened = [], mounts = {};
   let planExists = false;
+  const classList = () => {
+    const values = new Set();
+    return {
+      add(v) { values.add(v); },
+      remove(v) { values.delete(v); },
+      contains(v) { return values.has(v); },
+      toggle(v, force) { force ? values.add(v) : values.delete(v); }
+    };
+  };
   const mount = id => mounts[id] || (mounts[id] = {
-    style: {}, dataset: {}, children: [], querySelector: () => null,
+    style: {}, dataset: {}, children: [], classList: classList(),
+    querySelector: () => null,
+    setAttribute() {}, getAttribute() { return null; },
+    addEventListener() {},
+    focus() {},
     set innerHTML(value) { this.html = value; },
     get innerHTML() { return this.html || ""; },
     querySelectorAll: () => []
   });
   const document = {
     getElementById: mount,
+    activeElement: null,
+    visibilityState: "visible",
     querySelector: () => null,
     querySelectorAll: () => [],
     createElement: () => ({ style: {}, children: [], className: "" })
@@ -73,6 +88,9 @@ function browser({ subscription = null, profile = {}, connected = true } = {}) {
     AthlevoProductAnalytics: {
       trackAthlevoEvent: (name, props) => product.push({ name, props })
     },
+    AthlevoAnalytics: {
+      track() {}
+    },
     open: (url, target, features) => opened.push({ url, target, features }),
     URL,
     location: {
@@ -112,9 +130,11 @@ section("Free onboarding and plan journey");
 
   const w = browser({ profile: { name: "Dean", goal: "10K" } });
   await w.sandbox.AthlevoPlan.start();
-  test("free user can open initial plan setup",
-    w.screens.includes("screen-plansetup"));
-  test("initial plan setup does not open Whop", w.opened.length === 0);
+  test("free user sees paywall instead of plan setup",
+    !w.screens.includes("screen-plansetup") &&
+    w.mounts.performanceUpgradeModal &&
+    w.mounts.performanceUpgradeModal.classList.contains("show"));
+  test("plan setup does not open Whop for free users", w.opened.length === 0);
 }
 
 section("Explicit paid upgrade");
@@ -151,9 +171,7 @@ section("Removed timed screen");
     !/start\s+(?:my\s+)?(?:\d+[-\s]day\s+)?free\s+trial|3\s+days\s+free|due\s+today|after\s+(?:the\s+)?trial/i.test(activeUi));
   test("every paid CTA uses the approved label",
     !/Upgrade to Performance/.test(activeUi) &&
-    [
-      indexSource, guardSource, planSetupSource, coachSource, dailyBriefSource
-    ].every(source => /Upgrade to Athlevo Performance/.test(source)));
+    /Unlock Athlevo Pro/.test(activeUi));
   test("plan flow has no automatic paywall fallback",
     !/shouldShowPaywall/.test(planSetupSource));
   test("denied additional-plan action does not open checkout automatically",

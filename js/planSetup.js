@@ -242,6 +242,20 @@
   }
 
   async function start() {
+    // Plan generation requires Athlevo Pro. Free users see the paywall.
+    if (window.AthlevoAccessGuard) {
+      let access = typeof AthlevoAccessGuard.cachedAccessState === "function"
+        ? AthlevoAccessGuard.cachedAccessState()
+        : "unknown";
+      if (access === "unknown" && typeof AthlevoAccessGuard.accessState === "function") {
+        access = await AthlevoAccessGuard.accessState();
+      }
+      if (access !== "paid_active") {
+        AthlevoAccessGuard.openPaywall("training-plan");
+        return;
+      }
+    }
+
     let profile = null;
     try { profile = window.AthlevoBrain ? await window.AthlevoBrain.loadAthleteProfile() : null; } catch (e) {}
     currentProfile = profile;
@@ -397,6 +411,19 @@
   }
 
   async function build() {
+    // Double-check: plan generation requires Athlevo Pro.
+    if (window.AthlevoAccessGuard) {
+      let access = typeof AthlevoAccessGuard.cachedAccessState === "function"
+        ? AthlevoAccessGuard.cachedAccessState()
+        : "unknown";
+      if (access === "unknown" && typeof AthlevoAccessGuard.accessState === "function") {
+        access = await AthlevoAccessGuard.accessState();
+      }
+      if (access !== "paid_active") {
+        AthlevoAccessGuard.openPaywall("training-plan");
+        return;
+      }
+    }
     if (buildInFlight) return;
     buildInFlight = true;
     if (typeof showScreen === "function") showScreen("screen-plangen");
@@ -477,7 +504,7 @@
                   ? "Your free training plan is already active."
                   : data.title,
                 message: freePlanActive
-                  ? "Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis."
+                  ? "Upgrade to Athlevo Pro for ongoing plan changes, adaptive coaching, and deeper analysis."
                   : data.error,
                 action: data.action || "retry",
                 secondaryAction: freePlanActive
@@ -569,7 +596,7 @@
       ? "Your free training plan is already active."
       : (outcome.title || "That didn't finish.");
     const message = freePlanActive
-      ? "Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis."
+      ? "Upgrade to Athlevo Pro for ongoing plan changes, adaptive coaching, and deeper analysis."
       : (outcome.message ||
         "We couldn't create your plan just now. Please try again.");
 
@@ -578,7 +605,7 @@
       checkAgain: { label: "Check for my plan", onclick: "AthlevoPlan.recheckPlan()" },
       signIn: { label: "Sign in", onclick: "AthlevoPlan.notNow()" },
       completeProfile: { label: "Complete my profile", onclick: "AthlevoPlan.start()" },
-      upgrade: { label: "Upgrade to Athlevo Performance", onclick: "AthlevoAccessGuard.checkout()" },
+      upgrade: { label: "Upgrade to Athlevo Pro", onclick: "AthlevoAccessGuard.checkout()" },
       viewPlan: { label: "View My Current Plan", onclick: "AthlevoPlan.viewCurrentPlan()" }
     };
     // A timeout may still be completing server-side; offer to look rather than
@@ -789,6 +816,21 @@
       if (typeof showScreen === "function") showScreen("screen-today");
       refreshTodayCta();
       return { skipped: "auto_disabled" };
+    }
+
+    // Plan generation requires Athlevo Pro even when auto-triggered.
+    if (window.AthlevoAccessGuard) {
+      let access = typeof AthlevoAccessGuard.cachedAccessState === "function"
+        ? AthlevoAccessGuard.cachedAccessState()
+        : "unknown";
+      if (access === "unknown" && typeof AthlevoAccessGuard.accessState === "function") {
+        access = await AthlevoAccessGuard.accessState();
+      }
+      if (access !== "paid_active") {
+        if (typeof showScreen === "function") showScreen("screen-today");
+        refreshTodayCta();
+        return { skipped: "free_user" };
+      }
     }
 
     if (buildInFlight) return { skipped: "in_flight" };

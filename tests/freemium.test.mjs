@@ -104,9 +104,9 @@ section("Feature allocation");
 
 section("Atomic repeatable limits and persisted first-plan allowance");
 {
-  test("Coach limit is exactly 3 per week",
-    FREE_LIMITS.coach_message.limit === 3 &&
-    FREE_LIMITS.coach_message.period === "week");
+  test("Coach limit is exactly 2 lifetime messages",
+    FREE_LIMITS.coach_message.limit === 2 &&
+    FREE_LIMITS.coach_message.period === "lifetime");
   test("initial plan is not consumed through a pre-AI counter",
     !Object.prototype.hasOwnProperty.call(FREE_LIMITS, "initial_plan"));
 
@@ -135,13 +135,13 @@ section("Atomic repeatable limits and persisted first-plan allowance");
     access.ok && access.accessState === ACCESS_STATES.FREE);
 
   const coach = [];
-  for (let i = 0; i < 4; i += 1) {
+  for (let i = 0; i < 3; i += 1) {
     coach.push(await consumeFreeUsage("free-user", "coach_message"));
   }
-  test("first three weekly Coach messages succeed",
-    coach.slice(0, 3).every(result => result.allowed));
-  test("fourth weekly Coach message is blocked",
-    coach[3].allowed === false && coach[3].limit === 3);
+  test("first two lifetime Coach messages succeed",
+    coach.slice(0, 2).every(result => result.allowed));
+  test("third lifetime Coach message is blocked",
+    coach[2].allowed === false && coach[2].limit === 2);
 
   subscription = {
     provider: "whop",
@@ -227,8 +227,8 @@ section("Freemium onboarding, upgrade UI, and removed trial copy");
     !/₱0\s+today|after\s+(?:the\s+)?trial|trial\s+ends/i.test(index));
   test("the obsolete paywall screen and bundle are removed",
     !/screen-paywall|paywallBody|js\/paywall\.js|AthlevoPaywall/.test(activeUi));
-  test("explicit upgrade UI names Athlevo Performance and ₱597/month",
-    /Upgrade to Athlevo Performance/.test(accessGuard) &&
+  test("explicit upgrade UI names Athlevo Pro and ₱597/month",
+    /Unlock Athlevo Pro/.test(accessGuard) &&
     /₱597\/month/.test(accessGuard));
   test("Whop opens only from the explicit upgrade handler",
     /function checkout\(context\)/.test(accessGuard) &&

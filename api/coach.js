@@ -260,7 +260,7 @@ export default async function handler(req, res) {
   }
 
   // Per-athlete abuse/cost rate limit remains separate from the free product
-  // allowance. A rejected request does not consume one of the three messages.
+  // allowance. A rejected request does not consume one of the two messages.
   const limit = await checkAiRateLimit(authenticatedUser.id, "coach");
   if (!limit.allowed) {
     console.warn(JSON.stringify({
@@ -270,7 +270,7 @@ export default async function handler(req, res) {
     return rateLimitResponse(res, limit);
   }
 
-  // Free athletes receive three Coach messages per Manila calendar week.
+  // Free athletes receive two Coach messages total (lifetime).
   // Paid athletes bypass this free counter.
   const freeUsage = await consumeFreeUsage(
     authenticatedUser.id,
@@ -282,9 +282,9 @@ export default async function handler(req, res) {
     }
     return accessResponse(res, {
       ...freeUsage,
-      code: "COACH_WEEKLY_LIMIT_REACHED",
-      title: "Keep coaching with Athlevo Performance",
-      error: "You’ve used your 3 free Coach messages for this week."
+      code: "COACH_LIMIT_REACHED",
+      title: "Keep coaching with Athlevo",
+      error: "You’ve used your 2 free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
     }, authenticatedUser.id);
   }
 

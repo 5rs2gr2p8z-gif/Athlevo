@@ -1,5 +1,5 @@
 /**
- * Executable Athlevo Performance entitlement and locked-preview contract.
+ * Executable Athlevo Pro entitlement and locked-preview contract.
  * Run: node tests/performance-locks.test.mjs
  */
 
@@ -70,9 +70,9 @@ section("Today free and paid presentation");
   test("Training Load and Recovery fail closed while entitlement loads",
     /id="todayLoadSignal" data-premium-state="loading"/.test(status) &&
     /id="todayRecoverySignal" data-premium-state="loading"/.test(status));
-  test("locked signals contain only a mask, Performance copy, and safe aria text",
-    /function setLockedSignal[\s\S]*?valueNode\.textContent = "••"[\s\S]*?noteNode\.textContent = "Performance"/.test(html) &&
-    /name \+ ", available with Athlevo Performance"/.test(html) &&
+  test("locked signals contain only a mask, Pro copy, and safe aria text",
+    /function setLockedSignal[\s\S]*?valueNode\.textContent = "••"[\s\S]*?noteNode\.textContent = "Pro"/.test(html) &&
+    /name \+ ", available with Athlevo Pro"/.test(html) &&
     !/function setLockedSignal[\s\S]{0,900}signal\.(?:value|score|progress)/.test(html));
   test("paid branch alone renders real Training Load and Recovery",
     /if \(paid\)\{[\s\S]*?setSignal\(loadSignal[\s\S]*?renderTodayRecoverySignal\(/.test(html) &&
@@ -112,13 +112,13 @@ section("Athlevo Score preview");
     /Athlevo Score/.test(mount.innerHTML) &&
     /••/.test(mount.innerHTML) &&
     !/\/100|asc-cval|overall_score|score_date/.test(mount.innerHTML));
-  test("locked score uses the compact Performance summary and explicit sheet action",
+  test("locked score uses the compact Pro summary and explicit paywall action",
     /asc-radar-summary--locked/.test(mount.innerHTML) &&
     /asc-mini-grid/.test(mount.innerHTML) &&
     !/asc-mini-area/.test(mount.innerHTML) &&
-    /Performance/.test(mount.innerHTML) &&
-    /Unlock Athlevo Score with Athlevo Performance/.test(mount.innerHTML) &&
-    /showUpgradeSheet\('athlevo_score','today'\)/.test(mount.innerHTML));
+    /Athlevo Pro/.test(mount.innerHTML) &&
+    /Unlock Athlevo Score with Athlevo Pro/.test(mount.innerHTML) &&
+    /openPaywall\('athlete-status'\)/.test(mount.innerHTML));
   test("free transition clears previously rendered score details",
     detail.innerHTML === "" && !detail.classList.contains("show"));
   const refreshBody = scoreSource.slice(
@@ -208,7 +208,7 @@ section("Trends premium preview");
     /Training Load/.test(preview) &&
     !/Fitness \d|Fatigue \d|Form [+\-]?\d|7-day load \d/.test(preview));
   test("entering Trends never opens checkout automatically",
-    /showUpgradeSheet\('trends','trends'\)/.test(preview) &&
+    /openPaywall\('trends'\)/.test(preview) &&
     !/checkout(?:FromUpgrade)?\(/.test(preview));
   test("paid Trends rendering removes previews and restores real range controls",
     /function renderData[\s\S]*?preview\.hidden = true[\s\S]*?ranges\.hidden = false/.test(trendsSource));
@@ -323,7 +323,7 @@ section("Reusable upgrade sheet, focus, and checkout");
   test("one reusable accessible upgrade sheet exists",
     sheetCount === 1 &&
     /role="dialog"[\s\S]*?aria-modal="true"/.test(html) &&
-    /Upgrade to Athlevo Performance/.test(html) &&
+    /Unlock Athlevo Pro/.test(html) &&
     /Not now/.test(html));
 }
 
