@@ -76,9 +76,47 @@ function responseRecorder() {
     statusCode: 200,
     body: null,
     headers: {},
+    headersSent: false,
     status(value) { this.statusCode = value; return this; },
     setHeader(name, value) { this.headers[name] = value; },
-    json(value) { this.body = value; return this; }
+    json(value) { this.body = value; return this; },
+    writeHead(status, hdrs) {
+      this.statusCode = status;
+      Object.assign(this.headers, hdrs);
+      this.headersSent = true;
+    },
+    flushHeaders() {},
+    write(chunk) {},
+    end() {}
+  };
+}
+
+function sseStreamResponse(jsonText) {
+  const chunks = [];
+  for (let i = 0; i < jsonText.length; i += 40) {
+    const delta = jsonText.slice(i, i + 40);
+    chunks.push(
+      `data: ${JSON.stringify({ type: "response.output_text.delta", delta })}\n\n`
+    );
+  }
+  chunks.push("data: [DONE]\n\n");
+  const encoder = new TextEncoder();
+  let index = 0;
+  return {
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    headers: new Headers({ "Content-Type": "text/event-stream" }),
+    body: new ReadableStream({
+      pull(controller) {
+        if (index < chunks.length) {
+          controller.enqueue(encoder.encode(chunks[index]));
+          index++;
+        } else {
+          controller.close();
+        }
+      }
+    })
   };
 }
 
@@ -118,6 +156,10 @@ function createWorld() {
       return token === "invalid"
         ? jsonResponse(401, {})
         : jsonResponse(200, { id: token });
+    }
+
+    if (url.includes("/rest/v1/rpc/ensure_free_trial")) {
+      return jsonResponse(404, {});
     }
 
     if (url.includes("/rest/v1/subscriptions")) {
@@ -183,7 +225,7 @@ function createWorld() {
         failNextModel = false;
         return jsonResponse(503, { error: { message: "private upstream detail" } });
       }
-      return jsonResponse(200, { output_text: structuredAnswer });
+      return sseStreamResponse(structuredAnswer);
     }
 
     return jsonResponse(404, {});
@@ -196,7 +238,8 @@ function createWorld() {
     const req = {
       method: "POST",
       headers: { authorization: `Bearer ${userId}` },
-      body
+      body,
+      on(event, fn) { /* client close listener — unused in tests */ }
     };
     const res = responseRecorder();
     await coachHandler(req, res);
@@ -527,8 +570,10 @@ section("dist/js sync — root cause verification");
   test("dist/js/coach.js saves user message only after success",
     (() => {
       const saveIdx = distCoach.indexOf("saveConversationMessage(\"user\"");
-      const answerGuard = distCoach.lastIndexOf("if (data.answer)", saveIdx);
-      return saveIdx > 0 && answerGuard > 0 && answerGuard < saveIdx;
+      const interruptGuard = distCoach.lastIndexOf("if (streamInterrupted)", saveIdx);
+      const renderIdx = distCoach.lastIndexOf("renderCoachResponse(", saveIdx);
+      return saveIdx > 0 && interruptGuard > 0 && interruptGuard < saveIdx &&
+        renderIdx > 0 && renderIdx < saveIdx;
     })());
 
   test("dist/js/analyticsRegistry.js has coach_weekly_limit_reached",

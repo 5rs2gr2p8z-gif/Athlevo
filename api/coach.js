@@ -284,149 +284,49 @@ export default async function handler(req, res) {
     }, authenticatedUser.id);
   }
 
-  let usageCommitted = freeUsage.paid === true;
-  try {
-    const athlevoMethodPrompt = buildAthlevoMethodPrompt();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 50_000);
-    let openAIResponse;
-    try {
-      openAIResponse = await fetch(
-        "https://api.openai.com/v1/responses",
-        {
-          method: "POST",
-          signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-          },
-          body: JSON.stringify({
-            model: "gpt-5.5",
-            reasoning: {
-              effort: "low"
-            },
-            input: [
-              {
-    role: "developer",
-    content: `${athlevoMethodPrompt}\n\n${COACH_CHAT_STYLE}\n\n${COACH_ACTIONS_INSTRUCTION}`
-},
-              {
-                role: "user",
-                content: `
-ATHLETE CONTEXT:
-${JSON.stringify(context, null, 2)}
-
-ATHLETE QUESTION:
-${cleanQuestion}
-              `.trim()
-              }
-            ],
-            text: {
-  format: {
+  // The JSON schema for the structured coaching response is shared between
+  // streaming and non-streaming paths. Extracted here for maintainability.
+  const COACHING_RESPONSE_SCHEMA = {
     type: "json_schema",
     name: "athlevo_coaching_response",
     strict: true,
-
     schema: {
       type: "object",
       additionalProperties: false,
-
       properties: {
         response_type: {
           type: "string",
-          enum: [
-            "decision",
-            "explanation",
-            "lesson",
-            "review",
-            "standard"
-          ]
+          enum: ["decision", "explanation", "lesson", "review", "standard"]
         },
-
-        headline: {
-          type: ["string", "null"]
-        },
-
-        direct_answer: {
-          type: "string"
-        },
-
-        compliment: {
-          type: ["string", "null"]
-        },
-
+        headline: { type: ["string", "null"] },
+        direct_answer: { type: "string" },
+        compliment: { type: ["string", "null"] },
         sections: {
           type: "array",
           maxItems: 5,
-
           items: {
             type: "object",
             additionalProperties: false,
-
             properties: {
-              title: {
-                type: "string"
-              },
-
-              body: {
-                type: ["string", "null"]
-              },
-
-              bullets: {
-                type: "array",
-                maxItems: 6,
-                items: {
-                  type: "string"
-                }
-              },
-
+              title: { type: "string" },
+              body: { type: ["string", "null"] },
+              bullets: { type: "array", maxItems: 6, items: { type: "string" } },
               style: {
                 type: "string",
-                enum: [
-                  "normal",
-                  "success",
-                  "warning",
-                  "tip",
-                  "decision"
-                ]
+                enum: ["normal", "success", "warning", "tip", "decision"]
               },
-
-              callout: {
-                type: ["string", "null"]
-              }
+              callout: { type: ["string", "null"] }
             },
-
-            required: [
-              "title",
-              "body",
-              "bullets",
-              "style",
-              "callout"
-            ]
+            required: ["title", "body", "bullets", "style", "callout"]
           }
         },
-
-        mission: {
-          type: ["string", "null"]
-        },
-
-        confidence: {
-          type: ["integer", "null"],
-          minimum: 0,
-          maximum: 100
-        },
-
-        closing: {
-          type: ["string", "null"]
-        },
+        mission: { type: ["string", "null"] },
+        confidence: { type: ["integer", "null"], minimum: 0, maximum: 100 },
+        closing: { type: ["string", "null"] },
         suggested_replies: {
-  type: "array",
-  minItems: 0,
-  maxItems: 3,
-  items: {
-    type: "string"
-  }
-},
+          type: "array", minItems: 0, maxItems: 3,
+          items: { type: "string" }
+        },
         actions: {
           type: "array",
           maxItems: 3,
@@ -461,47 +361,18 @@ ${cleanQuestion}
                   fueling_guidance: { type: ["string", "null"] },
                   coach_reasoning: { type: ["string", "null"] },
                   notes: { type: ["string", "null"] },
-                  warmup: {
-                    type: ["array", "null"],
-                    items: { type: "string" }
-                  },
-                  main_set: {
-                    type: ["array", "null"],
-                    items: { type: "string" }
-                  },
-                  cooldown: {
-                    type: ["array", "null"],
-                    items: { type: "string" }
-                  },
-                  instructions: {
-                    type: ["array", "null"],
-                    items: { type: "string" }
-                  },
-                  adjustment_rules: {
-                    type: ["array", "null"],
-                    items: { type: "string" }
-                  }
+                  warmup: { type: ["array", "null"], items: { type: "string" } },
+                  main_set: { type: ["array", "null"], items: { type: "string" } },
+                  cooldown: { type: ["array", "null"], items: { type: "string" } },
+                  instructions: { type: ["array", "null"], items: { type: "string" } },
+                  adjustment_rules: { type: ["array", "null"], items: { type: "string" } }
                 },
                 required: [
-                  "duration_minutes",
-                  "distance_km",
-                  "session_type",
-                  "sport",
-                  "title",
-                  "description",
-                  "purpose",
-                  "intensity",
-                  "target_rpe",
-                  "pace_guidance",
-                  "heart_rate_guidance",
-                  "fueling_guidance",
-                  "coach_reasoning",
-                  "notes",
-                  "warmup",
-                  "main_set",
-                  "cooldown",
-                  "instructions",
-                  "adjustment_rules"
+                  "duration_minutes", "distance_km", "session_type", "sport",
+                  "title", "description", "purpose", "intensity", "target_rpe",
+                  "pace_guidance", "heart_rate_guidance", "fueling_guidance",
+                  "coach_reasoning", "notes", "warmup", "main_set", "cooldown",
+                  "instructions", "adjustment_rules"
                 ]
               },
               corrected_values: {
@@ -517,13 +388,8 @@ ${cleanQuestion}
                   notes: { type: ["string", "null"] }
                 },
                 required: [
-                  "distance_km",
-                  "duration_minutes",
-                  "average_pace",
-                  "activity_type",
-                  "workout_structure",
-                  "perceived_effort",
-                  "notes"
+                  "distance_km", "duration_minutes", "average_pace",
+                  "activity_type", "workout_structure", "perceived_effort", "notes"
                 ]
               },
               race_details: {
@@ -540,40 +406,65 @@ ${cleanQuestion}
               preference_note: { type: ["string", "null"] }
             },
             required: [
-              "type",
-              "title",
-              "target_session_id",
-              "target_activity_id",
-              "from_date",
-              "to_date",
-              "reason",
-              "original_summary",
-              "proposed_summary",
-              "changes",
-              "corrected_values",
-              "race_details",
-              "availability_note",
-              "preference_note"
+              "type", "title", "target_session_id", "target_activity_id",
+              "from_date", "to_date", "reason", "original_summary",
+              "proposed_summary", "changes", "corrected_values",
+              "race_details", "availability_note", "preference_note"
             ]
           }
         }
       },
-
       required: [
-  "response_type",
-  "headline",
-  "direct_answer",
-  "compliment",
-  "sections",
-  "mission",
-  "confidence",
-  "closing",
-  "suggested_replies",
-  "actions"
-]
+        "response_type", "headline", "direct_answer", "compliment",
+        "sections", "mission", "confidence", "closing",
+        "suggested_replies", "actions"
+      ]
     }
-  }
-}
+  };
+
+  let usageCommitted = freeUsage.paid === true;
+  try {
+    const athlevoMethodPrompt = buildAthlevoMethodPrompt();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 50_000);
+
+    // Cancel the upstream request if the client disconnects mid-stream.
+    req.on("close", () => controller.abort());
+
+    let openAIResponse;
+    try {
+      openAIResponse = await fetch(
+        "https://api.openai.com/v1/responses",
+        {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: "gpt-5.5",
+            stream: true,
+            reasoning: {
+              effort: "low"
+            },
+            input: [
+              {
+                role: "developer",
+                content: `${athlevoMethodPrompt}\n\n${COACH_CHAT_STYLE}\n\n${COACH_ACTIONS_INSTRUCTION}`
+              },
+              {
+                role: "user",
+                content: `
+ATHLETE CONTEXT:
+${JSON.stringify(context, null, 2)}
+
+ATHLETE QUESTION:
+${cleanQuestion}
+                `.trim()
+              }
+            ],
+            text: { format: COACHING_RESPONSE_SCHEMA }
           })
         }
       );
@@ -597,13 +488,6 @@ ${cleanQuestion}
       clearTimeout(timeout);
     }
 
-    let data;
-    try {
-      data = await openAIResponse.json();
-    } catch (error) {
-      data = {};
-    }
-
     if (!openAIResponse.ok) {
       console.warn(JSON.stringify({
         event: "coach_request_failed",
@@ -618,53 +502,105 @@ ${cleanQuestion}
       });
     }
 
-    const answer =
-      data.output_text ||
-      data.output
-        ?.flatMap(item => item.content || [])
-        .find(content => content.type === "output_text")
-        ?.text ||
-      null;
+    // ── Stream the AI response to the client as Server-Sent Events ──
+    // All auth, rate-limit, entitlement, and validation checks have
+    // passed. From this point we stream; HTTP errors are no longer
+    // possible, so failures are sent as SSE error events.
 
-    if (!answer) {
-      return res.status(503).json({
-        error: "Coach is temporarily unavailable.",
-        code: "COACH_PROVIDER_UNAVAILABLE"
-      });
+    usageCommitted = true;
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no"
+    });
+    if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+    const reader = openAIResponse.body.getReader();
+    const decoder = new TextDecoder();
+    let sseBuffer = "";
+    let accumulated = "";
+    let streamFailed = false;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split("\n");
+        sseBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          const raw = line.slice(5).trim();
+          if (!raw || raw === "[DONE]") continue;
+
+          let event;
+          try { event = JSON.parse(raw); } catch { continue; }
+
+          if (event.type === "response.output_text.delta" && event.delta) {
+            accumulated += event.delta;
+            res.write(`data: ${JSON.stringify({ type: "delta", text: event.delta })}\n\n`);
+          }
+
+          if (event.type === "response.failed" || event.type === "response.incomplete") {
+            streamFailed = true;
+          }
+        }
+      }
+    } catch (readError) {
+      // Client disconnect (AbortError) is normal; anything else is a
+      // genuine stream failure.
+      if (readError?.name !== "AbortError") {
+        streamFailed = true;
+      }
     }
 
-let structuredAnswer;
+    if (streamFailed || !accumulated) {
+      try {
+        res.write(`data: ${JSON.stringify({
+          type: "error",
+          message: "Coach could not complete this response."
+        })}\n\n`);
+      } catch { /* response already closed */ }
+      res.end();
+      return;
+    }
 
-try {
-  structuredAnswer = JSON.parse(answer);
-} catch {
-  structuredAnswer = {
-    response_type: "standard",
-    headline: null,
-    direct_answer: answer,
-    compliment: null,
-    sections: [],
-    mission: null,
-    confidence: null,
-    closing: null,
-    suggested_replies: [],
-    actions: []
-  };
-}
+    // Parse and validate the complete response — identical to the
+    // previous non-streaming validation path.
+    let structuredAnswer;
+    try {
+      structuredAnswer = JSON.parse(accumulated);
+    } catch {
+      structuredAnswer = {
+        response_type: "standard",
+        headline: null,
+        direct_answer: accumulated,
+        compliment: null,
+        sections: [],
+        mission: null,
+        confidence: null,
+        closing: null,
+        suggested_replies: [],
+        actions: []
+      };
+    }
 
-// Never trust raw model actions. Re-validate the shape server-side,
-// strip unsupported fields, and attach a stable id so a later "Apply"
-// tap is idempotent. Deep validation (ownership, existence, dates,
-// duplicates, load) happens when the athlete confirms, in the training
-// endpoint. Only well-formed actions are exposed to the client.
-structuredAnswer.actions = validateProposedActions(
-  structuredAnswer.actions
-).map(action => ({ ...action, id: randomUUID() }));
+    // Never trust raw model actions. Re-validate server-side and attach
+    // stable ids for idempotent Apply.
+    structuredAnswer.actions = validateProposedActions(
+      structuredAnswer.actions
+    ).map(action => ({ ...action, id: randomUUID() }));
 
-usageCommitted = true;
-return res.status(200).json({
-  answer: structuredAnswer
-});
+    try {
+      res.write(`data: ${JSON.stringify({
+        type: "done",
+        answer: structuredAnswer
+      })}\n\n`);
+    } catch { /* response already closed */ }
+    res.end();
 
   } catch (error) {
     console.error(JSON.stringify({
@@ -674,10 +610,21 @@ return res.status(200).json({
       correlationId: randomUUID()
     }));
 
-    return res.status(500).json({
-      error: "Coach couldn't complete that request. Try again.",
-      code: "COACH_REQUEST_FAILED"
-    });
+    if (res.headersSent) {
+      // Already streaming — send SSE error event.
+      try {
+        res.write(`data: ${JSON.stringify({
+          type: "error",
+          message: "Coach couldn't complete that request."
+        })}\n\n`);
+        res.end();
+      } catch { /* response already closed */ }
+    } else {
+      return res.status(500).json({
+        error: "Coach couldn't complete that request. Try again.",
+        code: "COACH_REQUEST_FAILED"
+      });
+    }
   } finally {
     if (!usageCommitted && freeUsage.allowed && freeUsage.paid !== true) {
       await releaseFreeUsage(

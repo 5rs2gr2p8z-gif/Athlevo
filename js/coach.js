@@ -139,6 +139,205 @@ function stopThinkingLabelRotation() {
   }
 }
 
+/* ══════════════ Streaming helpers ══════════════════════════════ */
+
+/*
+ * Extracts the partial "direct_answer" string value from an accumulating
+ * JSON string produced by the structured-output model. Returns null when
+ * the field has not started appearing yet, or the decoded text so far.
+ * Handles JSON string escapes (\\n, \\", \\\\, \\uXXXX, etc.).
+ */
+function extractPartialDirectAnswer(json) {
+  var marker = '"direct_answer":"';
+  var idx = json.indexOf(marker);
+  if (idx === -1) return null;
+
+  var start = idx + marker.length;
+  var result = "";
+  var i = start;
+
+  while (i < json.length) {
+    var ch = json.charAt(i);
+    if (ch === "\\" && i + 1 < json.length) {
+      var next = json.charAt(i + 1);
+      if (next === "n")  { result += "\n"; i += 2; continue; }
+      if (next === '"')  { result += '"';  i += 2; continue; }
+      if (next === "\\") { result += "\\"; i += 2; continue; }
+      if (next === "t")  { result += "\t"; i += 2; continue; }
+      if (next === "/")  { result += "/";  i += 2; continue; }
+      if (next === "r")  { result += "\r"; i += 2; continue; }
+      if (next === "b")  { result += "\b"; i += 2; continue; }
+      if (next === "f")  { result += "\f"; i += 2; continue; }
+      if (next === "u" && i + 5 < json.length) {
+        var hex = json.substring(i + 2, i + 6);
+        if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+          result += String.fromCharCode(parseInt(hex, 16));
+          i += 6;
+          continue;
+        }
+      }
+      // Incomplete escape at the edge of the buffer — stop here.
+      break;
+    }
+    if (ch === '"') break; // End of string value.
+    result += ch;
+    i++;
+  }
+
+  return result;
+}
+
+/*
+ * Consumes an SSE stream from /api/coach, progressively rendering the
+ * direct_answer text into `container`. Returns an object:
+ *   { answer, interrupted }
+ * - answer: the final validated answer object (or a partial one)
+ * - interrupted: true if the stream failed after partial content was shown
+ * Throws if the stream fails before any content is visible.
+ */
+async function consumeCoachStream(response, container) {
+  var reader = response.body.getReader();
+  var decoder = new TextDecoder();
+  var sseBuffer = "";
+  var accumulated = "";
+  var lastRenderedLen = 0;
+  var streamingStarted = false;
+  var finalAnswer = null;
+  var streamErrorMsg = null;
+  var renderPending = false;
+  var wasNearBottom = coachIsNearBottom();
+
+  function scheduleRender() {
+    if (renderPending) return;
+    renderPending = true;
+    requestAnimationFrame(function () {
+      renderPending = false;
+      var text = extractPartialDirectAnswer(accumulated);
+      if (text && text.length > lastRenderedLen) {
+        if (!streamingStarted) {
+          streamingStarted = true;
+          stopThinkingLabelRotation();
+        }
+        container.innerHTML = "";
+        container.classList.add("coach-rich-response");
+        // Use the existing prose renderer for consistent styling.
+        if (typeof appendCoachProse === "function") {
+          appendCoachProse(container, text, "coach-response-lead");
+        } else {
+          container.textContent = text;
+        }
+        lastRenderedLen = text.length;
+        if (wasNearBottom || coachIsNearBottom()) {
+          coachSmartScroll();
+        }
+      }
+    });
+  }
+
+  try {
+    while (true) {
+      var readResult = await reader.read();
+      if (readResult.done) break;
+
+      sseBuffer += decoder.decode(readResult.value, { stream: true });
+      var lines = sseBuffer.split("\n");
+      sseBuffer = lines.pop() || "";
+
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li];
+        if (!line || line.indexOf("data:") !== 0) continue;
+        var payload = line.slice(5).trim();
+        if (!payload) continue;
+
+        var evt;
+        try { evt = JSON.parse(payload); } catch { continue; }
+
+        if (evt.type === "delta" && evt.text) {
+          accumulated += evt.text;
+          scheduleRender();
+        }
+        if (evt.type === "done" && evt.answer) {
+          finalAnswer = evt.answer;
+        }
+        if (evt.type === "error") {
+          streamErrorMsg = evt.message || "Coach could not complete this response.";
+        }
+      }
+    }
+  } catch (readErr) {
+    if (!streamErrorMsg) {
+      streamErrorMsg = "Connection interrupted.";
+    }
+  }
+
+  // Let any pending RAF render flush before we finalize.
+  await new Promise(function (resolve) { requestAnimationFrame(resolve); });
+
+  // ── Stream error handling ──
+  if (streamErrorMsg) {
+    if (streamingStarted && lastRenderedLen > 0) {
+      // Partial text is already visible. Keep it and append a notice.
+      var notice = document.createElement("p");
+      notice.className = "coach-stream-interrupted";
+      notice.textContent = streamErrorMsg;
+      notice.setAttribute("role", "alert");
+      container.appendChild(notice);
+
+      // Build a minimal answer from what was received.
+      var partialText = extractPartialDirectAnswer(accumulated) || "";
+      return {
+        answer: {
+          response_type: "standard",
+          headline: null,
+          direct_answer: partialText,
+          compliment: null,
+          sections: [],
+          mission: null,
+          confidence: null,
+          closing: null,
+          suggested_replies: [],
+          actions: [],
+          _partial: true
+        },
+        interrupted: true
+      };
+    }
+    // Nothing was shown yet — throw so the caller's error UI handles it.
+    var err = new Error(streamErrorMsg);
+    err.coachCode = "COACH_REQUEST_FAILED";
+    throw err;
+  }
+
+  // ── Success ──
+  if (finalAnswer) return { answer: finalAnswer, interrupted: false };
+
+  // Fallback: parse from accumulated deltas (server may not have sent done).
+  try {
+    return { answer: JSON.parse(accumulated), interrupted: false };
+  } catch {
+    if (accumulated) {
+      return {
+        answer: {
+          response_type: "standard",
+          headline: null,
+          direct_answer: accumulated,
+          compliment: null,
+          sections: [],
+          mission: null,
+          confidence: null,
+          closing: null,
+          suggested_replies: [],
+          actions: []
+        },
+        interrupted: false
+      };
+    }
+    var emptyErr = new Error("Coach returned an empty response.");
+    emptyErr.coachCode = "COACH_REQUEST_FAILED";
+    throw emptyErr;
+  }
+}
+
 /* ══════════════ Textarea auto-grow ═══════════════════════════════ */
 
 function autoGrowComposer() {
@@ -1222,28 +1421,21 @@ context.recentConversation = (await loadRecentConversationForCoach())
       })
     });
 
-    let data;
-    try {
-      data = await response.json();
-    } catch (error) {
-      var responseParseError = new Error(
-        "Coach couldn't complete that request. Try again."
-      );
-      responseParseError.coachCode = "COACH_REQUEST_FAILED";
-      responseParseError.coachStatus = response.status || 500;
-      throw responseParseError;
-    }
-
+    // Pre-streaming error responses arrive as JSON (auth, rate-limit,
+    // entitlement, validation). Handle them exactly as before.
     if (!response.ok) {
+      let data;
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = {};
+      }
       const failure = classifyCoachFailure(data.code, response.status);
       if (failure.upgrade === true) {
         stopThinkingLabelRotation();
         restoreCoachDraft(cleanQuestion, userMessage, loadingMessage);
         if (failure.category === "coach_limit") {
-          trackCoachEvent(
-            "coach_limit_reached",
-            coachAccessTier
-          );
+          trackCoachEvent("coach_limit_reached", coachAccessTier);
         }
         showCoachLimitUpgrade(coachAccessTier);
         return;
@@ -1254,55 +1446,90 @@ context.recentConversation = (await loadRecentConversationForCoach())
       throw responseError;
     }
 
-    if (!data.answer || typeof data.answer !== "object") {
-      var malformedError = new Error("Coach couldn't complete that request. Try again.");
-      malformedError.coachCode = "COACH_REQUEST_FAILED";
-      malformedError.coachStatus = 500;
-      throw malformedError;
+    const responseContainer = loadingMessage.querySelector(".change");
+    const wasAtLatestBeforeResponse = coachIsNearBottom();
+
+    // ── Determine response type and consume ──
+    var answer;
+    var streamInterrupted = false;
+
+    var isStreaming =
+      (response.headers.get("content-type") || "").indexOf("text/event-stream") !== -1;
+
+    if (isStreaming && response.body && typeof response.body.getReader === "function") {
+      // ── STREAMING PATH ──
+      // The backend passed all checks and is streaming the AI response.
+      // consumeCoachStream renders direct_answer progressively and
+      // returns the final validated answer when the stream completes.
+      var streamResult = await consumeCoachStream(response, responseContainer);
+      answer = streamResult.answer;
+      streamInterrupted = streamResult.interrupted;
+    } else {
+      // ── NON-STREAMING FALLBACK ──
+      // Handles legacy/non-streaming responses (e.g. from a cached proxy).
+      let data;
+      try {
+        data = await response.json();
+      } catch (error) {
+        var responseParseError = new Error(
+          "Coach couldn't complete that request. Try again."
+        );
+        responseParseError.coachCode = "COACH_REQUEST_FAILED";
+        responseParseError.coachStatus = response.status || 500;
+        throw responseParseError;
+      }
+
+      if (!data.answer || typeof data.answer !== "object") {
+        var malformedError = new Error("Coach couldn't complete that request. Try again.");
+        malformedError.coachCode = "COACH_REQUEST_FAILED";
+        malformedError.coachStatus = 500;
+        throw malformedError;
+      }
+      answer = data.answer;
     }
-    const answer = data.answer;
 
-// Attach the truthful Coach Context summary so it renders above the
-// reply and persists with the saved conversation history.
-answer.coach_context = buildCoachContextSummary(context);
+    // ── Stream interrupted: partial content visible ──
+    if (streamInterrupted) {
+      trackCoachEvent("coach_message_interrupted", coachAccessTier);
+      // Don't persist partial responses or show follow-ups. The user
+      // can see what arrived and ask again if needed.
+      // (coachRequestInFlight and sendingState reset in finally.)
+      return;
+    }
 
-stopThinkingLabelRotation();
+    // ── Normal completion (streaming or non-streaming) ──
 
-const responseContainer =
-  loadingMessage.querySelector(".change");
+    // Attach the truthful Coach Context summary so it renders above the
+    // reply and persists with the saved conversation history.
+    answer.coach_context = buildCoachContextSummary(context);
 
-const wasAtLatestBeforeResponse = coachIsNearBottom();
+    stopThinkingLabelRotation();
 
-renderCoachResponse(
-  responseContainer,
-  answer
-);
+    // Final render with the complete structured response — sections,
+    // actions, mission, and any other fields that couldn't be shown
+    // during progressive streaming.
+    renderCoachResponse(responseContainer, answer);
 
-// Follow-up actions (contextual chips in the active tools slot above composer).
-// Model-suggested replies take priority; fall back to built-in actions.
-if (Array.isArray(answer.suggested_replies) && answer.suggested_replies.length > 0) {
-  renderSuggestedReplies(answer.suggested_replies);
-} else {
-  renderFollowUpActions(answer);
-}
+    // Follow-up actions (contextual chips in the active tools slot above
+    // composer). Model-suggested replies take priority; fall back to
+    // built-in actions.
+    if (Array.isArray(answer.suggested_replies) && answer.suggested_replies.length > 0) {
+      renderSuggestedReplies(answer.suggested_replies);
+    } else {
+      renderFollowUpActions(answer);
+    }
 
-// Analytics: successful response.
-try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("first_coach_message_sent"); } catch (e) {}
-trackCoachEvent("coach_message_completed", coachAccessTier);
+    // Analytics: successful response.
+    try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("first_coach_message_sent"); } catch (e) {}
+    trackCoachEvent("coach_message_completed", coachAccessTier);
 
-// Smart-scroll after response renders.
-coachSmartScroll(wasAtLatestBeforeResponse);
+    // Smart-scroll after response renders.
+    coachSmartScroll(wasAtLatestBeforeResponse);
 
-// Only persist a genuine, successful reply. A missing data.answer means
-// the model call did not produce a real structured response, so we show
-// the fallback but do NOT store it as a successful coaching message.
-if (data.answer) {
-  await saveConversationMessage("user", cleanQuestion);
-  await saveConversationMessage(
-    "assistant",
-    JSON.stringify(answer)
-  );
-}
+    // Persist the completed exchange. One user row + one assistant row.
+    await saveConversationMessage("user", cleanQuestion);
+    await saveConversationMessage("assistant", JSON.stringify(answer));
+
   } catch (error) {
     console.error("Athlevo Coach request failed.");
     stopThinkingLabelRotation();
