@@ -116,7 +116,23 @@
     readiness_check_completed:     { kind: "behavioural", props: ["source", "completion_status"] },
     app_returned:                   { kind: "behavioural", props: [] },
     app_session_started:           { kind: "behavioural", props: ["source"] },
-    primary_tab_viewed:            { kind: "behavioural", props: ["screen_name"] }
+    primary_tab_viewed:            { kind: "behavioural", props: ["screen_name"] },
+    // Pre-signup diagnostic events (categorical only — never injury
+    // free text, pain descriptions, or medical details)
+    diagnostic_viewed:             { kind: "behavioural", props: [] },
+    diagnostic_started:            { kind: "milestone",   props: [] },
+    diagnostic_resumed:            { kind: "behavioural", props: ["state"] },
+    diagnostic_question_answered:  { kind: "behavioural", props: ["question_key", "questions_completed"] },
+    diagnostic_insight_shown:      { kind: "behavioural", props: ["question_key"] },
+    diagnostic_completed:          { kind: "milestone",   props: ["questions_answered", "primary_limiter", "recommended_product", "feasibility_rating", "injury_reported"] },
+    diagnostic_result_viewed:      { kind: "behavioural", props: ["primary_limiter", "recommended_product", "feasibility_rating", "injury_reported"] },
+    product_recommended:           { kind: "behavioural", props: ["recommended_product", "feasibility_rating"] },
+    alternative_products_viewed:  { kind: "behavioural", props: ["recommended_product"] },
+    product_selected:              { kind: "behavioural", props: ["recommended_product", "selected_product"] },
+    diagnostic_signup_tapped:      { kind: "behavioural", props: ["recommended_product", "feasibility_rating"] },
+    diagnostic_import_started:     { kind: "behavioural", props: [] },
+    diagnostic_import_completed:   { kind: "milestone",   props: ["questions_answered", "primary_limiter", "recommended_product", "feasibility_rating", "injury_reported"] },
+    diagnostic_import_failed:      { kind: "behavioural", props: ["stage", "failure_category"] }
   };
 
   // Legacy names still emitted by older call sites → the canonical event they
@@ -139,7 +155,7 @@
 
   // Keys that must NEVER be recorded, even if allow-listed by mistake elsewhere.
   var PROHIBITED_KEYS = /(email|name|token|secret|message|content|text|note|gps|lat|lng|lon|coord|address|phone|payload|raw|workout|injury|pain|dob|birth|password)/i;
-  var APPROVED_NAMED_KEYS = { cta_text: true, utm_content: true };
+  var APPROVED_NAMED_KEYS = { cta_text: true, utm_content: true, injury_reported: true };
   var APPROVED_CTA_TEXT = { "Build My Training Plan": true };
   var APPROVED_HANDOFF_VALUES = {
     browser: { facebook: true, instagram: true },

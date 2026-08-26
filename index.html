@@ -1338,6 +1338,63 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .connect-card{margin-top:12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s-4);text-align:center}
 .connect-card .ilogo{margin:0 auto 10px}
 .connect-card b{font-size:var(--fs-body)}
+
+/* ══════════════ DIAGNOSTIC RESULT STYLES ══════════════ */
+#screen-diagnostic{padding-bottom:0}
+.diag-intro{justify-content:center;min-height:60vh}
+.diag-intro .diag-cta-primary{margin-top:28px}
+.diag-result{padding:8px 22px calc(40px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch}
+.diag-section{padding:24px 0;border-bottom:1px solid var(--line)}
+.diag-section:last-child{border-bottom:none;padding-bottom:40px}
+.diag-profile-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.diag-profile-meta span{font-size:var(--fs-caption);font-weight:600;color:var(--ink2);background:var(--card);border:1px solid var(--line);border-radius:var(--r-pill,100px);padding:6px 12px}
+.diag-strength{margin-top:16px}
+.diag-strength-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;color:var(--text);margin:0 0 4px;letter-spacing:-.01em}
+.diag-strength-detail{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0}
+.diag-limiter-section{background:var(--card);margin:0 -22px;padding:24px 22px;border-bottom:1px solid var(--line)}
+.diag-limiter-title{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--red);margin:8px 0 12px;letter-spacing:-.02em;line-height:1.15}
+.diag-limiter-explanation{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0}
+.diag-narrative{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:10px 0 0}
+.diag-changes{list-style:none;padding:0;margin:14px 0 0}
+.diag-changes li{position:relative;padding:10px 0 10px 22px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);border-bottom:1px solid var(--line)}
+.diag-changes li:last-child{border-bottom:none}
+.diag-changes li::before{content:"";position:absolute;left:0;top:16px;width:8px;height:8px;border-radius:50%;background:var(--red);opacity:.5}
+.diag-feasibility{margin-top:12px}
+.diag-feasibility-badge{display:inline-block;font-size:var(--fs-caption);font-weight:700;letter-spacing:.02em;border-radius:var(--r-pill,100px);padding:7px 14px;margin-bottom:10px}
+.diag-feasibility-realistic .diag-feasibility-badge{color:#1f9d5b;background:rgba(31,157,91,.1);border:1px solid rgba(31,157,91,.2)}
+.diag-feasibility-realistic-structured .diag-feasibility-badge{color:#b68a1a;background:rgba(182,138,26,.1);border:1px solid rgba(182,138,26,.2)}
+.diag-feasibility-aggressive .diag-feasibility-badge{color:#d97706;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.2)}
+.diag-feasibility-reassess .diag-feasibility-badge,.diag-feasibility-not-advisable .diag-feasibility-badge{color:var(--red);background:var(--red-soft);border:1px solid color-mix(in srgb,var(--red) 20%,transparent)}
+.diag-feasibility-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0}
+.diag-safety{background:var(--red-soft);margin:0 -22px;padding:18px 22px;border-radius:0}
+.diag-safety-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0;font-weight:500}
+.diag-rec-card{background:var(--paper);border:2px solid var(--red);border-radius:var(--r-md);padding:20px;margin-top:14px}
+.diag-rec-card.selected,.diag-alt-item.selected{box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 16%,transparent)}
+.diag-rec-name{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--text);margin:0 0 10px;letter-spacing:-.02em}
+.diag-rec-rationale{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0 0 16px}
+.diag-rec-caps{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}
+.diag-rec-caps li{font-size:var(--fs-caption);font-weight:600;color:var(--red);background:var(--red-soft);border-radius:var(--r-pill,100px);padding:5px 11px}
+.diag-alternatives{margin-top:18px}
+.diag-alt-label{font-size:var(--fs-micro);font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:10px}
+.diag-alt-item{display:flex;flex-direction:column;gap:2px;padding:12px 0;border-top:1px solid var(--line)}
+.diag-alt-item strong{font-size:var(--fs-body);font-weight:600;color:var(--text)}
+.diag-alt-item span{font-size:var(--fs-caption);color:var(--ink2);line-height:var(--lh-caption,1.4)}
+.diag-product-select{align-self:flex-start;margin-top:12px;border:1px solid var(--red);border-radius:var(--r-pill,100px);background:transparent;color:var(--red);font:650 var(--fs-caption)/1 var(--sans);padding:9px 14px;cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast),transform var(--dur-fast)}
+.diag-product-select:hover{background:var(--red-soft)}
+.diag-product-select:active{transform:scale(.97)}
+.diag-product-select:focus-visible{outline:2px solid var(--text);outline-offset:3px}
+.diag-cta-section{text-align:center;padding:30px 0 calc(20px + env(safe-area-inset-bottom))}
+.diag-cta-primary{width:100%;font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:.01em;padding:var(--s-4);border-radius:12px;border:none;background:var(--red);color:#fff;cursor:pointer;transition:background var(--dur-base),transform var(--dur-fast)}
+.diag-cta-primary:active{transform:scale(.985)}
+.diag-cta-sub{font-size:var(--fs-caption);color:var(--ink3);margin:12px 0 0}
+html[data-theme="dark"] .diag-limiter-section{background:var(--card)}
+html[data-theme="dark"] .diag-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
+html[data-theme="dark"] .diag-rec-card{background:var(--card)}
+@media(prefers-color-scheme:dark){
+  html[data-theme="system"] .diag-limiter-section{background:var(--card)}
+  html[data-theme="system"] .diag-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
+  html[data-theme="system"] .diag-rec-card{background:var(--card)}
+}
 .connect-card p{font-size:var(--fs-caption);color:var(--ink2);margin:4px 0 12px}
 .connect-card button{width:100%;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:var(--s-3);border-radius:var(--r-pill);border:none;background:var(--ink);color:#fff;cursor:pointer}
 .importbar{height:6px;background:var(--line);border-radius:var(--r-pill);overflow:hidden;margin-top:12px}
@@ -4101,6 +4158,24 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
      / hilly / September, "Dean") and were only reachable from the old
      scripted onboarding, which has been replaced by js/onboarding.js. -->
 
+
+<!-- ══════════════ PRE-SIGNUP DIAGNOSTIC ══════════════ -->
+<section class="screen" id="screen-diagnostic">
+
+    <div class="ob2-top">
+        <button class="ob2-back" id="diagBack" type="button" aria-label="Go back" disabled>&#8249;</button>
+        <div class="ob2-progress" id="diagProgress" role="img" aria-label="Diagnostic progress"></div>
+    </div>
+
+    <div class="ob2-body" id="diagBody"></div>
+
+    <div class="ob2-foot" id="diagFoot">
+        <p class="ob2-msg" id="diagMsg" role="status" aria-live="polite"></p>
+        <button class="ob2-continue" id="diagContinue" type="button">Continue</button>
+    </div>
+
+</section>
+
 <!-- ══════════════ PLAN SETUP (proactive plan-building CTA) ══════════════ -->
 <style>
   #screen-plansetup{padding:0}
@@ -6444,11 +6519,19 @@ function landingStartFree(trigger)  {
       ? trigger.textContent.trim()
       : "Build My Training Plan",
     cta_location: locationName,
-    destination: "screen-welcome"
+    destination: "screen-diagnostic"
   });
   if (interceptInAppAuthHandoff("signup", "landing")) return;
   rememberAppEntryIntent();
-  openAppEntry();
+  // Route unauthenticated users through the diagnostic first.
+  // The diagnostic CTA ("Save my diagnosis & continue") sends them to auth.
+  if (window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start) {
+    try { history.pushState({ athlevoNav: 'diagnostic' }, ''); } catch (e) {}
+    window.AthlevoDiagnosticUI.start();
+  } else {
+    // Fallback: if diagnostic UI isn't loaded, go to auth directly
+    openAppEntry();
+  }
 }
 function landingStartBeta(trigger)  { landingStartFree(trigger); }
 function landingSignIn()     {
@@ -6482,6 +6565,13 @@ function renderNavState(state) {
   var modal = document.getElementById('authModal');
   var modalOpen = modal && modal.style.display === 'flex';
   var tb = document.getElementById('tabbar');
+  // Backing out of the diagnostic → return to landing.
+  var diagScreen = document.getElementById('screen-diagnostic');
+  if (diagScreen && diagScreen.classList.contains('active')) {
+    showScreen('screen-landing');
+    if (typeof updateOpenAppUI === 'function') updateOpenAppUI(!!athlevoSessionUserId);
+    return;
+  }
   // Backing out of an open auth form → return to the app entry screen.
   if (modalOpen) {
     modal.style.display = 'none';
@@ -9235,6 +9325,21 @@ async function routeAfterAuth(userId) {
   }
   if (!routeIsCurrent()) return;
 
+  // ── Diagnostic handoff: attach pre-signup diagnostic data to profile ──
+  // Runs before onboarding routing so profile fields are populated when
+  // onboarding starts (allowing it to skip already-answered questions).
+  if (window.AthlevoDiagnosticHandoff && window.AthlevoDiagnosticHandoff.attach) {
+    try {
+      var diagResult = await window.AthlevoDiagnosticHandoff.attach(userId, supabaseClient);
+      if (diagResult && diagResult.attached) {
+        console.log("Diagnostic data attached to profile");
+      }
+    } catch (diagErr) {
+      console.warn("Diagnostic handoff failed (non-fatal):", diagErr);
+    }
+    if (!routeIsCurrent()) return;
+  }
+
   // Coach/admin bypass: existing coaches and admins whose role was granted
   // server-side skip athlete onboarding entirely. Their onboarding_complete
   // flag is set by js/onboarding.js on first visit so this path only fires
@@ -9613,6 +9718,12 @@ async function restoreSession(opts) {
           }
         }, 0);
       }
+    } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
+               window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
+               window.AthlevoDiagnosticUI.start) {
+      // Restore both an in-progress assessment and a completed result that is
+      // still waiting for authenticated import.
+      window.AthlevoDiagnosticUI.start();
     } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
                 window.AthlevoCoachInvites.hasPendingInvite()) ||
                isStandaloneMode() || hasAppEntryIntent() ||
@@ -9938,6 +10049,9 @@ setTimeout(function () {
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=68"></script>
 <script src="js/onboarding.js?v=71"></script>
+<script src="js/diagnostic.js?v=1"></script>
+<script src="js/diagnosticUI.js?v=1"></script>
+<script src="js/diagnosticHandoff.js?v=1"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

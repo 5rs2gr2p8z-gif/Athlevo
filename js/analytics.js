@@ -62,7 +62,11 @@
     "coach_mode", "dashboard_surface", "attention_reason", "attention_severity",
     "athlete_sport", "roster_size_band", "tab_name",
     // Workspace switcher (categorical only — never name/email/UUID)
-    "from_workspace", "to_workspace"
+    "from_workspace", "to_workspace",
+    // Pre-signup diagnostic (categorical/count data only; never raw answers)
+    "state", "question_key", "questions_completed", "questions_answered",
+    "primary_limiter", "recommended_product", "selected_product",
+    "feasibility_rating", "injury_reported"
   ];
 
   /*
@@ -70,7 +74,7 @@
    * caller passes them. Defence in depth against accidental PII leaks.
    */
   var PROHIBITED = /(token|secret|code|password|email|name|phone|address|message|text|note|content|health|injury|pain|payment|card|ssn|dob|birth|gps|lat|lng|lon|coord|raw|payload)/i;
-  var APPROVED_NAMED_KEYS = { cta_text: true, utm_content: true };
+  var APPROVED_NAMED_KEYS = { cta_text: true, utm_content: true, injury_reported: true };
   var APPROVED_CTA_TEXT = { "Build My Training Plan": true };
   var APPROVED_HANDOFF_VALUES = {
     browser: { facebook: true, instagram: true },

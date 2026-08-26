@@ -1,0 +1,54 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+
+const ui = readFileSync("./js/diagnosticUI.js", "utf8");
+const index = readFileSync("./index.html", "utf8");
+const analytics = readFileSync("./js/analytics.js", "utf8");
+const registrySource = readFileSync("./js/analyticsRegistry.js", "utf8");
+
+assert.match(ui, /var currentQuestion = null/);
+assert.match(ui, /var q = currentQuestion;/, "submission must use the displayed question");
+assert.doesNotMatch(ui, /var key = engine\.history\[engine\.history\.length - 1\]/);
+assert.match(ui, /engine\.previousQuestion\(currentQuestion \? currentQuestion\.key/);
+assert.match(ui, /Start my assessment/);
+assert.match(ui, /diagnostic_viewed/);
+assert.match(ui, /diagnostic_started/);
+assert.match(ui, /aria-pressed/);
+assert.match(ui, /role=\"button\" tabindex=\"0\"/);
+assert.match(ui, /event\.key === \"Enter\" \|\| event\.key === \" \"/);
+assert.match(ui, /for=\"diagf-/);
+assert.match(index, /AthlevoDiagnostic\.hasPending\(\)[\s\S]{0,300}AthlevoDiagnosticUI\.start/);
+
+const expectedEvents = [
+  "diagnostic_viewed", "diagnostic_started", "diagnostic_resumed",
+  "diagnostic_question_answered", "diagnostic_insight_shown",
+  "diagnostic_completed", "diagnostic_result_viewed", "product_recommended",
+  "alternative_products_viewed", "product_selected", "diagnostic_signup_tapped",
+  "diagnostic_import_started", "diagnostic_import_completed", "diagnostic_import_failed"
+];
+for (const event of expectedEvents) assert.match(registrySource, new RegExp(`${event}:`));
+
+const context = {};
+context.globalThis = context;
+vm.createContext(context);
+vm.runInContext(registrySource, context);
+const sanitized = context.AthlevoAnalyticsRegistry.sanitizeProps("diagnostic_completed", {
+  questions_answered: 9,
+  primary_limiter: "aerobic_base",
+  recommended_product: "ai",
+  feasibility_rating: "realistic",
+  injury_reported: true,
+  injury_area: "left knee",
+  raw_answers: "private",
+  message: "private"
+});
+assert.equal(sanitized.injury_reported, true);
+assert.equal(sanitized.injury_area, undefined);
+assert.equal(sanitized.raw_answers, undefined);
+assert.equal(sanitized.message, undefined);
+assert.match(analytics, /"injury_reported"/);
+assert.match(analytics, /APPROVED_NAMED_KEYS = \{[^}]*injury_reported: true/);
+assert.doesNotMatch(ui, /posthog\.capture/);
+
+console.log("PASS — diagnostic UI source-of-truth, restoration, accessibility, and analytics privacy contracts");
