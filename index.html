@@ -9420,6 +9420,17 @@ async function restoreSession(opts) {
         // Fix A: getUser() timed out — the session token is still valid,
         // so preserve it and route into the app instead of signing out.
         console.warn("getUser() timed out — proceeding with existing session.");
+      } else if (userError && window.AthlevoSession &&
+          AthlevoSession.isTemporalJwtError(userError)) {
+        const recovered = await AthlevoSession.getVerifiedSession(supabaseClient);
+        if (recovered.session && recovered.user) {
+          session = recovered.session;
+          console.info("Recovered a stale session with a verified refreshed token.");
+        } else {
+          console.warn("Temporal session recovery failed — signing out.");
+          session = null;
+          try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
+        }
       } else if (userError || !(userData && userData.user)) {
         console.warn("Session user no longer exists — signing out.", userError && userError.message);
         session = null;

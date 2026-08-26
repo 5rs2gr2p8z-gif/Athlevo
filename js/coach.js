@@ -1028,8 +1028,38 @@ async function askCoach(question) {
   _coachLastQuestion = cleanQuestion;
   setCoachSendingState(true);
   var coachAccessTier = "unknown";
+  var coachSession = null;
   var userMessage = null;
   var loadingMessage = null;
+
+  // A persisted Supabase session can contain a token that has not yet been
+  // checked by Auth. Verify it before any profile/entitlement query; a known
+  // temporal JWT rejection gets one refresh-token exchange and one recheck.
+  try {
+    var verifiedCoachSession = window.AthlevoSession &&
+      typeof AthlevoSession.getVerifiedSession === "function"
+      ? await AthlevoSession.getVerifiedSession(supabaseClient)
+      : null;
+    coachSession = verifiedCoachSession && verifiedCoachSession.session;
+    if (!coachSession) {
+      var sessionError = new Error(
+        verifiedCoachSession && verifiedCoachSession.reason === "unavailable"
+          ? "We couldn't verify access right now. Please try again."
+          : "Please sign in again."
+      );
+      sessionError.coachCode = verifiedCoachSession &&
+        verifiedCoachSession.reason === "unavailable"
+        ? "ACCESS_UNAVAILABLE"
+        : "AUTH_REQUIRED";
+      throw sessionError;
+    }
+  } catch (error) {
+    var earlyFailure = classifyCoachFailure(error.coachCode, 0);
+    if (typeof toast === "function") toast(earlyFailure.message);
+    coachRequestInFlight = false;
+    setCoachSendingState(false);
+    return;
+  }
 
   // Do not classify unresolved entitlement as Free. Keep the duplicate-submit
   // guard active while the verified subscription state loads.
@@ -1174,7 +1204,6 @@ context.recentConversation = (await loadRecentConversationForCoach())
   );
     // The coach endpoint now requires a valid Athlevo session (it spends AI
     // budget), so send the Supabase access token like every other endpoint.
-    const { data: { session: coachSession } } = await supabaseClient.auth.getSession();
     if (!coachSession) {
       var authError = new Error("Please sign in again.");
       authError.coachCode = "AUTH_REQUIRED";

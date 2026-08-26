@@ -64,6 +64,8 @@ function jsonResponse(status, body) {
   return {
     ok: status >= 200 && status < 300,
     status,
+    statusText: status === 401 ? "Unauthorized" : "",
+    headers: new Headers({ "Content-Type": "application/json" }),
     async json() { return body; },
     async text() { return JSON.stringify(body); }
   };
@@ -110,6 +112,9 @@ function createWorld() {
 
     if (url.includes("/auth/v1/user")) {
       const token = String(init.headers?.Authorization || "").replace("Bearer ", "");
+      if (token === "auth-down") {
+        return jsonResponse(503, { message: "temporarily unavailable" });
+      }
       return token === "invalid"
         ? jsonResponse(401, {})
         : jsonResponse(200, { id: token });
@@ -284,6 +289,7 @@ section("Authentication, input, context, and abuse-rate errors");
   const world = createWorld();
   globalThis.fetch = world.fetchMock;
   const auth = await world.call("invalid");
+  const authUnavailable = await world.call("auth-down");
   const invalid = await world.call("input-user", {
     question: "   ",
     context: { profile: {} }
@@ -299,6 +305,9 @@ section("Authentication, input, context, and abuse-rate errors");
     auth.statusCode === 401 &&
     auth.body?.code === "AUTH_REQUIRED" &&
     world.modelCalls() === 0);
+  test("temporary Supabase Auth failure remains distinct from invalid auth",
+    authUnavailable.statusCode === 503 &&
+    authUnavailable.body?.code === "ACCESS_UNAVAILABLE");
   test("invalid input is rejected before free usage",
     invalid.statusCode === 400 &&
     invalid.body?.code === "INVALID_COACH_MESSAGE" &&

@@ -7,6 +7,7 @@ import {
   consumeFreeUsage,
   releaseFreeUsage
 } from "../lib/server/freemium.js";
+import { verifySupabaseAccessToken } from "../lib/server/supabaseServer.js";
 
 export const maxDuration = 60;
 
@@ -21,21 +22,6 @@ function getBearerToken(req) {
   return authorization.slice(7).trim();
 }
 
-async function getAuthenticatedUser(accessToken) {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey || !accessToken) return null;
-  try {
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      method: "GET",
-      headers: { apikey: serviceRoleKey, Authorization: `Bearer ${accessToken}` }
-    });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (error) {
-    return null;
-  }
-}
 import {
   ACTION_TYPES,
   validateProposedActions
@@ -227,8 +213,18 @@ export default async function handler(req, res) {
 
   // Require a valid Athlevo session before spending any AI budget.
   const accessToken = getBearerToken(req);
-  const authenticatedUser = await getAuthenticatedUser(accessToken);
-  if (!authenticatedUser?.id) {
+  const authentication = await verifySupabaseAccessToken(accessToken);
+  if (!authentication.ok && authentication.reason === "unavailable") {
+    console.warn(JSON.stringify({
+      event: "ai_auth_unavailable", endpoint: "coach", correlationId: randomUUID()
+    }));
+    return res.status(503).json({
+      error: "We couldn't verify access right now. Please try again.",
+      code: "ACCESS_UNAVAILABLE"
+    });
+  }
+  const authenticatedUser = authentication.user;
+  if (!authentication.ok || !authenticatedUser?.id) {
     console.warn(JSON.stringify({
       event: "ai_auth_failed", endpoint: "coach", correlationId: randomUUID()
     }));

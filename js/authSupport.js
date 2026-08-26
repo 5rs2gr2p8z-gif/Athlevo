@@ -532,5 +532,97 @@
     return null;
   }
 
-  window.AthlevoSession = { waitForValidUser };
+  function isTemporalJwtError(error) {
+    const raw = String(error && error.message || "").toLowerCase();
+    return raw.includes("jwt issued at future") ||
+      raw.includes("jwt issued in the future") ||
+      raw.includes("token is expired") ||
+      raw.includes("jwt expired");
+  }
+
+  function isDefinitiveSessionRejection(error) {
+    const status = Number(error && error.status);
+    const code = String(error && error.code || "").toLowerCase();
+    return status === 400 || status === 401 || status === 403 ||
+      code === "bad_jwt" || code === "session_not_found";
+  }
+
+  async function verifySessionUser(client, session) {
+    if (!session || !session.access_token) {
+      return { session: null, user: null, reason: "invalid" };
+    }
+    try {
+      const result = await client.auth.getUser(session.access_token);
+      if (!result.error && result.data && result.data.user) {
+        if (session.user && session.user.id &&
+            result.data.user.id !== session.user.id) {
+          return { session: null, user: null, reason: "invalid" };
+        }
+        return { session, user: result.data.user, reason: null };
+      }
+      return {
+        session: null,
+        user: null,
+        error: result.error,
+        reason: isDefinitiveSessionRejection(result.error)
+          ? "invalid"
+          : "unavailable"
+      };
+    } catch (error) {
+      return { session: null, user: null, error, reason: "unavailable" };
+    }
+  }
+
+  /*
+   * getSession() may return a persisted token that has not been checked by
+   * Supabase Auth. Verify it authoritatively and, only for a temporal JWT
+   * rejection, exchange the refresh token once and verify the replacement.
+   */
+  async function getVerifiedSession(client) {
+    let current;
+    try {
+      current = await client.auth.getSession();
+    } catch (error) {
+      return { session: null, user: null, error, reason: "unavailable" };
+    }
+    if (current.error) {
+      return {
+        session: null,
+        user: null,
+        error: current.error,
+        reason: isDefinitiveSessionRejection(current.error)
+          ? "invalid"
+          : "unavailable"
+      };
+    }
+
+    const session = current.data && current.data.session;
+    const verified = await verifySessionUser(client, session);
+    if (verified.session || !isTemporalJwtError(verified.error)) {
+      return verified;
+    }
+
+    try {
+      const refreshed = await client.auth.refreshSession();
+      if (refreshed.error || !refreshed.data || !refreshed.data.session) {
+        return {
+          session: null,
+          user: null,
+          error: refreshed.error || verified.error,
+          reason: isDefinitiveSessionRejection(refreshed.error)
+            ? "invalid"
+            : "unavailable"
+        };
+      }
+      return verifySessionUser(client, refreshed.data.session);
+    } catch (error) {
+      return { session: null, user: null, error, reason: "unavailable" };
+    }
+  }
+
+  window.AthlevoSession = {
+    waitForValidUser,
+    getVerifiedSession,
+    isTemporalJwtError
+  };
 })();
