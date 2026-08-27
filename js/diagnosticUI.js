@@ -174,7 +174,7 @@ function buildChatShell() {
   // Chat header
   var header = createEl(
     '<div class="chat-header">' +
-      '<div class="chat-avatar">A</div>' +
+      '<img class="chat-avatar" src="/assets/pwa/icon-192.png" alt="Athlevo" width="36" height="36">' +
       '<div class="chat-header-text">' +
         '<span class="chat-header-name">Athlevo</span>' +
         '<span class="chat-header-role">AI Running Coach</span>' +
@@ -199,7 +199,7 @@ function buildChatShell() {
   var composer = createEl(
     '<div class="chat-composer" id="chatComposer">' +
       '<input type="text" class="chat-composer-input" id="chatInput" ' +
-        'placeholder="Type your answer…" autocomplete="off" autocapitalize="sentences" enterkeyhint="send">' +
+        'placeholder="Type your answer here…" autocomplete="off" autocapitalize="sentences" enterkeyhint="send">' +
       '<button class="chat-composer-send" id="chatSend" type="button" aria-label="Send">' +
         '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L17 10M17 10L11 4M17 10L11 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
       '</button>' +
@@ -343,7 +343,7 @@ function showComposer(placeholder) {
   var input = getComposerInput();
   if (composer) composer.style.display = "";
   if (input) {
-    input.placeholder = placeholder || "Type your answer…";
+    input.placeholder = "Type your answer here…";
     input.value = "";
     input.disabled = false;
   }
@@ -357,14 +357,11 @@ function hideComposer() {
 function setComposerMode(type) {
   var input = getComposerInput();
   if (!input) return;
-  // Reset to text
+  // Always keep as text input — dates are typed naturally
   input.type = "text";
   input.inputMode = "";
   if (type === "number") {
     input.inputMode = "decimal";
-  } else if (type === "date") {
-    // For date, we'll use a date input inline instead
-    input.type = "date";
   }
 }
 
@@ -761,8 +758,7 @@ function handleComposerSend() {
   if (!input) return;
 
   var val = input.value.trim();
-  if (!val && input.type !== "date") return;
-  if (input.type === "date" && !val) return;
+  if (!val) return;
 
   busy = true;
   input.value = "";
@@ -809,8 +805,9 @@ function handleComposerSend() {
 
   // Race date
   if (q && q.key === "race_details" && currentSubStep === 0.6) {
-    currentFieldData.goal_race_date = val;
-    if (thread) appendUserMsg(thread, formatDate(val));
+    var parsedDate = parseNaturalDate(val);
+    currentFieldData.goal_race_date = parsedDate;
+    if (thread) appendUserMsg(thread, formatDate(parsedDate));
     hideQuickReplies();
     scrollToBottom();
     busy = false;
@@ -939,6 +936,72 @@ function showValidationMsg(text) {
   thread.appendChild(el);
   animateIn(el);
   scrollToBottom();
+}
+
+
+/**
+ * Try to parse a naturally-typed date string into YYYY-MM-DD.
+ * Supports: "September 13", "Sept 13, 2026", "09/13/2026", "2026-09-13", etc.
+ * Returns the ISO string or the original text if parsing fails.
+ */
+function parseNaturalDate(text) {
+  if (!text || !text.trim()) return "";
+  var t = text.trim();
+
+  // Already ISO format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+
+  // MM/DD/YYYY or MM-DD-YYYY
+  var slashMatch = t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (slashMatch) {
+    var d = new Date(+slashMatch[3], +slashMatch[1] - 1, +slashMatch[2]);
+    if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+  }
+
+  // MM/DD (no year — assume next occurrence)
+  var shortSlash = t.match(/^(\d{1,2})[\/-](\d{1,2})$/);
+  if (shortSlash) {
+    var now = new Date();
+    var yr = now.getFullYear();
+    var d2 = new Date(yr, +shortSlash[1] - 1, +shortSlash[2]);
+    if (d2 < now) d2.setFullYear(yr + 1);
+    if (!isNaN(d2.getTime())) return d2.toISOString().split("T")[0];
+  }
+
+  // Month name patterns: "September 13", "Sept 13, 2026", "13 September 2026"
+  var months = {
+    jan:0, january:0, feb:1, february:1, mar:2, march:2, apr:3, april:3,
+    may:4, jun:5, june:5, jul:6, july:6, aug:7, august:7,
+    sep:8, sept:8, september:8, oct:9, october:9, nov:10, november:10, dec:11, december:11
+  };
+  var lower = t.toLowerCase().replace(/,/g, "").replace(/\s+/g, " ");
+  // "Month Day Year" or "Month Day"
+  var mdy = lower.match(/^([a-z]+)\s+(\d{1,2})(?:\s+(\d{4}))?$/);
+  if (mdy && months[mdy[1]] !== undefined) {
+    var now2 = new Date();
+    var y = mdy[3] ? +mdy[3] : now2.getFullYear();
+    var d3 = new Date(y, months[mdy[1]], +mdy[2]);
+    if (!mdy[3] && d3 < now2) d3.setFullYear(y + 1);
+    if (!isNaN(d3.getTime())) return d3.toISOString().split("T")[0];
+  }
+  // "Day Month Year" or "Day Month"
+  var dmy = lower.match(/^(\d{1,2})\s+([a-z]+)(?:\s+(\d{4}))?$/);
+  if (dmy && months[dmy[2]] !== undefined) {
+    var now3 = new Date();
+    var y2 = dmy[3] ? +dmy[3] : now3.getFullYear();
+    var d4 = new Date(y2, months[dmy[2]], +dmy[1]);
+    if (!dmy[3] && d4 < now3) d4.setFullYear(y2 + 1);
+    if (!isNaN(d4.getTime())) return d4.toISOString().split("T")[0];
+  }
+
+  // Last resort: try Date.parse
+  var parsed = Date.parse(t);
+  if (!isNaN(parsed)) {
+    return new Date(parsed).toISOString().split("T")[0];
+  }
+
+  // Can't parse — return original, engine will deal with it
+  return t;
 }
 
 function formatDate(dateStr) {

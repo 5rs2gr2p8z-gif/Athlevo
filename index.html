@@ -1343,7 +1343,7 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .connect-card b{font-size:var(--fs-body)}
 
 /* ══════════════ DIAGNOSTIC RESULT STYLES ══════════════ */
-#screen-diagnostic{padding-bottom:0}
+#screen-diagnostic{padding-bottom:0;overflow:hidden}
 .diag-intro{justify-content:center;min-height:60vh}
 .diag-intro .diag-cta-primary{margin-top:28px}
 .diag-result{padding:8px 22px calc(40px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -1417,9 +1417,9 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 /* ══════════════════════════════════════════════════════════════════════
    Chat-style diagnostic UI
    ══════════════════════════════════════════════════════════════════════ */
-.chat-body{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.chat-body{display:flex;flex-direction:column;flex:1;min-height:0;height:100%;max-height:100vh;max-height:100dvh;overflow:hidden}
 .chat-header{display:flex;align-items:center;gap:12px;padding:14px 22px 10px;flex-shrink:0;border-bottom:1px solid var(--line)}
-.chat-avatar{width:36px;height:36px;border-radius:50%;background:var(--red);color:#fff;font-family:var(--serif);font-size:var(--fs-body);font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chat-avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;object-fit:cover;display:block}
 .chat-header-text{display:flex;flex-direction:column;gap:1px}
 .chat-header-name{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);letter-spacing:-.01em}
 .chat-header-role{font-size:var(--fs-caption);font-weight:600;color:var(--ink3);letter-spacing:.02em}
