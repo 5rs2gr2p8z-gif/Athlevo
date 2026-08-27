@@ -65,6 +65,13 @@ var subStepFields = [];       // array of field arrays for the current question
 var interpretationCache = {};
 var resultTrackedFor = null;
 
+/* Facts confidently extracted from free-text messages but not yet
+ * committed to the engine (they belong to a field/question not currently
+ * on screen). Consumed -- and removed -- as soon as their question is
+ * reached, so an upcoming question can be silently answered instead of
+ * re-asked. Purely in-memory: never persisted, never sent to analytics. */
+var factStore = {};
+
 /* ═══════════════════════════ HELPERS ════════════════════════════════ */
 
 function esc(s) {
@@ -527,6 +534,16 @@ async function presentSubStep(index, showPrompt) {
   var fieldGroup = subStepFields[index];
   var f = fieldGroup[0]; // primary field
 
+  // Already known from an earlier free-text message? Fill it silently and
+  // move straight to the next sub-step instead of asking again.
+  var preset = consumeFactForField(f);
+  if (preset !== undefined) {
+    currentFieldData[f.id] = preset;
+    trackEvent("diagnostic_field_autofilled", { field_id: f.id });
+    presentSubStep(index + 1, true);
+    return;
+  }
+
   if (showPrompt) {
     var prompt = getSubStepPrompt(currentQuestion, fieldGroup, index, subStepFields.length);
     var thread = getThread();
@@ -834,15 +851,16 @@ function handleComposerSend() {
   if (!fieldGroup) { busy = false; return; }
   var field = fieldGroup[0];
 
-  // Try to map typed text to a chip value
-  var mapped2 = tryMapTextToValue(q, field, val);
-  if (mapped2 !== null) {
-    currentFieldData[field.id] = mapped2.value;
-    if (thread) appendUserMsg(thread, val);
+  // Parse the whole message for every diagnostic fact it confidently
+  // contains — not just the field on screen — and stash anything for
+  // OTHER fields so later questions can be skipped instead of re-asked.
+  var facts = extractDiagnosticFacts(val, field, q);
+  mergeFactStore(facts, field.id);
+  var resolvedValue = Object.prototype.hasOwnProperty.call(facts, field.id) ? facts[field.id] : undefined;
+
+  function afterFieldCommitted() {
     hideQuickReplies();
     scrollToBottom();
-
-    // Check for dependent showWhen fields
     var dependents = fieldGroup.slice(1);
     var activeDependents = dependents.filter(function (dep) {
       if (!dep.showWhen) return true;
@@ -854,33 +872,62 @@ function handleComposerSend() {
       return;
     }
     advanceAfterChip();
+  }
+
+  // 1) A confidently extracted value for the field on screen — handles
+  //    full sentences ("I want to run my first marathon") and numbers
+  //    with units ("90km", "9hrs") that the old exact/partial matching
+  //    below could not.
+  if (resolvedValue !== undefined && isValidFieldValue(field, resolvedValue)) {
+    currentFieldData[field.id] = resolvedValue;
+    if (thread) appendUserMsg(thread, val);
+    afterFieldCommitted();
     return;
   }
 
-  // For number fields, validate
+  // 2) Existing alias/chip-option matching (exact word, alias table,
+  //    partial label match). Number fields fall through to step 3 below,
+  //    where they are validated against THIS field only.
+  var mapped2 = tryMapTextToValue(q, field, val);
+  if (mapped2 !== null) {
+    currentFieldData[field.id] = mapped2.value;
+    if (thread) appendUserMsg(thread, val);
+    afterFieldCommitted();
+    return;
+  }
+
+  // A structured choice that couldn't be matched (tryMapTextToValue already
+  // showed a conversational clarification for a required one) must never
+  // fall through to being accepted as raw free text -- that would silently
+  // corrupt the engine with a value like experience: "around 4".
+  if (field.type === "chips" || field.type === "multichips") {
+    busy = false;
+    return;
+  }
+
+  // 3) Number fields: parse loosely (strips stray units/words) and
+  //    validate against the field currently on screen — never against a
+  //    different field answered earlier in the same compound question.
   if (field.type === "number") {
-    var n = parseFloat(val);
-    if (!isFinite(n)) {
-      showValidationMsg("Please enter a valid number.");
+    var n = parseLooseNumber(val);
+    if (n === null) {
+      showValidationMsg(conversationalNumberPrompt(field));
       busy = false;
       return;
     }
     if (field.min != null && n < field.min) {
-      showValidationMsg("Should be at least " + field.min + ".");
+      showValidationMsg("That seems low — " + (field.label || "this") + " should be at least " + field.min + ".");
       busy = false;
       return;
     }
     if (field.max != null && n > field.max) {
-      showValidationMsg("Should be " + field.max + " or less.");
+      showValidationMsg("That seems high — " + (field.label || "this") + " should be " + field.max + " or less.");
       busy = false;
       return;
     }
-    currentFieldData[field.id] = val;
-    var displayVal = val + (field.unit ? " " + field.unit : "");
-    if (thread) appendUserMsg(thread, displayVal);
-    hideQuickReplies();
-    scrollToBottom();
-    advanceAfterChip();
+    currentFieldData[field.id] = n;
+    if (thread) appendUserMsg(thread, val);
+    afterFieldCommitted();
     return;
   }
 
@@ -894,9 +941,7 @@ function handleComposerSend() {
   // Accept text
   currentFieldData[field.id] = val;
   if (thread) appendUserMsg(thread, val);
-  hideQuickReplies();
-  scrollToBottom();
-  advanceAfterChip();
+  afterFieldCommitted();
 }
 
 function askGoalTime() {
@@ -1064,14 +1109,288 @@ function tryMapTextToValue(q, field, text) {
     return null;
   }
 
-  // For text/number fields, accept as-is
-  if (field.type === "text" || field.type === "number") {
+  // For free text fields, accept as-is. Number fields are handled by the
+  // loose-numeric-parse step in handleComposerSend so a value is always
+  // validated against the field it actually belongs to.
+  if (field.type === "text") {
     return { value: text, label: text };
   }
 
   return null;
 }
 
+
+/* ═══════════════════════════ FREE-TEXT EXTRACTION ═══════════════════
+ * Reads a whole runner message for every diagnostic fact it confidently
+ * contains — not just the field currently on screen — and maps it to the
+ * SAME field ids the engine already defines (js/diagnostic.js QUESTIONS).
+ * Nothing here invents a field: every extracted value is checked against
+ * the real field definition (options/min/max/type) before it is trusted.
+ * Ambiguous or unitless numbers are left alone so the existing per-field
+ * flow (context = the question currently on screen) handles them.
+ */
+
+var WEEK_CONTEXT_RE = /\bper\s*week\b|\bweekly\b|\b(?:a|last|this|each|every|per)\s*week\b|\/\s*week\b|\bwk\b/i;
+var GOAL_TIME_RE = /\bsub[\s-]?(\d{1,2})(?::(\d{2}))?\b/i;
+var RACE_NAME_RE = /\b([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,3}\s+(?:Half\s+Marathon|Ultra\s*Marathon|Marathon|10K|5K))\b/;
+var MONTH_NAMES_RE = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+var MONTH_DAY_RE = new RegExp("\\b(" + MONTH_NAMES_RE + ")\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b", "i");
+var DAY_MONTH_RE = new RegExp("\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(" + MONTH_NAMES_RE + ")(?:,?\\s+(\\d{4}))?\\b", "i");
+
+// Word-based goal keywords are safe in any message. Numeric ones ("50k",
+// "10k", "42.2k"...) are gated separately -- a weekly-mileage sentence
+// like "40-50km per week" must never be read as an Ultra/10K race goal.
+var GOAL_DISTANCE_WORD_RULES = [
+  [/\bhalf[\s-]?marathon\b/i, "Half marathon"],
+  [/\bultra\s*-?\s*marathon\b|\bultra\b/i, "Ultra"],
+  [/\bfull\s+marathon\b|\bmarathon\b/i, "Marathon"],
+  [/\bten\s*k\b/i, "10K"],
+  [/\bfive\s*k\b/i, "5K"],
+  [/\bgeneral\s+fitness\b|\bjust\s+fitness\b|\bno\s+(?:target\s+)?race\b/i, "General fitness"]
+];
+var GOAL_DISTANCE_NUMERIC_RULES = [
+  [/\b21\.?1\s*k(?:m)?\b/i, "Half marathon"],
+  [/\b(?:50|100)\s*k(?:m)?\b/i, "Ultra"],
+  [/\b42\.?2\s*k(?:m)?\b/i, "Marathon"],
+  [/\b10\s*-?\s*k(?:m)?\b/i, "10K"],
+  [/\b5\s*-?\s*k(?:m)?\b/i, "5K"]
+];
+
+/**
+ * Parse a loose numeric answer: strips units/words and returns the first
+ * number found ("90km" → 90, "9 hrs" → 9, "around 4" → 4). Returns null
+ * when no number is present at all.
+ */
+function parseLooseNumber(text) {
+  if (text == null) return null;
+  var m = String(text).match(/-?\d+(?:[.,]\d+)?/);
+  if (!m) return null;
+  var n = parseFloat(m[0].replace(",", "."));
+  return isFinite(n) ? n : null;
+}
+
+/** Find a field definition (by id) anywhere in the real question bank. */
+function findFieldDef(fieldId) {
+  var qs = (root.AthlevoDiagnostic && root.AthlevoDiagnostic.getQuestions) ? root.AthlevoDiagnostic.getQuestions() : [];
+  for (var i = 0; i < qs.length; i++) {
+    for (var j = 0; j < qs[i].fields.length; j++) {
+      if (qs[i].fields[j].id === fieldId) return qs[i].fields[j];
+    }
+  }
+  return null;
+}
+
+/** Whether `value` satisfies the real constraints of `field` (never trust
+ * an extracted value that wouldn't also pass the engine's own rules). */
+function isValidFieldValue(field, value) {
+  if (value == null || value === "") return false;
+  if (field.options) {
+    var vals = field.options.map(function (o) { return String(o.value); });
+    return vals.indexOf(String(value)) >= 0;
+  }
+  if (field.type === "number") {
+    var n = Number(value);
+    if (!isFinite(n)) return false;
+    if (field.min != null && n < field.min) return false;
+    if (field.max != null && n > field.max) return false;
+    return true;
+  }
+  if (field.type === "date") return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+  if (field.maxLength) return String(value).length <= field.maxLength;
+  return true;
+}
+
+/**
+ * Scan a whole free-text message for every diagnostic fact it confidently
+ * contains. `currentField`/`currentQuestion` provide context — a bare
+ * number typed for the field on screen is trusted even without a unit
+ * word, exactly like the pre-existing per-step behaviour; everywhere else
+ * a unit/keyword is required so ambiguous numbers are never guessed at.
+ */
+function extractDiagnosticFacts(message, currentField, currentQuestion) {
+  var facts = {};
+  if (!message) return facts;
+  var text = String(message);
+  var currentId = currentField && currentField.id;
+  var weekCtx = WEEK_CONTEXT_RE.test(text);
+
+  // Weekly distance (km) — supports a simple range ("40-50km" → midpoint).
+  var trustDistance = weekCtx || currentId === "weekly_mileage";
+  if (trustDistance) {
+    var distRange = text.match(/(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)\s*(?:km|kilometers?|kilometres?|kms?)\b/i);
+    if (distRange) {
+      var lo = parseFloat(distRange[1]), hi = parseFloat(distRange[2]);
+      if (isFinite(lo) && isFinite(hi)) facts.weekly_mileage = Math.round(((lo + hi) / 2) * 10) / 10;
+    } else {
+      var distMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:km|kilometers?|kilometres?|kms?)\b/i);
+      if (distMatch) facts.weekly_mileage = parseFloat(distMatch[1]);
+      else if (currentId === "weekly_mileage") {
+        var bare = parseLooseNumber(text);
+        if (bare != null) facts.weekly_mileage = bare;
+      }
+    }
+  }
+
+  // Weekly hours.
+  var trustHours = weekCtx || currentId === "weekly_hours";
+  if (trustHours) {
+    var hoursMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr)\b/i);
+    if (hoursMatch) facts.weekly_hours = parseFloat(hoursMatch[1]);
+    else if (currentId === "weekly_hours") {
+      var bareH = parseLooseNumber(text);
+      if (bareH != null) facts.weekly_hours = bareH;
+    }
+  }
+
+  // Training days per week.
+  var trustDays = weekCtx || currentId === "training_days";
+  if (trustDays) {
+    var daysMatch = text.match(/\b(\d)\s*(?:-\s*\d)?\s*days?\b/i);
+    if (daysMatch) {
+      var d = parseInt(daysMatch[1], 10);
+      facts.training_days = d;
+    } else if (currentId === "training_days") {
+      var bareD = parseLooseNumber(text);
+      if (bareD != null) facts.training_days = bareD;
+    }
+  }
+
+  // Goal finish time ("sub 4", "sub-3:45").
+  var timeMatch = text.match(GOAL_TIME_RE);
+  if (timeMatch) {
+    facts.goal_time = "sub-" + timeMatch[1] + ":" + (timeMatch[2] || "00");
+  }
+
+  // Race name ("Pampanga Marathon", "Chicago Half Marathon").
+  var raceMatch = text.match(RACE_NAME_RE);
+  if (raceMatch) facts.goal_race = raceMatch[1].trim();
+
+  // Race date, embedded anywhere in the message.
+  var dateSubstr = null;
+  var md = text.match(MONTH_DAY_RE);
+  if (md) {
+    dateSubstr = md[1] + " " + md[2] + (md[3] ? " " + md[3] : "");
+  } else {
+    var dm = text.match(DAY_MONTH_RE);
+    if (dm) dateSubstr = dm[2] + " " + dm[1] + (dm[3] ? " " + dm[3] : "");
+  }
+  if (dateSubstr) {
+    var parsedDate = parseNaturalDate(dateSubstr);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(parsedDate)) facts.goal_race_date = parsedDate;
+  }
+
+  // Goal distance keywords ("marathon", "half marathon", "5k"...). The
+  // numeric forms ("50k", "10k") only count outside a weekly-volume
+  // sentence, so "40-50km per week" is never misread as an Ultra goal.
+  var goalRuleSets = weekCtx ? [GOAL_DISTANCE_WORD_RULES] : [GOAL_DISTANCE_WORD_RULES, GOAL_DISTANCE_NUMERIC_RULES];
+  outerGoalRules:
+  for (var gs = 0; gs < goalRuleSets.length; gs++) {
+    var rules = goalRuleSets[gs];
+    for (var gi = 0; gi < rules.length; gi++) {
+      if (rules[gi][0].test(text)) {
+        facts.goal_distance = rules[gi][1];
+        break outerGoalRules;
+      }
+    }
+  }
+
+  // Drop anything that wouldn't actually pass the real field's own rules.
+  for (var fid in facts) {
+    if (!Object.prototype.hasOwnProperty.call(facts, fid)) continue;
+    var def = findFieldDef(fid);
+    if (!def || !isValidFieldValue(def, facts[fid])) delete facts[fid];
+  }
+
+  return facts;
+}
+
+/**
+ * Store extracted facts for later questions. `skipFieldId` is the field
+ * currently on screen — handled directly by the caller, never stashed.
+ * A fact is never allowed to override an answer the engine already has.
+ */
+function mergeFactStore(facts, skipFieldId) {
+  for (var key in facts) {
+    if (!Object.prototype.hasOwnProperty.call(facts, key)) continue;
+    if (key === skipFieldId) continue;
+    if (engine && engine.known && engine.known[key]) continue;
+    factStore[key] = facts[key];
+  }
+}
+
+/** Pull a pending fact for one field, consuming it. Never overrides a
+ * value the current sub-step already has. */
+function consumeFactForField(f) {
+  var existing = currentFieldData[f.id];
+  if (existing != null && existing !== "") return undefined;
+  if (Object.prototype.hasOwnProperty.call(factStore, f.id)) {
+    var v = factStore[f.id];
+    delete factStore[f.id];
+    return v;
+  }
+  return undefined;
+}
+
+/** showWhen check against an arbitrary data object (factStore simulation),
+ * distinct from checkShowWhen() which always reads currentFieldData. */
+function checkShowWhenAgainst(cond, data) {
+  for (var fieldId in cond) {
+    if (!cond.hasOwnProperty(fieldId)) continue;
+    var val = data[fieldId];
+    var expected = cond[fieldId];
+    if (Array.isArray(expected)) {
+      if (expected.indexOf(val) < 0) return false;
+    } else if (val !== expected) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * If every currently-visible required field of `q` already has a valid
+ * value sitting in factStore, return the answers object ready to hand
+ * straight to engine.recordAnswer(). Returns null when the question still
+ * needs to be asked (nothing extracted at all, or a required field is
+ * still missing).
+ */
+function questionFullyKnownFromFacts(q) {
+  var sim = {};
+  for (var i = 0; i < q.fields.length; i++) {
+    var f = q.fields[i];
+    if (f.showWhen && !checkShowWhenAgainst(f.showWhen, sim)) continue;
+    if (Object.prototype.hasOwnProperty.call(factStore, f.id) && isValidFieldValue(f, factStore[f.id])) {
+      sim[f.id] = factStore[f.id];
+    }
+  }
+  var hasAny = false;
+  for (var k in sim) { if (Object.prototype.hasOwnProperty.call(sim, k)) { hasAny = true; break; } }
+  if (!hasAny) return null;
+
+  for (var j = 0; j < q.fields.length; j++) {
+    var field = q.fields[j];
+    if (field.showWhen && !checkShowWhenAgainst(field.showWhen, sim)) continue;
+    if (field.required) {
+      var v = sim[field.id];
+      var empty = v == null || v === "" || (Array.isArray(v) && v.length === 0);
+      if (empty) return null;
+    }
+  }
+  return sim;
+}
+
+/** Drop any leftover pending facts for a question once it's been recorded
+ * (avoids a stale extracted value resurfacing after the runner changes
+ * their answer, e.g. via Back). */
+function clearConsumedFacts(q) {
+  for (var i = 0; i < q.fields.length; i++) delete factStore[q.fields[i].id];
+}
+
+function conversationalNumberPrompt(field) {
+  var label = field && field.label ? field.label.toLowerCase() : "that";
+  var example = field && field.placeholder ? field.placeholder.replace(/^e\.g\.\s*/i, "") : null;
+  return "Got it — could you give me " + label + " as a number" + (example ? " (e.g. " + example + ")" : "") + "?";
+}
 /* ═══════════════════════════ ADVANCE LOGIC ═════════════════════════ */
 
 function advanceAfterChip() {
@@ -1107,6 +1426,7 @@ function submitCurrentQuestion() {
 
   var interpretation = engine.recordAnswer(q.key, currentFieldData);
   if (interpretation) interpretationCache[q.key] = interpretation;
+  clearConsumedFacts(q);
 
   trackEvent("diagnostic_question_answered", {
     question_key: q.key,
@@ -1115,36 +1435,64 @@ function submitCurrentQuestion() {
 
   updateProgress();
 
-  // Show interpretation inline
+  // Show interpretation inline, then advance — silently auto-answering
+  // any upcoming question the runner already told us about instead of
+  // re-asking it.
   (async function () {
     var thread = getThread();
     if (interpretation && thread) {
       await delay(MSG_DELAY);
       await showTypingThenMessage(thread, interpretation);
     }
+    await advanceFlow(thread);
+  })();
+}
 
-    // Check completion
+/**
+ * Move forward from "no active question" toward either completion or the
+ * next question that genuinely still needs to be asked. Any question
+ * that's already fully answerable from previously extracted free-text
+ * facts is recorded silently (its interpretation still shown) instead of
+ * being re-asked.
+ */
+async function advanceFlow(thread) {
+  thread = thread || getThread();
+  for (;;) {
     if (engine.canComplete()) {
       completeDiagnostic();
       return;
     }
 
-    // Next question
     var next = engine.nextQuestion();
-    if (next) {
-      await delay(MSG_DELAY);
-      // Show question prompt
-      var prompt = getSubStepPrompt(next, splitIntoSubSteps(next)[0], 0, splitIntoSubSteps(next).length);
-      // For single-field auto-advance questions, use the question title
-      if (splitIntoSubSteps(next).length === 1) {
-        prompt = next.title;
+    if (!next) return;
+
+    var autoAnswers = questionFullyKnownFromFacts(next);
+    if (autoAnswers) {
+      for (var fid in autoAnswers) {
+        if (Object.prototype.hasOwnProperty.call(autoAnswers, fid)) delete factStore[fid];
       }
-      await showTypingThenMessage(thread, prompt);
-      presentQuestion(next);
-    } else if (engine.canComplete()) {
-      completeDiagnostic();
+      var interp2 = engine.recordAnswer(next.key, autoAnswers);
+      if (interp2) interpretationCache[next.key] = interp2;
+      trackEvent("diagnostic_question_answered", {
+        question_key: next.key,
+        questions_completed: engine.history.length,
+        autofilled: true
+      });
+      updateProgress();
+      if (interp2 && thread) {
+        await delay(MSG_DELAY);
+        await showTypingThenMessage(thread, interp2);
+      }
+      continue; // look for the question after this one
     }
-  })();
+
+    await delay(MSG_DELAY);
+    var subSteps = splitIntoSubSteps(next);
+    var prompt = subSteps.length === 1 ? next.title : getSubStepPrompt(next, subSteps[0], 0, subSteps.length);
+    if (thread) await showTypingThenMessage(thread, prompt);
+    presentQuestion(next);
+    return;
+  }
 }
 
 /* ═══════════════════════════ VALIDATION ════════════════════════════ */
@@ -1175,9 +1523,9 @@ function validateQuestion(q) {
     }
     if (f.type === "number" && value !== "" && value != null) {
       var n = Number(value);
-      if (!isFinite(n)) return 'Please enter a valid number for "' + f.label + '".';
-      if (f.min != null && n < f.min) return '"' + f.label + '" should be at least ' + f.min + '.';
-      if (f.max != null && n > f.max) return '"' + f.label + '" should be ' + f.max + ' or less.';
+      if (!isFinite(n)) return conversationalNumberPrompt(f);
+      if (f.min != null && n < f.min) return "That seems low for " + (f.label ? f.label.toLowerCase() : "this") + " — should be at least " + f.min + ".";
+      if (f.max != null && n > f.max) return "That seems high for " + (f.label ? f.label.toLowerCase() : "this") + " — should be " + f.max + " or less.";
     }
   }
   return null;
