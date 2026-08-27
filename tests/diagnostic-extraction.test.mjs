@@ -125,6 +125,41 @@ const consistencyField = {
 }
 
 {
+  const distField = {
+    id: "recent_race_dist", type: "chips", required: true,
+    options: [
+      { label: "None", value: "none" },
+      { label: "5K", value: "5K" },
+      { label: "10K", value: "10K" },
+      { label: "Half marathon", value: "Half marathon" },
+      { label: "Marathon", value: "Marathon" }
+    ]
+  };
+  const recentQ = { key: "recent_performance" };
+  const variants = [
+    "half marathon, 1:43, few months ago",
+    "half marathon 1:43",
+    "HM in 1:43",
+    "I ran a half in 1:43",
+    "21k, 1 hour 43",
+    "my last half was around 1:43"
+  ];
+  for (const phrase of variants) {
+    const facts = UI._internal.extractDiagnosticFacts(phrase, distField, recentQ);
+    assert.equal(facts.recent_race_dist, "Half marathon", phrase);
+    assert.equal(facts.recent_race_time, "1:43", phrase);
+    assert.equal(facts.goal_distance, undefined, phrase);
+  }
+
+  const mapped = UI._internal.tryMapTextToValue(
+    recentQ,
+    distField,
+    "half marathon, 1:43, few months ago"
+  );
+  assert.equal(mapped.value, "Half marathon");
+}
+
+{
   const mapped = UI._internal.tryMapTextToValue(
     { key: "goal" },
     {

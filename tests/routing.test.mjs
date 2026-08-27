@@ -79,28 +79,44 @@ const SOURCE = [
 
 /* ── minimal DOM + app doubles ──────────────────────────────────────── */
 
-function makeWorld({ session, standalone, routeThrows = false, continuation = null }) {
+function makeWorld({
+  session,
+  standalone,
+  routeThrows = false,
+  continuation = null,
+  timedOut = false,
+  storedAuthToken = false,
+  pendingDiagnostic = false,
+  pathname = "/"
+}) {
   const state = {
     screens: {
       "screen-landing": { active: false },
       "screen-welcome": { active: false },
-      "screen-today": { active: false }
+      "screen-today": { active: false },
+      "screen-diagnostic": { active: false }
     },
     bodyClasses: new Set(["booting"]),
     tabbarDisplay: "none",
     routed: null,
     onboardingStarted: false,
     signedOut: false,
+    diagnosticStarted: false,
     log: []
   };
   const store = new Map();
   state.store = store;
+  const localStore = new Map();
+  if (storedAuthToken) {
+    localStore.set("sb-test-auth-token", JSON.stringify({ access_token: "stored-access-token" }));
+  }
 
   const el = (id) => ({
     get classList() {
       return {
         add: (c) => { if (state.screens[id]) state.screens[id].active = (c === "active") || state.screens[id].active; },
-        remove: (c) => { if (c === "active" && state.screens[id]) state.screens[id].active = false; }
+        remove: (c) => { if (c === "active" && state.screens[id]) state.screens[id].active = false; },
+        contains: (c) => !!(state.screens[id] && state.screens[id].active && c === "active")
       };
     },
     style: { set display(v) { if (id === "tabbar") state.tabbarDisplay = v; }, get display() { return state.tabbarDisplay; } }
@@ -130,7 +146,15 @@ function makeWorld({ session, standalone, routeThrows = false, continuation = nu
     document,
     window: {
       scrollTo() {},
-      AthlevoEnv: { consumeContinuation: () => continuation }
+      location: { pathname },
+      AthlevoEnv: { consumeContinuation: () => continuation },
+      AthlevoDiagnostic: { hasPending: () => pendingDiagnostic },
+      AthlevoDiagnosticUI: {
+        start() {
+          state.diagnosticStarted = true;
+          state.screens["screen-diagnostic"].active = true;
+        }
+      }
     },
     console: { log: (...a) => state.log.push(String(a[0])), warn: (...a) => state.log.push(String(a[0])), error: (...a) => state.log.push(String(a[0])) },
     setTimeout,
@@ -140,8 +164,17 @@ function makeWorld({ session, standalone, routeThrows = false, continuation = nu
       setItem: (k, v) => store.set(k, String(v)),
       removeItem: k => store.delete(k)
     },
+    localStorage: {
+      get length() { return localStore.size; },
+      key: i => [...localStore.keys()][i] || null,
+      getItem: k => (localStore.has(k) ? localStore.get(k) : null),
+      setItem: (k, v) => localStore.set(k, String(v)),
+      removeItem: k => localStore.delete(k)
+    },
     supabaseClient: { auth: {
-      getSession: async () => ({ data: { session }, error: null }),
+      getSession: async () => timedOut
+        ? { data: { session: null }, timedOut: true, error: null }
+        : { data: { session }, error: null },
       signOut: async () => { state.signedOut = true; return { error: null }; }
     } },
     athlevoSessionUserId: null,
@@ -366,6 +399,66 @@ section("Back-navigation floor");
   api.renderNavState({ athlevoNav: "landing" });
   const visible = Object.keys(state.screens).find(k => state.screens[k].active);
   t("Back never shows marketing inside the PWA", visible === "screen-welcome", visible);
+}
+
+section("/ai acquisition routing");
+{
+  const src = extract("restoreSession");
+  t("/ai paid session still uses routeAfterAuth, not a second paid check",
+    /routeAfterAuth\(session\.user\.id\)/.test(src) && !/paid_active/.test(src));
+  t("session timeout is tracked separately from a true logged-out session",
+    /sessionRestoreTimedOut/.test(src));
+  t("stored auth token on timeout does not start diagnostic",
+    /stored token — not starting diagnostic/.test(src));
+  t("boot gate on /ai waits for restoreSession to settle",
+    /Boot gate held on \/ai until session restore settles/.test(html) &&
+    /__athlevoSessionRestoreSettled/.test(html));
+}
+{
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
+  state.store.set("athlevo_app_entry_intent", "ai");
+  await api.restoreSession({}); api.endBootGate();
+  t("logged-out /ai starts the diagnostic",
+    state.diagnosticStarted === true && state.screens["screen-diagnostic"].active === true);
+  t("logged-out /ai does not enter the authenticated app",
+    state.routed === null && state.screens["screen-today"].active === false);
+}
+{
+  const { api, state } = makeWorld({ session: SESSION, standalone: false, pathname: "/ai" });
+  state.store.set("athlevo_app_entry_intent", "ai");
+  await api.restoreSession({}); api.endBootGate();
+  t("authenticated /ai user is routed into the app, not diagnostic",
+    state.routed === "u1" && state.diagnosticStarted === false &&
+    state.screens["screen-today"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/ai", pendingDiagnostic: true
+  });
+  state.store.set("athlevo_app_entry_intent", "ai");
+  await api.restoreSession({}); api.endBootGate();
+  t("pending diagnostic localStorage loses to a live session",
+    state.diagnosticStarted === false && state.routed === "u1");
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/ai",
+    timedOut: true, storedAuthToken: true, pendingDiagnostic: true
+  });
+  state.store.set("athlevo_app_entry_intent", "ai");
+  await api.restoreSession({}); api.endBootGate();
+  t("timeout with stored token does not start diagnostic or grant app access",
+    state.diagnosticStarted === false && state.routed === null &&
+    state.screens["screen-welcome"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/ai", timedOut: true
+  });
+  state.store.set("athlevo_app_entry_intent", "ai");
+  await api.restoreSession({}); api.endBootGate();
+  t("timeout without a stored token still shows /ai diagnostic",
+    state.diagnosticStarted === true && state.routed === null);
 }
 
 section("Service worker");

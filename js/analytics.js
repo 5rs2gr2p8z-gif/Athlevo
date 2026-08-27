@@ -66,7 +66,8 @@
     // Pre-signup diagnostic (categorical/count data only; never raw answers)
     "state", "question_key", "questions_completed", "questions_answered",
     "primary_limiter", "recommended_product", "selected_product",
-    "feasibility_rating", "injury_reported"
+    "feasibility_rating", "injury_reported",
+    "buyer_intent", "checkout_method"
   ];
 
   /*

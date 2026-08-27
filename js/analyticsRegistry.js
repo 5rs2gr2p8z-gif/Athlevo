@@ -137,7 +137,9 @@
     diagnostic_buyer_intent_detected: { kind: "behavioural", props: ["buyer_intent"] },
     diagnostic_pricing_asked:      { kind: "behavioural", props: [] },
     diagnostic_start_recommended:  { kind: "behavioural", props: ["buyer_intent"] },
-    diagnostic_value_demonstrated: { kind: "behavioural", props: ["buyer_intent"] }
+    diagnostic_value_demonstrated: { kind: "behavioural", props: ["buyer_intent"] },
+    diagnostic_payment_options_shown: { kind: "behavioural", props: ["surface"] },
+    diagnostic_checkout_method_selected: { kind: "behavioural", props: ["surface", "checkout_method"] }
   };
 
   // Legacy names still emitted by older call sites → the canonical event they

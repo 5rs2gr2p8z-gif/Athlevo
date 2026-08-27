@@ -1456,6 +1456,9 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 .chat-qr-done{border-color:var(--red);color:#fff;background:var(--red);font-weight:700}
 .chat-qr-done:active{background:var(--athlevo-red-dark)}
 .chat-qr-skip{color:var(--ink3);border-style:dashed}
+.chat-qr-pay{border-color:var(--red);color:var(--red);background:var(--red-soft);font-weight:700}
+.chat-qr-pay-primary{border-color:var(--red);color:#fff;background:var(--red)}
+.chat-qr-pay-primary:active{background:var(--athlevo-red-dark)}
 
 /* ── Composer ── */
 .chat-composer{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--paper)}
@@ -7160,6 +7163,7 @@ async function doLogout() {
   }
 
   athlevoSessionUserId = null;
+  try { window.athlevoSessionUserId = null; } catch (e) {}
 
   // Clear profile photo state so the next user starts fresh
   window._athlevoProfilePhotoUrl = null;
@@ -9468,6 +9472,7 @@ async function routeAfterAuth(userId) {
   }
   // Keep the "Open App" affordance in sync after interactive login/signup.
   athlevoSessionUserId = userId;
+  try { window.athlevoSessionUserId = athlevoSessionUserId; } catch (e) {}
   clearAppEntryIntent();
   const { data: profile, error } = await supabaseClient
     .from("profiles")
@@ -9774,13 +9779,15 @@ async function restoreSession(opts) {
    * rather than a hang, which is not.
    */
   let session = null;
+  let sessionRestoreTimedOut = false;
   try {
     const result = await Promise.race([
       supabaseClient.auth.getSession(),
       new Promise(resolve =>
         setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 8000))
     ]);
-    if (result.timedOut) console.warn("Session restore timed out — showing signed-out state.");
+    sessionRestoreTimedOut = !!(result && result.timedOut);
+    if (sessionRestoreTimedOut) console.warn("Session restore timed out — showing signed-out state.");
     if (result.error) console.error("Session restore failed:", result.error);
     session = result.data ? result.data.session : null;
   } catch (error) {
@@ -9841,6 +9848,7 @@ async function restoreSession(opts) {
   }
 
   athlevoSessionUserId = session ? session.user.id : null;
+  try { window.athlevoSessionUserId = athlevoSessionUserId; } catch (e) {}
 
   // ── Password recovery intercept ──
   // When the user arrives via a recovery link, Supabase creates a valid
@@ -9919,14 +9927,52 @@ async function restoreSession(opts) {
           }
         }, 0);
       }
+    } else if (sessionRestoreTimedOut) {
+      /* Timeout is not proof of logout. A paid token may still be in
+         storage. Do not start the /ai diagnostic (would flash acquisition)
+         and do not grant app access. Welcome is recoverable. */
+      var storedAuth = false;
+      try {
+        for (var si = 0; si < localStorage.length; si++) {
+          var sk = localStorage.key(si);
+          if (sk && sk.indexOf('sb-') === 0 && sk.indexOf('auth-token') >= 0) {
+            var sv = localStorage.getItem(sk);
+            if (sv && sv.indexOf('access_token') >= 0) {
+              storedAuth = true;
+              break;
+            }
+          }
+        }
+      } catch (storedErr) {}
+      var aiAcquisition = appEntryIntentReason() === 'ai';
+      try {
+        var aiPath = (window.location && window.location.pathname) || '';
+        if (aiPath.replace(/\/+$/, '') === '/ai') aiAcquisition = true;
+      } catch (aiPathErr) {}
+      if (storedAuth) {
+        console.warn("Session restore timed out with a stored token — not starting diagnostic.");
+        showScreen("screen-welcome");
+      } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
+                 window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
+                 window.AthlevoDiagnosticUI.start && !athlevoSessionUserId) {
+        window.AthlevoDiagnosticUI.start();
+      } else if (aiAcquisition && window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start &&
+                 !athlevoSessionUserId) {
+        window.AthlevoDiagnosticUI.start();
+      } else if (isStandaloneMode() || hasAppEntryIntent()) {
+        showScreen("screen-welcome");
+      } else {
+        showScreen("screen-landing");
+        updateOpenAppUI(false);
+      }
     } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
                window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
-               window.AthlevoDiagnosticUI.start) {
-      // Restore both an in-progress assessment and a completed result that is
-      // still waiting for authenticated import.
+               window.AthlevoDiagnosticUI.start && !athlevoSessionUserId) {
       window.AthlevoDiagnosticUI.start();
-    } else if (appEntryIntentReason() === 'ai' &&
-               window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start) {
+    } else if ((appEntryIntentReason() === 'ai' ||
+                (window.location && String(window.location.pathname || '').replace(/\/+$/, '') === '/ai')) &&
+               window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start &&
+               !athlevoSessionUserId) {
       // /ai route: logged-out visitors see the diagnostic intro, not auth.
       window.AthlevoDiagnosticUI.start();
     } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
@@ -9978,10 +10024,27 @@ function endBootGate() {
  */
 setTimeout(function () {
   if (document.body.classList.contains('booting')) {
+    var holdForAi = !window.__athlevoSessionRestoreSettled;
+    try {
+      holdForAi = holdForAi && (location.pathname || '').replace(/\/+$/, '') === '/ai';
+    } catch (holdErr) {
+      holdForAi = false;
+    }
+    if (holdForAi) {
+      console.warn("Boot gate held on /ai until session restore settles.");
+      return;
+    }
     console.warn("Boot gate released on timeout — the app will finish loading in place.");
     endBootGate();
   }
 }, 6000);
+setTimeout(function () {
+  if (document.body.classList.contains('booting')) {
+    console.warn("Boot gate released on hard timeout.");
+    window.__athlevoSessionRestoreSettled = true;
+    endBootGate();
+  }
+}, 14000);
 </script>
 <!-- Auth modals -->
 <div id="authModal" style="display:none;">
@@ -10957,9 +11020,9 @@ setTimeout(function () {
   async function initializeAthlevoApp() {
     const url = new URL(window.location.href);
 
-    // Direct /ai route: treat as an app-entry intent so unauthenticated
-    // visitors see the auth/welcome screen instead of the marketing landing.
-    // Authenticated visitors are routed into the app by restoreSession as usual.
+    // Direct /ai route: logged-out visitors enter the acquisition diagnostic.
+    // Authenticated visitors are routed by restoreSession (paid → app;
+    // unpaid → existing entitlement, never paid access from account alone).
     var aiPath = url.pathname.replace(/\/+$/, "");
     if (aiPath === "/ai") {
       rememberAppEntryIntent("ai");
@@ -10986,9 +11049,11 @@ setTimeout(function () {
      * unexpected throw, the athlete ends up on a real screen.
      */
     let enteredApp = false;
+    window.__athlevoSessionRestoreSettled = false;
     try {
       enteredApp = await restoreSession({ returningFromStrava: !!stravaResult });
     } finally {
+      window.__athlevoSessionRestoreSettled = true;
       endBootGate();
       // Surface any OAuth failure now that a real screen is showing.
       reportAuthProblem();

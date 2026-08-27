@@ -19,6 +19,11 @@ assert.match(ui, /type=\"button\"/, "fields use native button elements");
 assert.match(ui, /handleChipSelect/, "question fields are wired for interaction");
 assert.match(ui, /chat-qr-chip/, "quick-reply chips rendered for field options");
 assert.match(index, /AthlevoDiagnostic\.hasPending\(\)[\s\S]{0,300}AthlevoDiagnosticUI\.start/);
+assert.match(ui, /if \(root\.athlevoSessionUserId\) \{[\s\S]{0,220}routeAfterAuth/,
+  "authenticated visitors must not paint the /ai acquisition chat");
+assert.match(ui, /if \(root\.athlevoSessionUserId\) \{[\s\S]{0,180}QRPh · Maya · GrabPay/);
+assert.match(index, /sessionRestoreTimedOut/);
+assert.match(index, /__athlevoSessionRestoreSettled/);
 
 const expectedEvents = [
   "diagnostic_viewed", "diagnostic_started", "diagnostic_resumed",
@@ -27,7 +32,8 @@ const expectedEvents = [
   "alternative_products_viewed", "product_selected", "diagnostic_signup_tapped",
   "diagnostic_import_started", "diagnostic_import_completed", "diagnostic_import_failed",
   "diagnostic_ai_fallback_used", "diagnostic_buyer_intent_detected",
-  "diagnostic_pricing_asked", "diagnostic_start_recommended", "diagnostic_value_demonstrated"
+  "diagnostic_pricing_asked", "diagnostic_start_recommended", "diagnostic_value_demonstrated",
+  "diagnostic_payment_options_shown", "diagnostic_checkout_method_selected"
 ];
 for (const event of expectedEvents) assert.match(registrySource, new RegExp(`${event}:`));
 

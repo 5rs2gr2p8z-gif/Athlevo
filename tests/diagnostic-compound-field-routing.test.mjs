@@ -127,6 +127,18 @@ assert.match(ui, /var field = activeSubField \|\| fieldGroup\[0\];/,
   "handleComposerSend must resolve the on-screen field via activeSubField, not assume fieldGroup[0]");
 assert.match(ui, /activeSubField = dep;/,
   "presentDependentField must record the dependent field as the one now on screen");
+assert.match(ui, /function absorbGroupFacts/,
+  "compound groups must absorb extracted dependent facts before asking the next field");
+assert.match(ui, /offerPaymentBridge/,
+  "transactional intent must present the in-chat payment-method bridge");
+assert.match(ui, /QRPh · Maya · GrabPay/);
+assert.match(ui, /Debit \/ Credit Card/);
+assert.match(ui, /if \(root\.athlevoSessionUserId\) \{[\s\S]{0,180}QRPh · Maya · GrabPay/,
+  "local PayMongo chips are acquisition-visible only when a session exists");
+assert.match(ui, /if \(method === "local" && !root\.athlevoSessionUserId\) return;/);
+assert.doesNotMatch(ui, /GCash/);
+assert.match(ui, /checkout_method: checkoutMethod/);
+assert.match(ui, /if \(checkoutOpening\) return;/);
 assert.doesNotMatch(ui, /var dependents = fieldGroup\.slice\(1\);/,
   "the two independent fieldGroup.slice(1) dependent-detection copies must be gone");
 

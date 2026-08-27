@@ -55,9 +55,10 @@ var PRODUCT_FACTS = {
  * then the AI router; a false positive would hijack a legitimate answer.
  */
 var RE_PRICING = /(how much (is|does|would)|what.?s the price|what does (it|this|athlevo) cost|\bpricing\b|\bcost\b.*(month|athlevo|this)|₱|\bphp\s?\d|per month|monthly (fee|price|cost|charge)|subscription (cost|price|fee))/i;
-var RE_READY = /(sign me up|let.?s start|start now|i.?m in\b|how do (i|we) start|where do i sign up|i.?m ready to start|get started|build my (training|plan|marathon|race)|make my (training )?plan|start (my )?training|start with athlevo|i want to start|what do i do next)/i;
-var RE_HOW_IT_WORKS = /(how (do|does|would|can) (you|it|athlevo) (help|work|coach)|how can you help( me)?|what.?s included|what do i get|how does this work|how would (this|athlevo) help|what happens after i (sign up|start|pay))/i;
-var RE_INTERESTED = /(^|\s)(i.?m interested|sounds good|let.?s do (it|this)|okay,? (i.?m|let.?s|lets))(\s|$|\.)/i;
+var RE_READY = /(sign me up|let.?s start|start now|i.?m in\b|how do (i|we) (start|pay)|where do i (sign up|pay)|i.?m ready to start|get started|build my (training|plan|marathon|race)|make my (training )?plan|start (my )?training|start with athlevo|i want to (start|proceed)|what do i do next|how do i pay|where do i pay)/i;
+var RE_HOW_IT_WORKS = /(how (do|does|would|can) (you|it|athlevo) (help|work|coach)|how can you help( me)?|what.?s included|what (are|are the) (the )?inclusions|what do i get|how does this work|how would (this|athlevo) help|what happens after i (sign up|start|pay))/i;
+var RE_INTERESTED = /(^|\s)(i.?m interested|sounds good|okay,? (i.?m|let.?s|lets))(\s|$|\.)/i;
+var RE_SHORT_READY = /^(ok(ay)?[,.]?\s*)?(i.?m ready|let.?s do (it|this)|i want to proceed)\.?$/i;
 var RE_OBJ_CHATGPT = /(just chatgpt|use chatgpt|why not chatgpt|why wouldn.?t i just use chatgpt|isn.?t this (just )?chatgpt)/i;
 var RE_OBJ_CANCEL = /\bcan i cancel\b|\bcancel anytime\b|\bcancel(lation)?\b/i;
 var RE_OBJ_STATIC = /(static plan|just a spreadsheet|excel (sheet|plan)|pdf plan|what.?s different from a static)/i;
@@ -73,7 +74,7 @@ function classify(message) {
   if (RE_PRICING.test(m)) {
     return { intent: "pricing_question", next_action: "explain_offer", confidence: 0.92 };
   }
-  if (RE_READY.test(m)) {
+  if (RE_SHORT_READY.test(m) || RE_READY.test(m)) {
     return { intent: "ready_to_start", next_action: "show_checkout", confidence: 0.9 };
   }
   if (RE_HOW_IT_WORKS.test(m)) {
@@ -407,7 +408,7 @@ function composeReadyReply(engine) {
   var f = statedFacts(engine);
   var bit = f.goal && f.goal !== "General fitness" ? " for your " + f.goal.toLowerCase() : "";
   return {
-    reply: "I can take you to start from here" + bit + " — " + TRUE_PRICE + ".",
+    reply: "Sounds good" + bit + ". Choose whichever payment method is easiest for you.",
     reply_2: "Your diagnostic is saved either way.",
     next_action: "show_checkout",
     show_checkout: true

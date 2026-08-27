@@ -134,6 +134,16 @@ function createEl(html) {
 /* ═══════════════════════════ SCREEN SETUP ═══════════════════════════ */
 
 function startDiagnostic() {
+  /* Authenticated users never enter the public /ai acquisition chat.
+     Paid → existing app routing. Unpaid → existing entitlement, not paid access.
+     A stored pending diagnostic must not override a live session. */
+  if (root.athlevoSessionUserId) {
+    if (typeof root.routeAfterAuth === "function") {
+      return root.routeAfterAuth(root.athlevoSessionUserId);
+    }
+    return;
+  }
+
   var pending = root.AthlevoDiagnostic && root.AthlevoDiagnostic.load();
   if (pending && !pending.completed) {
     engine = pending;
@@ -336,8 +346,9 @@ function showQuickReplies(options, onSelect) {
 
   for (var i = 0; i < options.length; i++) {
     (function (opt) {
+      var chipClass = opt.chipClass ? "chat-qr-chip " + opt.chipClass : "chat-qr-chip";
       var btn = createEl(
-        '<button class="chat-qr-chip" type="button">' + esc(opt.label) + '</button>'
+        '<button class="' + chipClass + '" type="button">' + esc(opt.label) + '</button>'
       );
       btn.addEventListener("click", function () {
         onSelect(opt);
@@ -688,6 +699,8 @@ function handleChipSelect(field, opt, fieldGroup) {
   if (thread) appendUserMsg(thread, opt.label);
   scrollToBottom();
 
+  absorbGroupFacts(fieldGroup);
+
   // Check for a dependent field that has just become visible (e.g. a
   // showWhen text field revealed by the chip we just picked).
   var dependent = nextActiveDependent(fieldGroup, field.id, currentFieldData);
@@ -743,6 +756,20 @@ function showMultiChipsWithState(field) {
 }
 
 function presentDependentField(dep) {
+  var preset = consumeFactForField(dep);
+  if (preset !== undefined) {
+    currentFieldData[dep.id] = preset;
+    var fieldGroup = subStepFields[Math.floor(currentSubStep)] || subStepFields[0] || [];
+    absorbGroupFacts(fieldGroup);
+    var next = nextActiveDependent(fieldGroup, dep.id, currentFieldData);
+    if (next) {
+      presentDependentField(next);
+      return;
+    }
+    activeSubField = null;
+    advanceAfterChip();
+    return;
+  }
   activeSubField = dep;
   var thread = getThread();
   (async function () {
@@ -926,6 +953,7 @@ function handleComposerSend() {
   function afterFieldCommitted() {
     hideQuickReplies();
     scrollToBottom();
+    absorbGroupFacts(fieldGroup);
     var dependent = nextActiveDependent(fieldGroup, field.id, currentFieldData);
     if (dependent) {
       busy = false;
@@ -1128,7 +1156,7 @@ function handleSalesDetour(classification, message, extraPains) {
   showAthlevoBubbles(composed.reply, composed.reply_2, true);
   busy = false;
   if (composed.show_checkout || composed.next_action === "show_checkout") {
-    offerStartChips();
+    offerPaymentBridge();
     return;
   }
   offerFollowUpChips(composed.next_action === "recommend_athlevo" || composed.next_action === "explain_offer");
@@ -1210,7 +1238,7 @@ function applyConversationalResult(result, message, field, fieldGroup) {
   }
 
   if (result.show_checkout || result.next_action === "show_checkout") {
-    offerStartChips();
+    offerPaymentBridge();
     return;
   }
 
@@ -1255,14 +1283,27 @@ function restoreCurrentFieldInput() {
 }
 
 function offerStartChips() {
-  var Sales = getSales();
-  var label = Sales ? Sales.ctaLabel(engine, salesState) : "Start my training · ₱597/month";
-  showQuickReplies([
-    { label: label, value: "__start" },
-    { label: "Keep talking", value: "__more" }
-  ], function (opt) {
-    if (opt.value === "__start") {
-      beginCheckoutFromChat();
+  offerPaymentBridge();
+}
+
+function offerPaymentBridge() {
+  trackEvent("diagnostic_payment_options_shown", { surface: "diagnostic" });
+  /* Logged-out /ai: PayMongo checkout requires auth and 401s. Show only
+     the method that works before signup (Whop card). Authenticated users
+     keep the existing local PayMongo chip — do not remove it globally. */
+  var paymentOptions = [
+    { label: "Debit / Credit Card", value: "__pay_card", chipClass: "chat-qr-pay chat-qr-pay-primary" }
+  ];
+  if (root.athlevoSessionUserId) {
+    paymentOptions.unshift({ label: "QRPh · Maya · GrabPay", value: "__pay_local", chipClass: "chat-qr-pay" });
+  }
+  showQuickReplies(paymentOptions, function (opt) {
+    if (opt.value === "__pay_local") {
+      beginCheckoutFromChat("local");
+      return;
+    }
+    if (opt.value === "__pay_card") {
+      beginCheckoutFromChat("card");
       return;
     }
     busy = false;
@@ -1289,7 +1330,19 @@ function offerFollowUpChips(includeStart) {
   if (options.length) {
     showQuickReplies(options, function (opt) {
       if (opt.value === "__start") {
-        beginCheckoutFromChat();
+        hideQuickReplies();
+        var Sales2 = getSales();
+        var ready = Sales2 ? Sales2.composeSalesReply({
+          intent: "ready_to_start",
+          next_action: "show_checkout",
+          confidence: 0.9
+        }, engine, salesState || Sales2.emptySalesState(), []) : null;
+        showAthlevoBubbles(
+          ready && ready.reply ? ready.reply : "Sounds good. Choose whichever payment method is easiest for you.",
+          null,
+          true
+        );
+        offerPaymentBridge();
         return;
       }
       if (f) handleChipSelect(f, opt, fieldGroup);
@@ -1302,14 +1355,24 @@ function offerFollowUpChips(includeStart) {
   setComposerMode("text");
 }
 
-function beginCheckoutFromChat() {
-  if (busy) return;
+var checkoutOpening = false;
+
+function beginCheckoutFromChat(method) {
+  if (method === "local" && !root.athlevoSessionUserId) return;
+  if (checkoutOpening) return;
+  checkoutOpening = true;
   busy = true;
   hideQuickReplies();
+  var checkoutMethod = method === "local" ? "local" : "card";
+  trackEvent("diagnostic_checkout_method_selected", {
+    surface: "diagnostic",
+    checkout_method: checkoutMethod
+  });
   if (engine && !engine.completed) {
     var rec = engine.currentRecommendation ? engine.currentRecommendation() : null;
     if (rec && rec.safetyOverride) {
       showAthlevoBubbles(rec.strategy, null, true);
+      checkoutOpening = false;
       busy = false;
       restoreCurrentFieldInput();
       return;
@@ -1325,14 +1388,28 @@ function beginCheckoutFromChat() {
     feasibility_rating: result && result.feasibility ? result.feasibility.rating : null
   });
   trackEvent("signup_started", { source_surface: "diagnostic" });
+  var opener = Promise.resolve(false);
   if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.checkout) {
-    root.AthlevoDiagnosticAcquisition.checkout("card");
+    opener = Promise.resolve(root.AthlevoDiagnosticAcquisition.checkout(checkoutMethod));
   } else if (root.openAppEntry) {
     root.openAppEntry();
+    opener = Promise.resolve(true);
   } else {
     showScreen("screen-welcome");
+    opener = Promise.resolve(true);
   }
-  busy = false;
+  opener.then(function (opened) {
+    checkoutOpening = false;
+    busy = false;
+    if (!opened) {
+      showAthlevoBubbles("That payment option isn’t available right now. Card still works from here.", null, true);
+      offerPaymentBridge();
+    }
+  }).catch(function () {
+    checkoutOpening = false;
+    busy = false;
+    offerPaymentBridge();
+  });
 }
 
 function askGoalTime() {
@@ -1475,6 +1552,11 @@ function tryMapTextToValue(q, field, text) {
       }
     }
 
+    // Phrase-in-message match — longest label wins so "half marathon"
+    // is not stolen by the shorter "Marathon" option.
+    var embedded = matchOptionEmbeddedInText(field, lower);
+    if (embedded) return embedded;
+
     // Partial match — only if unambiguous
     var matches = [];
     for (var j = 0; j < field.options.length; j++) {
@@ -1504,6 +1586,40 @@ function tryMapTextToValue(q, field, text) {
   }
 
   return null;
+}
+
+function matchOptionEmbeddedInText(field, lower) {
+  var best = null;
+  var bestLen = 0;
+  for (var i = 0; i < field.options.length; i++) {
+    var opt = field.options[i];
+    var needles = [String(opt.label || "").toLowerCase(), String(opt.value || "").toLowerCase()];
+    for (var n = 0; n < needles.length; n++) {
+      var needle = needles[n];
+      if (!needle || needle.length < 2 || needle.length <= bestLen) continue;
+      var idx = lower.indexOf(needle);
+      if (idx < 0) continue;
+      var before = idx === 0 ? " " : lower.charAt(idx - 1);
+      var after = idx + needle.length >= lower.length ? " " : lower.charAt(idx + needle.length);
+      if (/[a-z0-9]/.test(before) || /[a-z0-9]/.test(after)) continue;
+      best = opt;
+      bestLen = needle.length;
+    }
+  }
+  if (!best) {
+    var aliasKeys = Object.keys(GOAL_ALIASES).sort(function (a, b) { return b.length - a.length; });
+    var allowed = {};
+    for (var a = 0; a < field.options.length; a++) allowed[String(field.options[a].value)] = true;
+    for (var k = 0; k < aliasKeys.length; k++) {
+      var alias = aliasKeys[k];
+      var mapped = GOAL_ALIASES[alias];
+      if (!allowed[mapped]) continue;
+      var re = new RegExp("(?:^|[^a-z0-9])" + alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?:$|[^a-z0-9])", "i");
+      if (re.test(lower)) return { value: mapped, label: mapped };
+    }
+    return null;
+  }
+  return { value: best.value, label: best.label };
 }
 
 
@@ -1536,12 +1652,47 @@ var GOAL_DISTANCE_WORD_RULES = [
   [/\bgeneral\s+fitness\b|\bjust\s+fitness\b|\bno\s+(?:target\s+)?race\b/i, "General fitness"]
 ];
 var GOAL_DISTANCE_NUMERIC_RULES = [
-  [/\b21\.?1\s*k(?:m)?\b/i, "Half marathon"],
+  [/\b21(?:\.1)?\s*k(?:m)?\b/i, "Half marathon"],
   [/\b(?:50|100)\s*k(?:m)?\b/i, "Ultra"],
   [/\b42\.?2\s*k(?:m)?\b/i, "Marathon"],
   [/\b10\s*-?\s*k(?:m)?\b/i, "10K"],
   [/\b5\s*-?\s*k(?:m)?\b/i, "5K"]
 ];
+
+// Distances that recent_performance actually accepts (no Ultra / fitness).
+var RECENT_RACE_DISTANCE_RULES = [
+  [/\bhalf[\s-]?marathon\b/i, "Half marathon"],
+  [/\bhm\b/i, "Half marathon"],
+  [/\b21(?:\.1)?\s*k(?:m)?\b/i, "Half marathon"],
+  [/\b(?:my|last|recent|a)\s+half\b/i, "Half marathon"],
+  [/\bran a half\b/i, "Half marathon"],
+  [/\bfull[\s-]?marathon\b/i, "Marathon"],
+  [/\bmarathon\b/i, "Marathon"],
+  [/\b10\s*-?\s*k(?:m)?\b/i, "10K"],
+  [/\b5\s*-?\s*k(?:m)?\b/i, "5K"]
+];
+
+function detectRecentRaceDistance(text, allowBareHalf) {
+  for (var i = 0; i < RECENT_RACE_DISTANCE_RULES.length; i++) {
+    if (RECENT_RACE_DISTANCE_RULES[i][0].test(text)) return RECENT_RACE_DISTANCE_RULES[i][1];
+  }
+  if (allowBareHalf && /(^|[^a-z])half([^a-z]|$)/i.test(text) && !/\bhalf[\s-]?marathon\b/i.test(text)) {
+    return "Half marathon";
+  }
+  return null;
+}
+
+function detectFinishClock(text) {
+  var clock = String(text).match(/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/);
+  if (clock) return clock[1];
+  var hourMin = String(text).match(/\b(\d{1,2})\s*(?:hours?|hrs?|h)\s*(?:and\s*)?(\d{1,2})\b/i);
+  if (hourMin) {
+    var mins = String(hourMin[2]);
+    if (mins.length < 2) mins = "0" + mins;
+    return hourMin[1] + ":" + mins;
+  }
+  return null;
+}
 
 /**
  * Parse a loose numeric answer: strips units/words and returns the first
@@ -1648,6 +1799,17 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
     facts.goal_time = "sub-" + timeMatch[1] + ":" + (timeMatch[2] || "00");
   }
 
+  var onRecentRace = currentId === "recent_race_dist" || currentId === "recent_race_time" ||
+    (currentQuestion && currentQuestion.key === "recent_performance");
+  var finishClock = detectFinishClock(text);
+  var recentDist = detectRecentRaceDistance(text, onRecentRace || !!finishClock);
+  if (recentDist && (onRecentRace || finishClock)) {
+    facts.recent_race_dist = recentDist;
+  }
+  if (finishClock && (onRecentRace || recentDist || currentId === "recent_race_time")) {
+    facts.recent_race_time = finishClock;
+  }
+
   // Race name ("Pampanga Marathon", "Chicago Half Marathon").
   var raceMatch = text.match(RACE_NAME_RE);
   if (raceMatch) facts.goal_race = raceMatch[1].trim();
@@ -1669,14 +1831,17 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
   // Goal distance keywords ("marathon", "half marathon", "5k"...). The
   // numeric forms ("50k", "10k") only count outside a weekly-volume
   // sentence, so "40-50km per week" is never misread as an Ultra goal.
-  var goalRuleSets = weekCtx ? [GOAL_DISTANCE_WORD_RULES] : [GOAL_DISTANCE_WORD_RULES, GOAL_DISTANCE_NUMERIC_RULES];
-  outerGoalRules:
-  for (var gs = 0; gs < goalRuleSets.length; gs++) {
-    var rules = goalRuleSets[gs];
-    for (var gi = 0; gi < rules.length; gi++) {
-      if (rules[gi][0].test(text)) {
-        facts.goal_distance = rules[gi][1];
-        break outerGoalRules;
+  // A recent-result distance already claimed above is not also a new goal.
+  if (!(facts.recent_race_dist && (onRecentRace || finishClock) && currentId !== "goal_distance")) {
+    var goalRuleSets = weekCtx ? [GOAL_DISTANCE_WORD_RULES] : [GOAL_DISTANCE_WORD_RULES, GOAL_DISTANCE_NUMERIC_RULES];
+    outerGoalRules:
+    for (var gs = 0; gs < goalRuleSets.length; gs++) {
+      var rules = goalRuleSets[gs];
+      for (var gi = 0; gi < rules.length; gi++) {
+        if (rules[gi][0].test(text)) {
+          facts.goal_distance = rules[gi][1];
+          break outerGoalRules;
+        }
       }
     }
   }
@@ -1713,8 +1878,9 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
     }
   }
 
-  // Finish time when that dependent field is actually on screen.
-  if (currentId === "recent_race_time") {
+  // Finish time when that dependent field is actually on screen, if the
+  // compound recent-result parser above did not already capture a clock.
+  if (currentId === "recent_race_time" && !facts.recent_race_time) {
     var clock = text.match(/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/);
     if (clock) facts.recent_race_time = clock[1];
   }
@@ -1754,6 +1920,18 @@ function consumeFactForField(f) {
     return v;
   }
   return undefined;
+}
+
+/** Copy any pending extracted facts for this compound group into the
+ * in-progress answers so a later dependent field is not re-asked. */
+function absorbGroupFacts(fieldGroup) {
+  if (!fieldGroup) return;
+  for (var i = 0; i < fieldGroup.length; i++) {
+    var f = fieldGroup[i];
+    if (!f || Object.prototype.hasOwnProperty.call(currentFieldData, f.id)) continue;
+    var pending = consumeFactForField(f);
+    if (pending !== undefined) currentFieldData[f.id] = pending;
+  }
 }
 
 /** showWhen check against an arbitrary data object (factStore simulation),
@@ -2372,7 +2550,10 @@ var DiagnosticUI = {
     extractDiagnosticFacts: extractDiagnosticFacts,
     parseLooseNumber: parseLooseNumber,
     isValidFieldValue: isValidFieldValue,
-    tryMapTextToValue: tryMapTextToValue
+    tryMapTextToValue: tryMapTextToValue,
+    absorbGroupFacts: absorbGroupFacts,
+    detectRecentRaceDistance: detectRecentRaceDistance,
+    detectFinishClock: detectFinishClock
   }
 };
 

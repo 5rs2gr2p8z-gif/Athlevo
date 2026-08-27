@@ -56,7 +56,8 @@ function engine(answers) {
   assert.equal(c.next_action, "show_checkout");
   const reply = Sales.composeSalesReply(c, engine({ goal_distance: "Marathon" }), Sales.emptySalesState(), []);
   assert.equal(reply.show_checkout, true);
-  assert.match(reply.reply, /₱597/);
+  assert.match(reply.reply, /payment method/i);
+  assert.doesNotMatch(reply.reply, /3 days free|trial/i);
 }
 
 {
@@ -98,6 +99,31 @@ function engine(answers) {
 }
 
 {
+  const price = Sales.classify("How much is it?");
+  assert.equal(price.intent, "pricing_question");
+  const priceReply = Sales.composeSalesReply(price, engine({}), Sales.emptySalesState(), []);
+  assert.match(priceReply.reply, /₱597\/month/);
+  assert.equal(priceReply.show_checkout, false);
+
+  const included = Sales.classify("What are the inclusions?");
+  assert.equal(included.intent, "how_it_works");
+  assert.notEqual(included.next_action, "show_checkout");
+
+  for (const phrase of [
+    "Okay, I want to start.",
+    "Let's do it.",
+    "I'm ready.",
+    "How do I pay?",
+    "Where do I pay?",
+    "I want to proceed.",
+    "Okay, start my training."
+  ]) {
+    const ready = Sales.classify(phrase);
+    assert.equal(ready && ready.intent, "ready_to_start", phrase);
+    assert.ok(ready.confidence >= 0.7, phrase);
+    assert.equal(ready.next_action, "show_checkout", phrase);
+  }
+
   assert.equal(Sales.classify("Marathon"), null, "quick-reply labels must not look like buyer intent");
   assert.equal(Sales.classify("1:43"), null);
   assert.equal(Sales.classify("pretty consistent"), null);
