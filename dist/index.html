@@ -215,7 +215,15 @@
 <meta name="twitter:description" content="One coaching philosophy, with adaptive Athlevo AI and dedicated human coaching for endurance athletes.">
 <meta name="twitter:image" content="https://athlevo.org/assets/pwa/og-image.png">
 
-<meta name="posthog-key" content="phc_psZuWzfdwxidRxUVYED4djBssNDE5L2GYismfmFgYAqt">
+<meta name="posthog-key" content="phc_tvEZxJaW5MBX7zDmoZSZRPDgHg7pvBGGdaYELPMttfjY">
+<script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}p||((p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",p.onerror=function(){p=null},(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r));var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="Oo Lo $o init rl nl tl el ll pa il hl Ko capture sl Ao gl calculateEventProperties pl register register_once register_for_session unregister unregister_for_session Xo ml getFeatureFlag getFeatureFlagPayload getFeatureFlagResult getAllFeatureFlags isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync wl identify setPersonProperties unsetPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset kl shutdown setIdentity clearIdentity get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException addExceptionStep captureLog startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty yl cl createPersonProfile setInternalOrTestUser bl Do No opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing dl debug ma kn getPageViewId captureTraceFeedback captureTraceMetric Go".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_tvEZxJaW5MBX7zDmoZSZRPDgHg7pvBGGdaYELPMttfjY', {
+        api_host: 'https://us.i.posthog.com',
+        defaults: '2026-05-30',
+        person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
+    })
+</script>
 <!-- Meta Pixel ID — the JS helper (js/metaPixel.js) reads this tag.
      To override per-environment, set window.META_PIXEL_ID before metaPixel.js loads. -->
 <meta name="meta-pixel-id" content="1346950923671883">
@@ -1474,6 +1482,10 @@ body.athlevo-sheet-locked{overflow:hidden}
   .auth-msg { min-height:18px; margin:10px 0 0; font-size:var(--fs-body-sm); color:var(--red); }
   .auth-switch { margin:14px 0 0; font-size:var(--fs-body-sm); text-align:center; color:var(--ink2); }
   .auth-switch a { color:var(--red); cursor:pointer; text-decoration:underline; }
+  .auth-forgot { margin:-6px 0 14px; text-align:right; }
+  .auth-forgot a { font-size:var(--fs-caption); color:var(--ink3); cursor:pointer; text-decoration:none; transition:color var(--dur-base); }
+  .auth-forgot a:hover { color:var(--red); }
+  .auth-subtitle { font-size:var(--fs-body-sm); line-height:var(--lh-body); color:var(--ink2); margin:0 0 16px; }
   .auth-box > div > button:disabled { opacity:.45; cursor:not-allowed; }
   /* subtle legal consent line under Create Account */
   .auth-legal { margin:14px 0 0; font-size:var(--fs-caption); line-height:var(--lh-body); color:var(--text-muted); text-align:center; }
@@ -2489,7 +2501,11 @@ html.athlevo-native-android .asc-radar-area{filter:none}
   line-height:var(--lh-body);color:var(--ink2)}
 .trends-preview-stack{display:grid;gap:var(--s-3)}
 .trends-preview-chart{position:relative;min-height:118px;overflow:hidden;background:var(--paper);
-  border:1px solid var(--line);border-radius:var(--r-lg);padding:14px}
+  border:1px solid var(--line);border-radius:var(--r-lg);padding:14px;cursor:pointer;
+  transition:box-shadow var(--dur-fast) var(--ease-standard)}
+@media (hover:hover) and (pointer:fine){
+  .trends-preview-chart:hover{box-shadow:var(--elev-2)}
+}
 .trends-preview-chart h3{font-size:var(--fs-body);font-weight:700;color:var(--text);margin:0 0 9px}
 .trends-preview-chart svg{display:block;width:100%;height:66px;color:var(--ink3);opacity:.38}
 .trends-preview-chart path,.trends-preview-chart polyline{fill:none;stroke:currentColor;
@@ -3446,6 +3462,57 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 .lp-proofstrip-sep{width:4px;height:4px;border-radius:50%;background:var(--red);display:inline-block;flex:0 0 auto}
 @media (max-width:560px){.lp-proofstrip-in{font-size:11px;gap:8px 14px}}
 
+/* ── Product showcase (MEET ATHLEVO) — horizontal product gallery ── */
+.lp-appshow{background:var(--paper);overflow:hidden}
+.lp-appshow-head{max-width:640px}
+.lp-appshow-lead{max-width:52ch;margin-top:var(--s-4)}
+.lp-appshow-gallery{margin-top:clamp(28px,4vw,44px)}
+/* rail gutter aligns the first card with the centered content column (1120px) */
+.lp-gallery-rail{
+  --rail-gutter:max(clamp(20px,5vw,40px), calc(50vw - 560px));
+  display:flex;gap:clamp(14px,2vw,24px);
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;scroll-behavior:smooth;
+  padding:6px var(--rail-gutter) 12px;
+  scroll-padding-left:var(--rail-gutter);
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;overscroll-behavior-x:contain;cursor:grab;
+}
+.lp-gallery-rail::-webkit-scrollbar{display:none}
+.lp-gallery-rail:active{cursor:grabbing}
+.lp-gallery-rail:focus-visible{outline:2px solid var(--red);outline-offset:3px;border-radius:var(--r-sm)}
+.lp-gallery-card{
+  flex:0 0 auto;width:84vw;max-width:340px;margin:0;
+  scroll-snap-align:start;
+  border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;
+  background:var(--card);
+  box-shadow:0 12px 34px -20px rgba(20,20,22,.30);
+  transition:transform var(--dur-base) var(--ease-standard),box-shadow var(--dur-base) var(--ease-standard);
+}
+.lp-gallery-card img{display:block;width:100%;height:auto;max-width:100%}
+@media (min-width:600px){.lp-gallery-card{width:46vw;max-width:360px}}
+@media (min-width:860px){
+  .lp-gallery-card{width:34vw;max-width:400px}
+  .lp-gallery-card:hover{transform:translateY(-4px);box-shadow:0 20px 44px -22px rgba(20,20,22,.34)}
+}
+.lp-gallery-nav{display:none}
+@media (min-width:860px) and (pointer:fine){
+  .lp-gallery-nav{display:flex;gap:10px;justify-content:flex-end;max-width:1120px;margin:16px auto 0;padding:0 clamp(20px,5vw,40px);box-sizing:border-box}
+}
+.lp-gallery-arrow{
+  width:44px;height:44px;border-radius:var(--r-pill);border:1px solid var(--line);
+  background:var(--paper);color:var(--text);font-size:20px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard);
+}
+.lp-gallery-arrow:hover{border-color:var(--red)}
+.lp-gallery-arrow:active{transform:scale(.94)}
+.lp-gallery-arrow:disabled{opacity:.32;cursor:default;border-color:var(--line)}
+.lp-gallery-arrow:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.lp-appshow-foot{margin-top:clamp(30px,4.5vw,48px);display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-5)}
+.lp-appshow-close{font-family:var(--serif);font-weight:500;font-size:clamp(21px,2.7vw,30px);line-height:1.22;letter-spacing:-.02em;color:var(--text);max-width:22ch;margin:0}
+@media (prefers-reduced-motion:reduce){.lp-gallery-rail{scroll-behavior:auto}}
+
 .lp-founder-layout{display:grid;grid-template-columns:minmax(340px,1.08fr) minmax(0,.92fr);
   grid-template-areas:"media intro" "media story";column-gap:clamp(40px,7vw,100px);row-gap:30px;align-items:start}
 .lp-founder-intro{grid-area:intro;max-width:590px}
@@ -3705,8 +3772,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <p class="lp-lead">Personalized endurance coaching — from an adaptive app you run yourself to a coach in your corner every week.</p>
         <p class="lp-hero-proof">300+ runners coached · marathon, hybrid &amp; performance goals.</p>
         <div class="lp-cta">
-          <button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree(this)">Start with Athlevo AI — ₱597/mo</button>
-          <a class="lp-btn ghost" href="#train-with-athlevo">See coaching options</a>
+          <button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree(this)">Install Athlevo — Free</button>
+          <a class="lp-btn ghost" href="#train-with-athlevo">Explore Coaching</a>
         </div>
       </div>
       <div class="lp-editorial-media lp-photo-hero">
@@ -3723,6 +3790,92 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <span>Running · Marathon · Hybrid · Performance</span>
     </div>
   </section>
+
+  <!-- ATHLEVO PRODUCT SHOWCASE (app-first) -->
+  <section class="lp-section lp-appshow" id="product" aria-labelledby="lp-appshow-title">
+    <div class="lp-wrap lp-appshow-head">
+      <span class="lp-kicker">MEET ATHLEVO</span>
+      <h2 class="lp-h2" id="lp-appshow-title">Everything your training needs, in one place.</h2>
+      <p class="lp-lead lp-appshow-lead">A personalized endurance coach that plans your training, learns from your feedback, tracks your workload, and evolves with you.</p>
+    </div>
+
+    <div class="lp-appshow-gallery">
+      <div class="lp-gallery-rail" id="lpGalleryRail" role="group" aria-roledescription="carousel" aria-label="Athlevo product features" tabindex="0">
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-01.jpg" width="1000" height="1250" loading="eager" decoding="async"
+               alt="The Evolution of Coaching — Athlevo's Today screen with the athlete's morning brief, the prescribed Foundation Run, and readiness, training-load and recovery status.">
+        </figure>
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-02.jpg" width="1000" height="1250" loading="lazy" decoding="async"
+               alt="A Coach That Knows You — the in-app coach answering a missed-run question with reasoning about the athlete's knee, feedback and next move, not a generic reply.">
+        </figure>
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-03.jpg" width="1000" height="1250" loading="lazy" decoding="async"
+               alt="Training That Evolves With You — the training calendar with a prescribed workout, weekly progress and training context for the current race block.">
+        </figure>
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-04.jpg" width="1000" height="1250" loading="lazy" decoding="async"
+               alt="Know When to Rest or Train — fitness versus fatigue trends and training load, showing how recent work is affecting the athlete.">
+        </figure>
+        <figure class="lp-gallery-card">
+          <img src="assets/landing/feature-05.jpg" width="1000" height="1250" loading="lazy" decoding="async"
+               alt="See How You're Evolving — long-term fitness, fatigue and form tracked over months to show progression.">
+        </figure>
+      </div>
+      <div class="lp-gallery-nav">
+        <button class="lp-gallery-arrow" type="button" data-dir="prev" aria-controls="lpGalleryRail" aria-label="Show previous features">‹</button>
+        <button class="lp-gallery-arrow" type="button" data-dir="next" aria-controls="lpGalleryRail" aria-label="Show more features">›</button>
+      </div>
+    </div>
+
+    <div class="lp-wrap lp-appshow-foot">
+      <p class="lp-appshow-close">Your plan. Your coach. Your training data. One system.</p>
+      <button class="lp-btn" type="button" data-cta-location="showcase_ai" onclick="landingStartFree(this)">Install Athlevo — Free</button>
+    </div>
+  </section>
+  <script>
+  (function(){
+    var rail = document.getElementById('lpGalleryRail');
+    if (!rail) return;
+    var prev = document.querySelector('.lp-gallery-arrow[data-dir="prev"]');
+    var next = document.querySelector('.lp-gallery-arrow[data-dir="next"]');
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    function stepBy(){
+      var card = rail.querySelector('.lp-gallery-card');
+      var gap = parseFloat(getComputedStyle(rail).columnGap || getComputedStyle(rail).gap) || 20;
+      return card ? card.getBoundingClientRect().width + gap : Math.round(rail.clientWidth * 0.8);
+    }
+    function update(){
+      if (!prev || !next) return;
+      var max = rail.scrollWidth - rail.clientWidth - 2;
+      prev.disabled = rail.scrollLeft <= 2;
+      next.disabled = rail.scrollLeft >= max;
+    }
+    function go(dir){ rail.scrollBy({ left: dir * stepBy(), behavior: reduce ? 'auto' : 'smooth' }); }
+    if (prev) prev.addEventListener('click', function(){ go(-1); });
+    if (next) next.addEventListener('click', function(){ go(1); });
+    rail.addEventListener('scroll', function(){ window.requestAnimationFrame(update); }, { passive:true });
+    window.addEventListener('resize', update);
+    /* pointer drag-to-scroll (mouse only; touch already drags natively) */
+    var down=false, startX=0, startLeft=0, moved=false;
+    rail.addEventListener('pointerdown', function(e){
+      if (e.pointerType !== 'mouse') return;
+      down=true; moved=false; startX=e.clientX; startLeft=rail.scrollLeft;
+      try{ rail.setPointerCapture(e.pointerId); }catch(_){}
+    });
+    rail.addEventListener('pointermove', function(e){
+      if (!down) return;
+      var dx = e.clientX - startX;
+      if (Math.abs(dx) > 3) moved=true;
+      rail.scrollLeft = startLeft - dx;
+    });
+    function endDrag(){ down=false; }
+    rail.addEventListener('pointerup', endDrag);
+    rail.addEventListener('pointercancel', endDrag);
+    rail.addEventListener('click', function(e){ if (moved){ e.preventDefault(); } }, true);
+    update();
+  })();
+  </script>
 
   <!-- 2. ATHLETE PHILOSOPHY -->
   <section class="lp-section lp-alt" id="athlete-first">
@@ -4146,6 +4299,41 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
   </header>
 
+  <!-- ===== PRO UPGRADE CARD (free users only) ===== -->
+  <style>
+    .today-pro-card{display:none;margin:14px 22px 0;padding:20px;background:var(--paper);
+      border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--elev-2);
+      box-sizing:border-box;cursor:pointer;transition:box-shadow var(--dur-fast) var(--ease-standard)}
+    .today-pro-card.is-visible{display:block}
+    @media (hover:hover) and (pointer:fine){
+      .today-pro-card:hover{box-shadow:var(--elev-3)}
+    }
+    .today-pro-eyebrow{display:block;font-size:var(--fs-micro);font-weight:750;
+      letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
+    .today-pro-card h2{margin:0 0 8px;font-family:var(--serif);font-size:var(--fs-h2);
+      font-weight:500;line-height:var(--lh-heading);color:var(--text)}
+    .today-pro-card p{margin:0 0 16px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
+    .today-pro-btn{width:100%;min-height:48px;border:1px solid var(--red);border-radius:var(--r-pill);
+      background:var(--red);color:#fff;font-family:var(--sans);font-size:var(--fs-body-sm);
+      font-weight:750;cursor:pointer;transition:opacity var(--dur-fast) var(--ease-standard)}
+    .today-pro-btn:active{opacity:.85}
+    .today-pro-price{display:block;margin-top:8px;text-align:center;font-size:var(--fs-caption);
+      color:var(--ink3);font-weight:600}
+    @media (min-width:700px){
+      .today-pro-card{margin-left:auto;margin-right:auto;width:min(100% - 44px,620px)}
+    }
+  </style>
+  <article class="today-pro-card" id="todayProUpgradeCard"
+    onclick="AthlevoAccessGuard.openPaywall('general-upgrade')"
+    role="button" tabindex="0" aria-label="Unlock Athlevo Pro">
+    <span class="today-pro-eyebrow">Athlevo Pro</span>
+    <h2>Unlock Athlevo Pro</h2>
+    <p>Your complete AI endurance coach. Get personalized training, performance analytics, recovery insights, and full AI coaching access.</p>
+    <button type="button" class="today-pro-btn"
+      onclick="event.stopPropagation();AthlevoAccessGuard.openPaywall('general-upgrade')">Unlock Full Access</button>
+    <span class="today-pro-price">₱597/month</span>
+  </article>
+
   <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
   <style>
     .today-install{display:none;align-items:center;gap:var(--s-3);margin:18px 22px 0;
@@ -4286,6 +4474,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       letter-spacing:.12em;color:var(--ink3)}
     .direction-signal[data-premium-state="locked"] .direction-signal-lock{display:flex}
     .direction-signal[data-premium-state="locked"] .direction-signal-quality{display:none}
+    .direction-signal[data-premium-state="locked"]{cursor:pointer}
     .direction-premium-teaser{display:flex;align-items:center;justify-content:space-between;
       gap:var(--s-3);margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
     .direction-premium-teaser[hidden]{display:none}
@@ -4493,7 +4682,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="direction-premium-teaser" id="todayPremiumInsightTeaser" hidden>
         <p>See how recovery and recent training load shaped today’s recommendation.</p>
         <button type="button"
-          onclick="AthlevoAccessGuard.showUpgradeSheet('recovery','today')">Unlock insights</button>
+          onclick="AthlevoAccessGuard.openPaywall(‘athlete-status’)">Unlock insights</button>
       </div>
     </section>
 
@@ -5009,8 +5198,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <p>See how your fitness, fatigue, Form, and training load change over time.</p>
     </div>
 
-    <div class="trends-preview-stack" aria-label="Generic Athlevo Performance chart previews, not personal training data">
-      <article class="trends-preview-chart">
+    <div class="trends-preview-stack" aria-label="Generic Athlevo Pro chart previews, not personal training data">
+      <article class="trends-preview-chart" onclick="AthlevoAccessGuard.openPaywall('trends')">
         <h3>Training Status</h3>
         <svg viewBox="0 0 320 66" aria-hidden="true">
           <line x1="0" y1="18" x2="320" y2="18"></line>
@@ -5022,7 +5211,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </div>
       </article>
 
-      <article class="trends-preview-chart">
+      <article class="trends-preview-chart" onclick="AthlevoAccessGuard.openPaywall('trends')">
         <h3>Fitness vs Fatigue</h3>
         <svg viewBox="0 0 320 66" aria-hidden="true">
           <line x1="0" y1="18" x2="320" y2="18"></line>
@@ -5035,7 +5224,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </div>
       </article>
 
-      <article class="trends-preview-chart">
+      <article class="trends-preview-chart" onclick="AthlevoAccessGuard.openPaywall('trends')">
         <h3>Training Load</h3>
         <svg viewBox="0 0 320 66" aria-hidden="true">
           <line x1="0" y1="52" x2="320" y2="52"></line>
@@ -5359,17 +5548,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   aria-modal="true" aria-hidden="true" aria-labelledby="performanceUpgradeTitle"
   onclick="if(event.target===this)AthlevoAccessGuard.closeUpgradeSheet()">
   <div class="performance-upgrade-sheet">
-    <span class="performance-upgrade-eyebrow">Athlevo Performance</span>
-    <h2 id="performanceUpgradeTitle">Upgrade to Athlevo Performance</h2>
+    <span class="performance-upgrade-eyebrow">Athlevo Pro</span>
+    <h2 id="performanceUpgradeTitle">Unlock Athlevo Pro</h2>
     <p class="performance-upgrade-body" id="performanceUpgradeBody" hidden></p>
     <ul class="performance-upgrade-benefits" id="performanceUpgradeBenefits">
       <li>Recovery and Training Load insights</li>
       <li>Fitness, Fatigue, Form, and Load trends</li>
       <li>Adaptive plan changes</li>
       <li>Deeper workout analysis</li>
-      <li>Ongoing AI coaching</li>
+      <li>Full AI coaching access</li>
     </ul>
-    <p class="performance-upgrade-price">₱597</p>
+    <p class="performance-upgrade-price">₱597/month</p>
     <p class="performance-payment-heading">Choose how to pay</p>
     <div class="performance-payment-options">
       <div class="performance-payment-option">
@@ -5406,9 +5595,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div class="trial-info-sheet">
     <button class="trial-info-close" type="button" aria-label="Close"
       onclick="AthlevoAccessGuard.closeTrialInfo()">&times;</button>
-    <span class="trial-info-eyebrow">Athlevo Performance</span>
-    <h2 id="trialInfoTitle">Your Performance access</h2>
-    <p class="trial-info-sub">You have full access to Athlevo Performance for your first 24 hours.</p>
+    <span class="trial-info-eyebrow">Athlevo Pro</span>
+    <h2 id="trialInfoTitle">Your Pro access</h2>
+    <p class="trial-info-sub">You have full access to Athlevo Pro for your first 24 hours.</p>
     <div class="trial-info-countdown-row">
       <span class="trial-info-countdown-dot"></span>
       <span id="trialInfoCountdown"></span>
@@ -5417,32 +5606,32 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div class="trial-info-section">
       <p class="trial-info-section-title">During your access period</p>
       <ul class="trial-info-list">
-        <li>Performance Trends are unlocked</li>
+        <li>Pro Trends are unlocked</li>
         <li>Readiness, Training Load, and Recovery insights are unlocked</li>
-        <li>Performance graphs and analytics are unlocked</li>
+        <li>Pro graphs and analytics are unlocked</li>
         <li>You can generate your personalized training plan once</li>
       </ul>
     </div>
 
     <div class="trial-info-section">
       <p class="trial-info-section-title">Your AI Coach</p>
-      <p class="trial-info-note">Coach usage is separate from Performance access and still follows the free usage limit.</p>
+      <p class="trial-info-note">Coach usage is separate from Pro access and still follows the free usage limit.</p>
     </div>
 
     <hr class="trial-info-divider">
 
     <div class="trial-info-section">
       <p class="trial-info-section-title">After 24 hours</p>
-      <p class="trial-info-note">When your access period ends, Performance features will lock again. Your training plan, profile, workouts, and saved data will stay available.</p>
+      <p class="trial-info-note">When your access period ends, Pro features will lock again. Your training plan, profile, workouts, and saved data will stay available.</p>
     </div>
 
     <div class="trial-info-section">
-      <p class="trial-info-section-title">Want to keep Performance?</p>
-      <p class="trial-info-note">Athlevo Performance will let you keep these features unlocked after your free access ends.</p>
+      <p class="trial-info-section-title">Want to keep Pro?</p>
+      <p class="trial-info-note">Athlevo Pro will keep these features unlocked after your free access ends.</p>
     </div>
 
     <button class="trial-info-cta" type="button"
-      onclick="AthlevoAccessGuard.trialInfoUpgrade()">Upgrade to Athlevo Performance</button>
+      onclick="AthlevoAccessGuard.trialInfoUpgrade()">Unlock Athlevo Pro</button>
   </div>
 </div>
 
@@ -5764,6 +5953,8 @@ function showSignupForm(userChoseSignup) {
   }
   document.getElementById('signupForm').style.display = 'block';
   document.getElementById('loginForm').style.display = 'none';
+  var fp = document.getElementById('forgotForm'); if (fp) fp.style.display = 'none';
+  var rp = document.getElementById('resetForm'); if (rp) rp.style.display = 'none';
   if (userChoseSignup === true && !athlevoSessionUserId) {
     trackAuthChoice("email_signup_clicked");
     beginEmailSignupIntent();
@@ -5773,12 +5964,278 @@ function showSignupForm(userChoseSignup) {
 function showLoginForm(userChoseLogin, entrySource) {
   document.getElementById('signupForm').style.display = 'none';
   document.getElementById('loginForm').style.display = 'block';
+  var fp = document.getElementById('forgotForm'); if (fp) fp.style.display = 'none';
+  var rp = document.getElementById('resetForm'); if (rp) rp.style.display = 'none';
+  var closeBtn = document.querySelector('.auth-close'); if (closeBtn) closeBtn.style.display = '';
   if (userChoseLogin === true && !athlevoSessionUserId) {
     trackAuthChoice("login_clicked", {
       entry_source: entrySource || "auth_screen"
     });
   }
 }
+
+/* ══════════════ FORGOT / RESET PASSWORD ════════════════════════════════════
+ * Uses Supabase's built-in password recovery flow (resetPasswordForEmail →
+ * onAuthStateChange PASSWORD_RECOVERY event → updateUser). No custom
+ * backend, no extra tables — just the Supabase auth primitives.
+ */
+
+function showForgotForm() {
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'block';
+  document.getElementById('resetForm').style.display = 'none';
+  // Pre-fill email from login form if available
+  var liEmail = document.getElementById('liEmail');
+  var fpEmail = document.getElementById('fpEmail');
+  if (liEmail && fpEmail && liEmail.value.trim()) {
+    fpEmail.value = liEmail.value.trim();
+  }
+  var msg = document.getElementById('fpMsg');
+  if (msg) { msg.textContent = ''; msg.style.color = ''; }
+}
+
+let forgotInFlight = false;
+async function doForgotPassword() {
+  if (forgotInFlight) return;
+
+  var msg = document.getElementById('fpMsg');
+  var btn = document.getElementById('fpBtn');
+  var email = (document.getElementById('fpEmail').value || '').trim();
+
+  if (!email) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Enter your email address.';
+    return;
+  }
+  // Basic email format check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Enter a valid email address.';
+    return;
+  }
+
+  forgotInFlight = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+  msg.style.color = 'var(--ink2)';
+  msg.textContent = 'Sending reset link...';
+
+  try {
+    var redirectUrl = (window.location.origin || 'https://athlevo.org') + '/reset-password';
+    var { error } = await withTimeout(
+      supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
+      }),
+      15000, 'Request timed out'
+    );
+
+    if (error) {
+      // Rate limit errors
+      var raw = String(error.message || '').toLowerCase();
+      var code = String(error.code || '').toLowerCase();
+      if (code === 'over_email_send_rate_limit' || raw.includes('rate limit') || raw.includes('too many')) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'Too many requests. Please wait a few minutes and try again.';
+        return;
+      }
+      // For security, don't reveal whether the email exists
+      // Supabase may return an error for non-existent emails depending on config
+    }
+
+    // Always show success (don't reveal whether email exists)
+    msg.style.color = 'var(--success, #22863a)';
+    msg.textContent = 'If an account exists for that email, a reset link has been sent. Check your inbox.';
+    if (btn) btn.textContent = 'Link sent';
+
+  } catch (e) {
+    var raw = String(e && e.message || '').toLowerCase();
+    if (e && e.__timeout) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Request timed out. Please check your connection and try again.';
+    } else if (raw.includes('failed to fetch') || raw.includes('networkerror') || raw.includes('load failed')) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Could not reach the server. Check your connection and try again.';
+    } else {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Something went wrong. Please try again.';
+    }
+  } finally {
+    forgotInFlight = false;
+    if (btn) {
+      btn.disabled = false;
+      if (btn.textContent === 'Sending...') btn.textContent = 'Send reset link';
+    }
+  }
+}
+
+// ── Reset password form (shown after clicking the emailed link) ──
+
+function showResetForm() {
+  // Show the auth modal with the reset form
+  document.getElementById('authModal').style.display = 'flex';
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'none';
+  document.getElementById('resetForm').style.display = 'block';
+  // Hide close button — must complete or navigate away
+  var closeBtn = document.querySelector('.auth-close');
+  if (closeBtn) closeBtn.style.display = 'none';
+  var msg = document.getElementById('rpMsg');
+  if (msg) { msg.textContent = ''; msg.style.color = ''; }
+  validateResetPassword();
+}
+
+function validateResetPassword() {
+  var pw = (document.getElementById('rpPassword') || {}).value || '';
+  var confirm = (document.getElementById('rpConfirm') || {}).value || '';
+
+  var rules = {
+    len: pw.length >= 8,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    num: /[0-9]/.test(pw)
+  };
+
+  var list = document.getElementById('rpPwCheck');
+  if (list) {
+    Object.keys(rules).forEach(function(key) {
+      var item = list.querySelector('[data-rule="' + key + '"]');
+      if (item) item.classList.toggle('ok', rules[key]);
+    });
+  }
+
+  var allPass = rules.len && rules.upper && rules.lower && rules.num;
+  var match = pw && confirm && pw === confirm;
+  var btn = document.getElementById('rpBtn');
+  if (btn && !resetInFlight) btn.disabled = !(allPass && match);
+
+  // Show mismatch hint only if confirm has content
+  var msg = document.getElementById('rpMsg');
+  if (msg && confirm && !match && !resetInFlight) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Passwords do not match.';
+  } else if (msg && !resetInFlight) {
+    msg.textContent = '';
+  }
+
+  return allPass && match;
+}
+
+let resetInFlight = false;
+async function doResetPassword() {
+  if (resetInFlight) return;
+  if (!validateResetPassword()) return;
+
+  var msg = document.getElementById('rpMsg');
+  var btn = document.getElementById('rpBtn');
+  var pw = document.getElementById('rpPassword').value;
+
+  resetInFlight = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+  msg.style.color = 'var(--ink2)';
+  msg.textContent = 'Updating your password...';
+
+  try {
+    var { error } = await withTimeout(
+      supabaseClient.auth.updateUser({ password: pw }),
+      15000, 'Request timed out'
+    );
+
+    if (error) {
+      var raw = String(error.message || '').toLowerCase();
+      if (raw.includes('same') || raw.includes('different')) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'New password must be different from your current password.';
+      } else if (raw.includes('weak') || raw.includes('short')) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'Password is too weak. Please choose a stronger one.';
+      } else if (raw.includes('session') || raw.includes('not authenticated') || raw.includes('expired') || raw.includes('invalid')) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'This reset link has expired. Please request a new one.';
+      } else {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'Could not update your password. Please try again.';
+      }
+      return;
+    }
+
+    // Success
+    msg.style.color = 'var(--success, #22863a)';
+    msg.textContent = 'Password updated. You can now log in.';
+    if (btn) { btn.textContent = 'Done'; btn.disabled = true; }
+
+    // After a short pause, transition to login
+    setTimeout(function() {
+      // Restore close button
+      var closeBtn = document.querySelector('.auth-close');
+      if (closeBtn) closeBtn.style.display = '';
+      // Clear the reset URL from the address bar
+      try {
+        window.history.replaceState({}, '', window.location.origin + '/');
+      } catch (e) {}
+      showLoginForm(false);
+      // Pre-fill success state in login
+      var liMsg = document.getElementById('liMsg');
+      if (liMsg) {
+        liMsg.style.color = 'var(--success, #22863a)';
+        liMsg.textContent = 'Password updated. Log in with your new password.';
+      }
+    }, 1800);
+
+  } catch (e) {
+    if (e && e.__timeout) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Request timed out. Please try again.';
+    } else {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Something went wrong. Please try again.';
+    }
+  } finally {
+    resetInFlight = false;
+    if (btn && btn.textContent === 'Updating...') {
+      btn.disabled = false;
+      btn.textContent = 'Update password';
+    }
+  }
+}
+
+// ── Detect Supabase PASSWORD_RECOVERY event ──
+// When user clicks the emailed reset link, Supabase exchanges the token
+// in the URL fragment and fires PASSWORD_RECOVERY. We listen for that
+// to show the reset form automatically.
+(function() {
+  if (!supabaseClient || !supabaseClient.auth) return;
+  supabaseClient.auth.onAuthStateChange(function(event, session) {
+    if (event === 'PASSWORD_RECOVERY') {
+      showResetForm();
+    }
+  });
+
+  // Also handle direct /reset-password navigation in case the hash is
+  // already consumed by the time onAuthStateChange fires. Check URL.
+  if (window.location.pathname === '/reset-password') {
+    // Supabase will handle the hash tokens via detectSessionInUrl.
+    // If there's a recovery type in the hash, let onAuthStateChange handle it.
+    // If someone navigates here without tokens (expired/invalid link),
+    // show a message after a brief wait for Supabase to process.
+    setTimeout(function() {
+      var resetForm = document.getElementById('resetForm');
+      if (resetForm && resetForm.style.display === 'none') {
+        // No PASSWORD_RECOVERY event fired — link is likely expired/invalid
+        document.getElementById('authModal').style.display = 'flex';
+        document.getElementById('signupForm').style.display = 'none';
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('forgotForm').style.display = 'block';
+        document.getElementById('resetForm').style.display = 'none';
+        var fpMsg = document.getElementById('fpMsg');
+        if (fpMsg) {
+          fpMsg.style.color = 'var(--red)';
+          fpMsg.textContent = 'This reset link has expired or is invalid. Please request a new one.';
+        }
+      }
+    }, 2500);
+  }
+})();
 
 /* ══════════════ APP ENTRY (welcome) — landing CTA destination ══════════════
  * The original app entry screen (#screen-welcome: logo, title, tagline,
@@ -7028,6 +7485,7 @@ async function go(btn){
   }
   if (screenId === "screen-today") {
     await refreshTodayAfterPlanChange("screen-enter");
+    if (typeof refreshTodayProCard === "function") refreshTodayProCard();
     animateRing();
     if (
       window.AthlevoMorningCheckIn &&
@@ -7268,15 +7726,26 @@ function todayDirectionPrimaryAction(){
     return;
   }
   if (button.dataset.action === "build"){
-    if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function"){
-      window.AthlevoPlan.start();
-    }
+    todayStartPlan();
     return;
   }
   todayGoToTrain();
 }
 
-function todayStartPlan(){
+async function todayStartPlan(){
+  // Free users see the upgrade modal instead of starting plan generation.
+  if (window.AthlevoAccessGuard) {
+    var access = typeof AthlevoAccessGuard.cachedAccessState === "function"
+      ? AthlevoAccessGuard.cachedAccessState()
+      : "unknown";
+    if (access === "unknown" && typeof AthlevoAccessGuard.accessState === "function") {
+      access = await AthlevoAccessGuard.accessState();
+    }
+    if (access !== "paid_active") {
+      AthlevoAccessGuard.openPaywall("training-plan");
+      return;
+    }
+  }
   if (window.AthlevoPlan && typeof window.AthlevoPlan.start === "function"){
     window.AthlevoPlan.start();
   }
@@ -8215,11 +8684,11 @@ async function renderTodayPassiveStatus(profile){
     root.style.setProperty("--signal-progress", "38");
     valueNode.textContent = "••";
     valueNode.dataset.long = "false";
-    noteNode.textContent = "Performance";
+    noteNode.textContent = "Pro";
     if (qualityNode) qualityNode.textContent = "";
     root.setAttribute(
       "aria-label",
-      name + ", available with Athlevo Performance"
+      name + ", available with Athlevo Pro"
     );
   }
 
@@ -8313,7 +8782,7 @@ async function renderTodayPassiveStatus(profile){
     if (why) {
       why.textContent = paid
         ? value.why
-        : "Athlevo Performance explains how recovery and recent training load shaped this recommendation.";
+        : "Athlevo Pro explains how recovery and recent training load shaped this recommendation.";
     }
   }
 
@@ -8421,6 +8890,43 @@ window.renderTodayRecommendation = renderTodayRecommendation;
 window.renderTodayPassiveStatus = renderTodayPassiveStatus;
 window.renderTodayTrainingContext = renderTodayTrainingContext;
 window.refreshTodayAfterPlanChange = refreshTodayAfterPlanChange;
+
+/* ─── PRO UPGRADE CARD VISIBILITY ──────────────────────────────────
+   Shows the card only for free users. Called after subscription loads. */
+function refreshTodayProCard(){
+  var card = document.getElementById("todayProUpgradeCard");
+  if (!card) return;
+  var isPaid = window.AthlevoAccessGuard &&
+    typeof AthlevoAccessGuard.cachedAccessState === "function" &&
+    AthlevoAccessGuard.cachedAccessState() === "paid_active";
+  card.classList.toggle("is-visible", !isPaid);
+}
+// Re-check whenever subscription state loads or changes.
+if (window.AthlevoPlan) {
+  var _origLoad = window.AthlevoPlan.load;
+  window.AthlevoPlan.load = async function() {
+    var result = await _origLoad.apply(this, arguments);
+    refreshTodayProCard();
+    return result;
+  };
+}
+// Also refresh when the Today screen shows.
+window.refreshTodayProCard = refreshTodayProCard;
+
+/* ─── LOCKED ATHLETE STATUS → PAYWALL ────────────────────────────
+   Event delegation: clicking a locked signal opens the upgrade modal. */
+(function initLockedSignalClicks(){
+  var statusCard = document.getElementById("todayAthleteStatusCard");
+  if (!statusCard) return;
+  statusCard.addEventListener("click", function(e){
+    var signal = e.target.closest(".direction-signal[data-premium-state='locked']");
+    if (signal && window.AthlevoAccessGuard) {
+      e.preventDefault();
+      e.stopPropagation();
+      AthlevoAccessGuard.openPaywall("athlete-status");
+    }
+  });
+})();
 
 (function initTodayPlanRevalidation(){
   function todayIsActive(){
@@ -8930,6 +9436,10 @@ async function restoreSession(opts) {
           }
         }, 0);
       }
+    } else if (appEntryIntentReason() === 'ai' &&
+               window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start) {
+      // /ai route: logged-out visitors see the diagnostic intro, not auth.
+      window.AthlevoDiagnosticUI.start();
     } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
                 window.AthlevoCoachInvites.hasPendingInvite()) ||
                isStandaloneMode() || hasAppEntryIntent() ||
@@ -9017,11 +9527,38 @@ setTimeout(function () {
       <h2>Log In</h2>
       <input id="liEmail" type="email" placeholder="Email" />
       <input id="liPassword" type="password" placeholder="Password" />
+      <p class="auth-forgot"><a onclick="showForgotForm()">Forgot password?</a></p>
       <button id="liBtn" onclick="doLogin()">Log In</button>
       <p class="auth-msg" id="liMsg"></p>
       <p class="auth-switch">No account yet?
         <a onclick="showSignupForm(true)">Create one</a></p>
     </div>
+
+    <!-- Forgot Password -->
+    <div id="forgotForm" style="display:none;">
+      <h2>Reset Password</h2>
+      <p class="auth-subtitle">Enter your email and we'll send you a link to create a new password.</p>
+      <input id="fpEmail" type="email" placeholder="Email" />
+      <button id="fpBtn" onclick="doForgotPassword()">Send reset link</button>
+      <p class="auth-msg" id="fpMsg"></p>
+      <p class="auth-switch"><a onclick="showLoginForm(true)">Back to log in</a></p>
+    </div>
+
+    <!-- Set New Password (after clicking reset link) -->
+    <div id="resetForm" style="display:none;">
+      <h2>Create new password</h2>
+      <input id="rpPassword" type="password" placeholder="New password" oninput="validateResetPassword()" />
+      <input id="rpConfirm" type="password" placeholder="Confirm new password" oninput="validateResetPassword()" />
+      <ul class="pw-check" id="rpPwCheck">
+        <li data-rule="len"><span class="pw-dot"></span>8 characters</li>
+        <li data-rule="upper"><span class="pw-dot"></span>Uppercase</li>
+        <li data-rule="lower"><span class="pw-dot"></span>Lowercase</li>
+        <li data-rule="num"><span class="pw-dot"></span>Number</li>
+      </ul>
+      <button id="rpBtn" onclick="doResetPassword()" disabled>Update password</button>
+      <p class="auth-msg" id="rpMsg"></p>
+    </div>
+
   </div>
 </div>
 
@@ -9925,6 +10462,15 @@ setTimeout(function () {
 
   async function initializeAthlevoApp() {
     const url = new URL(window.location.href);
+
+    // Direct /ai route: treat as an app-entry intent so unauthenticated
+    // visitors see the auth/welcome screen instead of the marketing landing.
+    // Authenticated visitors are routed into the app by restoreSession as usual.
+    var aiPath = url.pathname.replace(/\/+$/, "");
+    if (aiPath === "/ai") {
+      rememberAppEntryIntent("ai");
+    }
+
     if (typeof window.openPublicLegalRoute === "function" &&
         await window.openPublicLegalRoute(url.pathname)) {
       endBootGate();

@@ -9808,6 +9808,10 @@ async function restoreSession(opts) {
       // Restore both an in-progress assessment and a completed result that is
       // still waiting for authenticated import.
       window.AthlevoDiagnosticUI.start();
+    } else if (appEntryIntentReason() === 'ai' &&
+               window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start) {
+      // /ai route: logged-out visitors see the diagnostic intro, not auth.
+      window.AthlevoDiagnosticUI.start();
     } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
                 window.AthlevoCoachInvites.hasPendingInvite()) ||
                isStandaloneMode() || hasAppEntryIntent() ||
