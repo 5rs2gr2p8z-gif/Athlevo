@@ -261,8 +261,11 @@ section("Routing — derived from the real index.html + onboarding.js");
     !/AthlevoPaywall|maybeLaunchAfterOnboarding|checkout/.test(finish));
   t("EXISTING Google user with a complete profile → dashboard",
     /showScreen\("screen-today"\)/.test(route));
-  t("routing runs from ONE place (session restore), not per-provider",
-    (html.match(/await routeAfterAuth\(/g) || []).length <= 3);
+  t("routing is defined once (routeAfterAuth), not per-provider",
+    (html.match(/async function routeAfterAuth/g) || []).length === 1);
+  t("email signup uses the same post-auth router as Google/login",
+    /closeAuth\(\);\s*await routeAfterAuth\(user\.id\);/.test(html) &&
+    !/closeAuth\(\);\s*startOnboarding\(\);/.test(html));
   t("social auth adds no second routing path",
     !/routeAfterAuth|showScreen/.test(src));
 }

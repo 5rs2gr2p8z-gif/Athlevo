@@ -51,6 +51,8 @@
     checkout_started:             { kind: "behavioural", props: ["feature", "surface"] },
     checkout_failed:              { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
     subscription_activated:       { kind: "milestone",   props: ["source"] },
+    whop_pending_purchase_claimed:{ kind: "milestone",   props: ["source"] },
+    whop_pending_purchase_claim_failed:{ kind: "behavioural", props: ["source", "reason"] },
     account_created:               { kind: "milestone",   props: ["method", "source"] },
     email_verified:                { kind: "milestone",   props: [] },
     athlete_onboarding_started:    { kind: "milestone",   props: [] },

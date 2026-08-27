@@ -145,6 +145,20 @@ function startDiagnostic() {
     return;
   }
 
+  var checkoutReturn = root.AthlevoDiagnosticAcquisition &&
+    typeof root.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
+    root.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
+  if (checkoutReturn) {
+    if (typeof root.showCheckoutReturnWelcome === "function") {
+      root.showCheckoutReturnWelcome();
+    } else if (typeof root.openAppEntry === "function") {
+      root.openAppEntry();
+    } else {
+      showScreen("screen-welcome");
+    }
+    return;
+  }
+
   var pending = root.AthlevoDiagnostic && root.AthlevoDiagnostic.load();
   if (pending && !pending.completed) {
     engine = pending;
@@ -2597,6 +2611,19 @@ function renderResult() {
           trackEvent("signup_started", { source_surface: "diagnostic" });
           if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
             root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
+          }
+          var returnedFromCheckout = root.AthlevoDiagnosticAcquisition &&
+            typeof root.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
+            root.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
+          if (returnedFromCheckout) {
+            if (typeof root.showCheckoutReturnWelcome === "function") {
+              root.showCheckoutReturnWelcome();
+            } else if (typeof root.openAppEntry === "function") {
+              root.openAppEntry();
+            } else {
+              showScreen("screen-welcome");
+            }
+            return;
           }
           // Try existing checkout first; fall back to auth entry
           if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.checkout) {

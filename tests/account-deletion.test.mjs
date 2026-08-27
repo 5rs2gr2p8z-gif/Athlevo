@@ -393,6 +393,8 @@ section("13 — DATA TABLE INVENTORY");
   // user_entitlement_status should NOT be deleted (confirmed not a table)
   t("user_entitlement_status is NOT in the deletion list (view, not table)",
     !fnBody.includes('"user_entitlement_status"'));
+  t("pending_whop_entitlements claimed rows are deleted by claimed_user_id",
+    fnBody.includes("pending_whop_entitlements") && fnBody.includes("claimed_user_id"));
 }
 
 /* ══════════════════════════════════════════════════════════════════════

@@ -29,6 +29,7 @@ import { handleCors } from "../../lib/server/cors.js";
 import crypto from "node:crypto";
 import paymongoCheckoutHandler from "../../lib/server/paymongoCheckoutEndpoint.js";
 import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
+import whopClaimHandler from "../../lib/server/whopClaimEndpoint.js";
 // Beta analytics aggregation (admin_analytics action). Folded into this
 // gateway so the founder dashboard does not consume a separate Vercel
 // serverless slot — keeping the Whop webhook within the Hobby 12-fn limit.
@@ -3452,6 +3453,7 @@ async function actionDeleteAccount(request, response) {
   for (const table of userDataTables) {
     await deleteFrom(table, "user_id", userId);
   }
+  await deleteFrom("pending_whop_entitlements", "claimed_user_id", userId);
 
   if (errors.length) {
     log("delete_account_stage3_errors", { count: errors.length });
@@ -3515,6 +3517,10 @@ export default async function handler(request, response) {
 
     if (action === "diagnostic_chat") {
       return diagnosticChatHandler(request, response);
+    }
+
+    if (action === "claim_pending_purchase") {
+      return whopClaimHandler(request, response);
     }
 
     if (action === "delete_account") {

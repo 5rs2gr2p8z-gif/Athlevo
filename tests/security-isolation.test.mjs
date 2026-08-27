@@ -54,6 +54,7 @@ const ALREADY_COVERED = [
   "athlete_metrics", "athlevo_score_history", "pace_feedback",
   "race_results", "activation_events", "ai_rate_limits",
   "provider_accounts", "pending_provider_connections",
+  "pending_whop_entitlements",
 ];
 
 // Read all migration files

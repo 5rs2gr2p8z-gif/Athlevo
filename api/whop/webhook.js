@@ -26,6 +26,12 @@ import {
 } from "../../lib/server/whopWebhook.js";
 import { makeWhopClient } from "../../lib/server/whopClient.js";
 import { captureServerEvent } from "../../lib/server/productAnalytics.js";
+import {
+  logWhopPending,
+  markPendingWhopClaimed,
+  pendingRowFromMapped,
+  upsertPendingWhopEntitlement
+} from "../../lib/server/whopPending.js";
 import paymongoWebhookHandler from "../../lib/server/paymongoWebhookEndpoint.js";
 import { handleCors } from "../../lib/server/cors.js";
 
@@ -171,23 +177,25 @@ export default async function handler(req, res) {
     // 5. Find the athlete by checkout email.
     const userId = await findUserIdByEmail(mapped.email);
     if (!userId) {
-      /*
-       * Users may purchase using an email different from their Athlevo account.
-       * These logs allow manual reconciliation without interrupting payment
-       * processing: we do NOT grant access, do NOT error, and DO return success
-       * so Whop stops retrying. The record carries only what support needs —
-       * NEVER API keys, webhook secrets, card/payment data, or the raw payload.
-       */
-      console.warn("[whop] " + JSON.stringify({
-        event: "whop_unmatched_user",
+      const pending = pendingRowFromMapped(mapped, providerEventId);
+      if (pending) {
+        await upsertPendingWhopEntitlement(sbRest, pending);
+        logWhopPending("whop_pending_purchase_created", {
+          reason: "no_matching_user",
+          provider_event_id: providerEventId,
+          provider_subscription_id: mapped.membershipId || null,
+          checkout_email: mapped.email || null,
+          webhook_action: String(event.action || event.type || event.event || "") || null
+        });
+        return send(res, 200, { ok: true, user_matched: false, pending: true });
+      }
+      logWhopPending("whop_unmatched_user", {
         reason: "no_matching_user",
-        provider: "whop",
         provider_event_id: providerEventId,
-        provider_subscription_id: mapped.membershipId || null,   // Whop membership id
+        provider_subscription_id: mapped.membershipId || null,
         checkout_email: mapped.email || null,
-        webhook_action: String(event.action || event.type || event.event || "") || null,
-        occurred_at: new Date().toISOString()
-      }));
+        webhook_action: String(event.action || event.type || event.event || "") || null
+      });
       return send(res, 200, { ok: true, user_matched: false });
     }
 
@@ -196,6 +204,7 @@ export default async function handler(req, res) {
     if (!first) return send(res, 200, { ok: true, duplicate: true });
 
     await upsertSubscription(userId, mapped.patch);
+    try { await markPendingWhopClaimed(sbRest, mapped.membershipId, userId); } catch (e) { /* non-fatal */ }
 
     // Paid activation is authoritative only after signature verification and
     // the idempotent subscription write above.

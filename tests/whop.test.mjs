@@ -226,10 +226,11 @@ section("The webhook endpoint grants entitlement server-side only");
   const noUserHeaders = stdWebhookHeaders(raw, process.env.WHOP_WEBHOOK_SECRET, "msg_evt_2");
   const noUser = await call(handler, raw, noUserHeaders);
   console.warn = realWarn;
-  t("an unmatched email is acknowledged but grants nothing", noUser.code === 200 &&
-    noUser.body.user_matched === false && store4.subscriptions.length === 0);
-  const log = warns.find(w => /whop_unmatched_user/.test(w)) || "";
-  t("logs a structured unmatched-user record with reason", /whop_unmatched_user/.test(log) && /"reason":"no_matching_user"/.test(log));
+  t("an unmatched email is persisted as a pending claim, not a subscription", noUser.code === 200 &&
+    noUser.body.user_matched === false && noUser.body.pending === true &&
+    store4.subscriptions.length === 0 && store4.pending.length === 1);
+  const log = warns.find(w => /whop_pending_purchase_created/.test(w)) || "";
+  t("logs a structured pending-purchase record with reason", /whop_pending_purchase_created/.test(log) && /"reason":"no_matching_user"/.test(log));
   t("...with provider_event_id, membership id, email, action, provider, timestamp",
     /"provider_event_id":"msg_evt_2"/.test(log) && /"provider_subscription_id":"mem_9"/.test(log) &&
     /runner@example\.com/.test(log) && /"webhook_action":"membership.activated"/.test(log) &&
@@ -243,7 +244,7 @@ process.exit(f ? 1 : 0);
 
 /* ── in-memory Supabase for the endpoint ─────────────────────────────── */
 function world(seed) {
-  const store = { subscriptions: [], subscription_events: [], profiles: seed.profiles || [] };
+  const store = { subscriptions: [], subscription_events: [], profiles: seed.profiles || [], pending: [] };
   globalThis.fetch = async (u, i = {}) => {
     const s = String(u), m = (i.method || "GET").toUpperCase();
     const J = (code, body) => ({ ok: code >= 200 && code < 300, status: code, json: async () => body, text: async () => JSON.stringify(body) });
@@ -253,6 +254,22 @@ function world(seed) {
     if (s.includes("/rest/v1/profiles")) {
       const email = decodeURIComponent((s.match(/email=eq\.([^&]+)/) || [])[1] || "");
       return J(200, store.profiles.filter(p => String(p.email).toLowerCase() === email.toLowerCase()).map(p => ({ id: p.id })));
+    }
+    if (s.includes("/rest/v1/pending_whop_entitlements")) {
+      if (m === "POST") {
+        const row = JSON.parse(i.body);
+        const existing = store.pending.find(p => p.whop_membership_id === row.whop_membership_id);
+        if (existing) Object.assign(existing, row);
+        else store.pending.push(row);
+        return J(200, [row]);
+      }
+      if (m === "PATCH") {
+        store.pending.forEach(p => {
+          if (!p.claimed_at) Object.assign(p, JSON.parse(i.body));
+        });
+        return J(200, []);
+      }
+      return J(200, store.pending);
     }
     if (s.includes("/rest/v1/subscription_events")) {
       if (m === "POST") { if (seed.dupEvent) return J(409, { message: "duplicate" }); store.subscription_events.push(JSON.parse(i.body)); return J(201, []); }

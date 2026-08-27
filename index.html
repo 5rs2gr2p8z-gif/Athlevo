@@ -1194,6 +1194,8 @@ input,textarea,select{color:var(--text)}
 .w-mark{font-family:"Space Grotesk",var(--sans);font-size:38px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .w-mark i{font-style:normal;color:var(--red)}
 .w-tag{font-size:var(--fs-h3);color:var(--ink2);margin:18px auto 0;line-height:var(--lh-body);max-width:300px}
+.w-continue-note{display:none;font-size:var(--fs-body);color:var(--ink2);margin:12px auto 0;line-height:var(--lh-body);max-width:300px}
+.w-continue-note.is-visible{display:block}
 .w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:12px}
 .w-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:15px var(--s-4);border-radius:var(--r-pill);cursor:pointer;border:1px solid var(--line);background:var(--paper);color:var(--text);transition:transform var(--dur-fast),opacity var(--dur-base);-webkit-tap-highlight-color:transparent}
 .w-btn:active{transform:scale(.97)}
@@ -4260,6 +4262,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="w-mark">Athlevo<i>.</i></div>
     </div>
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
+    <p class="w-continue-note" id="wCheckoutContinue">Create your Athlevo account to continue.</p>
   </div>
   <div class="w-btns">
     <button class="w-btn apple" id="authBtnApple" onclick="continueWithApple()">
@@ -6639,6 +6642,26 @@ function openAppEntry() {
 }
 window.openAppEntry = openAppEntry;
 
+function hasWhopCheckoutReturn() {
+  try {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function") {
+      return window.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
+    }
+    return new URL(window.location.href).searchParams.get("checkout_return") === "1";
+  } catch (e) { return false; }
+}
+function showCheckoutReturnWelcome() {
+  rememberAppEntryIntent("ai");
+  openAppEntry();
+  var note = document.getElementById("wCheckoutContinue");
+  if (note) {
+    note.hidden = false;
+    note.classList.add("is-visible");
+  }
+}
+window.showCheckoutReturnWelcome = showCheckoutReturnWelcome;
+
 /*
  * Public-site mode and app-entry mode are separate navigation intents.
  * A session decides whether authenticated screens may open; it does not decide
@@ -6994,7 +7017,7 @@ async function doSignup(bypassEmbeddedWarning) {
       msg.textContent = 'Account created!';
       try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
       closeAuth();
-      startOnboarding();
+      await routeAfterAuth(user.id);
       return;
     }
 
@@ -7015,7 +7038,7 @@ async function doSignup(bypassEmbeddedWarning) {
         msg.textContent = 'Account created!';
         try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
         closeAuth();
-        startOnboarding();
+        await routeAfterAuth(user.id);
         return;
       }
     }
@@ -9500,6 +9523,19 @@ async function routeAfterAuth(userId) {
   }
   if (!routeIsCurrent()) return;
 
+  // Bind any unmatched Whop purchase to this authenticated email before
+  // diagnostic attach or paywall routing, so a real buyer is not sent to
+  // the paywall while the claim is still in flight.
+  if (window.AthlevoDiagnosticAcquisition &&
+      typeof window.AthlevoDiagnosticAcquisition.reconcileWhopPurchase === "function") {
+    try {
+      await window.AthlevoDiagnosticAcquisition.reconcileWhopPurchase(supabaseClient);
+    } catch (claimErr) {
+      console.warn("Whop entitlement claim failed (non-fatal):", claimErr);
+    }
+    if (!routeIsCurrent()) return;
+  }
+
   // ── Diagnostic handoff: attach pre-signup diagnostic data to profile ──
   // Runs before onboarding routing so profile fields are populated when
   // onboarding starts (allowing it to skip already-answered questions).
@@ -9907,6 +9943,28 @@ async function restoreSession(opts) {
   // No session. The installed app must never show marketing — an athlete
   // who opened their training app wants to sign in, not read a pitch.
   document.getElementById('tabbar').style.display = 'none';
+  // Logged-out Whop return: auth, not another checkout. Query param is not
+  // proof of payment — entitlement is claimed server-side after signup.
+  var checkoutReturn = false;
+  try {
+    if (typeof hasWhopCheckoutReturn === "function") {
+      checkoutReturn = !!hasWhopCheckoutReturn();
+    } else if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function") {
+      checkoutReturn = !!window.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
+    } else if (window.location && window.location.href) {
+      checkoutReturn = new URL(window.location.href).searchParams.get("checkout_return") === "1";
+    }
+  } catch (e) { checkoutReturn = false; }
+  if (checkoutReturn) {
+    if (typeof showCheckoutReturnWelcome === "function") {
+      showCheckoutReturnWelcome();
+    } else {
+      if (typeof rememberAppEntryIntent === "function") rememberAppEntryIntent("ai");
+      showScreen("screen-welcome");
+    }
+    return false;
+  }
   if (window.__athlevoStaleSessionCleared) {
     // A deleted user was just signed out — always show the sign-in screen
     // with an explanation, never the marketing landing.

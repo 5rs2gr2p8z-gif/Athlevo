@@ -168,6 +168,34 @@ function clearCheckoutReturn() {
 
 function wait(ms) { return new Promise(function (resolve) { root.setTimeout(resolve, ms); }); }
 
+async function reconcileWhopPurchase(supabase) {
+  if (!supabase || !supabase.auth || typeof supabase.auth.getSession !== "function") {
+    return { claimed: false, reason: "unavailable" };
+  }
+  try {
+    var sessionResult = await supabase.auth.getSession();
+    var session = sessionResult && sessionResult.data && sessionResult.data.session;
+    if (!session || !session.access_token) return { claimed: false, reason: "unavailable" };
+    var response = await fetch("/api/providers?action=claim_pending_purchase", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + session.access_token,
+        "Content-Type": "application/json"
+      },
+      body: "{}"
+    });
+    var body = null;
+    try { body = await response.json(); } catch (e) { body = null; }
+    if (!response.ok) return { claimed: false, reason: "invalid_state" };
+    return {
+      claimed: !!(body && body.claimed === true),
+      reason: body && body.reason ? String(body.reason) : "no_pending_purchase"
+    };
+  } catch (e) {
+    return { claimed: false, reason: "invalid_state" };
+  }
+}
+
 function showPaywall(state, unavailable) {
   if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
   var limiter = document.getElementById("diagnosticPaywallLimiter");
@@ -293,6 +321,7 @@ function markAppEntered() {
 root.AthlevoDiagnosticAcquisition = {
   markDiagnosticCompleted: markDiagnosticCompleted,
   resolveAfterAuth: resolveAfterAuth,
+  reconcileWhopPurchase: reconcileWhopPurchase,
   verifiedPaidAccess: verifiedPaidAccess,
   isDiagnosticAcquisition: isDiagnosticAcquisition,
   isPostPaymentOnboarding: isPostPaymentOnboarding,
@@ -301,6 +330,7 @@ root.AthlevoDiagnosticAcquisition = {
   markAppEntered: markAppEntered,
   checkout: checkout,
   showPaywall: showPaywall,
+  hasCheckoutReturn: hasCheckoutReturn,
   current: function () { return active || readLocal(); },
   clear: clearLocal
 };

@@ -70,6 +70,9 @@ const SOURCE = [
   extract("hasAppEntryIntent"),
   extract("appEntryIntentReason"),
   extract("clearAppEntryIntent"),
+  extract("openAppEntry"),
+  extract("hasWhopCheckoutReturn"),
+  extract("showCheckoutReturnWelcome"),
   extract("restoreSession"),
   extract("endBootGate"),
   extract("showScreen"),
@@ -87,7 +90,8 @@ function makeWorld({
   timedOut = false,
   storedAuthToken = false,
   pendingDiagnostic = false,
-  pathname = "/"
+  pathname = "/",
+  href = null
 }) {
   const state = {
     screens: {
@@ -131,7 +135,19 @@ function makeWorld({
         contains: (c) => state.bodyClasses.has(c)
       }
     },
-    getElementById: (id) => (id === "tabbar" || state.screens[id]) ? el(id) : null,
+    getElementById: (id) => {
+      if (id === "wCheckoutContinue") {
+        return {
+          hidden: true,
+          classList: {
+            add: (c) => { state.checkoutNoteVisible = c === "is-visible"; },
+            remove() {},
+            contains() { return false; }
+          }
+        };
+      }
+      return (id === "tabbar" || state.screens[id]) ? el(id) : null;
+    },
     querySelectorAll: () => Object.keys(state.screens).map(id => el(id)),
     querySelector: (sel) => {
       if (sel === ".screen.active") {
@@ -146,7 +162,10 @@ function makeWorld({
     document,
     window: {
       scrollTo() {},
-      location: { pathname },
+      location: {
+        pathname,
+        href: href || ("https://athlevo.org" + pathname)
+      },
       AthlevoEnv: { consumeContinuation: () => continuation },
       AthlevoDiagnostic: { hasPending: () => pendingDiagnostic },
       AthlevoDiagnosticUI: {
@@ -236,6 +255,18 @@ section("Routing scenarios");
   });
   t("1c. valid external signup continuation opens the auth entry screen",
     r.visible === "screen-welcome" && !r.entered);
+}
+{
+  const r = await boot({
+    session: null,
+    standalone: false,
+    pathname: "/ai",
+    href: "https://athlevo.org/ai?checkout_return=1"
+  });
+  t("1d. logged-out Whop return opens auth, not landing or diagnostic",
+    r.visible === "screen-welcome" && !r.entered && r.state.diagnosticStarted !== true);
+  t("1e. checkout_return does not route into the paid app",
+    r.state.routed === null && r.state.screens["screen-today"].active === false);
 }
 {
   const r = await boot({ session: SESSION, standalone: false });
