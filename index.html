@@ -580,6 +580,9 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
 textarea:focus-visible,.cf-chip:focus-visible,.ss-btn:focus-visible,.ss-banner-cta:focus-visible,
 .apl-review-btn:focus-visible,.apl-keep:focus-visible,.apl-apply:focus-visible{
   outline:2px solid var(--focus-ring);outline-offset:2px}
+/* Safari fires :focus-visible on programmatic .focus() for tabindex="-1" elements.
+   Suppress the outline ring for non-interactive focus targets. */
+[tabindex="-1"]:focus-visible{outline:none}
 /* ── Typography utilities — compose the tokens, never duplicate values ── */
 .type-display{font-family:var(--font-display);font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--fw-semibold);letter-spacing:var(--ls-tight)}
 .type-h1{font-family:var(--font-display);font-size:var(--fs-h1);line-height:var(--lh-heading);font-weight:var(--fw-semibold);letter-spacing:var(--ls-tight)}
@@ -1387,6 +1390,8 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .diag-cta-primary{width:100%;font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:.01em;padding:var(--s-4);border-radius:12px;border:none;background:var(--red);color:#fff;cursor:pointer;transition:background var(--dur-base),transform var(--dur-fast)}
 .diag-cta-primary:active{transform:scale(.985)}
 .diag-cta-sub{font-size:var(--fs-caption);color:var(--ink3);margin:12px 0 0}
+.diag-cta-price{font-family:var(--serif);font-size:var(--fs-display,2rem);font-weight:600;color:var(--text);margin:0 0 2px;letter-spacing:-.02em}
+.diag-cta-price-note{font-size:var(--fs-body-sm);color:var(--ink2);margin:0 0 18px}
 html[data-theme="dark"] .diag-limiter-section{background:var(--card)}
 html[data-theme="dark"] .diag-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
 html[data-theme="dark"] .diag-rec-card{background:var(--card)}
@@ -1395,6 +1400,20 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
   html[data-theme="system"] .diag-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
   html[data-theme="system"] .diag-rec-card{background:var(--card)}
 }
+/* ══════════════ CONVERSATION THREAD STYLES ══════════════ */
+.conv-thread{display:flex;flex-direction:column;gap:0;padding:0 0 40px}
+.conv-header{padding:18px 0 24px;text-align:left}
+.conv-brand{font-family:var(--serif);font-size:var(--fs-h2);font-weight:600;color:var(--text);letter-spacing:-.02em}
+.conv-brand span{color:var(--red)}
+.conv-role{display:block;font-size:var(--fs-caption);font-weight:600;color:var(--ink3);letter-spacing:.03em;margin-top:2px}
+.conv-athlevo-msg{font-family:var(--serif);font-size:var(--fs-h3);font-weight:400;line-height:var(--lh-body);color:var(--text);margin:16px 0 0;letter-spacing:-.01em}
+.conv-athlevo-msg:first-of-type{margin-top:0}
+.conv-context{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:6px 0 0}
+.conv-q-wrap{margin:18px 0 0;padding:0}
+.conv-echo{display:flex;align-items:baseline;gap:10px;margin:14px 0 0;padding:10px 0;border-bottom:1px solid var(--line)}
+.conv-echo-label{font-size:var(--fs-caption);font-weight:700;color:var(--ink3);letter-spacing:.03em;text-transform:uppercase;flex-shrink:0}
+.conv-echo-value{font-size:var(--fs-body-sm);font-weight:500;color:var(--text);line-height:var(--lh-body)}
+.conv-divider{width:100%;height:1px;background:var(--line);margin:20px 0}
 .diagnostic-paywall-scroll{width:100%;max-width:520px;margin:0 auto;padding:calc(34px + env(safe-area-inset-top)) 22px calc(34px + env(safe-area-inset-bottom));overflow-y:auto}
 .diagnostic-paywall-brand{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin-bottom:42px}
 .diagnostic-paywall-brand span{color:var(--red)}

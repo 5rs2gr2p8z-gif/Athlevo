@@ -1,15 +1,15 @@
 /*
  * ══════════════════════════════════════════════════════════════════════
- *  Athlevo — Diagnostic UI Controller
+ *  Athlevo — Diagnostic UI Controller  (Conversation Model)
  * ══════════════════════════════════════════════════════════════════════
  *
- *  Renders the pre-signup diagnostic flow: questions from the
- *  DiagnosticEngine, coaching interpretations between questions,
- *  the diagnosis result, and the product recommendation + signup CTA.
+ *  Renders the pre-signup diagnostic as a continuous guided coaching
+ *  conversation. Questions from the DiagnosticEngine appear as Athlevo's
+ *  coaching messages; user answers collapse into subtle echo elements;
+ *  coaching interpretations flow inline between turns.
  *
- *  REUSES: .ob2-* CSS classes from the existing onboarding UI for
- *  visual consistency. Adds .diag-* classes only where the diagnostic
- *  result screen needs its own layout.
+ *  REUSES: .ob2-* CSS classes for field rendering (chips, cards, inputs).
+ *  ADDS:   .conv-* CSS classes for the conversation thread layout.
  *
  *  DOES NOT TOUCH: Authentication, Supabase, subscriptions, onboarding,
  *  existing navigation, payment config, or entitlement logic.
@@ -23,16 +23,19 @@
 var EASE = "cubic-bezier(.2,.7,.2,1)";
 var EASE_OUT = "cubic-bezier(.34,1.56,.64,1)";
 
+var OPENING_MSG = "I’m Athlevo — I coach endurance athletes using training science and what I learn about you over time.";
+var OPENING_FOLLOW = "Let’s figure out where your running is right now and what would actually make the biggest difference.";
+
 /* ═══════════════════════════ STATE ═══════════════════════════════════ */
 
 var engine = null;       // DiagnosticEngine instance
-var mode = "question";   // "question" | "insight" | "result"
+var mode = "question";   // "question" | "result"
 var busy = false;
-var insightTimer = null;
 var advanceTimer = null;
 var currentFieldData = {};  // tracks field values for the current question
 var currentQuestion = null; // the displayed question is the submission source of truth
 var resultTrackedFor = null;
+var interpretationCache = {}; // questionKey → interpretation text from engine
 
 /* ═══════════════════════════ HELPERS ════════════════════════════════ */
 
@@ -58,11 +61,21 @@ function pop(el) {
     { duration: 240, easing: EASE_OUT });
 }
 
+function animateIn(el) {
+  if (!canAnimate(el)) return;
+  el.animate(
+    [{ opacity: 0, transform: "translateY(8px)" },
+     { opacity: 1, transform: "translateY(0)" }],
+    { duration: 280, easing: EASE, fill: "both" }
+  );
+}
+
 /* ═══════════════════════════ SCREEN SETUP ═══════════════════════════ */
 
 /**
  * Start or resume the diagnostic. Called from landing page entry points.
- * Shows screen-diagnostic and renders the first/next question.
+ * Shows screen-diagnostic and renders the conversation immediately —
+ * no intro screen, no "Start my assessment" gate.
  */
 function startDiagnostic() {
   // Resume or create
@@ -80,41 +93,58 @@ function startDiagnostic() {
   }
 
   showScreen("screen-diagnostic");
+  interpretationCache = {};
+
   if (!engine.begun) {
-    renderIntro();
+    engine.begin();
     trackEvent("diagnostic_viewed", {});
+    trackEvent("diagnostic_started", {});
+    renderConversationOpening();
   } else {
     trackEvent("diagnostic_resumed", { state: "in_progress" });
-    renderCurrentQuestion();
+    rebuildConversation(engine.nextQuestion());
   }
 }
 
-function renderIntro() {
-  mode = "intro";
+/**
+ * Render the conversation opening: brand header, greeting messages,
+ * and the first question — all in one view, no button gate.
+ */
+function renderConversationOpening() {
+  mode = "question";
   currentQuestion = null;
-  showFoot(false);
   var body = getBody();
   if (!body) return;
-  body.innerHTML =
-    '<div class="ob2-step diag-intro" aria-labelledby="diagIntroTitle">' +
-      '<span class="ob2-eyebrow">Athlevo running diagnostic</span>' +
-      '<h2 class="ob2-title" id="diagIntroTitle" tabindex="-1">Let\'s see where your running is right now.</h2>' +
-      '<p class="ob2-sub">Answer a few questions and Athlevo will assess your current training, biggest limiter, and what we\'d recommend next.</p>' +
-      '<button class="diag-cta-primary" id="diagStart" type="button">Start my assessment</button>' +
-    '</div>';
+  body.innerHTML = "";
   body.scrollTop = 0;
+
+  var thread = document.createElement("div");
+  thread.className = "conv-thread";
+  body.appendChild(thread);
+
+  // Brand header
+  thread.appendChild(createEl(
+    '<div class="conv-header">' +
+      '<span class="conv-brand">Athlevo<span>.</span></span>' +
+      '<span class="conv-role">AI Running Coach</span>' +
+    '</div>'
+  ));
+
+  // Opening messages
+  appendAthlevoMsg(thread, OPENING_MSG);
+  appendAthlevoMsg(thread, OPENING_FOLLOW);
+
+  // First question — flows naturally below the greeting
+  var q = engine.nextQuestion();
+  if (q) {
+    appendActiveQuestion(thread, q);
+  }
+
+  // Chrome state
   var progress = document.getElementById("diagProgress");
-  if (progress) progress.style.visibility = "hidden";
-  var back = document.getElementById("diagBack");
-  if (back) back.disabled = true;
-  var start = document.getElementById("diagStart");
-  if (start) start.addEventListener("click", function () {
-    if (busy) return;
-    engine.begin();
-    trackEvent("diagnostic_started", {});
-    renderCurrentQuestion();
-  });
-  focusMain(body.querySelector("#diagIntroTitle"));
+  if (progress) progress.style.visibility = "";
+  updateChrome(q);
+  focusMain(body.querySelector(".conv-brand"));
 }
 
 function showScreen(id) {
@@ -133,53 +163,222 @@ function showScreen(id) {
   if (tb) tb.style.display = "none";
 }
 
-/* ═══════════════════════════ QUESTION RENDERING ════════════════════ */
+/* ═══════════════════════════ CONVERSATION THREAD ═══════════════════ */
 
-function renderCurrentQuestion(questionOverride) {
-  if (!questionOverride && engine.canComplete()) {
-    completeDiagnostic();
-    return;
+function ensureThread() {
+  var body = getBody();
+  if (!body) return null;
+  var thread = body.querySelector(".conv-thread");
+  if (!thread) {
+    thread = document.createElement("div");
+    thread.className = "conv-thread";
+    body.appendChild(thread);
   }
-  var q = questionOverride || engine.nextQuestion();
+  return thread;
+}
 
-  if (!q) {
-    // No more questions — can we complete?
-    if (engine.canComplete()) {
-      completeDiagnostic();
-    }
-    return;
-  }
+function appendAthlevoMsg(thread, text, skipAnim) {
+  var el = createEl('<p class="conv-athlevo-msg">' + esc(text) + '</p>');
+  thread.appendChild(el);
+  if (!skipAnim) animateIn(el);
+  return el;
+}
 
-  mode = "question";
+function appendContext(thread, text, skipAnim) {
+  var el = createEl('<p class="conv-context">' + esc(text) + '</p>');
+  thread.appendChild(el);
+  if (!skipAnim) animateIn(el);
+  return el;
+}
+
+function appendEcho(thread, label, skipAnim) {
+  var el = createEl(
+    '<div class="conv-echo">' +
+      '<span class="conv-echo-label">You</span>' +
+      '<span class="conv-echo-value">' + esc(label) + '</span>' +
+    '</div>'
+  );
+  thread.appendChild(el);
+  if (!skipAnim) animateIn(el);
+  return el;
+}
+
+/**
+ * Append the active question's fields to the thread. Sets currentQuestion,
+ * wires field interactions, and scrolls to the new content.
+ */
+function appendActiveQuestion(thread, q) {
   currentQuestion = q;
   currentFieldData = {};
 
-  // Pre-fill any previously answered question being edited.
+  // Pre-fill if revisiting
   if (engine.history.indexOf(q.key) >= 0) {
     prefillFromAnswers(q);
   }
 
+  // Question title as Athlevo coaching message
+  var msgEl = appendAthlevoMsg(thread, q.title);
+  if (q.sub) appendContext(thread, q.sub);
+
+  // Fields container
+  var fieldsHTML = buildFieldsHTML(q);
+  var wrap = createEl(
+    '<div class="conv-q-wrap" data-question="' + esc(q.key) + '">' +
+      fieldsHTML +
+    '</div>'
+  );
+  thread.appendChild(wrap);
+  animateIn(wrap);
+
+  wireQuestion(wrap, q);
+  showFoot(!q.autoAdvance);
+  updateChrome(q);
+
+  // Scroll the new question into view
+  scrollToEl(msgEl);
+}
+
+function scrollToEl(el) {
+  if (!el) return;
+  setTimeout(function () {
+    try {
+      el.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
+    } catch (e) {}
+  }, reducedMotion() ? 0 : 60);
+}
+
+/**
+ * Build a readable summary of the user's answer for the echo element.
+ * Returns e.g. "Half marathon" or "30 km · 4 hrs" or "Strength / gym, Cycling".
+ */
+function getAnswerEchoLabel(q, fieldData) {
+  var parts = [];
+  for (var i = 0; i < q.fields.length; i++) {
+    var f = q.fields[i];
+    // Check showWhen against the field data
+    if (f.showWhen) {
+      var visible = true;
+      for (var key in f.showWhen) {
+        if (!f.showWhen.hasOwnProperty(key)) continue;
+        var fval = fieldData[key];
+        var expected = f.showWhen[key];
+        if (Array.isArray(expected)) {
+          if (expected.indexOf(fval) < 0) { visible = false; break; }
+        } else {
+          if (fval !== expected) { visible = false; break; }
+        }
+      }
+      if (!visible) continue;
+    }
+
+    var v = fieldData[f.id];
+    if (v == null || v === "") continue;
+
+    if (f.options && !Array.isArray(v)) {
+      // Single select — find option label
+      for (var j = 0; j < f.options.length; j++) {
+        if (String(f.options[j].value) === String(v)) {
+          parts.push(f.options[j].label);
+          break;
+        }
+      }
+    } else if (f.options && Array.isArray(v)) {
+      // Multi select
+      var labels = [];
+      var vStr = v.map(String);
+      for (var k = 0; k < f.options.length; k++) {
+        if (vStr.indexOf(String(f.options[k].value)) >= 0) {
+          labels.push(f.options[k].label);
+        }
+      }
+      if (labels.length) parts.push(labels.join(", "));
+    } else if (f.type === "number" && f.unit) {
+      parts.push(v + " " + f.unit);
+    } else {
+      parts.push(String(v));
+    }
+  }
+  return parts.join(" · ") || "Answered";
+}
+
+/**
+ * Rebuild the entire conversation thread from engine state.
+ * Used for back navigation and resume from localStorage.
+ */
+function rebuildConversation(activeQ) {
   var body = getBody();
   if (!body) return;
+  body.innerHTML = "";
+  body.scrollTop = 0;
+  mode = "question";
 
-  var html = buildQuestionHTML(q);
-  var el = createEl(html);
+  var thread = document.createElement("div");
+  thread.className = "conv-thread";
+  body.appendChild(thread);
 
-  // Animate transition
-  var outgoing = body.querySelector(".ob2-step");
-  if (outgoing && canAnimate(outgoing)) {
-    animateTransition(body, outgoing, el, 1);
-  } else {
-    body.innerHTML = "";
-    body.appendChild(el);
-    body.scrollTop = 0;
+  // Brand header (no animation on rebuild)
+  thread.appendChild(createEl(
+    '<div class="conv-header">' +
+      '<span class="conv-brand">Athlevo<span>.</span></span>' +
+      '<span class="conv-role">AI Running Coach</span>' +
+    '</div>'
+  ));
+
+  // Opening messages
+  thread.appendChild(createEl('<p class="conv-athlevo-msg">' + esc(OPENING_MSG) + '</p>'));
+  thread.appendChild(createEl('<p class="conv-athlevo-msg">' + esc(OPENING_FOLLOW) + '</p>'));
+
+  // Replay answered questions as echoes
+  for (var i = 0; i < engine.history.length; i++) {
+    var key = engine.history[i];
+    // Stop before the active question — it gets rendered as editable fields
+    if (activeQ && key === activeQ.key) break;
+
+    var q = getQuestionDef(key);
+    if (!q) continue;
+
+    var fieldData = engine.questionAnswers[key] || {};
+
+    // Athlevo asked this question
+    thread.appendChild(createEl('<p class="conv-athlevo-msg">' + esc(q.title) + '</p>'));
+
+    // User's collapsed answer
+    var echoLabel = getAnswerEchoLabel(q, fieldData);
+    thread.appendChild(createEl(
+      '<div class="conv-echo">' +
+        '<span class="conv-echo-label">You</span>' +
+        '<span class="conv-echo-value">' + esc(echoLabel) + '</span>' +
+      '</div>'
+    ));
+
+    // Coaching interpretation (from cache or re-generated)
+    var interp = interpretationCache[key];
+    if (!interp && q.interpret) {
+      try { interp = q.interpret(fieldData, engine._stateView()); } catch (e) {}
+    }
+    if (interp) {
+      thread.appendChild(createEl('<p class="conv-athlevo-msg">' + esc(interp) + '</p>'));
+    }
   }
 
-  wireQuestion(el, q);
-  updateChrome(q);
-  showFoot(true);
-  focusMain(el.querySelector(".ob2-title"));
+  // Active question or completion
+  if (!activeQ && engine.canComplete()) {
+    completeDiagnostic();
+    return;
+  }
+  if (activeQ) {
+    appendActiveQuestion(thread, activeQ);
+  }
 }
+
+function getQuestionDef(key) {
+  if (root.AthlevoDiagnostic && root.AthlevoDiagnostic.getQuestion) {
+    return root.AthlevoDiagnostic.getQuestion(key);
+  }
+  return null;
+}
+
+/* ═══════════════════════════ FIELD RENDERING ═══════════════════════ */
 
 function prefillFromAnswers(q) {
   for (var i = 0; i < q.fields.length; i++) {
@@ -308,9 +507,11 @@ function renderDateInput(f) {
 
 /* ═══════════════════════════ FIELD LAYOUT ════════════════════════════ */
 
-// Handle half-width fields and showWhen grouping — mirrors onboarding's
-// obGroupFields but simplified for diagnostic's field definitions.
-function buildQuestionHTML(q) {
+/**
+ * Build the HTML for a question's fields (chips, inputs, etc.) without
+ * the surrounding step wrapper. Used inside .conv-q-wrap.
+ */
+function buildFieldsHTML(q) {
   var fieldsHTML = "";
   var halfBuf = [];
 
@@ -351,24 +552,19 @@ function buildQuestionHTML(q) {
     fieldsHTML += renderField(halfBuf[0], q);
   }
 
-  return '<div class="ob2-step" data-question="' + esc(q.key) + '" aria-labelledby="diagQuestionTitle">' +
-    '<span class="ob2-eyebrow">' + esc(q.eyebrow) + '</span>' +
-    '<h2 class="ob2-title" id="diagQuestionTitle" tabindex="-1">' + esc(q.title) + '</h2>' +
-    '<p class="ob2-sub">' + esc(q.sub) + '</p>' +
-    fieldsHTML +
-    '</div>';
+  return fieldsHTML;
 }
 
 /* ═══════════════════════════ WIRING ═════════════════════════════════ */
 
-function wireQuestion(root, q) {
+function wireQuestion(rootEl, q) {
   // Wire chip/card taps
-  root.querySelectorAll("[data-field]").forEach(function (el) {
+  rootEl.querySelectorAll("[data-field]").forEach(function (el) {
     if (el.tagName !== "BUTTON") return;
     el.addEventListener("click", function () {
       var fieldId = el.dataset.field;
       var raw = el.dataset.value;
-      var scope = el.closest(".ob2-step") || root;
+      var scope = el.closest(".conv-q-wrap") || el.closest(".ob2-step") || rootEl;
       clearAdvanceTimer();
 
       if (el.dataset.multi === "1") {
@@ -403,14 +599,11 @@ function wireQuestion(root, q) {
       });
 
       if (visChanged) {
-        // Re-render the question
-        var body = getBody();
-        if (body) {
-          var newEl = createEl(buildQuestionHTML(q));
-          body.innerHTML = "";
-          body.appendChild(newEl);
-          body.scrollTop = 0;
-          wireQuestion(newEl, q);
+        // Re-render fields within the conversation wrap
+        var wrap = el.closest(".conv-q-wrap");
+        if (wrap) {
+          wrap.innerHTML = buildFieldsHTML(q);
+          wireQuestion(wrap, q);
         }
       } else {
         refreshSelections(fieldId, scope);
@@ -426,7 +619,7 @@ function wireQuestion(root, q) {
   });
 
   // Wire text/number/date inputs
-  root.querySelectorAll("input, textarea").forEach(function (el) {
+  rootEl.querySelectorAll("input, textarea").forEach(function (el) {
     var sync = function () {
       collectInputs(q);
       updateContinueState(q);
@@ -560,11 +753,14 @@ function setMessage(text) {
 
 /* ═══════════════════════════ NAVIGATION ═════════════════════════════ */
 
+/**
+ * Continue: record the current answer, collapse to echo, show
+ * interpretation inline, then append the next question.
+ */
 function diagContinue() {
   if (busy) return;
   clearAdvanceTimer();
 
-  // Get current question
   var q = currentQuestion;
   if (!q) return;
 
@@ -583,11 +779,34 @@ function diagContinue() {
   try {
     // Record answer in engine
     var interpretation = engine.recordAnswer(q.key, currentFieldData);
+    if (interpretation) interpretationCache[q.key] = interpretation;
 
     trackEvent("diagnostic_question_answered", {
       question_key: q.key,
       questions_completed: engine.history.length
     });
+
+    // Collapse the active fields into an echo
+    var thread = ensureThread();
+    if (thread) {
+      var wrap = thread.querySelector(".conv-q-wrap");
+      if (wrap) {
+        var echoLabel = getAnswerEchoLabel(q, currentFieldData);
+        var echoEl = createEl(
+          '<div class="conv-echo">' +
+            '<span class="conv-echo-label">You</span>' +
+            '<span class="conv-echo-value">' + esc(echoLabel) + '</span>' +
+          '</div>'
+        );
+        wrap.replaceWith(echoEl);
+        animateIn(echoEl);
+      }
+
+      // Show coaching interpretation inline
+      if (interpretation) {
+        appendAthlevoMsg(thread, interpretation);
+      }
+    }
 
     // Check if diagnostic is complete
     if (engine.canComplete()) {
@@ -595,13 +814,12 @@ function diagContinue() {
       return;
     }
 
-    // Show coaching interpretation, then next question
-    if (interpretation) {
-      showInsight(interpretation, function () {
-        renderCurrentQuestion();
-      });
-    } else {
-      renderCurrentQuestion();
+    // Append next question
+    var next = engine.nextQuestion();
+    if (next && thread) {
+      appendActiveQuestion(thread, next);
+    } else if (engine.canComplete()) {
+      completeDiagnostic();
     }
   } finally {
     busy = false;
@@ -609,6 +827,10 @@ function diagContinue() {
   }
 }
 
+/**
+ * Back: rewind the engine and rebuild the conversation thread
+ * up to the previous question with pre-filled fields.
+ */
 function diagBack() {
   if (busy) return;
   clearAdvanceTimer();
@@ -618,83 +840,13 @@ function diagBack() {
 
   currentFieldData = {};
   prefillFromAnswers(prev);
-
-  var body = getBody();
-  if (!body) return;
-
-  var html = buildQuestionHTML(prev);
-  var el = createEl(html);
-
-  var outgoing = body.querySelector(".ob2-step");
-  if (outgoing && canAnimate(outgoing)) {
-    animateTransition(body, outgoing, el, -1);
-  } else {
-    body.innerHTML = "";
-    body.appendChild(el);
-    body.scrollTop = 0;
-  }
-
-  wireQuestion(el, prev);
-  currentQuestion = prev;
-  updateChrome(prev);
-  showFoot(true);
+  rebuildConversation(prev);
   mode = "question";
-  focusMain(el.querySelector(".ob2-title"));
+  focusMain(getBody() && getBody().querySelector(".conv-q-wrap"));
 }
 
 function getCurrentQuestionDef() {
   return currentQuestion;
-}
-
-/* ═══════════════════════════ INSIGHT BEAT ═══════════════════════════ */
-
-function showInsight(text, done) {
-  var body = getBody();
-  if (!body) { done && done(); return; }
-  mode = "insight";
-  clearAdvanceTimer();
-  if (insightTimer) { clearTimeout(insightTimer); insightTimer = null; }
-  showFoot(false);
-
-  body.innerHTML =
-    '<div class="ob2-insight" id="diagInsight" role="button" tabindex="0" aria-label="Coaching insight. Press Enter to continue.">' +
-      '<span class="ob2-insight-mark" aria-hidden="true"></span>' +
-      '<p class="ob2-insight-text" role="status" aria-live="polite">' + esc(text) + '</p>' +
-      '<span class="ob2-insight-hint">Tap or press Enter to continue</span>' +
-    '</div>';
-  body.scrollTop = 0;
-
-  var el = document.getElementById("diagInsight");
-  trackEvent("diagnostic_insight_shown", { question_key: currentQuestion ? currentQuestion.key : null });
-  if (canAnimate(el)) {
-    el.animate(
-      [{ opacity: 0, transform: "translateY(12px)" },
-       { opacity: 1, transform: "none" }],
-      { duration: 340, easing: EASE, fill: "both" });
-  }
-
-  var finished = false;
-  var proceed = function () {
-    if (finished) return;
-    finished = true;
-    if (insightTimer) { clearTimeout(insightTimer); insightTimer = null; }
-    if (el) el.removeEventListener("click", proceed);
-    if (el) el.removeEventListener("keydown", onInsightKey);
-    showFoot(true);
-    mode = "question";
-    done && done();
-  };
-  var onInsightKey = function (event) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      proceed();
-    }
-  };
-  if (el) el.addEventListener("click", proceed);
-  if (el) el.addEventListener("keydown", onInsightKey);
-  focusMain(el);
-  // Insight remains until an explicit tap/key action so screen readers and
-  // slower readers are never advanced on a timer.
 }
 
 /* ═══════════════════════════ AUTO-ADVANCE ═══════════════════════════ */
@@ -741,14 +893,14 @@ function showBuildAnimation(result) {
     "Analysing your running profile",
     "Identifying your primary limiter",
     "Assessing goal feasibility",
-    "Personalizing Athlevo's approach"
+    "Building your coaching strategy"
   ];
 
   var html =
     '<div class="ob2-payoff">' +
       '<div class="ob2-build" id="diagBuild">' +
         '<div class="ob2-build-ring"><span>Building</span></div>' +
-        '<h2 class="ob2-title">Building your diagnosis</h2>' +
+        '<h2 class="ob2-title">Building your coaching profile</h2>' +
         '<ul class="ob2-build-lines">';
 
   for (var i = 0; i < lines.length; i++) {
@@ -894,8 +1046,10 @@ function renderResult() {
   // ── CTA ──
   if (!rec || !rec.safetyOverride) {
     html += '<section class="diag-section diag-cta-section">';
-    html += '<button class="diag-cta-primary" id="diagSaveCTA" type="button">Save my diagnostic &amp; continue</button>';
-    html += '<p class="diag-cta-sub">Create your account to save this diagnostic and continue with Athlevo.</p>';
+    html += '<p class="diag-cta-price">₱597/month</p>';
+    html += '<p class="diag-cta-price-note">Full Athlevo Pro access</p>';
+    html += '<button class="diag-cta-primary" id="diagSaveCTA" type="button">Start training with Athlevo</button>';
+    html += '<p class="diag-cta-sub">Your diagnostic is saved. Create your account to begin.</p>';
     html += '</section>';
   }
 
@@ -952,44 +1106,6 @@ function renderResult() {
   focusMain(resultEl ? resultEl.querySelector(".ob2-title") : null);
 }
 
-/* ═══════════════════════════ TRANSITION ANIMATION ═══════════════════ */
-
-function animateTransition(body, outgoing, incoming, dir) {
-  var width = body.clientWidth || 360;
-  var travel = Math.round(Math.min(width, 480) * 0.16);
-  var outTo = dir >= 0 ? -travel : travel;
-  var inFrom = dir >= 0 ? travel : -travel;
-
-  body.classList.add("ob2-transitioning");
-  outgoing.style.position = "absolute";
-  outgoing.style.inset = "0";
-  outgoing.style.willChange = "transform, opacity";
-  incoming.style.position = "absolute";
-  incoming.style.inset = "0";
-  incoming.style.willChange = "transform, opacity";
-  body.appendChild(incoming);
-  body.scrollTop = 0;
-
-  var outAnim = outgoing.animate(
-    [{ transform: "translateX(0)", opacity: 1 },
-     { transform: "translateX(" + outTo + "px)", opacity: 0 }],
-    { duration: 240, easing: EASE, fill: "both" });
-  var inAnim = incoming.animate(
-    [{ transform: "translateX(" + inFrom + "px)", opacity: 0 },
-     { transform: "translateX(0)", opacity: 1 }],
-    { duration: 300, easing: EASE, fill: "both" });
-
-  inAnim.onfinish = function () {
-    body.classList.remove("ob2-transitioning");
-    if (outgoing.parentNode) outgoing.remove();
-    incoming.style.position = "";
-    incoming.style.inset = "";
-    incoming.style.transform = "";
-    incoming.style.opacity = "";
-    incoming.style.willChange = "";
-  };
-}
-
 /* ═══════════════════════════ DOM HELPERS ════════════════════════════ */
 
 function getBody() {
@@ -1022,8 +1138,6 @@ function trackEvent(name, props) {
   } catch (e) {}
 }
 
-/* ═══════════════════════════ EXPORT ═════════════════════════════════ */
-
 /* ═══════════════════════════ DOM INIT ═══════════════════════════════ */
 
 function initDOM() {
@@ -1045,6 +1159,8 @@ if (document.readyState === "loading") {
 } else {
   initDOM();
 }
+
+/* ═══════════════════════════ EXPORT ═════════════════════════════════ */
 
 var DiagnosticUI = {
   start: startDiagnostic,

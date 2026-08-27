@@ -11,12 +11,12 @@ assert.match(ui, /var currentQuestion = null/);
 assert.match(ui, /var q = currentQuestion;/, "submission must use the displayed question");
 assert.doesNotMatch(ui, /var key = engine\.history\[engine\.history\.length - 1\]/);
 assert.match(ui, /engine\.previousQuestion\(currentQuestion \? currentQuestion\.key/);
-assert.match(ui, /Start my assessment/);
+assert.match(ui, /OPENING_MSG/, "conversation opens with Athlevo greeting");
 assert.match(ui, /diagnostic_viewed/);
 assert.match(ui, /diagnostic_started/);
 assert.match(ui, /aria-pressed/);
-assert.match(ui, /role=\"button\" tabindex=\"0\"/);
-assert.match(ui, /event\.key === \"Enter\" \|\| event\.key === \" \"/);
+assert.match(ui, /type=\"button\"/, "fields use native button elements");
+assert.match(ui, /wireQuestion/, "question fields are wired for interaction");
 assert.match(ui, /for=\"diagf-/);
 assert.match(index, /AthlevoDiagnostic\.hasPending\(\)[\s\S]{0,300}AthlevoDiagnosticUI\.start/);
 
