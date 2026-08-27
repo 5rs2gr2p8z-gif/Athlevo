@@ -6527,7 +6527,7 @@ window.openAppEntry = openAppEntry;
  * without permanently changing a future fresh visit to athlevo.org.
  */
 function rememberAppEntryIntent(reason) {
-  try { sessionStorage.setItem('athlevo_app_entry_intent', reason === 'logout' ? 'logout' : 'entry'); } catch (e) {}
+  try { var v = reason === 'logout' ? 'logout' : (reason === 'ai' ? 'ai' : 'entry'); sessionStorage.setItem('athlevo_app_entry_intent', v); } catch (e) {}
 }
 function hasAppEntryIntent() {
   try { return Boolean(sessionStorage.getItem('athlevo_app_entry_intent')); }
