@@ -28,6 +28,7 @@ import { handleCors } from "../../lib/server/cors.js";
 
 import crypto from "node:crypto";
 import paymongoCheckoutHandler from "../../lib/server/paymongoCheckoutEndpoint.js";
+import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
 // Beta analytics aggregation (admin_analytics action). Folded into this
 // gateway so the founder dashboard does not consume a separate Vercel
 // serverless slot — keeping the Whop webhook within the Hobby 12-fn limit.
@@ -3510,6 +3511,10 @@ export default async function handler(request, response) {
     // Provider-independent routes (folded in to save serverless slots).
     if (action === "paymongo_checkout") {
       return paymongoCheckoutHandler(request, response);
+    }
+
+    if (action === "diagnostic_chat") {
+      return diagnosticChatHandler(request, response);
     }
 
     if (action === "delete_account") {

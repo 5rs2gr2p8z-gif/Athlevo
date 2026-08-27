@@ -154,7 +154,7 @@ const AI_ENDPOINTS = [
   { file: "./api/memory/extract.js",          name: "memory/extract" },
   { file: "./api/training/generate-plan.js",  name: "generate-plan" },
   { file: "./api/training/weekly-analysis.js", name: "weekly-analysis" },
-  { file: "./api/diagnostic-chat.js",          name: "diagnostic-chat" },
+  { file: "./lib/server/diagnosticChatEndpoint.js", name: "diagnostic-chat" },
 ];
 
 for (const ep of AI_ENDPOINTS) {
@@ -315,7 +315,7 @@ section("9 — API routes derive user_id from JWT, never request body");
     "./api/training/weekly-analysis.js",
     "./api/training/get-week.js",
     "./api/training/check-in.js",
-    "./api/diagnostic-chat.js",
+    "./lib/server/diagnosticChatEndpoint.js",
   ];
 
   for (const file of API_FILES) {

@@ -62,7 +62,24 @@ console.log();
 t(`function count (${functions.length}) is within Hobby limit (${HOBBY_LIMIT})`, functions.length <= HOBBY_LIMIT, `found ${functions.length}`);
 t("api/coach-dashboard.js is NOT in the deployable tree", !functions.includes("api/coach-dashboard.js"));
 t("api/athlete-mode.js is NOT in the deployable tree", !functions.includes("api/athlete-mode.js"));
+t("api/diagnostic-chat.js is NOT in the deployable tree", !functions.includes("api/diagnostic-chat.js"));
 t("api/providers/index.js IS in the deployable tree", functions.includes("api/providers/index.js"));
+
+{
+  const vercel = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8"));
+  t("POST /api/diagnostic-chat rewrites to providers?action=diagnostic_chat",
+    (vercel.rewrites || []).some(route =>
+      route.source === "/api/diagnostic-chat" &&
+      route.destination === "/api/providers?action=diagnostic_chat"
+    )
+  );
+  t("PayMongo checkout rewrite is unchanged",
+    (vercel.rewrites || []).some(route =>
+      route.source === "/api/paymongo/checkout" &&
+      route.destination === "/api/providers?action=paymongo_checkout"
+    )
+  );
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

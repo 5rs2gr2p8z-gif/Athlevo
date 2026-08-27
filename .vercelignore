@@ -21,6 +21,11 @@ api/admin/
 # deployment cap. These thin local entrypoints remain available for direct tests.
 api/paymongo/
 
+# Pre-signup diagnostic chat is rewritten to the provider gateway
+# (?action=diagnostic_chat) so it does not consume a 13th Hobby slot.
+# The thin api/diagnostic-chat.js wrapper remains for local/CORS tests.
+api/diagnostic-chat.js
+
 # Not part of the deployed app.
 migrations/
 tests/

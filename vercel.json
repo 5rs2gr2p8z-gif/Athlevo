@@ -17,6 +17,10 @@
       "destination": "/api/providers?action=paymongo_checkout"
     },
     {
+      "source": "/api/diagnostic-chat",
+      "destination": "/api/providers?action=diagnostic_chat"
+    },
+    {
       "source": "/api/paymongo/webhook",
       "destination": "/api/whop/webhook?provider=paymongo"
     },
