@@ -13,8 +13,13 @@ create table if not exists public.athlete_diagnostics (
   result              jsonb not null check (jsonb_typeof(result) = 'object'),
   primary_limiter     text,
   feasibility         text,
-  recommended_product text,
-  selected_product    text,
+  coaching_strategy   text,
+  recommendation_reason text,
+  acquisition_stage   text not null default 'awaiting_payment'
+    check (acquisition_stage in (
+      'awaiting_payment', 'checkout_started', 'payment_confirmed',
+      'onboarding', 'completed', 'clearance_required'
+    )),
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now(),
   constraint athlete_diagnostics_user_import_unique unique (user_id, import_key),
@@ -23,6 +28,9 @@ create table if not exists public.athlete_diagnostics (
 
 create index if not exists athlete_diagnostics_user_completed_idx
   on public.athlete_diagnostics (user_id, completed_at desc);
+
+create index if not exists athlete_diagnostics_user_acquisition_idx
+  on public.athlete_diagnostics (user_id, acquisition_stage, completed_at desc);
 
 alter table public.athlete_diagnostics enable row level security;
 

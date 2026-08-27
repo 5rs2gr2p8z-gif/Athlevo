@@ -21,7 +21,7 @@
     "training_load", "recovery", "athlevo_score", "trends", "coach_message"
   ]);
   const PREMIUM_SURFACES = new Set([
-    "today", "trends", "coach", "upgrade_sheet"
+    "today", "trends", "coach", "upgrade_sheet", "diagnostic"
   ]);
   const PREMIUM_SCREEN_IDS = {
     today: "screen-today",
@@ -860,6 +860,11 @@
           unlockAll();
           refreshPremiumViews();
           paymentReturnNotice("Athlevo Pro access confirmed.");
+          if (window.AthlevoDiagnosticAcquisition && window.routeAfterAuth) {
+            const session = await supabaseClient.auth.getSession();
+            const user = session && session.data && session.data.session && session.data.session.user;
+            if (user) await window.routeAfterAuth(user.id);
+          }
           return;
         }
       }

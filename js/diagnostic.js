@@ -15,7 +15,7 @@ console.log("Athlevo Diagnostic v1 loaded");
  *  · All state in localStorage (survives OAuth redirects, tab interruptions).
  *  · Coaching interpretations are template-driven with clear interface for
  *    future AI-backed generation.
- *  · Product recommendation is tier-agnostic — supports any number of tiers.
+ *  · The result explains how the single Athlevo AI product would help.
  *  · Safety: never medically diagnoses. Injury questions flag for caution only.
  *
  *  DOES NOT TOUCH: Authentication, Supabase, subscriptions, onboarding,
@@ -853,7 +853,6 @@ function DiagnosticEngine() {
   this.completedAt = null;
   this.result = null;      // populated after completion
   this.importKeyValue = makeImportKey();
-  this.selectedProductId = null;
 
   // Safety flags
   this.safetyFlags = {
@@ -964,7 +963,6 @@ DiagnosticEngine.prototype.recordAnswer = function (questionKey, fieldAnswers) {
   this.completed = false;
   this.completedAt = null;
   this.result = null;
-  this.selectedProductId = null;
   this._rebuildDerivedState();
 
   // Generate coaching interpretation
@@ -1151,8 +1149,8 @@ DiagnosticEngine.prototype._generateResult = function () {
     // ── Goal Feasibility ──
     feasibility: this._assessFeasibility(),
 
-    // ── Product Recommendation ──
-    recommendation: this._recommendProduct(),
+    // ── Personalized Athlevo approach (one product, no tier selector) ──
+    athlevoRecommendation: this._buildAthlevoRecommendation(),
 
     // ── Safety ──
     safetyFlags: {
@@ -1467,211 +1465,53 @@ DiagnosticEngine.prototype._assessFeasibility = function () {
 };
 
 /* ═══════════════════════════ PRODUCT RECOMMENDATION ══════════════════
- * Tier-agnostic recommendation engine. Supports any number of products.
- * The recommendation is based on actual support needs, not just complexity.
- *
- * PRODUCT_TIERS is the configuration — editing this array is where future
- * checkout integration and new tiers would go. The diagnostic logic does
- * not hardcode tier names or prices.
+ * One product is offered: Athlevo AI / Athlevo Pro. The diagnostic explains
+ * how it would address the runner's limiter without prescribing a schedule.
  */
-var PRODUCT_TIERS = [
-  {
-    id: "ai",
-    name: "Athlevo AI",
-    shortName: "AI",
-    description: "AI-powered adaptive training — plans that adjust to how you respond.",
-    bestFor: "Self-motivated runners with clear goals who want intelligent structure without human coaching.",
-    capabilities: ["Adaptive training plans", "Daily adjustments", "Performance tracking", "Race-day strategy"],
-    fits: function (s) {
-      // Good for: self-sufficient runners, clear goals, no major injury, moderate complexity
-      var score = 3; // Base — this is the primary product
-      if (s.experience === "3_5_years" || s.experience === "5_plus") score += 1;
-      if (s.training_status === "training_block" || s.training_status === "maintaining") score += 1;
-      if (s.injury_status && s.injury_status.severity === "none") score += 1;
-      if (s.training_days >= 4) score += 1;
-      return score;
-    }
-  },
-  {
-    id: "plan",
-    name: "Athlevo Plan",
-    shortName: "Plan",
-    description: "A periodised training plan built by a human coach, powered by Athlevo's engine.",
-    bestFor: "Runners who want expert-designed structure with the flexibility to execute independently.",
-    capabilities: ["Custom-built plan", "Periodised structure", "AI-powered adjustments", "Plan revisions"],
-    fits: function (s) {
-      var score = 0;
-      // Good for: specific race goals, time-constrained, moderate experience
-      if (s.goal_race_date) score += 2;
-      if (s.goal_time) score += 1;
-      if (s.experience === "1_2_years" || s.experience === "3_5_years") score += 1;
-      if (s.training_days >= 4 && s.training_days <= 6) score += 1;
-      if (s.schedule_constraints) score += 1;
-      return score;
-    }
-  },
-  {
-    id: "coaching",
-    name: "Athlevo Coaching",
-    shortName: "Coaching",
-    description: "Ongoing coaching relationship — a dedicated coach who knows your running and adapts week to week.",
-    bestFor: "Runners who benefit from accountability, regular check-ins, and adaptive human guidance.",
-    capabilities: ["Dedicated human coach", "Weekly plan adjustments", "Direct messaging", "Race strategy sessions"],
-    fits: function (s) {
-      var score = 0;
-      // Good for: complex situations, returning/injured, ambitious goals with gaps
-      if (s.injury_status && s.injury_status.severity !== "none") score += 2;
-      if (s.training_status === "returning") score += 2;
-      if (s.perceived_limiter === "mental") score += 1;
-      if (s.schedule_constraints) score += 1;
-      if (s.experience === "new" && (s.goal_distance === "Marathon" || s.goal_distance === "Half marathon")) score += 2;
-      var feasibility = s._feasibilityRating;
-      if (feasibility === "aggressive" || feasibility === "reassess") score += 2;
-      return score;
-    }
-  },
-  {
-    id: "elite",
-    name: "Athlevo Elite",
-    shortName: "Elite",
-    description: "Comprehensive coaching with full performance monitoring, biomechanical guidance, and priority support.",
-    bestFor: "Committed athletes pursuing significant goals who want every advantage.",
-    capabilities: ["Senior dedicated coach", "Daily monitoring", "Biomechanical analysis", "Nutrition guidance", "Priority support"],
-    fits: function (s) {
-      var score = 0;
-      // Good for: high volume, complex multi-sport, injury + ambitious goal, very demanding
-      if (s.weekly_mileage >= 60) score += 1;
-      if (s.training_days >= 6) score += 1;
-      if (s.other_training && s.other_training.length >= 2 && s.other_training.indexOf("none") < 0) score += 1;
-      if (s.injury_status && s.injury_status.severity !== "none" && s.goal_time) score += 2;
-      if (s.experience === "5_plus" && s.goal_time) score += 1;
-      return score;
-    }
-  }
-];
-
-DiagnosticEngine.prototype._recommendProduct = function () {
-  var a = this.answers;
-  // Pass feasibility rating into the scoring context
+DiagnosticEngine.prototype._buildAthlevoRecommendation = function () {
   var feasibility = this._assessFeasibility();
   if (this.safetyFlags.requiresMedicalClearance || feasibility.rating === "not_advisable") {
     return {
       safetyOverride: true,
-      recommended: {
-        id: "medical_clearance",
-        name: "Get cleared before structured training",
-        shortName: "Clearance first",
-        description: "Pause structured progression until a qualified health professional confirms what training is appropriate.",
-        bestFor: "Runners whose current symptoms or readiness make structured training inadvisable right now.",
-        capabilities: [],
-        rationale: "Your safety status takes priority over a commercial recommendation. Athlevo will be here when you are cleared to resume structured training."
-      },
-      alternatives: [],
-      factors: this._recommendationFactors()
+      id: "medical_clearance",
+      heading: "Clearance comes first",
+      strategy: "Pause structured progression until a qualified health professional confirms what training is appropriate. Athlevo will be here when you are cleared to resume structured training.",
+      capabilities: []
     };
   }
-  var scoringContext = Object.assign({}, a, { _feasibilityRating: feasibility.rating });
-
-  var scored = [];
-  for (var i = 0; i < PRODUCT_TIERS.length; i++) {
-    var tier = PRODUCT_TIERS[i];
-    scored.push({
-      id: tier.id,
-      name: tier.name,
-      shortName: tier.shortName,
-      description: tier.description,
-      bestFor: tier.bestFor,
-      capabilities: tier.capabilities,
-      score: tier.fits(scoringContext)
-    });
-  }
-
-  scored.sort(function (a, b) { return b.score - a.score; });
-
-  var primary = scored[0];
-  var alternatives = scored.slice(1).filter(function (s) { return s.score > 0; });
-
-  return {
-    recommended: {
-      id: primary.id,
-      name: primary.name,
-      shortName: primary.shortName,
-      description: primary.description,
-      bestFor: primary.bestFor,
-      capabilities: primary.capabilities,
-      rationale: this._recommendationRationale(primary.id)
-    },
-    alternatives: alternatives.map(function (alt) {
-      return {
-        id: alt.id,
-        name: alt.name,
-        shortName: alt.shortName,
-        description: alt.description,
-        bestFor: alt.bestFor
-      };
-    }),
-    factors: this._recommendationFactors()
+  var primary = this.hypotheses.length > 0
+    ? this.hypotheses[0].limiter
+    : "training_structure";
+  var strategies = {
+    consistency: "Your biggest opportunity isn't running harder. It's creating enough consistency for one week of training to build on the next. Athlevo would structure your training around the days you can realistically run and adjust your progression when your schedule changes.",
+    running_durability: "Your cardiovascular fitness appears ahead of your running durability. Athlevo would initially prioritize sustainable volume, longer aerobic work and running-specific strength before introducing more demanding sessions.",
+    aerobic_base: "Your next phase should focus on expanding how much running you can sustain comfortably. Athlevo would build that progressively rather than simply telling you to run harder.",
+    training_structure: "You're already putting in enough effort to improve. The missing piece is how that work is organized. Athlevo would give each session a purpose and progress your training based on how you're responding.",
+    endurance_pacing: "Your training needs a clearer balance between controlled aerobic work and the sessions that move your goal forward. Athlevo would set purposeful effort targets and adjust them as your endurance develops.",
+    schedule: "A rigid Monday–Sunday plan probably isn't the best fit for your situation. Athlevo can structure priority sessions around your actual availability and adjust when work or recovery changes.",
+    injury_management: "Your progression needs to respect the physical issue you reported. Once training is appropriate, Athlevo would keep load increases measured and adjust around how your body is responding."
   };
-};
-
-DiagnosticEngine.prototype.selectProduct = function (productId) {
-  if (!this.result || !this.result.recommendation || this.result.recommendation.safetyOverride) return false;
-  var allowed = PRODUCT_TIERS.some(function (tier) { return tier.id === productId; });
-  if (!allowed) return false;
-  this.selectedProductId = productId;
-  this._save();
-  return true;
-};
-
-DiagnosticEngine.prototype._recommendationRationale = function (tierId) {
-  var a = this.answers;
-  var primary = this.hypotheses.length > 0 ? this.hypotheses[0] : null;
-
-  if (tierId === "ai") {
-    if (primary && primary.limiter === "training_structure") {
-      return "Your fitness base is there — what you need is intelligent structure that adapts as you progress. Athlevo AI builds and adjusts your plan daily based on how your body is responding.";
-    }
-    if (a.experience === "3_5_years" || a.experience === "5_plus") {
-      return "With your experience, you know how to execute. What Athlevo AI adds is the adaptive intelligence — adjusting your plan based on how you're responding, not just following a static template.";
-    }
-    return "Athlevo AI gives you a structured, adaptive training plan that responds to your progress. It handles the planning so you can focus on the running.";
+  // Schedule constraints as a limiter takes priority only when the primary
+  // limiter isn't more specific (consistency/durability/etc. already address
+  // schedule implicitly).
+  if ((this.answers.schedule_constraints || this.answers.train_time === "varies") &&
+      (primary === "training_structure" || !strategies[primary])) {
+    primary = "schedule";
   }
-
-  if (tierId === "plan") {
-    return "With a specific race goal and a deadline to work toward, a coach-designed plan gives you the structure and periodisation that generic plans can't match — built around your actual constraints and fitness level.";
-  }
-
-  if (tierId === "coaching") {
-    if (a.injury_status && a.injury_status.severity !== "none") {
-      return "With an active physical issue, ongoing coaching gives you the adaptive guidance that a static plan can't — your coach adjusts week to week based on how your body responds, not just what the plan says.";
-    }
-    if (a.training_status === "returning") {
-      return "Coming back from a break is one of the situations where coaching pays off most — the return-to-running curve is unpredictable, and having someone adjust the plan as your body readapts keeps you progressing without setbacks.";
-    }
-    return "Your situation has enough complexity that you'd benefit from a coach who knows your running, adapts your plan week to week, and is available when things change.";
-  }
-
-  if (tierId === "elite") {
-    return "With your training volume, goals, and complexity, you'd benefit from comprehensive coaching — not just a plan, but ongoing biomechanical guidance, nutrition support, and priority access to a senior coach.";
-  }
-
-  return "Based on your diagnostic, this level of support matches your current needs and goals.";
-};
-
-DiagnosticEngine.prototype._recommendationFactors = function () {
-  var a = this.answers;
-  var factors = [];
-
-  if (a.goal_distance) factors.push("goal_distance");
-  if (a.experience) factors.push("experience");
-  if (this.hypotheses.length > 0) factors.push("primary_limiter");
-  if (a.injury_status && a.injury_status.severity !== "none") factors.push("injury_status");
-  if (a.training_status === "returning") factors.push("return_from_break");
-  if (a.training_days) factors.push("training_availability");
-  if (a.schedule_constraints) factors.push("schedule_complexity");
-  if (a.goal_time) factors.push("time_goal");
-
-  return factors;
+  var strategy = strategies[primary] || strategies.training_structure;
+  return {
+    safetyOverride: false,
+    id: "athlevo_ai",
+    heading: "How Athlevo would coach you",
+    strategy: strategy,
+    capabilities: [
+      "Personalized training plan",
+      "Daily workout guidance",
+      "AI coach you can talk to",
+      "Training adjustments",
+      "Progress and readiness insights"
+    ]
+  };
 };
 
 /* ═══════════════════════════ PERSISTENCE ═════════════════════════════
@@ -1696,7 +1536,6 @@ DiagnosticEngine.prototype._save = function () {
       history: this.history,
       currentIndex: this.currentIndex,
       completed: this.completed,
-      selectedProductId: this.selectedProductId,
       result: this.result
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -1724,7 +1563,6 @@ DiagnosticEngine.load = function () {
     engine.completed = payload.completed === true;
     engine.startedAt = payload.startedAt || null;
     engine.completedAt = payload.completedAt || null;
-    engine.selectedProductId = payload.selectedProductId || null;
     engine.result = payload.result || null;
     engine._rebuildDerivedState();
 
@@ -1768,8 +1606,9 @@ function isValidResult(result) {
   return isPlainObject(result) && result.version === SCHEMA_VERSION &&
     typeof result.generatedAt === "string" && isFinite(Date.parse(result.generatedAt)) &&
     isPlainObject(result.profile) && isPlainObject(result.feasibility) &&
-    typeof result.feasibility.rating === "string" && isPlainObject(result.recommendation) &&
-    isPlainObject(result.recommendation.recommended) && typeof result.recommendation.recommended.id === "string";
+    typeof result.feasibility.rating === "string" && isPlainObject(result.athlevoRecommendation) &&
+    typeof result.athlevoRecommendation.id === "string" &&
+    typeof result.athlevoRecommendation.strategy === "string";
 }
 
 DiagnosticEngine.hasPending = function () {
@@ -1840,6 +1679,28 @@ DiagnosticEngine.prototype.toProfileFields = function () {
     fields.work_schedule = a.schedule_constraints;
   }
 
+  var trainTimeLabels = {
+    early_morning: "Early morning",
+    midday: "Midday",
+    after_work: "After work",
+    evening: "Evening",
+    varies: "Varies"
+  };
+  if (a.train_time && trainTimeLabels[a.train_time]) {
+    fields.preferred_training_time = trainTimeLabels[a.train_time];
+  }
+
+  var statusLabels = {
+    starting: "Just starting",
+    building_base: "Building base",
+    training_block: "In a training block",
+    returning: "Returning from a break",
+    maintaining: "Maintaining fitness"
+  };
+  if (a.training_status && statusLabels[a.training_status]) {
+    fields.coach_notes = "Training status: " + statusLabels[a.training_status] + ".";
+  }
+
   return fields;
 };
 
@@ -1854,15 +1715,13 @@ DiagnosticEngine.prototype.toStoragePayload = function () {
     completedAt: this.completedAt,
     questionsAnswered: this.history.length,
     result: this.result,
-    answers: JSON.parse(JSON.stringify(this.answers)),
-    selected_product: this.selectedProductId
+    answers: JSON.parse(JSON.stringify(this.answers))
   };
 };
 
 DiagnosticEngine.prototype.toDiagnosticRow = function (userId) {
   var result = this.result || {};
-  var recommendation = result.recommendation || {};
-  var recommended = recommendation.recommended || {};
+  var recommendation = result.athlevoRecommendation || {};
   return {
     user_id: userId,
     import_key: this.importKeyValue,
@@ -1874,8 +1733,9 @@ DiagnosticEngine.prototype.toDiagnosticRow = function (userId) {
     result: JSON.parse(JSON.stringify(result)),
     primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
     feasibility: result.feasibility ? result.feasibility.rating : null,
-    recommended_product: recommended.id || null,
-    selected_product: this.selectedProductId,
+    coaching_strategy: recommendation.strategy || null,
+    recommendation_reason: result.primaryLimiter ? result.primaryLimiter.key : null,
+    acquisition_stage: recommendation.safetyOverride ? "clearance_required" : "awaiting_payment",
     updated_at: new Date().toISOString()
   };
 };
@@ -1907,7 +1767,7 @@ root.AthlevoDiagnostic = DiagnosticEngine;
 
 // Node.js / test compat
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { DiagnosticEngine: DiagnosticEngine, QUESTIONS: QUESTIONS, PRODUCT_TIERS: PRODUCT_TIERS, LIMITER_RULES: LIMITER_RULES };
+  module.exports = { DiagnosticEngine: DiagnosticEngine, QUESTIONS: QUESTIONS, LIMITER_RULES: LIMITER_RULES };
 }
 
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

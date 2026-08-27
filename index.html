@@ -1395,6 +1395,28 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
   html[data-theme="system"] .diag-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
   html[data-theme="system"] .diag-rec-card{background:var(--card)}
 }
+.diagnostic-paywall-scroll{width:100%;max-width:520px;margin:0 auto;padding:calc(34px + env(safe-area-inset-top)) 22px calc(34px + env(safe-area-inset-bottom));overflow-y:auto}
+.diagnostic-paywall-brand{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin-bottom:42px}
+.diagnostic-paywall-brand span{color:var(--red)}
+.diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-caption);font-weight:700;color:var(--good);margin-bottom:12px}
+.diagnostic-paywall-kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
+.diagnostic-paywall-title{font-family:var(--serif);font-size:clamp(2rem,9vw,3rem);font-weight:500;letter-spacing:-.035em;line-height:1.05;color:var(--text);margin:0}
+.diagnostic-paywall-lead{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:14px 0 24px}
+.diagnostic-paywall-limiter{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:16px 18px;margin-bottom:22px}
+.diagnostic-paywall-limiter small{display:block;font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px}
+.diagnostic-paywall-limiter strong{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--red)}
+.diagnostic-paywall-benefits{list-style:none;padding:0;margin:0 0 24px}
+.diagnostic-paywall-benefits li{position:relative;padding:9px 0 9px 24px;font-size:var(--fs-body-sm);color:var(--text)}
+.diagnostic-paywall-benefits li::before{content:"✓";position:absolute;left:0;color:var(--red);font-weight:800}
+.diagnostic-paywall-price{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--text);margin:0 0 4px}
+.diagnostic-paywall-renewal{font-size:var(--fs-caption);color:var(--ink3);margin:0 0 18px}
+.diagnostic-paywall-actions{display:grid;gap:10px}
+.diagnostic-paywall-primary,.diagnostic-paywall-local{width:100%;border-radius:12px;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;padding:15px;cursor:pointer;transition:transform var(--dur-fast),background var(--dur-base)}
+.diagnostic-paywall-primary{border:1px solid var(--red);background:var(--red);color:#fff}
+.diagnostic-paywall-local{border:1px solid var(--line);background:var(--paper);color:var(--text)}
+.diagnostic-paywall-primary:active,.diagnostic-paywall-local:active{transform:scale(.98)}
+.diagnostic-paywall-status{min-height:20px;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--red);margin:12px 0 0;text-align:center}
+.diagnostic-paywall-card.is-unavailable .diagnostic-paywall-actions{display:none}
 .connect-card p{font-size:var(--fs-caption);color:var(--ink2);margin:4px 0 12px}
 .connect-card button{width:100%;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:var(--s-3);border-radius:var(--r-pill);border:none;background:var(--ink);color:#fff;cursor:pointer}
 .importbar{height:6px;background:var(--line);border-radius:var(--r-pill);overflow:hidden;margin-top:12px}
@@ -4174,6 +4196,37 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <button class="ob2-continue" id="diagContinue" type="button">Continue</button>
     </div>
 
+</section>
+
+<!-- Paid-first continuation for authenticated diagnostic acquisitions. -->
+<section class="screen" id="screen-diagnostic-paywall">
+  <div class="diagnostic-paywall-scroll">
+    <div class="diagnostic-paywall-brand">Athlevo<span>.</span></div>
+    <div class="diagnostic-paywall-card" id="diagnosticPaywallCard">
+      <span class="diagnostic-paywall-kicker">Your diagnostic is saved</span>
+      <h1 class="diagnostic-paywall-title">Start training with Athlevo.</h1>
+      <p class="diagnostic-paywall-lead">Let Athlevo build the training around it.</p>
+      <div class="diagnostic-paywall-limiter">
+        <small>Primary limiter</small>
+        <strong id="diagnosticPaywallLimiter">Your training structure</strong>
+      </div>
+      <ul class="diagnostic-paywall-benefits">
+        <li>Personalized training plan</li>
+        <li>Daily workout guidance</li>
+        <li>AI coach you can talk to</li>
+        <li>Adaptive training adjustments</li>
+        <li>Progress tracking</li>
+        <li>Readiness and training insights</li>
+      </ul>
+      <p class="diagnostic-paywall-price">₱597/month</p>
+      <p class="diagnostic-paywall-renewal">Full Athlevo Pro access</p>
+      <div class="diagnostic-paywall-actions">
+        <button class="diagnostic-paywall-primary" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('card')">Start with Athlevo</button>
+        <button class="diagnostic-paywall-local" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('local')">Pay with QRPh, Maya, or GrabPay</button>
+      </div>
+      <p class="diagnostic-paywall-status" id="diagnosticPaywallStatus" role="status" aria-live="polite"></p>
+    </div>
+  </div>
 </section>
 
 <!-- ══════════════ PLAN SETUP (proactive plan-building CTA) ══════════════ -->
@@ -9328,9 +9381,10 @@ async function routeAfterAuth(userId) {
   // ── Diagnostic handoff: attach pre-signup diagnostic data to profile ──
   // Runs before onboarding routing so profile fields are populated when
   // onboarding starts (allowing it to skip already-answered questions).
+  var diagResult = null;
   if (window.AthlevoDiagnosticHandoff && window.AthlevoDiagnosticHandoff.attach) {
     try {
-      var diagResult = await window.AthlevoDiagnosticHandoff.attach(userId, supabaseClient);
+      diagResult = await window.AthlevoDiagnosticHandoff.attach(userId, supabaseClient);
       if (diagResult && diagResult.attached) {
         console.log("Diagnostic data attached to profile");
       }
@@ -9348,6 +9402,33 @@ async function routeAfterAuth(userId) {
       !profile.onboarding_complete) {
     startOnboarding(); // onboarding.js detects the role and auto-completes
     return;
+  }
+
+  // A completed diagnostic is a paid-first acquisition path. Resolve it with
+  // a raw subscription read that does not call ensure_free_trial: verified
+  // paid access continues, otherwise the saved diagnostic paywall owns the
+  // route. Existing users without an active diagnostic stay on legacy routing.
+  if (window.AthlevoDiagnosticAcquisition &&
+      !(profile && (profile.role === "coach" || profile.role === "admin"))) {
+    try {
+      var acquisitionRoute = await window.AthlevoDiagnosticAcquisition.resolveAfterAuth(
+        userId, supabaseClient, diagResult, profile
+      );
+      if (!routeIsCurrent()) return;
+      if (acquisitionRoute && acquisitionRoute.route === "onboarding") {
+        startOnboarding();
+        return;
+      }
+      if (acquisitionRoute && acquisitionRoute.handled) return;
+    } catch (acquisitionError) {
+      console.warn("Diagnostic acquisition routing unavailable.");
+      if (window.AthlevoDiagnosticAcquisition.current()) {
+        window.AthlevoDiagnosticAcquisition.showPaywall(
+          window.AthlevoDiagnosticAcquisition.current(), true
+        );
+        return;
+      }
+    }
   }
 
   // Use the authoritative onboarding_complete flag (the same signal
@@ -9413,6 +9494,9 @@ async function routeAfterAuth(userId) {
 
   document.getElementById("tabbar").style.display = "flex";
   showScreen("screen-today");
+  if (window.AthlevoDiagnosticAcquisition) {
+    window.AthlevoDiagnosticAcquisition.markAppEntered();
+  }
 
   // Resolve athlete coaching authority before loading any AI-authored
   // coaching surface. init() synchronously masks the hidden Coach AI DOM,
@@ -10052,6 +10136,7 @@ setTimeout(function () {
 <script src="js/diagnostic.js?v=1"></script>
 <script src="js/diagnosticUI.js?v=1"></script>
 <script src="js/diagnosticHandoff.js?v=1"></script>
+<script src="js/diagnosticAcquisition.js?v=1"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

@@ -238,31 +238,56 @@ async function loadSubscription() {
       return null;
     }
 
+    // Diagnostic-acquisition users must NOT receive a 24-hour trial.
+    // isDiagnosticAcquisition checks the durable athlete_diagnostics table,
+    // so this survives refresh, OAuth, and cross-session loads.
+    let skipTrialRpc = false;
+    try {
+      if (window.AthlevoDiagnosticAcquisition &&
+          typeof window.AthlevoDiagnosticAcquisition.isDiagnosticAcquisition === "function") {
+        skipTrialRpc = await window.AthlevoDiagnosticAcquisition.isDiagnosticAcquisition(
+          user.id, supabaseClient
+        );
+      }
+    } catch (e) { /* non-fatal; fall through to trial RPC */ }
+
     // ensure_free_trial creates a subscription row with trial_started_at
     // if none exists, or backfills trial_started_at on existing rows.
     // Falls back to a plain SELECT if the RPC is not yet deployed.
+    // Skipped entirely for diagnostic-acquisition users (paid-first path).
     let data = null;
     let error = null;
-    try {
-      const rpcResult = await supabaseClient
-        .rpc("ensure_free_trial", { p_user_id: user.id })
-        .maybeSingle();
-      data = rpcResult.data;
-      error = rpcResult.error;
-    } catch (rpcErr) {
-      // RPC not deployed yet — fall back to plain SELECT
-      data = null;
-      error = { message: "rpc_fallback" };
-    }
-    if (error) {
-      // Fallback: plain SELECT (pre-migration or RPC unavailable)
-      const fallback = await supabaseClient
+    if (skipTrialRpc) {
+      // Plain SELECT — no trial creation for diagnostic-acquisition users.
+      const directRead = await supabaseClient
         .from("subscriptions")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
-      data = fallback.data;
-      error = fallback.error;
+      data = directRead.data;
+      error = directRead.error;
+    } else {
+      try {
+        const rpcResult = await supabaseClient
+          .rpc("ensure_free_trial", { p_user_id: user.id })
+          .maybeSingle();
+        data = rpcResult.data;
+        error = rpcResult.error;
+      } catch (rpcErr) {
+        // RPC not deployed yet — fall back to plain SELECT
+        data = null;
+        error = { message: "rpc_fallback" };
+      }
+      if (error) {
+        // Fallback: plain SELECT (pre-migration or RPC unavailable)
+        const fallback = await supabaseClient
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        data = fallback.data;
+        error = fallback.error;
+      }
     }
 
     if (error) {

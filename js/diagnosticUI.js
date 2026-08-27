@@ -719,7 +719,6 @@ function completeDiagnostic() {
   trackEvent("diagnostic_completed", {
     questions_answered: engine.history.length,
     primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-    recommended_product: result.recommendation.recommended.id,
     feasibility_rating: result.feasibility.rating,
     injury_reported: result.safetyFlags.injuryReported
   });
@@ -742,7 +741,7 @@ function showBuildAnimation(result) {
     "Analysing your running profile",
     "Identifying your primary limiter",
     "Assessing goal feasibility",
-    "Building your recommendation"
+    "Personalizing Athlevo's approach"
   ];
 
   var html =
@@ -873,49 +872,32 @@ function renderResult() {
     html += '</section>';
   }
 
-  // ── Product Recommendation ──
-  var rec = result.recommendation;
-  if (rec && rec.recommended) {
+  // ── Personalized Athlevo approach ──
+  var rec = result.athlevoRecommendation;
+  if (rec) {
     html += '<section class="diag-section diag-recommendation">';
-    html += '<span class="ob2-eyebrow">Recommended for you</span>';
-    html += '<div class="diag-rec-card" data-product-card="' + esc(rec.recommended.id) + '">';
-    html += '<h2 class="diag-rec-name">' + esc(rec.recommended.name) + '</h2>';
-    html += '<p class="diag-rec-rationale">' + esc(rec.recommended.rationale) + '</p>';
-    if (rec.recommended.capabilities) {
+    html += '<span class="ob2-eyebrow">Athlevo AI</span>';
+    html += '<div class="diag-rec-card">';
+    html += '<h2 class="diag-rec-name">' + esc(rec.heading) + '</h2>';
+    html += '<p class="diag-rec-rationale">' + esc(rec.strategy) + '</p>';
+    if (!rec.safetyOverride && rec.capabilities) {
       html += '<ul class="diag-rec-caps">';
-      for (var cap = 0; cap < rec.recommended.capabilities.length; cap++) {
-        html += '<li>' + esc(rec.recommended.capabilities[cap]) + '</li>';
+      for (var cap = 0; cap < rec.capabilities.length; cap++) {
+        html += '<li>' + esc(rec.capabilities[cap]) + '</li>';
       }
       html += '</ul>';
     }
-    if (!rec.safetyOverride) {
-      html += '<button class="diag-product-select" type="button" data-product="' + esc(rec.recommended.id) + '">Select ' + esc(rec.recommended.shortName || rec.recommended.name) + '</button>';
-    }
     html += '</div>';
-
-    // Alternatives
-    if (rec.alternatives && rec.alternatives.length > 0) {
-      html += '<div class="diag-alternatives">';
-      html += '<span class="diag-alt-label">Also available</span>';
-      for (var a = 0; a < rec.alternatives.length; a++) {
-        var alt = rec.alternatives[a];
-        html += '<div class="diag-alt-item" data-product-card="' + esc(alt.id) + '">';
-        html += '<strong>' + esc(alt.name) + '</strong>';
-        html += '<span>' + esc(alt.bestFor) + '</span>';
-        html += '<button class="diag-product-select" type="button" data-product="' + esc(alt.id) + '">Select ' + esc(alt.shortName || alt.name) + '</button>';
-        html += '</div>';
-      }
-      html += '</div>';
-    }
-
     html += '</section>';
   }
 
   // ── CTA ──
-  html += '<section class="diag-section diag-cta-section">';
-  html += '<button class="diag-cta-primary" id="diagSaveCTA" type="button">Save my diagnosis & continue</button>';
-  html += '<p class="diag-cta-sub">Create a free account to save your results and start training.</p>';
-  html += '</section>';
+  if (!rec || !rec.safetyOverride) {
+    html += '<section class="diag-section diag-cta-section">';
+    html += '<button class="diag-cta-primary" id="diagSaveCTA" type="button">Save my diagnostic &amp; continue</button>';
+    html += '<p class="diag-cta-sub">Create your account to save this diagnostic and continue with Athlevo.</p>';
+    html += '</section>';
+  }
 
   html += '</div>';
 
@@ -926,16 +908,14 @@ function renderResult() {
     resultTrackedFor = resultKey;
     trackEvent("diagnostic_result_viewed", {
       primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-      recommended_product: rec && rec.recommended ? rec.recommended.id : null,
       feasibility_rating: result.feasibility ? result.feasibility.rating : null,
       injury_reported: !!(result.safetyFlags && result.safetyFlags.injuryReported)
     });
-    trackEvent("product_recommended", {
-      recommended_product: rec && rec.recommended ? rec.recommended.id : null,
-      feasibility_rating: result.feasibility ? result.feasibility.rating : null
-    });
-    if (rec && rec.alternatives && rec.alternatives.length) {
-      trackEvent("alternative_products_viewed", { recommended_product: rec.recommended.id });
+    if (rec && !rec.safetyOverride) {
+      trackEvent("athlevo_recommendation_viewed", {
+        primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
+        feasibility_rating: result.feasibility ? result.feasibility.rating : null
+      });
     }
   }
 
@@ -953,9 +933,13 @@ function renderResult() {
   if (cta) {
     cta.addEventListener("click", function () {
       trackEvent("diagnostic_signup_tapped", {
-        recommended_product: rec.recommended.id,
+        primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
         feasibility_rating: result.feasibility.rating
       });
+      trackEvent("signup_started", { source_surface: "diagnostic" });
+      if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
+        root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
+      }
       // Navigate to auth screen — diagnostic data persists in localStorage
       // until successfully written to Supabase after auth
       if (root.openAppEntry) {
@@ -965,19 +949,6 @@ function renderResult() {
       }
     });
   }
-  body.querySelectorAll("[data-product]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      var selected = button.getAttribute("data-product");
-      if (!engine.selectProduct(selected)) return;
-      body.querySelectorAll("[data-product-card]").forEach(function (card) {
-        card.classList.toggle("selected", card.getAttribute("data-product-card") === selected);
-      });
-      trackEvent("product_selected", {
-        recommended_product: rec.recommended.id,
-        selected_product: selected
-      });
-    });
-  });
   focusMain(resultEl ? resultEl.querySelector(".ob2-title") : null);
 }
 

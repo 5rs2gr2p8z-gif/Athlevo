@@ -1257,7 +1257,14 @@ async function obContinue() {
     }
 
     const screen = OB_SCREENS[obStepIndex];
-    const next = obStepIndex + 1;
+    // Skip forward past screens whose required fields are already satisfied
+    // (diagnostic prefill covers goal, experience, volume, days, etc.).
+    const next = obNextIncompleteStep(obStepIndex + 1);
+    if (next >= OB_SCREENS.length) {
+      // All remaining screens are satisfied — go straight to payoff.
+      obShowPayoff();
+      return;
+    }
     if (screen.insightAfter) {
       obShowInsight(screen.insightAfter, () => obGoToScreen(next, 1));
     } else {
@@ -1558,10 +1565,18 @@ async function obFinish() {
     }
   } catch(e){}
 
+  // Complete the diagnostic-acquisition flow if this user came through it.
+  try {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.completePostPaymentOnboarding === "function") {
+      await window.AthlevoDiagnosticAcquisition.completePostPaymentOnboarding(supabaseClient);
+    }
+  } catch (e) {}
+
   /*
-   * Freemium flow: profile → training-data connection → free app. Payment is
-   * never part of onboarding; Whop appears only when an athlete chooses an
-   * upgrade or reaches a paid feature.
+   * Profile → training-data connection → app. Payment for diagnostic-
+   * acquisition users was handled before onboarding; legacy freemium users
+   * see upgrade prompts when they reach paid features.
    */
   if (window.AthlevoConnect && typeof window.AthlevoConnect.start === "function") {
     try { await window.AthlevoConnect.start(); return; }
@@ -1570,20 +1585,44 @@ async function obFinish() {
   showScreen("screen-today");
 }
 
+/**
+ * Returns true when every required field on a screen is already populated
+ * in obData. A screen with no required fields is always "complete".
+ */
+function obScreenComplete(screenIndex) {
+  const screen = OB_SCREENS[screenIndex];
+  if (!screen) return false;
+  return screen.fields.every(field => {
+    if (!field.required) return true;
+    const v = obData[field.id];
+    if (v == null || v === "") return false;
+    if (Array.isArray(v) && v.length === 0) return false;
+    return true;
+  });
+}
+
 /* Find the first screen still missing a required answer (post-prefill), so a
    resumed athlete lands exactly where they left off. */
 function obFirstIncompleteStep() {
   for (let i = 0; i < OB_SCREENS.length; i += 1) {
-    const missing = OB_SCREENS[i].fields.some(field => {
-      if (!field.required) return false;
-      const v = obData[field.id];
-      return v == null || v === "" || (Array.isArray(v) && v.length === 0);
-    });
-    if (missing) return i;
+    if (!obScreenComplete(i)) return i;
   }
   // Everything required is already answered → resume on the last screen so they
   // can review and finish rather than being dropped straight into the payoff.
   return OB_SCREENS.length - 1;
+}
+
+/**
+ * From a given index, find the next screen with missing required data.
+ * Used during forward navigation so diagnostic-prefilled screens are
+ * skipped automatically. Returns the payoff index (OB_SCREENS.length)
+ * when everything remaining is satisfied.
+ */
+function obNextIncompleteStep(fromIndex) {
+  for (let i = fromIndex; i < OB_SCREENS.length; i += 1) {
+    if (!obScreenComplete(i)) return i;
+  }
+  return OB_SCREENS.length; // all done → trigger payoff
 }
 
 /* ─────────────────────────── profile loading ────────────────────────── */
@@ -1834,6 +1873,11 @@ function obStartAthleteFlow() {
   obRestoreChrome();
   obData = obPrefillFromProfile(obProfile);
   obStepIndex = obFirstIncompleteStep();
+  // Fire post-payment onboarding analytics if this is a diagnostic-acquisition user.
+  if (window.AthlevoDiagnosticAcquisition &&
+      typeof window.AthlevoDiagnosticAcquisition.markOnboardingStarted === "function") {
+    try { window.AthlevoDiagnosticAcquisition.markOnboardingStarted(); } catch (e) {}
+  }
   obRenderStep();
 }
 

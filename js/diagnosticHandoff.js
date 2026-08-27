@@ -6,7 +6,8 @@ var KNOWN_FIELDS_KEY = "athlevo_diagnostic_known_onboarding_fields";
 var PROFILE_COLUMNS = [
   "goal", "experience_years", "weekly_distance", "weekly_hours",
   "available_days", "training_days", "race_date", "injury_history",
-  "work_schedule", "target_race", "target_time"
+  "work_schedule", "target_race", "target_time", "preferred_training_time",
+  "coach_notes"
 ];
 
 function isEmptyProfileValue(value) {
@@ -120,21 +121,57 @@ async function attachPendingDiagnostic(requestedUserId, supabase) {
     track("diagnostic_import_completed", {
       questions_answered: engine.history.length,
       primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-      recommended_product: result.recommendation && result.recommendation.recommended ? result.recommendation.recommended.id : null,
       feasibility_rating: result.feasibility ? result.feasibility.rating : null,
       injury_reported: !!(result.safetyFlags && result.safetyFlags.injuryReported)
     });
-    return { attached: true, skipped: false, error: null, importKey: engine.importKey() };
+    return {
+      attached: true,
+      skipped: false,
+      error: null,
+      importKey: engine.importKey(),
+      acquisitionStage: diagnosticRow.acquisition_stage,
+      primaryLimiter: diagnosticRow.primary_limiter
+    };
   } catch (error) {
     console.warn("Diagnostic handoff error:", error);
     return failure("profile_save", "unknown", error && error.message ? error.message : "Unknown diagnostic import error");
   }
 }
 
+async function loadAcquisition(userId, supabase) {
+  if (!userId || !supabase) return { data: null, error: "invalid_state" };
+  var response = await supabase
+    .from("athlete_diagnostics")
+    .select("import_key, primary_limiter, acquisition_stage, completed_at")
+    .eq("user_id", userId)
+    .in("acquisition_stage", ["awaiting_payment", "checkout_started", "payment_confirmed", "onboarding"])
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { data: response.data || null, error: response.error || null };
+}
+
+async function setAcquisitionStage(userId, importKey, stage, supabase) {
+  var allowed = ["awaiting_payment", "checkout_started", "payment_confirmed", "onboarding", "completed"];
+  if (!userId || !importKey || allowed.indexOf(stage) < 0 || !supabase) {
+    return { updated: false, error: "invalid_state" };
+  }
+  var response = await supabase
+    .from("athlete_diagnostics")
+    .update({ acquisition_stage: stage, updated_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("import_key", importKey)
+    .select("import_key, acquisition_stage")
+    .maybeSingle();
+  return { updated: !!response.data && !response.error, data: response.data || null, error: response.error || null };
+}
+
 root.AthlevoDiagnosticHandoff = {
   attach: attachPendingDiagnostic,
   knownOnboardingFields: knownOnboardingFields,
-  mergeMissingProfileFields: mergeMissingProfileFields
+  mergeMissingProfileFields: mergeMissingProfileFields,
+  loadAcquisition: loadAcquisition,
+  setAcquisitionStage: setAcquisitionStage
 };
 
 if (typeof module !== "undefined" && module.exports) {
@@ -142,6 +179,8 @@ if (typeof module !== "undefined" && module.exports) {
     attachPendingDiagnostic: attachPendingDiagnostic,
     knownOnboardingFields: knownOnboardingFields,
     mergeMissingProfileFields: mergeMissingProfileFields,
+    loadAcquisition: loadAcquisition,
+    setAcquisitionStage: setAcquisitionStage,
     PROFILE_COLUMNS: PROFILE_COLUMNS
   };
 }
