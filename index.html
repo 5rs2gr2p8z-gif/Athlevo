@@ -4263,6 +4263,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
     <p class="w-continue-note" id="wCheckoutContinue">Create your Athlevo account to continue.</p>
+    <p class="w-continue-note" id="wWelcomeBack">Welcome back. Sign in to continue.</p>
   </div>
   <div class="w-btns">
     <button class="w-btn apple" id="authBtnApple" onclick="continueWithApple()">
@@ -6683,6 +6684,42 @@ function appEntryIntentReason() {
 function clearAppEntryIntent() {
   try { sessionStorage.removeItem('athlevo_app_entry_intent'); } catch (e) {}
 }
+
+function hasStoredAthlevoAuthToken() {
+  try {
+    for (var si = 0; si < localStorage.length; si++) {
+      var sk = localStorage.key(si);
+      if (sk && sk.indexOf('sb-') === 0 && sk.indexOf('auth-token') >= 0) {
+        var sv = localStorage.getItem(sk);
+        if (sv && sv.indexOf('access_token') >= 0) return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+function hasReturningAthlevoAccountMarker() {
+  if (typeof hasStoredAthlevoAuthToken === "function" && hasStoredAthlevoAuthToken()) return true;
+  try {
+    var acq = window.AthlevoDiagnosticAcquisition &&
+      typeof window.AthlevoDiagnosticAcquisition.current === "function" &&
+      window.AthlevoDiagnosticAcquisition.current();
+    if (acq && acq.userId) return true;
+  } catch (e) {}
+  return false;
+}
+
+function showReturningUserWelcome() {
+  rememberAppEntryIntent("entry");
+  openAppEntry();
+  var note = document.getElementById("wWelcomeBack");
+  if (note) {
+    note.hidden = false;
+    note.classList.add("is-visible");
+  }
+}
+window.hasReturningAthlevoAccountMarker = hasReturningAthlevoAccountMarker;
+window.showReturningUserWelcome = showReturningUserWelcome;
 
 // Landing CTAs. Logged in → straight into the app (never asked to create a
 // second account). Logged out → the app entry screen.
@@ -9580,7 +9617,30 @@ async function routeAfterAuth(userId) {
       if (acquisitionRoute && acquisitionRoute.handled) return;
     } catch (acquisitionError) {
       console.warn("Diagnostic acquisition routing unavailable.");
-      if (window.AthlevoDiagnosticAcquisition.current()) {
+      if (window.AthlevoDiagnosticAcquisition &&
+          typeof window.AthlevoDiagnosticAcquisition.verifiedPaidAccess === "function") {
+        try {
+          var paidDuringError = await window.AthlevoDiagnosticAcquisition.verifiedPaidAccess(
+            supabaseClient, userId
+          );
+          if (paidDuringError && paidDuringError.paid) {
+            if (!routeIsCurrent()) return;
+            /* fall through to onboarding/app routing */
+          } else if (window.AthlevoDiagnosticAcquisition.current()) {
+            window.AthlevoDiagnosticAcquisition.showPaywall(
+              window.AthlevoDiagnosticAcquisition.current(), true
+            );
+            return;
+          }
+        } catch (paidErr) {
+          if (window.AthlevoDiagnosticAcquisition.current()) {
+            window.AthlevoDiagnosticAcquisition.showPaywall(
+              window.AthlevoDiagnosticAcquisition.current(), true
+            );
+            return;
+          }
+        }
+      } else if (window.AthlevoDiagnosticAcquisition && window.AthlevoDiagnosticAcquisition.current()) {
         window.AthlevoDiagnosticAcquisition.showPaywall(
           window.AthlevoDiagnosticAcquisition.current(), true
         );
@@ -9970,6 +10030,14 @@ async function restoreSession(opts) {
     // with an explanation, never the marketing landing.
     showScreen("screen-welcome");
     if (typeof toast === "function") toast("Your session expired. Please sign in again.");
+  } else if (typeof hasReturningAthlevoAccountMarker === "function"
+      ? hasReturningAthlevoAccountMarker()
+      : false) {
+    /* A leftover Athlevo auth token or bound acquisition userId means this
+       browser already had an account. Never restart /ai acquisition. */
+    if (typeof showReturningUserWelcome === "function") showReturningUserWelcome();
+    else showScreen("screen-welcome");
+    return false;
   } else {
     var externalContinuation =
       window.AthlevoEnv &&

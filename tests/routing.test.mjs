@@ -70,6 +70,9 @@ const SOURCE = [
   extract("hasAppEntryIntent"),
   extract("appEntryIntentReason"),
   extract("clearAppEntryIntent"),
+  extract("hasStoredAthlevoAuthToken"),
+  extract("hasReturningAthlevoAccountMarker"),
+  extract("showReturningUserWelcome"),
   extract("openAppEntry"),
   extract("hasWhopCheckoutReturn"),
   extract("showCheckoutReturnWelcome"),
@@ -91,7 +94,8 @@ function makeWorld({
   storedAuthToken = false,
   pendingDiagnostic = false,
   pathname = "/",
-  href = null
+  href = null,
+  acquisitionUserId = null
 }) {
   const state = {
     screens: {
@@ -136,7 +140,7 @@ function makeWorld({
       }
     },
     getElementById: (id) => {
-      if (id === "wCheckoutContinue") {
+      if (id === "wCheckoutContinue" || id === "wWelcomeBack") {
         return {
           hidden: true,
           classList: {
@@ -168,6 +172,14 @@ function makeWorld({
       },
       AthlevoEnv: { consumeContinuation: () => continuation },
       AthlevoDiagnostic: { hasPending: () => pendingDiagnostic },
+      AthlevoDiagnosticAcquisition: {
+        current: () => (acquisitionUserId ? { userId: acquisitionUserId } : null),
+        hasCheckoutReturn: () => {
+          try {
+            return new URL(href || ("https://athlevo.org" + pathname)).searchParams.get("checkout_return") === "1";
+          } catch (e) { return false; }
+        }
+      },
       AthlevoDiagnosticUI: {
         start() {
           state.diagnosticStarted = true;
@@ -490,6 +502,58 @@ section("/ai acquisition routing");
   await api.restoreSession({}); api.endBootGate();
   t("timeout without a stored token still shows /ai diagnostic",
     state.diagnosticStarted === true && state.routed === null);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/ai", storedAuthToken: true
+  });
+  state.store.set("athlevo_app_entry_intent", "ai");
+  await api.restoreSession({}); api.endBootGate();
+  t("logged-out /ai with a stored auth token opens sign-in, not diagnostic",
+    state.diagnosticStarted === false && state.screens["screen-welcome"].active === true &&
+    state.routed === null);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/ai",
+    storedAuthToken: true, pendingDiagnostic: true
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("pending diagnostic cannot override a stored returning-account token",
+    state.diagnosticStarted === false && state.screens["screen-welcome"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/ai",
+    pendingDiagnostic: true, acquisitionUserId: "u-paid"
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("bound acquisition userId is a returning-account marker, not a new lead",
+    state.diagnosticStarted === false && state.screens["screen-welcome"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/", pendingDiagnostic: true
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("paid/authenticated refresh on / still routes into the app",
+    state.routed === "u1" && state.diagnosticStarted === false);
+}
+{
+  const acq = readFileSync("./js/diagnosticAcquisition.js", "utf8");
+  const resolve = acq.slice(
+    acq.indexOf("async function resolveAfterAuth"),
+    acq.indexOf("function isPostPaymentOnboarding")
+  );
+  t("resolveAfterAuth checks verified paid access before any paywall",
+    resolve.indexOf("verifiedPaidAccess") < resolve.indexOf("showPaywall") &&
+    /if \(paid\.paid\)/.test(resolve));
+  t("paid_active completes stale acquisition instead of showing checkout",
+    /setStage\(paidLocal, "completed"/.test(resolve) || /stage !== "completed"/.test(resolve));
+  const ui = readFileSync("./js/diagnosticUI.js", "utf8");
+  t("startDiagnostic never paints acquisition when a returning-account marker exists",
+    /hasReturningAthlevoAccountMarker/.test(ui) &&
+    ui.indexOf("hasReturningAthlevoAccountMarker") < ui.indexOf("showScreen(\"screen-diagnostic\")"));
 }
 
 section("Service worker");

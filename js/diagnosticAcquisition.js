@@ -233,6 +233,26 @@ async function checkout(method) {
 
 async function resolveAfterAuth(userId, supabase, attachOutcome, profile) {
   acquisitionSupabase = supabase;
+
+  var paid = await verifiedPaidAccess(supabase, userId);
+  if (paid.paid) {
+    clearCheckoutReturn();
+    var paidLocal = currentForUser(userId);
+    if (paidLocal && paidLocal.stage !== "completed") {
+      await setStage(paidLocal, "completed", supabase);
+    } else if (attachOutcome && attachOutcome.attached && attachOutcome.importKey &&
+        root.AthlevoDiagnosticHandoff && root.AthlevoDiagnosticHandoff.setAcquisitionStage) {
+      await root.AthlevoDiagnosticHandoff.setAcquisitionStage(
+        userId, attachOutcome.importKey, "completed", supabase
+      );
+      clearLocal();
+    }
+    if (profile && profile.onboarding_complete === true) {
+      return { handled: false, route: "app", acquisition: true, paid: true };
+    }
+    return { handled: true, route: "onboarding", acquisition: true, paid: true };
+  }
+
   var local = currentForUser(userId);
   if (attachOutcome && attachOutcome.attached) local = markImported(userId, attachOutcome);
   if (local && attachOutcome && attachOutcome.error) {
@@ -257,7 +277,6 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile) {
   state.stage = loaded.data.acquisition_stage;
   writeLocal(state);
 
-  var paid = await verifiedPaidAccess(supabase, userId);
   if (!paid.paid && !paid.unavailable && hasCheckoutReturn()) {
     for (var attempt = 0; attempt < 4 && !paid.paid; attempt += 1) {
       await wait(1500);

@@ -145,6 +145,18 @@ function startDiagnostic() {
     return;
   }
 
+  if (typeof root.hasReturningAthlevoAccountMarker === "function" &&
+      root.hasReturningAthlevoAccountMarker()) {
+    if (typeof root.showReturningUserWelcome === "function") {
+      root.showReturningUserWelcome();
+    } else if (typeof root.openAppEntry === "function") {
+      root.openAppEntry();
+    } else {
+      showScreen("screen-welcome");
+    }
+    return;
+  }
+
   var checkoutReturn = root.AthlevoDiagnosticAcquisition &&
     typeof root.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
     root.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
