@@ -25,7 +25,9 @@ const expectedEvents = [
   "diagnostic_question_answered", "diagnostic_insight_shown",
   "diagnostic_completed", "diagnostic_result_viewed", "product_recommended",
   "alternative_products_viewed", "product_selected", "diagnostic_signup_tapped",
-  "diagnostic_import_started", "diagnostic_import_completed", "diagnostic_import_failed"
+  "diagnostic_import_started", "diagnostic_import_completed", "diagnostic_import_failed",
+  "diagnostic_ai_fallback_used", "diagnostic_buyer_intent_detected",
+  "diagnostic_pricing_asked", "diagnostic_start_recommended", "diagnostic_value_demonstrated"
 ];
 for (const event of expectedEvents) assert.match(registrySource, new RegExp(`${event}:`));
 

@@ -62,6 +62,10 @@ var currentQuestion = null;
 var currentFieldData = {};
 var currentSubStep = 0;       // for compound questions split across sub-steps
 var subStepFields = [];       // array of field arrays for the current question
+var activeSubField = null;    // the exact field within the current sub-step group
+                               // that is actually on screen right now (may be a
+                               // showWhen-dependent field, not fieldGroup[0]) --
+                               // see nextActiveDependent().
 var interpretationCache = {};
 var resultTrackedFor = null;
 
@@ -71,6 +75,12 @@ var resultTrackedFor = null;
  * reached, so an upcoming question can be silently answered instead of
  * re-asked. Purely in-memory: never persisted, never sent to analytics. */
 var factStore = {};
+
+/* Lightweight conversion-conversation memory. In-memory only — never
+ * persisted, never sent to analytics. Refresh keeps diagnostic answers
+ * (engine localStorage) and drops this, which is intentional. */
+var salesState = null;
+var recentTurns = [];
 
 /* ═══════════════════════════ HELPERS ════════════════════════════════ */
 
@@ -102,6 +112,15 @@ function getThread() {
   if (!body) return null;
   return body.querySelector(".chat-thread") || null;
 }
+function getSales() {
+  return root.AthlevoDiagnosticSales || null;
+}
+
+function rememberTurn(role, text) {
+  recentTurns.push({ role: role, text: String(text || "").slice(0, 300) });
+  if (recentTurns.length > 6) recentTurns = recentTurns.slice(-6);
+}
+
 function getComposer() { return document.getElementById("chatComposer"); }
 function getComposerInput() { return document.getElementById("chatInput"); }
 function getQuickReplies() { return document.getElementById("chatQuickReplies"); }
@@ -131,6 +150,8 @@ function startDiagnostic() {
 
   showScreen("screen-diagnostic");
   interpretationCache = {};
+  recentTurns = [];
+  salesState = getSales() ? getSales().emptySalesState() : null;
   buildChatShell();
 
   if (!engine.begun) {
@@ -531,6 +552,7 @@ async function presentSubStep(index, showPrompt) {
   }
 
   currentSubStep = index;
+  activeSubField = null; // a fresh sub-step always starts on its primary field
   var fieldGroup = subStepFields[index];
   var f = fieldGroup[0]; // primary field
 
@@ -609,6 +631,30 @@ async function presentSubStep(index, showPrompt) {
 /**
  * Handle chip/quick-reply selection.
  */
+/**
+ * Given a compound question's field group, the field that was just
+ * answered, and the answers collected so far, return the next field
+ * in the group that still needs a value (a showWhen-dependent field
+ * that has become visible), or null when the group is complete.
+ *
+ * This is the single source of truth for "what field is on screen" —
+ * both handleChipSelect (after a chip pick) and handleComposerSend's
+ * afterFieldCommitted (after free-text) call it, so the two paths can
+ * never disagree about which field a following message belongs to.
+ * `data` is an explicit param (not the currentFieldData closure) so
+ * this stays a pure, independently testable function.
+ */
+function nextActiveDependent(fieldGroup, answeredFieldId, data) {
+  for (var i = 0; i < fieldGroup.length; i++) {
+    var f = fieldGroup[i];
+    if (f.id === answeredFieldId) continue;
+    if (Object.prototype.hasOwnProperty.call(data, f.id)) continue;
+    if (f.showWhen && !checkShowWhenAgainst(f.showWhen, data)) continue;
+    return f;
+  }
+  return null;
+}
+
 function handleChipSelect(field, opt, fieldGroup) {
   if (busy) return;
   busy = true;
@@ -642,21 +688,19 @@ function handleChipSelect(field, opt, fieldGroup) {
   if (thread) appendUserMsg(thread, opt.label);
   scrollToBottom();
 
-  // Check for dependent showWhen fields
-  var dependents = fieldGroup.slice(1);
-  var activeDependents = dependents.filter(function (dep) {
-    if (!dep.showWhen) return true;
-    return checkShowWhen(dep.showWhen);
-  });
+  // Check for a dependent field that has just become visible (e.g. a
+  // showWhen text field revealed by the chip we just picked).
+  var dependent = nextActiveDependent(fieldGroup, field.id, currentFieldData);
 
-  if (activeDependents.length > 0) {
+  if (dependent) {
     // Show dependent field as next sub-sub-step
     busy = false;
-    presentDependentField(activeDependents[0]);
+    presentDependentField(dependent);
     return;
   }
 
   // Auto-advance if single-field question or compound is complete
+  activeSubField = null;
   advanceAfterChip();
 }
 
@@ -699,6 +743,7 @@ function showMultiChipsWithState(field) {
 }
 
 function presentDependentField(dep) {
+  activeSubField = dep;
   var thread = getThread();
   (async function () {
     if (thread) {
@@ -768,6 +813,10 @@ function handleSkip(field) {
 
 /**
  * Handle composer text submission.
+ *
+ * Deterministic parse first (buyer-intent classifier, fact extraction,
+ * chip aliases, numbers). AI router only when the message needs natural-
+ * language understanding. Quick-reply chips never reach this function.
  */
 function handleComposerSend() {
   if (busy) return;
@@ -782,6 +831,31 @@ function handleComposerSend() {
 
   var thread = getThread();
   var q = currentQuestion;
+  var Sales = getSales();
+
+  rememberTurn("athlete", val);
+
+  var classification = Sales ? Sales.classify(val) : null;
+  var extraPains = Sales ? Sales.detectPainPoints(val) : [];
+  if (classification && classification.confidence >= 0.7) {
+    if (thread) appendUserMsg(thread, val);
+    hideQuickReplies();
+    scrollToBottom();
+    handleSalesDetour(classification, val, extraPains);
+    return;
+  }
+  if (!classification && extraPains.length && Sales &&
+      Sales.composeSalesReply(null, engine, salesState || Sales.emptySalesState(), extraPains)) {
+    if (thread) appendUserMsg(thread, val);
+    hideQuickReplies();
+    scrollToBottom();
+    handleSalesDetour({
+      intent: "question_about_training",
+      next_action: "recommend_athlevo",
+      confidence: 0.7
+    }, val, extraPains);
+    return;
+  }
 
   // Special case: race_details gate — collecting race name
   if (q && q.key === "race_details" && currentSubStep === 0.5) {
@@ -790,11 +864,9 @@ function handleComposerSend() {
     hideQuickReplies();
     scrollToBottom();
     busy = false;
-    // Now ask for date
     (async function () {
       await showTypingThenMessage(getThread(), "And when is it?");
       hideQuickReplies();
-      // Show skip option for date
       var qr = getQuickReplies();
       if (qr) {
         var skipBtn = createEl('<button class="chat-qr-chip chat-qr-skip" type="button">Skip</button>');
@@ -805,7 +877,6 @@ function handleComposerSend() {
           if (getThread()) appendUserMsg(getThread(), "Skip");
           hideQuickReplies();
           scrollToBottom();
-          // Move to goal time
           busy = false;
           askGoalTime();
         });
@@ -820,11 +891,10 @@ function handleComposerSend() {
     return;
   }
 
-  // Race date
   if (q && q.key === "race_details" && currentSubStep === 0.6) {
     var parsedDate = parseNaturalDate(val);
     currentFieldData.goal_race_date = parsedDate;
-    if (thread) appendUserMsg(thread, formatDate(parsedDate));
+    if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
     busy = false;
@@ -832,10 +902,9 @@ function handleComposerSend() {
     return;
   }
 
-  // Goal time
   if (q && q.key === "race_details" && currentSubStep === 0.7) {
-    var mapped = NUMERIC_ALIASES[val.toLowerCase()] || val;
-    currentFieldData.goal_time = mapped;
+    var mappedTime = NUMERIC_ALIASES[val.toLowerCase()] || val;
+    currentFieldData.goal_time = mappedTime;
     if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
@@ -846,14 +915,10 @@ function handleComposerSend() {
 
   if (!q) { busy = false; return; }
 
-  // Determine which field we're filling
   var fieldGroup = subStepFields[Math.floor(currentSubStep)] || subStepFields[0];
   if (!fieldGroup) { busy = false; return; }
-  var field = fieldGroup[0];
+  var field = activeSubField || fieldGroup[0];
 
-  // Parse the whole message for every diagnostic fact it confidently
-  // contains — not just the field on screen — and stash anything for
-  // OTHER fields so later questions can be skipped instead of re-asked.
   var facts = extractDiagnosticFacts(val, field, q);
   mergeFactStore(facts, field.id);
   var resolvedValue = Object.prototype.hasOwnProperty.call(facts, field.id) ? facts[field.id] : undefined;
@@ -861,54 +926,68 @@ function handleComposerSend() {
   function afterFieldCommitted() {
     hideQuickReplies();
     scrollToBottom();
-    var dependents = fieldGroup.slice(1);
-    var activeDependents = dependents.filter(function (dep) {
-      if (!dep.showWhen) return true;
-      return checkShowWhen(dep.showWhen);
-    });
-    if (activeDependents.length > 0) {
+    var dependent = nextActiveDependent(fieldGroup, field.id, currentFieldData);
+    if (dependent) {
       busy = false;
-      presentDependentField(activeDependents[0]);
+      presentDependentField(dependent);
       return;
     }
+    activeSubField = null;
     advanceAfterChip();
   }
 
-  // 1) A confidently extracted value for the field on screen — handles
-  //    full sentences ("I want to run my first marathon") and numbers
-  //    with units ("90km", "9hrs") that the old exact/partial matching
-  //    below could not.
-  if (resolvedValue !== undefined && isValidFieldValue(field, resolvedValue)) {
-    currentFieldData[field.id] = resolvedValue;
+  function commitCurrent(value) {
+    currentFieldData[field.id] = value;
     if (thread) appendUserMsg(thread, val);
+    if (extraPains.length && Sales) {
+      salesState = Sales.applySalesSignals(salesState || Sales.emptySalesState(), null, extraPains, Sales.hasMinimumContext(engine));
+      var painReply = Sales.composeSalesReply(null, engine, salesState, extraPains);
+      if (painReply && Sales.hasMinimumContext(engine)) {
+        hideQuickReplies();
+        showAthlevoBubbles(painReply.reply, painReply.reply_2, true);
+        salesState = Sales.markValueShown(salesState);
+        trackEvent("diagnostic_value_demonstrated", { buyer_intent: "curious" });
+        busy = false;
+        offerFollowUpChips(true);
+        return;
+      }
+    }
     afterFieldCommitted();
+  }
+
+  if (resolvedValue !== undefined && isValidFieldValue(field, resolvedValue)) {
+    commitCurrent(resolvedValue);
     return;
   }
 
-  // 2) Existing alias/chip-option matching (exact word, alias table,
-  //    partial label match). Number fields fall through to step 3 below,
-  //    where they are validated against THIS field only.
   var mapped2 = tryMapTextToValue(q, field, val);
   if (mapped2 !== null) {
-    currentFieldData[field.id] = mapped2.value;
-    if (thread) appendUserMsg(thread, val);
-    afterFieldCommitted();
+    commitCurrent(mapped2.value);
     return;
   }
 
-  // A structured choice that couldn't be matched (tryMapTextToValue already
-  // showed a conversational clarification for a required one) must never
-  // fall through to being accepted as raw free text -- that would silently
-  // corrupt the engine with a value like experience: "around 4".
   if (field.type === "chips" || field.type === "multichips") {
+    if (thread) appendUserMsg(thread, val);
+    hideQuickReplies();
+    scrollToBottom();
+    if (Sales && Sales.shouldUseAiFallback(val, field, null)) {
+      routeViaAi(val, field, q, fieldGroup);
+      return;
+    }
+    showChipClarification(field);
     busy = false;
+    restoreCurrentFieldInput();
     return;
   }
 
-  // 3) Number fields: parse loosely (strips stray units/words) and
-  //    validate against the field currently on screen — never against a
-  //    different field answered earlier in the same compound question.
   if (field.type === "number") {
+    if (Sales && Sales.looksLikeAQuestion(val)) {
+      if (thread) appendUserMsg(thread, val);
+      hideQuickReplies();
+      scrollToBottom();
+      routeViaAi(val, field, q, fieldGroup);
+      return;
+    }
     var n = parseLooseNumber(val);
     if (n === null) {
       showValidationMsg(conversationalNumberPrompt(field));
@@ -925,23 +1004,335 @@ function handleComposerSend() {
       busy = false;
       return;
     }
-    currentFieldData[field.id] = n;
-    if (thread) appendUserMsg(thread, val);
-    afterFieldCommitted();
+    commitCurrent(n);
     return;
   }
 
-  // For text fields with maxLength, validate
+  if (Sales && Sales.looksLikeAQuestion(val)) {
+    if (thread) appendUserMsg(thread, val);
+    hideQuickReplies();
+    scrollToBottom();
+    routeViaAi(val, field, q, fieldGroup);
+    return;
+  }
+
   if (field.maxLength && val.length > field.maxLength) {
     showValidationMsg("Please keep it under " + field.maxLength + " characters.");
     busy = false;
     return;
   }
 
-  // Accept text
-  currentFieldData[field.id] = val;
-  if (thread) appendUserMsg(thread, val);
-  afterFieldCommitted();
+  commitCurrent(val);
+}
+
+function showChipClarification(field) {
+  var thread = getThread();
+  if (!thread || !field || !field.options) return;
+  var optionLabels = field.options.map(function (o) { return o.label; }).join(", ");
+  appendAthlevoMsg(thread, "I want to make sure I understand you correctly. Could you pick one? " + optionLabels);
+  rememberTurn("athlevo", "Could you pick one?");
+  scrollToBottom();
+}
+
+function showAthlevoBubbles(reply, reply2, instant) {
+  var thread = getThread();
+  if (!thread || !reply) return Promise.resolve();
+  rememberTurn("athlevo", reply);
+  if (instant) {
+    appendAthlevoMsg(thread, reply);
+    if (reply2) {
+      appendAthlevoMsg(thread, reply2);
+      rememberTurn("athlevo", reply2);
+    }
+    scrollToBottom();
+    return Promise.resolve();
+  }
+  return (async function () {
+    await showTypingThenMessage(thread, reply);
+    if (reply2) {
+      rememberTurn("athlevo", reply2);
+      await showTypingThenMessage(thread, reply2);
+    }
+  })();
+}
+
+function coerceFactValue(field, value) {
+  if (!field) return value;
+  if (field.type === "number") {
+    if (typeof value === "number" && isFinite(value)) return value;
+    return parseLooseNumber(String(value));
+  }
+  return value;
+}
+
+function applyExtractedFacts(facts, currentFieldId) {
+  if (!facts) return;
+  for (var key in facts) {
+    if (!Object.prototype.hasOwnProperty.call(facts, key)) continue;
+    var def = findFieldDef(key);
+    var coerced = coerceFactValue(def, facts[key]);
+    if (!def || !isValidFieldValue(def, coerced)) continue;
+    if (key === currentFieldId) {
+      currentFieldData[key] = coerced;
+    } else {
+      var stash = {};
+      stash[key] = coerced;
+      mergeFactStore(stash, currentFieldId);
+    }
+  }
+}
+
+function handleSalesDetour(classification, message, extraPains) {
+  var Sales = getSales();
+  var fieldGroup = subStepFields[Math.floor(currentSubStep)] || subStepFields[0];
+  var field = activeSubField || (fieldGroup && fieldGroup[0]);
+  var facts = extractDiagnosticFacts(message, field, currentQuestion);
+  applyExtractedFacts(facts, field ? field.id : null);
+
+  if (!Sales) {
+    busy = false;
+    restoreCurrentFieldInput();
+    return;
+  }
+
+  salesState = Sales.applySalesSignals(
+    salesState || Sales.emptySalesState(),
+    classification,
+    extraPains,
+    Sales.hasMinimumContext(engine)
+  );
+  var composed = Sales.composeSalesReply(classification, engine, salesState, extraPains);
+  if (!composed) {
+    busy = false;
+    restoreCurrentFieldInput();
+    return;
+  }
+
+  if (classification.intent === "pricing_question") {
+    trackEvent("diagnostic_pricing_asked", {});
+    trackEvent("diagnostic_buyer_intent_detected", { buyer_intent: "considering" });
+  } else if (classification.intent === "ready_to_start") {
+    trackEvent("diagnostic_start_recommended", { buyer_intent: "ready" });
+    trackEvent("diagnostic_buyer_intent_detected", { buyer_intent: "ready" });
+  } else if (classification.intent === "how_it_works") {
+    trackEvent("diagnostic_value_demonstrated", { buyer_intent: "curious" });
+    trackEvent("diagnostic_buyer_intent_detected", { buyer_intent: "curious" });
+    salesState = Sales.markValueShown(salesState);
+  } else if (classification.intent === "objection") {
+    trackEvent("diagnostic_buyer_intent_detected", { buyer_intent: "considering" });
+  } else if (extraPains && extraPains.length) {
+    trackEvent("diagnostic_value_demonstrated", { buyer_intent: "curious" });
+    salesState = Sales.markValueShown(salesState);
+  }
+
+  showAthlevoBubbles(composed.reply, composed.reply_2, true);
+  busy = false;
+  if (composed.show_checkout || composed.next_action === "show_checkout") {
+    offerStartChips();
+    return;
+  }
+  offerFollowUpChips(composed.next_action === "recommend_athlevo" || composed.next_action === "explain_offer");
+}
+
+function routeViaAi(message, field, q, fieldGroup) {
+  var Sales = getSales();
+  var thread = getThread();
+  if (!Sales) {
+    showChipClarification(field);
+    busy = false;
+    restoreCurrentFieldInput();
+    return;
+  }
+  if (thread) {
+    appendTypingIndicator(thread);
+    scrollToBottom();
+  }
+  var payload = Sales.buildRouterPayload(
+    engine,
+    q ? q.key : null,
+    message,
+    salesState || Sales.emptySalesState(),
+    recentTurns
+  );
+  Sales.callRouter(payload).then(function (result) {
+    removeTypingIndicator();
+    trackEvent("diagnostic_ai_fallback_used", { question_key: q ? q.key : null });
+    applyConversationalResult(result, message, field, fieldGroup);
+  });
+}
+
+function applyConversationalResult(result, message, field, fieldGroup) {
+  var Sales = getSales();
+  result = result || (Sales && Sales.FALLBACK_RESPONSE);
+  if (!result) {
+    busy = false;
+    restoreCurrentFieldInput();
+    return;
+  }
+
+  applyExtractedFacts(result.extracted_facts, field ? field.id : null);
+  if (Sales) {
+    var classish = { intent: result.intent, next_action: result.next_action, confidence: result.confidence };
+    salesState = Sales.applySalesSignals(
+      salesState || Sales.emptySalesState(),
+      classish,
+      result.pain_points || [],
+      Sales.hasMinimumContext(engine)
+    );
+    if (result.next_action === "recommend_athlevo" || result.next_action === "explain_offer") {
+      salesState = Sales.markValueShown(salesState);
+      trackEvent("diagnostic_value_demonstrated", { buyer_intent: result.buyer_intent || "curious" });
+    }
+    if (result.intent === "pricing_question") trackEvent("diagnostic_pricing_asked", {});
+    if (result.show_checkout || result.next_action === "show_checkout") {
+      trackEvent("diagnostic_start_recommended", { buyer_intent: "ready" });
+    }
+    if (result.intent && result.intent !== "diagnostic_answer" && result.intent !== "unknown") {
+      trackEvent("diagnostic_buyer_intent_detected", {
+        buyer_intent: result.buyer_intent && result.buyer_intent !== "none" ? result.buyer_intent : "curious"
+      });
+    }
+  }
+
+  showAthlevoBubbles(result.reply, result.reply_2, true);
+  busy = false;
+
+  var filled = field && Object.prototype.hasOwnProperty.call(currentFieldData, field.id);
+  if (result.next_action === "continue_diagnostic" && filled) {
+    var dependent = nextActiveDependent(fieldGroup || [], field.id, currentFieldData);
+    if (dependent) {
+      presentDependentField(dependent);
+      return;
+    }
+    activeSubField = null;
+    advanceAfterChip();
+    return;
+  }
+
+  if (result.show_checkout || result.next_action === "show_checkout") {
+    offerStartChips();
+    return;
+  }
+
+  if (result.usedFallback || result.next_action === "clarify") {
+    restoreCurrentFieldInput();
+    return;
+  }
+
+  offerFollowUpChips(
+    result.next_action === "recommend_athlevo" || result.next_action === "explain_offer"
+  );
+}
+
+function restoreCurrentFieldInput() {
+  if (!currentQuestion) return;
+  var fieldGroup = subStepFields[Math.floor(currentSubStep)] || subStepFields[0];
+  var f = activeSubField || (fieldGroup && fieldGroup[0]);
+  if (!f) {
+    showComposer("Type your answer here…");
+    setComposerMode("text");
+    return;
+  }
+  if (f.type === "chips" || f.type === "multichips") {
+    showQuickReplies(f.options, function (opt) {
+      handleChipSelect(f, opt, fieldGroup);
+    });
+    showComposer("Or type your answer…");
+    setComposerMode("text");
+  } else if (f.type === "number") {
+    hideQuickReplies();
+    showComposer(f.placeholder || ("e.g. " + (f.min || "0")));
+    setComposerMode("number");
+  } else if (f.type === "date") {
+    hideQuickReplies();
+    showComposer("");
+    setComposerMode("date");
+  } else {
+    hideQuickReplies();
+    showComposer(f.placeholder || "Type here…");
+    setComposerMode("text");
+  }
+}
+
+function offerStartChips() {
+  var Sales = getSales();
+  var label = Sales ? Sales.ctaLabel(engine, salesState) : "Start my training · ₱597/month";
+  showQuickReplies([
+    { label: label, value: "__start" },
+    { label: "Keep talking", value: "__more" }
+  ], function (opt) {
+    if (opt.value === "__start") {
+      beginCheckoutFromChat();
+      return;
+    }
+    busy = false;
+    restoreCurrentFieldInput();
+  });
+  showComposer("Or type here…");
+  setComposerMode("text");
+}
+
+function offerFollowUpChips(includeStart) {
+  var fieldGroup = subStepFields[Math.floor(currentSubStep)] || subStepFields[0];
+  var f = activeSubField || (fieldGroup && fieldGroup[0]);
+  var options = [];
+  if (includeStart) {
+    var Sales = getSales();
+    options.push({
+      label: Sales ? Sales.ctaLabel(engine, salesState) : "Start my training · ₱597/month",
+      value: "__start"
+    });
+  }
+  if (f && f.options) {
+    for (var i = 0; i < f.options.length; i++) options.push(f.options[i]);
+  }
+  if (options.length) {
+    showQuickReplies(options, function (opt) {
+      if (opt.value === "__start") {
+        beginCheckoutFromChat();
+        return;
+      }
+      if (f) handleChipSelect(f, opt, fieldGroup);
+    });
+  } else {
+    restoreCurrentFieldInput();
+    return;
+  }
+  showComposer("Or type here…");
+  setComposerMode("text");
+}
+
+function beginCheckoutFromChat() {
+  if (busy) return;
+  busy = true;
+  hideQuickReplies();
+  if (engine && !engine.completed) {
+    var rec = engine.currentRecommendation ? engine.currentRecommendation() : null;
+    if (rec && rec.safetyOverride) {
+      showAthlevoBubbles(rec.strategy, null, true);
+      busy = false;
+      restoreCurrentFieldInput();
+      return;
+    }
+    engine.complete();
+  }
+  var result = engine ? engine.result : null;
+  if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
+    root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
+  }
+  trackEvent("diagnostic_signup_tapped", {
+    primary_limiter: result && result.primaryLimiter ? result.primaryLimiter.key : null,
+    feasibility_rating: result && result.feasibility ? result.feasibility.rating : null
+  });
+  trackEvent("signup_started", { source_surface: "diagnostic" });
+  if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.checkout) {
+    root.AthlevoDiagnosticAcquisition.checkout("card");
+  } else if (root.openAppEntry) {
+    root.openAppEntry();
+  } else {
+    showScreen("screen-welcome");
+  }
+  busy = false;
 }
 
 function askGoalTime() {
@@ -1097,15 +1488,11 @@ function tryMapTextToValue(q, field, text) {
     }
   }
 
-  // For chips fields that require a structured value, can't accept arbitrary text
+  // For chips fields that require a structured value, can't accept arbitrary
+  // text here — the composer router decides between AI fallback and a
+  // conversational clarification. Do not append the "pick one" dead-end
+  // from inside the mapper; that hijacked natural-language answers.
   if ((field.type === "chips" || field.type === "multichips") && field.required) {
-    // Show clarification
-    var thread = getThread();
-    if (thread) {
-      var optionLabels = field.options.map(function (o) { return o.label; }).join(", ");
-      appendAthlevoMsg(thread, "I didn’t quite catch that. Could you pick one? " + optionLabels);
-      scrollToBottom();
-    }
     return null;
   }
 
@@ -1130,7 +1517,7 @@ function tryMapTextToValue(q, field, text) {
  * flow (context = the question currently on screen) handles them.
  */
 
-var WEEK_CONTEXT_RE = /\bper\s*week\b|\bweekly\b|\b(?:a|last|this|each|every|per)\s*week\b|\/\s*week\b|\bwk\b/i;
+var WEEK_CONTEXT_RE = /\bper\s*week\b|\bweekly\b|\b(?:a|last|this|each|every|per|most)\s*weeks?\b|\/\s*week\b|\bwk\b/i;
 var GOAL_TIME_RE = /\bsub[\s-]?(\d{1,2})(?::(\d{2}))?\b/i;
 var RACE_NAME_RE = /\b([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,3}\s+(?:Half\s+Marathon|Ultra\s*Marathon|Marathon|10K|5K))\b/;
 var MONTH_NAMES_RE = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
@@ -1292,6 +1679,44 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
         break outerGoalRules;
       }
     }
+  }
+
+  // Recent consistency — natural sentences, not just chip labels.
+  if (currentId === "recent_consistency" || /\b(consistent(?:ly)?|consistency|occasional|on and off|every week|missed a week|haven'?t been running)\b/i.test(text)) {
+    if (/\b(no consistent|haven'?t been running|not been running|zero consistency)\b/i.test(text)) {
+      facts.recent_consistency = "none";
+    } else if (/\b(occasional|on and off|inconsistent|sporadic|now and then|when i can)\b/i.test(text)) {
+      facts.recent_consistency = "occasional";
+    } else if (/\b(pretty consistent|mostly consistent|fairly consistent|quite consistent|except (for )?(one |a )?(break|week)|missed a week)\b/i.test(text)) {
+      facts.recent_consistency = "mostly_consistent";
+    } else if (/\b(every week|very consistent|haven'?t missed|consistent every)\b/i.test(text)) {
+      facts.recent_consistency = "consistent";
+    } else if (/\bconsistent(?:ly)?\b/i.test(text)) {
+      facts.recent_consistency = "mostly_consistent";
+    }
+  }
+
+  // Training structure — only when clearly described.
+  if (currentId === "training_structure" || /\b(guess|random|no plan|not structured|unstructured|mostly easy|long run|intervals|tempo)\b/i.test(text)) {
+    if (/guess (what |which )?(workout|session|run)|don'?t know what (workout|to (run|do|train))/i.test(text) || /\brandom runs\b/i.test(text)) {
+      facts.training_structure = "random";
+    } else if (/mostly easy/i.test(text)) {
+      facts.training_structure = "mostly_easy";
+    } else if (/easy.{0,24}long run/i.test(text) && !/tempo|interval/i.test(text)) {
+      facts.training_structure = "easy_long";
+    } else if (/\b(tempo|interval)/i.test(text)) {
+      facts.training_structure = "balanced_quality";
+    } else if (/when i have a race|race only/i.test(text)) {
+      facts.training_structure = "race_only";
+    } else if (currentId === "training_structure" && /not structured|don'?t know if .{0,40}structur/i.test(text)) {
+      facts.training_structure = "random";
+    }
+  }
+
+  // Finish time when that dependent field is actually on screen.
+  if (currentId === "recent_race_time") {
+    var clock = text.match(/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/);
+    if (clock) facts.recent_race_time = clock[1];
   }
 
   // Drop anything that wouldn't actually pass the real field's own rules.
@@ -1936,7 +2361,19 @@ var DiagnosticUI = {
   start: startDiagnostic,
   continue: function () {},  // Legacy — handled by chat interaction
   back: diagBack,
-  getEngine: function () { return engine; }
+  getEngine: function () { return engine; },
+  // Pure helpers exposed for regression testing only (Node/module.exports
+  // consumers). Never relied on by the browser runtime itself beyond what
+  // the functions above already use internally.
+  _internal: {
+    nextActiveDependent: nextActiveDependent,
+    splitIntoSubSteps: splitIntoSubSteps,
+    checkShowWhenAgainst: checkShowWhenAgainst,
+    extractDiagnosticFacts: extractDiagnosticFacts,
+    parseLooseNumber: parseLooseNumber,
+    isValidFieldValue: isValidFieldValue,
+    tryMapTextToValue: tryMapTextToValue
+  }
 };
 
 root.AthlevoDiagnosticUI = DiagnosticUI;

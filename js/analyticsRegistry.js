@@ -132,7 +132,12 @@
     diagnostic_signup_tapped:      { kind: "behavioural", props: ["recommended_product", "feasibility_rating"] },
     diagnostic_import_started:     { kind: "behavioural", props: [] },
     diagnostic_import_completed:   { kind: "milestone",   props: ["questions_answered", "primary_limiter", "recommended_product", "feasibility_rating", "injury_reported"] },
-    diagnostic_import_failed:      { kind: "behavioural", props: ["stage", "failure_category"] }
+    diagnostic_import_failed:      { kind: "behavioural", props: ["stage", "failure_category"] },
+    diagnostic_ai_fallback_used:   { kind: "behavioural", props: ["question_key"] },
+    diagnostic_buyer_intent_detected: { kind: "behavioural", props: ["buyer_intent"] },
+    diagnostic_pricing_asked:      { kind: "behavioural", props: [] },
+    diagnostic_start_recommended:  { kind: "behavioural", props: ["buyer_intent"] },
+    diagnostic_value_demonstrated: { kind: "behavioural", props: ["buyer_intent"] }
   };
 
   // Legacy names still emitted by older call sites → the canonical event they

@@ -154,6 +154,7 @@ const AI_ENDPOINTS = [
   { file: "./api/memory/extract.js",          name: "memory/extract" },
   { file: "./api/training/generate-plan.js",  name: "generate-plan" },
   { file: "./api/training/weekly-analysis.js", name: "weekly-analysis" },
+  { file: "./api/diagnostic-chat.js",          name: "diagnostic-chat" },
 ];
 
 for (const ep of AI_ENDPOINTS) {
@@ -177,7 +178,7 @@ section("4 — Rate limit config: AI_LIMITS covers all endpoint types");
 
 const rateLimitSrc = readFileSync("./lib/server/rateLimit.js", "utf8");
 
-const EXPECTED_LIMIT_KEYS = ["coach", "daily-brief", "memory-extract", "generate-plan", "weekly-analysis"];
+const EXPECTED_LIMIT_KEYS = ["coach", "daily-brief", "memory-extract", "generate-plan", "weekly-analysis", "diagnostic-chat"];
 
 for (const key of EXPECTED_LIMIT_KEYS) {
   // Check that the key appears in AI_LIMITS (may be quoted or unquoted)
@@ -314,6 +315,7 @@ section("9 — API routes derive user_id from JWT, never request body");
     "./api/training/weekly-analysis.js",
     "./api/training/get-week.js",
     "./api/training/check-in.js",
+    "./api/diagnostic-chat.js",
   ];
 
   for (const file of API_FILES) {

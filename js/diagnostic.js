@@ -1745,6 +1745,39 @@ DiagnosticEngine.prototype.importKey = function () {
   return this.importKeyValue;
 };
 
+/*
+ * ── Mid-conversation grounding for the diagnostic sales/coaching layer ──
+ * Read-only snapshots of the SAME deterministic reasoning _generateResult()
+ * uses at the end, exposed publicly so the AI router can ground an
+ * in-progress answer ("how would Athlevo help me?" before all questions
+ * are answered) in real product logic instead of inventing a value
+ * proposition. Safe before at least one answer exists — every field these
+ * read from defaults sanely on an empty answers/hypotheses object.
+ */
+DiagnosticEngine.prototype.currentRecommendation = function () {
+  return this._buildAthlevoRecommendation();
+};
+
+DiagnosticEngine.prototype.currentFeasibility = function () {
+  return this._assessFeasibility();
+};
+
+DiagnosticEngine.prototype.currentPrimaryLimiter = function () {
+  return this.hypotheses.length > 0 ? this.hypotheses[0] : null;
+};
+
+/* Which real QUESTIONS keys are still unanswered right now (for the sales
+ * layer to know what's genuinely still missing before it recommends
+ * skipping ahead). */
+DiagnosticEngine.prototype.missingRequiredKeys = function () {
+  var required = this._requiredQuestionKeys();
+  var missing = [];
+  for (var i = 0; i < required.length; i++) {
+    if (this.history.indexOf(required[i]) < 0) missing.push(required[i]);
+  }
+  return missing;
+};
+
 /* ═══════════════════════════ QUESTION HELPERS ════════════════════════ */
 
 /* Get question definition by key. */
