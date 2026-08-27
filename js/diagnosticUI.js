@@ -1,16 +1,14 @@
 /*
  * ══════════════════════════════════════════════════════════════════════
- *  Athlevo — Diagnostic UI Controller  (Conversation Model)
+ *  Athlevo — Diagnostic Chat UI  (Messenger-style conversation)
  * ══════════════════════════════════════════════════════════════════════
  *
- *  Renders the pre-signup diagnostic as a continuous guided coaching
- *  conversation. Questions from the DiagnosticEngine appear as Athlevo's
- *  coaching messages; user answers collapse into subtle echo elements;
- *  coaching interpretations flow inline between turns.
+ *  Renders the pre-signup diagnostic as a real chat interface.
+ *  Athlevo messages appear left-aligned; user answers right-aligned.
+ *  Quick-reply chips + a persistent text composer at the bottom.
+ *  Compound questions are split into sequential sub-steps.
  *
- *  REUSES: .ob2-* CSS classes for field rendering (chips, cards, inputs).
- *  ADDS:   .conv-* CSS classes for the conversation thread layout.
- *
+ *  REUSES: diagnostic engine (diagnostic.js) unchanged.
  *  DOES NOT TOUCH: Authentication, Supabase, subscriptions, onboarding,
  *  existing navigation, payment config, or entitlement logic.
  */
@@ -20,22 +18,52 @@
 
 /* ═══════════════════════════ CONSTANTS ═══════════════════════════════ */
 
-var EASE = "cubic-bezier(.2,.7,.2,1)";
-var EASE_OUT = "cubic-bezier(.34,1.56,.64,1)";
+var MSG_DELAY = 250;        // ms between sequential Athlevo messages
+var TYPING_DELAY = 400;     // ms for typing indicator before message
+var SCROLL_DELAY = 60;
 
-var OPENING_MSG = "I’m Athlevo — I coach endurance athletes using training science and what I learn about you over time.";
-var OPENING_FOLLOW = "Let’s figure out where your running is right now and what would actually make the biggest difference.";
+/* ─── Text-input mapping tables ─── */
+var GOAL_ALIASES = {
+  "5k": "5K", "5km": "5K", "five k": "5K",
+  "10k": "10K", "10km": "10K", "ten k": "10K",
+  "half": "Half marathon", "half marathon": "Half marathon", "21k": "Half marathon", "21km": "Half marathon", "21.1k": "Half marathon", "hm": "Half marathon",
+  "marathon": "Marathon", "42k": "Marathon", "42km": "Marathon", "42.2k": "Marathon", "42.2km": "Marathon", "full marathon": "Marathon", "full": "Marathon", "fm": "Marathon",
+  "ultra": "Ultra", "ultramarathon": "Ultra", "ultra marathon": "Ultra", "50k": "Ultra", "100k": "Ultra", "50km": "Ultra", "100km": "Ultra",
+  "general fitness": "General fitness", "fitness": "General fitness", "general": "General fitness", "just fitness": "General fitness", "no race": "General fitness"
+};
+
+var EXPERIENCE_ALIASES = {
+  "new": "new", "beginner": "new", "just started": "new", "brand new": "new", "newbie": "new",
+  "1 year": "1_2_years", "2 years": "1_2_years", "1-2 years": "1_2_years", "a year": "1_2_years", "couple years": "1_2_years",
+  "3 years": "3_5_years", "4 years": "3_5_years", "5 years": "3_5_years", "3-5 years": "3_5_years", "few years": "3_5_years", "several years": "3_5_years",
+  "5+ years": "5_plus", "many years": "5_plus", "long time": "5_plus", "10 years": "5_plus", "over 5": "5_plus", "decades": "5_plus"
+};
+
+var TRAINING_STATUS_ALIASES = {
+  "starting": "starting", "just starting": "starting", "beginning": "starting",
+  "building base": "building_base", "base building": "building_base", "building": "building_base",
+  "training block": "training_block", "in a block": "training_block", "structured": "training_block",
+  "coming back": "returning", "returning": "returning", "back from break": "returning", "break": "returning",
+  "maintaining": "maintaining", "maintenance": "maintaining"
+};
+
+var NUMERIC_ALIASES = {
+  "sub 4": "sub-4:00", "sub 3": "sub-3:00", "sub 5": "sub-5:00",
+  "sub 2": "sub-2:00", "sub 1:30": "sub-1:30", "sub 1:45": "sub-1:45",
+  "sub 1:50": "sub-1:50", "sub 1:40": "sub-1:40"
+};
 
 /* ═══════════════════════════ STATE ═══════════════════════════════════ */
 
-var engine = null;       // DiagnosticEngine instance
+var engine = null;
 var mode = "question";   // "question" | "result"
 var busy = false;
-var advanceTimer = null;
-var currentFieldData = {};  // tracks field values for the current question
-var currentQuestion = null; // the displayed question is the submission source of truth
+var currentQuestion = null;
+var currentFieldData = {};
+var currentSubStep = 0;       // for compound questions split across sub-steps
+var subStepFields = [];       // array of field arrays for the current question
+var interpretationCache = {};
 var resultTrackedFor = null;
-var interpretationCache = {}; // questionKey → interpretation text from engine
 
 /* ═══════════════════════════ HELPERS ════════════════════════════════ */
 
@@ -54,37 +82,39 @@ function canAnimate(el) {
   return !reducedMotion() && el && typeof el.animate === "function";
 }
 
-function pop(el) {
-  if (!canAnimate(el)) return;
-  el.animate(
-    [{ transform: "scale(.97)" }, { transform: "scale(1.015)" }, { transform: "scale(1)" }],
-    { duration: 240, easing: EASE_OUT });
+function delay(ms) {
+  if (reducedMotion()) ms = Math.min(ms, 50);
+  return new Promise(function (r) { setTimeout(r, ms); });
 }
 
-function animateIn(el) {
-  if (!canAnimate(el)) return;
-  el.animate(
-    [{ opacity: 0, transform: "translateY(8px)" },
-     { opacity: 1, transform: "translateY(0)" }],
-    { duration: 280, easing: EASE, fill: "both" }
-  );
+/* ═══════════════════════════ DOM REFS ══════════════════════════════ */
+
+function getBody() { return document.getElementById("diagBody"); }
+function getThread() {
+  var body = getBody();
+  if (!body) return null;
+  return body.querySelector(".chat-thread") || null;
+}
+function getComposer() { return document.getElementById("chatComposer"); }
+function getComposerInput() { return document.getElementById("chatInput"); }
+function getQuickReplies() { return document.getElementById("chatQuickReplies"); }
+
+function createEl(html) {
+  var tpl = document.createElement("template");
+  tpl.innerHTML = html.trim();
+  return tpl.content.firstElementChild;
 }
 
 /* ═══════════════════════════ SCREEN SETUP ═══════════════════════════ */
 
-/**
- * Start or resume the diagnostic. Called from landing page entry points.
- * Shows screen-diagnostic and renders the conversation immediately —
- * no intro screen, no "Start my assessment" gate.
- */
 function startDiagnostic() {
-  // Resume or create
   var pending = root.AthlevoDiagnostic && root.AthlevoDiagnostic.load();
   if (pending && !pending.completed) {
     engine = pending;
   } else if (pending && pending.completed) {
     engine = pending;
     showScreen("screen-diagnostic");
+    buildChatShell();
     renderResult();
     trackEvent("diagnostic_resumed", { state: "completed" });
     return;
@@ -94,6 +124,7 @@ function startDiagnostic() {
 
   showScreen("screen-diagnostic");
   interpretationCache = {};
+  buildChatShell();
 
   if (!engine.begun) {
     engine.begin();
@@ -106,49 +137,7 @@ function startDiagnostic() {
   }
 }
 
-/**
- * Render the conversation opening: brand header, greeting messages,
- * and the first question — all in one view, no button gate.
- */
-function renderConversationOpening() {
-  mode = "question";
-  currentQuestion = null;
-  var body = getBody();
-  if (!body) return;
-  body.innerHTML = "";
-  body.scrollTop = 0;
-
-  var thread = document.createElement("div");
-  thread.className = "conv-thread";
-  body.appendChild(thread);
-
-  // Brand header
-  thread.appendChild(createEl(
-    '<div class="conv-header">' +
-      '<span class="conv-brand">Athlevo<span>.</span></span>' +
-      '<span class="conv-role">AI Running Coach</span>' +
-    '</div>'
-  ));
-
-  // Opening messages
-  appendAthlevoMsg(thread, OPENING_MSG);
-  appendAthlevoMsg(thread, OPENING_FOLLOW);
-
-  // First question — flows naturally below the greeting
-  var q = engine.nextQuestion();
-  if (q) {
-    appendActiveQuestion(thread, q);
-  }
-
-  // Chrome state
-  var progress = document.getElementById("diagProgress");
-  if (progress) progress.style.visibility = "";
-  updateChrome(q);
-  focusMain(body.querySelector(".conv-brand"));
-}
-
 function showScreen(id) {
-  // Use existing showScreen if available, otherwise basic toggle
   if (root.showScreen) {
     root.showScreen(id);
   } else {
@@ -158,44 +147,91 @@ function showScreen(id) {
     var el = document.getElementById(id);
     if (el) el.classList.add("active");
   }
-  // Hide tabbar during diagnostic
   var tb = document.getElementById("tabbar");
   if (tb) tb.style.display = "none";
 }
 
-/* ═══════════════════════════ CONVERSATION THREAD ═══════════════════ */
+/* ═══════════════════════════ CHAT SHELL ════════════════════════════ */
 
-function ensureThread() {
+/**
+ * Replace the diagnostic body + foot with the chat layout:
+ *   - compact top header (avatar + name + role)
+ *   - scrollable chat thread area
+ *   - quick-reply bar
+ *   - persistent composer
+ */
+function buildChatShell() {
   var body = getBody();
-  if (!body) return null;
-  var thread = body.querySelector(".conv-thread");
-  if (!thread) {
-    thread = document.createElement("div");
-    thread.className = "conv-thread";
-    body.appendChild(thread);
-  }
-  return thread;
+  if (!body) return;
+
+  // Hide old footer — we replace it with the composer
+  var foot = document.getElementById("diagFoot");
+  if (foot) foot.style.display = "none";
+
+  body.innerHTML = "";
+  body.className = "chat-body";
+
+  // Chat header
+  var header = createEl(
+    '<div class="chat-header">' +
+      '<div class="chat-avatar">A</div>' +
+      '<div class="chat-header-text">' +
+        '<span class="chat-header-name">Athlevo</span>' +
+        '<span class="chat-header-role">AI Running Coach</span>' +
+      '</div>' +
+    '</div>'
+  );
+  body.appendChild(header);
+
+  // Chat thread (scrollable)
+  var thread = document.createElement("div");
+  thread.className = "chat-thread";
+  thread.id = "chatThread";
+  body.appendChild(thread);
+
+  // Quick replies container (above composer)
+  var qr = document.createElement("div");
+  qr.className = "chat-quick-replies";
+  qr.id = "chatQuickReplies";
+  body.appendChild(qr);
+
+  // Composer
+  var composer = createEl(
+    '<div class="chat-composer" id="chatComposer">' +
+      '<input type="text" class="chat-composer-input" id="chatInput" ' +
+        'placeholder="Type your answer…" autocomplete="off" autocapitalize="sentences" enterkeyhint="send">' +
+      '<button class="chat-composer-send" id="chatSend" type="button" aria-label="Send">' +
+        '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10L17 10M17 10L11 4M17 10L11 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</button>' +
+    '</div>'
+  );
+  body.appendChild(composer);
+
+  wireComposer();
 }
+
+function wireComposer() {
+  var input = getComposerInput();
+  var send = document.getElementById("chatSend");
+  if (!input || !send) return;
+
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleComposerSend();
+    }
+  });
+  send.addEventListener("click", function () {
+    handleComposerSend();
+  });
+}
+
+/* ═══════════════════════════ MESSAGE RENDERING ═════════════════════ */
 
 function appendAthlevoMsg(thread, text, skipAnim) {
-  var el = createEl('<p class="conv-athlevo-msg">' + esc(text) + '</p>');
-  thread.appendChild(el);
-  if (!skipAnim) animateIn(el);
-  return el;
-}
-
-function appendContext(thread, text, skipAnim) {
-  var el = createEl('<p class="conv-context">' + esc(text) + '</p>');
-  thread.appendChild(el);
-  if (!skipAnim) animateIn(el);
-  return el;
-}
-
-function appendEcho(thread, label, skipAnim) {
   var el = createEl(
-    '<div class="conv-echo">' +
-      '<span class="conv-echo-label">You</span>' +
-      '<span class="conv-echo-value">' + esc(label) + '</span>' +
+    '<div class="chat-msg chat-msg-athlevo">' +
+      '<div class="chat-bubble chat-bubble-athlevo">' + esc(text) + '</div>' +
     '</div>'
   );
   thread.appendChild(el);
@@ -203,192 +239,852 @@ function appendEcho(thread, label, skipAnim) {
   return el;
 }
 
+function appendAthlevoMsgHTML(thread, html, skipAnim) {
+  var el = createEl(
+    '<div class="chat-msg chat-msg-athlevo">' +
+      '<div class="chat-bubble chat-bubble-athlevo">' + html + '</div>' +
+    '</div>'
+  );
+  thread.appendChild(el);
+  if (!skipAnim) animateIn(el);
+  return el;
+}
+
+function appendUserMsg(thread, text, skipAnim) {
+  var el = createEl(
+    '<div class="chat-msg chat-msg-user">' +
+      '<div class="chat-bubble chat-bubble-user">' + esc(text) + '</div>' +
+    '</div>'
+  );
+  thread.appendChild(el);
+  if (!skipAnim) animateIn(el);
+  return el;
+}
+
+function appendTypingIndicator(thread) {
+  var el = createEl(
+    '<div class="chat-msg chat-msg-athlevo chat-typing" id="chatTyping">' +
+      '<div class="chat-bubble chat-bubble-athlevo">' +
+        '<span class="chat-typing-dot"></span>' +
+        '<span class="chat-typing-dot"></span>' +
+        '<span class="chat-typing-dot"></span>' +
+      '</div>' +
+    '</div>'
+  );
+  thread.appendChild(el);
+  animateIn(el);
+  return el;
+}
+
+function removeTypingIndicator() {
+  var el = document.getElementById("chatTyping");
+  if (el) el.remove();
+}
+
+function animateIn(el) {
+  if (!canAnimate(el)) return;
+  el.animate(
+    [{ opacity: 0, transform: "translateY(8px)" },
+     { opacity: 1, transform: "translateY(0)" }],
+    { duration: 220, easing: "cubic-bezier(.2,.7,.2,1)", fill: "both" }
+  );
+}
+
+function scrollToBottom() {
+  var thread = getThread();
+  if (!thread) return;
+  var d = reducedMotion() ? 0 : SCROLL_DELAY;
+  setTimeout(function () {
+    thread.scrollTo({ top: thread.scrollHeight, behavior: reducedMotion() ? "auto" : "smooth" });
+  }, d);
+}
+
+/* ═══════════════════════════ QUICK REPLIES ═════════════════════════ */
+
+function showQuickReplies(options, onSelect) {
+  var container = getQuickReplies();
+  if (!container) return;
+  container.innerHTML = "";
+
+  for (var i = 0; i < options.length; i++) {
+    (function (opt) {
+      var btn = createEl(
+        '<button class="chat-qr-chip" type="button">' + esc(opt.label) + '</button>'
+      );
+      btn.addEventListener("click", function () {
+        onSelect(opt);
+      });
+      container.appendChild(btn);
+    })(options[i]);
+  }
+
+  container.style.display = "";
+  if (canAnimate(container)) {
+    container.animate(
+      [{ opacity: 0, transform: "translateY(6px)" },
+       { opacity: 1, transform: "translateY(0)" }],
+      { duration: 180, easing: "cubic-bezier(.2,.7,.2,1)", fill: "both" }
+    );
+  }
+}
+
+function hideQuickReplies() {
+  var container = getQuickReplies();
+  if (container) {
+    container.innerHTML = "";
+    container.style.display = "none";
+  }
+}
+
+/* ═══════════════════════════ COMPOSER CONTROL ══════════════════════ */
+
+function showComposer(placeholder) {
+  var composer = getComposer();
+  var input = getComposerInput();
+  if (composer) composer.style.display = "";
+  if (input) {
+    input.placeholder = placeholder || "Type your answer…";
+    input.value = "";
+    input.disabled = false;
+  }
+}
+
+function hideComposer() {
+  var composer = getComposer();
+  if (composer) composer.style.display = "none";
+}
+
+function setComposerMode(type) {
+  var input = getComposerInput();
+  if (!input) return;
+  // Reset to text
+  input.type = "text";
+  input.inputMode = "";
+  if (type === "number") {
+    input.inputMode = "decimal";
+  } else if (type === "date") {
+    // For date, we'll use a date input inline instead
+    input.type = "date";
+  }
+}
+
+/* ═══════════════════════════ COMPOUND QUESTION SPLITTING ═══════════ */
+
 /**
- * Append the active question's fields to the thread. Sets currentQuestion,
- * wires field interactions, and scrolls to the new content.
+ * Split a compound question's fields into sequential sub-steps.
+ * Each sub-step gets its own Athlevo message + quick replies or input.
+ * Fields with showWhen are grouped with their triggering field.
  */
-function appendActiveQuestion(thread, q) {
+function splitIntoSubSteps(q) {
+  var steps = [];
+  var used = {};
+
+  for (var i = 0; i < q.fields.length; i++) {
+    var f = q.fields[i];
+    if (used[f.id]) continue;
+
+    // Collect this field + any dependent showWhen fields
+    var group = [f];
+    used[f.id] = true;
+
+    for (var j = i + 1; j < q.fields.length; j++) {
+      var dep = q.fields[j];
+      if (dep.showWhen && dep.showWhen[f.id] !== undefined) {
+        group.push(dep);
+        used[dep.id] = true;
+      }
+    }
+
+    steps.push(group);
+  }
+
+  return steps;
+}
+
+/**
+ * Get the conversational prompt for a sub-step field.
+ * Uses the field label or generates natural language.
+ */
+function getSubStepPrompt(q, fieldGroup, stepIndex, totalSteps) {
+  var f = fieldGroup[0];
+
+  // Custom prompts for known compound questions
+  if (q.key === "race_details") {
+    if (f.id === "goal_race") return "Do you already have a race booked?";
+    if (f.id === "goal_race_date") return "And when is it?";
+    if (f.id === "goal_time") return "Any specific finish time you’re aiming for?";
+  }
+  if (q.key === "weekly_volume") {
+    if (f.id === "weekly_mileage") return "How many kilometres are you running per week right now?";
+    if (f.id === "weekly_hours") return "And roughly how many hours per week is that?";
+  }
+  if (q.key === "current_capacity") {
+    if (f.id === "recent_consistency") return "How consistent has your running been over the last 6–8 weeks?";
+    if (f.id === "recent_longest_run_km") return "What’s the longest run you’ve done recently?";
+  }
+  if (q.key === "recent_performance") {
+    if (f.id === "recent_race_dist") return "Do you have a recent race result I can use as a benchmark?";
+    if (f.id === "recent_race_time") return "What was your finish time?";
+  }
+  if (q.key === "injury_status") {
+    if (f.id === "injury_has") return q.title;
+    if (f.id === "injury_area") return "Where is it?";
+  }
+  if (q.key === "schedule") {
+    if (f.id === "train_time") return "When do you usually train?";
+    if (f.id === "schedule_constraints") return "Any scheduling constraints I should know about? Shift work, travel, childcare…";
+  }
+  if (q.key === "training_structure") {
+    if (f.id === "training_structure") return q.title;
+    if (f.id === "training_structure_other") return "Tell me a bit about your typical week.";
+  }
+
+  // For single-field questions, use the question title
+  if (totalSteps === 1) return q.title;
+
+  // Fallback: use field label
+  return f.label || q.title;
+}
+
+/* ═══════════════════════════ CONVERSATION OPENING ══════════════════ */
+
+async function renderConversationOpening() {
+  mode = "question";
+  currentQuestion = null;
+  var thread = getThread();
+  if (!thread) return;
+
+  // Show Athlevo greeting
+  await showTypingThenMessage(thread, "Hi! I’m Athlevo, your endurance coach.");
+  await delay(MSG_DELAY);
+  await showTypingThenMessage(thread, "What are you working toward?");
+
+  // Show first question
+  var q = engine.nextQuestion();
+  if (q) {
+    presentQuestion(q);
+  }
+
+  updateProgress();
+}
+
+async function showTypingThenMessage(thread, text) {
+  appendTypingIndicator(thread);
+  scrollToBottom();
+  await delay(TYPING_DELAY);
+  removeTypingIndicator();
+  appendAthlevoMsg(thread, text);
+  scrollToBottom();
+}
+
+async function showTypingThenMessageHTML(thread, html) {
+  appendTypingIndicator(thread);
+  scrollToBottom();
+  await delay(TYPING_DELAY);
+  removeTypingIndicator();
+  appendAthlevoMsgHTML(thread, html);
+  scrollToBottom();
+}
+
+/* ═══════════════════════════ QUESTION PRESENTATION ═════════════════ */
+
+/**
+ * Present a question: split it into sub-steps, show the first sub-step.
+ */
+function presentQuestion(q) {
   currentQuestion = q;
   currentFieldData = {};
+  currentSubStep = 0;
 
   // Pre-fill if revisiting
   if (engine.history.indexOf(q.key) >= 0) {
     prefillFromAnswers(q);
   }
 
-  // Question title as Athlevo coaching message
-  var msgEl = appendAthlevoMsg(thread, q.title);
-  if (q.sub) appendContext(thread, q.sub);
+  // Split into sub-steps
+  subStepFields = splitIntoSubSteps(q);
 
-  // Fields container
-  var fieldsHTML = buildFieldsHTML(q);
-  var wrap = createEl(
-    '<div class="conv-q-wrap" data-question="' + esc(q.key) + '">' +
-      fieldsHTML +
-    '</div>'
-  );
-  thread.appendChild(wrap);
-  animateIn(wrap);
-
-  wireQuestion(wrap, q);
-  showFoot(!q.autoAdvance);
-  updateChrome(q);
-
-  // Scroll the new question into view
-  scrollToEl(msgEl);
-}
-
-function scrollToEl(el) {
-  if (!el) return;
-  setTimeout(function () {
-    try {
-      el.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
-    } catch (e) {}
-  }, reducedMotion() ? 0 : 60);
+  // For single-field questions, use the question title already shown (if it was the opening)
+  // For multi-field, we need to show the first sub-step prompt
+  if (subStepFields.length === 1) {
+    // Single-field question — show quick replies + composer for this field
+    presentSubStep(0, false);
+  } else {
+    // Multi-field compound — show first sub-step
+    presentSubStep(0, false);
+  }
 }
 
 /**
- * Build a readable summary of the user's answer for the echo element.
- * Returns e.g. "Half marathon" or "30 km · 4 hrs" or "Strength / gym, Cycling".
+ * Present a single sub-step: show its prompt (unless skipPrompt),
+ * then quick replies and/or composer.
  */
-function getAnswerEchoLabel(q, fieldData) {
-  var parts = [];
-  for (var i = 0; i < q.fields.length; i++) {
-    var f = q.fields[i];
-    // Check showWhen against the field data
-    if (f.showWhen) {
-      var visible = true;
-      for (var key in f.showWhen) {
-        if (!f.showWhen.hasOwnProperty(key)) continue;
-        var fval = fieldData[key];
-        var expected = f.showWhen[key];
-        if (Array.isArray(expected)) {
-          if (expected.indexOf(fval) < 0) { visible = false; break; }
-        } else {
-          if (fval !== expected) { visible = false; break; }
-        }
-      }
-      if (!visible) continue;
-    }
-
-    var v = fieldData[f.id];
-    if (v == null || v === "") continue;
-
-    if (f.options && !Array.isArray(v)) {
-      // Single select — find option label
-      for (var j = 0; j < f.options.length; j++) {
-        if (String(f.options[j].value) === String(v)) {
-          parts.push(f.options[j].label);
-          break;
-        }
-      }
-    } else if (f.options && Array.isArray(v)) {
-      // Multi select
-      var labels = [];
-      var vStr = v.map(String);
-      for (var k = 0; k < f.options.length; k++) {
-        if (vStr.indexOf(String(f.options[k].value)) >= 0) {
-          labels.push(f.options[k].label);
-        }
-      }
-      if (labels.length) parts.push(labels.join(", "));
-    } else if (f.type === "number" && f.unit) {
-      parts.push(v + " " + f.unit);
-    } else {
-      parts.push(String(v));
-    }
-  }
-  return parts.join(" · ") || "Answered";
-}
-
-/**
- * Rebuild the entire conversation thread from engine state.
- * Used for back navigation and resume from localStorage.
- */
-function rebuildConversation(activeQ) {
-  var body = getBody();
-  if (!body) return;
-  body.innerHTML = "";
-  body.scrollTop = 0;
-  mode = "question";
-
-  var thread = document.createElement("div");
-  thread.className = "conv-thread";
-  body.appendChild(thread);
-
-  // Brand header (no animation on rebuild)
-  thread.appendChild(createEl(
-    '<div class="conv-header">' +
-      '<span class="conv-brand">Athlevo<span>.</span></span>' +
-      '<span class="conv-role">AI Running Coach</span>' +
-    '</div>'
-  ));
-
-  // Opening messages
-  thread.appendChild(createEl('<p class="conv-athlevo-msg">' + esc(OPENING_MSG) + '</p>'));
-  thread.appendChild(createEl('<p class="conv-athlevo-msg">' + esc(OPENING_FOLLOW) + '</p>'));
-
-  // Replay answered questions as echoes
-  for (var i = 0; i < engine.history.length; i++) {
-    var key = engine.history[i];
-    // Stop before the active question — it gets rendered as editable fields
-    if (activeQ && key === activeQ.key) break;
-
-    var q = getQuestionDef(key);
-    if (!q) continue;
-
-    var fieldData = engine.questionAnswers[key] || {};
-
-    // Athlevo asked this question
-    thread.appendChild(createEl('<p class="conv-athlevo-msg">' + esc(q.title) + '</p>'));
-
-    // User's collapsed answer
-    var echoLabel = getAnswerEchoLabel(q, fieldData);
-    thread.appendChild(createEl(
-      '<div class="conv-echo">' +
-        '<span class="conv-echo-label">You</span>' +
-        '<span class="conv-echo-value">' + esc(echoLabel) + '</span>' +
-      '</div>'
-    ));
-
-    // Coaching interpretation (from cache or re-generated)
-    var interp = interpretationCache[key];
-    if (!interp && q.interpret) {
-      try { interp = q.interpret(fieldData, engine._stateView()); } catch (e) {}
-    }
-    if (interp) {
-      thread.appendChild(createEl('<p class="conv-athlevo-msg">' + esc(interp) + '</p>'));
-    }
-  }
-
-  // Active question or completion
-  if (!activeQ && engine.canComplete()) {
-    completeDiagnostic();
+async function presentSubStep(index, showPrompt) {
+  if (index >= subStepFields.length) {
+    // All sub-steps done — submit the compound answer
+    submitCurrentQuestion();
     return;
   }
-  if (activeQ) {
-    appendActiveQuestion(thread, activeQ);
+
+  currentSubStep = index;
+  var fieldGroup = subStepFields[index];
+  var f = fieldGroup[0]; // primary field
+
+  if (showPrompt) {
+    var prompt = getSubStepPrompt(currentQuestion, fieldGroup, index, subStepFields.length);
+    var thread = getThread();
+    if (thread) {
+      await showTypingThenMessage(thread, prompt);
+    }
+  }
+
+  // Determine input mode
+  if (f.type === "chips" || f.type === "multichips") {
+    // Show quick-reply chips
+    showQuickReplies(f.options, function (opt) {
+      handleChipSelect(f, opt, fieldGroup);
+    });
+    // Also show composer for free-text
+    showComposer("Or type your answer…");
+    setComposerMode("text");
+  } else if (f.type === "number") {
+    hideQuickReplies();
+    showComposer(f.placeholder || ("e.g. " + (f.min || "0")));
+    setComposerMode("number");
+  } else if (f.type === "date") {
+    hideQuickReplies();
+    showComposer("");
+    setComposerMode("date");
+  } else if (f.type === "text") {
+    hideQuickReplies();
+    showComposer(f.placeholder || "Type here…");
+    setComposerMode("text");
+  }
+
+  // Special case: race_details first field — show Yes/Not yet chips instead
+  if (currentQuestion.key === "race_details" && f.id === "goal_race") {
+    showQuickReplies([
+      { label: "Yes", value: "__race_yes" },
+      { label: "Not yet", value: "__race_no" }
+    ], function (opt) {
+      handleRaceGateSelect(opt);
+    });
+    showComposer("Or type the race name…");
+    setComposerMode("text");
+  }
+
+  // For optional fields, show a skip option
+  if (f.optional && f.type !== "chips") {
+    var qr = getQuickReplies();
+    if (qr) {
+      var skipBtn = createEl('<button class="chat-qr-chip chat-qr-skip" type="button">Skip</button>');
+      skipBtn.addEventListener("click", function () {
+        handleSkip(f);
+      });
+      qr.appendChild(skipBtn);
+      qr.style.display = "";
+    }
+  }
+
+  scrollToBottom();
+  updateProgress();
+}
+
+/* ═══════════════════════════ INPUT HANDLING ════════════════════════ */
+
+/**
+ * Handle chip/quick-reply selection.
+ */
+function handleChipSelect(field, opt, fieldGroup) {
+  if (busy) return;
+  busy = true;
+
+  var thread = getThread();
+
+  if (field.type === "multichips") {
+    // Multi-select: toggle
+    var cur = Array.isArray(currentFieldData[field.id]) ? currentFieldData[field.id].slice() : [];
+    if (opt.exclusive) {
+      currentFieldData[field.id] = cur.indexOf(opt.value) >= 0 ? [] : [opt.value];
+    } else {
+      var filtered = cur.filter(function (v) { return v !== "none"; });
+      if (filtered.indexOf(opt.value) >= 0) {
+        currentFieldData[field.id] = filtered.filter(function (v) { return v !== opt.value; });
+      } else {
+        currentFieldData[field.id] = filtered.concat(opt.value);
+      }
+    }
+    // Re-render chips with selection state
+    showMultiChipsWithState(field);
+    busy = false;
+    return;
+  }
+
+  // Single select
+  currentFieldData[field.id] = opt.value;
+  hideQuickReplies();
+
+  // Show user bubble
+  if (thread) appendUserMsg(thread, opt.label);
+  scrollToBottom();
+
+  // Check for dependent showWhen fields
+  var dependents = fieldGroup.slice(1);
+  var activeDependents = dependents.filter(function (dep) {
+    if (!dep.showWhen) return true;
+    return checkShowWhen(dep.showWhen);
+  });
+
+  if (activeDependents.length > 0) {
+    // Show dependent field as next sub-sub-step
+    busy = false;
+    presentDependentField(activeDependents[0]);
+    return;
+  }
+
+  // Auto-advance if single-field question or compound is complete
+  advanceAfterChip();
+}
+
+function showMultiChipsWithState(field) {
+  var cur = Array.isArray(currentFieldData[field.id]) ? currentFieldData[field.id] : [];
+  var container = getQuickReplies();
+  if (!container) return;
+  container.innerHTML = "";
+
+  for (var i = 0; i < field.options.length; i++) {
+    (function (opt) {
+      var sel = cur.indexOf(opt.value) >= 0;
+      var btn = createEl(
+        '<button class="chat-qr-chip' + (sel ? " chat-qr-sel" : "") + '" type="button">' + esc(opt.label) + '</button>'
+      );
+      btn.addEventListener("click", function () {
+        handleChipSelect(field, opt, [field]);
+      });
+      container.appendChild(btn);
+    })(field.options[i]);
+  }
+
+  // Add Done button for multi-select
+  var doneBtn = createEl('<button class="chat-qr-chip chat-qr-done" type="button">Done</button>');
+  doneBtn.addEventListener("click", function () {
+    if (busy) return;
+    busy = true;
+    var labels = [];
+    for (var j = 0; j < field.options.length; j++) {
+      if (cur.indexOf(field.options[j].value) >= 0) labels.push(field.options[j].label);
+    }
+    var thread = getThread();
+    if (thread) appendUserMsg(thread, labels.join(", ") || "None");
+    hideQuickReplies();
+    scrollToBottom();
+    advanceAfterChip();
+  });
+  container.appendChild(doneBtn);
+  container.style.display = "";
+}
+
+function presentDependentField(dep) {
+  var thread = getThread();
+  (async function () {
+    if (thread) {
+      var label = dep.label || "Tell me more";
+      await showTypingThenMessage(thread, label);
+    }
+    if (dep.type === "text") {
+      hideQuickReplies();
+      showComposer(dep.placeholder || "Type here…");
+      setComposerMode("text");
+    } else if (dep.type === "number") {
+      hideQuickReplies();
+      showComposer(dep.placeholder || "Enter a number");
+      setComposerMode("number");
+    }
+    scrollToBottom();
+  })();
+}
+
+function handleRaceGateSelect(opt) {
+  if (busy) return;
+  busy = true;
+  var thread = getThread();
+
+  hideQuickReplies();
+  if (thread) appendUserMsg(thread, opt.label);
+  scrollToBottom();
+
+  if (opt.value === "__race_no") {
+    // Skip all race_details fields — submit empty
+    currentFieldData.goal_race = "";
+    currentFieldData.goal_race_date = "";
+    currentFieldData.goal_time = "";
+    busy = false;
+    submitCurrentQuestion();
+    return;
+  }
+
+  // "Yes" — ask for race name
+  busy = false;
+  (async function () {
+    var thread2 = getThread();
+    if (thread2) {
+      await showTypingThenMessage(thread2, "Nice. What race are you doing?");
+    }
+    hideQuickReplies();
+    showComposer("e.g. Cebu Marathon");
+    setComposerMode("text");
+    // Mark that we're collecting race name
+    currentSubStep = 0.5; // special marker
+    scrollToBottom();
+  })();
+}
+
+function handleSkip(field) {
+  if (busy) return;
+  busy = true;
+
+  currentFieldData[field.id] = "";
+  var thread = getThread();
+  if (thread) appendUserMsg(thread, "Skip");
+  hideQuickReplies();
+  scrollToBottom();
+
+  advanceAfterChip();
+}
+
+/**
+ * Handle composer text submission.
+ */
+function handleComposerSend() {
+  if (busy) return;
+  var input = getComposerInput();
+  if (!input) return;
+
+  var val = input.value.trim();
+  if (!val && input.type !== "date") return;
+  if (input.type === "date" && !val) return;
+
+  busy = true;
+  input.value = "";
+
+  var thread = getThread();
+  var q = currentQuestion;
+
+  // Special case: race_details gate — collecting race name
+  if (q && q.key === "race_details" && currentSubStep === 0.5) {
+    currentFieldData.goal_race = val;
+    if (thread) appendUserMsg(thread, val);
+    hideQuickReplies();
+    scrollToBottom();
+    busy = false;
+    // Now ask for date
+    (async function () {
+      await showTypingThenMessage(getThread(), "And when is it?");
+      hideQuickReplies();
+      // Show skip option for date
+      var qr = getQuickReplies();
+      if (qr) {
+        var skipBtn = createEl('<button class="chat-qr-chip chat-qr-skip" type="button">Skip</button>');
+        skipBtn.addEventListener("click", function () {
+          if (busy) return;
+          busy = true;
+          currentFieldData.goal_race_date = "";
+          if (getThread()) appendUserMsg(getThread(), "Skip");
+          hideQuickReplies();
+          scrollToBottom();
+          // Move to goal time
+          busy = false;
+          askGoalTime();
+        });
+        qr.appendChild(skipBtn);
+        qr.style.display = "";
+      }
+      showComposer("");
+      setComposerMode("date");
+      currentSubStep = 0.6;
+      scrollToBottom();
+    })();
+    return;
+  }
+
+  // Race date
+  if (q && q.key === "race_details" && currentSubStep === 0.6) {
+    currentFieldData.goal_race_date = val;
+    if (thread) appendUserMsg(thread, formatDate(val));
+    hideQuickReplies();
+    scrollToBottom();
+    busy = false;
+    askGoalTime();
+    return;
+  }
+
+  // Goal time
+  if (q && q.key === "race_details" && currentSubStep === 0.7) {
+    var mapped = NUMERIC_ALIASES[val.toLowerCase()] || val;
+    currentFieldData.goal_time = mapped;
+    if (thread) appendUserMsg(thread, val);
+    hideQuickReplies();
+    scrollToBottom();
+    busy = false;
+    submitCurrentQuestion();
+    return;
+  }
+
+  if (!q) { busy = false; return; }
+
+  // Determine which field we're filling
+  var fieldGroup = subStepFields[Math.floor(currentSubStep)] || subStepFields[0];
+  if (!fieldGroup) { busy = false; return; }
+  var field = fieldGroup[0];
+
+  // Try to map typed text to a chip value
+  var mapped2 = tryMapTextToValue(q, field, val);
+  if (mapped2 !== null) {
+    currentFieldData[field.id] = mapped2.value;
+    if (thread) appendUserMsg(thread, val);
+    hideQuickReplies();
+    scrollToBottom();
+
+    // Check for dependent showWhen fields
+    var dependents = fieldGroup.slice(1);
+    var activeDependents = dependents.filter(function (dep) {
+      if (!dep.showWhen) return true;
+      return checkShowWhen(dep.showWhen);
+    });
+    if (activeDependents.length > 0) {
+      busy = false;
+      presentDependentField(activeDependents[0]);
+      return;
+    }
+    advanceAfterChip();
+    return;
+  }
+
+  // For number fields, validate
+  if (field.type === "number") {
+    var n = parseFloat(val);
+    if (!isFinite(n)) {
+      showValidationMsg("Please enter a valid number.");
+      busy = false;
+      return;
+    }
+    if (field.min != null && n < field.min) {
+      showValidationMsg("Should be at least " + field.min + ".");
+      busy = false;
+      return;
+    }
+    if (field.max != null && n > field.max) {
+      showValidationMsg("Should be " + field.max + " or less.");
+      busy = false;
+      return;
+    }
+    currentFieldData[field.id] = val;
+    var displayVal = val + (field.unit ? " " + field.unit : "");
+    if (thread) appendUserMsg(thread, displayVal);
+    hideQuickReplies();
+    scrollToBottom();
+    advanceAfterChip();
+    return;
+  }
+
+  // For text fields with maxLength, validate
+  if (field.maxLength && val.length > field.maxLength) {
+    showValidationMsg("Please keep it under " + field.maxLength + " characters.");
+    busy = false;
+    return;
+  }
+
+  // Accept text
+  currentFieldData[field.id] = val;
+  if (thread) appendUserMsg(thread, val);
+  hideQuickReplies();
+  scrollToBottom();
+  advanceAfterChip();
+}
+
+function askGoalTime() {
+  (async function () {
+    await showTypingThenMessage(getThread(), "Any specific finish time you’re aiming for?");
+    var qr = getQuickReplies();
+    if (qr) {
+      var skipBtn = createEl('<button class="chat-qr-chip chat-qr-skip" type="button">No specific goal</button>');
+      skipBtn.addEventListener("click", function () {
+        if (busy) return;
+        busy = true;
+        currentFieldData.goal_time = "";
+        if (getThread()) appendUserMsg(getThread(), "No specific goal");
+        hideQuickReplies();
+        scrollToBottom();
+        busy = false;
+        submitCurrentQuestion();
+      });
+      qr.appendChild(skipBtn);
+      qr.style.display = "";
+    }
+    showComposer("e.g. sub-4:00, 1:45");
+    setComposerMode("text");
+    currentSubStep = 0.7;
+    scrollToBottom();
+  })();
+}
+
+function showValidationMsg(text) {
+  var thread = getThread();
+  if (!thread) return;
+  var el = createEl(
+    '<div class="chat-msg chat-msg-athlevo">' +
+      '<div class="chat-bubble chat-bubble-athlevo chat-bubble-error">' + esc(text) + '</div>' +
+    '</div>'
+  );
+  thread.appendChild(el);
+  animateIn(el);
+  scrollToBottom();
+}
+
+function formatDate(dateStr) {
+  try {
+    var d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  } catch (e) {
+    return dateStr;
   }
 }
 
-function getQuestionDef(key) {
-  if (root.AthlevoDiagnostic && root.AthlevoDiagnostic.getQuestion) {
-    return root.AthlevoDiagnostic.getQuestion(key);
+/**
+ * Try to map free text to a known chip value.
+ */
+function tryMapTextToValue(q, field, text) {
+  var lower = text.toLowerCase().trim();
+
+  // Check alias tables first
+  if (q.key === "goal" && field.id === "goal_distance") {
+    if (GOAL_ALIASES[lower]) return { value: GOAL_ALIASES[lower], label: text };
   }
+  if (field.id === "experience") {
+    if (EXPERIENCE_ALIASES[lower]) return { value: EXPERIENCE_ALIASES[lower], label: text };
+  }
+  if (field.id === "training_status") {
+    if (TRAINING_STATUS_ALIASES[lower]) return { value: TRAINING_STATUS_ALIASES[lower], label: text };
+  }
+
+  // Check option values/labels directly
+  if (field.options) {
+    for (var i = 0; i < field.options.length; i++) {
+      var opt = field.options[i];
+      if (opt.label.toLowerCase() === lower || String(opt.value).toLowerCase() === lower) {
+        return { value: opt.value, label: opt.label };
+      }
+    }
+
+    // Partial match — only if unambiguous
+    var matches = [];
+    for (var j = 0; j < field.options.length; j++) {
+      var opt2 = field.options[j];
+      if (opt2.label.toLowerCase().indexOf(lower) >= 0) {
+        matches.push(opt2);
+      }
+    }
+    if (matches.length === 1) {
+      return { value: matches[0].value, label: matches[0].label };
+    }
+  }
+
+  // For chips fields that require a structured value, can't accept arbitrary text
+  if ((field.type === "chips" || field.type === "multichips") && field.required) {
+    // Show clarification
+    var thread = getThread();
+    if (thread) {
+      var optionLabels = field.options.map(function (o) { return o.label; }).join(", ");
+      appendAthlevoMsg(thread, "I didn’t quite catch that. Could you pick one? " + optionLabels);
+      scrollToBottom();
+    }
+    return null;
+  }
+
+  // For text/number fields, accept as-is
+  if (field.type === "text" || field.type === "number") {
+    return { value: text, label: text };
+  }
+
   return null;
 }
 
-/* ═══════════════════════════ FIELD RENDERING ═══════════════════════ */
+/* ═══════════════════════════ ADVANCE LOGIC ═════════════════════════ */
 
-function prefillFromAnswers(q) {
-  for (var i = 0; i < q.fields.length; i++) {
-    var f = q.fields[i];
-    var val = engine.answers[f.id];
-    if (val != null) {
-      currentFieldData[f.id] = val;
-    }
+function advanceAfterChip() {
+  var nextSubStep = Math.floor(currentSubStep) + 1;
+
+  if (nextSubStep < subStepFields.length) {
+    // More sub-steps in this compound question
+    busy = false;
+    (async function () {
+      await delay(MSG_DELAY);
+      presentSubStep(nextSubStep, true);
+    })();
+  } else {
+    // All fields collected — submit
+    busy = false;
+    submitCurrentQuestion();
   }
 }
+
+/**
+ * Submit the collected fieldData for the current question to the engine.
+ */
+function submitCurrentQuestion() {
+  if (!currentQuestion) return;
+  var q = currentQuestion;
+
+  // Validate required fields
+  var problem = validateQuestion(q);
+  if (problem) {
+    showValidationMsg(problem);
+    return;
+  }
+
+  var interpretation = engine.recordAnswer(q.key, currentFieldData);
+  if (interpretation) interpretationCache[q.key] = interpretation;
+
+  trackEvent("diagnostic_question_answered", {
+    question_key: q.key,
+    questions_completed: engine.history.length
+  });
+
+  updateProgress();
+
+  // Show interpretation inline
+  (async function () {
+    var thread = getThread();
+    if (interpretation && thread) {
+      await delay(MSG_DELAY);
+      await showTypingThenMessage(thread, interpretation);
+    }
+
+    // Check completion
+    if (engine.canComplete()) {
+      completeDiagnostic();
+      return;
+    }
+
+    // Next question
+    var next = engine.nextQuestion();
+    if (next) {
+      await delay(MSG_DELAY);
+      // Show question prompt
+      var prompt = getSubStepPrompt(next, splitIntoSubSteps(next)[0], 0, splitIntoSubSteps(next).length);
+      // For single-field auto-advance questions, use the question title
+      if (splitIntoSubSteps(next).length === 1) {
+        prompt = next.title;
+      }
+      await showTypingThenMessage(thread, prompt);
+      presentQuestion(next);
+    } else if (engine.canComplete()) {
+      completeDiagnostic();
+    }
+  })();
+}
+
+/* ═══════════════════════════ VALIDATION ════════════════════════════ */
 
 function checkShowWhen(cond) {
   for (var fieldId in cond) {
@@ -404,467 +1100,158 @@ function checkShowWhen(cond) {
   return true;
 }
 
-function renderField(f, q) {
-  var label = "";
-  if (!f.bare) {
-    var optTag = f.optional ? ' <span class="opt">(optional)</span>' : "";
-    label = '<label class="ob2-label" for="diagf-' + esc(f.id) + '">' + esc(f.label) + optTag + '</label>';
-  }
-
-  var inner = "";
-
-  if (f.type === "chips" && f.layout === "cards") {
-    inner = renderCards(f);
-  } else if (f.type === "chips") {
-    inner = renderChips(f);
-  } else if (f.type === "multichips") {
-    inner = renderMultiChips(f);
-  } else if (f.type === "text") {
-    inner = renderTextInput(f);
-  } else if (f.type === "number") {
-    inner = renderNumberInput(f);
-  } else if (f.type === "date") {
-    inner = renderDateInput(f);
-  }
-
-  return '<div class="ob2-field">' + label + inner + '</div>';
-}
-
-function renderCards(f) {
-  var html = '<div class="ob2-cards-choice" role="group" aria-label="' + esc(f.label) + '">';
-  for (var i = 0; i < f.options.length; i++) {
-    var o = f.options[i];
-    var sel = currentFieldData[f.id] != null && String(currentFieldData[f.id]) === String(o.value) ? " sel" : "";
-    html += '<button class="ob2-card' + sel + '" data-field="' + esc(f.id) +
-      '" data-value="' + esc(o.value) + '" type="button" aria-pressed="' + (sel ? 'true' : 'false') + '">' +
-      '<span class="ob2-card-label">' + esc(o.label) + '</span>' +
-      '<span class="ob2-card-tick"></span>' +
-      '</button>';
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderChips(f) {
-  var html = '<div class="ob2-chips" role="group" aria-label="' + esc(f.label) + '">';
-  for (var i = 0; i < f.options.length; i++) {
-    var o = f.options[i];
-    var sel = currentFieldData[f.id] != null && String(currentFieldData[f.id]) === String(o.value) ? " sel" : "";
-    html += '<button class="ob2-chip' + sel + '" data-field="' + esc(f.id) +
-      '" data-value="' + esc(o.value) + '" type="button" aria-pressed="' + (sel ? 'true' : 'false') + '">' + esc(o.label) + '</button>';
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderMultiChips(f) {
-  var html = '<div class="ob2-chips" role="group" aria-label="' + esc(f.label) + '">';
-  var curArr = Array.isArray(currentFieldData[f.id]) ? currentFieldData[f.id] : [];
-  for (var i = 0; i < f.options.length; i++) {
-    var o = f.options[i];
-    var sel = curArr.indexOf(o.value) >= 0 ? " sel" : "";
-    var excl = o.exclusive ? ' data-exclusive="1"' : "";
-    html += '<button class="ob2-chip' + sel + '" data-field="' + esc(f.id) +
-      '" data-value="' + esc(o.value) + '" data-multi="1"' + excl +
-      ' type="button" aria-pressed="' + (sel ? 'true' : 'false') + '">' + esc(o.label) + '</button>';
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderTextInput(f) {
-  var val = currentFieldData[f.id] || "";
-  return '<input class="ob2-input" type="text" id="diagf-' + esc(f.id) +
-    '" data-field="' + esc(f.id) + '"' +
-    (f.placeholder ? ' placeholder="' + esc(f.placeholder) + '"' : '') +
-    (f.maxLength ? ' maxlength="' + f.maxLength + '"' : '') +
-    ' value="' + esc(val) + '"' +
-    ' autocomplete="off">';
-}
-
-function renderNumberInput(f) {
-  var val = currentFieldData[f.id] != null ? currentFieldData[f.id] : "";
-  var input = '<input class="ob2-input" type="number" inputmode="decimal" id="diagf-' + esc(f.id) +
-    '" data-field="' + esc(f.id) + '"' +
-    (f.placeholder ? ' placeholder="' + esc(f.placeholder) + '"' : '') +
-    (f.min != null ? ' min="' + f.min + '"' : '') +
-    (f.max != null ? ' max="' + f.max + '"' : '') +
-    ' value="' + esc(val) + '"' +
-    ' autocomplete="off">';
-
-  if (f.unit) {
-    return '<div class="ob2-affix">' + input + '<span class="unit">' + esc(f.unit) + '</span></div>';
-  }
-  return input;
-}
-
-function renderDateInput(f) {
-  var val = currentFieldData[f.id] || "";
-  return '<input class="ob2-input" type="date" id="diagf-' + esc(f.id) +
-    '" data-field="' + esc(f.id) + '"' +
-    ' value="' + esc(val) + '">';
-}
-
-/* ═══════════════════════════ FIELD LAYOUT ════════════════════════════ */
-
-/**
- * Build the HTML for a question's fields (chips, inputs, etc.) without
- * the surrounding step wrapper. Used inside .conv-q-wrap.
- */
-function buildFieldsHTML(q) {
-  var fieldsHTML = "";
-  var halfBuf = [];
-
-  for (var i = 0; i < q.fields.length; i++) {
-    var f = q.fields[i];
-    if (f.showWhen && !checkShowWhen(f.showWhen)) continue;
-
-    if (f.half) {
-      halfBuf.push(f);
-      if (halfBuf.length === 2) {
-        fieldsHTML += '<div class="ob2-field"><div class="ob2-row">';
-        for (var h = 0; h < halfBuf.length; h++) {
-          var hf = halfBuf[h];
-          var optTag = hf.optional ? ' <span class="opt">(optional)</span>' : "";
-          var lab = hf.bare ? "" : '<label class="ob2-label" for="diagf-' + esc(hf.id) + '">' + esc(hf.label) + optTag + '</label>';
-          var inner = "";
-          if (hf.type === "number") inner = renderNumberInput(hf);
-          else if (hf.type === "text") inner = renderTextInput(hf);
-          else if (hf.type === "date") inner = renderDateInput(hf);
-          fieldsHTML += '<div class="ob2-field">' + lab + inner + '</div>';
-        }
-        fieldsHTML += '</div></div>';
-        halfBuf = [];
-      }
-    } else {
-      // Flush any pending half
-      if (halfBuf.length > 0) {
-        var hf2 = halfBuf[0];
-        fieldsHTML += '<div class="ob2-field">' + renderField(hf2, q) + '</div>';
-        halfBuf = [];
-      }
-      fieldsHTML += renderField(f, q);
-    }
-  }
-
-  // Flush remaining half field
-  if (halfBuf.length > 0) {
-    fieldsHTML += renderField(halfBuf[0], q);
-  }
-
-  return fieldsHTML;
-}
-
-/* ═══════════════════════════ WIRING ═════════════════════════════════ */
-
-function wireQuestion(rootEl, q) {
-  // Wire chip/card taps
-  rootEl.querySelectorAll("[data-field]").forEach(function (el) {
-    if (el.tagName !== "BUTTON") return;
-    el.addEventListener("click", function () {
-      var fieldId = el.dataset.field;
-      var raw = el.dataset.value;
-      var scope = el.closest(".conv-q-wrap") || el.closest(".ob2-step") || rootEl;
-      clearAdvanceTimer();
-
-      if (el.dataset.multi === "1") {
-        // Multi-select
-        var cur = Array.isArray(currentFieldData[fieldId]) ? currentFieldData[fieldId].slice() : [];
-        if (el.dataset.exclusive === "1") {
-          currentFieldData[fieldId] = cur.indexOf(raw) >= 0 ? [] : [raw];
-        } else {
-          var filtered = cur.filter(function (v) { return v !== "none"; });
-          currentFieldData[fieldId] = filtered.indexOf(raw) >= 0
-            ? filtered.filter(function (v) { return v !== raw; })
-            : filtered.concat(raw);
-        }
-        refreshSelections(fieldId, scope);
-        if (el.classList.contains("sel")) pop(el);
-        updateContinueState(q);
-        return;
-      }
-
-      // Single select
-      var opt = findOption(q, fieldId, raw);
-      var value = opt ? opt.value : raw;
-      var prevValue = currentFieldData[fieldId];
-      currentFieldData[fieldId] = value;
-
-      // Check if showWhen visibility changed
-      var visChanged = q.fields.some(function (f) {
-        if (!f.showWhen) return false;
-        var nowMatch = checkShowWhenField(f.showWhen, fieldId, value);
-        var prevMatch = checkShowWhenField(f.showWhen, fieldId, prevValue);
-        return nowMatch !== prevMatch;
-      });
-
-      if (visChanged) {
-        // Re-render fields within the conversation wrap
-        var wrap = el.closest(".conv-q-wrap");
-        if (wrap) {
-          wrap.innerHTML = buildFieldsHTML(q);
-          wireQuestion(wrap, q);
-        }
-      } else {
-        refreshSelections(fieldId, scope);
-        pop(el);
-        updateContinueState(q);
-      }
-
-      // Auto-advance for single-choice screens
-      if (q.autoAdvance && !visChanged && !validateQuestion(q)) {
-        scheduleAutoAdvance(q);
-      }
-    });
-  });
-
-  // Wire text/number/date inputs
-  rootEl.querySelectorAll("input, textarea").forEach(function (el) {
-    var sync = function () {
-      collectInputs(q);
-      updateContinueState(q);
-    };
-    el.addEventListener("input", sync);
-    el.addEventListener("change", sync);
-  });
-}
-
-function checkShowWhenField(cond, fieldId, value) {
-  if (!(fieldId in cond)) return true; // not related
-  var expected = cond[fieldId];
-  if (Array.isArray(expected)) return expected.indexOf(value) >= 0;
-  return value === expected;
-}
-
-function findOption(q, fieldId, rawValue) {
-  for (var i = 0; i < q.fields.length; i++) {
-    var f = q.fields[i];
-    if (f.id !== fieldId || !f.options) continue;
-    for (var j = 0; j < f.options.length; j++) {
-      if (String(f.options[j].value) === String(rawValue)) return f.options[j];
-    }
-  }
-  return null;
-}
-
-function refreshSelections(fieldId, scope) {
-  var value = currentFieldData[fieldId];
-  scope.querySelectorAll('[data-field="' + fieldId + '"]').forEach(function (el) {
-    var raw = el.dataset.value;
-    var on;
-    if (Array.isArray(value)) {
-      on = value.map(String).indexOf(raw) >= 0;
-    } else {
-      on = value != null && String(value) === raw;
-    }
-    el.classList.toggle("sel", on);
-    el.setAttribute("aria-pressed", on ? "true" : "false");
-  });
-}
-
-function collectInputs(q) {
-  for (var i = 0; i < q.fields.length; i++) {
-    var f = q.fields[i];
-    if (["text", "number", "date", "textarea"].indexOf(f.type) >= 0) {
-      var el = document.getElementById("diagf-" + f.id);
-      if (el) currentFieldData[f.id] = el.value;
-    }
-  }
-}
-
-/* ═══════════════════════════ VALIDATION ═════════════════════════════ */
-
 function validateQuestion(q) {
   for (var i = 0; i < q.fields.length; i++) {
     var f = q.fields[i];
-    // Skip hidden conditional fields
     if (f.showWhen && !checkShowWhen(f.showWhen)) continue;
-
     var value = currentFieldData[f.id];
-
     if (f.required) {
       var empty = value == null || value === "" ||
         (Array.isArray(value) && value.length === 0);
-      if (empty) return 'Please complete "' + f.label + '" to continue.';
+      if (empty) return null; // Not an error — field might be in a future sub-step
     }
-
     if (f.type === "number" && value !== "" && value != null) {
       var n = Number(value);
       if (!isFinite(n)) return 'Please enter a valid number for "' + f.label + '".';
       if (f.min != null && n < f.min) return '"' + f.label + '" should be at least ' + f.min + '.';
       if (f.max != null && n > f.max) return '"' + f.label + '" should be ' + f.max + ' or less.';
     }
-    if (f.maxLength && typeof value === "string" && value.length > f.maxLength) {
-      return '"' + f.label + '" should be ' + f.maxLength + ' characters or less.';
+  }
+  return null;
+}
+
+function prefillFromAnswers(q) {
+  for (var i = 0; i < q.fields.length; i++) {
+    var f = q.fields[i];
+    var val = engine.answers[f.id];
+    if (val != null) currentFieldData[f.id] = val;
+  }
+}
+
+/* ═══════════════════════════ REBUILD (resume/back) ═════════════════ */
+
+function rebuildConversation(activeQ) {
+  var thread = getThread();
+  if (!thread) return;
+  thread.innerHTML = "";
+  mode = "question";
+
+  // Opening messages
+  thread.appendChild(createEl(
+    '<div class="chat-msg chat-msg-athlevo"><div class="chat-bubble chat-bubble-athlevo">Hi! I’m Athlevo, your endurance coach.</div></div>'
+  ));
+  thread.appendChild(createEl(
+    '<div class="chat-msg chat-msg-athlevo"><div class="chat-bubble chat-bubble-athlevo">What are you working toward?</div></div>'
+  ));
+
+  // Replay history
+  for (var i = 0; i < engine.history.length; i++) {
+    var key = engine.history[i];
+    if (activeQ && key === activeQ.key) break;
+
+    var q = getQuestionDef(key);
+    if (!q) continue;
+    var fieldData = engine.questionAnswers[key] || {};
+
+    // Athlevo question
+    thread.appendChild(createEl(
+      '<div class="chat-msg chat-msg-athlevo"><div class="chat-bubble chat-bubble-athlevo">' + esc(q.title) + '</div></div>'
+    ));
+
+    // User answer
+    var echoLabel = getAnswerEchoLabel(q, fieldData);
+    thread.appendChild(createEl(
+      '<div class="chat-msg chat-msg-user"><div class="chat-bubble chat-bubble-user">' + esc(echoLabel) + '</div></div>'
+    ));
+
+    // Interpretation
+    var interp = interpretationCache[key];
+    if (!interp && q.interpret) {
+      try { interp = q.interpret(fieldData, engine._stateView()); } catch (e) {}
+    }
+    if (interp) {
+      thread.appendChild(createEl(
+        '<div class="chat-msg chat-msg-athlevo"><div class="chat-bubble chat-bubble-athlevo">' + esc(interp) + '</div></div>'
+      ));
     }
   }
-  return null; // valid
-}
 
-/* ═══════════════════════════ CHROME ══════════════════════════════════ */
-
-function updateChrome(q) {
-  // Progress bar — based on information completeness, not question count
-  var fill = document.querySelector("#diagProgress .ob2-fill");
-  var progress = document.getElementById("diagProgress");
-  if (progress) progress.style.visibility = "";
-  if (!fill) {
-    var container = document.getElementById("diagProgress");
-    if (container) {
-      container.innerHTML = '<i class="ob2-fill"></i>';
-      fill = container.querySelector(".ob2-fill");
-    }
-  }
-  if (fill) {
-    var completeness = engine.completeness();
-    fill.style.transform = "scaleX(" + Math.max(0.0001, completeness) + ")";
-  }
-
-  // Back button
-  var back = document.getElementById("diagBack");
-  if (back) {
-    var currentHistoryIndex = q ? engine.history.indexOf(q.key) : -1;
-    back.disabled = currentHistoryIndex === 0 || (currentHistoryIndex < 0 && engine.history.length === 0);
-  }
-
-  updateContinueState(q);
-}
-
-function updateContinueState(q) {
-  if (mode !== "question") return;
-  var cont = document.getElementById("diagContinue");
-  if (!cont) return;
-
-  var valid = !validateQuestion(q);
-  cont.classList.toggle("ready", valid);
-  cont.textContent = "Continue";
-  cont.classList.remove("done");
-}
-
-function showFoot(visible) {
-  var foot = document.getElementById("diagFoot");
-  if (foot) foot.style.display = visible ? "" : "none";
-}
-
-function setMessage(text) {
-  var msg = document.getElementById("diagMsg");
-  if (msg) msg.textContent = text || "";
-}
-
-/* ═══════════════════════════ NAVIGATION ═════════════════════════════ */
-
-/**
- * Continue: record the current answer, collapse to echo, show
- * interpretation inline, then append the next question.
- */
-function diagContinue() {
-  if (busy) return;
-  clearAdvanceTimer();
-
-  var q = currentQuestion;
-  if (!q) return;
-
-  collectInputs(q);
-  var problem = validateQuestion(q);
-  if (problem) {
-    setMessage(problem);
+  // Active question or completion
+  if (!activeQ && engine.canComplete()) {
+    completeDiagnostic();
     return;
   }
-  setMessage("");
-
-  busy = true;
-  var cont = document.getElementById("diagContinue");
-  if (cont) cont.disabled = true;
-
-  try {
-    // Record answer in engine
-    var interpretation = engine.recordAnswer(q.key, currentFieldData);
-    if (interpretation) interpretationCache[q.key] = interpretation;
-
-    trackEvent("diagnostic_question_answered", {
-      question_key: q.key,
-      questions_completed: engine.history.length
-    });
-
-    // Collapse the active fields into an echo
-    var thread = ensureThread();
-    if (thread) {
-      var wrap = thread.querySelector(".conv-q-wrap");
-      if (wrap) {
-        var echoLabel = getAnswerEchoLabel(q, currentFieldData);
-        var echoEl = createEl(
-          '<div class="conv-echo">' +
-            '<span class="conv-echo-label">You</span>' +
-            '<span class="conv-echo-value">' + esc(echoLabel) + '</span>' +
-          '</div>'
-        );
-        wrap.replaceWith(echoEl);
-        animateIn(echoEl);
-      }
-
-      // Show coaching interpretation inline
-      if (interpretation) {
-        appendAthlevoMsg(thread, interpretation);
-      }
-    }
-
-    // Check if diagnostic is complete
-    if (engine.canComplete()) {
-      completeDiagnostic();
-      return;
-    }
-
-    // Append next question
-    var next = engine.nextQuestion();
-    if (next && thread) {
-      appendActiveQuestion(thread, next);
-    } else if (engine.canComplete()) {
-      completeDiagnostic();
-    }
-  } finally {
-    busy = false;
-    if (cont) cont.disabled = false;
+  if (activeQ) {
+    thread.appendChild(createEl(
+      '<div class="chat-msg chat-msg-athlevo"><div class="chat-bubble chat-bubble-athlevo">' + esc(activeQ.title) + '</div></div>'
+    ));
+    presentQuestion(activeQ);
   }
+
+  scrollToBottom();
+  updateProgress();
 }
 
-/**
- * Back: rewind the engine and rebuild the conversation thread
- * up to the previous question with pre-filled fields.
- */
+function getQuestionDef(key) {
+  if (root.AthlevoDiagnostic && root.AthlevoDiagnostic.getQuestion) {
+    return root.AthlevoDiagnostic.getQuestion(key);
+  }
+  return null;
+}
+
+function getAnswerEchoLabel(q, fieldData) {
+  var parts = [];
+  for (var i = 0; i < q.fields.length; i++) {
+    var f = q.fields[i];
+    if (f.showWhen) {
+      var visible = true;
+      for (var key in f.showWhen) {
+        if (!f.showWhen.hasOwnProperty(key)) continue;
+        var fval = fieldData[key];
+        var expected = f.showWhen[key];
+        if (Array.isArray(expected)) {
+          if (expected.indexOf(fval) < 0) { visible = false; break; }
+        } else {
+          if (fval !== expected) { visible = false; break; }
+        }
+      }
+      if (!visible) continue;
+    }
+    var v = fieldData[f.id];
+    if (v == null || v === "") continue;
+    if (f.options && !Array.isArray(v)) {
+      for (var j = 0; j < f.options.length; j++) {
+        if (String(f.options[j].value) === String(v)) { parts.push(f.options[j].label); break; }
+      }
+    } else if (f.options && Array.isArray(v)) {
+      var labels = [];
+      var vStr = v.map(String);
+      for (var k = 0; k < f.options.length; k++) {
+        if (vStr.indexOf(String(f.options[k].value)) >= 0) labels.push(f.options[k].label);
+      }
+      if (labels.length) parts.push(labels.join(", "));
+    } else if (f.type === "number" && f.unit) {
+      parts.push(v + " " + f.unit);
+    } else {
+      parts.push(String(v));
+    }
+  }
+  return parts.join(" · ") || "Answered";
+}
+
+/* ═══════════════════════════ BACK NAVIGATION ══════════════════════ */
+
 function diagBack() {
   if (busy) return;
-  clearAdvanceTimer();
-
   var prev = engine.previousQuestion(currentQuestion ? currentQuestion.key : null);
   if (!prev) return;
-
   currentFieldData = {};
   prefillFromAnswers(prev);
   rebuildConversation(prev);
   mode = "question";
-  focusMain(getBody() && getBody().querySelector(".conv-q-wrap"));
 }
 
-function getCurrentQuestionDef() {
-  return currentQuestion;
-}
-
-/* ═══════════════════════════ AUTO-ADVANCE ═══════════════════════════ */
-
-function scheduleAutoAdvance(q) {
-  clearAdvanceTimer();
-  var delay = reducedMotion() ? 140 : 300;
-  advanceTimer = setTimeout(function () {
-    advanceTimer = null;
-    if (mode === "question") diagContinue();
-  }, delay);
-}
-
-function clearAdvanceTimer() {
-  if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; }
-}
-
-/* ═══════════════════════════ COMPLETION ═════════════════════════════ */
+/* ═══════════════════════════ COMPLETION ════════════════════════════ */
 
 function completeDiagnostic() {
   var result = engine.complete();
@@ -877,186 +1264,186 @@ function completeDiagnostic() {
   showBuildAnimation(result);
 }
 
-/* ═══════════════════════════ BUILD ANIMATION ════════════════════════ */
-
-function showBuildAnimation(result) {
-  var body = getBody();
-  if (!body) { renderResult(); return; }
+async function showBuildAnimation(result) {
   mode = "result";
-  showFoot(false);
+  hideQuickReplies();
+  hideComposer();
 
-  // Set progress to 100%
+  var thread = getThread();
+  if (!thread) { renderResult(); return; }
+
+  // Progress to 100%
   var fill = document.querySelector("#diagProgress .ob2-fill");
   if (fill) fill.style.transform = "scaleX(1)";
 
+  await showTypingThenMessage(thread, "Okay — I have enough to work with.");
+  await delay(MSG_DELAY);
+
   var lines = [
-    "Analysing your running profile",
-    "Identifying your primary limiter",
-    "Assessing goal feasibility",
-    "Building your coaching strategy"
+    "Analysing your running profile…",
+    "Identifying your primary limiter…",
+    "Assessing goal feasibility…",
+    "Building your coaching strategy…"
   ];
 
-  var html =
-    '<div class="ob2-payoff">' +
-      '<div class="ob2-build" id="diagBuild">' +
-        '<div class="ob2-build-ring"><span>Building</span></div>' +
-        '<h2 class="ob2-title">Building your coaching profile</h2>' +
-        '<ul class="ob2-build-lines">';
-
   for (var i = 0; i < lines.length; i++) {
-    html += '<li><i></i>' + esc(lines[i]) + '</li>';
+    await delay(reducedMotion() ? 100 : 400);
+    appendAthlevoMsg(thread, lines[i]);
+    scrollToBottom();
   }
 
-  html += '</ul></div></div>';
+  await delay(reducedMotion() ? 200 : 600);
+  await showTypingThenMessage(thread, "Here’s what I’m seeing.");
+  await delay(MSG_DELAY);
 
-  body.innerHTML = html;
-  body.scrollTop = 0;
-
-  // Animate lines appearing
-  var items = body.querySelectorAll(".ob2-build-lines li");
-  var delay = reducedMotion() ? 100 : 500;
-
-  for (var j = 0; j < items.length; j++) {
-    (function (item, idx) {
-      setTimeout(function () { item.classList.add("on"); }, delay * (idx + 1));
-    })(items[j], j);
-  }
-
-  // After all lines, show result
-  setTimeout(function () {
-    renderResult();
-  }, delay * (lines.length + 1) + 400);
+  renderResult();
 }
 
-/* ═══════════════════════════ RESULT SCREEN ══════════════════════════ */
+/* ═══════════════════════════ RESULT RENDERING ══════════════════════ */
 
 function renderResult() {
-  var body = getBody();
-  if (!body) return;
   mode = "result";
-  showFoot(false);
+  hideQuickReplies();
+  hideComposer();
 
-  // Hide back button and progress during result
-  var back = document.getElementById("diagBack");
-  if (back) back.disabled = true;
+  var thread = getThread();
+  if (!thread) return;
 
   var result = engine.result;
   if (!result) return;
   currentQuestion = null;
 
-  var html = '<div class="diag-result">';
+  // Back button
+  var back = document.getElementById("diagBack");
+  if (back) back.disabled = true;
 
-  // ── Athlete Profile Summary ──
-  html += '<section class="diag-section">';
-  html += '<span class="ob2-eyebrow">Your running profile</span>';
-  html += '<h2 class="ob2-title" tabindex="-1">' + esc(result.profile.goal) + '</h2>';
-  html += '<div class="diag-profile-meta">';
+  // Build result card inline in the chat
+  var html = '<div class="chat-result-card">';
+
+  // Profile summary
+  html += '<div class="chat-result-section">';
+  html += '<span class="chat-result-eyebrow">Your running profile</span>';
+  html += '<h3 class="chat-result-title">' + esc(result.profile.goal) + '</h3>';
+  html += '<div class="chat-result-meta">';
   html += '<span>' + esc(result.profile.experience) + '</span>';
   html += '<span>' + esc(result.profile.trainingStatus) + '</span>';
-  if (result.profile.weeklyMileage) {
-    html += '<span>' + Math.round(result.profile.weeklyMileage) + ' km/week</span>';
-  }
-  if (result.profile.trainingDays) {
-    html += '<span>' + result.profile.trainingDays + ' days/week</span>';
-  }
-  html += '</div>';
-  html += '</section>';
+  if (result.profile.weeklyMileage) html += '<span>' + Math.round(result.profile.weeklyMileage) + ' km/week</span>';
+  if (result.profile.trainingDays) html += '<span>' + result.profile.trainingDays + ' days/week</span>';
+  html += '</div></div>';
 
-  // ── Strengths ──
-  if (result.strengths && result.strengths.length > 0) {
-    html += '<section class="diag-section">';
-    html += '<span class="ob2-eyebrow">What you\'re doing well</span>';
-    for (var s = 0; s < result.strengths.length; s++) {
-      var str = result.strengths[s];
-      html += '<div class="diag-strength">';
-      html += '<h3 class="diag-strength-label">' + esc(str.label) + '</h3>';
-      html += '<p class="diag-strength-detail">' + esc(str.detail) + '</p>';
+  // Primary limiter
+  if (result.primaryLimiter) {
+    html += '<div class="chat-result-section chat-result-limiter">';
+    html += '<span class="chat-result-eyebrow">Primary limiter</span>';
+    html += '<h3 class="chat-result-limiter-title">' + esc(result.primaryLimiter.label) + '</h3>';
+    html += '<p class="chat-result-text">' + esc(result.primaryLimiter.explanation) + '</p>';
+    html += '</div>';
+
+    if (result.holdingBack) {
+      html += '<div class="chat-result-section">';
+      html += '<span class="chat-result-eyebrow">What’s holding you back</span>';
+      html += '<p class="chat-result-text">' + esc(result.holdingBack) + '</p>';
       html += '</div>';
     }
-    html += '</section>';
-  }
 
-  // ── Primary Limiter ──
-  if (result.primaryLimiter) {
-    html += '<section class="diag-section diag-limiter-section">';
-    html += '<span class="ob2-eyebrow">Primary limiter</span>';
-    html += '<h2 class="diag-limiter-title">' + esc(result.primaryLimiter.label) + '</h2>';
-    html += '<p class="diag-limiter-explanation">' + esc(result.primaryLimiter.explanation) + '</p>';
-    html += '</section>';
-
-    // ── What's Holding You Back ──
-    if (result.holdingBack) {
-      html += '<section class="diag-section">';
-      html += '<span class="ob2-eyebrow">What\'s holding you back</span>';
-      html += '<p class="diag-narrative">' + esc(result.holdingBack) + '</p>';
-      html += '</section>';
-    }
-
-    // ── What We'd Change ──
     if (result.whatWedChange && result.whatWedChange.length > 0) {
-      html += '<section class="diag-section">';
-      html += '<span class="ob2-eyebrow">What we\'d change</span>';
-      html += '<ul class="diag-changes">';
+      html += '<div class="chat-result-section">';
+      html += '<span class="chat-result-eyebrow">What we’d change</span>';
+      html += '<ul class="chat-result-changes">';
       for (var c = 0; c < result.whatWedChange.length; c++) {
         html += '<li>' + esc(result.whatWedChange[c]) + '</li>';
       }
-      html += '</ul>';
-      html += '</section>';
+      html += '</ul></div>';
     }
   }
 
-  // ── Goal Feasibility ──
+  // Goal feasibility
   if (result.feasibility) {
-    var fRatingClass = "diag-feasibility-" + result.feasibility.rating.replace(/_/g, "-");
-    html += '<section class="diag-section">';
-    html += '<span class="ob2-eyebrow">Goal feasibility</span>';
-    html += '<div class="diag-feasibility ' + fRatingClass + '">';
-    html += '<span class="diag-feasibility-badge">' + esc(result.feasibility.label) + '</span>';
-    html += '<p class="diag-feasibility-text">' + esc(result.feasibility.explanation) + '</p>';
-    html += '</div>';
-    html += '</section>';
+    var fClass = "chat-feas-" + result.feasibility.rating.replace(/_/g, "-");
+    html += '<div class="chat-result-section">';
+    html += '<span class="chat-result-eyebrow">Goal feasibility</span>';
+    html += '<div class="chat-result-feasibility ' + fClass + '">';
+    html += '<span class="chat-result-feas-badge">' + esc(result.feasibility.label) + '</span>';
+    html += '<p class="chat-result-text">' + esc(result.feasibility.explanation) + '</p>';
+    html += '</div></div>';
   }
 
-  // ── Safety Notice ──
+  // Safety
   if (result.safetyFlags.requiresMedicalClearance) {
-    html += '<section class="diag-section diag-safety">';
-    html += '<p class="diag-safety-text">Athlevo is not a medical provider. Based on what you\'ve shared, please consult a qualified health professional before beginning or modifying any training program.</p>';
-    html += '</section>';
+    html += '<div class="chat-result-section chat-result-safety">';
+    html += '<p class="chat-result-text">Athlevo is not a medical provider. Based on what you’ve shared, please consult a qualified health professional before beginning or modifying any training program.</p>';
+    html += '</div>';
   }
 
-  // ── Personalized Athlevo approach ──
+  // Athlevo recommendation
   var rec = result.athlevoRecommendation;
   if (rec) {
-    html += '<section class="diag-section diag-recommendation">';
-    html += '<span class="ob2-eyebrow">Athlevo AI</span>';
-    html += '<div class="diag-rec-card">';
-    html += '<h2 class="diag-rec-name">' + esc(rec.heading) + '</h2>';
-    html += '<p class="diag-rec-rationale">' + esc(rec.strategy) + '</p>';
+    html += '<div class="chat-result-section">';
+    html += '<span class="chat-result-eyebrow">How Athlevo would coach you</span>';
+    html += '<h3 class="chat-result-rec-title">' + esc(rec.heading) + '</h3>';
+    html += '<p class="chat-result-text">' + esc(rec.strategy) + '</p>';
     if (!rec.safetyOverride && rec.capabilities) {
-      html += '<ul class="diag-rec-caps">';
+      html += '<div class="chat-result-caps">';
       for (var cap = 0; cap < rec.capabilities.length; cap++) {
-        html += '<li>' + esc(rec.capabilities[cap]) + '</li>';
+        html += '<span class="chat-result-cap">' + esc(rec.capabilities[cap]) + '</span>';
       }
-      html += '</ul>';
+      html += '</div>';
     }
     html += '</div>';
-    html += '</section>';
-  }
-
-  // ── CTA ──
-  if (!rec || !rec.safetyOverride) {
-    html += '<section class="diag-section diag-cta-section">';
-    html += '<p class="diag-cta-price">₱597/month</p>';
-    html += '<p class="diag-cta-price-note">Full Athlevo Pro access</p>';
-    html += '<button class="diag-cta-primary" id="diagSaveCTA" type="button">Start training with Athlevo</button>';
-    html += '<p class="diag-cta-sub">Your diagnostic is saved. Create your account to begin.</p>';
-    html += '</section>';
   }
 
   html += '</div>';
 
-  body.innerHTML = html;
-  body.scrollTop = 0;
+  // Append as a wide Athlevo message
+  var resultEl = createEl(
+    '<div class="chat-msg chat-msg-athlevo chat-msg-result">' + html + '</div>'
+  );
+  thread.appendChild(resultEl);
+  animateIn(resultEl);
+  scrollToBottom();
+
+  // CTA
+  if (!rec || !rec.safetyOverride) {
+    (async function () {
+      await delay(MSG_DELAY * 2);
+      var ctaEl = createEl(
+        '<div class="chat-msg chat-msg-athlevo chat-msg-cta">' +
+          '<div class="chat-cta-card">' +
+            '<button class="chat-cta-btn" id="diagCTA" type="button">Start my training · ₱597/month</button>' +
+            '<p class="chat-cta-note">Your diagnostic is saved.</p>' +
+          '</div>' +
+        '</div>'
+      );
+      thread.appendChild(ctaEl);
+      animateIn(ctaEl);
+      scrollToBottom();
+
+      // Wire CTA
+      var cta = document.getElementById("diagCTA");
+      if (cta) {
+        cta.addEventListener("click", function () {
+          trackEvent("diagnostic_signup_tapped", {
+            primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
+            feasibility_rating: result.feasibility.rating
+          });
+          trackEvent("signup_started", { source_surface: "diagnostic" });
+          if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
+            root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
+          }
+          // Try existing checkout first; fall back to auth entry
+          if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.checkout) {
+            root.AthlevoDiagnosticAcquisition.checkout("card");
+          } else if (root.openAppEntry) {
+            root.openAppEntry();
+          } else {
+            showScreen("screen-welcome");
+          }
+        });
+      }
+    })();
+  }
+
+  // Analytics
   var resultKey = engine.importKey ? engine.importKey() : "result";
   if (resultTrackedFor !== resultKey) {
     resultTrackedFor = resultKey;
@@ -1072,60 +1459,32 @@ function renderResult() {
       });
     }
   }
+}
 
-  // Animate entry
-  var resultEl = body.querySelector(".diag-result");
-  if (canAnimate(resultEl)) {
-    resultEl.animate(
-      [{ opacity: 0, transform: "translateY(16px)" },
-       { opacity: 1, transform: "none" }],
-      { duration: 400, easing: EASE, fill: "both" });
+/* ═══════════════════════════ PROGRESS ══════════════════════════════ */
+
+function updateProgress() {
+  var fill = document.querySelector("#diagProgress .ob2-fill");
+  if (!fill) {
+    var container = document.getElementById("diagProgress");
+    if (container) {
+      container.innerHTML = '<i class="ob2-fill"></i>';
+      fill = container.querySelector(".ob2-fill");
+    }
+  }
+  if (fill && engine) {
+    var completeness = engine.completeness();
+    fill.style.transform = "scaleX(" + Math.max(0.0001, completeness) + ")";
   }
 
-  // Wire CTA
-  var cta = document.getElementById("diagSaveCTA");
-  if (cta) {
-    cta.addEventListener("click", function () {
-      trackEvent("diagnostic_signup_tapped", {
-        primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-        feasibility_rating: result.feasibility.rating
-      });
-      trackEvent("signup_started", { source_surface: "diagnostic" });
-      if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
-        root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
-      }
-      // Navigate to auth screen — diagnostic data persists in localStorage
-      // until successfully written to Supabase after auth
-      if (root.openAppEntry) {
-        root.openAppEntry();
-      } else {
-        showScreen("screen-welcome");
-      }
-    });
+  var back = document.getElementById("diagBack");
+  if (back && currentQuestion) {
+    var idx = engine.history.indexOf(currentQuestion.key);
+    back.disabled = idx === 0 || (idx < 0 && engine.history.length === 0);
   }
-  focusMain(resultEl ? resultEl.querySelector(".ob2-title") : null);
 }
 
-/* ═══════════════════════════ DOM HELPERS ════════════════════════════ */
-
-function getBody() {
-  return document.getElementById("diagBody");
-}
-
-function createEl(html) {
-  var tpl = document.createElement("template");
-  tpl.innerHTML = html.trim();
-  return tpl.content.firstElementChild;
-}
-
-function focusMain(el) {
-  if (!el || typeof el.focus !== "function") return;
-  setTimeout(function () {
-    try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
-  }, reducedMotion() ? 0 : 40);
-}
-
-/* ═══════════════════════════ ANALYTICS ══════════════════════════════ */
+/* ═══════════════════════════ ANALYTICS ═════════════════════════════ */
 
 function trackEvent(name, props) {
   try {
@@ -1138,35 +1497,34 @@ function trackEvent(name, props) {
   } catch (e) {}
 }
 
-/* ═══════════════════════════ DOM INIT ═══════════════════════════════ */
+/* ═══════════════════════════ DOM INIT ══════════════════════════════ */
 
 function initDOM() {
-  // Wire back button
   var backBtn = document.getElementById("diagBack");
   if (backBtn) {
     backBtn.addEventListener("click", function () { diagBack(); });
   }
-  // Wire continue button
+  // Legacy continue button — keep wired but hidden
   var contBtn = document.getElementById("diagContinue");
   if (contBtn) {
-    contBtn.addEventListener("click", function () { diagContinue(); });
+    contBtn.addEventListener("click", function () {
+      // In chat mode, this is handled by composer/chips instead
+    });
   }
 }
 
-// Auto-init when DOM is ready
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initDOM);
 } else {
   initDOM();
 }
 
-/* ═══════════════════════════ EXPORT ═════════════════════════════════ */
+/* ═══════════════════════════ EXPORT ════════════════════════════════ */
 
 var DiagnosticUI = {
   start: startDiagnostic,
-  continue: diagContinue,
+  continue: function () {},  // Legacy — handled by chat interaction
   back: diagBack,
-  // For testing / external access
   getEngine: function () { return engine; }
 };
 
