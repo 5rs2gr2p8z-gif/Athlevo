@@ -157,4 +157,57 @@ assert.doesNotMatch(
   assert.equal(reply.show_checkout, true);
 }
 
+{
+  const msg = "90 last week, how much is this?";
+  const facts = UI._internal.extractDiagnosticFacts(msg, mileage, { key: "weekly_volume" });
+  const intent = Sales.classify(msg);
+  const reply = Sales.composeSalesReply(intent, { answers: {} }, Sales.emptySalesState(), []);
+  assert.equal(facts.weekly_mileage, 90);
+  assert.equal(intent.intent, "pricing_question");
+  assert.match(reply.reply, /₱597\/month/);
+  assert.match(reply.reply_2, /Want to start from here\?/);
+  assert.equal(reply.show_checkout, false);
+  assert.doesNotMatch(reply.reply + " " + reply.reply_2, /could you give me weekly distance/i);
+
+  const sendSrc = uiSrc.slice(
+    uiSrc.indexOf("function handleComposerSend"),
+    uiSrc.indexOf("function showChipClarification")
+  );
+  assert.match(sendSrc, /decideSalesFollowup/);
+  assert.ok(
+    sendSrc.indexOf("decideSalesFollowup") < sendSrc.indexOf("showValidationMsg"),
+    "sales CTA follow-up must be classified before field validation"
+  );
+  assert.match(sendSrc, /intent: "ready_to_start"[\s\S]*next_action: "show_checkout"/);
+  assert.doesNotMatch(
+    sendSrc.slice(sendSrc.indexOf("if (awaitingSalesFollowup)"), sendSrc.indexOf("var highConfidenceSales")),
+    /showValidationMsg|restoreCurrentFieldInput|offerFollowUpChips/
+  );
+
+  for (const confirm of [
+    "yeah, let’s do it",
+    "yeah, let's do it",
+    "yes",
+    "okay let's go",
+    "I’m ready",
+    "I'm ready",
+    "proceed"
+  ]) {
+    const classified = Sales.classify(confirm);
+    const action = UI._internal.decideSalesFollowup(
+      confirm, classified, [], mileage, { key: "weekly_volume" }
+    );
+    assert.equal(action, "checkout", confirm);
+    assert.equal(Sales.isSalesCtaConfirmation(confirm), true, confirm);
+  }
+  assert.equal(Sales.classify("yes"), null, "bare yes is not global buyer intent");
+  assert.equal(Sales.isSalesCtaConfirmation("yes"), true);
+  assert.equal(
+    UI._internal.decideSalesFollowup("not yet", Sales.classify("not yet"), [], mileage, { key: "weekly_volume" }),
+    "resume"
+  );
+  assert.equal(UI._internal.isDiagnosticDeferral("not yet"), true);
+  assert.match(uiSrc, /nextField\.id === "weekly_hours"/);
+}
+
 console.log("PASS — mixed-intent diagnostic turns extract facts and answer sales without stale validation");

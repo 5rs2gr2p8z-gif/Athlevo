@@ -133,7 +133,9 @@ function engine(answers) {
   for (const phrase of [
     "Okay, I want to start.",
     "Let's do it.",
+    "yeah, let's do it",
     "I'm ready.",
+    "okay let's go",
     "I want to proceed.",
     "Okay, start my training.",
     "okay sounds good, how do I pay?"
@@ -155,6 +157,10 @@ function engine(answers) {
   assert.equal(Sales.classify("Marathon"), null, "quick-reply labels must not look like buyer intent");
   assert.equal(Sales.classify("1:43"), null);
   assert.equal(Sales.classify("pretty consistent"), null);
+  assert.equal(Sales.classify("yes"), null, "bare yes is CTA-followup only, not global ready");
+  assert.equal(Sales.isSalesCtaConfirmation("yes"), true);
+  assert.equal(Sales.isSalesCtaConfirmation("proceed"), true);
+  assert.equal(Sales.isSalesCtaConfirmation("not yet"), false);
 }
 
 {

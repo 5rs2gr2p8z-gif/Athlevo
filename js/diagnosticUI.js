@@ -860,6 +860,34 @@ function handleSkip(field) {
 }
 
 /**
+ * Conversation-mode (sales CTA) outranks field validation.
+ * The previous Athlevo turn asked to start/proceed; the next athlete
+ * message is interpreted against that CTA before any diagnostic parser.
+ *
+ * Returns: "checkout" | "sales" | "resume" | "field"
+ */
+function decideSalesFollowup(val, classification, extraPains, field, question) {
+  var Sales = getSales();
+  var ready = classification && classification.intent === "ready_to_start" &&
+    classification.confidence >= 0.7;
+  if (ready || (Sales && Sales.isSalesCtaConfirmation && Sales.isSalesCtaConfirmation(val))) {
+    return "checkout";
+  }
+  if (classification && classification.confidence >= 0.7) return "sales";
+  if (extraPains && extraPains.length && Sales &&
+      Sales.composeSalesReply(null, engine, salesState || Sales.emptySalesState(), extraPains)) {
+    return "sales";
+  }
+  if (isDiagnosticDeferral(val)) return "resume";
+  var facts = extractDiagnosticFacts(val, field, question);
+  if (field && Object.prototype.hasOwnProperty.call(facts, field.id)) {
+    var coerced = coerceFactValue(field, facts[field.id]);
+    if (isValidFieldValue(field, coerced)) return "field";
+  }
+  return "resume";
+}
+
+/**
  * Handle composer text submission.
  *
  * Deterministic parse first (buyer-intent classifier, fact extraction,
@@ -894,6 +922,33 @@ function handleComposerSend() {
     applyExtractedFacts(extractDiagnosticFacts(val, fieldEarly, q), fieldEarly.id);
   }
 
+  if (awaitingSalesFollowup) {
+    var followup = decideSalesFollowup(val, classification, extraPains, fieldEarly, q);
+    if (followup === "checkout") {
+      if (thread) appendUserMsg(thread, val);
+      hideQuickReplies();
+      scrollToBottom();
+      handleSalesDetour({
+        intent: "ready_to_start",
+        next_action: "show_checkout",
+        confidence: 0.9,
+        explicitReady: true
+      }, val, extraPains);
+      return;
+    }
+    if (followup === "resume") {
+      if (thread) appendUserMsg(thread, val);
+      hideQuickReplies();
+      scrollToBottom();
+      awaitingSalesFollowup = false;
+      busy = false;
+      resumeDiagnosticAfterSales();
+      return;
+    }
+    /* "sales" continues into the existing high-confidence detour.
+       "field" continues into the diagnostic parser. */
+  }
+
   var highConfidenceSales = classification && classification.confidence >= 0.7;
   if (highConfidenceSales) {
     if (thread) appendUserMsg(thread, val);
@@ -912,28 +967,6 @@ function handleComposerSend() {
       next_action: "recommend_athlevo",
       confidence: 0.7
     }, val, extraPains);
-    return;
-  }
-
-  if (awaitingSalesFollowup && isDiagnosticDeferral(val)) {
-    if (thread) appendUserMsg(thread, val);
-    hideQuickReplies();
-    scrollToBottom();
-    awaitingSalesFollowup = false;
-    busy = false;
-    resumeDiagnosticAfterSales();
-    return;
-  }
-
-  if (awaitingSalesFollowup && fieldEarly &&
-      isValidFieldValue(fieldEarly, currentFieldData[fieldEarly.id]) &&
-      extractDiagnosticFacts(val, fieldEarly, q)[fieldEarly.id] === undefined) {
-    if (thread) appendUserMsg(thread, val);
-    hideQuickReplies();
-    scrollToBottom();
-    awaitingSalesFollowup = false;
-    busy = false;
-    resumeDiagnosticAfterSales();
     return;
   }
 
@@ -2732,6 +2765,7 @@ var DiagnosticUI = {
     parseLooseNumber: parseLooseNumber,
     factPortionOfMixedMessage: factPortionOfMixedMessage,
     isDiagnosticDeferral: isDiagnosticDeferral,
+    decideSalesFollowup: decideSalesFollowup,
     isValidFieldValue: isValidFieldValue,
     tryMapTextToValue: tryMapTextToValue,
     absorbGroupFacts: absorbGroupFacts,

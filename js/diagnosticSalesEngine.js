@@ -60,7 +60,12 @@ var RE_PAYMENT_ASK = /(payment methods?|payment options?|how (do|can) i pay|wher
 var RE_READY = /(sign me up|let.?s start|start now|i.?m in\b|how do (i|we) start|where do i sign up|i.?m ready to start|get started|build my (training|plan|marathon|race)|make my (training )?plan|start (my )?training|start with athlevo|i want to (start|proceed)|what do i do next)/i;
 var RE_HOW_IT_WORKS = /(how (do|does|would|can) (you|it|athlevo).{0,24}(help|work|coach)|how can you help( me)?|how does this work|how would (this|athlevo) help|why athlevo|what happens after i (sign up|start|pay))/i;
 var RE_INTERESTED = /(^|\s)(i.?m interested|sounds good|okay,? (i.?m|let.?s|lets))(\s|$|\.|\,)/i;
-var RE_SHORT_READY = /^(ok(ay)?[,.]?\s*)?(i.?m ready|let.?s do (it|this)|i want to proceed)\.?$/i;
+var RE_SHORT_READY = /^((ok(ay)?|yeah|yep|sure)[,.]?\s+)?(i['’]?m ready|let['’]?s do (it|this)|let['’]?s go|i want to proceed)\.?$/i;
+/* Affirmatives that mean “yes to the current sales CTA” only. Bare “yes”
+   must never hijack a diagnostic chips field unless conversation-mode
+   (awaitingSalesFollowup) has already selected this helper. */
+var RE_CTA_CONFIRM = /^(yes|yeah|yep|yup|sure|ok|okay|alright|proceed|start)([,!.]|\s+please)?$/i;
+var RE_CTA_CONFIRM_PHRASE = /^(yes|yeah|yep|sure|ok|okay)[,.]?\s+(please|let['’]?s (do (it|this)|go)|do it|i['’]?m ready)\.?$/i;
 var RE_OBJ_CHATGPT = /(just chatgpt|use chatgpt|why not chatgpt|why wouldn.?t i just use chatgpt|isn.?t this (just )?chatgpt)/i;
 var RE_OBJ_CANCEL = /\bcan i cancel\b|\bcancel anytime\b|\bcancel(lation)?\b/i;
 var RE_OBJ_STATIC = /(static plan|just a spreadsheet|excel (sheet|plan)|pdf plan|what.?s different from a static)/i;
@@ -93,6 +98,14 @@ function isExplicitReady(message, topics) {
   var wantsPay = topics && topics.indexOf("payment") >= 0;
   if (wantsPay && (RE_INTERESTED.test(m) || /\bsounds good\b/i.test(m))) return true;
   return false;
+}
+
+function isSalesCtaConfirmation(message) {
+  var m = String(message || "").trim();
+  if (!m) return false;
+  if (isExplicitReady(m, detectCommercialTopics(m))) return true;
+  if (/^let['’]?s go\.?$/i.test(m)) return true;
+  return RE_CTA_CONFIRM.test(m) || RE_CTA_CONFIRM_PHRASE.test(m);
 }
 
 function classify(message) {
@@ -781,6 +794,7 @@ var AthlevoDiagnosticSales = {
   READINESS: READINESS,
   TRUE_PRICE: TRUE_PRICE,
   classify: classify,
+  isSalesCtaConfirmation: isSalesCtaConfirmation,
   looksLikeAQuestion: looksLikeAQuestion,
   looksLikeNaturalDiagnosticAnswer: looksLikeNaturalDiagnosticAnswer,
   detectPainPoints: detectPainPoints,
