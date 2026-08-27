@@ -107,7 +107,28 @@ function engine(answers) {
 
   const included = Sales.classify("What are the inclusions?");
   assert.equal(included.intent, "how_it_works");
+  assert.equal(included.topic, "inclusions");
   assert.notEqual(included.next_action, "show_checkout");
+  const includedReply = Sales.composeSalesReply(included, engine({}), Sales.emptySalesState(), []);
+  assert.match(includedReply.reply, /personalized training plan/i);
+  assert.match(includedReply.reply, /AI endurance coach/i);
+  assert.doesNotMatch(includedReply.reply, /clearer balance between controlled aerobic/i);
+  assert.match(includedReply.reply_2, /Want me to build your training from here/i);
+  assert.match(includedReply.reply_2, /Strava/);
+  assert.match(includedReply.reply_2, /Intervals\.icu/);
+  assert.doesNotMatch(includedReply.reply_2, /Garmin|COROS|Polar|Apple Health|Suunto/);
+  assert.equal(includedReply.show_checkout, false);
+
+  for (const phrase of [
+    "What's included?",
+    "What do I get?",
+    "What does ₱597 include?"
+  ]) {
+    const c = Sales.classify(phrase);
+    assert.equal(c && c.topic, "inclusions", phrase);
+    const r = Sales.composeSalesReply(c, engine({}), Sales.emptySalesState(), []);
+    assert.match(r.reply, /personalized training plan/i, phrase);
+  }
 
   for (const phrase of [
     "Okay, I want to start.",

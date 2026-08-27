@@ -45,7 +45,7 @@ var PRODUCT_FACTS = {
     "Training adjustments as you log sessions and feedback",
     "Progress and readiness insights"
   ],
-  connectsWearables: "Strava, Garmin, Intervals.icu, COROS, Polar, Apple Health, and Suunto",
+  connectsWearables: "Strava and Intervals.icu",
   notAGuarantee: "Athlevo does not guarantee race results or times — it provides individualized structure, feedback, and decision-making support; outcomes still depend on training, health, recovery, and race-day conditions.",
   notMedical: "Athlevo is not a medical provider and cannot diagnose injuries."
 };
@@ -55,8 +55,9 @@ var PRODUCT_FACTS = {
  * then the AI router; a false positive would hijack a legitimate answer.
  */
 var RE_PRICING = /(how much (is|does|would)|what.?s the price|what does (it|this|athlevo) cost|\bpricing\b|\bcost\b.*(month|athlevo|this)|₱|\bphp\s?\d|per month|monthly (fee|price|cost|charge)|subscription (cost|price|fee))/i;
+var RE_INCLUSIONS = /(what.?s included|what (are|are the) (the )?inclusions|what do i get|what does .{0,40}include|what do i get (for|with)|inclusions\?)/i;
 var RE_READY = /(sign me up|let.?s start|start now|i.?m in\b|how do (i|we) (start|pay)|where do i (sign up|pay)|i.?m ready to start|get started|build my (training|plan|marathon|race)|make my (training )?plan|start (my )?training|start with athlevo|i want to (start|proceed)|what do i do next|how do i pay|where do i pay)/i;
-var RE_HOW_IT_WORKS = /(how (do|does|would|can) (you|it|athlevo) (help|work|coach)|how can you help( me)?|what.?s included|what (are|are the) (the )?inclusions|what do i get|how does this work|how would (this|athlevo) help|what happens after i (sign up|start|pay))/i;
+var RE_HOW_IT_WORKS = /(how (do|does|would|can) (you|it|athlevo).{0,24}(help|work|coach)|how can you help( me)?|how does this work|how would (this|athlevo) help|what happens after i (sign up|start|pay))/i;
 var RE_INTERESTED = /(^|\s)(i.?m interested|sounds good|okay,? (i.?m|let.?s|lets))(\s|$|\.)/i;
 var RE_SHORT_READY = /^(ok(ay)?[,.]?\s*)?(i.?m ready|let.?s do (it|this)|i want to proceed)\.?$/i;
 var RE_OBJ_CHATGPT = /(just chatgpt|use chatgpt|why not chatgpt|why wouldn.?t i just use chatgpt|isn.?t this (just )?chatgpt)/i;
@@ -71,6 +72,9 @@ function classify(message) {
   var m = String(message || "").trim();
   if (!m) return null;
 
+  if (RE_INCLUSIONS.test(m)) {
+    return { intent: "how_it_works", next_action: "explain_offer", confidence: 0.92, topic: "inclusions" };
+  }
   if (RE_PRICING.test(m)) {
     return { intent: "pricing_question", next_action: "explain_offer", confidence: 0.92 };
   }
@@ -395,6 +399,15 @@ function composeObjectionReply(objection, engine) {
   return composeHelpReply(engine, emptySalesState());
 }
 
+function composeInclusionsReply() {
+  return {
+    reply: "Athlevo includes a personalized training plan, daily workout guidance, adaptive adjustments as you train, and an AI endurance coach you can talk to.",
+    reply_2: "It also gives readiness and progress insights, and can sync with " + PRODUCT_FACTS.connectsWearables + ". Want me to build your training from here?",
+    next_action: "explain_offer",
+    show_checkout: false
+  };
+}
+
 function composePriceReply() {
   return {
     reply: "Athlevo AI is " + TRUE_PRICE + ".",
@@ -455,6 +468,7 @@ function composePainAck(engine, pains) {
 function composeSalesReply(classification, engine, salesState, extraPains) {
   extraPains = extraPains || [];
   if (classification) {
+    if (classification.topic === "inclusions") return composeInclusionsReply();
     if (classification.intent === "pricing_question") return composePriceReply();
     if (classification.intent === "ready_to_start" && classification.confidence >= 0.7) {
       return composeReadyReply(engine);
@@ -668,6 +682,7 @@ var AthlevoDiagnosticSales = {
   ctaLabel: ctaLabel,
   composeSalesReply: composeSalesReply,
   composeHelpReply: composeHelpReply,
+  composeInclusionsReply: composeInclusionsReply,
   shouldUseAiFallback: shouldUseAiFallback,
   buildRouterPayload: buildRouterPayload,
   validateRouterResponse: validateRouterResponse,

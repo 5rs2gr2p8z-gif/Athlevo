@@ -191,4 +191,67 @@ const consistencyField = {
   assert.equal(raw.recentTurns, undefined);
 }
 
+{
+  const mileage = { id: "weekly_mileage", type: "number", min: 0, max: 500 };
+  const facts = UI._internal.extractDiagnosticFacts(
+    "around 80, how much is this?",
+    mileage,
+    { key: "weekly_volume" }
+  );
+  assert.equal(facts.weekly_mileage, 80);
+  assert.equal(UI._internal.factPortionOfMixedMessage("around 80, how much is this?").trim(), "around 80");
+}
+
+{
+  const days = {
+    id: "training_days", type: "chips", required: true,
+    options: [
+      { label: "2", value: 2 }, { label: "3", value: 3 }, { label: "4", value: 4 },
+      { label: "5", value: 5 }, { label: "6", value: 6 }, { label: "7", value: 7 }
+    ]
+  };
+  const facts = UI._internal.extractDiagnosticFacts(
+    "usually 5, but how does Athlevo actually help?",
+    days,
+    { key: "training_days" }
+  );
+  assert.equal(facts.training_days, 5);
+}
+
+{
+  const hours = { id: "weekly_hours", type: "number", min: 0, max: 40 };
+  const facts = UI._internal.extractDiagnosticFacts(
+    "about 6 hours. Can I cancel anytime?",
+    hours,
+    { key: "weekly_volume" }
+  );
+  assert.equal(facts.weekly_hours, 6);
+}
+
+{
+  const longest = { id: "recent_longest_run_km", type: "number", min: 0, max: 200 };
+  const facts = UI._internal.extractDiagnosticFacts(
+    "26km. How much is the subscription?",
+    longest,
+    { key: "current_capacity" }
+  );
+  assert.equal(facts.recent_longest_run_km, 26);
+  assert.equal(facts.weekly_mileage, undefined);
+}
+
+{
+  const mileage = { id: "weekly_mileage", type: "number", min: 0, max: 500 };
+  const facts = UI._internal.extractDiagnosticFacts(
+    "what are the inclusions?",
+    mileage,
+    { key: "weekly_volume" }
+  );
+  assert.equal(facts.weekly_mileage, undefined);
+}
+
+{
+  assert.equal(UI._internal.isDiagnosticDeferral("Not yet."), true);
+  assert.equal(UI._internal.isDiagnosticDeferral("around 80"), false);
+}
+
 console.log("PASS — diagnostic extraction (consistency, multi-fact, finish time, refresh)");
