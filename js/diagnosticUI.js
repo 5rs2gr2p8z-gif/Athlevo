@@ -1210,41 +1210,39 @@ function handleSalesDetour(classification, message, extraPains) {
     offerPaymentBridge();
     return;
   }
+  /* Product/commercial answers wait. Do not restore the current
+     diagnostic field chips or append the next questionnaire prompt. */
   var includeStart = composed.next_action === "recommend_athlevo" || composed.next_action === "explain_offer";
-  var filled = field && isValidFieldValue(field, currentFieldData[field.id]);
-  if (filled) {
-    var startOptions = [];
-    if (includeStart) {
-      startOptions.push({
-        label: Sales.ctaLabel(engine, salesState) || "Start my training · ₱597/month",
-        value: "__start"
-      });
-    }
-    if (startOptions.length) {
-      showQuickReplies(startOptions, function (opt) {
-        if (opt.value === "__start") {
-          hideQuickReplies();
-          var ready = Sales.composeSalesReply({
-            intent: "ready_to_start",
-            next_action: "show_checkout",
-            confidence: 0.9
-          }, engine, salesState || Sales.emptySalesState(), []);
-          showAthlevoBubbles(
-            ready && ready.reply ? ready.reply : "Sounds good. Choose whichever payment method is easiest for you.",
-            null,
-            true
-          );
-          offerPaymentBridge();
-        }
-      });
-    } else {
-      hideQuickReplies();
-    }
-    showComposer("Or type here…");
-    setComposerMode("text");
-    return;
+  var startOptions = [];
+  if (includeStart) {
+    startOptions.push({
+      label: Sales.ctaLabel(engine, salesState) || "Start my training · ₱597/month",
+      value: "__start"
+    });
   }
-  offerFollowUpChips(includeStart);
+  if (startOptions.length) {
+    showQuickReplies(startOptions, function (opt) {
+      if (opt.value === "__start") {
+        hideQuickReplies();
+        var ready = Sales.composeSalesReply({
+          intent: "ready_to_start",
+          next_action: "show_checkout",
+          confidence: 0.9,
+          explicitReady: true
+        }, engine, salesState || Sales.emptySalesState(), []);
+        showAthlevoBubbles(
+          ready && ready.reply ? ready.reply : "Sounds good. Choose whichever payment method is easiest for you.",
+          null,
+          true
+        );
+        offerPaymentBridge();
+      }
+    });
+  } else {
+    hideQuickReplies();
+  }
+  showComposer("Or type here…");
+  setComposerMode("text");
 }
 
 function routeViaAi(message, field, q, fieldGroup) {
@@ -1815,7 +1813,7 @@ function parseLooseNumber(text) {
  */
 function factPortionOfMixedMessage(text) {
   var m = String(text || "");
-  var re = /[,.]?\s*(?:how much|what.?s the price|what (?:are|are the) (?:the )?inclusions|what.?s included|what do i get|what does .{0,40}include|can i cancel|how (?:do|does|can|would) (?:you|it|athlevo)|how can you help|what.?s included)/i;
+  var re = /[,.]?\s*(?:how much|what.?s the price|what (?:are|are the) (?:the )?inclusions|what.?s included|what do i get|what does .{0,40}include|can i cancel|how (?:do|does|can|would) (?:you|it|athlevo)|how can you help|payment methods?|payment options?|how (?:do|can) i pay|\binclusions\b)/i;
   var match = m.match(re);
   if (!match) return m;
   if (match.index === 0) return "";

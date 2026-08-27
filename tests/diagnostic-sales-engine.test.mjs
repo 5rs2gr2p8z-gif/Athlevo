@@ -134,16 +134,23 @@ function engine(answers) {
     "Okay, I want to start.",
     "Let's do it.",
     "I'm ready.",
-    "How do I pay?",
-    "Where do I pay?",
     "I want to proceed.",
-    "Okay, start my training."
+    "Okay, start my training.",
+    "okay sounds good, how do I pay?"
   ]) {
     const ready = Sales.classify(phrase);
     assert.equal(ready && ready.intent, "ready_to_start", phrase);
     assert.ok(ready.confidence >= 0.7, phrase);
     assert.equal(ready.next_action, "show_checkout", phrase);
   }
+
+  const payAsk = Sales.classify("How do I pay?");
+  assert.ok(payAsk && payAsk.topics && payAsk.topics.indexOf("payment") >= 0);
+  assert.notEqual(payAsk.next_action, "show_checkout");
+  const payAskReply = Sales.composeSalesReply(payAsk, engine({}), Sales.emptySalesState(), []);
+  assert.match(payAskReply.reply, /debit or credit card/i);
+  assert.doesNotMatch(payAskReply.reply + " " + payAskReply.reply_2, /QRPh|Maya|GrabPay|3 days|charged immediately/i);
+  assert.equal(payAskReply.show_checkout, false);
 
   assert.equal(Sales.classify("Marathon"), null, "quick-reply labels must not look like buyer intent");
   assert.equal(Sales.classify("1:43"), null);
@@ -227,6 +234,47 @@ function engine(answers) {
   assert.equal(Sales.TRUE_PRICE, "₱597/month");
   assert.ok(Sales.PRODUCT_FACTS.capabilities.length >= 4);
   assert.match(Sales.PRODUCT_FACTS.notMedical, /not a medical provider/i);
+}
+
+{
+  const combo = Sales.classify("inclusions and payment method?");
+  assert.ok(combo.topics && combo.topics.indexOf("inclusions") >= 0 && combo.topics.indexOf("payment") >= 0);
+  assert.equal(combo.topics.length, 2);
+  assert.notEqual(combo.next_action, "show_checkout");
+  const comboReply = Sales.composeSalesReply(combo, engine({ weekly_mileage: 80, goal_distance: "Marathon" }), Sales.emptySalesState(), []);
+  assert.match(comboReply.reply, /personalized training plan/i);
+  assert.match(comboReply.reply, /Strava/i);
+  assert.match(comboReply.reply_2, /debit or credit card/i);
+  assert.match(comboReply.reply_2, /Want to proceed/i);
+  assert.doesNotMatch(comboReply.reply + " " + comboReply.reply_2, /clearer balance between controlled aerobic|How long have you been running/i);
+  assert.doesNotMatch(comboReply.reply_2, /QRPh|Maya|GrabPay/);
+  assert.equal(comboReply.show_checkout, false);
+  assert.equal(comboReply.resume_diagnostic, false);
+}
+
+{
+  const combo = Sales.classify("how much and what do I get?");
+  assert.ok(combo.topics.indexOf("price") >= 0 && combo.topics.indexOf("inclusions") >= 0);
+  const reply = Sales.composeSalesReply(combo, engine({}), Sales.emptySalesState(), []);
+  assert.match(reply.reply, /₱597\/month/);
+  assert.match(reply.reply_2, /personalized training plan/i);
+}
+
+{
+  const combo = Sales.classify("price and how do I pay?");
+  assert.ok(combo.topics.indexOf("price") >= 0 && combo.topics.indexOf("payment") >= 0);
+  const reply = Sales.composeSalesReply(combo, engine({}), Sales.emptySalesState(), []);
+  assert.match(reply.reply, /₱597\/month/);
+  assert.match(reply.reply_2, /debit or credit card/i);
+  assert.equal(reply.show_checkout, false);
+}
+
+{
+  const combo = Sales.classify("what do I get, can I cancel?");
+  assert.ok(combo.topics.indexOf("inclusions") >= 0 && combo.topics.indexOf("cancellation") >= 0);
+  const reply = Sales.composeSalesReply(combo, engine({}), Sales.emptySalesState(), []);
+  assert.match(reply.reply, /personalized training plan/i);
+  assert.match(reply.reply_2, /cancel anytime/i);
 }
 
 console.log("PASS — diagnostic sales engine (intent, personalization, objections, fallback)");

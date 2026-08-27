@@ -54,11 +54,12 @@ var PRODUCT_FACTS = {
  * Conservative on purpose: a false negative falls through to field parsing
  * then the AI router; a false positive would hijack a legitimate answer.
  */
-var RE_PRICING = /(how much (is|does|would)|what.?s the price|what does (it|this|athlevo) cost|\bpricing\b|\bcost\b.*(month|athlevo|this)|₱|\bphp\s?\d|per month|monthly (fee|price|cost|charge)|subscription (cost|price|fee))/i;
-var RE_INCLUSIONS = /(what.?s included|what (are|are the) (the )?inclusions|what do i get|what does .{0,40}include|what do i get (for|with)|inclusions\?)/i;
-var RE_READY = /(sign me up|let.?s start|start now|i.?m in\b|how do (i|we) (start|pay)|where do i (sign up|pay)|i.?m ready to start|get started|build my (training|plan|marathon|race)|make my (training )?plan|start (my )?training|start with athlevo|i want to (start|proceed)|what do i do next|how do i pay|where do i pay)/i;
-var RE_HOW_IT_WORKS = /(how (do|does|would|can) (you|it|athlevo).{0,24}(help|work|coach)|how can you help( me)?|how does this work|how would (this|athlevo) help|what happens after i (sign up|start|pay))/i;
-var RE_INTERESTED = /(^|\s)(i.?m interested|sounds good|okay,? (i.?m|let.?s|lets))(\s|$|\.)/i;
+var RE_PRICING = /(how much (is|does|would)|what.?s the price|what does (it|this|athlevo) cost|\bpricing\b|\bprice\b|\bhow much\b|\bcost\b.*(month|athlevo|this)|₱|\bphp\s?\d|per month|monthly (fee|price|cost|charge)|subscription (cost|price|fee))/i;
+var RE_INCLUSIONS = /(what.?s included|what (are|are the) (the )?inclusions|what do i get|what does .{0,40}include|what do i get (for|with)|\binclusions\b)/i;
+var RE_PAYMENT_ASK = /(payment methods?|payment options?|how (do|can) i pay|where do i pay|ways? to pay|how do (i|we) pay)/i;
+var RE_READY = /(sign me up|let.?s start|start now|i.?m in\b|how do (i|we) start|where do i sign up|i.?m ready to start|get started|build my (training|plan|marathon|race)|make my (training )?plan|start (my )?training|start with athlevo|i want to (start|proceed)|what do i do next)/i;
+var RE_HOW_IT_WORKS = /(how (do|does|would|can) (you|it|athlevo).{0,24}(help|work|coach)|how can you help( me)?|how does this work|how would (this|athlevo) help|why athlevo|what happens after i (sign up|start|pay))/i;
+var RE_INTERESTED = /(^|\s)(i.?m interested|sounds good|okay,? (i.?m|let.?s|lets))(\s|$|\.|\,)/i;
 var RE_SHORT_READY = /^(ok(ay)?[,.]?\s*)?(i.?m ready|let.?s do (it|this)|i want to proceed)\.?$/i;
 var RE_OBJ_CHATGPT = /(just chatgpt|use chatgpt|why not chatgpt|why wouldn.?t i just use chatgpt|isn.?t this (just )?chatgpt)/i;
 var RE_OBJ_CANCEL = /\bcan i cancel\b|\bcancel anytime\b|\bcancel(lation)?\b/i;
@@ -68,22 +69,70 @@ var RE_OBJ_DIY = /(make my own plan|just make it myself|can.?t i make my own|don
 var RE_QUESTION_LEAD = /^\s*(how|what|why|can|could|is|are|do|does|will|would|should|where|when)\b/i;
 var RE_NATURAL = /\b(pretty|mostly|fairly|quite|around|about|except|because|don'?t know|not sure|guess|consistent|per week|a week)\b/i;
 
+function detectCommercialTopics(message) {
+  var m = String(message || "").trim();
+  var topics = [];
+  if (!m) return topics;
+  if (RE_INCLUSIONS.test(m)) topics.push("inclusions");
+  if (RE_PRICING.test(m)) {
+    /* "What does ₱597 include?" is inclusions, not a second price question. */
+    var pesoOnlyInclude = topics.indexOf("inclusions") >= 0 &&
+      !/\bhow much\b|\bprice\b|\bpricing\b|\bcost\b/i.test(m);
+    if (!pesoOnlyInclude) topics.push("price");
+  }
+  if (RE_PAYMENT_ASK.test(m)) topics.push("payment");
+  if (RE_OBJ_CANCEL.test(m)) topics.push("cancellation");
+  if (RE_HOW_IT_WORKS.test(m) && topics.indexOf("inclusions") < 0) topics.push("how_it_works");
+  return topics;
+}
+
+function isExplicitReady(message, topics) {
+  var m = String(message || "").trim();
+  if (!m) return false;
+  if (RE_SHORT_READY.test(m) || RE_READY.test(m)) return true;
+  var wantsPay = topics && topics.indexOf("payment") >= 0;
+  if (wantsPay && (RE_INTERESTED.test(m) || /\bsounds good\b/i.test(m))) return true;
+  return false;
+}
+
 function classify(message) {
   var m = String(message || "").trim();
   if (!m) return null;
 
-  if (RE_INCLUSIONS.test(m)) {
-    return { intent: "how_it_works", next_action: "explain_offer", confidence: 0.92, topic: "inclusions" };
+  var topics = detectCommercialTopics(m);
+  var explicitReady = isExplicitReady(m, topics);
+
+  /* Transactional intent (start / pay now) outranks product Q&A. */
+  if (explicitReady) {
+    return {
+      intent: "ready_to_start",
+      next_action: "show_checkout",
+      confidence: 0.9,
+      topics: topics,
+      explicitReady: true
+    };
   }
-  if (RE_PRICING.test(m)) {
-    return { intent: "pricing_question", next_action: "explain_offer", confidence: 0.92 };
+
+  /* Collect every commercial topic — do not first-match and drop the rest. */
+  if (topics.length) {
+    var primary = topics[0];
+    var intent = "how_it_works";
+    var objection;
+    if (primary === "price") intent = "pricing_question";
+    else if (primary === "cancellation") intent = "objection";
+    else if (primary === "payment") intent = "pricing_question";
+    if (topics.indexOf("cancellation") >= 0) objection = "cancellation";
+    return {
+      intent: intent,
+      next_action: "explain_offer",
+      confidence: 0.92,
+      topics: topics,
+      topic: primary === "inclusions" ? "inclusions" : undefined,
+      objection: objection,
+      explicitReady: false
+    };
   }
-  if (RE_SHORT_READY.test(m) || RE_READY.test(m)) {
-    return { intent: "ready_to_start", next_action: "show_checkout", confidence: 0.9 };
-  }
-  if (RE_HOW_IT_WORKS.test(m)) {
-    return { intent: "how_it_works", next_action: "recommend_athlevo", confidence: 0.85 };
-  }
+
   if (RE_OBJ_CHATGPT.test(m)) {
     return { intent: "objection", next_action: "answer_then_continue", confidence: 0.85, objection: "chatgpt" };
   }
@@ -212,6 +261,8 @@ function applySalesSignals(state, classification, extraPains, hasContext) {
 
   if (classification) {
     if (classification.intent === "pricing_question") next.pricingAsked = true;
+    if (classification.topics && classification.topics.indexOf("price") >= 0) next.pricingAsked = true;
+    if (classification.topics && classification.topics.indexOf("inclusions") >= 0) next.howItWorksAsked = true;
     if (classification.intent === "how_it_works" || classification.intent === "question_about_athlevo") {
       next.howItWorksAsked = true;
     }
@@ -399,6 +450,60 @@ function composeObjectionReply(objection, engine) {
   return composeHelpReply(engine, emptySalesState());
 }
 
+function composePaymentAskReply() {
+  return {
+    reply: "You can pay with a debit or credit card from checkout.",
+    reply_2: "Want to proceed?",
+    next_action: "explain_offer",
+    show_checkout: false,
+    resume_diagnostic: false
+  };
+}
+
+function composeCombinedProductReply(topics, engine, salesState) {
+  var unique = [];
+  topics = topics || [];
+  for (var i = 0; i < topics.length; i++) {
+    if (unique.indexOf(topics[i]) < 0) unique.push(topics[i]);
+  }
+  if (!unique.length) return null;
+  if (unique.length === 1) {
+    if (unique[0] === "inclusions") return composeInclusionsReply();
+    if (unique[0] === "price") return composePriceReply();
+    if (unique[0] === "cancellation") return composeObjectionReply("cancellation", engine);
+    if (unique[0] === "payment") return composePaymentAskReply();
+    if (unique[0] === "how_it_works") return composeHelpReply(engine, salesState);
+  }
+
+  var inclusionsLine = "Athlevo includes a personalized training plan, daily workout guidance, adaptive adjustments as you train, an AI endurance coach, readiness and progress insights, and sync with " + PRODUCT_FACTS.connectsWearables + ".";
+  var parts = [];
+  if (unique.indexOf("price") >= 0) parts.push("Athlevo AI is " + TRUE_PRICE + ".");
+  if (unique.indexOf("inclusions") >= 0) parts.push(inclusionsLine);
+  if (unique.indexOf("how_it_works") >= 0 && unique.indexOf("inclusions") < 0) {
+    var help = composeHelpReply(engine, salesState);
+    if (help && help.reply) parts.push(help.reply);
+  }
+  if (unique.indexOf("cancellation") >= 0) {
+    parts.push("You can cancel anytime — that stops future charges.");
+  }
+  if (unique.indexOf("payment") >= 0) {
+    parts.push("You can pay with a debit or credit card from checkout.");
+  }
+
+  var reply = parts[0] || inclusionsLine;
+  var rest = parts.slice(1);
+  var reply2 = rest.length ? rest.join(" ") + " Want to proceed?" : "Want to proceed?";
+
+  return {
+    reply: reply,
+    reply_2: reply2,
+    next_action: "explain_offer",
+    show_checkout: false,
+    topics: unique,
+    resume_diagnostic: false
+  };
+}
+
 function composeInclusionsReply() {
   return {
     reply: "Athlevo includes a personalized training plan, daily workout guidance, adaptive adjustments as you train, and an AI endurance coach you can talk to.",
@@ -468,6 +573,12 @@ function composePainAck(engine, pains) {
 function composeSalesReply(classification, engine, salesState, extraPains) {
   extraPains = extraPains || [];
   if (classification) {
+    if (classification.explicitReady && classification.confidence >= 0.7) {
+      return composeReadyReply(engine);
+    }
+    if (classification.topics && classification.topics.length) {
+      return composeCombinedProductReply(classification.topics, engine, salesState);
+    }
     if (classification.topic === "inclusions") return composeInclusionsReply();
     if (classification.intent === "pricing_question") return composePriceReply();
     if (classification.intent === "ready_to_start" && classification.confidence >= 0.7) {
@@ -683,6 +794,7 @@ var AthlevoDiagnosticSales = {
   composeSalesReply: composeSalesReply,
   composeHelpReply: composeHelpReply,
   composeInclusionsReply: composeInclusionsReply,
+  detectCommercialTopics: detectCommercialTopics,
   shouldUseAiFallback: shouldUseAiFallback,
   buildRouterPayload: buildRouterPayload,
   validateRouterResponse: validateRouterResponse,

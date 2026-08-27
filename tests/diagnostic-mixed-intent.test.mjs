@@ -119,5 +119,42 @@ assert.match(uiSrc, /if \(awaitingSalesFollowup\) \{\s*awaitingSalesFollowup = f
 assert.doesNotMatch(uiSrc, /handleSalesDetour\([\s\S]{0,200}showValidationMsg/);
 assert.match(uiSrc, /function resumeDiagnosticAfterSales/);
 assert.match(uiSrc, /You mentioned you're around /);
+assert.doesNotMatch(
+  uiSrc.slice(uiSrc.indexOf("function handleSalesDetour"), uiSrc.indexOf("function routeViaAi")),
+  /offerFollowUpChips/
+);
+
+{
+  const msg = "inclusions and payment method?";
+  const intent = Sales.classify(msg);
+  const reply = Sales.composeSalesReply(intent, { answers: {} }, Sales.emptySalesState(), []);
+  assert.ok(intent.topics.indexOf("inclusions") >= 0 && intent.topics.indexOf("payment") >= 0);
+  assert.match(reply.reply, /personalized training plan/i);
+  assert.match(reply.reply_2, /debit or credit card/i);
+  assert.doesNotMatch(reply.reply + reply.reply_2, /How long have you been running|clearer balance between controlled aerobic/i);
+  assert.equal(reply.show_checkout, false);
+}
+
+{
+  const timeField = { id: "goal_time", type: "text", maxLength: 40 };
+  const msg = "sub 4, how much and how do I pay?";
+  const facts = UI._internal.extractDiagnosticFacts(msg, timeField, { key: "race_details" });
+  const intent = Sales.classify(msg);
+  const reply = Sales.composeSalesReply(intent, { answers: {} }, Sales.emptySalesState(), []);
+  assert.equal(facts.goal_time, "sub-4:00");
+  assert.ok(intent.topics.indexOf("price") >= 0 && intent.topics.indexOf("payment") >= 0);
+  assert.match(reply.reply, /₱597\/month/);
+  assert.match(reply.reply_2, /debit or credit card/i);
+  assert.equal(reply.show_checkout, false);
+  assert.notEqual(intent.next_action, "continue_diagnostic");
+}
+
+{
+  const ready = Sales.classify("okay sounds good, how do I pay?");
+  assert.equal(ready.intent, "ready_to_start");
+  assert.equal(ready.next_action, "show_checkout");
+  const reply = Sales.composeSalesReply(ready, { answers: {} }, Sales.emptySalesState(), []);
+  assert.equal(reply.show_checkout, true);
+}
 
 console.log("PASS — mixed-intent diagnostic turns extract facts and answer sales without stale validation");
