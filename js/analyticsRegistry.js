@@ -23,6 +23,10 @@
   // event → { kind, props }.  kind: "milestone" (once/athlete) | "behavioural".
   var EVENTS = {
     landing_viewed:               { kind: "behavioural", props: ["page_url", "page_path", "referrer", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    ai_landing_viewed:            { kind: "behavioural", props: ["source", "path", "page_path", "referrer", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
+    ai_signup_viewed:             { kind: "behavioural", props: ["from", "diagnostic_completed", "path", "page_path", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
+    payment_screen_viewed:        { kind: "behavioural", props: ["source", "price_php", "plan", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
+    payment_completed:            { kind: "milestone",   props: ["provider", "plan_id", "price_php", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     signup_cta_clicked:           { kind: "behavioural", props: ["cta_text", "cta_location", "destination", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     auth_screen_viewed:           { kind: "behavioural", props: ["entry_source", "previous_page", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     google_signup_clicked:        { kind: "behavioural", props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
@@ -31,7 +35,7 @@
     in_app_browser_signup_blocked:{ kind: "behavioural", props: ["browser", "intent", "source_surface"] },
     external_signup_link_copied:  { kind: "behavioural", props: ["browser", "intent", "source_surface"] },
     external_signup_continuation_viewed:{ kind: "behavioural", props: ["browser", "intent", "source_surface"] },
-    registration_completed:      { kind: "milestone",   props: ["signup_method", "user_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    registration_completed:      { kind: "milestone",   props: ["signup_method", "method", "source", "user_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     onboarding_started:          { kind: "milestone",   props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     data_connection_started:     { kind: "behavioural", props: ["provider", "source_surface", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     provider_skipped:             { kind: "milestone",   props: ["source_surface"] },
@@ -48,7 +52,7 @@
     premium_feature_viewed:       { kind: "behavioural", props: ["feature", "surface"] },
     upgrade_clicked:              { kind: "behavioural", props: ["feature", "surface"] },
     upgrade_sheet_viewed:         { kind: "behavioural", props: ["feature", "surface", "access_tier"] },
-    checkout_started:             { kind: "behavioural", props: ["feature", "surface"] },
+    checkout_started:             { kind: "behavioural", props: ["feature", "surface", "provider", "method", "price_php", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     checkout_failed:              { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
     subscription_activated:       { kind: "milestone",   props: ["source"] },
     whop_pending_purchase_claimed:{ kind: "milestone",   props: ["source"] },
@@ -121,12 +125,12 @@
     primary_tab_viewed:            { kind: "behavioural", props: ["screen_name"] },
     // Pre-signup diagnostic events (categorical only — never injury
     // free text, pain descriptions, or medical details)
-    diagnostic_viewed:             { kind: "behavioural", props: [] },
-    diagnostic_started:            { kind: "milestone",   props: [] },
+    diagnostic_viewed:             { kind: "behavioural", props: ["path", "page_path"] },
+    diagnostic_started:            { kind: "milestone",   props: ["first_input_type", "acquisition_source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     diagnostic_resumed:            { kind: "behavioural", props: ["state"] },
     diagnostic_question_answered:  { kind: "behavioural", props: ["question_key", "questions_completed"] },
     diagnostic_insight_shown:      { kind: "behavioural", props: ["question_key"] },
-    diagnostic_completed:          { kind: "milestone",   props: ["questions_answered", "primary_limiter", "recommended_product", "feasibility_rating", "injury_reported"] },
+    diagnostic_completed:          { kind: "milestone",   props: ["questions_answered", "primary_limiter", "recommended_product", "feasibility_rating", "injury_reported", "goal_distance", "training_status", "weekly_mileage", "has_race", "diagnostic_version"] },
     diagnostic_result_viewed:      { kind: "behavioural", props: ["primary_limiter", "recommended_product", "feasibility_rating", "injury_reported"] },
     product_recommended:           { kind: "behavioural", props: ["recommended_product", "feasibility_rating"] },
     alternative_products_viewed:  { kind: "behavioural", props: ["recommended_product"] },
@@ -172,8 +176,12 @@
     source_surface: {
       landing: true, auth: true, coach: true, onboarding: true,
       provider_connection: true, plan_generation: true, train: true,
-      today: true, trends: true, upgrade_sheet: true
+      today: true, trends: true, upgrade_sheet: true,
+      diagnostic: true, diagnostic_paywall: true, ai_signup: true
     },
+    first_input_type: { chip: true, text: true },
+    from: { ai_diagnostic: true },
+    method: { email: true, google: true, card: true, local: true },
     access_tier: {
       free: true,
       paid_active: true,
@@ -181,7 +189,7 @@
       unknown: true
     },
     provider: {
-      google: true, email: true, strava: true, intervals: true, whop: true,
+      google: true, email: true, strava: true, intervals: true, whop: true, paymongo: true,
       garmin: true, coros: true, polar: true, apple: true, suunto: true,
       other: true
     },
@@ -230,8 +238,8 @@
       if (key === "cta_text" && !APPROVED_CTA_TEXT[String(v).trim()]) return;
       if (APPROVED_HANDOFF_VALUES[key] &&
           !APPROVED_HANDOFF_VALUES[key][String(v).trim()]) return;
-      var max = /^(page_url|referrer|fbclid)$/.test(key) ? 500 :
-        (/^(page_path|previous_page|destination)$/.test(key) ? 200 : 80);
+      var max = /^(page_url|referrer|fbclid|initial_referrer)$/.test(key) ? 500 :
+        (/^(page_path|previous_page|destination|path)$/.test(key) ? 200 : 80);
       if (tv === "string" && v.length > 0 && v.length <= max && !/\s{2,}/.test(v)) { out[key] = v; kept++; }
     });
     return kept ? out : null;

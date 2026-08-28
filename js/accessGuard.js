@@ -346,6 +346,25 @@
     if (name !== "checkout_failed" && safe.access_tier) {
       props.access_tier = safe.access_tier;
     }
+    if (name === "checkout_started") {
+      const checkoutMethod = context && context.checkout_method;
+      const checkoutProvider = context && context.provider;
+      const checkoutSource = context && context.source;
+      if (checkoutProvider === "whop" || checkoutProvider === "paymongo") {
+        props.provider = checkoutProvider;
+      }
+      if (checkoutMethod === "card" || checkoutMethod === "local") {
+        props.method = checkoutMethod;
+      }
+      if (typeof (context && context.price_php) === "number") {
+        props.price_php = context.price_php;
+      } else {
+        props.price_php = 597;
+      }
+      if (checkoutSource) props.source = checkoutSource;
+      else if (safe.surface === "diagnostic") props.source = "ai_signup";
+      else props.source = "app";
+    }
     try {
       if (window.AthlevoAnalytics) {
         window.AthlevoAnalytics.track(name, props);
@@ -356,6 +375,15 @@
         window.AthlevoProductAnalytics.trackAthlevoEvent(name, props);
       }
     } catch (e) {}
+  }
+
+  function checkoutStartedContext(safe, provider, method, context) {
+    return Object.assign({}, safe, {
+      provider: provider,
+      checkout_method: method,
+      price_php: 597,
+      source: context && context.source
+    });
   }
 
   function publicOrAuthSurfaceActive() {
@@ -603,10 +631,10 @@
           });
           return false;
         }
-        trackCategorical("checkout_started", safe);
+        trackCategorical("checkout_started", checkoutStartedContext(safe, "whop", "card", context));
         return true;
       }
-      trackCategorical("checkout_started", safe);
+      trackCategorical("checkout_started", checkoutStartedContext(safe, "whop", "card", context));
       if (window.location && typeof window.location.assign === "function") {
         window.location.assign(url);
       } else {
@@ -667,7 +695,7 @@
       } else {
         window.location.href = checkoutUrl.toString();
       }
-      trackCategorical("checkout_started", safe);
+      trackCategorical("checkout_started", checkoutStartedContext(safe, "paymongo", "local", context));
       return true;
     } catch (error) {
       setPaymentChoiceStatus("Local payment is unavailable right now. Card payment still works.", true);

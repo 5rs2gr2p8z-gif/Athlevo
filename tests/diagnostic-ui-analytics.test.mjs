@@ -14,6 +14,9 @@ assert.match(ui, /engine\.previousQuestion\(currentQuestion \? currentQuestion\.
 assert.match(ui, /your endurance coach/, "conversation opens with Athlevo greeting");
 assert.match(ui, /diagnostic_viewed/);
 assert.match(ui, /diagnostic_started/);
+assert.match(ui, /ai_landing_viewed/);
+assert.match(ui, /function markDiagnosticStarted/);
+assert.doesNotMatch(ui, /engine\.begin\(\);[\s\S]{0,160}diagnostic_started/);
 assert.match(ui, /aria-label/, "interactive elements have accessible labels");
 assert.match(ui, /type=\"button\"/, "fields use native button elements");
 assert.match(ui, /handleChipSelect/, "question fields are wired for interaction");

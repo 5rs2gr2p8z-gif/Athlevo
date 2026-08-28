@@ -56,6 +56,12 @@
     "plan_start_date",
     "browser", "intent", "source_surface", "access_tier",
     "failure_category", "stage", "value_type",
+    "path", "from", "first_input_type", "acquisition_source",
+    "training_status", "weekly_mileage", "has_race", "diagnostic_version",
+    "method", "price_php", "plan", "plan_id", "initial_referrer",
+    "diagnostic_completed",
+    "browser", "intent", "source_surface", "access_tier",
+    "failure_category", "stage", "value_type",
     "utm_source", "utm_medium", "utm_campaign", "utm_content",
     "utm_term", "fbclid",
     // Coach Mode categorical-only properties (Phase 15 — never name/email/UUID)
@@ -86,8 +92,12 @@
       today: true, trends: true, upgrade_sheet: true,
       coach_init: true, coach_today: true, coach_navigation: true,
       coach_roster: true, coach_attention: true,
-      coach_you: true, athlete_you: true, workspace_switcher: true
+      coach_you: true, athlete_you: true, workspace_switcher: true,
+      diagnostic: true, diagnostic_paywall: true, ai_signup: true
     },
+    first_input_type: { chip: true, text: true },
+    from: { ai_diagnostic: true },
+    method: { email: true, google: true, card: true, local: true },
     from_workspace: {
       coach_workspace: true, athlete_workspace: true
     },
@@ -102,6 +112,7 @@
     },
     provider: {
       google: true, email: true, strava: true, intervals: true, whop: true,
+      paymongo: true,
       garmin: true, coros: true, polar: true, apple: true, suunto: true,
       other: true
     },
@@ -171,6 +182,16 @@
     return clean;
   }
 
+  function readStoredAttributionRaw() {
+    try {
+      var saved = JSON.parse(sessionStorage.getItem(ATTRIBUTION_KEY) || "null");
+      if (saved) return saved;
+    } catch (e) {}
+    try {
+      return JSON.parse(localStorage.getItem(ATTRIBUTION_LOCAL_KEY) || "null");
+    } catch (e) { return null; }
+  }
+
   function safeStoredAttribution(saved) {
     if (!saved || typeof saved !== "object") return null;
     var capturedAt = Number(saved.captured_at || 0);
@@ -183,6 +204,8 @@
       var value = shortValue(source[key], key === "fbclid" ? 500 : 160);
       if (value) result[key] = value;
     });
+    var initialReferrer = safeUrl(source.initial_referrer || saved.initial_referrer || "", false);
+    if (initialReferrer) result.initial_referrer = initialReferrer;
     return Object.keys(result).length ? result : null;
   }
 
@@ -190,6 +213,11 @@
     var record = Object.assign({ captured_at: Date.now() }, values || {});
     try { sessionStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(record)); } catch (e) {}
     try { localStorage.setItem(ATTRIBUTION_LOCAL_KEY, JSON.stringify(record)); } catch (e) {}
+  }
+
+  function currentDocumentReferrer() {
+    try { return safeUrl(document.referrer || "", false); }
+    catch (e) { return null; }
   }
 
   function captureUtm() {
@@ -200,24 +228,23 @@
         var value = shortValue(p.get(key), key === "fbclid" ? 500 : 160);
         if (value) current[key] = value;
       });
+      var saved = safeStoredAttribution(readStoredAttributionRaw());
+      var referrer = currentDocumentReferrer();
+      if (saved) {
+        if (!saved.initial_referrer && referrer) saved.initial_referrer = referrer;
+        _utmParams = saved;
+        persistAttribution(saved);
+        return;
+      }
       if (Object.keys(current).length) {
+        if (referrer) current.initial_referrer = referrer;
         _utmParams = current;
+        persistAttribution(current);
+        return;
+      }
+      if (referrer) {
+        _utmParams = { initial_referrer: referrer };
         persistAttribution(_utmParams);
-      } else {
-        try {
-          var saved = safeStoredAttribution(
-            JSON.parse(sessionStorage.getItem(ATTRIBUTION_KEY) || "null")
-          );
-          if (!saved) {
-            saved = safeStoredAttribution(
-              JSON.parse(localStorage.getItem(ATTRIBUTION_LOCAL_KEY) || "null")
-            );
-          }
-          if (saved) {
-            _utmParams = saved;
-            persistAttribution(saved);
-          }
-        } catch (e) {}
       }
     } catch (e) { /* silent */ }
   }
@@ -228,6 +255,7 @@
     ATTRIBUTION_KEYS.forEach(function (key) {
       if (_utmParams[key]) out[key] = _utmParams[key];
     });
+    if (_utmParams.initial_referrer) out.initial_referrer = _utmParams.initial_referrer;
     return out;
   }
 
@@ -345,10 +373,10 @@
       if (APPROVED_HANDOFF_VALUES[key] &&
           !APPROVED_HANDOFF_VALUES[key][v.trim()]) return;
       if (key === "page_url") v = safeUrl(v, true);
-      if (key === "referrer" || key === "previous_page") v = safeUrl(v, false);
-      if (!v) return;
-      var max = (key === "page_url" || key === "referrer" || key === "fbclid") ? 500 :
-        ((key === "page_path" || key === "previous_page" || key === "destination") ? 200 : 80);
+      if (key === "referrer" || key === "previous_page" || key === "initial_referrer") v = safeUrl(v, false);
+      if (!v && key !== "diagnostic_completed" && key !== "has_race") return;
+      var max = (key === "page_url" || key === "referrer" || key === "fbclid" || key === "initial_referrer") ? 500 :
+        ((key === "page_path" || key === "previous_page" || key === "destination" || key === "path") ? 200 : 80);
       if (v.length <= max) out[key] = v;
     });
     return out;
@@ -392,7 +420,10 @@
   var _fired = {};
   var VIEW_EVENTS = {
     landing_viewed: true,
-    auth_screen_viewed: true
+    auth_screen_viewed: true,
+    ai_landing_viewed: true,
+    ai_signup_viewed: true,
+    payment_screen_viewed: true
   };
 
   /* ═══════════════════ app_returned logic ══════════════════════════ */
@@ -426,8 +457,8 @@
 
       var safe = sanitize(properties);
       var premiumCategorical = name === "premium_feature_viewed" ||
-        name === "upgrade_clicked" ||
-        name === "checkout_started";
+        name === "upgrade_clicked";
+      var checkoutCategorical = name === "checkout_started";
       var handoffCategorical = name === "in_app_browser_signup_blocked" ||
         name === "external_signup_link_copied" ||
         name === "external_signup_continuation_viewed";
@@ -481,6 +512,19 @@
           ...(safe.surface ? { surface: safe.surface } : {}),
           ...(safe.access_tier ? { access_tier: safe.access_tier } : {})
         };
+      } else if (checkoutCategorical) {
+        safe = {
+          ...(safe.feature ? { feature: safe.feature } : {}),
+          ...(safe.surface ? { surface: safe.surface } : {}),
+          ...(safe.provider ? { provider: safe.provider } : {}),
+          ...(safe.method ? { method: safe.method } : {}),
+          ...(safe.price_php != null ? { price_php: safe.price_php } : {}),
+          ...(safe.source ? { source: safe.source } : {})
+        };
+        var checkoutUtm = utmProps();
+        Object.keys(checkoutUtm).forEach(function (k) {
+          if (!safe[k]) safe[k] = checkoutUtm[k];
+        });
       } else {
         // Acquisition and device context belong on general funnel events.
         // Premium feature events intentionally carry feature/surface only.
@@ -611,9 +655,17 @@
         return false;
       }
       identifyAthlete(user);
+      var registrationSource = null;
+      try {
+        if (sessionStorage.getItem("athlevo_ai_signup_handoff") === "1") {
+          registrationSource = "ai_signup";
+        }
+      } catch (e) {}
       var registrationCaptured = trackAthlevoEvent("registration_completed", {
         signup_method: safeMethod,
-        user_id: user.id
+        method: safeMethod,
+        user_id: user.id,
+        source: registrationSource || undefined
       }, {
         insert_id: milestoneInsertId("registration_completed", user.id)
       });
@@ -728,6 +780,9 @@
     trackVisibleScreenView: trackVisibleScreenView,
     trackVisibleUserMilestone: trackVisibleUserMilestone,
     screenIsVisible: screenIsVisible,
+    trackPaymentCompleted: function (userId, properties) {
+      return trackUserMilestone("payment_completed", userId, properties);
+    },
     // Exposed for tests only — not part of the public contract.
     _fired: _fired,
     _utmParams: function () { return _utmParams; },

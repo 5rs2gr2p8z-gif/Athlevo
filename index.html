@@ -6739,6 +6739,25 @@ function openAiSignup(opts) {
       history.pushState({ athlevoNav: "ai-signup" }, "", "/ai-signup");
     }
   } catch (e) {}
+  try {
+    if (window.AthlevoProductAnalytics &&
+        typeof AthlevoProductAnalytics.trackAthlevoEvent === "function") {
+      var diagnosticCompleted = false;
+      try {
+        var pending = window.AthlevoDiagnostic &&
+          typeof AthlevoDiagnostic.load === "function"
+          ? AthlevoDiagnostic.load()
+          : null;
+        diagnosticCompleted = !!(pending && pending.completed);
+      } catch (e2) { diagnosticCompleted = false; }
+      AthlevoProductAnalytics.trackAthlevoEvent("ai_signup_viewed", {
+        from: "ai_diagnostic",
+        diagnostic_completed: diagnosticCompleted,
+        path: "/ai-signup",
+        page_path: "/ai-signup"
+      });
+    }
+  } catch (e) {}
 }
 window.isAiSignupPath = isAiSignupPath;
 window.rememberAiSignupHandoff = rememberAiSignupHandoff;

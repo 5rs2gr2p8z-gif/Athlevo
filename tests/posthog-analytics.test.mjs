@@ -142,6 +142,8 @@ const EXPECTED_EVENTS = [
   "free_limit_reached", "premium_feature_viewed", "upgrade_clicked",
   "upgrade_sheet_viewed", "checkout_started", "checkout_failed",
   "subscription_activated", "readiness_prompt_shown",
+  "ai_landing_viewed", "ai_signup_viewed", "payment_screen_viewed",
+  "payment_completed",
   "readiness_prompt_dismissed", "readiness_check_completed",
   "coach_message_submitted",
   "coach_message_completed", "coach_weekly_limit_reached",
@@ -444,6 +446,51 @@ t("UTM and fbclid restore after app close clears sessionStorage", (() => {
     props.utm_medium === "paid_social" &&
     props.utm_campaign === "launch" &&
     props.fbclid === "fb-123";
+})());
+
+t("first-touch UTM is not overwritten by a later campaign URL", (() => {
+  const first = makeAnalytics({
+    key: "phc_test",
+    search: "?utm_source=meta&utm_medium=paid_social&utm_campaign=launch",
+    referrer: "https://facebook.com/ads"
+  });
+  const later = makeAnalytics({
+    key: "phc_test",
+    search: "?utm_source=google&utm_medium=cpc&utm_campaign=retarget",
+    sessionStore: first.win.sessionStorage._store,
+    localStore: first.win.localStorage._store
+  });
+  later.api.trackAthlevoEvent("ai_landing_viewed", { path: "/ai" });
+  const props = later.captured[0] && later.captured[0].props;
+  return props &&
+    props.utm_source === "meta" &&
+    props.utm_medium === "paid_social" &&
+    props.utm_campaign === "launch" &&
+    props.utm_source !== "google";
+})());
+
+t("registration_completed from /ai-signup carries source=ai_signup and method=email", (() => {
+  const { api, captured } = makeAnalytics({
+    key: "phc_test",
+    sessionStore: { athlevo_ai_signup_handoff: "1" }
+  });
+  api.completeRegistration({ id: "ai-user" }, "email", true);
+  const event = captured.find(e => e.name === "registration_completed");
+  return event &&
+    event.props.method === "email" &&
+    event.props.signup_method === "email" &&
+    event.props.source === "ai_signup" &&
+    !("email" in event.props);
+})());
+
+t("payment_completed fires once per user activation", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackPaymentCompleted("paid-user", { provider: "whop", price_php: 597 });
+  api.trackPaymentCompleted("paid-user", { provider: "whop", price_php: 597 });
+  const events = captured.filter(e => e.name === "payment_completed");
+  return events.length === 1 &&
+    events[0].props.provider === "whop" &&
+    events[0].props.price_php === 597;
 })());
 
 t("landing context strips non-attribution query values and referrer queries", (() => {

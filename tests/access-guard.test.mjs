@@ -125,6 +125,12 @@ section("Upgrade and safety");
     opened.length === 0 && assigned.length === 1 && /whop\.com/.test(assigned[0]));
   test("confirmed checkout handoff is tracked",
     analytics.some(e => e.name === "checkout_started"));
+  test("card checkout is Whop with method=card and ₱597",
+    analytics.some(e =>
+      e.name === "checkout_started" &&
+      e.props.provider === "whop" &&
+      e.props.method === "card" &&
+      e.props.price_php === 597));
   test("upgrade UI shows the exact price",
     /Athlevo Pro/.test(guardSource) && /₱597\/month/.test(indexSource));
   test("checkout keeps a current-origin return URL",

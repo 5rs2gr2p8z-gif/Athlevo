@@ -83,9 +83,44 @@ var salesState = null;
 var recentTurns = [];
 var awaitingSalesFollowup = false;
 var skipCannedInterpretations = false;
+var diagnosticStartedFired = false;
+var diagnosticCompletedFired = false;
 
 function resetSkipCannedInterpretations() {
   skipCannedInterpretations = false;
+}
+
+function markDiagnosticStarted(inputType) {
+  if (diagnosticStartedFired) return;
+  diagnosticStartedFired = true;
+  var utm = {};
+  try {
+    if (root.AthlevoProductAnalytics && typeof root.AthlevoProductAnalytics.attributionProps === "function") {
+      utm = root.AthlevoProductAnalytics.attributionProps() || {};
+    }
+  } catch (e) { utm = {}; }
+  trackEvent("diagnostic_started", {
+    first_input_type: inputType === "chip" ? "chip" : "text",
+    acquisition_source: utm.utm_source || undefined
+  });
+}
+
+function trackAiLandingViewed() {
+  var path = "/ai";
+  try { path = String(root.location && root.location.pathname || "/ai").replace(/\/+$/, "") || "/ai"; }
+  catch (e) { path = "/ai"; }
+  var props = { path: path, page_path: path };
+  try {
+    if (root.AthlevoProductAnalytics && typeof root.AthlevoProductAnalytics.landingProps === "function") {
+      var landing = root.AthlevoProductAnalytics.landingProps() || {};
+      if (landing.referrer) props.referrer = landing.referrer;
+      if (landing.page_path) props.page_path = landing.page_path;
+    }
+    var utm = root.AthlevoProductAnalytics && root.AthlevoProductAnalytics.attributionProps
+      ? root.AthlevoProductAnalytics.attributionProps() : {};
+    if (utm && utm.utm_source) props.source = utm.utm_source;
+  } catch (e) {}
+  trackEvent("ai_landing_viewed", props);
 }
 
 /* ═══════════════════════════ HELPERS ════════════════════════════════ */
@@ -184,6 +219,9 @@ function startDiagnostic() {
     showScreen("screen-diagnostic");
     buildChatShell();
     renderResult();
+    trackAiLandingViewed();
+    diagnosticStartedFired = true;
+    diagnosticCompletedFired = true;
     trackEvent("diagnostic_resumed", { state: "completed" });
     return;
   } else {
@@ -198,13 +236,16 @@ function startDiagnostic() {
   salesState = getSales() ? getSales().emptySalesState() : null;
   awaitingSalesFollowup = false;
   buildChatShell();
+  trackAiLandingViewed();
 
   if (!engine.begun) {
     engine.begin();
-    trackEvent("diagnostic_viewed", {});
-    trackEvent("diagnostic_started", {});
+    diagnosticStartedFired = false;
+    diagnosticCompletedFired = false;
+    trackEvent("diagnostic_viewed", { path: "/ai", page_path: "/ai" });
     renderConversationOpening();
   } else {
+    diagnosticStartedFired = true;
     trackEvent("diagnostic_resumed", { state: "in_progress" });
     commitFullyKnownPendingQuestions();
     rebuildConversation(engine.nextQuestion());
@@ -734,6 +775,7 @@ function handleChipSelect(field, opt, fieldGroup) {
   }
 
   // Single select
+  markDiagnosticStarted("chip");
   currentFieldData[field.id] = opt.value;
   hideQuickReplies();
 
@@ -835,6 +877,7 @@ function presentDependentField(dep) {
 function handleRaceGateSelect(opt) {
   if (busy) return;
   busy = true;
+  markDiagnosticStarted("chip");
   var thread = getThread();
 
   hideQuickReplies();
@@ -859,6 +902,7 @@ function handleRaceGateSelect(opt) {
 function handleSkip(field) {
   if (busy) return;
   busy = true;
+  markDiagnosticStarted("chip");
 
   currentFieldData[field.id] = "";
   var thread = getThread();
@@ -914,6 +958,7 @@ function handleComposerSend() {
   var val = input.value.trim();
   if (!val) return;
 
+  markDiagnosticStarted("text");
   busy = true;
   input.value = "";
 
@@ -2944,12 +2989,21 @@ function diagBack() {
 
 function completeDiagnostic() {
   var result = engine.complete();
-  trackEvent("diagnostic_completed", {
-    questions_answered: engine.history.length,
-    primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-    feasibility_rating: result.feasibility.rating,
-    injury_reported: result.safetyFlags.injuryReported
-  });
+  if (!diagnosticCompletedFired) {
+    diagnosticCompletedFired = true;
+    var profile = result.profile || {};
+    trackEvent("diagnostic_completed", {
+      questions_answered: engine.history.length,
+      primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
+      feasibility_rating: result.feasibility ? result.feasibility.rating : null,
+      injury_reported: !!(result.safetyFlags && result.safetyFlags.injuryReported),
+      goal_distance: profile.goal || null,
+      training_status: profile.trainingStatusRaw || profile.trainingStatus || null,
+      weekly_mileage: typeof profile.weeklyMileage === "number" ? profile.weeklyMileage : null,
+      has_race: !!(profile.goalRace || profile.goalDate),
+      diagnostic_version: result.version != null ? String(result.version) : "1"
+    });
+  }
   showBuildAnimation(result);
 }
 
@@ -3266,6 +3320,11 @@ var DiagnosticUI = {
     extractGoalTime: extractGoalTime,
     resetSkipCannedInterpretations: resetSkipCannedInterpretations,
     getSkipCannedInterpretations: function () { return skipCannedInterpretations; },
+    markDiagnosticStarted: markDiagnosticStarted,
+    trackAiLandingViewed: trackAiLandingViewed,
+    completeDiagnostic: completeDiagnostic,
+    getDiagnosticStartedFired: function () { return diagnosticStartedFired; },
+    getDiagnosticCompletedFired: function () { return diagnosticCompletedFired; },
     applyAcknowledgementResult: applyAcknowledgementResult,
     restoreCurrentFieldInput: restoreCurrentFieldInput,
     bindEngine: function (e) {

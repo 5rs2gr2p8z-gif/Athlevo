@@ -77,7 +77,6 @@ function markImported(userId, outcome) {
   state.importKey = outcome.importKey;
   state.primaryLimiter = outcome.primaryLimiter || state.primaryLimiter || null;
   state.stage = "awaiting_payment";
-  trackOnce("signup_completed", state, { source_surface: "diagnostic" });
   return writeLocal(state);
 }
 
@@ -99,7 +98,11 @@ async function verifiedPaidAccess(supabase, userId) {
   return {
     paid: !!(entitlement && entitlement.accessState === "paid_active" && !entitlement.isPerformanceTrial),
     unavailable: false,
-    entitlement: entitlement
+    entitlement: entitlement,
+    provider: sub && sub.provider ? String(sub.provider).toLowerCase() : null,
+    plan_id: sub && sub.plan_id && String(sub.plan_id).toLowerCase() !== "free"
+      ? String(sub.plan_id).slice(0, 40)
+      : null
   };
 }
 
@@ -205,6 +208,28 @@ function setPaywallMode(mode) {
   else if (mode === "unavailable") card.classList.add("is-unavailable");
 }
 
+function markPaymentCompleted(userId, paid) {
+  if (!userId || !paid || !paid.paid) return;
+  var state = currentForUser(userId) || readLocal() || { events: {} };
+  var props = {
+    price_php: 597,
+    source: "ai_signup"
+  };
+  if (paid.provider === "whop" || paid.provider === "paymongo") props.provider = paid.provider;
+  if (paid.plan_id) props.plan_id = paid.plan_id;
+  if (root.AthlevoProductAnalytics &&
+      typeof root.AthlevoProductAnalytics.trackPaymentCompleted === "function") {
+    root.AthlevoProductAnalytics.trackPaymentCompleted(userId, props);
+  } else {
+    trackOnce("payment_completed", state, props);
+    return;
+  }
+  state.events = state.events || {};
+  state.events.payment_completed = true;
+  if (state.userId || userId) state.userId = state.userId || userId;
+  writeLocal(state);
+}
+
 function showPaywall(state, unavailable, opts) {
   opts = opts || {};
   if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
@@ -226,9 +251,10 @@ function showPaywall(state, unavailable, opts) {
     }
   }
   if (state && !unavailable) {
-    trackOnce("paywall_viewed", state, {
-      source_surface: "diagnostic_paywall",
-      primary_limiter: state.primaryLimiter || null
+    trackOnce("payment_screen_viewed", state, {
+      source: "ai_signup",
+      price_php: 597,
+      plan: "athlevo_ai"
     });
   }
 }
@@ -263,11 +289,11 @@ async function checkout(method) {
   if (!state || !root.AthlevoAccessGuard) return false;
   var previous = state.stage;
   await setStage(state, "checkout_started", acquisitionSupabase);
-  trackOnce("checkout_started", state, {
-    source_surface: "diagnostic_paywall",
-    method: method || "card"
-  });
-  var context = { feature: "trends", surface: "diagnostic" };
+  var context = {
+    feature: "trends",
+    surface: "diagnostic",
+    source: "ai_signup"
+  };
   var opened = method === "local"
     ? await root.AthlevoAccessGuard.checkoutLocal(context)
     : await root.AthlevoAccessGuard.checkout(context);
@@ -334,6 +360,7 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
 
   var paid = await verifiedPaidAccess(supabase, userId);
   if (paid.paid) {
+    markPaymentCompleted(userId, paid);
     attachOutcome = await retryPendingDiagnosticAttach(userId, supabase, attachOutcome);
     clearCheckoutReturn();
     var paidLocal = currentForUser(userId);
@@ -404,6 +431,7 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
     return { handled: true, route: "paywall" };
   }
 
+  markPaymentCompleted(userId, paid);
   clearCheckoutReturn();
 
   if (state.stage !== "payment_confirmed" && state.stage !== "onboarding" && state.stage !== "completed") {
@@ -439,6 +467,7 @@ async function recheckEntitlement() {
     }
   }
   if (paid.paid) {
+    markPaymentCompleted(userId, paid);
     if (typeof root.routeAfterAuth === "function") {
       await root.routeAfterAuth(userId);
     }
@@ -475,6 +504,7 @@ function markAppEntered() {
 
 root.AthlevoDiagnosticAcquisition = {
   markDiagnosticCompleted: markDiagnosticCompleted,
+  markPaymentCompleted: markPaymentCompleted,
   bindAcquisitionUser: bindAcquisitionUser,
   resolveAfterAuth: resolveAfterAuth,
   reconcileWhopPurchase: reconcileWhopPurchase,
@@ -498,6 +528,7 @@ root.AthlevoDiagnosticAcquisition = {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     markDiagnosticCompleted: markDiagnosticCompleted,
+    markPaymentCompleted: markPaymentCompleted,
     verifiedPaidAccess: verifiedPaidAccess,
     isDiagnosticAcquisition: isDiagnosticAcquisition,
     limiterLabel: limiterLabel,
