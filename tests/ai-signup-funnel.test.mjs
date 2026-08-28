@@ -671,6 +671,46 @@ section("Handoff failure must not block authenticated checkout");
   }
 }
 
+section("Authenticated payment screen is a checkout selector");
+{
+  const paywall = html.slice(
+    html.indexOf('id="screen-diagnostic-paywall"'),
+    html.indexOf('id="screen-plansetup"')
+  );
+  const paywallCss = html.slice(
+    html.indexOf(".diagnostic-paywall-scroll{"),
+    html.indexOf(".connect-card p{")
+  );
+
+  t("limiter card no longer appears on payment page",
+    !/diagnostic-paywall-limiter|diagnosticPaywallLimiter|Primary limiter/.test(paywall));
+  t("Activate your Athlevo Pro access. appears",
+    /Activate your[\s\S]{0,20}Athlevo Pro access\./.test(paywall));
+  t("Choose how you’d like to pay. appears",
+    /Choose how you’d like to pay\./.test(paywall));
+  t("card payment option is white / non-danger visual treatment",
+    /\.diagnostic-paywall-primary,\.diagnostic-paywall-local\{[\s\S]{0,500}background:var\(--paper\)/.test(paywallCss) &&
+    !/\.diagnostic-paywall-primary\{[^}]*background:var\(--red\)/.test(paywallCss) &&
+    !/background:var\(--red\);color:#fff/.test(paywallCss));
+  t("card CTA uses existing Whop handler",
+    /checkout\('card'\)/.test(paywall) &&
+    /AthlevoAccessGuard\.checkout/.test(acq) &&
+    /function checkout\(method\)[\s\S]{0,900}checkout\(context\)/.test(acq));
+  t("local payment row uses existing PayMongo handler",
+    /checkout\('local'\)/.test(paywall) &&
+    /AthlevoAccessGuard\.checkoutLocal/.test(acq) &&
+    /method === "local"[\s\S]{0,80}checkoutLocal/.test(acq));
+  t("only QRPh/Maya/GrabPay are shown as the supported local methods",
+    /QRPh · Maya · GrabPay/.test(paywall) &&
+    (paywall.match(/checkout\('local'\)/g) || []).length === 1);
+  t("₱597/month is visible", /₱597\/month/.test(paywall));
+  t("Cancel anytime is visible", /Cancel anytime/.test(paywall));
+  t("no unsupported GCash or bank transfer",
+    !/GCash|bank transfer|Bank transfer/i.test(paywall));
+  t("no coaching diagnosis text on payment page",
+    !/Your diagnostic is saved|Start training with Athlevo|Let Athlevo build the training around it|training structure|feasibility|endurance\/pacing|Personalized training plan|Daily workout guidance/.test(paywall));
+}
+
 section("Anonymous /ai conversion never shows payment");
 {
   const storage = new Map();

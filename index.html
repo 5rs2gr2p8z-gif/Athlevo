@@ -1520,26 +1520,35 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
   html[data-theme="system"] .chat-result-card{background:var(--card);border-color:var(--line)}
   html[data-theme="system"] .chat-bubble-athlevo{background:var(--card)}
 }
-.diagnostic-paywall-scroll{width:100%;max-width:520px;margin:0 auto;padding:calc(34px + env(safe-area-inset-top)) 22px calc(34px + env(safe-area-inset-bottom));overflow-y:auto}
-.diagnostic-paywall-brand{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin-bottom:42px}
+.diagnostic-paywall-scroll{width:100%;max-width:430px;margin:0 auto;padding:calc(28px + env(safe-area-inset-top)) 20px calc(28px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
+.diagnostic-paywall-brand{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin-bottom:28px}
 .diagnostic-paywall-brand span{color:var(--red)}
-.diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-caption);font-weight:700;color:var(--good);margin-bottom:12px}
+.diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-caption);font-weight:700;color:var(--good);margin-bottom:10px}
 .diagnostic-paywall-kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
-.diagnostic-paywall-title{font-family:var(--serif);font-size:clamp(2rem,9vw,3rem);font-weight:500;letter-spacing:-.035em;line-height:1.05;color:var(--text);margin:0}
-.diagnostic-paywall-lead{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:14px 0 24px}
-.diagnostic-paywall-limiter{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:16px 18px;margin-bottom:22px}
-.diagnostic-paywall-limiter small{display:block;font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px}
-.diagnostic-paywall-limiter strong{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--red)}
-.diagnostic-paywall-benefits{list-style:none;padding:0;margin:0 0 24px}
-.diagnostic-paywall-benefits li{position:relative;padding:9px 0 9px 24px;font-size:var(--fs-body-sm);color:var(--text)}
-.diagnostic-paywall-benefits li::before{content:"✓";position:absolute;left:0;color:var(--red);font-weight:800}
-.diagnostic-paywall-price{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--text);margin:0 0 4px}
-.diagnostic-paywall-renewal{font-size:var(--fs-caption);color:var(--ink3);margin:0 0 18px}
-.diagnostic-paywall-actions{display:grid;gap:10px}
-.diagnostic-paywall-primary,.diagnostic-paywall-local{width:100%;border-radius:12px;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;padding:15px;cursor:pointer;transition:transform var(--dur-fast),background var(--dur-base)}
-.diagnostic-paywall-primary{border:1px solid var(--red);background:var(--red);color:#fff}
-.diagnostic-paywall-local{border:1px solid var(--line);background:var(--paper);color:var(--text)}
-.diagnostic-paywall-primary:active,.diagnostic-paywall-local:active{transform:scale(.98)}
+.diagnostic-paywall-title{font-family:var(--serif);font-size:clamp(1.7rem,7vw,2.2rem);font-weight:500;letter-spacing:-.035em;line-height:1.08;color:var(--text);margin:0}
+.diagnostic-paywall-lead{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:12px 0 22px}
+.diagnostic-paywall-recommended,.diagnostic-paywall-other{margin:0 0 8px;font-size:var(--fs-micro);font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.diagnostic-paywall-other{margin:0 0 8px;text-transform:none;letter-spacing:0;font-size:var(--fs-caption);font-weight:650;color:var(--ink2)}
+.diagnostic-paywall-or{display:flex;align-items:center;gap:12px;margin:14px 0 12px;color:var(--ink3);font-size:var(--fs-micro);font-weight:750;letter-spacing:.1em}
+.diagnostic-paywall-or::before,.diagnostic-paywall-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.diagnostic-paywall-actions{display:grid;gap:0;min-width:0}
+.diagnostic-paywall-primary,.diagnostic-paywall-local{display:flex;align-items:center;gap:12px;width:100%;min-width:0;min-height:72px;box-sizing:border-box;margin:0;padding:14px 14px 14px 12px;text-align:left;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;color:var(--text);background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--elev-1);cursor:pointer;overflow:hidden;transition:transform var(--dur-fast),background var(--dur-base),border-color var(--dur-base),box-shadow var(--dur-base)}
+.diagnostic-paywall-primary:hover,.diagnostic-paywall-local:hover{background:var(--card2);border-color:color-mix(in srgb,var(--line) 70%,var(--text))}
+.diagnostic-paywall-primary:active,.diagnostic-paywall-local:active{transform:scale(.99);background:var(--card)}
+.diagnostic-paywall-primary:focus-visible,.diagnostic-paywall-local:focus-visible{outline:2px solid color-mix(in srgb,var(--red) 40%,transparent);outline-offset:2px}
+.diagnostic-paywall-method-icon{flex:0 0 40px;width:40px;height:40px;border-radius:12px;background:var(--card);color:var(--text);display:flex;align-items:center;justify-content:center}
+.diagnostic-paywall-method-icon svg,.diagnostic-paywall-chevron svg{display:block}
+.diagnostic-paywall-method-copy{flex:1;min-width:0}
+.diagnostic-paywall-method-copy b{display:block;font-size:var(--fs-body-sm);font-weight:700;color:var(--text);line-height:1.25}
+.diagnostic-paywall-method-copy small{display:block;margin-top:3px;font-size:var(--fs-caption);font-weight:500;color:var(--ink3);line-height:1.35}
+.diagnostic-paywall-brands{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;max-width:100%}
+.diagnostic-paywall-brand-mark{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:10px;font-weight:750;letter-spacing:.02em;line-height:1;white-space:nowrap}
+.diagnostic-paywall-brand-mark.is-qrph{background:#eef1f6;color:#1c3d6e}
+.diagnostic-paywall-brand-mark.is-maya{background:#e7f8ef;color:#0f7a45}
+.diagnostic-paywall-brand-mark.is-grab{background:#e9f6e8;color:#1a7a22}
+.diagnostic-paywall-chevron{flex:0 0 18px;color:var(--ink3)}
+.diagnostic-paywall-price{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;color:var(--text);margin:22px 0 2px;text-align:center}
+.diagnostic-paywall-renewal{font-size:var(--fs-caption);color:var(--ink3);margin:0;text-align:center}
 .diagnostic-paywall-status{min-height:20px;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--red);margin:12px 0 0;text-align:center}
 .diagnostic-paywall-activating,.diagnostic-paywall-recheck{display:none;text-align:center;margin-top:8px}
 .diagnostic-paywall-activating p,.diagnostic-paywall-recheck p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0 0 16px}
@@ -4340,27 +4349,45 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div class="diagnostic-paywall-scroll">
     <div class="diagnostic-paywall-brand">Athlevo<span>.</span></div>
     <div class="diagnostic-paywall-card" id="diagnosticPaywallCard">
-      <span class="diagnostic-paywall-kicker">Your diagnostic is saved</span>
-      <h1 class="diagnostic-paywall-title">Start training with Athlevo.</h1>
-      <p class="diagnostic-paywall-lead">Let Athlevo build the training around it.</p>
-      <div class="diagnostic-paywall-limiter">
-        <small>Primary limiter</small>
-        <strong id="diagnosticPaywallLimiter">Your training structure</strong>
-      </div>
-      <ul class="diagnostic-paywall-benefits">
-        <li>Personalized training plan</li>
-        <li>Daily workout guidance</li>
-        <li>AI coach you can talk to</li>
-        <li>Adaptive training adjustments</li>
-        <li>Progress tracking</li>
-        <li>Readiness and training insights</li>
-      </ul>
-      <p class="diagnostic-paywall-price">₱597/month</p>
-      <p class="diagnostic-paywall-renewal">Full Athlevo Pro access</p>
+      <span class="diagnostic-paywall-kicker">Your account is ready</span>
+      <h1 class="diagnostic-paywall-title">Activate your<br>Athlevo Pro access.</h1>
+      <p class="diagnostic-paywall-lead">Choose how you’d like to pay.</p>
       <div class="diagnostic-paywall-actions">
-        <button class="diagnostic-paywall-primary" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('card')">Start with Athlevo</button>
-        <button class="diagnostic-paywall-local" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('local')">Pay with QRPh, Maya, or GrabPay</button>
+        <p class="diagnostic-paywall-recommended">Recommended</p>
+        <button class="diagnostic-paywall-primary" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('card')">
+          <span class="diagnostic-paywall-method-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2.5" y="5" width="19" height="14" rx="2.2"></rect>
+              <path d="M2.5 9.5h19"></path>
+              <path d="M6 15h4.5"></path>
+            </svg>
+          </span>
+          <span class="diagnostic-paywall-method-copy">
+            <b>Pay with credit / debit card</b>
+            <small>Visa, Mastercard and supported cards</small>
+          </span>
+          <span class="diagnostic-paywall-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+          </span>
+        </button>
+        <p class="diagnostic-paywall-or">OR</p>
+        <p class="diagnostic-paywall-other">Other ways to pay</p>
+        <button class="diagnostic-paywall-local" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('local')">
+          <span class="diagnostic-paywall-method-copy">
+            <b>QRPh · Maya · GrabPay</b>
+            <span class="diagnostic-paywall-brands" aria-hidden="true">
+              <span class="diagnostic-paywall-brand-mark is-qrph">QRPh</span>
+              <span class="diagnostic-paywall-brand-mark is-maya">Maya</span>
+              <span class="diagnostic-paywall-brand-mark is-grab">GrabPay</span>
+            </span>
+          </span>
+          <span class="diagnostic-paywall-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+          </span>
+        </button>
       </div>
+      <p class="diagnostic-paywall-price">₱597/month</p>
+      <p class="diagnostic-paywall-renewal">Cancel anytime</p>
       <div class="diagnostic-paywall-activating" id="diagnosticPaywallActivating">
         <p>Activating your Athlevo account…</p>
       </div>
