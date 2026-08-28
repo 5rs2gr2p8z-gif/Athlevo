@@ -82,6 +82,8 @@ declare
   v_base timestamptz;
   v_paid_until timestamptz;
   v_is_new_subscription boolean := false;
+  v_already_paid boolean := false;
+  v_event_type text;
 begin
   if p_amount_cents <> 59700 or upper(p_currency) <> 'PHP'
      or p_product_id <> 'ATHLEVO_PRO_MONTHLY' or p_entitlement_days <> 30 then
@@ -125,6 +127,7 @@ begin
 
   if not found then
     v_is_new_subscription := true;
+    v_already_paid := false;
     v_base := greatest(now(), coalesce(p_paid_at, now()));
     v_paid_until := v_base + make_interval(days => p_entitlement_days);
     insert into public.subscriptions (
@@ -134,6 +137,9 @@ begin
       jsonb_build_object('last_paymongo_payment_id', p_payment_id), now()
     ) returning * into v_subscription;
   else
+    v_already_paid := v_subscription.plan_id is distinct from 'free'
+      and lower(coalesce(v_subscription.provider, '')) in ('whop', 'paymongo', 'gcash_manual')
+      and lower(coalesce(v_subscription.status, '')) = 'active';
     v_base := greatest(
       now(),
       coalesce(p_paid_at, now()),
@@ -172,12 +178,14 @@ begin
       )
   where id = v_transaction.id;
 
+  v_event_type := case when v_already_paid then 'renewed' else 'activated' end;
+
   insert into public.subscription_events (
     user_id, subscription_id, event_type, to_plan, to_status,
     provider, provider_event_id, metadata
   ) values (
     p_user_id, v_subscription.id,
-    case when v_is_new_subscription then 'activated' else 'renewed' end,
+    v_event_type,
     v_subscription.plan_id, v_subscription.status,
     'paymongo', p_event_id,
     jsonb_build_object(
@@ -190,7 +198,8 @@ begin
   return jsonb_build_object(
     'applied', true,
     'duplicate', false,
-    'paid_until', v_paid_until
+    'paid_until', v_paid_until,
+    'event_type', v_event_type
   );
 end;
 $$;

@@ -54,7 +54,7 @@
     upgrade_sheet_viewed:         { kind: "behavioural", props: ["feature", "surface", "access_tier"] },
     checkout_started:             { kind: "behavioural", props: ["feature", "surface", "provider", "method", "price_php", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     checkout_failed:              { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
-    subscription_activated:       { kind: "milestone",   props: ["source"] },
+    subscription_activated:       { kind: "milestone",   props: ["source", "provider", "plan_id", "price_php"] },
     whop_pending_purchase_claimed:{ kind: "milestone",   props: ["source"] },
     whop_pending_purchase_claim_failed:{ kind: "behavioural", props: ["source", "reason"] },
     account_created:               { kind: "milestone",   props: ["method", "source"] },

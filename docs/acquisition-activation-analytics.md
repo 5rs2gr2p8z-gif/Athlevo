@@ -60,7 +60,8 @@ in `js/analyticsRegistry.js`.
 | `coach_message_completed` | `js/coach.js` successful response path | Coach response returned successfully | Authenticated | Per successful response | access tier, Coach surface |
 | `upgrade_sheet_viewed` | `js/accessGuard.js` `showUpgradeSheet()` | Sheet transitions from closed to genuinely visible for free/paid-inactive access | Authenticated app user | Per real open; repeated later opens may repeat | feature, upgrade-sheet surface, access tier |
 | `checkout_started` | `js/accessGuard.js` `checkout()` | Browser/native external handoff was successfully opened | Authenticated app user | Per successful explicit click | feature, upgrade-sheet surface |
-| `subscription_activated` | `api/whop/webhook.js` verified activation branch | Valid signed Whop webhook persisted active paid state | Verified server UUID | Webhook/event idempotency plus milestone semantics | Whop source only |
+| `payment_completed` | `js/diagnosticAcquisition.js` after `verifiedPaidAccess` | Client returned and confirmed canonical `paid_active` (not a 24h performance trial) | Authenticated UUID | Once per user (client milestone) | provider, plan, price, source, attribution |
+| `subscription_activated` | Whop webhook / Whop claim / PayMongo webhook | Authoritative **server-side first paid activation** after a verified write to `public.subscriptions` | Verified server UUID as PostHog `distinct_id` | First paid grant only; replay is a no-op. PayMongo `event_type=renewed` does not recapture. Whop skips capture when the athlete is already `paid_active` (excluding the 24h trial). | `source`, `provider`, `plan_id`, `price_php` |
 
 ## Failure events
 
@@ -102,6 +103,43 @@ the safe continuation URL, but the in-app-browser anonymous person cannot be
 perfectly merged with Safari without a server-issued cross-browser handoff
 identity. The authenticated conversion is still attributed after Supabase
 identification.
+
+## Paid conversion events
+
+Keep these meanings separate. Do not fire `payment_completed` from the server.
+
+- `subscription_activated` is the authoritative server conversion. It is sent
+  to PostHog from `lib/server/productAnalytics.js` after a verified Whop
+  webhook, Whop claim (`reason=claimed`), or PayMongo webhook writes paid
+  access. `distinct_id` is the Supabase UUID. Allowed properties: `source`
+  (`whop_webhook` / `whop_claim` / `paymongo_webhook`), `provider`
+  (`whop` / `paymongo`), `plan_id` (`performance`), `price_php` (`597`).
+  Capture is fail-open: PostHog timeout, 5xx, network error, or a missing
+  `POSTHOG_KEY` must not fail entitlement.
+- `payment_completed` is the client confirmed-return event. It fires only when
+  the athlete comes back to Athlevo and `verifiedPaidAccess` resolves to
+  canonical `paid_active`. A successful provider checkout that never returns
+  to the app is counted by `subscription_activated` only.
+
+PayMongo first vs renewal: `apply_paymongo_payment` returns `event_type`
+`activated` or `renewed`. Renewal still extends `paid_until` and returns 200;
+it does not capture `subscription_activated`. First paid grant on a free or
+24h-trial row is `activated`.
+
+Whop first vs renewal: the webhook reads the existing `subscriptions` row
+before upsert and skips capture when that row is already canonical
+`paid_active` (not a performance trial). Replay uses the existing
+`subscription_events` unique `(provider, provider_event_id)` key and never
+recaptures. A later Whop delivery that maps to activate while the athlete is
+already paid is treated as a renewal and is not recaptured. Re-activation
+after expiry/`past_due` can still capture because the stored row is no longer
+`paid_active`.
+
+Unmatched Whop checkout (no Athlevo user yet) does not capture until a
+successful claim. `already_claimed` does not recapture.
+
+Server capture does not send UTM/attribution. After `identify(Supabase UUID)`,
+PostHog merges earlier anonymous acquisition events onto the same person.
 
 ## Fresh-account manual verification
 

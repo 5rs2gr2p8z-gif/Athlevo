@@ -249,9 +249,10 @@ section("Privacy-safe analytics");
     test(`analytics registry includes ${event}`, registry.includes(event));
   });
   test("paid activation comes from verified Whop webhook",
-    webhook.includes('captureServerEvent(userId, "subscription_activated"') &&
+    webhook.includes('captureServerEventBestEffort') &&
+    webhook.includes('"subscription_activated"') &&
     webhook.indexOf("verifyWhopSignature") <
-      webhook.indexOf('captureServerEvent(userId, "subscription_activated"'));
+      webhook.indexOf("captureServerEventBestEffort"));
   test("analytics registry prohibits sensitive content",
     /email/.test(registry) && /token/.test(registry) &&
     /workout/.test(registry) && /message/.test(registry));

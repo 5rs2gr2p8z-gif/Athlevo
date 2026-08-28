@@ -25,7 +25,11 @@ import {
   verifyWhopSignature, parseWhopEvent, mapWhopEvent, extractMembership
 } from "../../lib/server/whopWebhook.js";
 import { makeWhopClient } from "../../lib/server/whopClient.js";
-import { captureServerEvent } from "../../lib/server/productAnalytics.js";
+import {
+  captureServerEventBestEffort,
+  paidActivationProperties
+} from "../../lib/server/productAnalytics.js";
+import { ACCESS_STATES, resolveEntitlement } from "../../lib/server/features.js";
 import {
   logWhopPending,
   markPendingWhopClaimed,
@@ -132,6 +136,25 @@ async function upsertSubscription(userId, patch) {
   return Array.isArray(rows) ? rows[0] : rows;
 }
 
+async function loadSubscription(userId) {
+  const rows = await sbRest(
+    "subscriptions?user_id=eq." + enc(userId) +
+      "&select=user_id,plan_id,status,provider,paid_until,current_period_end,trial_started_at,grace_until,is_founder&limit=1"
+  );
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+function isAuthoritativePaidActive(row) {
+  if (!row) return false;
+  try {
+    const entitlement = resolveEntitlement(row);
+    return entitlement.accessState === ACCESS_STATES.PAID_ACTIVE &&
+      entitlement.isPerformanceTrial !== true;
+  } catch (e) {
+    return false;
+  }
+}
+
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
   if ((req.query && req.query.provider === "paymongo") || req.headers["paymongo-signature"]) {
@@ -203,15 +226,24 @@ export default async function handler(req, res) {
     const first = await recordEventOnce(userId, null, mapped, providerEventId);
     if (!first) return send(res, 200, { ok: true, duplicate: true });
 
+    // Read current entitlement BEFORE the upsert so a renewal while already
+    // paid_active is not counted as a first conversion. If the read fails,
+    // treat as not-already-paid (existing capture behavior).
+    let alreadyPaid = false;
+    try { alreadyPaid = isAuthoritativePaidActive(await loadSubscription(userId)); }
+    catch (e) { alreadyPaid = false; }
+
     await upsertSubscription(userId, mapped.patch);
     try { await markPendingWhopClaimed(sbRest, mapped.membershipId, userId); } catch (e) { /* non-fatal */ }
 
     // Paid activation is authoritative only after signature verification and
-    // the idempotent subscription write above.
-    if (mapped.effect === "activate" && mapped.patch.status === "active") {
-      await captureServerEvent(userId, "subscription_activated", {
-        source: "whop_webhook"
-      });
+    // the idempotent subscription write above. Capture is fail-open.
+    if (mapped.effect === "activate" && mapped.patch.status === "active" && !alreadyPaid) {
+      captureServerEventBestEffort(
+        userId,
+        "subscription_activated",
+        paidActivationProperties("whop_webhook", "whop")
+      );
     }
 
     return send(res, 200, { ok: true, effect: mapped.effect, status: mapped.patch.status });
