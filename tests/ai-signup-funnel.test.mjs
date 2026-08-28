@@ -87,7 +87,7 @@ section("4 — newly authenticated unpaid diagnostic user attaches then pays");
   t("unpaid acquisition lands on the paywall",
     /showPaywall\(state, false\)/.test(acq) && /route: "paywall"/.test(acq));
   t("unpaid /ai-signup never falls through to existing/free app when gated",
-    /if \(!loaded\.data\)[\s\S]{0,220}route: "paywall"/.test(acq) &&
+    /if \(!loaded\.data\)[\s\S]{0,400}route: "paywall"/.test(acq) &&
     /isAcquisitionGated/.test(acq));
   t("routeAfterAuth snapshots /ai-signup before clearing the handoff",
     /var fromAiSignup = false[\s\S]{0,400}clearAiSignupHandoff/.test(
@@ -108,7 +108,7 @@ section("5 — authenticated paid user skips payment");
     resolve.indexOf("verifiedPaidAccess") < resolve.indexOf("showPaywall") &&
     /if \(paid\.paid\)/.test(resolve));
   t("paid users never see the acquisition paywall",
-    /if \(paid\.paid\)[\s\S]{0,900}route: "onboarding"[\s\S]{0,80}paid: true/.test(resolve) &&
+    /if \(paid\.paid\)[\s\S]{0,1600}route: "onboarding"[\s\S]{0,80}paid: true/.test(resolve) &&
     resolve.indexOf("if (paid.paid)") < resolve.indexOf("showPaywall"));
 }
 
@@ -446,6 +446,228 @@ section("Executable unpaid /ai-signup cannot enter the app");
       { onboarding_complete: true }, { fromAiSignup: true });
     t("legacy free account with completed onboarding is not converted to a paywall",
       result.handled === false && result.route === "existing");
+  }
+}
+
+section("Handoff failure must not block authenticated checkout");
+{
+  const FATAL = /couldn't save your diagnostic|try again before continuing/i;
+  t("fatal diagnostic-save copy is gone",
+    !FATAL.test(acq) && !FATAL.test(html));
+  t("attach/load failure no longer routes to import_unavailable",
+    !/import_unavailable/.test(acq));
+  t("routeAfterAuth exceptions still keep checkout CTAs", (() => {
+    const route = html.slice(
+      html.indexOf("async function routeAfterAuth"),
+      html.indexOf("async function restoreSession")
+    );
+    const catchStart = route.indexOf("Diagnostic acquisition routing unavailable");
+    const catchBlock = catchStart >= 0 ? route.slice(catchStart, catchStart + 1800) : "";
+    return catchStart >= 0 &&
+      /showPaywall\(/.test(catchBlock) &&
+      !/,\s*true\s*\)/.test(catchBlock);
+  })());
+  t("paywall HTML still has card and local payment CTAs",
+    /checkout\('card'\)/.test(html) && /checkout\('local'\)/.test(html));
+  t("CSS hides payment actions only for is-unavailable, not import failure",
+    /\.diagnostic-paywall-card\.is-unavailable \.diagnostic-paywall-actions\{display:none\}/.test(html));
+
+  function paywallWorld({
+    href = "https://athlevo.org/ai-signup",
+    paid = false,
+    acquisitionRow = null,
+    loadError = null,
+    pending = true,
+    attachResult = { attached: false, error: "forced handoff failure" }
+  } = {}) {
+    const local = new Map();
+    const shown = [];
+    const cardClasses = new Set();
+    const statusEl = { textContent: "" };
+    const limiterEl = { textContent: "" };
+    const card = {
+      classList: {
+        add(name) { cardClasses.add(name); },
+        remove(...names) { names.forEach(name => cardClasses.delete(name)); },
+        toggle(name, on) {
+          if (on) cardClasses.add(name);
+          else cardClasses.delete(name);
+        },
+        contains(name) { return cardClasses.has(name); }
+      }
+    };
+    let pendingKept = pending;
+    let attachCalls = 0;
+    const context = {
+      console: { warn() {}, log() {} },
+      setTimeout: (fn) => { fn(); return 0; },
+      URL, Date, JSON, Math, String, Number, Boolean, Object, Array,
+      localStorage: {
+        getItem: k => local.get(k) || null,
+        setItem: (k, v) => local.set(k, String(v)),
+        removeItem: k => local.delete(k)
+      },
+      document: {
+        getElementById: (id) => {
+          if (id === "diagnosticPaywallCard") return card;
+          if (id === "diagnosticPaywallStatus") return statusEl;
+          if (id === "diagnosticPaywallLimiter") return limiterEl;
+          return { textContent: "", classList: { add() {}, remove() {}, toggle() {} } };
+        }
+      },
+      location: { href },
+      history: { replaceState() {} },
+      athlevoSessionUserId: "u-handoff",
+      AthlevoPlan: {
+        _resolveEntitlement: (sub) => sub && sub.status === "active"
+          ? { accessState: "paid_active", isPerformanceTrial: false }
+          : { accessState: "free", isPerformanceTrial: false }
+      },
+      AthlevoDiagnostic: {
+        hasPending: () => pendingKept,
+        clearPending: () => { pendingKept = false; }
+      },
+      AthlevoDiagnosticHandoff: {
+        loadAcquisition: async () => ({ data: acquisitionRow, error: loadError || null }),
+        setAcquisitionStage: async () => ({ updated: true }),
+        attach: async () => {
+          attachCalls += 1;
+          if (attachResult && attachResult.attached) pendingKept = false;
+          return attachResult;
+        }
+      },
+      AthlevoAccessGuard: {
+        checkout: async () => true,
+        checkoutLocal: async () => true
+      },
+      showScreen: id => shown.push(id)
+    };
+    context.window = context;
+    context.globalThis = context;
+    vm.createContext(context);
+    vm.runInContext(acq, context);
+    const subscription = paid
+      ? { plan_id: "performance", provider: "whop", status: "active" }
+      : { plan_id: "free", provider: "whop" };
+    const supabase = {
+      from() {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle: async () => ({ data: subscription, error: null }),
+                  in() {
+                    return {
+                      order() {
+                        return {
+                          limit() {
+                            return { maybeSingle: async () => ({ data: acquisitionRow, error: loadError || null }) };
+                          }
+                        };
+                      }
+                    };
+                  }
+                };
+              }
+            };
+          }
+        };
+      }
+    };
+    const engine = {
+      importKey: () => "diag_prod_1",
+      result: {
+        primaryLimiter: { key: "training_structure" },
+        athlevoRecommendation: { id: "ai", safetyOverride: false, strategy: "keep going" }
+      }
+    };
+    context.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
+    local.set("athlevo_pending_diagnostic_v1", JSON.stringify({ v: 1, kept: true }));
+    return {
+      api: context.AthlevoDiagnosticAcquisition,
+      shown, supabase, local, statusEl, cardClasses,
+      pending: () => pendingKept,
+      attachCalls: () => attachCalls
+    };
+  }
+
+  {
+    const w = paywallWorld();
+    const result = await w.api.resolveAfterAuth("u-handoff", w.supabase, {
+      attached: false, error: "network timeout"
+    }, { onboarding_complete: false }, { fromAiSignup: true });
+    t("forced attach failure still renders the payment page",
+      result.handled === true && result.route === "paywall" &&
+      w.shown.includes("screen-diagnostic-paywall"));
+    t("forced attach failure does not hide checkout with is-unavailable",
+      !w.cardClasses.has("is-unavailable"));
+    t("forced attach failure has no fatal diagnostic-save blocker",
+      !FATAL.test(w.statusEl.textContent || ""));
+    t("pending diagnostic remains stored after attach failure",
+      w.pending() === true && w.local.has("athlevo_pending_diagnostic_v1") &&
+      w.local.has("athlevo_diagnostic_acquisition_v1"));
+    const cardOpened = await w.api.checkout("card");
+    const localOpened = await w.api.checkout("local");
+    t("card CTA still works after attach failure", cardOpened === true);
+    t("local payment CTA still works after attach failure", localOpened === true);
+  }
+
+  {
+    const w = paywallWorld({ loadError: { message: "RLS denied" } });
+    const result = await w.api.resolveAfterAuth("u-handoff", w.supabase, {
+      attached: false, error: "RLS issue"
+    }, { onboarding_complete: false }, { fromAiSignup: true });
+    t("loadAcquisition failure still keeps checkout available",
+      result.route === "paywall" && !w.cardClasses.has("is-unavailable"));
+  }
+
+  {
+    const w = paywallWorld({
+      paid: true,
+      attachResult: { attached: false, error: "still failing after payment" }
+    });
+    const result = await w.api.resolveAfterAuth("u-handoff", w.supabase, {
+      attached: false, error: "network timeout"
+    }, { onboarding_complete: false }, { fromAiSignup: true });
+    t("paid_active retries diagnostic attach before onboarding",
+      w.attachCalls() >= 1);
+    t("paid user proceeds to onboarding even if attach fails again",
+      result.paid === true && result.route === "onboarding" &&
+      !w.shown.includes("screen-diagnostic-paywall"));
+    t("pending diagnostic is still retained after paid attach failure",
+      w.pending() === true);
+  }
+
+  {
+    const w = paywallWorld({
+      paid: true,
+      attachResult: { attached: true, importKey: "diag_prod_1", primaryLimiter: "training_structure" }
+    });
+    const result = await w.api.resolveAfterAuth("u-handoff", w.supabase, {
+      attached: false, error: "first attempt failed"
+    }, { onboarding_complete: true }, { fromAiSignup: true });
+    t("successful post-payment attach still reaches the app",
+      result.paid === true && result.route === "app" && w.pending() === false);
+  }
+
+  {
+    const w = paywallWorld({
+      pending: false,
+      attachResult: { attached: true, importKey: "diag_ok", primaryLimiter: "schedule" },
+      acquisitionRow: {
+        import_key: "diag_ok",
+        primary_limiter: "schedule",
+        acquisition_stage: "awaiting_payment"
+      }
+    });
+    const result = await w.api.resolveAfterAuth("u-ok", w.supabase, {
+      attached: true, importKey: "diag_ok", primaryLimiter: "schedule"
+    }, { onboarding_complete: false }, { fromAiSignup: true });
+    t("successful diagnostic attach still shows normal checkout",
+      result.route === "paywall" && !w.cardClasses.has("is-unavailable") &&
+      !FATAL.test(w.statusEl.textContent || "") &&
+      !/finish importing/i.test(w.statusEl.textContent || ""));
   }
 }
 

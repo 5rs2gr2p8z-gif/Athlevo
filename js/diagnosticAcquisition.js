@@ -205,17 +205,26 @@ function setPaywallMode(mode) {
   else if (mode === "unavailable") card.classList.add("is-unavailable");
 }
 
-function showPaywall(state, unavailable) {
+function showPaywall(state, unavailable, opts) {
+  opts = opts || {};
   if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
   var limiter = document.getElementById("diagnosticPaywallLimiter");
   var status = document.getElementById("diagnosticPaywallStatus");
   var card = document.getElementById("diagnosticPaywallCard");
   if (limiter) limiter.textContent = limiterLabel(state && state.primaryLimiter);
+  /* unavailable=true is for real access/session failures only. A failed
+     diagnostic import must never hide checkout CTAs. */
   setPaywallMode(unavailable === true ? "unavailable" : "checkout");
   if (card) card.classList.toggle("is-unavailable", unavailable === true);
-  if (status) status.textContent = unavailable
-    ? "We couldn't save your diagnostic yet. Check your connection and try again before continuing."
-    : "";
+  if (status) {
+    if (unavailable === true) {
+      status.textContent = "Payment is temporarily unavailable. Check your connection and try again.";
+    } else if (opts.importDeferred) {
+      status.textContent = "We'll finish importing your training details after setup.";
+    } else {
+      status.textContent = "";
+    }
+  }
   if (state && !unavailable) {
     trackOnce("paywall_viewed", state, {
       source_surface: "diagnostic_paywall",
@@ -266,6 +275,30 @@ async function checkout(method) {
   return opened;
 }
 
+async function retryPendingDiagnosticAttach(userId, supabase, previous) {
+  if (previous && previous.attached) return previous;
+  var pending = false;
+  try {
+    pending = !!(root.AthlevoDiagnostic &&
+      typeof root.AthlevoDiagnostic.hasPending === "function" &&
+      root.AthlevoDiagnostic.hasPending());
+  } catch (e) { pending = false; }
+  if (!pending) return previous || null;
+  if (!root.AthlevoDiagnosticHandoff ||
+      typeof root.AthlevoDiagnosticHandoff.attach !== "function") {
+    return previous || null;
+  }
+  try {
+    return await root.AthlevoDiagnosticHandoff.attach(userId, supabase);
+  } catch (error) {
+    console.warn("Diagnostic handoff retry failed (non-fatal):", error);
+    return previous || {
+      attached: false,
+      error: error && error.message ? error.message : "Diagnostic import failed"
+    };
+  }
+}
+
 function bindAcquisitionUser(userId) {
   var state = currentForUser(userId) || readLocal() || { events: {} };
   if (state.userId && userId && state.userId !== userId) {
@@ -301,8 +334,12 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
 
   var paid = await verifiedPaidAccess(supabase, userId);
   if (paid.paid) {
+    attachOutcome = await retryPendingDiagnosticAttach(userId, supabase, attachOutcome);
     clearCheckoutReturn();
     var paidLocal = currentForUser(userId);
+    if (attachOutcome && attachOutcome.attached) {
+      paidLocal = markImported(userId, attachOutcome);
+    }
     if (paidLocal && paidLocal.stage !== "completed") {
       await setStage(paidLocal, "completed", supabase);
     } else if (attachOutcome && attachOutcome.attached && attachOutcome.importKey &&
@@ -321,26 +358,19 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
   var gated = isAcquisitionGated(userId, attachOutcome, profile, fromAiSignup);
   var local = currentForUser(userId);
   if (attachOutcome && attachOutcome.attached) local = markImported(userId, attachOutcome);
-  if (local && attachOutcome && attachOutcome.error) {
-    showPaywall(local, true);
-    return { handled: true, route: "import_unavailable" };
-  }
 
   var loaded = { data: null, error: null };
   if (root.AthlevoDiagnosticHandoff &&
       typeof root.AthlevoDiagnosticHandoff.loadAcquisition === "function") {
     loaded = await root.AthlevoDiagnosticHandoff.loadAcquisition(userId, supabase);
   }
-  if (loaded.error) {
-    if (local || gated) {
-      showPaywall(local || bindAcquisitionUser(userId), true);
-      return { handled: true, route: "import_unavailable" };
-    }
-    return { handled: false, route: "existing" };
-  }
+  /* Diagnostic import is not a checkout prerequisite. A missing or failed
+     athlete_diagnostics row still shows authenticated payment. */
   if (!loaded.data) {
     if (local || gated) {
-      showPaywall(bindAcquisitionUser(userId), false);
+      showPaywall(bindAcquisitionUser(userId), false, {
+        importDeferred: !!(loaded.error || (attachOutcome && attachOutcome.error))
+      });
       return { handled: true, route: "paywall" };
     }
     return { handled: false, route: "existing" };
@@ -445,6 +475,7 @@ function markAppEntered() {
 
 root.AthlevoDiagnosticAcquisition = {
   markDiagnosticCompleted: markDiagnosticCompleted,
+  bindAcquisitionUser: bindAcquisitionUser,
   resolveAfterAuth: resolveAfterAuth,
   reconcileWhopPurchase: reconcileWhopPurchase,
   verifiedPaidAccess: verifiedPaidAccess,
