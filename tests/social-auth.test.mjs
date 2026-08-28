@@ -22,7 +22,7 @@ const src = readFileSync("./js/socialAuth.js", "utf8");
 
 function load({ origin = "https://athlevo.org", search = "", hash = "",
                 oauthError = null, inAppBrowser = false, noClient = false,
-                loggedIn = false } = {}) {
+                loggedIn = false, pathname = "/", sessionSeed = {} } = {}) {
   const calls = {
     oauth: [], replaced: [], tracked: [], product: [], intents: [],
     notice: 0, handoff: []
@@ -31,15 +31,23 @@ function load({ origin = "https://athlevo.org", search = "", hash = "",
     authBtnGoogle: { style: { display: "" } },
     authBtnApple: { style: { display: "" } }
   };
+  const sessionStore = { ...sessionSeed };
+  const sessionStorage = {
+    getItem: k => Object.prototype.hasOwnProperty.call(sessionStore, k) ? sessionStore[k] : null,
+    setItem: (k, v) => { sessionStore[k] = String(v); },
+    removeItem: k => { delete sessionStore[k]; }
+  };
   const sandbox = {
     console: { log(){}, warn(){}, error(){}, debug(){} },
     document: { getElementById: (id) => elements[id] || null },
     URLSearchParams,
     URL,
+    sessionStorage,
     window: {
-      location: { origin, search, hash, href: origin + "/" + search + hash,
-                  pathname: "/" },
-      history: { replaceState: (a, b, url) => calls.replaced.push(url) }
+      location: { origin, search, hash, href: origin + pathname + search + hash,
+                  pathname },
+      history: { replaceState: (a, b, url) => calls.replaced.push(url) },
+      sessionStorage
     },
     supabaseClient: noClient ? undefined : {
       auth: {
@@ -130,6 +138,15 @@ section("Redirect target");
       === "https://athlevo-git-abc.vercel.app/");
   t("a non-http origin falls back to canonical production",
     load({ origin: "file://" }).api.redirectTarget() === "https://athlevo.org/");
+  t("OAuth started from /ai-signup returns to /ai-signup",
+    load({ origin: "https://athlevo.org", pathname: "/ai-signup" }).api.redirectTarget()
+      === "https://athlevo.org/ai-signup");
+  t("OAuth with signup handoff flag returns to /ai-signup even from /",
+    load({
+      origin: "https://athlevo.org",
+      pathname: "/",
+      sessionSeed: { athlevo_ai_signup_handoff: "1" }
+    }).api.redirectTarget() === "https://athlevo.org/ai-signup");
 }
 
 /* ═══════════════════════ Apple is gated off ═════════════════════════ */

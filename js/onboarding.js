@@ -2367,6 +2367,16 @@ async function startAthlevoOnboarding() {
       return;
     }
 
+    // Acquisition users already completed the diagnostic. Skip the
+    // athlete/coach role choice and start the short remaining setup.
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.current === "function" &&
+        window.AthlevoDiagnosticAcquisition.current()) {
+      obWriteIntent("athlete");
+      obStartAthleteFlow();
+      return;
+    }
+
     // ── No saved intent → show role choice ──
     obRenderRoleChoice();
 

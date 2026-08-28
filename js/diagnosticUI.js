@@ -1517,6 +1517,30 @@ function offerFollowUpChips(includeStart) {
 var checkoutOpening = false;
 
 function beginCheckoutFromChat(method) {
+  if (!root.athlevoSessionUserId) {
+    if (engine && !engine.completed) {
+      var recAnon = engine.currentRecommendation ? engine.currentRecommendation() : null;
+      if (recAnon && recAnon.safetyOverride) {
+        showAthlevoBubbles(recAnon.strategy, null, true);
+        restoreCurrentFieldInput();
+        return;
+      }
+      engine.complete();
+    }
+    if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
+      root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
+    }
+    var resultAnon = engine ? engine.result : null;
+    trackEvent("diagnostic_signup_tapped", {
+      primary_limiter: resultAnon && resultAnon.primaryLimiter ? resultAnon.primaryLimiter.key : null,
+      feasibility_rating: resultAnon && resultAnon.feasibility ? resultAnon.feasibility.rating : null
+    });
+    trackEvent("signup_started", { source_surface: "diagnostic" });
+    if (typeof root.openAiSignup === "function") root.openAiSignup();
+    else if (root.openAppEntry) root.openAppEntry();
+    else showScreen("screen-welcome");
+    return;
+  }
   if (method === "local" && !root.athlevoSessionUserId) return;
   if (checkoutOpening) return;
   checkoutOpening = true;
@@ -2663,6 +2687,8 @@ function renderResult() {
           if (returnedFromCheckout) {
             if (typeof root.showCheckoutReturnWelcome === "function") {
               root.showCheckoutReturnWelcome();
+            } else if (typeof root.openAiSignup === "function") {
+              root.openAiSignup();
             } else if (typeof root.openAppEntry === "function") {
               root.openAppEntry();
             } else {
@@ -2670,9 +2696,9 @@ function renderResult() {
             }
             return;
           }
-          // Try existing checkout first; fall back to auth entry
-          if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.checkout) {
-            root.AthlevoDiagnosticAcquisition.checkout("card");
+          // Account-before-payment: never open Whop from the result CTA.
+          if (typeof root.openAiSignup === "function") {
+            root.openAiSignup();
           } else if (root.openAppEntry) {
             root.openAppEntry();
           } else {

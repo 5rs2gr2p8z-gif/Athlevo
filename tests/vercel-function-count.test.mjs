@@ -79,6 +79,12 @@ t("api/providers/index.js IS in the deployable tree", functions.includes("api/pr
       route.destination === "/api/providers?action=paymongo_checkout"
     )
   );
+  t("/ai-signup rewrites to the SPA",
+    (vercel.rewrites || []).some(route =>
+      route.source === "/ai-signup" &&
+      route.destination === "/index.html"
+    )
+  );
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

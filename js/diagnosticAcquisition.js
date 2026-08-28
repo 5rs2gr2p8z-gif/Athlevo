@@ -196,12 +196,22 @@ async function reconcileWhopPurchase(supabase) {
   }
 }
 
+function setPaywallMode(mode) {
+  var card = document.getElementById("diagnosticPaywallCard");
+  if (!card || !card.classList) return;
+  card.classList.remove("is-activating", "is-recheck", "is-unavailable");
+  if (mode === "activating") card.classList.add("is-activating");
+  else if (mode === "recheck") card.classList.add("is-recheck");
+  else if (mode === "unavailable") card.classList.add("is-unavailable");
+}
+
 function showPaywall(state, unavailable) {
   if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
   var limiter = document.getElementById("diagnosticPaywallLimiter");
   var status = document.getElementById("diagnosticPaywallStatus");
   var card = document.getElementById("diagnosticPaywallCard");
   if (limiter) limiter.textContent = limiterLabel(state && state.primaryLimiter);
+  setPaywallMode(unavailable === true ? "unavailable" : "checkout");
   if (card) card.classList.toggle("is-unavailable", unavailable === true);
   if (status) status.textContent = unavailable
     ? "We couldn't save your diagnostic yet. Check your connection and try again before continuing."
@@ -214,7 +224,32 @@ function showPaywall(state, unavailable) {
   }
 }
 
+function showActivation(state) {
+  if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
+  var limiter = document.getElementById("diagnosticPaywallLimiter");
+  var status = document.getElementById("diagnosticPaywallStatus");
+  if (limiter) limiter.textContent = limiterLabel(state && state.primaryLimiter);
+  setPaywallMode("activating");
+  if (status) status.textContent = "";
+}
+
+function showRecheck(state) {
+  if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
+  var limiter = document.getElementById("diagnosticPaywallLimiter");
+  var status = document.getElementById("diagnosticPaywallStatus");
+  if (limiter) limiter.textContent = limiterLabel(state && state.primaryLimiter);
+  setPaywallMode("recheck");
+  if (status) status.textContent = "";
+}
+
 async function checkout(method) {
+  if (!root.athlevoSessionUserId) {
+    if (typeof root.openAiSignup === "function") {
+      root.openAiSignup();
+      return true;
+    }
+    return false;
+  }
   var state = active || readLocal();
   if (!state || !root.AthlevoAccessGuard) return false;
   var previous = state.stage;
@@ -278,6 +313,7 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile) {
   writeLocal(state);
 
   if (!paid.paid && !paid.unavailable && hasCheckoutReturn()) {
+    showActivation(state);
     for (var attempt = 0; attempt < 4 && !paid.paid; attempt += 1) {
       await wait(1500);
       paid = await verifiedPaidAccess(supabase, userId);
@@ -289,11 +325,11 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile) {
     return { handled: true, route: "access_unavailable" };
   }
   if (!paid.paid) {
-    showPaywall(state, false);
     if (hasCheckoutReturn()) {
-      var status = document.getElementById("diagnosticPaywallStatus");
-      if (status) status.textContent = "Your payment is still being confirmed. This page will keep your diagnostic safe.";
+      showRecheck(state);
+      return { handled: true, route: "activating" };
     }
+    showPaywall(state, false);
     return { handled: true, route: "paywall" };
   }
 
@@ -314,6 +350,35 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile) {
 function isPostPaymentOnboarding(userId) {
   var state = currentForUser(userId);
   return !!state && (state.stage === "payment_confirmed" || state.stage === "onboarding");
+}
+
+async function recheckEntitlement() {
+  var userId = root.athlevoSessionUserId;
+  if (!userId || !acquisitionSupabase) {
+    showRecheck(active || readLocal());
+    return { paid: false, route: "activating" };
+  }
+  showActivation(active || readLocal());
+  var paid = await verifiedPaidAccess(acquisitionSupabase, userId);
+  if (!paid.paid && !paid.unavailable) {
+    for (var attempt = 0; attempt < 3 && !paid.paid; attempt += 1) {
+      await wait(1500);
+      paid = await verifiedPaidAccess(acquisitionSupabase, userId);
+      if (paid.unavailable) break;
+    }
+  }
+  if (paid.paid) {
+    if (typeof root.routeAfterAuth === "function") {
+      await root.routeAfterAuth(userId);
+    }
+    return { paid: true, route: "app" };
+  }
+  if (paid.unavailable) {
+    showPaywall(active || readLocal(), true);
+    return { paid: false, route: "access_unavailable" };
+  }
+  showRecheck(active || readLocal());
+  return { paid: false, route: "activating" };
 }
 
 async function completePostPaymentOnboarding(supabase) {
@@ -349,6 +414,9 @@ root.AthlevoDiagnosticAcquisition = {
   markAppEntered: markAppEntered,
   checkout: checkout,
   showPaywall: showPaywall,
+  showActivation: showActivation,
+  showRecheck: showRecheck,
+  recheckEntitlement: recheckEntitlement,
   hasCheckoutReturn: hasCheckoutReturn,
   current: function () { return active || readLocal(); },
   clear: clearLocal

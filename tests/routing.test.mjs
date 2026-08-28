@@ -140,15 +140,32 @@ function makeWorld({
       }
     },
     getElementById: (id) => {
-      if (id === "wCheckoutContinue" || id === "wWelcomeBack") {
+      if (id === "wCheckoutContinue" || id === "wWelcomeBack" ||
+          id === "wAiSignupTitle" || id === "wAiSignupSaved" || id === "wSignupLink") {
         return {
           hidden: true,
+          innerHTML: "",
           classList: {
             add: (c) => { state.checkoutNoteVisible = c === "is-visible"; },
             remove() {},
             contains() { return false; }
           }
         };
+      }
+      if (id === "authBtnEmail") {
+        return { setAttribute() {}, getAttribute() { return ""; } };
+      }
+      if (id === "screen-welcome") {
+        const node = el(id);
+        node.classList.add = (c) => {
+          if (c === "active" && state.screens[id]) state.screens[id].active = true;
+          if (c === "is-ai-signup") state.aiSignupCopy = true;
+        };
+        node.classList.remove = (c) => {
+          if (c === "active" && state.screens[id]) state.screens[id].active = false;
+          if (c === "is-ai-signup") state.aiSignupCopy = false;
+        };
+        return node;
       }
       return (id === "tabbar" || state.screens[id]) ? el(id) : null;
     },
@@ -185,6 +202,13 @@ function makeWorld({
           state.diagnosticStarted = true;
           state.screens["screen-diagnostic"].active = true;
         }
+      },
+      openAiSignup() {
+        state.aiSignupShown = true;
+        Object.keys(state.screens).forEach(id => {
+          if (state.screens[id]) state.screens[id].active = false;
+        });
+        state.screens["screen-welcome"].active = true;
       }
     },
     console: { log: (...a) => state.log.push(String(a[0])), warn: (...a) => state.log.push(String(a[0])), error: (...a) => state.log.push(String(a[0])) },
@@ -220,6 +244,16 @@ function makeWorld({
     toast: () => {},
     AthlevoBrain: { resetAthleteUI: () => {}, invalidateActivityCache: () => {} },
     history: { pushState() {}, replaceState(value) { state.historyState = value; } },
+    isAiSignupPath: () => String(pathname || "").replace(/\/+$/, "") === "/ai-signup",
+    hasAiSignupHandoff: () => store.get("athlevo_ai_signup_handoff") === "1",
+    openAiSignup: () => {
+      state.aiSignupShown = true;
+      Object.keys(state.screens).forEach(id => {
+        if (state.screens[id]) state.screens[id].active = false;
+      });
+      state.screens["screen-welcome"].active = true;
+    },
+    clearAiSignupHandoff: () => store.delete("athlevo_ai_signup_handoff"),
     state
   };
 
@@ -538,6 +572,30 @@ section("/ai acquisition routing");
   await api.restoreSession({}); api.endBootGate();
   t("paid/authenticated refresh on / still routes into the app",
     state.routed === "u1" && state.diagnosticStarted === false);
+}
+{
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai-signup" });
+  await api.restoreSession({}); api.endBootGate();
+  t("logged-out /ai-signup stays on the auth handoff, not diagnostic",
+    state.aiSignupShown === true && state.diagnosticStarted !== true &&
+    state.screens["screen-welcome"].active === true);
+  t("logged-out /ai-signup does not enter the app",
+    state.routed === null && state.screens["screen-today"].active === false);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/", pendingDiagnostic: true
+  });
+  state.store.set("athlevo_ai_signup_handoff", "1");
+  await api.restoreSession({}); api.endBootGate();
+  t("OAuth/signup handoff flag returns to /ai-signup auth, not generic landing",
+    state.aiSignupShown === true && state.diagnosticStarted !== true);
+}
+{
+  const { api, state } = makeWorld({ session: SESSION, standalone: false, pathname: "/ai-signup" });
+  await api.restoreSession({}); api.endBootGate();
+  t("authenticated /ai-signup continues via routeAfterAuth, not a second sales flow",
+    state.routed === "u1" && state.diagnosticStarted !== true);
 }
 {
   const acq = readFileSync("./js/diagnosticAcquisition.js", "utf8");

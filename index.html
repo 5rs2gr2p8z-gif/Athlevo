@@ -1194,6 +1194,9 @@ input,textarea,select{color:var(--text)}
 .w-mark{font-family:"Space Grotesk",var(--sans);font-size:38px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .w-mark i{font-style:normal;color:var(--red)}
 .w-tag{font-size:var(--fs-h3);color:var(--ink2);margin:18px auto 0;line-height:var(--lh-body);max-width:300px}
+.w-ai-title{display:none;font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.02em;line-height:1.2;margin:18px auto 0;max-width:320px;color:var(--text)}
+.w-ai-title.is-visible{display:block}
+#screen-welcome.is-ai-signup .w-tag{display:none}
 .w-continue-note{display:none;font-size:var(--fs-body);color:var(--ink2);margin:12px auto 0;line-height:var(--lh-body);max-width:300px}
 .w-continue-note.is-visible{display:block}
 .w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:12px}
@@ -1538,6 +1541,15 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
 .diagnostic-paywall-local{border:1px solid var(--line);background:var(--paper);color:var(--text)}
 .diagnostic-paywall-primary:active,.diagnostic-paywall-local:active{transform:scale(.98)}
 .diagnostic-paywall-status{min-height:20px;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--red);margin:12px 0 0;text-align:center}
+.diagnostic-paywall-activating,.diagnostic-paywall-recheck{display:none;text-align:center;margin-top:8px}
+.diagnostic-paywall-activating p,.diagnostic-paywall-recheck p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0 0 16px}
+.diagnostic-paywall-card.is-activating .diagnostic-paywall-actions,
+.diagnostic-paywall-card.is-recheck .diagnostic-paywall-actions{display:none}
+.diagnostic-paywall-card.is-activating .diagnostic-paywall-activating{display:block}
+.diagnostic-paywall-card.is-recheck .diagnostic-paywall-recheck{display:block}
+.diagnostic-paywall-recheck-btn,.diagnostic-paywall-return-btn{width:100%;border-radius:12px;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;padding:15px;cursor:pointer;margin-top:8px}
+.diagnostic-paywall-recheck-btn{border:1px solid var(--ink);background:var(--ink);color:#fff}
+.diagnostic-paywall-return-btn{border:1px solid var(--line);background:var(--paper);color:var(--text)}
 .diagnostic-paywall-card.is-unavailable .diagnostic-paywall-actions{display:none}
 .connect-card p{font-size:var(--fs-caption);color:var(--ink2);margin:4px 0 12px}
 .connect-card button{width:100%;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:var(--s-3);border-radius:var(--r-pill);border:none;background:var(--ink);color:#fff;cursor:pointer}
@@ -4262,6 +4274,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="w-mark">Athlevo<i>.</i></div>
     </div>
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
+    <h1 class="w-ai-title" id="wAiSignupTitle" hidden>Create your Athlevo account</h1>
+    <p class="w-continue-note" id="wAiSignupSaved">Your diagnostic is saved.</p>
     <p class="w-continue-note" id="wCheckoutContinue">Create your Athlevo account to continue.</p>
     <p class="w-continue-note" id="wWelcomeBack">Welcome back. Sign in to continue.</p>
   </div>
@@ -4278,7 +4292,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <span class="w-btn-icon"><svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="19" height="15" rx="2.5" stroke="#fff" stroke-width="1.2" fill="none"/><path d="M1 1l9 7 9-7" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
       Continue with Email
     </button>
-    <p class="w-signup-link">Don't have an account? <a onclick="openSignup(true)">Sign up</a></p>
+    <p class="w-signup-link" id="wSignupLink">Don't have an account? <a onclick="openSignup(true)">Sign up</a></p>
   </div>
 </section>
 
@@ -4347,6 +4361,14 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="diagnostic-paywall-actions">
         <button class="diagnostic-paywall-primary" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('card')">Start with Athlevo</button>
         <button class="diagnostic-paywall-local" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('local')">Pay with QRPh, Maya, or GrabPay</button>
+      </div>
+      <div class="diagnostic-paywall-activating" id="diagnosticPaywallActivating">
+        <p>Activating your Athlevo account…</p>
+      </div>
+      <div class="diagnostic-paywall-recheck" id="diagnosticPaywallRecheckPanel">
+        <p>Your payment is still being confirmed. This can take a few seconds.</p>
+        <button class="diagnostic-paywall-recheck-btn" type="button" onclick="AthlevoDiagnosticAcquisition.recheckEntitlement()">Check again</button>
+        <button class="diagnostic-paywall-return-btn" type="button" onclick="AthlevoDiagnosticAcquisition.showPaywall(AthlevoDiagnosticAcquisition.current())">Return to payment</button>
       </div>
       <p class="diagnostic-paywall-status" id="diagnosticPaywallStatus" role="status" aria-live="polite"></p>
     </div>
@@ -6638,10 +6660,78 @@ function openAppEntry() {
   athlevoAuthPushed = false;
   var tb = document.getElementById('tabbar');
   if (tb) tb.style.display = 'none';
+  if (typeof resetAiSignupWelcome === "function") resetAiSignupWelcome();
   showScreen('screen-welcome');
   try { history.pushState({ athlevoNav: 'entry' }, ''); } catch (_) {}
 }
 window.openAppEntry = openAppEntry;
+
+var AI_SIGNUP_HANDOFF_KEY = "athlevo_ai_signup_handoff";
+function isAiSignupPath() {
+  try {
+    return String(window.location.pathname || "").replace(/\/+$/, "") === "/ai-signup";
+  } catch (e) { return false; }
+}
+function rememberAiSignupHandoff() {
+  try { sessionStorage.setItem(AI_SIGNUP_HANDOFF_KEY, "1"); } catch (e) {}
+}
+function hasAiSignupHandoff() {
+  try { return sessionStorage.getItem(AI_SIGNUP_HANDOFF_KEY) === "1"; }
+  catch (e) { return false; }
+}
+function clearAiSignupHandoff() {
+  try { sessionStorage.removeItem(AI_SIGNUP_HANDOFF_KEY); } catch (e) {}
+}
+function applyAiSignupWelcomeCopy() {
+  var screen = document.getElementById("screen-welcome");
+  var title = document.getElementById("wAiSignupTitle");
+  var saved = document.getElementById("wAiSignupSaved");
+  var checkout = document.getElementById("wCheckoutContinue");
+  var back = document.getElementById("wWelcomeBack");
+  var link = document.getElementById("wSignupLink");
+  var emailBtn = document.getElementById("authBtnEmail");
+  if (screen) screen.classList.add("is-ai-signup");
+  if (title) { title.hidden = false; title.classList.add("is-visible"); }
+  if (saved) { saved.hidden = false; saved.classList.add("is-visible"); }
+  if (checkout) { checkout.hidden = true; checkout.classList.remove("is-visible"); }
+  if (back) { back.hidden = true; back.classList.remove("is-visible"); }
+  if (link) link.innerHTML = 'Already have an account? <a onclick="openLogin(true)">Sign in</a>';
+  if (emailBtn) emailBtn.setAttribute("onclick", "openSignup(true)");
+}
+function resetAiSignupWelcome() {
+  var screen = document.getElementById("screen-welcome");
+  var title = document.getElementById("wAiSignupTitle");
+  var saved = document.getElementById("wAiSignupSaved");
+  var link = document.getElementById("wSignupLink");
+  var emailBtn = document.getElementById("authBtnEmail");
+  if (screen) screen.classList.remove("is-ai-signup");
+  if (title) { title.hidden = true; title.classList.remove("is-visible"); }
+  if (saved) { saved.hidden = true; saved.classList.remove("is-visible"); }
+  if (link) link.innerHTML = 'Don\'t have an account? <a onclick="openSignup(true)">Sign up</a>';
+  if (emailBtn) emailBtn.setAttribute("onclick", "openLogin(true)");
+}
+function openAiSignup(opts) {
+  opts = opts || {};
+  rememberAiSignupHandoff();
+  applyAiSignupWelcomeCopy();
+  var tb = document.getElementById("tabbar");
+  if (tb) tb.style.display = "none";
+  var modal = document.getElementById("authModal");
+  if (modal && opts.fromRestore !== true) modal.style.display = "none";
+  showScreen("screen-welcome");
+  try {
+    if (opts.fromRestore === true || isAiSignupPath()) {
+      history.replaceState({ athlevoNav: "ai-signup" }, "", "/ai-signup");
+    } else {
+      history.pushState({ athlevoNav: "ai-signup" }, "", "/ai-signup");
+    }
+  } catch (e) {}
+}
+window.isAiSignupPath = isAiSignupPath;
+window.rememberAiSignupHandoff = rememberAiSignupHandoff;
+window.hasAiSignupHandoff = hasAiSignupHandoff;
+window.clearAiSignupHandoff = clearAiSignupHandoff;
+window.openAiSignup = openAiSignup;
 
 function hasWhopCheckoutReturn() {
   try {
@@ -6795,6 +6885,18 @@ function renderNavState(state) {
   if (nav === 'landing' && (athlevoSessionUserId || isStandaloneMode() || appEntryIntentReason() === 'logout')) {
     nav = 'entry';
   }
+  try {
+    var path = String(window.location.pathname || "").replace(/\/+$/, "");
+    if (path === "/ai-signup" && !athlevoSessionUserId) {
+      if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
+      return;
+    }
+    if (path === "/ai" && !athlevoSessionUserId && window.AthlevoDiagnosticUI &&
+        typeof window.AthlevoDiagnosticUI.start === "function") {
+      window.AthlevoDiagnosticUI.start();
+      return;
+    }
+  } catch (pathErr) {}
   var modal = document.getElementById('authModal');
   var modalOpen = modal && modal.style.display === 'flex';
   var tb = document.getElementById('tabbar');
@@ -6817,6 +6919,11 @@ function renderNavState(state) {
     athlevoAuthPushed = false;
     if (tb) tb.style.display = 'none';
     showScreen('screen-welcome');
+  } else if (nav === 'ai-signup') {
+    athlevoAuthPushed = false;
+    if (tb) tb.style.display = 'none';
+    if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
+    else showScreen('screen-welcome');
   } else if (nav === 'landing') {
     clearAppEntryIntent();
     athlevoAuthPushed = false;
@@ -9534,6 +9641,7 @@ async function routeAfterAuth(userId) {
   athlevoSessionUserId = userId;
   try { window.athlevoSessionUserId = athlevoSessionUserId; } catch (e) {}
   clearAppEntryIntent();
+  if (typeof clearAiSignupHandoff === "function") clearAiSignupHandoff();
   const { data: profile, error } = await supabaseClient
     .from("profiles")
     .select("onboarding_complete, goal, device, role")
@@ -10023,6 +10131,16 @@ async function restoreSession(opts) {
       if (typeof rememberAppEntryIntent === "function") rememberAppEntryIntent("ai");
       showScreen("screen-welcome");
     }
+    return false;
+  }
+  var aiSignupHandoff = false;
+  try {
+    aiSignupHandoff = (typeof isAiSignupPath === "function" && isAiSignupPath()) ||
+      (typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff());
+  } catch (e) { aiSignupHandoff = false; }
+  if (aiSignupHandoff) {
+    if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
+    else showScreen("screen-welcome");
     return false;
   }
   if (window.__athlevoStaleSessionCleared) {
@@ -11152,6 +11270,9 @@ setTimeout(function () {
     var aiPath = url.pathname.replace(/\/+$/, "");
     if (aiPath === "/ai") {
       rememberAppEntryIntent("ai");
+    }
+    if (aiPath === "/ai-signup" && typeof rememberAiSignupHandoff === "function") {
+      rememberAiSignupHandoff();
     }
 
     if (typeof window.openPublicLegalRoute === "function" &&

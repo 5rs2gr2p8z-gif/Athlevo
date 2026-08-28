@@ -295,13 +295,20 @@
 
   /* ─────────────── actions ───────────────────────────────────────── */
 
-  function checkoutUrl() {
+  function checkoutUrl(prefillEmail) {
     let url = WHOP_CHECKOUT_URL;
     try {
-      const returnUrl = new URL(window.location.pathname, window.location.origin);
+      const returnPath = window.location && window.location.pathname
+        ? window.location.pathname
+        : "/";
+      const returnUrl = new URL(returnPath, window.location.origin);
       returnUrl.searchParams.set("checkout_return", "1");
       const separator = url.includes("?") ? "&" : "?";
       url += separator + "redirect_url=" + encodeURIComponent(returnUrl.toString());
+      const email = String(prefillEmail || "").trim().toLowerCase();
+      if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        url += "&email=" + encodeURIComponent(email);
+      }
     } catch (e) {}
     return url;
   }
@@ -569,7 +576,17 @@
     const safe = categoricalContext(context, "upgrade_sheet");
     trackCategorical("upgrade_clicked", safe);
     try {
-      const url = checkoutUrl();
+      let prefillEmail = null;
+      try {
+        if (typeof supabaseClient !== "undefined" && supabaseClient.auth &&
+            typeof supabaseClient.auth.getSession === "function") {
+          const sessionResult = await supabaseClient.auth.getSession();
+          const user = sessionResult && sessionResult.data && sessionResult.data.session &&
+            sessionResult.data.session.user;
+          if (user && user.email) prefillEmail = user.email;
+        }
+      } catch (emailErr) { prefillEmail = null; }
+      const url = checkoutUrl(prefillEmail);
       const runtime = window.AthlevoRuntime;
       const nativeApp = Boolean(
         runtime && typeof runtime.isNative === "function" && runtime.isNative()

@@ -67,7 +67,19 @@
     try {
       const origin = window.location.origin;
       // A file:// or opaque origin cannot receive a redirect — use canonical.
-      if (origin && /^https?:/.test(origin)) return origin + "/";
+      if (origin && /^https?:/.test(origin)) {
+        var path = "/";
+        try {
+          var here = String(window.location.pathname || "").replace(/\/+$/, "");
+          var handoff = false;
+          try {
+            handoff = window.sessionStorage &&
+              window.sessionStorage.getItem("athlevo_ai_signup_handoff") === "1";
+          } catch (e2) { handoff = false; }
+          if (here === "/ai-signup" || handoff) path = "/ai-signup";
+        } catch (e3) { path = "/"; }
+        return origin + path;
+      }
     } catch (e) { /* fall through */ }
     return (root.AthlevoEnv && root.AthlevoEnv.canonicalUrl
       ? root.AthlevoEnv.canonicalUrl() : "https://athlevo.org") + "/";

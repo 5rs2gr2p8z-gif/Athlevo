@@ -5,6 +5,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/ai-signup",
+      "destination": "/index.html"
+    },
+    {
       "source": "/privacy",
       "destination": "/index.html"
     },
