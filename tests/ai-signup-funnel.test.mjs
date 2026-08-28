@@ -449,5 +449,127 @@ section("Executable unpaid /ai-signup cannot enter the app");
   }
 }
 
+section("Anonymous /ai conversion never shows payment");
+{
+  const storage = new Map();
+  const context = {
+    console: { log() {}, warn() {}, error() {} },
+    Date, Math, Uint8Array,
+    crypto: globalThis.crypto,
+    localStorage: {
+      getItem: key => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value),
+      removeItem: key => storage.delete(key)
+    },
+    document: {
+      readyState: "complete",
+      getElementById: () => null,
+      addEventListener: () => {},
+      querySelectorAll: () => [],
+      querySelector: () => null,
+      createElement: () => ({
+        style: {},
+        classList: { add() {}, remove() {}, toggle() {} },
+        addEventListener() {},
+        appendChild() {},
+        setAttribute() {}
+      })
+    },
+    setTimeout,
+    clearTimeout,
+    matchMedia: () => ({ matches: true })
+  };
+  context.window = context;
+  context.globalThis = context;
+  vm.createContext(context);
+  vm.runInContext(readFileSync("./js/diagnostic.js", "utf8"), context, { filename: "diagnostic.js" });
+  vm.runInContext(readFileSync("./js/diagnosticSalesEngine.js", "utf8"), context, { filename: "diagnosticSalesEngine.js" });
+  vm.runInContext(readFileSync("./js/diagnosticUI.js", "utf8"), context, { filename: "diagnosticUI.js" });
+  const UI = context.AthlevoDiagnosticUI;
+  const Sales = context.AthlevoDiagnosticSales;
+  const helpers = UI._internal;
+
+  const PAYMENT_LABELS = /Debit \/ Credit Card|QRPh|Maya|GrabPay|Whop|PayMongo/;
+  const signupReply = "Great. Create your Athlevo account first so I can save your training and continue.";
+
+  t("bare “yes” is a sales-CTA confirmation, not a global ready classifier",
+    Sales.isSalesCtaConfirmation("yes") === true && Sales.classify("yes") === null);
+  t("follow-up “yes” is treated as checkout by decideSalesFollowup",
+    helpers.decideSalesFollowup("yes", null, [], { id: "goal" }, { key: "goal" }) === "checkout");
+
+  const letsDoIt = Sales.classify("Let's do it.");
+  t("anonymous “let’s do it” is ready_to_start → show_checkout",
+    letsDoIt && letsDoIt.intent === "ready_to_start" && letsDoIt.next_action === "show_checkout");
+
+  const imReady = Sales.classify("I'm ready.");
+  t("anonymous “I’m ready” is ready_to_start → show_checkout",
+    imReady && imReady.intent === "ready_to_start" && imReady.next_action === "show_checkout");
+
+  const readyReply = Sales.composeSalesReply(letsDoIt, { answers: {} }, Sales.emptySalesState(), []);
+  const rewritten = helpers.applyAnonymousConversionCopy({
+    reply: readyReply.reply,
+    reply_2: readyReply.reply_2,
+    next_action: readyReply.next_action,
+    show_checkout: readyReply.show_checkout
+  });
+  t("anonymous “yes”/ready_to_start copy is account-first, not a payment bridge",
+    rewritten.reply === signupReply &&
+    rewritten.reply_2 == null &&
+    !PAYMENT_LABELS.test(rewritten.reply || ""));
+
+  const anonChips = helpers.conversionHandoffOptions();
+  t("anonymous conversion shows the signup CTA only",
+    anonChips.length === 1 &&
+    anonChips[0].label === "Create my Athlevo account" &&
+    anonChips[0].value === "__ai_signup");
+  t("no payment-provider labels appear in anonymous diagnostic conversion state",
+    !PAYMENT_LABELS.test(anonChips.map(c => c.label).join(" ")));
+
+  t("anonymous offerPaymentBridge routes to signup, not payment chips",
+    /function offerPaymentBridge[\s\S]{0,500}if \(isAnonymousDiagnosticVisitor\(\)\)[\s\S]{0,80}offerSignupHandoff/.test(ui));
+  t("signup CTA click uses beginCheckoutFromChat, which hands off to /ai-signup",
+    /function offerSignupHandoff[\s\S]{0,400}beginCheckoutFromChat\("signup"\)/.test(ui) &&
+    /function beginCheckoutFromChat[\s\S]{0,1800}openAiSignup/.test(ui));
+  t("Build-my-training chip uses the same conversion handoff",
+    (ui.match(/opt\.value === "__start"/g) || []).length >= 2 &&
+    (ui.match(/presentConversionHandoff\(ready\)/g) || []).length >= 2);
+  t("anonymous result CTA still goes to /ai-signup, not checkout",
+    /id="diagCTA"[\s\S]{0,2200}openAiSignup\(\)/.test(ui) &&
+    !/id="diagCTA"[\s\S]{0,2200}\.checkout\(/.test(ui));
+
+  context.athlevoSessionUserId = "user-unpaid";
+  const authChips = helpers.conversionHandoffOptions();
+  t("authenticated unpaid user still sees payment options",
+    authChips.some(c => c.label === "Debit / Credit Card") &&
+    authChips.some(c => c.label === "QRPh · Maya · GrabPay") &&
+    !authChips.some(c => c.value === "__ai_signup"));
+  t("authenticated conversion copy is not rewritten to signup",
+    helpers.applyAnonymousConversionCopy({
+      reply: readyReply.reply,
+      next_action: "show_checkout",
+      show_checkout: true
+    }).reply === readyReply.reply);
+
+  t("authenticated paid_active users never enter /ai chat payment",
+    /if \(root\.athlevoSessionUserId\) \{[\s\S]{0,220}routeAfterAuth/.test(ui));
+  t("authenticated paid_active still skips payment for onboarding/app",
+    (() => {
+      const resolve = acq.slice(
+        acq.indexOf("async function resolveAfterAuth"),
+        acq.indexOf("function isPostPaymentOnboarding")
+      );
+      return resolve.indexOf("if (paid.paid)") < resolve.indexOf("showPaywall") &&
+        /route: "onboarding"/.test(resolve);
+    })());
+
+  const welcome = html.slice(
+    html.indexOf('id="screen-welcome"'),
+    html.indexOf('id="screen-onboard"')
+  );
+  t("/ai-signup does not contain “Your diagnostic is saved.”",
+    !welcome.includes("Your diagnostic is saved.") &&
+    /Create your Athlevo account/.test(welcome));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

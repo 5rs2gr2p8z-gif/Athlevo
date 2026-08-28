@@ -1262,6 +1262,7 @@ function handleSalesDetour(classification, message, extraPains) {
     salesState = Sales.markValueShown(salesState);
   }
 
+  applyAnonymousConversionCopy(composed);
   showAthlevoBubbles(composed.reply, composed.reply_2, true);
   busy = false;
   awaitingSalesFollowup = true;
@@ -1289,12 +1290,7 @@ function handleSalesDetour(classification, message, extraPains) {
           confidence: 0.9,
           explicitReady: true
         }, engine, salesState || Sales.emptySalesState(), []);
-        showAthlevoBubbles(
-          ready && ready.reply ? ready.reply : "Sounds good. Choose whichever payment method is easiest for you.",
-          null,
-          true
-        );
-        offerPaymentBridge();
+        presentConversionHandoff(ready);
       }
     });
   } else {
@@ -1364,6 +1360,7 @@ function applyConversationalResult(result, message, field, fieldGroup) {
     }
   }
 
+  applyAnonymousConversionCopy(result);
   showAthlevoBubbles(result.reply, result.reply_2, true);
   busy = false;
 
@@ -1445,17 +1442,74 @@ function offerStartChips() {
   offerPaymentBridge();
 }
 
-function offerPaymentBridge() {
-  trackEvent("diagnostic_payment_options_shown", { surface: "diagnostic" });
-  /* Logged-out /ai: PayMongo checkout requires auth and 401s. Show only
-     the method that works before signup (Whop card). Authenticated users
-     keep the existing local PayMongo chip — do not remove it globally. */
+var ANON_SIGNUP_REPLY = "Great. Create your Athlevo account first so I can save your training and continue.";
+var ANON_SIGNUP_CTA = "Create my Athlevo account";
+
+function isAnonymousDiagnosticVisitor() {
+  return !root.athlevoSessionUserId;
+}
+
+function applyAnonymousConversionCopy(composed) {
+  if (!composed || !isAnonymousDiagnosticVisitor()) return composed;
+  if (composed.show_checkout || composed.next_action === "show_checkout") {
+    composed.reply = ANON_SIGNUP_REPLY;
+    composed.reply_2 = null;
+  }
+  return composed;
+}
+
+function conversionHandoffOptions() {
+  if (isAnonymousDiagnosticVisitor()) {
+    return [{
+      label: ANON_SIGNUP_CTA,
+      value: "__ai_signup",
+      chipClass: "chat-qr-pay chat-qr-pay-primary"
+    }];
+  }
   var paymentOptions = [
     { label: "Debit / Credit Card", value: "__pay_card", chipClass: "chat-qr-pay chat-qr-pay-primary" }
   ];
   if (root.athlevoSessionUserId) {
     paymentOptions.unshift({ label: "QRPh · Maya · GrabPay", value: "__pay_local", chipClass: "chat-qr-pay" });
   }
+  return paymentOptions;
+}
+
+function presentConversionHandoff(ready) {
+  var composed = ready || {
+    reply: "Sounds good. Choose whichever payment method is easiest for you.",
+    reply_2: null,
+    next_action: "show_checkout",
+    show_checkout: true
+  };
+  applyAnonymousConversionCopy(composed);
+  showAthlevoBubbles(composed.reply, composed.reply_2 || null, true);
+  offerPaymentBridge();
+}
+
+function offerSignupHandoff() {
+  showQuickReplies(conversionHandoffOptions(), function (opt) {
+    if (opt.value === "__ai_signup") {
+      beginCheckoutFromChat("signup");
+      return;
+    }
+    busy = false;
+    restoreCurrentFieldInput();
+  });
+  showComposer("Or type here…");
+  setComposerMode("text");
+}
+
+function offerPaymentBridge() {
+  /* Anonymous /ai never sees payment. Account-before-payment: the only
+     conversion destination is /ai-signup. Authenticated unpaid users keep
+     the existing in-chat payment chips. */
+  if (isAnonymousDiagnosticVisitor()) {
+    offerSignupHandoff();
+    return;
+  }
+  trackEvent("diagnostic_payment_options_shown", { surface: "diagnostic" });
+  var paymentOptions = conversionHandoffOptions();
   showQuickReplies(paymentOptions, function (opt) {
     if (opt.value === "__pay_local") {
       beginCheckoutFromChat("local");
@@ -1496,12 +1550,7 @@ function offerFollowUpChips(includeStart) {
           next_action: "show_checkout",
           confidence: 0.9
         }, engine, salesState || Sales2.emptySalesState(), []) : null;
-        showAthlevoBubbles(
-          ready && ready.reply ? ready.reply : "Sounds good. Choose whichever payment method is easiest for you.",
-          null,
-          true
-        );
-        offerPaymentBridge();
+        presentConversionHandoff(ready);
         return;
       }
       if (f) handleChipSelect(f, opt, fieldGroup);
@@ -2804,6 +2853,9 @@ var DiagnosticUI = {
     factPortionOfMixedMessage: factPortionOfMixedMessage,
     isDiagnosticDeferral: isDiagnosticDeferral,
     decideSalesFollowup: decideSalesFollowup,
+    isAnonymousDiagnosticVisitor: isAnonymousDiagnosticVisitor,
+    applyAnonymousConversionCopy: applyAnonymousConversionCopy,
+    conversionHandoffOptions: conversionHandoffOptions,
     isValidFieldValue: isValidFieldValue,
     tryMapTextToValue: tryMapTextToValue,
     absorbGroupFacts: absorbGroupFacts,
