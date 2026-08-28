@@ -360,15 +360,23 @@ t("invalid handoff categories are discarded", (() => {
     Object.keys(captured[0].props).length === 0;
 })());
 
-t("CTA text is limited to the approved public acquisition label", (() => {
+t("unapproved CTA text is dropped while approved Start Training is kept", (() => {
   const { api, captured } = makeAnalytics({ key: "phc_test" });
   api.trackAthlevoEvent("signup_cta_clicked", {
     cta_text: "private athlete note",
-    cta_location: "hero",
-    destination: "screen-welcome"
+    cta_location: "hero_ai",
+    destination: "/ai"
+  });
+  api.trackAthlevoEvent("signup_cta_clicked", {
+    cta_text: "Start Training",
+    cta_location: "hero_ai",
+    destination: "/ai"
   });
   return !("cta_text" in captured[0].props) &&
-    captured[0].props.cta_location === "hero";
+    captured[0].props.cta_location === "hero_ai" &&
+    captured[0].props.destination === "/ai" &&
+    captured[1].props.cta_text === "Start Training" &&
+    captured[1].props.destination === "/ai";
 })());
 
 t("caller-supplied analytics URLs cannot carry OAuth or email query data", (() => {

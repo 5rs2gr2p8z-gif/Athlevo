@@ -36,8 +36,8 @@ console.log("\n──── Institutional brand structure ────");
 test("brand navigation names both coaching paths and the method",
   ["Coaching", "AI", "Method", "Athletes", "About"].every(label =>
     landing.includes(`>${label}</a>`)));
-test("global brand CTA is Train With Athlevo linking to the offers section",
-  /<a class="lp-btn sm" href="#train-with-athlevo">Train With Athlevo<\/a>/.test(landing));
+test("global brand CTA is Train With Athlevo linking to /ai",
+  /<a class="lp-btn sm" href="\/ai">Train With Athlevo<\/a>/.test(landing));
 test("hero is editorial photography-first rather than an app mockup",
   /<img src="assets\/landing\/hero-athlevo\.png"[^>]*alt="Athlevo athletes together after a training session\."[^>]*loading="eager"[^>]*fetchpriority="high"/.test(landing) &&
   !landing.slice(landing.indexOf('<header class="lp-hero"'), landing.indexOf("</header>"))
@@ -135,11 +135,11 @@ test("Athlevo Plan copy consistently describes a coach-built independent plan",
   landingContent.includes("Messenger support for plan clarifications") &&
   landingContent.includes("without ongoing coach management.") &&
   !landingContent.includes("Speak with an Athlevo coach through a call and Messenger"));
-test("offer CTAs retain existing AI and coaching destinations",
-  /cta: "Build My Training Plan",\s*href: "#ai"/.test(landingContent) &&
-  ["Build My Plan", "Start My Coaching", "Apply for Elite"]
-    .every(cta => landingContent.includes(`cta: "${cta}"`)) &&
-  (landingContent.match(/href: "#coaching"/g) || []).length === 3);
+test("offer CTAs route Athlevo AI to /ai and human coaching to Facebook",
+  /cta: "Start Training",\s*href: "\/ai"/.test(landingContent) &&
+  /cta: "Get My Plan",\s*href: "https:\/\/www\.facebook\.com\/profile\.php\?id=61574957235305"/.test(landingContent) &&
+  /cta: "Start Coaching",\s*href: "https:\/\/www\.facebook\.com\/profile\.php\?id=61574957235305"/.test(landingContent) &&
+  /cta: "Apply for Elite",\s*href: "https:\/\/www\.facebook\.com\/profile\.php\?id=61574957235305"/.test(landingContent));
 test("coaching routes resolve to WAYS TO TRAIN without a duplicate pricing section",
   /<section class="lp-section" id="train-with-athlevo">[\s\S]*?<span id="coaching" aria-hidden="true"><\/span>[\s\S]*?id="landingTrainingOffers"/.test(landing) &&
   !/id="landingCoachingTiers"|Choose how closely you want to be coached\.|<section[^>]*id="coaching"/.test(landing));

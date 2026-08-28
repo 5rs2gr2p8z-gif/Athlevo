@@ -169,7 +169,7 @@
   // Keys that must NEVER be recorded, even if allow-listed by mistake elsewhere.
   var PROHIBITED_KEYS = /(email|name|token|secret|message|content|text|note|gps|lat|lng|lon|coord|address|phone|payload|raw|workout|injury|pain|dob|birth|password)/i;
   var APPROVED_NAMED_KEYS = { cta_text: true, utm_content: true, injury_reported: true };
-  var APPROVED_CTA_TEXT = { "Build My Training Plan": true };
+  var APPROVED_CTA_TEXT = { "Build My Training Plan": true, "Start Training": true };
   var APPROVED_HANDOFF_VALUES = {
     browser: { facebook: true, instagram: true },
     intent: { signup: true, login: true },

@@ -3992,7 +3992,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <a href="#about">About</a>
       </div>
       <div class="lp-nav-cta">
-        <a class="lp-btn sm" href="#train-with-athlevo">Train With Athlevo</a>
+        <a class="lp-btn sm" href="/ai">Train With Athlevo</a>
       </div>
     </div>
   </nav>
@@ -4007,8 +4007,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <p class="lp-lead">Personalized endurance coaching — from an adaptive app you run yourself to a coach in your corner every week.</p>
         <p class="lp-hero-proof">300+ runners coached · marathon, hybrid &amp; performance goals.</p>
         <div class="lp-cta">
-          <button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree(this)">Install Athlevo — Free</button>
-          <a class="lp-btn ghost" href="#train-with-athlevo">Explore Coaching</a>
+          <a class="lp-btn" href="/ai" data-cta-location="hero_ai" onclick="return landingStartFree(this)">Start Training</a>
+          <a class="lp-btn ghost" href="https://www.facebook.com/profile.php?id=61574957235305" target="_blank" rel="noopener noreferrer">Explore Coaching</a>
         </div>
       </div>
       <div class="lp-editorial-media lp-photo-hero">
@@ -4065,7 +4065,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
     <div class="lp-wrap lp-appshow-foot">
       <p class="lp-appshow-close">Your plan. Your coach. Your training data. One system.</p>
-      <button class="lp-btn" type="button" data-cta-location="showcase_ai" onclick="landingStartFree(this)">Install Athlevo — Free</button>
+      <a class="lp-btn" href="/ai" data-cta-location="showcase_ai" onclick="return landingStartFree(this)">Start Training</a>
     </div>
   </section>
   <script>
@@ -4243,8 +4243,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <h2 class="lp-h2">Your training should make sense.</h2>
       <p class="lp-body">Whether you want an adaptive system you can follow independently or a coach actively guiding the process, there is a place to start with Athlevo.</p>
       <div class="lp-cta">
-        <button class="lp-btn light" type="button" data-cta-location="final_ai" onclick="landingStartFree(this)">Start with Athlevo AI</button>
-        <a class="lp-btn ghost-light" href="mailto:support@athlevo.org?subject=Athlevo%20Human%20Coaching">Talk to a Coach</a>
+        <a class="lp-btn light" href="/ai" data-cta-location="final_ai" onclick="return landingStartFree(this)">Start with Athlevo AI</a>
+        <a class="lp-btn ghost-light" href="https://www.facebook.com/profile.php?id=61574957235305" target="_blank" rel="noopener noreferrer">Talk to a Coach</a>
       </div>
       <p class="lp-enrollment">Already speaking with an Athlevo coach? <a href="mailto:support@athlevo.org?subject=Continue%20Athlevo%20Enrollment">Continue your enrollment.</a></p>
     </div>
@@ -6864,29 +6864,26 @@ function landingOpenApp()    {
   }
 }
 function landingStartFree(trigger)  {
-  if (athlevoSessionUserId) { openAthlevoApp(); return; }
   var locationName = trigger && trigger.dataset
     ? trigger.dataset.ctaLocation
     : "landing";
-  rememberLandingAuthEntry(locationName);
-  trackAuthChoice("signup_cta_clicked", {
-    cta_text: trigger && trigger.textContent
-      ? trigger.textContent.trim()
-      : "Build My Training Plan",
-    cta_location: locationName,
-    destination: "screen-diagnostic"
-  });
-  if (interceptInAppAuthHandoff("signup", "landing")) return;
-  rememberAppEntryIntent();
-  // Route unauthenticated users through the diagnostic first.
-  // The diagnostic CTA ("Save my diagnosis & continue") sends them to auth.
-  if (window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start) {
-    try { history.pushState({ athlevoNav: 'diagnostic' }, ''); } catch (e) {}
-    window.AthlevoDiagnosticUI.start();
-  } else {
-    // Fallback: if diagnostic UI isn't loaded, go to auth directly
-    openAppEntry();
+  if (!athlevoSessionUserId) {
+    rememberLandingAuthEntry(locationName);
+    trackAuthChoice("signup_cta_clicked", {
+      cta_text: trigger && trigger.textContent
+        ? trigger.textContent.trim()
+        : "Start Training",
+      cta_location: locationName,
+      destination: "/ai"
+    });
+    if (interceptInAppAuthHandoff("signup", "landing")) return false;
   }
+  var href = trigger && typeof trigger.getAttribute === "function"
+    ? trigger.getAttribute("href")
+    : "";
+  if (href === "/ai") return true;
+  try { window.location.assign("/ai"); } catch (e) {}
+  return true;
 }
 function landingStartBeta(trigger)  { landingStartFree(trigger); }
 function landingSignIn()     {
@@ -10542,7 +10539,7 @@ setTimeout(function () {
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/landingContent.js?v=78"></script>
+<script src="js/landingContent.js?v=79"></script>
 <script src="js/authSupport.js?v=74"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>

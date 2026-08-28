@@ -82,7 +82,7 @@
    */
   var PROHIBITED = /(token|secret|code|password|email|name|phone|address|message|text|note|content|health|injury|pain|payment|card|ssn|dob|birth|gps|lat|lng|lon|coord|raw|payload)/i;
   var APPROVED_NAMED_KEYS = { cta_text: true, utm_content: true, injury_reported: true };
-  var APPROVED_CTA_TEXT = { "Build My Training Plan": true };
+  var APPROVED_CTA_TEXT = { "Build My Training Plan": true, "Start Training": true };
   var APPROVED_HANDOFF_VALUES = {
     browser: { facebook: true, instagram: true },
     intent: { signup: true, login: true },

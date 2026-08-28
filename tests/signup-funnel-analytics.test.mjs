@@ -87,14 +87,14 @@ const ctaTag = landingContent.match(
 );
 test("the dedicated Athlevo AI signup CTA carries an explicit location",
   ctaTag && ctaTag[1] === "ai_product");
-test("parent-brand CTAs do not masquerade as signup intent",
+test("Train With Athlevo is the primary self-serve /ai CTA without a second analytics location",
   /Train With Athlevo/.test(html) &&
-  (html.match(/href="#train-with-athlevo">Train With Athlevo/g) || []).length === 1 &&
+  (html.match(/href="\/ai">Train With Athlevo/g) || []).length === 1 &&
   !/data-cta-location="(?:navigation|hero|footer)"/.test(html));
-test("signup CTA captures text, location, and auth destination",
-  /trackAuthChoice\("signup_cta_clicked",\s*\{[\s\S]*?cta_text:[\s\S]*?cta_location:[\s\S]*?destination:\s*"screen-welcome"/.test(html));
+test("signup CTA captures text, location, and /ai destination",
+  /trackAuthChoice\("signup_cta_clicked",\s*\{[\s\S]*?cta_text:[\s\S]*?cta_location:[\s\S]*?destination:\s*"\/ai"/.test(html));
 test("logged-in landing users bypass signup intent analytics",
-  /function landingStartFree\(trigger\)[\s\S]*?if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); return; \}[\s\S]*?signup_cta_clicked/.test(html));
+  /function landingStartFree\(trigger\)[\s\S]*?if \(!athlevoSessionUserId\) \{[\s\S]*?signup_cta_clicked/.test(html));
 test("landing view supplies URL, path, and referrer context",
   /landing_viewed[\s\S]*?AthlevoProductAnalytics\.landingProps\(\)/.test(html) &&
   /page_url:[\s\S]*?page_path:[\s\S]*?referrer/.test(analytics));

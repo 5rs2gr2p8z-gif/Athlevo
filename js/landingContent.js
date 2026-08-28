@@ -25,7 +25,7 @@
           "Knows when to push and when to pull back"
         ],
         cta: "Start Training",
-        href: "#ai",
+        href: "/ai",
         appEntry: true,
         ctaLocation: "ai_product"
       },
@@ -43,7 +43,7 @@
           "Programming built around your race and schedule"
         ],
         cta: "Get My Plan",
-        href: "mailto:support@athlevo.org?subject=Athlevo%20Plan%20Enquiry"
+        href: "https://www.facebook.com/profile.php?id=61574957235305"
       },
       {
         name: "Athlevo Coaching",
@@ -59,7 +59,7 @@
           "Ongoing support across the full training block"
         ],
         cta: "Start Coaching",
-        href: "mailto:support@athlevo.org?subject=Athlevo%20Coaching%20Enquiry"
+        href: "https://www.facebook.com/profile.php?id=61574957235305"
       },
       {
         name: "Athlevo Elite",
@@ -75,7 +75,7 @@
           "Priority communication, calls when needed"
         ],
         cta: "Apply for Elite",
-        href: "mailto:support@athlevo.org?subject=Athlevo%20Elite%20Enquiry"
+        href: "https://www.facebook.com/profile.php?id=61574957235305"
       }
     ],
     // Approved athlete feedback and photography recovered from the original
@@ -168,13 +168,20 @@
       const article = node("article", "lp-offer");
       const features = node("ul", "lp-offer-features");
       offer.features.forEach(feature => features.append(node("li", "", feature)));
-      const cta = node(offer.appEntry ? "button" : "a", "lp-btn lp-offer-cta", offer.cta);
+      const cta = node("a", "lp-btn lp-offer-cta", offer.cta);
+      cta.href = offer.href;
       if (offer.appEntry) {
-        cta.type = "button";
         cta.dataset.ctaLocation = offer.ctaLocation;
-        cta.addEventListener("click", () => global.landingStartFree(cta));
-      } else {
-        cta.href = offer.href;
+        cta.addEventListener("click", event => {
+          if (typeof global.landingStartFree === "function" &&
+              global.landingStartFree(cta) === false) {
+            event.preventDefault();
+          }
+        });
+      } else if (typeof offer.href === "string" &&
+          offer.href.indexOf("https://www.facebook.com/") === 0) {
+        cta.target = "_blank";
+        cta.rel = "noopener noreferrer";
       }
       const bestFor = node("div", "lp-offer-best");
       bestFor.append(node("span", "", "BEST FOR"), node("p", "", offer.bestFor));

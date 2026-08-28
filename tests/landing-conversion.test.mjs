@@ -25,8 +25,8 @@ function test(name, cond, detail = "") {
 }
 
 console.log("\n──── 1. Legal links are valid JS (no smart quotes) ────");
-test("no curly/smart quotes remain in any inline on* handler",
-  !/on\w+="[^"]*[‘’][^"]*"/.test(html));
+test("no curly/smart quotes remain in any landing-page inline on* handler",
+  !/on\w+="[^"]*[‘’][^"]*"/.test(landing));
 test("openLegal handlers use straight-quoted string arguments only",
   (html.match(/openLegal\(/g) || []).length > 0 &&
   !/openLegal\([‘’]/.test(html) &&
@@ -37,17 +37,24 @@ test("theme + toast handlers that shared the bug are also straight-quoted",
   !/setAthlevoTheme\([‘’]/.test(html) &&
   !/toast\([‘’]/.test(html));
 
-console.log("\n──── 2. Human-tier CTAs no longer dead-end at #coaching ────");
+console.log("\n──── 2. Human-tier CTAs enquire on Facebook; Athlevo AI enters /ai ────");
+const FACEBOOK_COACHING = "https://www.facebook.com/profile.php?id=61574957235305";
 test("no offer in landing content routes to the dead #coaching anchor",
   !/href:\s*"#coaching"/.test(content));
-test("Athlevo Plan CTA routes to an actionable contact destination",
-  /cta: "Get My Plan",\s*href: "mailto:support@athlevo\.org\?subject=Athlevo%20Plan%20Enquiry"/.test(content));
-test("Athlevo Coaching CTA routes to an actionable contact destination",
-  /cta: "Start Coaching",\s*href: "mailto:support@athlevo\.org\?subject=Athlevo%20Coaching%20Enquiry"/.test(content));
-test("Athlevo Elite CTA routes to an actionable contact destination",
-  /cta: "Apply for Elite",\s*href: "mailto:support@athlevo\.org\?subject=Athlevo%20Elite%20Enquiry"/.test(content));
-test("the AI tier still enters the app via the existing signup handler (unchanged)",
-  /cta: "Start Training",[\s\S]*?appEntry: true,[\s\S]*?ctaLocation: "ai_product"/.test(content));
+test("Athlevo Plan CTA routes to the human-coaching Facebook profile",
+  /cta: "Get My Plan",\s*href: "https:\/\/www\.facebook\.com\/profile\.php\?id=61574957235305"/.test(content));
+test("Athlevo Coaching CTA routes to the human-coaching Facebook profile",
+  /cta: "Start Coaching",\s*href: "https:\/\/www\.facebook\.com\/profile\.php\?id=61574957235305"/.test(content));
+test("Athlevo Elite CTA routes to the human-coaching Facebook profile",
+  /cta: "Apply for Elite",\s*href: "https:\/\/www\.facebook\.com\/profile\.php\?id=61574957235305"/.test(content));
+test("the AI tier still enters through /ai, not Facebook or checkout", (() => {
+  const aiOffer = content.slice(
+    content.indexOf('name: "Athlevo AI"'),
+    content.indexOf('name: "Athlevo Plan"')
+  );
+  return /cta: "Start Training",\s*href: "\/ai",\s*appEntry: true,\s*ctaLocation: "ai_product"/.test(aiOffer) &&
+    !/facebook\.com|checkout|\/ai-signup/.test(aiOffer);
+})());
 
 console.log("\n──── 3-4. Hero clarity + single dominant priced CTA ────");
 const hero = landing.slice(landing.indexOf('<header class="lp-hero"'), landing.indexOf("</header>"));
@@ -59,12 +66,14 @@ test("subheadline communicates the app-to-coach ladder",
   /from an adaptive app you run yourself to a coach in your corner every week/.test(hero));
 test("hero carries the supported proof line (300\\+ runners)",
   /<p class="lp-hero-proof">300\+ runners coached · marathon, hybrid &amp; performance goals\.<\/p>/.test(hero));
-test("primary hero CTA is the free Athlevo app-entry button",
-  /<button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree\(this\)">Install Athlevo — Free<\/button>/.test(hero));
+test("no public landing CTA still says Install Athlevo — Free",
+  !/Install Athlevo — Free/.test(landing));
+test("primary hero CTA is Start Training to /ai",
+  /<a class="lp-btn" href="\/ai" data-cta-location="hero_ai" onclick="return landingStartFree\(this\)">Start Training<\/a>/.test(hero));
 test("hero does not emphasize price (free, low-friction app entry)",
   !/₱|\/mo\b|\/month/.test(hero));
-test("secondary hero CTA is a subordinate scroll link, not a second app-entry",
-  /<a class="lp-btn ghost" href="#train-with-athlevo">Explore Coaching<\/a>/.test(hero) &&
+test("secondary hero CTA is a human-coaching Facebook enquiry, not a second /ai entry",
+  hero.includes(`href="${FACEBOOK_COACHING}" target="_blank" rel="noopener noreferrer">Explore Coaching</a>`) &&
   (hero.match(/landingStartFree/g) || []).length === 1);
 
 console.log("\n──── 5. Thin editorial proof strip below the hero ────");
@@ -121,10 +130,10 @@ test("FAQ cancellation answer matches Terms §10 (no overpromise)",
 
 console.log("\n──── 11. Final CTA no longer loops to pricing ────");
 const finalCta = landing.slice(landing.indexOf('<section class="lp-final-brand">'));
-test("final primary CTA enters the app via the existing handler",
-  /<button class="lp-btn light" type="button" data-cta-location="final_ai" onclick="landingStartFree\(this\)">Start with Athlevo AI<\/button>/.test(finalCta));
-test("final secondary CTA reaches the existing human contact path",
-  /<a class="lp-btn ghost-light" href="mailto:support@athlevo\.org\?subject=Athlevo%20Human%20Coaching">Talk to a Coach<\/a>/.test(finalCta));
+test("final primary CTA enters Athlevo AI through /ai",
+  /<a class="lp-btn light" href="\/ai" data-cta-location="final_ai" onclick="return landingStartFree\(this\)">Start with Athlevo AI<\/a>/.test(finalCta));
+test("final secondary CTA reaches the human-coaching Facebook profile",
+  finalCta.includes(`href="${FACEBOOK_COACHING}" target="_blank" rel="noopener noreferrer">Talk to a Coach</a>`));
 test("enrollment continuation state is preserved",
   /Continue your enrollment\./.test(finalCta));
 

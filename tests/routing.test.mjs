@@ -417,9 +417,11 @@ section("Landing CTAs (source-level)");
   const build = extract("landingStartFree");
   const signIn = extract("landingSignIn");
   const openApp = extract("landingOpenApp");
-  t("9. Build-plan CTA → app when signed in, entry when not",
-    /if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); return; \}/.test(build) &&
-    /openAppEntry\(\)/.test(build));
+  t("9. Landing AI CTA navigates to /ai without opening checkout or welcome",
+    /destination: "\/ai"/.test(build) &&
+    /window\.location\.assign\("\/ai"\)/.test(build) &&
+    !/openAppEntry\(\)/.test(build) &&
+    !/openAthlevoApp\(\)/.test(build));
   t("10. Sign In → app when signed in, else entry + login",
     /if \(athlevoSessionUserId\) \{ openAthlevoApp\(\); \}/.test(signIn) &&
     /openAppEntry\(\);[\s\S]*?openLogin\(true, "landing"\)/.test(signIn));
