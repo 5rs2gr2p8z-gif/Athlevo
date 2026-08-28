@@ -3,7 +3,7 @@
  * Source-level coverage for /ai → /ai-signup → auth → entitlement → app.
  * Run: node tests/ai-signup-funnel.test.mjs
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import vm from "node:vm";
 import { resolveEntitlement, ACCESS_STATES } from "../lib/server/features.js";
 
@@ -703,12 +703,48 @@ section("Authenticated payment screen is a checkout selector");
   t("only QRPh/Maya/GrabPay are shown as the supported local methods",
     /QRPh · Maya · GrabPay/.test(paywall) &&
     (paywall.match(/checkout\('local'\)/g) || []).length === 1);
+  t("card row keeps the card icon",
+    /diagnostic-paywall-method-icon/.test(paywall) &&
+    /<rect x="2.5" y="5" width="19" height="14"/.test(paywall));
+  t("Visa asset renders on the card row",
+    /athlevo-assets\/payment-logo\/a36170404e5da93621ed8298daa957e6\.webp/.test(paywall) &&
+    /diagnostic-paywall-logo-clip is-visa/.test(paywall) &&
+    existsSync("./athlevo-assets/payment-logo/a36170404e5da93621ed8298daa957e6.webp"));
+  t("Mastercard asset renders on the card row",
+    /diagnostic-paywall-logo-clip is-mastercard/.test(paywall) &&
+    existsSync("./athlevo-assets/payment-logo/a36170404e5da93621ed8298daa957e6.webp"));
+  t("QRPh asset renders on the local row",
+    /athlevo-assets\/payment-logo\/qr-ph-logo-6f76723590\.webp/.test(paywall) &&
+    existsSync("./athlevo-assets/payment-logo/qr-ph-logo-6f76723590.webp"));
+  t("Maya asset renders on the local row",
+    /athlevo-assets\/payment-logo\/b9379ad46b7f2d23fc893714558d6f93\.jpg/.test(paywall) &&
+    existsSync("./athlevo-assets/payment-logo/b9379ad46b7f2d23fc893714558d6f93.jpg"));
+  t("GrabPay stays a text mark because no GrabPay logo file was supplied",
+    /diagnostic-paywall-grab-label/.test(paywall) &&
+    /GrabPay/.test(paywall) &&
+    !/grabpay/i.test(paywall.replace(/GrabPay/g, "")));
+  t("GCash is stored but not shown because it is not a self-serve PayMongo method",
+    existsSync("./athlevo-assets/payment-logo/378f52cfebeec77a30daac4dd55b13.webp") &&
+    !/378f52cfebeec77a30daac4dd55b13/.test(paywall) &&
+    !/GCash/.test(paywall));
+  t("temporary Cursor payment copies are no longer used",
+    !/assets\/payment\//.test(paywall) &&
+    !existsSync("./assets/payment"));
+  t("logos preserve aspect ratio and do not stretch",
+    /object-fit:contain/.test(paywallCss) &&
+    !/object-fit:fill/.test(paywallCss));
+  t("payment rows clip marks instead of overflowing",
+    /overflow-x:hidden/.test(paywallCss) &&
+    /\.diagnostic-paywall-marks\{[\s\S]{0,120}min-width:0/.test(paywallCss));
   t("₱597/month is visible", /₱597\/month/.test(paywall));
   t("Cancel anytime is visible", /Cancel anytime/.test(paywall));
   t("no unsupported GCash or bank transfer",
     !/GCash|bank transfer|Bank transfer/i.test(paywall));
   t("no coaching diagnosis text on payment page",
     !/Your diagnostic is saved|Start training with Athlevo|Let Athlevo build the training around it|training structure|feasibility|endurance\/pacing|Personalized training plan|Daily workout guidance/.test(paywall));
+  t("paid/auth routing files were not changed by this UI polish",
+    /function checkout\(method\)[\s\S]{0,400}AthlevoAccessGuard/.test(acq) &&
+    /WHOP_CHECKOUT_URL = "https:\/\/whop\.com\/checkout\/plan_F5PftzWCJCQVw"/.test(guard));
 }
 
 section("Anonymous /ai conversion never shows payment");
