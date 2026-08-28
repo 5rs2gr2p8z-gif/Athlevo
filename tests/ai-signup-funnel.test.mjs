@@ -706,33 +706,28 @@ section("Authenticated payment screen is a checkout selector");
   t("card row keeps the card icon",
     /diagnostic-paywall-method-icon/.test(paywall) &&
     /<rect x="2.5" y="5" width="19" height="14"/.test(paywall));
-  t("Visa asset renders on the card row",
-    /athlevo-assets\/payment-logo\/a36170404e5da93621ed8298daa957e6\.webp/.test(paywall) &&
-    /diagnostic-paywall-logo-clip is-visa/.test(paywall) &&
-    existsSync("./athlevo-assets/payment-logo/a36170404e5da93621ed8298daa957e6.webp"));
-  t("Mastercard asset renders on the card row",
-    /diagnostic-paywall-logo-clip is-mastercard/.test(paywall) &&
-    existsSync("./athlevo-assets/payment-logo/a36170404e5da93621ed8298daa957e6.webp"));
+  t("card row has no payment-brand logos",
+    /Pay with credit \/ debit card/.test(paywall) &&
+    /Secure card payment/.test(paywall) &&
+    !/athlevo-assets\/payment-logo/.test(paywall) &&
+    !/diagnostic-paywall-marks|diagnostic-paywall-logo/.test(paywall) &&
+    !/is-visa|is-mastercard/.test(paywall));
   t("local row is text-only QRPh · Maya · GrabPay",
     /QRPh · Maya · GrabPay/.test(paywall) &&
-    !/qr-ph-logo-6f76723590/.test(paywall) &&
-    !/b9379ad46b7f2d23fc893714558d6f93/.test(paywall) &&
-    !/diagnostic-paywall-grab-label/.test(paywall) &&
-    !/is-qrph|is-maya/.test(paywall));
-  t("QRPh and Maya logo files remain on disk but are not rendered",
+    /Pay using your preferred local payment method/.test(paywall) &&
+    !/is-qrph|is-maya|diagnostic-paywall-grab-label/.test(paywall));
+  t("payment-logo files remain unused and are not requested",
+    existsSync("./athlevo-assets/payment-logo/a36170404e5da93621ed8298daa957e6.webp") &&
     existsSync("./athlevo-assets/payment-logo/qr-ph-logo-6f76723590.webp") &&
-    existsSync("./athlevo-assets/payment-logo/b9379ad46b7f2d23fc893714558d6f93.jpg"));
-  t("GCash is stored but not shown because it is not a self-serve PayMongo method",
+    existsSync("./athlevo-assets/payment-logo/b9379ad46b7f2d23fc893714558d6f93.jpg") &&
     existsSync("./athlevo-assets/payment-logo/378f52cfebeec77a30daac4dd55b13.webp") &&
-    !/378f52cfebeec77a30daac4dd55b13/.test(paywall) &&
+    !/athlevo-assets\/payment-logo/.test(html));
+  t("GCash is not shown as a self-serve method",
     !/GCash/.test(paywall));
-  t("local row does not use colored pills or black-square thumbnails",
+  t("local row does not use colored pills, logos, or wallet icons",
     !/diagnostic-paywall-brand-mark/.test(paywallCss) &&
-    !/background:#000/.test(paywallCss) &&
-    !/is-qrph|is-maya/.test(paywallCss));
-  t("card brand marks stay contained and unstretched",
-    /object-fit:contain/.test(paywallCss) &&
-    !/object-fit:fill/.test(paywallCss));
+    !/diagnostic-paywall-logo/.test(paywallCss) &&
+    !/object-fit:/.test(paywallCss));
   t("₱597/month is visible", /₱597\/month/.test(paywall));
   t("Cancel anytime is visible", /Cancel anytime/.test(paywall));
   t("no unsupported GCash or bank transfer",
