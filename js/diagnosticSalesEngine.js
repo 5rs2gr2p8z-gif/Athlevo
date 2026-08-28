@@ -185,6 +185,44 @@ function looksLikeNaturalDiagnosticAnswer(message) {
   return false;
 }
 
+/** Chip taps, bare numbers, and exact option labels — not worth an LLM call. */
+function looksLikeSimpleDiagnosticAnswer(message, field) {
+  var m = String(message || "").trim();
+  if (!m) return true;
+  if (/^-?\d+(?:[.,]\d+)?(?:\s*(?:km|kilometers?|kilometres?|kms?|hrs?|hours?|days?))?$/i.test(m)) {
+    return true;
+  }
+  if (/^(yes|yeah|yep|yup|no|nope|skip|none|not yet)$/i.test(m)) return true;
+  if (field && field.options) {
+    var lower = m.toLowerCase();
+    for (var i = 0; i < field.options.length; i++) {
+      var opt = field.options[i];
+      if (String(opt.label || "").toLowerCase() === lower) return true;
+      if (String(opt.value || "").toLowerCase() === lower) return true;
+    }
+  }
+  var words = m.split(/\s+/).filter(Boolean);
+  if (words.length <= 2 && !/\b(because|sick|injur|fade|apart|frustrated)\b/i.test(m)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * After deterministic extraction, call the model only for natural-language
+ * turns that may need acknowledgement or leftover NLU. Sales-owned messages
+ * never reach this helper.
+ */
+function shouldUseAiAcknowledgement(message, field, extra) {
+  extra = extra || {};
+  if (extra.salesOwned) return false;
+  if (looksLikeSimpleDiagnosticAnswer(message, field)) return false;
+  if (looksLikeNaturalDiagnosticAnswer(message)) return true;
+  if (extra.hasAckWorthyContext) return true;
+  if ((extra.extractedFactCount || 0) >= 2) return true;
+  return false;
+}
+
 function detectPainPoints(message) {
   var m = String(message || "");
   var out = [];
@@ -669,10 +707,25 @@ function buildRouterPayload(engine, currentQuestionKey, message, salesState, rec
   var limiter = engine && engine.currentPrimaryLimiter ? engine.currentPrimaryLimiter() : null;
   salesState = salesState || {};
 
+  var pending = engine && typeof engine.getPendingFacts === "function"
+    ? engine.getPendingFacts()
+    : ((engine && engine.pendingFacts) || {});
+  var known = sanitizedAnswers(engine ? engine.answers : {});
+  var pendingSanitized = sanitizedAnswers(pending);
+  for (var pk in pendingSanitized) {
+    if (Object.prototype.hasOwnProperty.call(pendingSanitized, pk) && known[pk] == null) {
+      known[pk] = pendingSanitized[pk];
+    }
+  }
+
   return {
     message: String(message || "").slice(0, 1000),
     current_question_key: currentQuestionKey || null,
-    known_answers: sanitizedAnswers(engine ? engine.answers : {}),
+    known_answers: known,
+    pending_facts: pendingSanitized,
+    missing_question_keys: engine && typeof engine.missingRequiredKeys === "function"
+      ? engine.missingRequiredKeys().slice(0, 12)
+      : [],
     primary_limiter: limiter ? limiter.limiter : null,
     grounded_recommendation: (rec && !rec.safetyOverride) ? {
       strategy: rec.strategy,
@@ -727,8 +780,6 @@ function validateRouterResponse(raw) {
     }
   }
   var buyerIntent = ALLOWED_BUYER_INTENT.indexOf(raw.buyer_intent) >= 0 ? raw.buyer_intent : "none";
-
-  if (!reply) return null;
 
   return {
     intent: intent,
@@ -797,6 +848,8 @@ var AthlevoDiagnosticSales = {
   isSalesCtaConfirmation: isSalesCtaConfirmation,
   looksLikeAQuestion: looksLikeAQuestion,
   looksLikeNaturalDiagnosticAnswer: looksLikeNaturalDiagnosticAnswer,
+  looksLikeSimpleDiagnosticAnswer: looksLikeSimpleDiagnosticAnswer,
+  shouldUseAiAcknowledgement: shouldUseAiAcknowledgement,
   detectPainPoints: detectPainPoints,
   hasMinimumContext: hasMinimumContext,
   hasUsefulLimiter: hasUsefulLimiter,

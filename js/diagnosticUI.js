@@ -82,6 +82,11 @@ var factStore = {};
 var salesState = null;
 var recentTurns = [];
 var awaitingSalesFollowup = false;
+var skipCannedInterpretations = false;
+
+function resetSkipCannedInterpretations() {
+  skipCannedInterpretations = false;
+}
 
 /* ═══════════════════════════ HELPERS ════════════════════════════════ */
 
@@ -185,6 +190,8 @@ function startDiagnostic() {
     engine = root.AthlevoDiagnostic.create();
   }
 
+  restoreFactStoreFromEngine();
+
   showScreen("screen-diagnostic");
   interpretationCache = {};
   recentTurns = [];
@@ -199,6 +206,7 @@ function startDiagnostic() {
     renderConversationOpening();
   } else {
     trackEvent("diagnostic_resumed", { state: "in_progress" });
+    commitFullyKnownPendingQuestions();
     rebuildConversation(engine.nextQuestion());
   }
 }
@@ -556,6 +564,7 @@ async function showTypingThenMessageHTML(thread, html) {
  * Present a question: split it into sub-steps, show the first sub-step.
  */
 function presentQuestion(q) {
+  resetSkipCannedInterpretations();
   currentQuestion = q;
   currentFieldData = {};
   currentSubStep = 0;
@@ -842,20 +851,9 @@ function handleRaceGateSelect(opt) {
     return;
   }
 
-  // "Yes" — ask for race name
+  // "Yes" — skip any race-detail fields already in factStore.
   busy = false;
-  (async function () {
-    var thread2 = getThread();
-    if (thread2) {
-      await showTypingThenMessage(thread2, "Nice. What race are you doing?");
-    }
-    hideQuickReplies();
-    showComposer("e.g. Cebu Marathon");
-    setComposerMode("text");
-    // Mark that we're collecting race name
-    currentSubStep = 0.5; // special marker
-    scrollToBottom();
-  })();
+  proceedRaceDetails();
 }
 
 function handleSkip(field) {
@@ -903,8 +901,10 @@ function decideSalesFollowup(val, classification, extraPains, field, question) {
  * Handle composer text submission.
  *
  * Deterministic parse first (buyer-intent classifier, fact extraction,
- * chip aliases, numbers). AI router only when the message needs natural-
- * language understanding. Quick-reply chips never reach this function.
+ * chip aliases, numbers). After a successful extract, natural-language
+ * turns may also call the router for leftover NLU + acknowledgement.
+ * Chip taps never reach this function. The model never owns checkout,
+ * completion, or the next question.
  */
 function handleComposerSend() {
   if (busy) return;
@@ -984,46 +984,35 @@ function handleComposerSend() {
 
   // Special case: race_details gate — collecting race name
   if (q && q.key === "race_details" && currentSubStep === 0.5) {
-    currentFieldData.goal_race = val;
+    var nameDef = findFieldDef("goal_race");
+    if (!isValidFieldValue(nameDef, currentFieldData.goal_race)) {
+      currentFieldData.goal_race = val;
+    }
     if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
-    busy = false;
-    (async function () {
-      await showTypingThenMessage(getThread(), "And when is it?");
-      hideQuickReplies();
-      var qr = getQuickReplies();
-      if (qr) {
-        var skipBtn = createEl('<button class="chat-qr-chip chat-qr-skip" type="button">Skip</button>');
-        skipBtn.addEventListener("click", function () {
-          if (busy) return;
-          busy = true;
-          currentFieldData.goal_race_date = "";
-          if (getThread()) appendUserMsg(getThread(), "Skip");
-          hideQuickReplies();
-          scrollToBottom();
-          busy = false;
-          askGoalTime();
-        });
-        qr.appendChild(skipBtn);
-        qr.style.display = "";
-      }
-      showComposer("");
-      setComposerMode("date");
-      currentSubStep = 0.6;
-      scrollToBottom();
-    })();
+    continueAfterOptionalAcknowledgement(val, nameDef, q, null, function () {
+      busy = false;
+      proceedRaceDetails();
+    });
     return;
   }
 
   if (q && q.key === "race_details" && currentSubStep === 0.6) {
     var parsedDate = parseNaturalDate(val);
-    currentFieldData.goal_race_date = parsedDate;
+    var dateDef = findFieldDef("goal_race_date");
+    if (isValidFieldValue(dateDef, parsedDate)) {
+      currentFieldData.goal_race_date = parsedDate;
+    } else if (!isValidFieldValue(dateDef, currentFieldData.goal_race_date)) {
+      currentFieldData.goal_race_date = parsedDate;
+    }
     if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
-    busy = false;
-    askGoalTime();
+    continueAfterOptionalAcknowledgement(val, dateDef, q, null, function () {
+      busy = false;
+      proceedRaceDetails();
+    });
     return;
   }
 
@@ -1033,8 +1022,10 @@ function handleComposerSend() {
     if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
-    busy = false;
-    submitCurrentQuestion();
+    continueAfterOptionalAcknowledgement(val, findFieldDef("goal_time"), q, null, function () {
+      busy = false;
+      submitCurrentQuestion();
+    });
     return;
   }
 
@@ -1066,6 +1057,12 @@ function handleComposerSend() {
     awaitingSalesFollowup = false;
     currentFieldData[field.id] = value;
     if (thread) appendUserMsg(thread, val);
+    if (shouldCallAiAcknowledgement(val, field, q)) {
+      hideQuickReplies();
+      scrollToBottom();
+      continueAfterOptionalAcknowledgement(val, field, q, fieldGroup, afterFieldCommitted);
+      return;
+    }
     if (extraPains.length && Sales) {
       salesState = Sales.applySalesSignals(salesState || Sales.emptySalesState(), null, extraPains, Sales.hasMinimumContext(engine));
       var painReply = Sales.composeSalesReply(null, engine, salesState, extraPains);
@@ -1103,6 +1100,21 @@ function handleComposerSend() {
     if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
+    if (Sales && Sales.looksLikeAQuestion(val)) {
+      routeViaAi(val, field, q, fieldGroup);
+      return;
+    }
+    if (shouldCallAiAcknowledgement(val, field, q)) {
+      routeViaAiAcknowledgement(val, field, q, fieldGroup, function () {
+        if (isValidFieldValue(field, currentFieldData[field.id])) {
+          afterFieldCommitted();
+          return;
+        }
+        busy = false;
+        restoreCurrentFieldInput();
+      });
+      return;
+    }
     if (Sales && Sales.shouldUseAiFallback(val, field, null)) {
       routeViaAi(val, field, q, fieldGroup);
       return;
@@ -1127,6 +1139,20 @@ function handleComposerSend() {
         awaitingSalesFollowup = false;
         busy = false;
         restoreCurrentFieldInput();
+        return;
+      }
+      if (shouldCallAiAcknowledgement(val, field, q)) {
+        if (thread) appendUserMsg(thread, val);
+        hideQuickReplies();
+        scrollToBottom();
+        routeViaAiAcknowledgement(val, field, q, fieldGroup, function () {
+          if (isValidFieldValue(field, currentFieldData[field.id])) {
+            afterFieldCommitted();
+            return;
+          }
+          busy = false;
+          restoreCurrentFieldInput();
+        });
         return;
       }
       showValidationMsg(conversationalNumberPrompt(field));
@@ -1218,6 +1244,136 @@ function applyExtractedFacts(facts, currentFieldId) {
       factStore[key] = coerced;
     }
   }
+  persistFactStore();
+}
+
+var ACK_WORTHY_RE = /\b(?:fade|fading|fall(?:s|ing)?\s+apart|blow(?:s|ing)?\s+up|hit(?:s|ting)?\s+a\s+wall|always\s+(?:fade|die|bonk)|frustrated|frustrating|because|injured|injury|niggle|limiter|sick|illness|time off)\b/i;
+
+function hasAckWorthyContext(text) {
+  var raw = String(text || "");
+  if (!raw.trim()) return false;
+  if (RETURNING_STATUS_RE.test(raw)) return true;
+  return ACK_WORTHY_RE.test(raw);
+}
+
+function countExtractedFacts(facts) {
+  var n = 0;
+  if (!facts) return 0;
+  for (var key in facts) {
+    if (Object.prototype.hasOwnProperty.call(facts, key)) n += 1;
+  }
+  return n;
+}
+
+function shouldCallAiAcknowledgement(message, field, q) {
+  var Sales = getSales();
+  if (!Sales || typeof Sales.shouldUseAiAcknowledgement !== "function") return false;
+  return Sales.shouldUseAiAcknowledgement(message, field, {
+    hasAckWorthyContext: hasAckWorthyContext(message),
+    extractedFactCount: countExtractedFacts(extractDiagnosticFacts(message, field, q))
+  });
+}
+
+function stripModelRouting(result) {
+  if (!result || typeof result !== "object") return result;
+  result.show_checkout = false;
+  result.suggested_question_key = null;
+  if (result.next_action === "show_checkout" ||
+      result.next_action === "complete_diagnostic" ||
+      result.next_action === "handoff_to_existing_flow") {
+    result.next_action = "continue_diagnostic";
+  }
+  return result;
+}
+
+function isUsableAcknowledgement(result) {
+  if (!result || result.usedFallback) return false;
+  var reply = String(result.reply || "").trim();
+  if (!reply) return false;
+  if (/i want to make sure i understand you correctly/i.test(reply)) return false;
+  return true;
+}
+
+function acknowledgementText(result) {
+  if (!isUsableAcknowledgement(result)) return "";
+  var text = String(result.reply || "").trim();
+  text = text.replace(
+    /(?:\n|\s)+((?:what(?:'s| is)|how many|when is|which|could you (?:tell|give|share)|what(?:'s| is) your).{0,120}\??)\s*$/i,
+    ""
+  ).trim();
+  return text;
+}
+
+function mergeAiExtractedFacts(facts, message, currentFieldId) {
+  if (!facts) return;
+  var copy = {};
+  for (var key in facts) {
+    if (!Object.prototype.hasOwnProperty.call(facts, key)) continue;
+    if (engine && engine.known && engine.known[key]) continue;
+    if (Object.prototype.hasOwnProperty.call(factStore, key)) continue;
+    if (Object.prototype.hasOwnProperty.call(currentFieldData, key) &&
+        currentFieldData[key] != null && currentFieldData[key] !== "") continue;
+    copy[key] = facts[key];
+  }
+  if (RETURNING_STATUS_RE.test(String(message || "")) &&
+      !/\b(?:injur(?:y|ed)|hurt|niggle|current (?:pain|issue))\b/i.test(String(message || ""))) {
+    delete copy.injury_has;
+    delete copy.injury_area;
+  }
+  applyExtractedFacts(copy, currentFieldId);
+}
+
+function continueAfterOptionalAcknowledgement(message, field, q, fieldGroup, onContinue) {
+  if (!shouldCallAiAcknowledgement(message, field, q)) {
+    onContinue();
+    return;
+  }
+  routeViaAiAcknowledgement(message, field, q, fieldGroup, onContinue);
+}
+
+function routeViaAiAcknowledgement(message, field, q, fieldGroup, onContinue) {
+  var Sales = getSales();
+  var thread = getThread();
+  var finished = false;
+  function finish() {
+    if (finished) return;
+    finished = true;
+    onContinue();
+  }
+  if (!Sales || typeof Sales.callRouter !== "function") {
+    finish();
+    return;
+  }
+  if (thread) {
+    appendTypingIndicator(thread);
+    scrollToBottom();
+  }
+  var payload = Sales.buildRouterPayload(
+    engine,
+    q ? q.key : null,
+    message,
+    salesState || Sales.emptySalesState(),
+    recentTurns
+  );
+  Promise.resolve(Sales.callRouter(payload)).then(function (result) {
+    removeTypingIndicator();
+    applyAcknowledgementResult(result, message, field, fieldGroup);
+    finish();
+  }, function () {
+    removeTypingIndicator();
+    finish();
+  });
+}
+
+function applyAcknowledgementResult(result, message, field, fieldGroup) {
+  result = stripModelRouting(result || {});
+  mergeAiExtractedFacts(result.extracted_facts, message, field ? field.id : null);
+  var ack = acknowledgementText(result);
+  if (ack) {
+    skipCannedInterpretations = true;
+    showAthlevoBubbles(ack, null, true);
+  }
+  awaitingSalesFollowup = false;
 }
 
 function handleSalesDetour(classification, message, extraPains) {
@@ -1324,6 +1480,10 @@ function routeViaAi(message, field, q, fieldGroup) {
     removeTypingIndicator();
     trackEvent("diagnostic_ai_fallback_used", { question_key: q ? q.key : null });
     applyConversationalResult(result, message, field, fieldGroup);
+  }, function () {
+    removeTypingIndicator();
+    busy = false;
+    restoreCurrentFieldInput();
   });
 }
 
@@ -1336,7 +1496,8 @@ function applyConversationalResult(result, message, field, fieldGroup) {
     return;
   }
 
-  applyExtractedFacts(result.extracted_facts, field ? field.id : null);
+  result = stripModelRouting(result);
+  mergeAiExtractedFacts(result.extracted_facts, message, field ? field.id : null);
   if (Sales) {
     var classish = { intent: result.intent, next_action: result.next_action, confidence: result.confidence };
     salesState = Sales.applySalesSignals(
@@ -1350,9 +1511,6 @@ function applyConversationalResult(result, message, field, fieldGroup) {
       trackEvent("diagnostic_value_demonstrated", { buyer_intent: result.buyer_intent || "curious" });
     }
     if (result.intent === "pricing_question") trackEvent("diagnostic_pricing_asked", {});
-    if (result.show_checkout || result.next_action === "show_checkout") {
-      trackEvent("diagnostic_start_recommended", { buyer_intent: "ready" });
-    }
     if (result.intent && result.intent !== "diagnostic_answer" && result.intent !== "unknown") {
       trackEvent("diagnostic_buyer_intent_detected", {
         buyer_intent: result.buyer_intent && result.buyer_intent !== "none" ? result.buyer_intent : "curious"
@@ -1360,8 +1518,26 @@ function applyConversationalResult(result, message, field, fieldGroup) {
     }
   }
 
-  applyAnonymousConversionCopy(result);
-  showAthlevoBubbles(result.reply, result.reply_2, true);
+  var salesReply = result.intent === "pricing_question" ||
+    result.intent === "how_it_works" ||
+    result.intent === "question_about_athlevo" ||
+    result.intent === "objection" ||
+    result.next_action === "recommend_athlevo" ||
+    result.next_action === "explain_offer" ||
+    result.next_action === "answer_then_continue";
+
+  if (salesReply) {
+    applyAnonymousConversionCopy(result);
+    showAthlevoBubbles(result.reply, result.reply_2, true);
+  } else {
+    var ack = acknowledgementText(result);
+    if (ack) {
+      skipCannedInterpretations = true;
+      showAthlevoBubbles(ack, null, true);
+    } else if (result.reply && !result.usedFallback) {
+      showAthlevoBubbles(result.reply, null, true);
+    }
+  }
   busy = false;
 
   var filled = field && Object.prototype.hasOwnProperty.call(currentFieldData, field.id);
@@ -1377,18 +1553,6 @@ function applyConversationalResult(result, message, field, fieldGroup) {
     return;
   }
 
-  if (result.show_checkout || result.next_action === "show_checkout") {
-    offerPaymentBridge();
-    return;
-  }
-
-  var salesReply = result.intent === "pricing_question" ||
-    result.intent === "how_it_works" ||
-    result.intent === "question_about_athlevo" ||
-    result.intent === "objection" ||
-    result.next_action === "recommend_athlevo" ||
-    result.next_action === "explain_offer" ||
-    result.next_action === "answer_then_continue";
   if (salesReply) {
     awaitingSalesFollowup = true;
     if (filled) {
@@ -1409,6 +1573,7 @@ function applyConversationalResult(result, message, field, fieldGroup) {
 }
 
 function restoreCurrentFieldInput() {
+  resetSkipCannedInterpretations();
   if (!currentQuestion) return;
   var fieldGroup = subStepFields[Math.floor(currentSubStep)] || subStepFields[0];
   var f = activeSubField || (fieldGroup && fieldGroup[0]);
@@ -1644,7 +1809,100 @@ function beginCheckoutFromChat(method) {
   });
 }
 
+function takeKnownRaceDetail(fieldId) {
+  var def = findFieldDef(fieldId);
+  if (Object.prototype.hasOwnProperty.call(currentFieldData, fieldId)) {
+    var existing = currentFieldData[fieldId];
+    if (existing === "" || (def && isValidFieldValue(def, existing))) return true;
+  }
+  if (!def) return false;
+  var preset = consumeFactForField(def);
+  if (preset !== undefined) {
+    currentFieldData[fieldId] = preset;
+    persistFactStore();
+    return true;
+  }
+  return false;
+}
+
+function nextMissingRaceDetailField(data, store) {
+  var ids = ["goal_race", "goal_race_date", "goal_time"];
+  data = data || {};
+  store = store || {};
+  for (var i = 0; i < ids.length; i++) {
+    var id = ids[i];
+    var def = findFieldDef(id);
+    if (def && isValidFieldValue(def, data[id])) continue;
+    if (def && isValidFieldValue(def, store[id])) continue;
+    return id;
+  }
+  return null;
+}
+
+function proceedRaceDetails() {
+  if (!takeKnownRaceDetail("goal_race")) {
+    askRaceName();
+    return;
+  }
+  if (!takeKnownRaceDetail("goal_race_date")) {
+    askRaceDate();
+    return;
+  }
+  if (!takeKnownRaceDetail("goal_time")) {
+    askGoalTime();
+    return;
+  }
+  busy = false;
+  submitCurrentQuestion();
+}
+
+function askRaceName() {
+  (async function () {
+    var thread2 = getThread();
+    if (thread2) {
+      await showTypingThenMessage(thread2, "Nice. What race are you doing?");
+    }
+    hideQuickReplies();
+    showComposer("e.g. Cebu Marathon");
+    setComposerMode("text");
+    currentSubStep = 0.5;
+    scrollToBottom();
+  })();
+}
+
+function askRaceDate() {
+  (async function () {
+    await showTypingThenMessage(getThread(), "And when is it?");
+    hideQuickReplies();
+    var qr = getQuickReplies();
+    if (qr) {
+      var skipBtn = createEl('<button class="chat-qr-chip chat-qr-skip" type="button">Skip</button>');
+      skipBtn.addEventListener("click", function () {
+        if (busy) return;
+        busy = true;
+        currentFieldData.goal_race_date = "";
+        if (getThread()) appendUserMsg(getThread(), "Skip");
+        hideQuickReplies();
+        scrollToBottom();
+        busy = false;
+        proceedRaceDetails();
+      });
+      qr.appendChild(skipBtn);
+      qr.style.display = "";
+    }
+    showComposer("");
+    setComposerMode("date");
+    currentSubStep = 0.6;
+    scrollToBottom();
+  })();
+}
+
 function askGoalTime() {
+  if (takeKnownRaceDetail("goal_time")) {
+    busy = false;
+    submitCurrentQuestion();
+    return;
+  }
   (async function () {
     await showTypingThenMessage(getThread(), "Any specific finish time you’re aiming for?");
     var qr = getQuickReplies();
@@ -1871,6 +2129,14 @@ var RACE_NAME_RE = /\b([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,3}\s+(?:Half\
 var MONTH_NAMES_RE = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
 var MONTH_DAY_RE = new RegExp("\\b(" + MONTH_NAMES_RE + ")\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b", "i");
 var DAY_MONTH_RE = new RegExp("\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(" + MONTH_NAMES_RE + ")(?:,?\\s+(\\d{4}))?\\b", "i");
+var LONGEST_LABEL_RE = /\b(longest|furthest|farthest)\b/i;
+var RETURNING_STATUS_RE = /\b(?:got\s+sick|been\s+sick|after\s+being\s+sick|coming\s+back(?:\s+from|\s+after)?|took\s+(?:a\s+few\s+|some\s+)?(?:weeks?|months?|days?)\s+off|stopped\s+training|returning\s+after|just\s+got\s+back|got\s+back\s+(?:to|into)\s+running|recently\s+got\s+back|back\s+into\s+running|from\s+a\s+break|after\s+a\s+break|time\s+off)\b/i;
+var RECENT_RESULT_LANG_RE = /\b(ago|last (?:race|result|time|half|marathon|10k|5k)|recent (?:race|result)|ran a|i ran|pb|personal best|finish(?:ed)? in)\b/i;
+var GOAL_TIME_HOURS_HINT_RE = /\b(under|below|sub|aiming|target|goal|hoping|finish(?:ing)?)\b/i;
+var HOUR_WORDS = {
+  one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10
+};
 
 // Word-based goal keywords are safe in any message. Numeric ones ("50k",
 // "10k", "42.2k"...) are gated separately -- a weekly-mileage sentence
@@ -1924,6 +2190,85 @@ function detectFinishClock(text) {
     return hourMin[1] + ":" + mins;
   }
   return null;
+}
+
+function parseHourToken(token) {
+  if (!token) return null;
+  var w = HOUR_WORDS[String(token).toLowerCase()];
+  if (w) return w;
+  var n = parseInt(token, 10);
+  return isFinite(n) ? n : null;
+}
+
+function extractGoalTime(text) {
+  var raw = String(text || "");
+  var sub = raw.match(GOAL_TIME_RE);
+  if (sub) return "sub-" + sub[1] + ":" + (sub[2] || "00");
+
+  var under = raw.match(/\b(?:under|below|hoping to (?:go )?under|aiming for under|go under)\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)(?:\s*hours?)?\b/i);
+  if (under) {
+    var n = parseHourToken(under[1]);
+    if (n != null && n >= 1 && n <= 12) {
+      if (/\bhours?\b/i.test(under[0]) || n <= 6) return "sub-" + n + ":00";
+    }
+  }
+
+  var hoursGoal = raw.match(/\b(?:target(?:\s+time)?(?:\s+is)?|aiming for|goal (?:is|of|time)|finish(?:ing)?(?:\s+in)?)\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s*hours?\b/i);
+  if (hoursGoal) {
+    var n2 = parseHourToken(hoursGoal[1]);
+    if (n2 != null && n2 >= 1 && n2 <= 12) return "sub-" + n2 + ":00";
+  }
+
+  var clockGoal = raw.match(/\b(?:aiming for|target(?:\s+time)?(?:\s+of|:|is)?|goal (?:is|of|time)|finish(?:ing)?\s+time(?:\s+of)?|hope to (?:run|finish)|hoping (?:to )?(?:run|finish|go))\s+(\d{1,2}:\d{2}(?::\d{2})?)\b/i);
+  if (clockGoal) return clockGoal[1];
+
+  return null;
+}
+
+function extractLabeledDistances(text, currentId) {
+  var facts = {};
+  var kmRe = /(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)\s*(?:km|kilometers?|kilometres?|kms?)\b|(\d+(?:\.\d+)?)\s*(?:km|kilometers?|kilometres?|kms?)\b/gi;
+  var match;
+  while ((match = kmRe.exec(text))) {
+    var idx = match.index;
+    var before = text.slice(Math.max(0, idx - 56), idx).toLowerCase();
+    var after = text.slice(idx, Math.min(text.length, idx + match[0].length + 28)).toLowerCase();
+    var nearby = before + " " + after;
+    var value;
+    if (match[1] && match[2]) {
+      var lo = parseFloat(match[1]);
+      var hi = parseFloat(match[2]);
+      if (!isFinite(lo) || !isFinite(hi)) continue;
+      value = Math.round(((lo + hi) / 2) * 10) / 10;
+    } else {
+      value = parseFloat(match[3]);
+      if (!isFinite(value)) continue;
+    }
+    if (LONGEST_LABEL_RE.test(before)) {
+      if (facts.recent_longest_run_km == null) facts.recent_longest_run_km = value;
+      continue;
+    }
+    if (WEEK_CONTEXT_RE.test(nearby)) {
+      if (facts.weekly_mileage == null) facts.weekly_mileage = value;
+      continue;
+    }
+    if (currentId === "weekly_mileage" && facts.weekly_mileage == null) {
+      facts.weekly_mileage = value;
+      continue;
+    }
+    if (currentId === "recent_longest_run_km" && facts.recent_longest_run_km == null) {
+      facts.recent_longest_run_km = value;
+    }
+  }
+
+  if (facts.recent_longest_run_km == null) {
+    var bareLongest = text.match(/\b(?:longest|furthest|farthest)(?:\s+run)?(?:\s+(?:i(?:['’]ve| have)\s+(?:done|run))?(?:\s+recently)?)?(?:\s+is)?\s*(?:around|about|roughly)?\s*(\d+(?:\.\d+)?)(?:\s*(?:km|kilometers?|kilometres?|kms?))?\b/i);
+    if (bareLongest) {
+      var ln = parseFloat(bareLongest[1]);
+      if (isFinite(ln)) facts.recent_longest_run_km = ln;
+    }
+  }
+  return facts;
 }
 
 /**
@@ -2031,29 +2376,28 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
   var factPortion = factPortionOfMixedMessage(text);
   var weekCtx = WEEK_CONTEXT_RE.test(text) || WEEK_CONTEXT_RE.test(factPortion);
 
-  // Weekly distance (km) — supports a simple range ("40-50km" → midpoint).
-  var trustDistance = weekCtx || currentId === "weekly_mileage";
-  if (trustDistance) {
-    var distRange = text.match(/(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)\s*(?:km|kilometers?|kilometres?|kms?)\b/i);
-    if (distRange) {
-      var lo = parseFloat(distRange[1]), hi = parseFloat(distRange[2]);
-      if (isFinite(lo) && isFinite(hi)) facts.weekly_mileage = Math.round(((lo + hi) / 2) * 10) / 10;
-    } else {
-      var distMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:km|kilometers?|kilometres?|kms?)\b/i);
-      if (distMatch) facts.weekly_mileage = parseFloat(distMatch[1]);
-      else if (currentId === "weekly_mileage" && String(factPortion).trim()) {
-        var bare = parseLooseNumber(factPortion);
-        if (bare != null) facts.weekly_mileage = bare;
-      }
-    }
+  var labeled = extractLabeledDistances(text, currentId);
+  if (labeled.weekly_mileage != null) facts.weekly_mileage = labeled.weekly_mileage;
+  if (labeled.recent_longest_run_km != null) facts.recent_longest_run_km = labeled.recent_longest_run_km;
+  if (currentId === "weekly_mileage" && facts.weekly_mileage == null && String(factPortion).trim()) {
+    var bare = parseLooseNumber(factPortion);
+    if (bare != null) facts.weekly_mileage = bare;
   }
 
-  // Weekly hours.
+  // Weekly hours — never steal "under 4 hours" goal language.
   var trustHours = weekCtx || currentId === "weekly_hours";
   if (trustHours) {
-    var hoursMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr)\b/i);
-    if (hoursMatch) facts.weekly_hours = parseFloat(hoursMatch[1]);
-    else if (currentId === "weekly_hours" && String(factPortion).trim()) {
+    var hoursRe = /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr)\b/gi;
+    var hoursMatch;
+    var foundHours = false;
+    while ((hoursMatch = hoursRe.exec(text))) {
+      var hoursBefore = text.slice(Math.max(0, hoursMatch.index - 40), hoursMatch.index);
+      if (GOAL_TIME_HOURS_HINT_RE.test(hoursBefore)) continue;
+      facts.weekly_hours = parseFloat(hoursMatch[1]);
+      foundHours = true;
+      break;
+    }
+    if (!foundHours && currentId === "weekly_hours" && String(factPortion).trim()) {
       var bareH = parseLooseNumber(factPortion);
       if (bareH != null) facts.weekly_hours = bareH;
     }
@@ -2079,20 +2423,19 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
     if (genericBare != null) facts[currentId] = genericBare;
   }
 
-  // Goal finish time ("sub 4", "sub-3:45").
-  var timeMatch = text.match(GOAL_TIME_RE);
-  if (timeMatch) {
-    facts.goal_time = "sub-" + timeMatch[1] + ":" + (timeMatch[2] || "00");
-  }
+  // Goal finish time ("sub 4", "under 4 hours", "aiming for 3:59").
+  var extractedGoalTime = extractGoalTime(text);
+  if (extractedGoalTime) facts.goal_time = extractedGoalTime;
 
   var onRecentRace = currentId === "recent_race_dist" || currentId === "recent_race_time" ||
     (currentQuestion && currentQuestion.key === "recent_performance");
   var finishClock = detectFinishClock(text);
   var recentDist = detectRecentRaceDistance(text, onRecentRace || !!finishClock);
-  if (recentDist && (onRecentRace || finishClock)) {
+  var treatAsRecentResult = onRecentRace || (finishClock && RECENT_RESULT_LANG_RE.test(text));
+  if (recentDist && treatAsRecentResult) {
     facts.recent_race_dist = recentDist;
   }
-  if (finishClock && (onRecentRace || recentDist || currentId === "recent_race_time")) {
+  if (finishClock && (onRecentRace || (recentDist && treatAsRecentResult) || currentId === "recent_race_time")) {
     facts.recent_race_time = finishClock;
   }
 
@@ -2112,6 +2455,13 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
   if (dateSubstr) {
     var parsedDate = parseNaturalDate(dateSubstr);
     if (/^\d{4}-\d{2}-\d{2}$/.test(parsedDate)) facts.goal_race_date = parsedDate;
+  }
+  // Month-only mentions ("in December") are remembered as context only —
+  // never coerced into a fake YYYY-MM-01 race day.
+
+  if (RETURNING_STATUS_RE.test(text) &&
+      !(engine && engine.known && engine.known.training_status)) {
+    facts.training_status = "returning";
   }
 
   // Goal distance keywords ("marathon", "half marathon", "5k"...). The
@@ -2181,6 +2531,39 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
   return facts;
 }
 
+function persistFactStore() {
+  if (engine && typeof engine.setPendingFacts === "function") {
+    engine.setPendingFacts(factStore);
+  }
+}
+
+function restoreFactStoreFromEngine() {
+  factStore = {};
+  if (!engine) return;
+  var pending = engine.getPendingFacts ? engine.getPendingFacts() : engine.pendingFacts;
+  if (!pending) return;
+  for (var key in pending) {
+    if (Object.prototype.hasOwnProperty.call(pending, key)) factStore[key] = pending[key];
+  }
+}
+
+function commitFullyKnownPendingQuestions() {
+  if (!engine) return;
+  for (;;) {
+    if (engine.canComplete && engine.canComplete()) return;
+    var next = engine.nextQuestion();
+    if (!next) return;
+    var autoAnswers = questionFullyKnownFromFacts(next);
+    if (!autoAnswers) return;
+    for (var fid in autoAnswers) {
+      if (Object.prototype.hasOwnProperty.call(autoAnswers, fid)) delete factStore[fid];
+    }
+    persistFactStore();
+    engine.recordAnswer(next.key, autoAnswers);
+    clearConsumedFacts(next);
+  }
+}
+
 /**
  * Store extracted facts for later questions. `skipFieldId` is the field
  * currently on screen — handled directly by the caller, never stashed.
@@ -2193,6 +2576,7 @@ function mergeFactStore(facts, skipFieldId) {
     if (engine && engine.known && engine.known[key]) continue;
     factStore[key] = facts[key];
   }
+  persistFactStore();
 }
 
 /** Pull a pending fact for one field, consuming it. Never overrides a
@@ -2203,6 +2587,7 @@ function consumeFactForField(f) {
   if (Object.prototype.hasOwnProperty.call(factStore, f.id)) {
     var v = factStore[f.id];
     delete factStore[f.id];
+    persistFactStore();
     return v;
   }
   return undefined;
@@ -2273,6 +2658,7 @@ function questionFullyKnownFromFacts(q) {
  * their answer, e.g. via Back). */
 function clearConsumedFacts(q) {
   for (var i = 0; i < q.fields.length; i++) delete factStore[q.fields[i].id];
+  persistFactStore();
 }
 
 function conversationalNumberPrompt(field) {
@@ -2314,6 +2700,7 @@ function submitCurrentQuestion() {
   }
 
   var interpretation = engine.recordAnswer(q.key, currentFieldData);
+  if (skipCannedInterpretations) interpretation = null;
   if (interpretation) interpretationCache[q.key] = interpretation;
   clearConsumedFacts(q);
 
@@ -2360,7 +2747,9 @@ async function advanceFlow(thread) {
       for (var fid in autoAnswers) {
         if (Object.prototype.hasOwnProperty.call(autoAnswers, fid)) delete factStore[fid];
       }
+      persistFactStore();
       var interp2 = engine.recordAnswer(next.key, autoAnswers);
+      if (skipCannedInterpretations) interp2 = null;
       if (interp2) interpretationCache[next.key] = interp2;
       trackEvent("diagnostic_question_answered", {
         question_key: next.key,
@@ -2860,7 +3249,38 @@ var DiagnosticUI = {
     tryMapTextToValue: tryMapTextToValue,
     absorbGroupFacts: absorbGroupFacts,
     detectRecentRaceDistance: detectRecentRaceDistance,
-    detectFinishClock: detectFinishClock
+    detectFinishClock: detectFinishClock,
+    applyExtractedFacts: applyExtractedFacts,
+    mergeAiExtractedFacts: mergeAiExtractedFacts,
+    stripModelRouting: stripModelRouting,
+    hasAckWorthyContext: hasAckWorthyContext,
+    isUsableAcknowledgement: isUsableAcknowledgement,
+    acknowledgementText: acknowledgementText,
+    shouldCallAiAcknowledgement: shouldCallAiAcknowledgement,
+    consumeFactForField: consumeFactForField,
+    questionFullyKnownFromFacts: questionFullyKnownFromFacts,
+    nextMissingRaceDetailField: nextMissingRaceDetailField,
+    persistFactStore: persistFactStore,
+    restoreFactStoreFromEngine: restoreFactStoreFromEngine,
+    commitFullyKnownPendingQuestions: commitFullyKnownPendingQuestions,
+    extractGoalTime: extractGoalTime,
+    resetSkipCannedInterpretations: resetSkipCannedInterpretations,
+    getSkipCannedInterpretations: function () { return skipCannedInterpretations; },
+    applyAcknowledgementResult: applyAcknowledgementResult,
+    restoreCurrentFieldInput: restoreCurrentFieldInput,
+    bindEngine: function (e) {
+      engine = e;
+      currentFieldData = {};
+      currentQuestion = null;
+      currentSubStep = 0;
+      activeSubField = null;
+      resetSkipCannedInterpretations();
+    },
+    getFactStore: function () { return factStore; },
+    resetFactStore: function () {
+      factStore = {};
+      if (engine && typeof engine.setPendingFacts === "function") engine.setPendingFacts({});
+    }
   }
 };
 

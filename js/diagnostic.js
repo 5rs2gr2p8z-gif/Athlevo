@@ -61,6 +61,72 @@ function isKnownValue(value) {
   return value !== null && value !== undefined && value !== "";
 }
 
+function pendingFactFieldIndex() {
+  var index = {};
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    var fields = QUESTIONS[i].fields || [];
+    for (var j = 0; j < fields.length; j++) {
+      index[fields[j].id] = fields[j];
+    }
+  }
+  return index;
+}
+
+function isValidPendingFactValue(field, value) {
+  if (!field || value == null || value === "") return false;
+  if (field.options) {
+    var allowed = field.options.map(function (opt) { return String(opt.value); });
+    if (Array.isArray(value)) {
+      if (value.length > 12) return false;
+      for (var i = 0; i < value.length; i++) {
+        if (allowed.indexOf(String(value[i])) < 0) return false;
+      }
+      return value.length > 0;
+    }
+    return allowed.indexOf(String(value)) >= 0;
+  }
+  if (field.type === "number") {
+    var n = Number(value);
+    if (!isFinite(n)) return false;
+    if (field.min != null && n < field.min) return false;
+    if (field.max != null && n > field.max) return false;
+    return true;
+  }
+  if (field.type === "date") return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+  if (typeof value === "boolean") return true;
+  if (typeof value === "string") {
+    var limit = field.maxLength || MAX_TEXT_LENGTHS[field.id] || 200;
+    return value.length > 0 && value.length <= limit;
+  }
+  if (typeof value === "number") return isFinite(value);
+  return false;
+}
+
+/* Unknown/malformed pendingFacts are dropped, never used to invalidate
+ * an otherwise-valid stored diagnostic. */
+function sanitizePendingFacts(raw) {
+  if (!isPlainObject(raw)) return {};
+  var index = pendingFactFieldIndex();
+  var out = {};
+  var count = 0;
+  for (var key in raw) {
+    if (!Object.prototype.hasOwnProperty.call(raw, key)) continue;
+    if (!index[key] || count >= 24) continue;
+    var value = raw[key];
+    if (typeof value === "string") {
+      var limit = index[key].maxLength || MAX_TEXT_LENGTHS[key] || 200;
+      value = value.slice(0, limit);
+    } else if (index[key].type === "number" && typeof value !== "number") {
+      var parsed = Number(value);
+      value = isFinite(parsed) ? parsed : value;
+    }
+    if (!isValidPendingFactValue(index[key], value)) continue;
+    out[key] = value;
+    count++;
+  }
+  return out;
+}
+
 function normalizeQuestionAnswers(question, input) {
   var output = {};
   for (var i = 0; i < question.fields.length; i++) {
@@ -863,6 +929,10 @@ function DiagnosticEngine() {
 
   // Limiter hypotheses (updated after each answer)
   this.hypotheses = [];
+
+  // Extracted field values that have not yet been recordAnswer()'d.
+  // Persisted with the diagnostic so refresh still skips known fields.
+  this.pendingFacts = {};
 }
 
 /* Find the next best question given current state. */
@@ -963,6 +1033,7 @@ DiagnosticEngine.prototype.recordAnswer = function (questionKey, fieldAnswers) {
   this.completed = false;
   this.completedAt = null;
   this.result = null;
+  this._clearPendingFactsForQuestion(question);
   this._rebuildDerivedState();
 
   // Generate coaching interpretation
@@ -1047,6 +1118,22 @@ DiagnosticEngine.prototype._stateView = function () {
     hypotheses: this.hypotheses,
     safetyFlags: this.safetyFlags
   };
+};
+
+DiagnosticEngine.prototype._clearPendingFactsForQuestion = function (question) {
+  if (!question || !this.pendingFacts) return;
+  for (var i = 0; i < question.fields.length; i++) {
+    delete this.pendingFacts[question.fields[i].id];
+  }
+};
+
+DiagnosticEngine.prototype.getPendingFacts = function () {
+  return sanitizePendingFacts(this.pendingFacts);
+};
+
+DiagnosticEngine.prototype.setPendingFacts = function (facts) {
+  this.pendingFacts = sanitizePendingFacts(facts);
+  this._save();
 };
 
 DiagnosticEngine.prototype._rebuildDerivedState = function () {
@@ -1536,7 +1623,8 @@ DiagnosticEngine.prototype._save = function () {
       history: this.history,
       currentIndex: this.currentIndex,
       completed: this.completed,
-      result: this.result
+      result: this.result,
+      pendingFacts: sanitizePendingFacts(this.pendingFacts)
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (e) {
@@ -1564,6 +1652,7 @@ DiagnosticEngine.load = function () {
     engine.startedAt = payload.startedAt || null;
     engine.completedAt = payload.completedAt || null;
     engine.result = payload.result || null;
+    engine.pendingFacts = sanitizePendingFacts(payload.pendingFacts);
     engine._rebuildDerivedState();
 
     return engine;

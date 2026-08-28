@@ -254,4 +254,155 @@ const consistencyField = {
   assert.equal(UI._internal.isDiagnosticDeferral("around 80"), false);
 }
 
+function bindFreshEngine() {
+  const Engine = ctx.AthlevoDiagnostic;
+  const engine = Engine.create();
+  engine.begin();
+  UI._internal.bindEngine(engine);
+  UI._internal.resetFactStore();
+  return { Engine, engine };
+}
+
+{
+  for (const [phrase, expected] of [
+    ["sub 4", "sub-4:00"],
+    ["sub-2", "sub-2:00"],
+    ["under 4 hours", "sub-4:00"],
+    ["under four hours", "sub-4:00"],
+    ["below 4 hours", "sub-4:00"],
+    ["aiming for under 4", "sub-4:00"],
+    ["hoping to go under 4", "sub-4:00"],
+    ["target is 4 hours", "sub-4:00"],
+    ["aiming for 3:59", "3:59"],
+    ["under 2 hours", "sub-2:00"]
+  ]) {
+    assert.equal(UI._internal.extractGoalTime(phrase), expected, phrase);
+  }
+  assert.equal(UI._internal.extractGoalTime("I start training at 5:30"), null);
+  assert.equal(UI._internal.extractGoalTime("see you at 4:00"), null);
+  const clockGoal = UI._internal.extractDiagnosticFacts(
+    "My marathon, aiming for 3:59",
+    { id: "goal_distance", type: "chips" },
+    { key: "goal" }
+  );
+  assert.equal(clockGoal.goal_time, "3:59");
+  assert.equal(clockGoal.recent_race_time, undefined);
+}
+
+{
+  const msg = "I run around 30km a week, my longest run is 15km, and I want to run a sub-2 half marathon.";
+  const facts = UI._internal.extractDiagnosticFacts(msg, { id: "goal_distance", type: "chips" }, { key: "goal" });
+  assert.equal(facts.weekly_mileage, 30);
+  assert.equal(facts.recent_longest_run_km, 15);
+  assert.equal(facts.goal_distance, "Half marathon");
+  assert.equal(facts.goal_time, "sub-2:00");
+
+  const { Engine, engine } = bindFreshEngine();
+  UI._internal.applyExtractedFacts(facts, "goal_distance");
+  const store = UI._internal.getFactStore();
+  assert.equal(store.weekly_mileage, 30);
+  assert.equal(store.recent_longest_run_km, 15);
+  assert.equal(store.goal_time, "sub-2:00");
+  assert.ok(UI._internal.questionFullyKnownFromFacts(Engine.getQuestion("weekly_volume")),
+    "weekly mileage already known must complete weekly_volume");
+  assert.equal(UI._internal.nextMissingRaceDetailField({}, store), "goal_race",
+    "goal time is known; race name/date may still be missing");
+  assert.equal(UI._internal.consumeFactForField({
+    id: "recent_longest_run_km", type: "number", min: 0, max: 200
+  }), 15);
+  assert.equal(engine.safetyFlags.injuryReported, false);
+}
+
+{
+  const msg = "My first marathon is in December. I got sick last month so I only recently got back to running. I’m around 35km per week now and hoping to go under 4 hours.";
+  const facts = UI._internal.extractDiagnosticFacts(msg, { id: "goal_distance", type: "chips" }, { key: "goal" });
+  assert.equal(facts.goal_distance, "Marathon");
+  assert.equal(facts.training_status, "returning");
+  assert.equal(facts.weekly_mileage, 35);
+  assert.equal(facts.goal_time, "sub-4:00");
+  assert.equal(facts.goal_race_date, undefined, "month-only dates must not become a fake day");
+  assert.equal(facts.injury_has, undefined);
+  assert.equal(facts.injury_area, undefined);
+  assert.equal(facts.weekly_hours, undefined, "under 4 hours is a goal, not weekly hours");
+
+  const { engine } = bindFreshEngine();
+  UI._internal.applyExtractedFacts(facts, "goal_distance");
+  assert.equal(UI._internal.getFactStore().goal_time, "sub-4:00");
+  assert.equal(UI._internal.getFactStore().training_status, "returning");
+  assert.doesNotMatch(JSON.stringify(engine.getPendingFacts()), /12-01|December 1/i);
+  assert.equal(engine.safetyFlags.injuryReported, false);
+  assert.equal(engine.safetyFlags.requiresMedicalClearance, false);
+}
+
+{
+  const msg = "Pampanga Marathon on September 13, aiming for sub 4.";
+  const facts = UI._internal.extractDiagnosticFacts(
+    msg,
+    { id: "goal_race", type: "text", maxLength: 120 },
+    { key: "race_details" }
+  );
+  assert.equal(facts.goal_race, "Pampanga Marathon");
+  assert.match(facts.goal_race_date, /^20\d\d-09-1[23]$/);
+  assert.equal(facts.goal_time, "sub-4:00");
+  assert.equal(
+    UI._internal.nextMissingRaceDetailField({}, facts),
+    null,
+    "all race-detail fields already known must not be asked again"
+  );
+  assert.match(readFileSync("./js/diagnosticUI.js", "utf8"), /function proceedRaceDetails/);
+  assert.match(readFileSync("./js/diagnosticUI.js", "utf8"), /busy = false;\s*proceedRaceDetails\(\);/);
+}
+
+{
+  const facts = UI._internal.extractDiagnosticFacts(
+    "I run 50km a week. Longest is 26km.",
+    { id: "weekly_mileage", type: "number", min: 0, max: 500 },
+    { key: "weekly_volume" }
+  );
+  assert.equal(facts.weekly_mileage, 50);
+  assert.equal(facts.recent_longest_run_km, 26);
+}
+
+{
+  const { Engine } = bindFreshEngine();
+  UI._internal.applyExtractedFacts({ weekly_mileage: 40, recent_longest_run_km: 12 }, null);
+  assert.equal(Engine.load().getPendingFacts().weekly_mileage, 40);
+  assert.equal(Engine.load().getPendingFacts().recent_longest_run_km, 12);
+
+  const restored = Engine.load();
+  UI._internal.bindEngine(restored);
+  UI._internal.restoreFactStoreFromEngine();
+  assert.equal(UI._internal.getFactStore().weekly_mileage, 40);
+  assert.equal(UI._internal.consumeFactForField({
+    id: "recent_longest_run_km", type: "number", min: 0, max: 200
+  }), 12);
+  assert.ok(UI._internal.questionFullyKnownFromFacts(Engine.getQuestion("weekly_volume")));
+}
+
+{
+  const msg = "I got sick two weeks ago but I’m okay now and running again.";
+  const facts = UI._internal.extractDiagnosticFacts(msg, { id: "goal_distance", type: "chips" }, { key: "goal" });
+  assert.equal(facts.training_status, "returning");
+  assert.equal(facts.injury_has, undefined);
+  const { engine } = bindFreshEngine();
+  UI._internal.applyExtractedFacts(facts, "goal_distance");
+  assert.equal(engine.safetyFlags.injuryReported, false);
+  assert.equal(engine.safetyFlags.requiresMedicalClearance, false);
+  assert.equal(engine.safetyFlags.injurySeverity, null);
+}
+
+{
+  const { engine } = bindFreshEngine();
+  engine.recordAnswer("experience", { experience: "1_2_years" });
+  engine.recordAnswer("training_status", { training_status: "building_base" });
+  UI._internal.bindEngine(engine);
+  const facts = UI._internal.extractDiagnosticFacts(
+    "I got sick last month so I only recently got back to running.",
+    { id: "weekly_mileage", type: "number", min: 0, max: 500 },
+    { key: "weekly_volume" }
+  );
+  assert.equal(facts.training_status, undefined, "must not overwrite a known training_status");
+  assert.equal(engine.answers.training_status, "building_base");
+}
+
 console.log("PASS — diagnostic extraction (consistency, multi-fact, finish time, refresh)");

@@ -129,6 +129,10 @@ assert.match(ui, /activeSubField = dep;/,
   "presentDependentField must record the dependent field as the one now on screen");
 assert.match(ui, /function absorbGroupFacts/,
   "compound groups must absorb extracted dependent facts before asking the next field");
+assert.match(ui, /function proceedRaceDetails/,
+  "race-details Yes path must consume known name/date/time before asking");
+assert.match(ui, /function takeKnownRaceDetail/,
+  "each race-details sub-step must skip already-known facts");
 assert.match(ui, /offerPaymentBridge/,
   "transactional intent must present the in-chat payment-method bridge");
 assert.match(ui, /QRPh · Maya · GrabPay/);

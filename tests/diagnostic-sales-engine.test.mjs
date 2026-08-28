@@ -174,8 +174,20 @@ function engine(answers) {
   assert.equal(Sales.looksLikeAQuestion("How can you help me?"), true);
   assert.equal(Sales.looksLikeNaturalDiagnosticAnswer("Pretty consistent for the last 5 months except I missed a week."), true);
   assert.equal(Sales.looksLikeNaturalDiagnosticAnswer("Marathon"), false);
+  assert.equal(Sales.looksLikeSimpleDiagnosticAnswer("30", { type: "number" }), true);
+  assert.equal(Sales.looksLikeSimpleDiagnosticAnswer("Marathon", {
+    type: "chips",
+    options: [{ label: "Marathon", value: "Marathon" }]
+  }), true);
   assert.equal(Sales.shouldUseAiFallback("Marathon", { type: "chips" }, { value: "Marathon" }), false);
   assert.equal(Sales.shouldUseAiFallback("Pretty consistent for the last 5 months except I missed a week.", { type: "chips" }, null), true);
+  assert.equal(Sales.shouldUseAiAcknowledgement("30", { type: "number" }, { extractedFactCount: 1 }), false);
+  assert.equal(Sales.shouldUseAiAcknowledgement("Marathon", {
+    type: "chips",
+    options: [{ label: "Marathon", value: "Marathon" }]
+  }, {}), false);
+  assert.equal(Sales.shouldUseAiAcknowledgement("I run 35km a week.", { type: "number" }, {}), true);
+  assert.equal(Sales.shouldUseAiAcknowledgement("yeah let’s do it", null, { salesOwned: true }), false);
 }
 
 {
@@ -215,7 +227,18 @@ function engine(answers) {
 }
 
 {
-  assert.equal(Sales.validateRouterResponse({ intent: "pricing_question", next_action: "explain_offer" }), null);
+  const empty = Sales.validateRouterResponse({
+    intent: "diagnostic_answer",
+    next_action: "continue_diagnostic"
+  });
+  assert.ok(empty);
+  assert.equal(empty.reply, "");
+  assert.equal(empty.show_checkout, false);
+}
+
+{
+  assert.equal(Sales.validateRouterResponse(null), null);
+  assert.equal(Sales.validateRouterResponse("nope"), null);
 }
 
 {

@@ -154,8 +154,49 @@ const { default: handler } = await import("../api/diagnostic-chat.js?diagnostic-
   assert.equal(res.body.answer.next_action, "clarify");
 }
 
+assert.doesNotMatch(source, /checkout\(|paymongo|whop/i);
+assert.match(source, /Do not ask the next diagnostic question/);
+assert.match(source, /show_checkout must be false/);
+assert.match(source, /never decide that someone is paid/i);
+assert.match(source, /reply may be an empty string/);
+assert.doesNotMatch(source, /if \(!reply\) return null/);
+
 {
-  assert.doesNotMatch(source, /checkout\(|paymongo|whop/i);
+  openAiCalls = 0;
+  openAiImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      output_text: JSON.stringify({
+        intent: "diagnostic_answer",
+        next_action: "continue_diagnostic",
+        reply: "",
+        reply_2: null,
+        extracted_facts: {
+          goal_distance: null, goal_race: null, goal_race_date: null, goal_time: null,
+          experience: null, training_status: "returning", weekly_mileage: 35, weekly_hours: null,
+          recent_consistency: null, recent_longest_run_km: null, recent_race_dist: null,
+          recent_race_time: null, training_days: null, training_structure: null,
+          training_structure_other: null, perceived_limiter: null, injury_has: null,
+          injury_area: null, train_time: null, schedule_constraints: null, other_training: null
+        },
+        suggested_question_key: "recent_longest_run_km",
+        show_checkout: true,
+        confidence: 0.7,
+        pain_points: [],
+        buyer_intent: "none"
+      })
+    })
+  });
+  const res = recorder();
+  await handler({
+    method: "POST",
+    headers: { origin: "https://athlevo.org", "content-type": "application/json" },
+    body: { message: "I got sick last month and I'm around 35km per week." }
+  }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.answer.reply, "");
+  assert.equal(res.body.answer.extracted_facts.weekly_mileage, 35);
+  assert.equal(res.body.answer.show_checkout, true, "API may still return the field; the client must ignore it");
 }
 
 {

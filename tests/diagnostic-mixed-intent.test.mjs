@@ -120,7 +120,7 @@ assert.doesNotMatch(uiSrc, /handleSalesDetour\([\s\S]{0,200}showValidationMsg/);
 assert.match(uiSrc, /function resumeDiagnosticAfterSales/);
 assert.match(uiSrc, /You mentioned you're around /);
 assert.doesNotMatch(
-  uiSrc.slice(uiSrc.indexOf("function handleSalesDetour"), uiSrc.indexOf("function routeViaAi")),
+  uiSrc.slice(uiSrc.indexOf("function handleSalesDetour"), uiSrc.indexOf("function routeViaAi(")),
   /offerFollowUpChips/
 );
 
