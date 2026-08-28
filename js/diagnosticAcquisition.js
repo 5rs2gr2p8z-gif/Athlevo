@@ -266,8 +266,38 @@ async function checkout(method) {
   return opened;
 }
 
-async function resolveAfterAuth(userId, supabase, attachOutcome, profile) {
+function bindAcquisitionUser(userId) {
+  var state = currentForUser(userId) || readLocal() || { events: {} };
+  if (state.userId && userId && state.userId !== userId) {
+    state = {
+      events: {},
+      importKey: state.importKey || null,
+      primaryLimiter: state.primaryLimiter || null
+    };
+  }
+  state.userId = userId;
+  if (!state.stage || state.stage === "diagnostic_completed") state.stage = "awaiting_payment";
+  return writeLocal(state);
+}
+
+function isAcquisitionGated(userId, attachOutcome, profile, fromAiSignup) {
+  if (attachOutcome && (attachOutcome.attached || attachOutcome.error)) return true;
+  var local = currentForUser(userId);
+  if (local && local.stage && local.stage !== "completed") return true;
+  try {
+    if (root.AthlevoDiagnostic && typeof root.AthlevoDiagnostic.hasPending === "function" &&
+        root.AthlevoDiagnostic.hasPending()) return true;
+  } catch (e) {}
+  // New /ai-signup accounts are paid-first. A completed-onboarding profile
+  // with no diagnostic is a legacy free account that happened to sign in
+  // on this route — do not convert them into a paywall.
+  if (fromAiSignup && !(profile && profile.onboarding_complete === true)) return true;
+  return false;
+}
+
+async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeOpts) {
   acquisitionSupabase = supabase;
+  var fromAiSignup = !!(routeOpts && routeOpts.fromAiSignup);
 
   var paid = await verifiedPaidAccess(supabase, userId);
   if (paid.paid) {
@@ -288,6 +318,7 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile) {
     return { handled: true, route: "onboarding", acquisition: true, paid: true };
   }
 
+  var gated = isAcquisitionGated(userId, attachOutcome, profile, fromAiSignup);
   var local = currentForUser(userId);
   if (attachOutcome && attachOutcome.attached) local = markImported(userId, attachOutcome);
   if (local && attachOutcome && attachOutcome.error) {
@@ -295,15 +326,25 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile) {
     return { handled: true, route: "import_unavailable" };
   }
 
-  var loaded = await root.AthlevoDiagnosticHandoff.loadAcquisition(userId, supabase);
+  var loaded = { data: null, error: null };
+  if (root.AthlevoDiagnosticHandoff &&
+      typeof root.AthlevoDiagnosticHandoff.loadAcquisition === "function") {
+    loaded = await root.AthlevoDiagnosticHandoff.loadAcquisition(userId, supabase);
+  }
   if (loaded.error) {
-    if (local) {
-      showPaywall(local, true);
+    if (local || gated) {
+      showPaywall(local || bindAcquisitionUser(userId), true);
       return { handled: true, route: "import_unavailable" };
     }
     return { handled: false, route: "existing" };
   }
-  if (!loaded.data) return { handled: false, route: "existing" };
+  if (!loaded.data) {
+    if (local || gated) {
+      showPaywall(bindAcquisitionUser(userId), false);
+      return { handled: true, route: "paywall" };
+    }
+    return { handled: false, route: "existing" };
+  }
 
   var state = local || { events: {} };
   state.userId = userId;
@@ -408,6 +449,7 @@ root.AthlevoDiagnosticAcquisition = {
   reconcileWhopPurchase: reconcileWhopPurchase,
   verifiedPaidAccess: verifiedPaidAccess,
   isDiagnosticAcquisition: isDiagnosticAcquisition,
+  isAcquisitionGated: isAcquisitionGated,
   isPostPaymentOnboarding: isPostPaymentOnboarding,
   markOnboardingStarted: markOnboardingStarted,
   completePostPaymentOnboarding: completePostPaymentOnboarding,
@@ -428,7 +470,8 @@ if (typeof module !== "undefined" && module.exports) {
     verifiedPaidAccess: verifiedPaidAccess,
     isDiagnosticAcquisition: isDiagnosticAcquisition,
     limiterLabel: limiterLabel,
-    currentForUser: currentForUser
+    currentForUser: currentForUser,
+    isAcquisitionGated: isAcquisitionGated
   };
 }
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

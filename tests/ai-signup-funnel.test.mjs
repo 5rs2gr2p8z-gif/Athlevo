@@ -64,7 +64,13 @@ section("3 — /ai-signup reuses existing Athlevo auth");
   t("handoff reuses screen-welcome, not a second auth system",
     /function openAiSignup/.test(html) && /showScreen\("screen-welcome"\)/.test(extract(html, "openAiSignup")));
   t("copy asks to create an Athlevo account",
-    /Create your Athlevo account/.test(html) && /Your diagnostic is saved/.test(html));
+    /Create your Athlevo account/.test(html));
+  t("/ai-signup does not show “Your diagnostic is saved.”",
+    !/id="wAiSignupSaved"/.test(html) &&
+    !html.slice(
+      html.indexOf('id="screen-welcome"'),
+      html.indexOf('id="screen-onboard"')
+    ).includes("Your diagnostic is saved."));
   t("Google / Email / Apple buttons remain the existing handlers",
     /continueWithGoogle\(\)/.test(html) && /id="authBtnEmail"/.test(html) && /continueWithApple\(\)/.test(html));
   t("existing users can sign in from /ai-signup",
@@ -80,6 +86,13 @@ section("4 — newly authenticated unpaid diagnostic user attaches then pays");
     route.indexOf("AthlevoDiagnosticHandoff.attach") < route.indexOf("resolveAfterAuth"));
   t("unpaid acquisition lands on the paywall",
     /showPaywall\(state, false\)/.test(acq) && /route: "paywall"/.test(acq));
+  t("unpaid /ai-signup never falls through to existing/free app when gated",
+    /if \(!loaded\.data\)[\s\S]{0,220}route: "paywall"/.test(acq) &&
+    /isAcquisitionGated/.test(acq));
+  t("routeAfterAuth snapshots /ai-signup before clearing the handoff",
+    /var fromAiSignup = false[\s\S]{0,400}clearAiSignupHandoff/.test(
+      html.slice(html.indexOf("async function routeAfterAuth"), html.indexOf("async function restoreSession"))
+    ));
   t("authenticated checkout is required for new purchases",
     /if \(!root\.athlevoSessionUserId\)/.test(acq) &&
     /AthlevoAccessGuard\.checkout/.test(acq));
@@ -225,6 +238,23 @@ section("Payment identity and PayMongo stay authenticated");
     /QRPh · Maya · GrabPay/.test(ui));
 }
 
+section("Acquisition gating vs legacy freemium");
+{
+  t("new /ai-signup accounts without onboarding are gated",
+    /fromAiSignup && !\(profile && profile\.onboarding_complete === true\)/.test(acq));
+  t("completed-onboarding profiles without diagnostic stay on existing routing",
+    /fromAiSignup && !\(profile && profile\.onboarding_complete === true\)\) return true/.test(acq) &&
+    /return \{ handled: false, route: "existing" \}/.test(acq));
+  t("paid_active still skips the paywall",
+    /if \(paid\.paid\)/.test(acq));
+  t("unpaid later login uses bound local awaiting_payment, not diagnostic UI",
+    /bindAcquisitionUser/.test(acq) &&
+    !/AthlevoDiagnosticUI\.start/.test(html.slice(
+      html.indexOf("async function routeAfterAuth"),
+      html.indexOf("async function restoreSession")
+    )));
+}
+
 section("Activation helpers are executable");
 {
   const local = new Map();
@@ -307,6 +337,116 @@ section("Activation helpers are executable");
   context.AthlevoDiagnosticAcquisition.showActivation({ primaryLimiter: "schedule" });
   t("activation shows the existing paywall screen",
     shown.includes("screen-diagnostic-paywall"));
+}
+
+section("Executable unpaid /ai-signup cannot enter the app");
+{
+  function world({ href = "https://athlevo.org/ai-signup", paid = false, acquisitionRow = null } = {}) {
+    const local = new Map();
+    const shown = [];
+    const context = {
+      console: { warn() {}, log() {} },
+      setTimeout: (fn) => { fn(); return 0; },
+      URL, Date, JSON, Math, String, Number, Boolean, Object, Array,
+      localStorage: {
+        getItem: k => local.get(k) || null,
+        setItem: (k, v) => local.set(k, String(v)),
+        removeItem: k => local.delete(k)
+      },
+      document: {
+        getElementById: () => ({
+          textContent: "",
+          classList: { add() {}, remove() {}, toggle() {} }
+        })
+      },
+      location: { href },
+      history: { replaceState() {} },
+      AthlevoPlan: {
+        _resolveEntitlement: (sub) => sub && sub.status === "active"
+          ? { accessState: "paid_active", isPerformanceTrial: false }
+          : { accessState: "free", isPerformanceTrial: false }
+      },
+      AthlevoDiagnosticHandoff: {
+        loadAcquisition: async () => ({ data: acquisitionRow, error: null }),
+        setAcquisitionStage: async () => ({ updated: true })
+      },
+      showScreen: id => shown.push(id)
+    };
+    context.window = context;
+    context.globalThis = context;
+    vm.createContext(context);
+    vm.runInContext(acq, context);
+    const subscription = paid
+      ? { plan_id: "performance", provider: "whop", status: "active" }
+      : { plan_id: "free", provider: "whop" };
+    const supabase = {
+      from() {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle: async () => ({ data: subscription, error: null }),
+                  in() {
+                    return {
+                      order() {
+                        return {
+                          limit() {
+                            return { maybeSingle: async () => ({ data: acquisitionRow, error: null }) };
+                          }
+                        };
+                      }
+                    };
+                  }
+                };
+              }
+            };
+          }
+        };
+      }
+    };
+    return { api: context.AthlevoDiagnosticAcquisition, shown, supabase };
+  }
+
+  {
+    const w = world();
+    const result = await w.api.resolveAfterAuth("u-new", w.supabase, null,
+      { onboarding_complete: false }, { fromAiSignup: true });
+    t("new unpaid /ai-signup account is held on payment, not Today",
+      result.handled === true && result.route === "paywall" &&
+      w.shown.includes("screen-diagnostic-paywall"));
+  }
+  {
+    const w = world();
+    await w.api.resolveAfterAuth("u-refresh", w.supabase, null,
+      { onboarding_complete: false }, { fromAiSignup: true });
+    const again = await w.api.resolveAfterAuth("u-refresh", w.supabase, null,
+      { onboarding_complete: false }, { fromAiSignup: false });
+    t("refresh/later login of unpaid acquisition still hits payment",
+      again.handled === true && again.route === "paywall");
+  }
+  {
+    const w = world({ paid: true });
+    const result = await w.api.resolveAfterAuth("u-paid", w.supabase, null,
+      { onboarding_complete: false }, { fromAiSignup: true });
+    t("paid_active /ai-signup user skips payment and enters short onboarding",
+      result.paid === true && result.route === "onboarding" &&
+      !w.shown.includes("screen-diagnostic-paywall"));
+  }
+  {
+    const w = world({ paid: true });
+    const result = await w.api.resolveAfterAuth("u-paid-done", w.supabase, null,
+      { onboarding_complete: true }, { fromAiSignup: true });
+    t("paid_active + onboarding complete continues to the app",
+      result.paid === true && result.route === "app" && result.handled === false);
+  }
+  {
+    const w = world();
+    const result = await w.api.resolveAfterAuth("u-legacy", w.supabase, null,
+      { onboarding_complete: true }, { fromAiSignup: true });
+    t("legacy free account with completed onboarding is not converted to a paywall",
+      result.handled === false && result.route === "existing");
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

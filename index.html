@@ -4275,7 +4275,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
     <h1 class="w-ai-title" id="wAiSignupTitle" hidden>Create your Athlevo account</h1>
-    <p class="w-continue-note" id="wAiSignupSaved">Your diagnostic is saved.</p>
     <p class="w-continue-note" id="wCheckoutContinue">Create your Athlevo account to continue.</p>
     <p class="w-continue-note" id="wWelcomeBack">Welcome back. Sign in to continue.</p>
   </div>
@@ -6685,14 +6684,12 @@ function clearAiSignupHandoff() {
 function applyAiSignupWelcomeCopy() {
   var screen = document.getElementById("screen-welcome");
   var title = document.getElementById("wAiSignupTitle");
-  var saved = document.getElementById("wAiSignupSaved");
   var checkout = document.getElementById("wCheckoutContinue");
   var back = document.getElementById("wWelcomeBack");
   var link = document.getElementById("wSignupLink");
   var emailBtn = document.getElementById("authBtnEmail");
   if (screen) screen.classList.add("is-ai-signup");
   if (title) { title.hidden = false; title.classList.add("is-visible"); }
-  if (saved) { saved.hidden = false; saved.classList.add("is-visible"); }
   if (checkout) { checkout.hidden = true; checkout.classList.remove("is-visible"); }
   if (back) { back.hidden = true; back.classList.remove("is-visible"); }
   if (link) link.innerHTML = 'Already have an account? <a onclick="openLogin(true)">Sign in</a>';
@@ -6701,12 +6698,10 @@ function applyAiSignupWelcomeCopy() {
 function resetAiSignupWelcome() {
   var screen = document.getElementById("screen-welcome");
   var title = document.getElementById("wAiSignupTitle");
-  var saved = document.getElementById("wAiSignupSaved");
   var link = document.getElementById("wSignupLink");
   var emailBtn = document.getElementById("authBtnEmail");
   if (screen) screen.classList.remove("is-ai-signup");
   if (title) { title.hidden = true; title.classList.remove("is-visible"); }
-  if (saved) { saved.hidden = true; saved.classList.remove("is-visible"); }
   if (link) link.innerHTML = 'Don\'t have an account? <a onclick="openSignup(true)">Sign up</a>';
   if (emailBtn) emailBtn.setAttribute("onclick", "openLogin(true)");
 }
@@ -9640,6 +9635,11 @@ async function routeAfterAuth(userId) {
   // Keep the "Open App" affordance in sync after interactive login/signup.
   athlevoSessionUserId = userId;
   try { window.athlevoSessionUserId = athlevoSessionUserId; } catch (e) {}
+  var fromAiSignup = false;
+  try {
+    fromAiSignup = (typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff()) ||
+      (typeof isAiSignupPath === "function" && isAiSignupPath());
+  } catch (e) { fromAiSignup = false; }
   clearAppEntryIntent();
   if (typeof clearAiSignupHandoff === "function") clearAiSignupHandoff();
   const { data: profile, error } = await supabaseClient
@@ -9652,6 +9652,14 @@ async function routeAfterAuth(userId) {
 
   if (error) {
     console.error("Profile lookup failed:", error.message);
+    if (fromAiSignup && window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
+      window.AthlevoDiagnosticAcquisition.showPaywall(
+        window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+        true
+      );
+      return;
+    }
     startOnboarding();
     return;
   }
@@ -9715,7 +9723,7 @@ async function routeAfterAuth(userId) {
       !(profile && (profile.role === "coach" || profile.role === "admin"))) {
     try {
       var acquisitionRoute = await window.AthlevoDiagnosticAcquisition.resolveAfterAuth(
-        userId, supabaseClient, diagResult, profile
+        userId, supabaseClient, diagResult, profile, { fromAiSignup: fromAiSignup }
       );
       if (!routeIsCurrent()) return;
       if (acquisitionRoute && acquisitionRoute.route === "onboarding") {
@@ -9734,23 +9742,27 @@ async function routeAfterAuth(userId) {
           if (paidDuringError && paidDuringError.paid) {
             if (!routeIsCurrent()) return;
             /* fall through to onboarding/app routing */
-          } else if (window.AthlevoDiagnosticAcquisition.current()) {
+          } else if (window.AthlevoDiagnosticAcquisition.current() || fromAiSignup) {
             window.AthlevoDiagnosticAcquisition.showPaywall(
-              window.AthlevoDiagnosticAcquisition.current(), true
+              window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+              true
             );
             return;
           }
         } catch (paidErr) {
-          if (window.AthlevoDiagnosticAcquisition.current()) {
+          if (window.AthlevoDiagnosticAcquisition.current() || fromAiSignup) {
             window.AthlevoDiagnosticAcquisition.showPaywall(
-              window.AthlevoDiagnosticAcquisition.current(), true
+              window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+              true
             );
             return;
           }
         }
-      } else if (window.AthlevoDiagnosticAcquisition && window.AthlevoDiagnosticAcquisition.current()) {
+      } else if (window.AthlevoDiagnosticAcquisition &&
+          (window.AthlevoDiagnosticAcquisition.current() || fromAiSignup)) {
         window.AthlevoDiagnosticAcquisition.showPaywall(
-          window.AthlevoDiagnosticAcquisition.current(), true
+          window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+          true
         );
         return;
       }
