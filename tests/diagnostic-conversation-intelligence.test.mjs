@@ -93,8 +93,12 @@ function hydrate(msg, field, q) {
   assert.equal(store.injury_has, undefined);
   assert.equal(engine.answers.training_status || store.training_status, "returning");
   assert.ok(engine.answers.goal_time || store.goal_time);
-  assert.notEqual(next && next.key, "race_details");
-  assert.doesNotMatch((next && next.title) || "", /finish time|goal finish/i);
+  assert.ok(next);
+  assert.notEqual(next.key, "goal");
+  assert.doesNotMatch((next.title || "") + " " + (next.sub || ""), /how long have you been running/i);
+  if (next.key === "race_details") {
+    assert.doesNotMatch(next.title || "", /finish time|goal finish/i);
+  }
   assert.equal(helpers.hasAckWorthyContext(CASE1), true);
   assert.equal(helpers.shouldCallAiAcknowledgement(CASE1, goalField, { key: "goal" }), true);
 
@@ -122,7 +126,9 @@ function hydrate(msg, field, q) {
   assert.equal(knownLongest, 15);
   assert.ok(next);
   assert.notEqual(next.key, "goal");
-  assert.notEqual(next.key, "race_details");
+  assert.notEqual(next.key, "weekly_volume");
+  assert.notEqual(next.key, "current_capacity");
+  assert.notEqual(next.key, "perceived_limiter");
 }
 
 /* CASE 3 — simple numeric answer does not call the model */

@@ -2176,7 +2176,7 @@ var MONTH_DAY_RE = new RegExp("\\b(" + MONTH_NAMES_RE + ")\\.?\\s+(\\d{1,2})(?:s
 var DAY_MONTH_RE = new RegExp("\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(" + MONTH_NAMES_RE + ")(?:,?\\s+(\\d{4}))?\\b", "i");
 var LONGEST_LABEL_RE = /\b(longest|furthest|farthest)\b/i;
 var RETURNING_STATUS_RE = /\b(?:got\s+sick|been\s+sick|after\s+being\s+sick|coming\s+back(?:\s+from|\s+after)?|took\s+(?:a\s+few\s+|some\s+)?(?:weeks?|months?|days?)\s+off|stopped\s+training|returning\s+after|just\s+got\s+back|got\s+back\s+(?:to|into)\s+running|recently\s+got\s+back|back\s+into\s+running|from\s+a\s+break|after\s+a\s+break|time\s+off)\b/i;
-var RECENT_RESULT_LANG_RE = /\b(ago|last (?:race|result|time|half|marathon|10k|5k)|recent (?:race|result)|ran a|i ran|pb|personal best|finish(?:ed)? in)\b/i;
+var RECENT_RESULT_LANG_RE = /\b(ago|last (?:race|result|time|half|marathon|10k|5k)|recent (?:race|result)|recently ran|ran a|i ran|pb|personal best|finish(?:ed)? in)\b/i;
 var GOAL_TIME_HOURS_HINT_RE = /\b(under|below|sub|aiming|target|goal|hoping|finish(?:ing)?)\b/i;
 var HOUR_WORDS = {
   one: 1, two: 2, three: 3, four: 4, five: 5,
@@ -2190,8 +2190,8 @@ var GOAL_DISTANCE_WORD_RULES = [
   [/\bhalf[\s-]?marathon\b/i, "Half marathon"],
   [/\bultra\s*-?\s*marathon\b|\bultra\b/i, "Ultra"],
   [/\bfull\s+marathon\b|\bmarathon\b/i, "Marathon"],
-  [/\bten\s*k\b/i, "10K"],
-  [/\bfive\s*k\b/i, "5K"],
+  [/\bten\s*k\b|\b10k\b/i, "10K"],
+  [/\bfive\s*k\b|\b5k\b/i, "5K"],
   [/\bgeneral\s+fitness\b|\bjust\s+fitness\b|\bno\s+(?:target\s+)?race\b/i, "General fitness"]
 ];
 var GOAL_DISTANCE_NUMERIC_RULES = [
@@ -2543,7 +2543,7 @@ function extractDiagnosticFacts(message, currentField, currentQuestion) {
   }
 
   // Training structure — only when clearly described.
-  if (currentId === "training_structure" || /\b(guess|random|no plan|not structured|unstructured|mostly easy|long run|intervals|tempo)\b/i.test(text)) {
+  if (currentId === "training_structure" || /\b(guess|random|no plan|not structured|unstructured|mostly easy|long run|intervals?|tempo)\b/i.test(text)) {
     if (/guess (what |which )?(workout|session|run)|don'?t know what (workout|to (run|do|train))/i.test(text) || /\brandom runs\b/i.test(text)) {
       facts.training_structure = "random";
     } else if (/mostly easy/i.test(text)) {
@@ -2695,6 +2695,9 @@ function questionFullyKnownFromFacts(q) {
       if (empty) return null;
     }
   }
+  if (engine && typeof engine.canAutoFillQuestion === "function" && !engine.canAutoFillQuestion(q, sim)) {
+    return null;
+  }
   return sim;
 }
 
@@ -2793,20 +2796,14 @@ async function advanceFlow(thread) {
         if (Object.prototype.hasOwnProperty.call(autoAnswers, fid)) delete factStore[fid];
       }
       persistFactStore();
-      var interp2 = engine.recordAnswer(next.key, autoAnswers);
-      if (skipCannedInterpretations) interp2 = null;
-      if (interp2) interpretationCache[next.key] = interp2;
+      engine.recordAnswer(next.key, autoAnswers);
       trackEvent("diagnostic_question_answered", {
         question_key: next.key,
         questions_completed: engine.history.length,
         autofilled: true
       });
       updateProgress();
-      if (interp2 && thread) {
-        await delay(MSG_DELAY);
-        await showTypingThenMessage(thread, interp2);
-      }
-      continue; // look for the question after this one
+      continue; // silent skip — do not dump canned interpretations
     }
 
     await delay(MSG_DELAY);

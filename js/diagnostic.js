@@ -12,6 +12,8 @@ console.log("Athlevo Diagnostic v1 loaded");
  *
  *  ARCHITECTURE:
  *  · Deterministic branching — no AI calls during the diagnostic itself.
+ *  · Completion is diagnostic sufficiency (goal, timeline, capacity, load,
+ *    context) plus an injury safety gate — not a full questionnaire walk.
  *  · All state in localStorage (survives OAuth redirects, tab interruptions).
  *  · Coaching interpretations are template-driven with clear interface for
  *    future AI-backed generation.
@@ -59,6 +61,18 @@ function isPlainObject(value) {
 
 function isKnownValue(value) {
   return value !== null && value !== undefined && value !== "";
+}
+
+function isRaceDistance(distance) {
+  return !!distance && distance !== "General fitness";
+}
+
+function isLongEnduranceDistance(distance) {
+  return distance === "Marathon" || distance === "Ultra";
+}
+
+function isEnduranceDistance(distance) {
+  return distance === "Half marathon" || distance === "Marathon" || distance === "Ultra";
 }
 
 function pendingFactFieldIndex() {
@@ -407,8 +421,11 @@ var QUESTIONS = [
     sub: "Recent consistency matters more than an old personal best.",
     provides: ["recent_consistency", "recent_longest_run_km"],
     eligible: function (state) {
-      if (!state.known.training_status) return false;
-      return state.answers.training_status === "starting" || state.known.weekly_mileage;
+      if (!state.known.goal) return false;
+      return state.answers.training_status === "starting" ||
+        !!state.known.weekly_mileage ||
+        !!state.known.training_status ||
+        !!state.known.experience;
     },
     fields: [
       {
@@ -455,7 +472,12 @@ var QUESTIONS = [
     sub: "This helps put a time goal in context. Choose none if you do not have a useful recent result.",
     provides: ["recent_race_dist", "recent_race_time"],
     eligible: function (state) {
-      return !!state.answers.goal_time && !!state.known.recent_consistency;
+      if (!state.known.goal || state.answers.goal === "fitness") return false;
+      return !!state.answers.goal_time ||
+        state.answers.goal_distance === "5K" ||
+        state.answers.goal_distance === "10K" ||
+        !!state.known.recent_consistency ||
+        !!state.known.weekly_mileage;
     },
     fields: [
       {
@@ -496,7 +518,12 @@ var QUESTIONS = [
     sub: "Be honest — consistency beats ambition.",
     provides: ["training_days"],
     eligible: function (state) {
-      return !!state.known.recent_consistency;
+      return !!state.known.goal && (
+        !!state.known.recent_consistency ||
+        !!state.known.training_status ||
+        !!state.known.weekly_mileage ||
+        !!state.known.experience
+      );
     },
     fields: [{
       id: "training_days", bare: true, type: "chips",
@@ -538,7 +565,7 @@ var QUESTIONS = [
     sub: "The mix of sessions often reveals more than total mileage alone.",
     provides: ["training_structure"],
     eligible: function (state) {
-      return !!state.known.training_days;
+      return !!(state.known.training_days || state.known.weekly_mileage || state.known.training_status);
     },
     fields: [
       {
@@ -588,7 +615,7 @@ var QUESTIONS = [
     sub: "This is often the most telling answer.",
     provides: ["perceived_limiter"],
     eligible: function (state) {
-      return !!state.known.training_structure;
+      return !!(state.known.training_structure || state.known.training_status || state.known.weekly_mileage);
     },
     fields: [{
       id: "perceived_limiter", bare: true, type: "chips", layout: "cards",
@@ -639,8 +666,15 @@ var QUESTIONS = [
     sub: "Be specific — Athlevo builds around limitations, never through them. This is not a medical assessment.",
     provides: ["injury_status"],
     eligible: function (state) {
-      // Always required once the diagnostic evidence questions are complete.
-      return !!state.known.perceived_limiter;
+      return !!state.known.goal && (
+        !!state.known.training_status ||
+        !!state.known.weekly_mileage ||
+        !!state.known.experience ||
+        !!state.known.training_structure ||
+        !!state.known.recent_consistency ||
+        !!state.known.recent_race_time ||
+        !!state.known.perceived_limiter
+      );
     },
     fields: [
       {
@@ -935,7 +969,211 @@ function DiagnosticEngine() {
   this.pendingFacts = {};
 }
 
-/* Find the next best question given current state. */
+DiagnosticEngine.prototype._goalDistance = function () {
+  return this.answers.goal_distance || null;
+};
+
+DiagnosticEngine.prototype._hasFact = function (key) {
+  return !!this.known[key] || isKnownValue(this.answers[key]);
+};
+
+DiagnosticEngine.prototype._hasRecentResult = function () {
+  var dist = this.answers.recent_race_dist;
+  return !!dist && dist !== "none" && isKnownValue(this.answers.recent_race_time);
+};
+
+DiagnosticEngine.prototype._hasGoalCategory = function () {
+  var d = this._goalDistance();
+  if (!d) return false;
+  if (d === "General fitness") return true;
+  return this.answers.goal === "race" || isRaceDistance(d);
+};
+
+DiagnosticEngine.prototype._hasTimelineCategory = function () {
+  var d = this._goalDistance();
+  if (!d || d === "General fitness") return true;
+  if (isKnownValue(this.answers.goal_race_date)) return true;
+  if (!isEnduranceDistance(d)) return true;
+  return this.history.indexOf("race_details") >= 0;
+};
+
+DiagnosticEngine.prototype._hasCapacityCategory = function () {
+  var d = this._goalDistance();
+  var hasRecent = this._hasRecentResult();
+  var hasMileage = this.answers.weekly_mileage != null && this.answers.weekly_mileage !== "";
+  var hasLongest = this.answers.recent_longest_run_km != null && this.answers.recent_longest_run_km !== "";
+  var hasExp = isKnownValue(this.answers.experience);
+  var status = this.answers.training_status;
+  var hasStatus = isKnownValue(status);
+
+  if (isLongEnduranceDistance(d)) return hasLongest || hasRecent;
+  if (hasRecent) return true;
+  if (hasMileage && hasLongest) return true;
+  if (hasMileage && hasExp && hasStatus) return true;
+  if (status === "starting" && hasExp) return true;
+  return false;
+};
+
+DiagnosticEngine.prototype._hasLoadCategory = function () {
+  if (this.answers.weekly_mileage != null && this.answers.weekly_mileage !== "") return true;
+  if (this.answers.weekly_hours != null && this.answers.weekly_hours !== "") return true;
+  if (this.answers.training_days != null && this.answers.training_days !== "") return true;
+  return false;
+};
+
+DiagnosticEngine.prototype._hasContextCategory = function () {
+  if (isKnownValue(this.answers.training_structure)) return true;
+  if (isKnownValue(this.answers.recent_consistency)) return true;
+  if (isKnownValue(this.answers.training_status)) return true;
+  var limiter = this.answers.perceived_limiter;
+  return isKnownValue(limiter) && limiter !== "unclear";
+};
+
+DiagnosticEngine.prototype._injurySafetySatisfied = function () {
+  return !!this.known.injury_status;
+};
+
+/* Enough coaching context to judge a limiter — does not include the
+ * injury safety gate. Do not reuse sales hasMinimumContext. */
+DiagnosticEngine.prototype.hasDiagnosticSufficiency = function () {
+  if (!this.begun || this.completed) return !!this.completed;
+  return this._hasGoalCategory() &&
+    this._hasTimelineCategory() &&
+    this._hasCapacityCategory() &&
+    this._hasLoadCategory() &&
+    this._hasContextCategory();
+};
+
+DiagnosticEngine.prototype._longestRunHighValue = function () {
+  return isEnduranceDistance(this._goalDistance()) && !this._hasFact("recent_longest_run_km");
+};
+
+/* Block silent auto-fill when it would skip a still-valuable field. */
+DiagnosticEngine.prototype.canAutoFillQuestion = function (q, fieldAnswers) {
+  if (!q) return false;
+  var sim = fieldAnswers || {};
+  if (q.key === "race_details") {
+    var d = this._goalDistance();
+    if (isEnduranceDistance(d) && !isKnownValue(sim.goal_race_date) && !this._hasFact("goal_race_date")) {
+      return false;
+    }
+  }
+  if (q.key === "current_capacity") {
+    if (this._longestRunHighValue() &&
+        sim.recent_longest_run_km == null && !this._hasFact("recent_longest_run_km")) {
+      return false;
+    }
+  }
+  return true;
+};
+
+DiagnosticEngine.prototype._provideStillNeeded = function (key) {
+  if (this._hasFact(key)) return false;
+  if (key === "weekly_hours" || key === "goal_race" || key === "train_time" ||
+      key === "schedule_constraints" || key === "training_structure_other") {
+    return false;
+  }
+  if (key === "recent_longest_run_km" && !this._longestRunHighValue() && this._hasCapacityCategory()) {
+    return false;
+  }
+  if (key === "goal_time" && this._hasTimelineCategory()) return false;
+  if (key === "goal_race_date" && this._hasTimelineCategory()) return false;
+  return true;
+};
+
+DiagnosticEngine.prototype._questionDiagnosticValue = function (q) {
+  if (!q || this.history.indexOf(q.key) >= 0) return 0;
+  if (q.eligible && !q.eligible(this._stateView())) return 0;
+
+  var stillNeeded = false;
+  for (var p = 0; p < q.provides.length; p++) {
+    if (this._provideStillNeeded(q.provides[p])) { stillNeeded = true; break; }
+  }
+  if (!stillNeeded) return 0;
+
+  var goalGap = !this._hasGoalCategory();
+  var timelineGap = !this._hasTimelineCategory();
+  var capacityGap = !this._hasCapacityCategory();
+  var loadGap = !this._hasLoadCategory();
+  var contextGap = !this._hasContextCategory();
+  var injuryGap = !this._injurySafetySatisfied();
+  var d = this._goalDistance();
+  var timeGoal = isKnownValue(this.answers.goal_time);
+  var sufficient = this.hasDiagnosticSufficiency();
+
+  if (sufficient) return q.key === "injury_status" && injuryGap ? 100 : 0;
+
+  var value = 0;
+  switch (q.key) {
+    case "goal":
+      value = goalGap ? 100 : 0;
+      break;
+    case "race_details":
+      if (timelineGap) value = 90;
+      else if (isLongEnduranceDistance(d) && !this._hasFact("goal_race_date")) value = 40;
+      else value = 0;
+      break;
+    case "experience":
+      if (capacityGap && !this._hasFact("experience")) value = 55;
+      else if (!this._hasFact("experience")) value = 12;
+      break;
+    case "training_status":
+      if (contextGap || (capacityGap && this._hasFact("weekly_mileage") &&
+          !this._hasFact("recent_longest_run_km") && !this._hasRecentResult())) {
+        value = 70;
+      } else if (!this._hasFact("training_status")) value = 20;
+      break;
+    case "weekly_volume":
+      if (this._hasFact("weekly_mileage") || this._hasFact("weekly_hours")) value = 0;
+      else if (loadGap || capacityGap) value = 85;
+      else value = 10;
+      break;
+    case "current_capacity":
+      if (isLongEnduranceDistance(d) && !this._hasFact("recent_longest_run_km")) value = 88;
+      else if (isEnduranceDistance(d) && !this._hasFact("recent_longest_run_km") && capacityGap) value = 75;
+      else if (capacityGap && !this._hasRecentResult()) value = 60;
+      else if (contextGap && !this._hasFact("recent_consistency") &&
+          !this._hasFact("training_status") && !this._hasFact("training_structure")) value = 50;
+      else value = 0;
+      break;
+    case "recent_performance":
+      if (this._hasRecentResult()) value = 0;
+      else if (timeGoal && capacityGap) value = 86;
+      else if ((d === "5K" || d === "10K") && capacityGap) value = 80;
+      else if (timeGoal && !isLongEnduranceDistance(d)) value = 45;
+      else value = 0;
+      break;
+    case "training_days":
+      if (!loadGap) value = 0;
+      else if (this._hasFact("weekly_mileage")) value = 8;
+      else value = 65;
+      break;
+    case "training_structure":
+      if (!contextGap) value = 0;
+      else if (this._hasFact("training_status") || this._hasFact("recent_consistency")) value = 25;
+      else value = 60;
+      break;
+    case "perceived_limiter":
+      if (!contextGap) value = 0;
+      else value = 8;
+      break;
+    case "injury_status":
+      if (!injuryGap) value = 0;
+      else value = 15;
+      break;
+    case "schedule":
+      value = 6;
+      break;
+    case "other_training":
+      value = 6;
+      break;
+    default:
+      value = 1;
+  }
+  return value;
+};
+
+/* Find the next best question given current diagnostic value. */
 DiagnosticEngine.prototype.nextQuestion = function () {
   if (this.completed) return null;
   if (this.canComplete()) return null;
@@ -943,66 +1181,37 @@ DiagnosticEngine.prototype.nextQuestion = function () {
 
   for (var i = 0; i < QUESTIONS.length; i++) {
     var q = QUESTIONS[i];
+    var infoValue = this._questionDiagnosticValue(q);
+    if (infoValue > 0) candidates.push({ question: q, infoValue: infoValue });
+  }
 
-    // Already answered?
-    if (this.history.indexOf(q.key) >= 0) continue;
-
-    // Eligible?
-    if (q.eligible && !q.eligible(this._stateView())) continue;
-
-    // Does it provide any unknown data points?
-    var providesNew = false;
-    for (var j = 0; j < q.provides.length; j++) {
-      if (!this.known[q.provides[j]]) { providesNew = true; break; }
-    }
-    if (!providesNew) continue;
-
-    // Calculate information value: sum of priorities of unknown data points
-    var infoValue = 0;
-    for (var k = 0; k < q.provides.length; k++) {
-      var dp = DATA_POINTS[q.provides[k]];
-      if (dp && !this.known[q.provides[k]]) {
-        infoValue += (5 - dp.priority); // Higher priority = higher value
+  if (candidates.length === 0) {
+    for (var j = 0; j < QUESTIONS.length; j++) {
+      var fq = QUESTIONS[j];
+      if (this.history.indexOf(fq.key) >= 0) continue;
+      if (fq.key === "perceived_limiter") continue;
+      if (fq.eligible && !fq.eligible(this._stateView())) continue;
+      var providesNew = false;
+      for (var k = 0; k < fq.provides.length; k++) {
+        if (!this.known[fq.provides[k]]) { providesNew = true; break; }
       }
+      if (providesNew) candidates.push({ question: fq, infoValue: 1 });
     }
-
-    candidates.push({ question: q, infoValue: infoValue });
   }
 
   if (candidates.length === 0) return null;
-
-  // Sort by information value (highest first)
   candidates.sort(function (a, b) { return b.infoValue - a.infoValue; });
-
   return candidates[0].question;
 };
 
-/* Check whether we have enough info for a credible diagnostic. */
+/* Enough information for a useful diagnosis, including the injury gate. */
 DiagnosticEngine.prototype.canComplete = function () {
   if (!this.begun || this.completed) return !!this.completed;
-  var required = this._requiredQuestionKeys();
-  if (required.length < 7) return false;
-  for (var i = 0; i < required.length; i++) {
-    if (this.history.indexOf(required[i]) < 0) return false;
-  }
-  return true;
+  return this.hasDiagnosticSufficiency() && this._injurySafetySatisfied();
 };
 
 DiagnosticEngine.prototype._requiredQuestionKeys = function () {
-  var keys = ["goal"];
-  if (this.answers.goal === "race") keys.push("race_details");
-  keys.push("experience", "training_status");
-  if (this.answers.training_status && this.answers.training_status !== "starting") keys.push("weekly_volume");
-  keys.push("current_capacity");
-  if (this.answers.goal_time) keys.push("recent_performance");
-  keys.push("training_days", "training_structure", "perceived_limiter", "injury_status");
-
-  var state = this._stateView();
-  var schedule = DiagnosticEngine.getQuestion("schedule");
-  var other = DiagnosticEngine.getQuestion("other_training");
-  if (schedule && (!schedule.eligible || schedule.eligible(state))) keys.push("schedule");
-  if (other && (!other.eligible || other.eligible(state))) keys.push("other_training");
-  return keys;
+  return this.missingRequiredKeys();
 };
 
 DiagnosticEngine.prototype.begin = function () {
@@ -1100,12 +1309,18 @@ DiagnosticEngine.prototype.complete = function () {
 /* Information completeness as a fraction 0–1 for the progress indicator. */
 DiagnosticEngine.prototype.completeness = function () {
   if (this.completed) return 1;
-  var required = this._requiredQuestionKeys();
-  var answered = 0;
-  for (var i = 0; i < required.length; i++) {
-    if (this.history.indexOf(required[i]) >= 0) answered++;
-  }
-  return required.length > 0 ? Math.min(answered / required.length, 0.98) : 0;
+  var parts = [
+    this._hasGoalCategory(),
+    this._hasTimelineCategory(),
+    this._hasCapacityCategory(),
+    this._hasLoadCategory(),
+    this._hasContextCategory(),
+    this._injurySafetySatisfied()
+  ];
+  var n = 0;
+  for (var i = 0; i < parts.length; i++) if (parts[i]) n++;
+  if (n >= parts.length) return 0.98;
+  return n / parts.length;
 };
 
 /* ─── Internal state view (safe for passing to question functions) ─── */
@@ -1133,7 +1348,39 @@ DiagnosticEngine.prototype.getPendingFacts = function () {
 
 DiagnosticEngine.prototype.setPendingFacts = function (facts) {
   this.pendingFacts = sanitizePendingFacts(facts);
+  this._rebuildDerivedState();
   this._save();
+};
+
+DiagnosticEngine.prototype._applyPendingFactsToDerivedState = function () {
+  var pending = sanitizePendingFacts(this.pendingFacts);
+  for (var key in pending) {
+    if (!Object.prototype.hasOwnProperty.call(pending, key)) continue;
+    if (isKnownValue(this.answers[key])) continue;
+    this.answers[key] = pending[key];
+  }
+  if (!this.known.goal && isKnownValue(this.answers.goal_distance)) {
+    this.answers.goal = this.answers.goal_distance === "General fitness" ? "fitness" : "race";
+    this.known.goal = true;
+    this.known.goal_distance = true;
+  }
+  if (!this.known.injury_status && isKnownValue(this.answers.injury_has)) {
+    this.answers.injury_status = {
+      severity: this.answers.injury_has,
+      area: this.answers.injury_area || null
+    };
+    this.known.injury_status = true;
+  }
+  if (!this.known.strength_training && Array.isArray(this.answers.other_training)) {
+    this.answers.strength_training = this.answers.other_training.indexOf("strength") >= 0 ? "yes" : "no";
+    this.known.other_training = true;
+    this.known.strength_training = true;
+  }
+  var dpKeys = Object.keys(DATA_POINTS);
+  for (var i = 0; i < dpKeys.length; i++) {
+    var dp = dpKeys[i];
+    if (!this.known[dp] && isKnownValue(this.answers[dp])) this.known[dp] = true;
+  }
 };
 
 DiagnosticEngine.prototype._rebuildDerivedState = function () {
@@ -1154,6 +1401,7 @@ DiagnosticEngine.prototype._rebuildDerivedState = function () {
       if (isKnownValue(extracted[dp])) this.known[dp] = true;
     }
   }
+  this._applyPendingFactsToDerivedState();
   this._updateSafetyFlags();
   this._updateHypotheses();
 };
@@ -1859,10 +2107,11 @@ DiagnosticEngine.prototype.currentPrimaryLimiter = function () {
  * layer to know what's genuinely still missing before it recommends
  * skipping ahead). */
 DiagnosticEngine.prototype.missingRequiredKeys = function () {
-  var required = this._requiredQuestionKeys();
+  if (this.canComplete()) return [];
   var missing = [];
-  for (var i = 0; i < required.length; i++) {
-    if (this.history.indexOf(required[i]) < 0) missing.push(required[i]);
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    var q = QUESTIONS[i];
+    if (this._questionDiagnosticValue(q) > 0) missing.push(q.key);
   }
   return missing;
 };

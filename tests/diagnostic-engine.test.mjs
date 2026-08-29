@@ -37,6 +37,7 @@ const common = {
   training_status: { training_status: "building_base" },
   weekly_volume: { weekly_mileage: "30", weekly_hours: "4" },
   current_capacity: { recent_consistency: "mostly_consistent", recent_longest_run_km: "14" },
+  recent_performance: { recent_race_dist: "none" },
   training_days: { training_days: 4 },
   training_structure: { training_structure: "easy_long" },
   perceived_limiter: { perceived_limiter: "endurance" },
@@ -57,6 +58,8 @@ const common = {
   });
   assert.deepEqual(asked.slice(0, 2), ["goal", "race_details"]);
   assert.ok(asked.includes("recent_performance"));
+  assert.ok(asked.includes("injury_status"));
+  assert.equal(asked.includes("perceived_limiter"), false);
 }
 
 {
@@ -67,10 +70,12 @@ const common = {
     ...common,
     goal: { goal_distance: "General fitness" }
   });
-  assert.deepEqual(asked.slice(0, 2), ["goal", "experience"]);
+  assert.equal(asked[0], "goal");
   assert.equal(asked.includes("race_details"), false);
   assert.equal(asked.includes("schedule"), false);
   assert.equal(asked.includes("other_training"), false);
+  assert.equal(asked.includes("perceived_limiter"), false);
+  assert.ok(asked.includes("injury_status"));
   assert.ok(asked.length < Engine.getQuestions().length, "adaptive completion should leave irrelevant questions unasked");
 }
 
@@ -91,9 +96,11 @@ const common = {
     schedule: { train_time: "varies", schedule_constraints: "shift work" }
   };
   const asked = answerUntilComplete(engine, answers);
-  assert.ok(asked.includes("schedule"), "schedule branch should run for constrained/irregular training");
+  assert.equal(asked.includes("perceived_limiter"), false, "perceived limiter is not a completion gate");
+  assert.ok(asked.includes("injury_status"), "injury safety gate still runs");
   const result = engine.complete();
   assert.equal(result.safetyFlags.injuryReported, true);
+  assert.equal(engine.canComplete(), true);
 }
 
 {
@@ -107,7 +114,8 @@ const common = {
     training_days: { training_days: 6 },
     other_training: { other_training: ["strength", "cycling"] }
   });
-  assert.ok(asked.includes("other_training"));
+  assert.equal(asked.includes("other_training"), false, "other training is not required once diagnosis-ready");
+  assert.ok(asked.includes("injury_status"));
 }
 
 {
@@ -123,7 +131,14 @@ const common = {
   assert.deepEqual(Array.from(engine.history), ["goal"]);
   assert.equal(engine.answers.goal_race, undefined);
   assert.equal(engine.answers.goal_time, undefined);
-  assert.equal(engine.nextQuestion().key, "experience");
+  const nextAfterEdit = engine.nextQuestion();
+  assert.ok(nextAfterEdit);
+  assert.notEqual(nextAfterEdit.key, "race_details");
+  assert.notEqual(nextAfterEdit.key, "perceived_limiter");
+  assert.ok(
+    ["weekly_volume", "experience", "training_status"].indexOf(nextAfterEdit.key) >= 0,
+    "edited fitness goal should ask a high-value baseline, got " + nextAfterEdit.key
+  );
 }
 
 {
@@ -141,9 +156,11 @@ const common = {
   answerUntilComplete(engine, answers);
   const result = engine.complete();
   assert.equal(result.feasibility.rating, "not_advisable");
-  assert.equal(result.recommendation.safetyOverride, true);
-  assert.equal(result.recommendation.recommended.id, "medical_clearance");
-  assert.deepEqual(Array.from(result.recommendation.alternatives), []);
+  assert.equal(result.athlevoRecommendation.safetyOverride, true);
+  assert.equal(result.athlevoRecommendation.id, "medical_clearance");
+  assert.equal(result.recommendation, undefined);
+  assert.ok(Array.isArray(result.athlevoRecommendation.capabilities));
+  assert.equal(result.athlevoRecommendation.capabilities.length, 0);
 }
 
 {
@@ -170,4 +187,78 @@ const common = {
   }
 }
 
+{
+  const { Engine } = loadEngine();
+  const engine = Engine.create();
+  engine.begin();
+  engine.recordAnswer("goal", { goal_distance: "5K" });
+  engine.setPendingFacts({
+    goal_time: "sub-20:00",
+    recent_race_dist: "5K",
+    recent_race_time: "25:00",
+    weekly_mileage: 25,
+    training_structure: "balanced_quality"
+  });
+  assert.equal(engine.hasDiagnosticSufficiency(), true);
+  assert.equal(engine.canComplete(), false, "injury safety gate still blocks completion");
+  const next = engine.nextQuestion();
+  assert.equal(next && next.key, "injury_status");
+  assert.notEqual(next && next.key, "perceived_limiter");
+  assert.notEqual(next && next.key, "current_capacity");
+  engine.recordAnswer("injury_status", { injury_has: "none", injury_area: "" });
+  assert.equal(engine.canComplete(), true);
+  assert.equal(engine.nextQuestion(), null);
+}
+
+{
+  const { Engine } = loadEngine();
+  const engine = Engine.create();
+  engine.begin();
+  engine.recordAnswer("goal", { goal_distance: "Marathon" });
+  engine.setPendingFacts({
+    weekly_mileage: 40,
+    experience: "3_5_years",
+    training_status: "building_base"
+  });
+  assert.equal(engine.hasDiagnosticSufficiency(), false, "marathon without longest run is not yet sufficient");
+  const next = engine.nextQuestion();
+  assert.ok(next);
+  assert.ok(
+    next.key === "current_capacity" || next.key === "race_details",
+    "marathon should ask longest-run or timeline before perceived limiter, got " + (next && next.key)
+  );
+  assert.notEqual(next.key, "perceived_limiter");
+}
+
+{
+  const { Engine } = loadEngine();
+  const engine = Engine.create();
+  engine.begin();
+  engine.recordAnswer("goal", { goal_distance: "5K" });
+  engine.setPendingFacts({
+    weekly_mileage: 30,
+    recent_race_dist: "5K",
+    recent_race_time: "22:00",
+    training_status: "training_block",
+    injury_has: "none"
+  });
+  assert.equal(engine.known.injury_status, true);
+  assert.equal(engine.canComplete(), true);
+  assert.equal(engine.nextQuestion(), null, "known injury is not re-asked");
+}
+
+{
+  const { Engine } = loadEngine();
+  const engine = Engine.create();
+  engine.begin();
+  engine.recordAnswer("goal", { goal_distance: "10K" });
+  assert.equal(engine.hasDiagnosticSufficiency(), false);
+  const next = engine.nextQuestion();
+  assert.ok(next);
+  assert.notEqual(next.key, "perceived_limiter");
+  assert.notEqual(next.key, "schedule");
+  assert.notEqual(next.key, "other_training");
+}
+
 console.log("PASS — diagnostic engine branching, editing, completion, feasibility, and safety override");
+
