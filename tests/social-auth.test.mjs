@@ -222,6 +222,9 @@ section("Auth parameters are stripped");
   t("isOAuthReturn recognises a real return",
     load({ search: "?code=abc" }).api.isOAuthReturn() === true);
   t("...and a normal page load", load({}).api.isOAuthReturn() === false);
+  t("...and a consumed-URL return via the early snapshot",
+    load({ sessionSeed: { athlevo_auth_oauth_return: JSON.stringify({ at: Date.now(), cancelled: false, hasError: false }) } })
+      .api.isOAuthReturn() === true);
 }
 
 /* ═══════════════════════ failure modes ══════════════════════════════ */
@@ -281,7 +284,7 @@ section("Routing — derived from the real index.html + onboarding.js");
   t("routing is defined once (routeAfterAuth), not per-provider",
     (html.match(/async function routeAfterAuth/g) || []).length === 1);
   t("email signup uses the same post-auth router as Google/login",
-    /closeAuth\(\);\s*await routeAfterAuth\(user\.id\);/.test(html) &&
+    /closeAuth\(\);[\s\S]{0,500}await routeAfterAuth\(user\.id\);/.test(html) &&
     !/closeAuth\(\);\s*startOnboarding\(\);/.test(html));
   t("social auth adds no second routing path",
     !/routeAfterAuth|showScreen/.test(src));
@@ -332,7 +335,7 @@ section("Never a blank page");
     /reportAuthProblem\(\)/.test(html) && !/setTimeout\(function \(\) \{\s*if \(typeof toast/.test(html));
   t("...and returns the athlete to the entry screen",
     /if \(!athlevoSessionUserId && typeof openAppEntry === "function"\) openAppEntry\(\)/.test(html));
-  t("the boot gate still lifts in a finally block", /\} finally \{[\s\S]{0,120}endBootGate\(\);/.test(html));
+  t("the boot gate still lifts in a finally block", /\} finally \{[\s\S]{0,400}endBootGate\(\);/.test(html));
   t("auth params are stripped so a refresh cannot replay the error",
     /clearAuthParams\(\)/.test(html));
 }

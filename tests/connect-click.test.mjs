@@ -429,8 +429,8 @@ section("A misrouted provider redirect is detectable, and never silent");
     /target\.searchParams\.set\("intervals", status\)/.test(cb));
 
   // Run the real capture block against a misrouted redirect.
-  const capture = html.slice(html.indexOf("(function captureOAuthReturn(){"),
-                             html.indexOf("})();\n</script>") + 5);
+  const start = html.indexOf("(function captureOAuthReturn(){");
+  const capture = html.slice(start, html.indexOf("})();\n</script>", start) + 5);
   const CODE = "AUTHCODE-must-never-be-logged";
   const run = (search) => {
     const trail = [];

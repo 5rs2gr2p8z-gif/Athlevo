@@ -650,6 +650,7 @@ root.AthlevoDiagnosticAcquisition = {
   exitPaywall: exitPaywall,
   switchAccount: switchAccount,
   hasPaywallExit: hasPaywallExit,
+  clearPaywallExit: clearPaywallExit,
   hasCheckoutReturn: hasCheckoutReturn,
   trackCheckoutReturnViewed: trackCheckoutReturnViewed,
   current: function () { return active || readLocal(); },

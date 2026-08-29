@@ -271,12 +271,20 @@
   }
 
   // True when this page load looks like a return from an OAuth redirect.
+  // Prefer the pre-Supabase snapshot: detectSessionInUrl strips the live URL.
   function isOAuthReturn() {
+    try {
+      if (root.__athlevoAuthOAuthReturn) return true;
+    } catch (e) {}
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("athlevo_auth_oauth_return") || "null");
+      if (saved && saved.at && (Date.now() - saved.at) < 120000) return true;
+    } catch (e2) {}
     try {
       const s = window.location.search || "";
       const h = window.location.hash || "";
       return /[?&](code|error)=/.test(s) || /access_token=|[#&]error=/.test(h);
-    } catch (e) { return false; }
+    } catch (e3) { return false; }
   }
 
   /* ═════════════════════════ UI surface ════════════════════════════ */

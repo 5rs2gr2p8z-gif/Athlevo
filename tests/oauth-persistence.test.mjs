@@ -441,8 +441,8 @@ section("13. A pending return issues exactly one finalize, before any diagnose")
     };
 
     // The REAL capture block, verbatim from the shipped file.
-    const capture = html.slice(html.indexOf("(function captureOAuthReturn(){"),
-                               html.indexOf("})();\n</script>") + 5);
+    const captureStart = html.indexOf("(function captureOAuthReturn(){");
+    const capture = html.slice(captureStart, html.indexOf("})();\n</script>", captureStart) + 5);
     new Function("window", "sessionStorage", "URLSearchParams", "console",
       capture)(win, sessionStorage, URLSearchParams, win.console);
 
@@ -495,8 +495,8 @@ section("13. A pending return issues exactly one finalize, before any diagnose")
     const carried = first.sessionStorage.getItem("athlevo_oauth_return");
     const second = browser({ search: "" });
     second.sessionStorage.setItem("athlevo_oauth_return", carried);
-    const capture = html.slice(html.indexOf("(function captureOAuthReturn(){"),
-                               html.indexOf("})();\n</script>") + 5);
+    const captureStart = html.indexOf("(function captureOAuthReturn(){");
+    const capture = html.slice(captureStart, html.indexOf("})();\n</script>", captureStart) + 5);
     new Function("window", "sessionStorage", "URLSearchParams", "console",
       capture)(second.win, second.sessionStorage, URLSearchParams, second.win.console);
     t("a reload recovers the pending return from sessionStorage",

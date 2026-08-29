@@ -125,6 +125,43 @@
   } catch (e) {}
 
   /*
+   * Google / Apple auth OAuth return. Captured before the Supabase client
+   * runs detectSessionInUrl, which strips ?code= / #access_token= from the
+   * address bar. restoreSession() reads THIS flag, not the live URL.
+   * Booleans only — never tokens, codes, or profile data.
+   */
+  try {
+    var authKey = "athlevo_auth_oauth_return";
+    var path = String(window.location.pathname || "").replace(/\/+$/, "");
+    var search = String(window.location.search || "");
+    var hash = String(window.location.hash || "");
+    var skipAuth = path === "/reset-password" || /[#&]type=recovery/.test(hash) ||
+      /[?&]intervals=/.test(search) || window.__athlevoOAuthReturn;
+    if (!skipAuth) {
+      var live = /[?&](code|error)=/.test(search) || /access_token=|[#&]error=/.test(hash);
+      if (!live) {
+        try {
+          var savedAuth = JSON.parse(sessionStorage.getItem(authKey) || "null");
+          if (savedAuth && savedAuth.at && (Date.now() - savedAuth.at) < 120000) {
+            window.__athlevoAuthOAuthReturn = savedAuth;
+          }
+        } catch (eAuth) {}
+      } else {
+        var blob = (search + "&" + hash).toLowerCase();
+        var cancelled = /[?&#]error=/.test(search + hash) &&
+          /access_denied|user_denied|cancelled|canceled/.test(blob);
+        var authSnap = {
+          at: Date.now(),
+          cancelled: !!cancelled,
+          hasError: /[?&#]error=/.test(search + hash) && !cancelled
+        };
+        window.__athlevoAuthOAuthReturn = authSnap;
+        try { sessionStorage.setItem(authKey, JSON.stringify(authSnap)); } catch (eAuth2) {}
+      }
+    }
+  } catch (eAuth3) {}
+
+  /*
    * Stage trail. Records WHICH step the return reached, never the token
    * itself — `hasCompletion` is a boolean. Readable in production via
    * sessionStorage.athlevo_oauth_trail.
@@ -7252,6 +7289,16 @@ async function doSignup(bypassEmbeddedWarning) {
       msg.textContent = 'Account created!';
       try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
       closeAuth();
+      try {
+        if (window.AthlevoDiagnosticAcquisition &&
+            typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+          window.AthlevoDiagnosticAcquisition.clearPaywallExit();
+        }
+      } catch (e) {}
+      try {
+        if (window.__athlevoRoutingFor === user.id) return;
+        window.__athlevoRoutingFor = user.id;
+      } catch (e) {}
       await routeAfterAuth(user.id);
       return;
     }
@@ -7273,6 +7320,16 @@ async function doSignup(bypassEmbeddedWarning) {
         msg.textContent = 'Account created!';
         try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
         closeAuth();
+        try {
+          if (window.AthlevoDiagnosticAcquisition &&
+              typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+            window.AthlevoDiagnosticAcquisition.clearPaywallExit();
+          }
+        } catch (e) {}
+        try {
+          if (window.__athlevoRoutingFor === user.id) return;
+          window.__athlevoRoutingFor = user.id;
+        } catch (e) {}
         await routeAfterAuth(user.id);
         return;
       }
@@ -7395,6 +7452,16 @@ async function doLogin(bypassEmbeddedWarning) {
   try {
     // Single authoritative post-auth routing flow (Today/Train/Trends/…).
     const user = authenticatedUser;
+    try {
+      if (window.AthlevoDiagnosticAcquisition &&
+          typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+        window.AthlevoDiagnosticAcquisition.clearPaywallExit();
+      }
+    } catch (e) {}
+    try {
+      if (window.__athlevoRoutingFor === user.id) return;
+      window.__athlevoRoutingFor = user.id;
+    } catch (e) {}
     await routeAfterAuth(user.id);
   } catch (e) {
     console.error('Post-login initialization failed:', e);
@@ -7422,6 +7489,7 @@ async function doLogout() {
 
   athlevoSessionUserId = null;
   try { window.athlevoSessionUserId = null; } catch (e) {}
+  try { window.__athlevoRoutingFor = null; } catch (e) {}
 
   // Clear profile photo state so the next user starts fresh
   window._athlevoProfilePhotoUrl = null;
@@ -7755,6 +7823,7 @@ async function confirmDeleteAccount() {
       AthlevoBrain.invalidateActivityCache();
     }
     athlevoSessionUserId = null;
+    try { window.__athlevoRoutingFor = null; } catch (e) {}
     try {
       sessionStorage.clear();
       localStorage.clear();
@@ -10089,21 +10158,85 @@ async function restoreSession(opts) {
    * athlete staring at the boot screen forever. On timeout we fall through
    * to the unauthenticated surface, which is recoverable (they can sign in)
    * rather than a hang, which is not.
+   *
+   * Google OAuth is a special case: detectSessionInUrl may still be exchanging
+   * the return params when this runs. A missing session here is not proof of
+   * logout. We wait a bounded extra window and do not paint signup/paywall/app
+   * until that wait finishes.
    */
+  var authOAuthReturn = null;
+  try { authOAuthReturn = window.__athlevoAuthOAuthReturn || null; } catch (e) {}
+  if (!authOAuthReturn) {
+    try {
+      var savedAuthOAuth = JSON.parse(sessionStorage.getItem("athlevo_auth_oauth_return") || "null");
+      if (savedAuthOAuth && savedAuthOAuth.at && (Date.now() - savedAuthOAuth.at) < 120000) {
+        authOAuthReturn = savedAuthOAuth;
+      }
+    } catch (e2) {}
+  }
+  if (!authOAuthReturn) {
+    try {
+      if (window.AthlevoSocialAuth && AthlevoSocialAuth.isOAuthReturn && AthlevoSocialAuth.isOAuthReturn()) {
+        authOAuthReturn = { live: true, cancelled: false, hasError: false };
+      }
+    } catch (e3) {}
+  }
+  var oauthCancelled = !!(authOAuthReturn && authOAuthReturn.cancelled);
+  var oauthFailed = !!(authOAuthReturn && authOAuthReturn.hasError);
+  var oauthPending = !!(authOAuthReturn && !oauthCancelled && !oauthFailed);
+  var nativeAuthReturn = !!opts.nativeCallback;
+  var freshAuthReturn = oauthPending || nativeAuthReturn;
+  if (oauthPending) {
+    try { window.__athlevoAuthRestoring = true; } catch (e4) {}
+  }
+
   let session = null;
   let sessionRestoreTimedOut = false;
-  try {
-    const result = await Promise.race([
-      supabaseClient.auth.getSession(),
-      new Promise(resolve =>
-        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 8000))
-    ]);
-    sessionRestoreTimedOut = !!(result && result.timedOut);
-    if (sessionRestoreTimedOut) console.warn("Session restore timed out — showing signed-out state.");
-    if (result.error) console.error("Session restore failed:", result.error);
-    session = result.data ? result.data.session : null;
-  } catch (error) {
-    console.error("Session restore threw:", error);
+
+  async function readSessionOnce(timeoutMs) {
+    try {
+      const result = await Promise.race([
+        supabaseClient.auth.getSession(),
+        new Promise(resolve =>
+          setTimeout(() => resolve({ data: { session: null }, timedOut: true }), timeoutMs))
+      ]);
+      return result || { data: { session: null } };
+    } catch (error) {
+      console.error("Session restore threw:", error);
+      return { data: { session: null }, error: error };
+    }
+  }
+
+  if (oauthPending) {
+    var oauthWaitMs = 4000;
+    try {
+      if (typeof window.__athlevoOAuthWaitMs === "number") oauthWaitMs = window.__athlevoOAuthWaitMs;
+    } catch (e5) {}
+    console.info("OAuth return — waiting for session.");
+    var oauthDeadline = Date.now() + Math.max(0, oauthWaitMs);
+    var oauthSlice = Math.min(800, Math.max(50, oauthWaitMs));
+    while (Date.now() <= oauthDeadline) {
+      var remaining = oauthDeadline - Date.now();
+      var result = await readSessionOnce(Math.min(oauthSlice, Math.max(remaining, 1)));
+      if (result.error) console.error("Session restore failed:", result.error);
+      session = result.data ? result.data.session : null;
+      if (session && session.user) break;
+      session = null;
+      if (Date.now() >= oauthDeadline) break;
+      await new Promise(function (resolve) { setTimeout(resolve, 80); });
+    }
+    if (!session) console.warn("OAuth return — no session after wait.");
+    else console.info("OAuth return — session ready.");
+  } else {
+    try {
+      const result = await readSessionOnce(8000);
+      sessionRestoreTimedOut = !!(result && result.timedOut);
+      if (sessionRestoreTimedOut) console.warn("Session restore timed out — showing signed-out state.");
+      if (result.error) console.error("Session restore failed:", result.error);
+      session = result.data ? result.data.session : null;
+    } catch (error) {
+      console.error("Session restore threw:", error);
+    }
   }
 
   /*
@@ -10137,19 +10270,27 @@ async function restoreSession(opts) {
           try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
         }
       } else if (userError || !(userData && userData.user)) {
-        console.warn("Session user no longer exists — signing out.", userError && userError.message);
-        session = null;
-        try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
-        try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
-        try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
-        try {
-          sessionStorage.removeItem("athlevo_oauth_return");
-          sessionStorage.removeItem("athlevo_oauth_trail");
-          sessionStorage.removeItem("athlevo_guided_setup");
-          sessionStorage.removeItem("athlevo_guided_wearable");
-        } catch (e) { /* private mode */ }
-        try { delete window.__athlevoOAuthReturn; } catch (e) {}
-        window.__athlevoStaleSessionCleared = true;
+        var userStatus = Number(userError && userError.status);
+        var userCode = String(userError && userError.code || "").toLowerCase();
+        var definitiveGone = userStatus === 401 || userStatus === 403 ||
+          userCode === "session_not_found" || userCode === "bad_jwt";
+        if (freshAuthReturn && !definitiveGone) {
+          console.warn("getUser() failed after OAuth return — keeping session.");
+        } else {
+          console.warn("Session user no longer exists — signing out.", userError && userError.message);
+          session = null;
+          try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
+          try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
+          try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
+          try {
+            sessionStorage.removeItem("athlevo_oauth_return");
+            sessionStorage.removeItem("athlevo_oauth_trail");
+            sessionStorage.removeItem("athlevo_guided_setup");
+            sessionStorage.removeItem("athlevo_guided_wearable");
+          } catch (e) { /* private mode */ }
+          try { delete window.__athlevoOAuthReturn; } catch (e) {}
+          window.__athlevoStaleSessionCleared = true;
+        }
       }
     } catch (e) {
       // Network failure during validation: let the session through rather
@@ -10212,7 +10353,22 @@ async function restoreSession(opts) {
         }
       }
     } catch(e){}
-    if (window.AthlevoDiagnosticAcquisition &&
+    if (freshAuthReturn &&
+        window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+      try {
+        window.AthlevoDiagnosticAcquisition.clearPaywallExit();
+        console.info("OAuth return — paywall exit flag cleared.");
+      } catch (e) {}
+    }
+    try {
+      if (window.__athlevoRoutingFor === session.user.id) {
+        return true;
+      }
+      window.__athlevoRoutingFor = session.user.id;
+    } catch (e) {}
+    if (!freshAuthReturn &&
+        window.AthlevoDiagnosticAcquisition &&
         typeof window.AthlevoDiagnosticAcquisition.hasPaywallExit === "function" &&
         window.AthlevoDiagnosticAcquisition.hasPaywallExit()) {
       var paidAfterExit = { paid: false };
@@ -10294,6 +10450,13 @@ async function restoreSession(opts) {
         }
       }, 0);
     }
+    return false;
+  }
+  if (authOAuthReturn) {
+    /* Cancelled, failed, or hydration miss after Google. Stay on auth with
+       usable controls — never diagnostic, landing, or a fake login. */
+    if (typeof openAppEntry === "function") openAppEntry();
+    else showScreen("screen-welcome");
     return false;
   }
   if (window.__athlevoStaleSessionCleared) {
@@ -10401,8 +10564,11 @@ function endBootGate() {
     document.getElementById('tabbar').style.display = 'none';
     var pendingAiRestore = false;
     try {
-      pendingAiRestore = !window.__athlevoSessionRestoreSettled &&
-        String((window.location && window.location.pathname) || "").replace(/\/+$/, "") === "/ai";
+      pendingAiRestore = !window.__athlevoSessionRestoreSettled && (
+        String((window.location && window.location.pathname) || "").replace(/\/+$/, "") === "/ai" ||
+        !!window.__athlevoAuthRestoring ||
+        !!window.__athlevoAuthOAuthReturn
+      );
     } catch (e) { pendingAiRestore = false; }
     /* /ai must not fall back to landing/welcome while restoreSession is
        still deciding diagnostic vs routeAfterAuth. Leave the device blank;
@@ -11453,7 +11619,10 @@ setTimeout(function () {
     try {
       enteredApp = await restoreSession({ returningFromStrava: !!stravaResult });
     } finally {
+      window.__athlevoAuthRestoring = false;
       window.__athlevoSessionRestoreSettled = true;
+      try { delete window.__athlevoAuthOAuthReturn; } catch (e) {}
+      try { sessionStorage.removeItem("athlevo_auth_oauth_return"); } catch (e) {}
       endBootGate();
       // Surface any OAuth failure now that a real screen is showing.
       reportAuthProblem();
@@ -11492,6 +11661,34 @@ setTimeout(function () {
     supabaseClient.auth.onAuthStateChange(function (event, session) {
       if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
       var nextUserId = session && session.user && session.user.id || null;
+      if (event === "SIGNED_IN" && nextUserId) {
+        if (window.__athlevoRecoveryIntent) return;
+        if (!window.__athlevoSessionRestoreSettled || window.__athlevoAuthRestoring) return;
+        try {
+          if (window.__athlevoRoutingFor === nextUserId) return;
+        } catch (e) {}
+        var currentRoute = window.AthlevoAuthRoute && window.AthlevoAuthRoute.current();
+        if (currentRoute && currentRoute.userId && currentRoute.userId !== nextUserId) {
+          window.AthlevoAuthRoute.invalidate();
+          if (window.AthlevoCoachMode && window.AthlevoCoachMode.clearWorkspaceOnLogout) {
+            try { window.AthlevoCoachMode.clearWorkspaceOnLogout(); } catch (e) {}
+          }
+          if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.clearOnLogout) {
+            try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
+          }
+        }
+        try { window.__athlevoRoutingFor = nextUserId; } catch (e) {}
+        athlevoSessionUserId = nextUserId;
+        try { window.athlevoSessionUserId = nextUserId; } catch (e2) {}
+        if (window.AthlevoDiagnosticAcquisition &&
+            typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+          try { window.AthlevoDiagnosticAcquisition.clearPaywallExit(); } catch (e3) {}
+        }
+        if (typeof routeAfterAuth === "function") {
+          Promise.resolve(routeAfterAuth(nextUserId)).catch(function () {});
+        }
+        return;
+      }
       var currentRoute = window.AthlevoAuthRoute && window.AthlevoAuthRoute.current();
       if (!currentRoute || !currentRoute.userId || currentRoute.userId === nextUserId) return;
 
@@ -11510,6 +11707,10 @@ setTimeout(function () {
     try {
       await restoreSession({ nativeCallback: true });
     } finally {
+      window.__athlevoAuthRestoring = false;
+      window.__athlevoSessionRestoreSettled = true;
+      try { delete window.__athlevoAuthOAuthReturn; } catch (e) {}
+      try { sessionStorage.removeItem("athlevo_auth_oauth_return"); } catch (e) {}
       endBootGate();
     }
   });

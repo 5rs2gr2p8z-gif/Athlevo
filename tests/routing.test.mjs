@@ -95,7 +95,13 @@ function makeWorld({
   pendingDiagnostic = false,
   pathname = "/",
   href = null,
-  acquisitionUserId = null
+  acquisitionUserId = null,
+  paywallExit = false,
+  paidAfterExit = false,
+  oauthReturn = false,
+  oauthCancelled = false,
+  oauthWaitMs = null,
+  sessionDelayCalls = 0
 }) {
   const state = {
     screens: {
@@ -114,6 +120,7 @@ function makeWorld({
   };
   const store = new Map();
   state.store = store;
+  if (paywallExit) store.set("athlevo_paywall_exit", "1");
   const localStore = new Map();
   if (storedAuthToken) {
     localStore.set("sb-test-auth-token", JSON.stringify({ access_token: "stored-access-token" }));
@@ -187,6 +194,12 @@ function makeWorld({
         pathname,
         href: href || ("https://athlevo.org" + pathname)
       },
+      __athlevoAuthOAuthReturn: oauthReturn ? {
+        at: Date.now(),
+        cancelled: !!oauthCancelled,
+        hasError: false
+      } : null,
+      __athlevoOAuthWaitMs: oauthWaitMs,
       AthlevoEnv: {
         consumeContinuation: () => continuation,
         readContinuation: () => continuation
@@ -198,7 +211,13 @@ function makeWorld({
           try {
             return new URL(href || ("https://athlevo.org" + pathname)).searchParams.get("checkout_return") === "1";
           } catch (e) { return false; }
-        }
+        },
+        hasPaywallExit: () => store.get("athlevo_paywall_exit") === "1",
+        clearPaywallExit: () => {
+          store.delete("athlevo_paywall_exit");
+          state.paywallExitCleared = true;
+        },
+        verifiedPaidAccess: async () => ({ paid: !!paidAfterExit })
       },
       AthlevoDiagnosticUI: {
         start() {
@@ -214,7 +233,12 @@ function makeWorld({
         state.screens["screen-welcome"].active = true;
       }
     },
-    console: { log: (...a) => state.log.push(String(a[0])), warn: (...a) => state.log.push(String(a[0])), error: (...a) => state.log.push(String(a[0])) },
+    console: {
+      log: (...a) => state.log.push(String(a[0])),
+      warn: (...a) => state.log.push(String(a[0])),
+      error: (...a) => state.log.push(String(a[0])),
+      info: (...a) => state.log.push(String(a[0]))
+    },
     setTimeout,
     isStandaloneMode: () => standalone,
     sessionStorage: {
@@ -230,9 +254,18 @@ function makeWorld({
       removeItem: k => localStore.delete(k)
     },
     supabaseClient: { auth: {
-      getSession: async () => timedOut
-        ? { data: { session: null }, timedOut: true, error: null }
-        : { data: { session }, error: null },
+      getSession: async () => {
+        state.sessionCalls = (state.sessionCalls || 0) + 1;
+        if (timedOut) return { data: { session: null }, timedOut: true, error: null };
+        if (sessionDelayCalls && state.sessionCalls <= sessionDelayCalls) {
+          return { data: { session: null }, error: null };
+        }
+        return { data: { session }, error: null };
+      },
+      getUser: async () => ({
+        data: { user: session && session.user ? session.user : null },
+        error: null
+      }),
       signOut: async () => { state.signedOut = true; return { error: null }; }
     } },
     athlevoSessionUserId: null,
@@ -672,6 +705,88 @@ section("/ai acquisition routing");
   await api.restoreSession({}); api.endBootGate();
   t("authenticated /ai-signup continues via routeAfterAuth, not a second sales flow",
     state.routed === "u1" && state.diagnosticStarted !== true);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, paywallExit: true, paidAfterExit: false
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("unpaid paywall-exit refresh stays on auth, not the app",
+    state.routed === null && state.screens["screen-welcome"].active === true &&
+    state.store.get("athlevo_paywall_exit") === "1");
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, paywallExit: true, paidAfterExit: true
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("paid paywall-exit refresh still enters via routeAfterAuth",
+    state.routed === "u1");
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION,
+    standalone: false,
+    paywallExit: true,
+    paidAfterExit: false,
+    oauthReturn: true,
+    oauthWaitMs: 80
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("fresh Google OAuth ignores leftover paywall-exit and routes once",
+    state.routed === "u1" && state.paywallExitCleared === true);
+  t("...and does not bounce back to signup",
+    state.screens["screen-welcome"].active !== true);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION,
+    standalone: false,
+    pathname: "/ai-signup",
+    oauthReturn: true,
+    oauthWaitMs: 400,
+    sessionDelayCalls: 2
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("OAuth return waits for hydration instead of painting /ai-signup",
+    state.routed === "u1" && state.aiSignupShown !== true);
+}
+{
+  const started = Date.now();
+  const { api, state } = makeWorld({
+    session: null,
+    standalone: false,
+    pathname: "/ai-signup",
+    oauthReturn: true,
+    oauthWaitMs: 60
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("failed OAuth hydration on /ai-signup returns to auth, not the app",
+    state.routed === null && state.screens["screen-welcome"].active === true &&
+    Date.now() - started < 1500);
+}
+{
+  const { api, state } = makeWorld({
+    session: null,
+    standalone: false,
+    pathname: "/",
+    oauthReturn: true,
+    oauthCancelled: true
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("cancelled Google OAuth returns to auth with usable controls",
+    state.routed === null && state.screens["screen-welcome"].active === true &&
+    state.diagnosticStarted !== true &&
+    state.screens["screen-landing"].active !== true);
+}
+{
+  const src = extract("restoreSession");
+  t("OAuth return uses a bounded AUTH RESTORING wait before treating the user as logged out",
+    /OAuth return — waiting for session/.test(src) &&
+    /__athlevoAuthRestoring/.test(src) &&
+    /__athlevoOAuthWaitMs/.test(src));
+  t("fresh OAuth/native login clears athlevo_paywall_exit before post-auth routing",
+    /clearPaywallExit/.test(src) && /freshAuthReturn/.test(src));
 }
 {
   const acq = readFileSync("./js/diagnosticAcquisition.js", "utf8");
