@@ -51,8 +51,8 @@ async function loadWeeklyPlan() {
     loadWeeklyLoop(session.access_token);
 
     // Proactive coaching loop: any time the plan reloads (including right
-    // after a workout is saved, modified, or auto-imported), refresh the
-    // Today "Latest Workout Analysis" card in place — no page reload.
+    // after a workout is saved, modified, or auto-imported), re-run
+    // recognition so Train stays in sync. Today no longer shows a preview.
     if (typeof window.renderLatestWorkoutAnalysis === "function") {
         window.renderLatestWorkoutAnalysis();
     }
@@ -2319,8 +2319,8 @@ async function submitFeedback() {
         }
 
         // Refetch the authoritative week (rerenders the Train card from the
-        // saved record) and refresh the Latest Workout Analysis, which
-        // depends on this record. loadWeeklyPlan() triggers both.
+        // saved record) and re-run workout recognition, which depends on
+        // this record. loadWeeklyPlan() triggers both.
         await loadWeeklyPlan();
 
     } catch (error) {

@@ -3,8 +3,9 @@
  *  Athlevo — Your Development: data collection + rendering
  * ══════════════════════════════════════════════════════════════════════
  *
- *  The DATA + RENDER layers for the "Your Development" Today card (pure
+ *  The DATA + RENDER layers for athlete development (pure
  *  progression/achievement/timeline logic lives in js/developmentEngine.js).
+ *  Today no longer mounts #developmentCard; keep collect/render for reuse.
  *
  *  Data-driven and reuse-only:
  *    · current component scores → the Athlevo Score card's live components

@@ -35,7 +35,7 @@ test("human thread is bottom-anchored and has reduced-motion-safe loading skelet
 test("You does not receive a duplicate assigned-coach card", !/assigned_coach_viewed/.test(athleteMode) && !/section\.innerHTML[\s\S]*am-assigned-coach/.test(athleteMode));
 
 console.log("\n──── Managed Today suppression ────");
-test("managed mode hides AI Daily Brief, Coach note, and Coach Memory", /setManagedAdviceHidden\(true\)/.test(athleteMode) && /dailyBriefFull/.test(dailyClient) && /todayCoachNoteSection/.test(index) && /coachMemorySection/.test(index));
+test("managed mode hides AI Daily Brief and Coach Memory", /setManagedAdviceHidden\(true\)/.test(athleteMode) && /dailyBriefFull/.test(dailyClient) && /coachMemorySection/.test(index) && !/id="todayCoachNoteSection"/.test(index));
 test("self-guided mode restores Coach Memory and AI advice surfaces", /_mode === "self_guided"[\s\S]*setManagedAdviceHidden\(false\)/.test(athleteMode));
 test("factual Today workout and direction markup remains present", /id="dailyBriefCard"/.test(index) && /id="todayReadinessSignal"/.test(index));
 test("client never requests a managed Daily Brief", /AthlevoAthleteMode\.isManaged\(\)/.test(dailyClient));

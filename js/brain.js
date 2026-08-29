@@ -1456,8 +1456,8 @@ async function refreshAthleteUI() {
       }).catch(function () {});
     }
 
-    // Today + the latest-workout card need recent training only; the
-    // heavier surfaces load their own history window.
+    // Today needs recent training only; the heavier surfaces load
+    // their own history window.
     const rawActivities = await loadAthleteActivities("recent");
 
     // Athlete-confirmed corrections take priority over raw Strava on
@@ -1482,9 +1482,9 @@ async function refreshAthleteUI() {
       window.renderReadinessCard();
     }
 
-    // Proactive coaching loop: recognise + analyse the latest performed
-    // workout and refresh the Today card in place. Fire-and-forget so a
-    // slow analysis never blocks the rest of the dashboard.
+    // Proactive coaching loop: auto-recognise today's matched workout.
+    // Today no longer mounts a preview card; the engine still runs so
+    // Train / activity detail stay current. Fire-and-forget.
     if (typeof window.renderLatestWorkoutAnalysis === "function") {
       window.renderLatestWorkoutAnalysis();
     }
@@ -1523,11 +1523,8 @@ async function refreshAthleteUI() {
     if (typeof window.renderTodayPassiveStatus === "function") {
       window.renderTodayPassiveStatus(profile);
     }
-    // Athlete Identity & Progression: "Your Development" — reuses the score
-    // components + history to show how the athlete is evolving.
-    if (typeof window.renderDevelopment === "function") {
-      window.renderDevelopment(profile);
-    }
+    // Athlete Identity & Progression stays available to other surfaces.
+    // Today no longer mounts #developmentCard, so skip the Today render.
     if (typeof window.refreshTrends === "function") {
       window.refreshTrends(activities, profile);
     }
@@ -2269,7 +2266,7 @@ async function backfillStravaLaps(options) {
  * ROW COUNT (which has no relationship to what a calculation needs) and bound
  * by TIME instead, then page through every row inside that window:
  *
- *   recent  — 120 days. Today, readiness, the latest-workout card. Short
+ *   recent  — 120 days. Today, readiness, workout recognition. Short
  *             surfaces stay cheap; they never download years of history.
  *   history — 400 days. Trends, Athlevo Score, Coach context, development.
  *             Comfortably covers a 12-month view plus the previous season

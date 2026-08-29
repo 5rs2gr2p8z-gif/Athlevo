@@ -816,30 +816,6 @@ body{
 .rd-secondary:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .rd-settings-link{width:calc(100% - 44px);border:0;text-align:left;font-family:var(--sans)}
 
-/* ---------- latest workout analysis card ---------- */
-.lwa{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5);overflow:hidden}
-.lwa-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.lwa-eyebrow{font-size:var(--fs-micro);font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
-.lwa-status{font-size:var(--fs-micro);font-weight:750;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:var(--r-pill)}
-.lwa-status.excellent{background:var(--good-soft);color:var(--good)}
-.lwa-status.harder{background:var(--warn-soft);color:var(--warn)}
-.lwa-status.different,.lwa-status.missed{background:var(--red-soft);color:var(--red)}
-.lwa-status.unplanned{background:var(--card);color:var(--ink2)}
-.lwa-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.01em;margin:10px 0 2px;line-height:var(--lh-heading)}
-.lwa-metrics{display:flex;flex-wrap:wrap;gap:14px 20px;margin:12px 0 2px}
-.lwa-metric{display:flex;flex-direction:column;gap:2px}
-.lwa-metric b{font-size:var(--fs-h3);font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--text)}
-.lwa-metric small{font-size:var(--fs-micro);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
-.lwa-section{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
-.lwa-section-label{font-size:var(--fs-micro);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
-.lwa-section p{font-size:var(--fs-body);line-height:1.6;color:var(--text);margin:0}
-.lwa-recovery{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.lwa-recovery li{position:relative;padding-left:18px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
-.lwa-recovery li::before{content:"";position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--red)}
-.lwa-empty{margin:0 22px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
-.lwa-empty .lwa-eyebrow{display:block;margin-bottom:6px}
-.lwa-empty p{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0}
-
 /* decision card — the signature */
 .decision{margin:0 22px;background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:22px;overflow:hidden}
 .today-latest-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -889,17 +865,6 @@ body{
 .spark{margin-top:10px;display:flex;align-items:flex-end;gap:3px;height:26px}
 .spark i{flex:1;background:var(--line);border-radius:2px}
 .spark i.hi{background:var(--ink)}
-
-/* race + note */
-.race{margin:0 22px;display:flex;align-items:center;justify-content:space-between;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
-.race b{font-size:var(--fs-body);font-weight:650;display:block}
-.race small{font-size:var(--fs-caption);color:var(--ink2)}
-.race .days{text-align:right}
-.race .days b{font-size:var(--fs-h1);font-weight:700;letter-spacing:-.03em}
-.race .days small{letter-spacing:.08em;text-transform:uppercase;font-weight:600;font-size:var(--fs-micro);color:var(--ink3)}
-.coachnote{margin:14px 22px 0;background:var(--red-soft);border-radius:var(--r-lg);padding:18px 20px}
-.coachnote .eyebrow{color:var(--red);margin-bottom:6px}
-.coachnote p{font-size:var(--fs-body);line-height:var(--lh-body)}
 
 /* ---------- chat ---------- */
 .chat-head{padding:20px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:var(--s-3);flex-shrink:0}
@@ -3036,47 +3001,6 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 .cib-arrow{color:var(--red);font-weight:800;font-size:var(--fs-caption)}
 .cib-next{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
 
-/* ---------- Your Development (Athlete Identity & Progression) ---------- */
-.dev{margin:12px 22px 4px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5)}
-.dev-head{margin-bottom:14px}
-.dev-eyebrow{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
-.dev-sub{display:block;font-size:var(--fs-caption);color:var(--ink3);margin-top:2px}
-.dev-empty{font-size:var(--fs-body-sm);color:var(--ink3);line-height:var(--lh-body)}
-.dev-progs{display:flex;flex-direction:column;gap:var(--s-4)}
-.dev-prog-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.dev-prog-label{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
-.dev-prog-pct{font-size:var(--fs-body-sm);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
-.dev-bar{height:7px;background:var(--line);border-radius:var(--r-pill);overflow:hidden;margin:7px 0}
-.dev-bar i{display:block;height:100%;border-radius:var(--r-pill)}
-.dev-bar i.up{background:var(--good)}
-.dev-bar i.flat{background:var(--warn)}
-.dev-bar i.down{background:var(--red)}
-.dev-bar i.build{background:var(--ink3)}
-.dev-prog-meta{display:flex;align-items:baseline;gap:var(--s-2)}
-.dev-trend{font-size:var(--fs-micro);font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:var(--r-pill);white-space:nowrap}
-.dev-trend.up{background:var(--good-soft);color:var(--good)}
-.dev-trend.flat{background:var(--warn-soft);color:var(--warn)}
-.dev-trend.down{background:var(--red-soft);color:var(--red)}
-.dev-trend.build{background:var(--card);color:var(--ink3)}
-.dev-reason{font-size:var(--fs-caption);color:var(--ink2);line-height:var(--lh-body)}
-.dev-milestone{font-size:var(--fs-caption);color:var(--ink2);margin:6px 0 0;line-height:var(--lh-body)}
-.dev-k{font-size:var(--fs-micro);font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-right:5px}
-.dev-section{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
-.dev-section-h{display:block;font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px}
-.dev-ach{display:flex;flex-direction:column;gap:1px;padding:7px 0;border-top:1px solid var(--line)}
-.dev-ach:first-of-type{border-top:none}
-.dev-ach-title{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
-.dev-ach-reason{font-size:var(--fs-caption);color:var(--ink3)}
-.dev-tl{display:flex;flex-direction:column}
-.dev-tl-row{display:flex;gap:var(--s-3);align-items:flex-start;position:relative;padding:5px 0}
-.dev-tl-row::before{content:"";position:absolute;left:4px;top:14px;bottom:-5px;width:1.5px;background:var(--line)}
-.dev-tl-row:last-child::before{display:none}
-.dev-tl-dot{width:9px;height:9px;border-radius:50%;background:var(--ink3);margin-top:4px;flex-shrink:0;z-index:1}
-.dev-tl-row.now .dev-tl-dot{background:var(--red)}
-.dev-tl-body{display:flex;flex-direction:column}
-.dev-tl-label{font-size:var(--fs-body-sm);font-weight:650;color:var(--text)}
-.dev-tl-date{font-size:var(--fs-micro);color:var(--ink3)}
-
 /* ---------- automatic race detection prompt ---------- */
 .rdc{margin:8px 22px 4px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
 .rdc-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
@@ -5017,32 +4941,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     .tpc-conf,
     .cib-conf{display:none!important}
 
-    /* ═══════════ COMPACT LATEST WORKOUT ANALYSIS ═══════════
-       The default card shows: eyebrow, result badge, title, distance /
-       duration / pace / avg-HR metrics and one short coach takeaway.
-       Full coach insight, recovery focus and training impact live behind
-       "View full analysis" — a native <details> so the disclosure works
-       without JS and inherits the app's reduced-motion behaviour. */
-    .lwa-full{margin-top:14px}
-    .lwa-full > summary{list-style:none;cursor:pointer;
-      display:inline-flex;align-items:center;gap:6px;
-      background:none;border:none;padding:8px 4px;
-      font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:600;color:var(--ink2);
-      transition:color var(--dur-fast) var(--ease-standard)}
-    .lwa-full > summary::-webkit-details-marker{display:none}
-    @media (hover:hover) and (pointer:fine){
-      .lwa-full > summary:hover{color:var(--text)}
-    }
-    .lwa-full > summary::after{content:"";width:12px;height:12px;
-      border-right:2px solid currentColor;border-bottom:2px solid currentColor;
-      transform:rotate(45deg);margin-left:2px;margin-bottom:3px;
-      transition:transform var(--dur-base) var(--ease-standard)}
-    .lwa-full[open] > summary::after{transform:rotate(-135deg);margin-bottom:-1px}
-    .lwa-full .lwa-section:first-of-type{margin-top:6px}
-    .lwa-takeaway{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
-      font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
-    .lwa-takeaway-label{display:block;font-size:var(--fs-micro);font-weight:700;
-      letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
   </style>
   <div class="today-plan-loading" id="todayPlanLoadingState" aria-label="Loading today’s training">
     <span class="skel today-skeleton-line today-skeleton-line--eyebrow"></span>
@@ -5246,67 +5144,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div id="syncBanner" class="ss-banner-wrap"></div>
   <div id="raceDetectCard"></div>
 
-  <!-- ═══════════ TRAINING PACES (kept below the visual summary) ═══════════ -->
+  <!-- ═══════════ TRAINING PACES — final Today content ═══════════ -->
   <div id="trainingPacesCard"></div>
-
-  <!-- Coach Insights card was removed from Today: the full briefing
-       already contains the coach's analysis and recommendation, and
-       the standalone card was a duplicate surface. The underlying
-       renderer (window.renderCoachInsights in coachBrainData.js)
-       and its data collection are untouched — with no #coachInsightsCard
-       mount present it early-returns. -->
-
-  <!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching on recent work) ===== -->
-  <div id="latestWorkoutAnalysis"></div>
-
-<!-- The standalone Daily Readiness card and its manual "Start readiness
-     check" CTA were removed from Today. The renderer (renderReadinessCard
-     in js/readiness.js) is unchanged — with no #readinessEmptyState mount
-     present it early-returns. Any readiness records already stored are
-     still read passively by CoachBrainData.collectSignals() and shown as
-     Athlevo Direction. -->
-
-<!-- ===== YOUR DEVELOPMENT (Athlete Identity & Progression) ===== -->
-<div id="developmentCard"></div>
-
-<div class="spacer-md"></div>
-
-<!-- The dark "Latest activity" card was removed from Today: the
-     Latest Workout Analysis section directly above already covers the
-     most useful information about the athlete's most recent workout,
-     so this dark card was a duplicate. Underlying activity data and
-     sync functionality are untouched — brain.js still populates any
-     Latest Activity fields elsewhere (setText no-ops when the element
-     is absent), and js/syncStatus.js still owns the sync banner and
-     card. -->
-
-  <!-- Note: the sparkline stat grid that used to live here has been folded
-       into the "At a glance" strip above the Athlevo Score, so no metric
-       is duplicated. The strip uses the exact same #todaySevenDay* IDs
-       that js/brain.js writes into. -->
-
-  <div class="race">
-  <div>
-    <b id="todayRaceName">No target race set</b>
-    <small id="todayRaceContext">
-      Add a race and date in your athlete profile.
-    </small>
-  </div>
-
-  <div class="days">
-    <b class="num" id="todayRaceDays">—</b>
-    <small>Days</small>
-  </div>
-</div>
-
- <div class="coachnote" id="todayCoachNoteSection">
-  <span class="eyebrow">Coach’s note</span>
-
-  <p id="todayCoachNote">
-    No personal coach note has been recorded yet.
-  </p>
-</div>
-  <div class="spacer-lg"></div>
 </section>
 
 <!-- ══════════════ COACH AI ══════════════ -->
@@ -9670,78 +9509,6 @@ async function renderTodayPassiveStatus(profile){
   }
 }
 
-/* ─────────────────────── COMPACT LATEST WORKOUT ANALYSIS ─────────────
-   The workoutAnalysis renderer replaces innerHTML on every refresh.
-   After each refresh we (a) pull the first sentence of "Coach insight"
-   into a compact takeaway line, and (b) wrap the long sections in a
-   <details class="lwa-full"> so they only appear on request. Pure
-   presentation — the source content is unchanged. */
-function compressLatestWorkoutAnalysis(){
-  var root = document.querySelector("#latestWorkoutAnalysis .lwa");
-  if (!root || root.dataset.lwaCompressed === "true") return;
-
-  var sections = Array.prototype.slice.call(root.querySelectorAll(".lwa-section"));
-  if (!sections.length) return;
-
-  var insightSection = null;
-  sections.forEach(function(sec){
-    var lbl = sec.querySelector(".lwa-section-label");
-    if (lbl && /coach insight/i.test((lbl.textContent || "").trim())){
-      insightSection = sec;
-    }
-  });
-
-  var takeaway = "";
-  if (insightSection){
-    var p = insightSection.querySelector("p");
-    takeaway = firstSentence(p && p.textContent);
-  }
-
-  if (takeaway){
-    var takeawayEl = document.createElement("div");
-    takeawayEl.className = "lwa-takeaway";
-    takeawayEl.innerHTML =
-      '<span class="lwa-takeaway-label">Coach takeaway</span>' +
-      '<span class="lwa-takeaway-text"></span>';
-    takeawayEl.querySelector(".lwa-takeaway-text").textContent = takeaway;
-    var metrics = root.querySelector(".lwa-metrics");
-    if (metrics && metrics.parentNode === root){
-      metrics.parentNode.insertBefore(takeawayEl, metrics.nextSibling);
-    } else {
-      root.insertBefore(takeawayEl, sections[0]);
-    }
-  }
-
-  var details = document.createElement("details");
-  details.className = "lwa-full";
-  var summary = document.createElement("summary");
-  summary.textContent = "View full analysis";
-  details.appendChild(summary);
-  var first = sections[0];
-  first.parentNode.insertBefore(details, first);
-  sections.forEach(function(sec){ details.appendChild(sec); });
-
-  root.dataset.lwaCompressed = "true";
-}
-
-/* Observe the latest-workout mount for renderer refreshes so the
-   compression re-applies whenever the card re-renders. */
-(function initLatestWorkoutObserver(){
-  function attach(){
-    var mount = document.getElementById("latestWorkoutAnalysis");
-    if (!mount || mount.dataset.lwaWatched === "true") return;
-    mount.dataset.lwaWatched = "true";
-    try {
-      new MutationObserver(function(){ compressLatestWorkoutAnalysis(); })
-        .observe(mount, { childList: true, subtree: false });
-    } catch (e) {}
-    compressLatestWorkoutAnalysis();
-  }
-  if (document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", attach);
-  } else { attach(); }
-})();
-
 /* Kick both Today helpers on initial load and whenever brain.js signals
    a Today refresh (see js/brain.js refreshAthleteUI which calls these
    two names at the end, when they exist). */
@@ -11011,7 +10778,7 @@ setTimeout(function () {
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
 <script src="js/loadingContinuity.js?v=81"></script>
-<script src="js/brain.js?v=81"></script>
+<script src="js/brain.js?v=82"></script>
 <script src="js/weather.js?v=78"></script>
 <script src="js/syncStatus.js?v=67"></script>
 <script src="js/performance.js?v=67"></script>
@@ -11056,7 +10823,7 @@ setTimeout(function () {
 <script src="js/renderCoachResponse.js?v=68"></script>
 <script src="js/coach.js?v=79"></script>
 <script src="js/features.js?v=69"></script>
-<script src="js/train.js?v=81"></script>
+<script src="js/train.js?v=82"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/trainCalendar.js?v=90"></script>
@@ -11071,7 +10838,7 @@ setTimeout(function () {
 <script src="js/feedback.js?v=79"></script>
 <script src="js/readiness.js?v=79"></script>
 <script src="js/morningCheckIn.js?v=71"></script>
-<script src="js/workoutAnalysis.js?v=67"></script>
+<script src="js/workoutAnalysis.js?v=68"></script>
 <script src="js/legal.js?v=68"></script>
 <script src="js/onboarding.js?v=71"></script>
 <script src="js/diagnostic.js?v=8"></script>

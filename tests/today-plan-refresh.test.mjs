@@ -220,7 +220,7 @@ test("an API failure without a valid state shows the error state, never no-plan"
   failedWorld.elements.todayDirectionAction.hidden === true);
 
 console.log("\n──── Persistence and lifecycle wiring ────");
-const goSource = extractFunction(html, "go");
+const goSource = extractFunction(html.slice(html.indexOf("async function go(btn)")), "go");
 const showScreenSource = extractFunction(html, "showScreen");
 test("returning from Train to Today revalidates before restoring the CTA",
   /screen-today[\s\S]*?refreshTodayAfterPlanChange\("screen-enter"\)/.test(goSource));

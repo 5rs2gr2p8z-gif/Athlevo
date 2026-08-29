@@ -878,7 +878,7 @@ test("semantic ring colors support light and dark mode without gradients",
   /html\[data-theme="dark"\]\{[\s\S]*?--info:#78a6ff/.test(html) &&
   !/\.today-status-card\{[^}]*gradient/.test(html));
 test("CTA dispatch keeps existing plan build and Train navigation",
-  /button\.dataset\.action === "build"[\s\S]*?window\.AthlevoPlan\.start\(\)/.test(
+  /button\.dataset\.action === "build"[\s\S]*?todayStartPlan\(\)/.test(
     extractFunction(html, "todayDirectionPrimaryAction")) &&
   /window\.AthlevoPlan\.start\(\)/.test(extractFunction(html, "todayStartPlan")) &&
   /todayGoToTrain\(\)/.test(extractFunction(html, "todayDirectionPrimaryAction")));
@@ -899,6 +899,15 @@ test("Last 7 days is one real-only section and precedes the install utility",
   ["Distance", "Training time", "Avg HR"].every(label => today.includes(`>${label}</span>`)) &&
   /function refreshTodayWeekSnapshot\(\)[\s\S]*?section\.hidden = visible === 0/.test(html) &&
   today.indexOf("todayWeekSnapshot") < today.indexOf("todayInstallCard"));
+test("Training Paces is the final Today content section", (() => {
+  const paces = today.indexOf('<div id="trainingPacesCard"></div>');
+  const close = today.indexOf("</section>", paces);
+  return paces > today.indexOf("todayWeekSnapshot") &&
+    close > paces &&
+    !/<[a-z]/i.test(today.slice(paces + '<div id="trainingPacesCard"></div>'.length, close));
+})());
+test("Today no longer renders analysis, development, journey, race countdown, or coach note",
+  !/id="latestWorkoutAnalysis"|id="developmentCard"|id="todayRaceName"|id="todayRaceDays"|id="todayCoachNoteSection"|class="race"|class="coachnote"|compressLatestWorkoutAnalysis|Coach’s note|Your Development|Your journey/.test(today));
 test("seven-day presentation hides unavailable values and keeps real values", (() => {
   const metric = text => ({
     hidden: false,
@@ -974,6 +983,17 @@ test("only confirmed readiness transitions, using the calm 640ms ease-out treatm
 test("global reduced-motion support remains present",
   /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important/.test(html) &&
   /todayDirectionPrefersReducedMotion\(\)/.test(readinessRenderSource));
+test("workout analysis engine remains exported for Train and other surfaces",
+  /window\.AthlevoWorkoutAnalysis = \{/.test(readFileSync("./js/workoutAnalysis.js", "utf8")));
+test("workout auto-recognition still runs without a Today preview mount", (() => {
+  const wa = readFileSync("./js/workoutAnalysis.js", "utf8");
+  return wa.indexOf("await autoRecogniseToday") > 0 &&
+    wa.indexOf("await autoRecogniseToday") < wa.indexOf('getElementById("latestWorkoutAnalysis")');
+})());
+test("profile race date and coach notes remain in the athlete writer",
+  /profile\.target_race/.test(brain) &&
+  /profile\.race_date/.test(brain) &&
+  /profile\.coach_notes/.test(brain));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

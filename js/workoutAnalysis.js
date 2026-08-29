@@ -16,8 +16,9 @@
  *       just distance) and rates the execution.
  *    3. COACHES from it          — writes a short coach insight, a
  *       recovery focus, and a training-impact note.
- *    4. REFRESHES the Today page — the "Latest Workout Analysis" card
- *       updates in place, no page reload.
+ *    4. KEEPS recognition live — auto-complete still runs after sync /
+ *       save so Train and activity detail stay current. The Today page
+ *       no longer mounts a preview card.
  *
  *  Everything below is a single reusable analysis engine fed by a
  *  normalised "performed workout" shape, so any activity source plugs in
@@ -687,25 +688,24 @@
   let inFlight = false;
 
   async function renderLatestWorkoutAnalysis() {
-    const mount = document.getElementById("latestWorkoutAnalysis");
-    if (!mount) return;
     if (inFlight) return; // coalesce overlapping refreshes
     inFlight = true;
 
     try {
       const token = await authToken();
-      if (!token) {
-        renderEmpty(mount);
-        return;
-      }
+      if (!token) return;
 
       let week = await fetchWeek(token);
 
-      // Auto-recognise & auto-complete today's matched session, then
-      // re-read the week so the card reflects the freshly written record.
+      // Auto-recognise & auto-complete today's matched session. This is
+      // workout logic, not Today presentation — it must keep running
+      // even though Today no longer mounts a preview card.
       if (await autoRecogniseToday(week, token)) {
         week = await fetchWeek(token);
       }
+
+      const mount = document.getElementById("latestWorkoutAnalysis");
+      if (!mount) return;
 
       // Unplanned fallback source (only queried if no planned match).
       let activities = [];
@@ -745,7 +745,8 @@
       renderCard(mount, perf, rating, insight, recovery, impact);
     } catch (error) {
       console.error("Latest workout analysis failed:", error);
-      renderEmpty(document.getElementById("latestWorkoutAnalysis"));
+      const mount = document.getElementById("latestWorkoutAnalysis");
+      if (mount) renderEmpty(mount);
     } finally {
       inFlight = false;
     }
