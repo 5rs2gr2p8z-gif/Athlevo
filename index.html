@@ -1568,52 +1568,51 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
   html[data-theme="system"] .chat-result-card{background:var(--card);border-color:var(--line)}
   html[data-theme="system"] .chat-bubble-athlevo{background:var(--card)}
 }
-#screen-diagnostic-paywall{padding-bottom:0}
-.diagnostic-paywall-scroll{width:100%;max-width:560px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box;flex:1;min-height:0}
-@media(min-width:720px){.diagnostic-paywall-scroll{max-width:640px;padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(40px + env(safe-area-inset-bottom))}}
-.diagnostic-paywall-top{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;margin:0 0 18px;min-height:44px}
-.diagnostic-paywall-back{-webkit-appearance:none;appearance:none;background:none;border:0;padding:0;margin:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink2);border-radius:var(--r-md);flex:none;-webkit-tap-highlight-color:transparent}
+#screen-diagnostic-paywall{padding-bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+@media(min-width:880px){#screen-diagnostic-paywall{justify-content:center}}
+.diagnostic-paywall-scroll{width:100%;max-width:400px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box;flex:0 1 auto}
+@media(min-width:720px){.diagnostic-paywall-scroll{max-width:420px;padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(28px + env(safe-area-inset-bottom))}}
+.diagnostic-paywall-top{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px;margin:0 0 10px;min-height:40px}
+.diagnostic-paywall-back{-webkit-appearance:none;appearance:none;background:none;border:0;padding:0;margin:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink2);border-radius:var(--r-md);flex:none;-webkit-tap-highlight-color:transparent;pointer-events:auto;position:relative;z-index:2}
 .diagnostic-paywall-back:active{background:var(--line)}
 .diagnostic-paywall-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .diagnostic-paywall-back svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.diagnostic-paywall-brand{display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin:0}
-.diagnostic-paywall-brand img{width:22px;height:22px}
+.diagnostic-paywall-brand{display:flex;align-items:center;justify-content:center;gap:7px;font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin:0}
+.diagnostic-paywall-brand img{width:20px;height:20px}
 .diagnostic-paywall-brand span{color:var(--red)}
-.diagnostic-paywall-hero{text-align:center;margin:0 0 22px}
-.diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-caption);font-weight:700;color:var(--good);margin:0 0 12px}
-.diagnostic-paywall-kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
-.diagnostic-paywall-title{font-family:var(--serif);font-size:clamp(1.85rem,6.4vw,2.55rem);font-weight:500;letter-spacing:-.04em;line-height:1.08;color:var(--text);margin:0}
-.diagnostic-paywall-lead{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:12px auto 0;max-width:42ch}
-.diagnostic-paywall-toggle{display:flex;align-items:stretch;gap:4px;padding:4px;margin:0 auto 18px;max-width:360px;background:var(--card);border:1px solid var(--line);border-radius:999px;box-sizing:border-box}
-.diagnostic-paywall-toggle-btn{-webkit-appearance:none;appearance:none;flex:1;min-height:42px;border:0;border-radius:999px;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:650;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:0 12px;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-hero{text-align:center;margin:0 0 12px}
+.diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--good);margin:0 0 8px}
+.diagnostic-paywall-kicker::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--good)}
+.diagnostic-paywall-title{font-family:var(--serif);font-size:clamp(1.5rem,5.2vw,1.95rem);font-weight:500;letter-spacing:-.04em;line-height:1.12;color:var(--text);margin:0}
+.diagnostic-paywall-lead{font-size:var(--fs-caption);line-height:1.4;color:var(--ink2);margin:8px auto 0;max-width:36ch}
+.diagnostic-paywall-toggle{display:flex;align-items:stretch;gap:2px;padding:3px;margin:0 auto 12px;max-width:280px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:999px;box-sizing:border-box;position:relative;z-index:3;pointer-events:auto}
+.diagnostic-paywall-toggle-btn{-webkit-appearance:none;appearance:none;flex:1;min-height:34px;border:0;border-radius:999px;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:12px;font-weight:650;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 8px;pointer-events:auto;position:relative;z-index:1;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-toggle-btn:disabled{opacity:1;cursor:pointer}
 .diagnostic-paywall-toggle-btn.is-active{background:var(--paper);color:var(--text);box-shadow:var(--elev-1)}
 .diagnostic-paywall-toggle-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.diagnostic-paywall-save-chip{font-size:10px;font-weight:750;letter-spacing:.02em;color:var(--red);background:color-mix(in srgb,var(--red) 10%,transparent);border-radius:999px;padding:3px 7px;white-space:nowrap}
-.diagnostic-paywall-card{background:var(--paper);border:1px solid var(--line);border-radius:24px;box-shadow:var(--elev-1);padding:26px 22px 22px;box-sizing:border-box}
-@media(min-width:720px){.diagnostic-paywall-card{padding:30px 28px 24px}}
+.diagnostic-paywall-save-chip{font-size:9px;font-weight:750;letter-spacing:.01em;color:var(--red);background:color-mix(in srgb,var(--red) 10%,transparent);border-radius:999px;padding:2px 6px;white-space:nowrap;pointer-events:none}
+.diagnostic-paywall-card{background:var(--paper);border:1px solid var(--line);border-radius:18px;box-shadow:var(--elev-1);padding:18px 18px 16px;box-sizing:border-box}
+@media(min-width:720px){.diagnostic-paywall-card{padding:20px 20px 16px}}
 .diagnostic-paywall-offer{display:block}
-.diagnostic-paywall-plan-badge{display:none;width:fit-content;margin:0 auto 10px;font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--red);background:color-mix(in srgb,var(--red) 9%,transparent);border-radius:999px;padding:5px 10px}
-.diagnostic-paywall-card.is-annual .diagnostic-paywall-plan-badge{display:inline-flex}
-.diagnostic-paywall-plan-name{margin:0;text-align:center;font-size:var(--fs-caption);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
-.diagnostic-paywall-price-row{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:10px 0 0;flex-wrap:wrap}
-.diagnostic-paywall-price{font-family:var(--serif);font-size:clamp(2.2rem,8vw,2.8rem);font-weight:500;letter-spacing:-.04em;color:var(--text);margin:0;text-align:center;line-height:1}
-.diagnostic-paywall-cadence{font-size:var(--fs-body);font-weight:600;color:var(--ink2);margin:0}
-.diagnostic-paywall-equiv{margin:8px 0 0;text-align:center;font-size:var(--fs-body-sm);color:var(--ink2);line-height:var(--lh-body)}
-.diagnostic-paywall-save{display:none;margin:6px 0 0;text-align:center;font-size:var(--fs-body-sm);font-weight:700;color:var(--red)}
+.diagnostic-paywall-plan-name{margin:0;text-align:center;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.diagnostic-paywall-price-row{display:flex;align-items:baseline;justify-content:center;gap:6px;margin:6px 0 0;flex-wrap:wrap}
+.diagnostic-paywall-price{font-family:var(--serif);font-size:clamp(1.85rem,6.2vw,2.2rem);font-weight:500;letter-spacing:-.04em;color:var(--text);margin:0;text-align:center;line-height:1}
+.diagnostic-paywall-cadence{font-size:var(--fs-body-sm);font-weight:600;color:var(--ink2);margin:0}
+.diagnostic-paywall-equiv{margin:6px 0 0;text-align:center;font-size:12px;color:var(--ink2);line-height:1.35}
+.diagnostic-paywall-save{display:none;margin:4px 0 0;text-align:center;font-size:12px;font-weight:700;color:var(--red)}
 .diagnostic-paywall-card.is-annual .diagnostic-paywall-save{display:block}
-.diagnostic-paywall-start{display:block;width:100%;margin:20px 0 0;border:0;border-radius:var(--r-pill);background:var(--red);color:#fff;font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:-.01em;padding:16px 18px;cursor:pointer;min-height:52px;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-start{display:block;width:100%;margin:14px 0 0;border:0;border-radius:var(--r-pill);background:var(--red);color:#fff;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;letter-spacing:-.01em;padding:12px 16px;cursor:pointer;min-height:46px;-webkit-tap-highlight-color:transparent}
 .diagnostic-paywall-start:active{transform:scale(.99)}
 .diagnostic-paywall-start:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.diagnostic-paywall-start:disabled{opacity:.45;cursor:not-allowed;transform:none}
-.diagnostic-paywall-trust{margin:10px 0 0;text-align:center;font-size:var(--fs-caption);color:var(--ink3);line-height:var(--lh-body)}
-.diagnostic-paywall-annual-note{display:none;margin:10px 0 0;text-align:center;font-size:var(--fs-caption);color:var(--ink2);line-height:var(--lh-body)}
-.diagnostic-paywall-card.is-annual .diagnostic-paywall-annual-note{display:block}
-.offer-features{list-style:none;margin:22px 0 0;padding:18px 0 0;border-top:1px solid var(--line);display:grid;gap:12px}
-@media(min-width:640px){.offer-features{grid-template-columns:1fr 1fr;gap:14px 22px}}
-.offer-feature{display:grid;grid-template-columns:18px 1fr;gap:10px;align-items:start;margin:0}
-.offer-feature-check{width:18px;height:18px;margin-top:1px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;line-height:1}
-.offer-feature b{display:block;font-size:var(--fs-body-sm);font-weight:700;color:var(--text);line-height:1.3}
-.offer-feature small{display:block;margin-top:2px;font-size:var(--fs-caption);font-weight:500;color:var(--ink3);line-height:1.4}
+.diagnostic-paywall-start:disabled{opacity:.42;cursor:not-allowed;transform:none;background:var(--ink);color:#fff}
+.diagnostic-paywall-trust{margin:8px 0 0;text-align:center;font-size:11px;color:var(--ink3);line-height:1.35}
+.offer-features{list-style:none;margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--line);display:grid;gap:7px}
+@media(min-width:640px){.offer-features{grid-template-columns:1fr 1fr;gap:7px 16px}}
+.offer-feature{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:center;margin:0}
+.offer-feature-check{width:16px;height:16px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;line-height:1}
+.offer-feature span:last-child,.offer-feature b{display:block;font-size:12px;font-weight:650;color:var(--text);line-height:1.3}
+#screen-diagnostic-paywall.is-public .diagnostic-paywall-kicker,
+#screen-diagnostic-paywall.is-public .diagnostic-paywall-switch{display:none}
 .diagnostic-paywall-recommended,.diagnostic-paywall-other{margin:0 0 8px;font-size:var(--fs-micro);font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
 .diagnostic-paywall-other{margin:0 0 8px;text-transform:none;letter-spacing:0;font-size:var(--fs-caption);font-weight:650;color:var(--ink2)}
 .diagnostic-paywall-or{display:flex;align-items:center;gap:12px;margin:14px 0 12px;color:var(--ink3);font-size:var(--fs-micro);font-weight:750;letter-spacing:.1em}
@@ -1634,9 +1633,9 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
 .diagnostic-paywall-method-copy small{display:block;margin-top:3px;font-size:var(--fs-caption);font-weight:500;color:var(--ink3);line-height:1.35}
 .diagnostic-paywall-chevron{flex:0 0 18px;color:var(--ink3)}
 .diagnostic-paywall-renewal{font-size:var(--fs-caption);color:var(--ink3);margin:0;text-align:center}
-.diagnostic-paywall-switch{display:block;width:100%;margin:18px 0 0;padding:8px;border:0;background:none;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--ink3);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-switch{display:block;width:100%;margin:12px 0 0;padding:6px;border:0;background:none;font-family:var(--sans);font-size:11px;font-weight:600;color:var(--ink3);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
 .diagnostic-paywall-switch:active{color:var(--text)}
-.diagnostic-paywall-status{min-height:20px;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--red);margin:12px 0 0;text-align:center}
+.diagnostic-paywall-status{min-height:16px;font-size:11px;line-height:1.35;color:var(--red);margin:8px 0 0;text-align:center}
 .diagnostic-paywall-activating,.diagnostic-paywall-recheck{display:none;text-align:center;margin-top:8px}
 .diagnostic-paywall-activating p,.diagnostic-paywall-recheck p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0 0 16px}
 #screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-hero,
@@ -3394,9 +3393,8 @@ body.landing-active{background:var(--paper)}
 body.landing-active .device{max-width:none;border-radius:0;box-shadow:none;margin:0;min-height:100dvh;background:var(--paper)}
 body.landing-active #tabbar{display:none!important}
 body.paywall-active{background:var(--paper)}
-body.paywall-active .device{max-width:720px;margin:0 auto;min-height:100dvh;border-radius:0;box-shadow:none;background:var(--paper)}
-@media(min-width:480px){body.paywall-active .device{margin:0 auto;min-height:100dvh;border-radius:0}}
-@media(min-width:880px){body.paywall-active .device{max-width:760px}}
+body.paywall-active .device{max-width:none;margin:0;min-height:100dvh;border-radius:0;box-shadow:none;background:var(--paper)}
+@media(min-width:480px){body.paywall-active .device{margin:0;min-height:100dvh;border-radius:0}}
 body.paywall-active #tabbar{display:none!important}
 body.paywall-active #screen-diagnostic-paywall{padding-bottom:0}
 #screen-landing{padding:0;background:var(--paper);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased}
@@ -4486,17 +4484,16 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <h1 class="diagnostic-paywall-title">Your training.<br>Your data.<br>Your AI coach.</h1>
       <p class="diagnostic-paywall-lead">Athlevo AI gives runners a complete coaching system built around their actual training.</p>
     </div>
-    <div class="diagnostic-paywall-toggle" role="tablist" aria-label="Billing interval">
+    <div class="diagnostic-paywall-toggle" id="offerPlanToggle" role="group" aria-label="Billing interval">
       <button type="button" class="diagnostic-paywall-toggle-btn is-active" id="offerPlanMonthly"
-        role="tab" aria-selected="true" onclick="AthlevoDiagnosticAcquisition.selectOfferPlan('monthly')">Monthly</button>
+        data-offer-plan="monthly" aria-pressed="true">Monthly</button>
       <button type="button" class="diagnostic-paywall-toggle-btn" id="offerPlanAnnual"
-        role="tab" aria-selected="false" onclick="AthlevoDiagnosticAcquisition.selectOfferPlan('annual')">
+        data-offer-plan="annual" aria-pressed="false">
         Annual <span class="diagnostic-paywall-save-chip">Save ₱1,666</span>
       </button>
     </div>
     <div class="diagnostic-paywall-card" id="diagnosticPaywallCard">
       <div class="diagnostic-paywall-offer" id="diagnosticPaywallOffer">
-        <span class="diagnostic-paywall-plan-badge" id="offerPlanBadge">Best value</span>
         <p class="diagnostic-paywall-plan-name">Athlevo AI</p>
         <div class="diagnostic-paywall-price-row">
           <p class="diagnostic-paywall-price" id="offerPlanPrice">₱597</p>
@@ -4507,50 +4504,38 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <button type="button" class="diagnostic-paywall-start" id="offerStartCta"
           onclick="AthlevoDiagnosticAcquisition.beginOfferCheckout()">Start Athlevo AI</button>
         <p class="diagnostic-paywall-trust">Cancel anytime · Secure payment</p>
-        <p class="diagnostic-paywall-annual-note" id="offerAnnualUnavailable">
-          Annual checkout is not available yet. Choose Monthly to start now.
-        </p>
         <ul class="offer-features">
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>
-              <b>Personalized training plan</b>
-              <small>Built around your goals, fitness, schedule, and training history.</small>
-            </span>
+            <span>Personalized training plan</span>
           </li>
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>
-              <b>Adaptive coaching</b>
-              <small>Adjusts for readiness, fatigue, recovery, and missed sessions.</small>
-            </span>
+            <span>Adaptive coaching</span>
           </li>
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>
-              <b>AI running coach</b>
-              <small>Ask about your training with your context already in mind.</small>
-            </span>
+            <span>AI running coach</span>
           </li>
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span><b>Readiness &amp; recovery</b></span>
+            <span>Readiness &amp; recovery</span>
           </li>
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span><b>Fitness, fatigue &amp; form</b></span>
+            <span>Fitness, fatigue &amp; form</span>
           </li>
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span><b>Training load monitoring</b></span>
+            <span>Training load monitoring</span>
           </li>
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span><b>Progress &amp; performance trends</b></span>
+            <span>Progress &amp; performance trends</span>
           </li>
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span><b>Race-specific training</b></span>
+            <span>Race-specific training</span>
           </li>
         </ul>
       </div>
@@ -6900,6 +6885,11 @@ function isAiSignupPath() {
     return String(window.location.pathname || "").replace(/\/+$/, "") === "/ai-signup";
   } catch (e) { return false; }
 }
+function isPricingPath() {
+  try {
+    return String(window.location.pathname || "").replace(/\/+$/, "") === "/pricing";
+  } catch (e) { return false; }
+}
 function rememberAiSignupHandoff() {
   try { sessionStorage.setItem(AI_SIGNUP_HANDOFF_KEY, "1"); } catch (e) {}
 }
@@ -6971,6 +6961,7 @@ function openAiSignup(opts) {
   } catch (e) {}
 }
 window.isAiSignupPath = isAiSignupPath;
+window.isPricingPath = isPricingPath;
 window.rememberAiSignupHandoff = rememberAiSignupHandoff;
 window.hasAiSignupHandoff = hasAiSignupHandoff;
 window.clearAiSignupHandoff = clearAiSignupHandoff;
@@ -7127,6 +7118,23 @@ function renderNavState(state) {
   }
   try {
     var path = String(window.location.pathname || "").replace(/\/+$/, "");
+    if (path === "/pricing") {
+      if (athlevoSessionUserId) {
+        if (window.AthlevoDiagnosticAcquisition &&
+            typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
+          window.AthlevoDiagnosticAcquisition.showPaywall(
+            window.AthlevoDiagnosticAcquisition.current() || { userId: athlevoSessionUserId },
+            false
+          );
+        }
+      } else if (window.AthlevoDiagnosticAcquisition &&
+          typeof window.AthlevoDiagnosticAcquisition.showPublicPricing === "function") {
+        window.AthlevoDiagnosticAcquisition.showPublicPricing();
+      } else {
+        showScreen("screen-diagnostic-paywall");
+      }
+      return;
+    }
     if (path === "/ai-signup" && !athlevoSessionUserId) {
       if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
       return;
@@ -7144,14 +7152,9 @@ function renderNavState(state) {
   if (paywallScreen && paywallScreen.classList.contains("active")) {
     if (window.AthlevoDiagnosticAcquisition &&
         typeof window.AthlevoDiagnosticAcquisition.backFromPaywall === "function") {
-      window.AthlevoDiagnosticAcquisition.backFromPaywall();
-    } else if (window.AthlevoDiagnosticAcquisition &&
-        typeof window.AthlevoDiagnosticAcquisition.exitPaywall === "function") {
-      window.AthlevoDiagnosticAcquisition.exitPaywall();
-    } else {
-      showScreen("screen-welcome");
+      window.AthlevoDiagnosticAcquisition.backFromPaywall({ fromHistory: true });
     }
-    return;
+    /* Fall through so the popped path can paint. Do not replaceState. */
   }
   // Backing out of the diagnostic → return to landing.
   var diagScreen = document.getElementById('screen-diagnostic');
@@ -8518,8 +8521,8 @@ function showScreen(id){
    * authenticated path can finish loading data before Today becomes visible.
    * endBootGate() owns the reveal.
    */
-  // Landing is the only full-width marketing screen; everything else runs
-  // inside the phone-framed app shell.
+  // Landing and pricing are full-width public surfaces; the rest of the
+  // product stays inside the phone-framed app shell.
   document.body.classList.toggle('landing-active', id==='screen-landing');
   document.body.classList.toggle('paywall-active', id==='screen-diagnostic-paywall');
   if(id==='screen-landing' && window.AthlevoProductAnalytics) try {
@@ -10552,6 +10555,19 @@ async function restoreSession(opts) {
         await routeAfterAuth(session.user.id);
         return true;
       }
+      var pricingAfterExit = false;
+      try {
+        pricingAfterExit = typeof isPricingPath === "function" && isPricingPath();
+      } catch (pricingExitErr) { pricingAfterExit = false; }
+      if (pricingAfterExit &&
+          typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
+        document.getElementById("tabbar").style.display = "none";
+        window.AthlevoDiagnosticAcquisition.showPaywall(
+          window.AthlevoDiagnosticAcquisition.current() || { userId: session.user.id },
+          false
+        );
+        return false;
+      }
       document.getElementById("tabbar").style.display = "none";
       if (typeof openAppEntry === "function") openAppEntry();
       else showScreen("screen-welcome");
@@ -10583,6 +10599,19 @@ async function restoreSession(opts) {
     } else {
       if (typeof rememberAppEntryIntent === "function") rememberAppEntryIntent("ai");
       showScreen("screen-welcome");
+    }
+    return false;
+  }
+  var pricingPath = false;
+  try { pricingPath = typeof isPricingPath === "function" && isPricingPath(); }
+  catch (pricingPathErr) { pricingPath = false; }
+  if (pricingPath) {
+    document.getElementById("tabbar").style.display = "none";
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.showPublicPricing === "function") {
+      window.AthlevoDiagnosticAcquisition.showPublicPricing();
+    } else {
+      showScreen("screen-diagnostic-paywall");
     }
     return false;
   }
@@ -11005,7 +11034,7 @@ setTimeout(function () {
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
 <script src="js/trendsAnalytics.js?v=81"></script>
-<script src="js/socialAuth.js?v=72"></script>
+<script src="js/socialAuth.js?v=73"></script>
 <script src="js/analyticsRegistry.js?v=74"></script>
 <script src="js/metaPixel.js?v=69"></script>
 <script src="js/analytics.js?v=75"></script>
@@ -11051,7 +11080,7 @@ setTimeout(function () {
 <script src="js/diagnosticSalesEngine.js?v=3"></script>
 <script src="js/diagnosticUI.js?v=3"></script>
 <script src="js/diagnosticHandoff.js?v=3"></script>
-<script src="js/diagnosticAcquisition.js?v=3"></script>
+<script src="js/diagnosticAcquisition.js?v=4"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

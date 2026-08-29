@@ -4,6 +4,7 @@
 
 var STORAGE_KEY = "athlevo_diagnostic_acquisition_v1";
 var PAYWALL_EXIT_KEY = "athlevo_paywall_exit";
+var PRICING_HANDOFF_KEY = "athlevo_pricing_handoff";
 var TTL_MS = 30 * 24 * 60 * 60 * 1000;
 var PAID_PROVIDERS = ["whop", "paymongo", "gcash_manual"];
 var active = null;
@@ -308,6 +309,10 @@ function setPaywallBusy(busy) {
     }
     buttons[i].disabled = !!busy;
   }
+  var monthlyBtn = document.getElementById("offerPlanMonthly");
+  var annualBtn = document.getElementById("offerPlanAnnual");
+  if (monthlyBtn) monthlyBtn.disabled = false;
+  if (annualBtn) annualBtn.disabled = false;
 }
 
 function formatOfferPrice(amount) {
@@ -319,7 +324,7 @@ function offerPlanCopy(plan) {
     return {
       price: formatOfferPrice(5498),
       cadence: "/ year",
-      equiv: "₱458/month billed annually.",
+      equiv: "₱458/month billed annually",
       methods: "₱5,498/year",
       pricePhp: 5498
     };
@@ -333,6 +338,54 @@ function offerPlanCopy(plan) {
   };
 }
 
+function rememberPricingHandoff() {
+  try { root.sessionStorage.setItem(PRICING_HANDOFF_KEY, "1"); } catch (e) {}
+}
+
+function hasPricingHandoff() {
+  try { return root.sessionStorage.getItem(PRICING_HANDOFF_KEY) === "1"; }
+  catch (e) { return false; }
+}
+
+function clearPricingHandoff() {
+  try { root.sessionStorage.removeItem(PRICING_HANDOFF_KEY); } catch (e) {}
+}
+
+function isPricingPath() {
+  try {
+    return String(root.location.pathname || "").replace(/\/+$/, "") === "/pricing";
+  } catch (e) { return false; }
+}
+
+function syncPricingUrl() {
+  try {
+    var url = new URL(root.location.href);
+    if (String(url.pathname || "").replace(/\/+$/, "") === "/pricing") return;
+    root.history.replaceState(
+      { athlevoNav: "pricing" },
+      "",
+      "/pricing" + (url.search || "") + (url.hash || "")
+    );
+  } catch (e) {}
+}
+
+function syncOfferAudience() {
+  var screen = document.getElementById("screen-diagnostic-paywall");
+  var authed = !!root.athlevoSessionUserId;
+  if (screen && screen.classList) screen.classList.toggle("is-public", !authed);
+}
+
+function applyOfferCta(annual) {
+  var start = document.getElementById("offerStartCta");
+  if (!start) return;
+  var locked = !!(annual && !ANNUAL_CHECKOUT_READY);
+  start.disabled = locked;
+  if (typeof start.setAttribute === "function") {
+    start.setAttribute("aria-disabled", locked ? "true" : "false");
+  }
+  start.textContent = locked ? "No slots available" : "Start Athlevo AI";
+}
+
 function selectOfferPlan(plan) {
   selectedOfferPlan = plan === "annual" ? "annual" : "monthly";
   var annual = selectedOfferPlan === "annual";
@@ -344,26 +397,45 @@ function selectOfferPlan(plan) {
   var cadence = document.getElementById("offerPlanCadence");
   var equiv = document.getElementById("offerPlanEquiv");
   var methodsPrice = document.getElementById("offerMethodsPrice");
-  var start = document.getElementById("offerStartCta");
   if (card && card.classList) card.classList.toggle("is-annual", annual);
   if (monthlyBtn) {
+    monthlyBtn.disabled = false;
     monthlyBtn.classList.toggle("is-active", !annual);
     if (typeof monthlyBtn.setAttribute === "function") {
-      monthlyBtn.setAttribute("aria-selected", annual ? "false" : "true");
+      monthlyBtn.setAttribute("aria-pressed", annual ? "false" : "true");
     }
   }
   if (annualBtn) {
+    annualBtn.disabled = false;
     annualBtn.classList.toggle("is-active", annual);
     if (typeof annualBtn.setAttribute === "function") {
-      annualBtn.setAttribute("aria-selected", annual ? "true" : "false");
+      annualBtn.setAttribute("aria-pressed", annual ? "true" : "false");
     }
   }
   if (price) price.textContent = copy.price;
   if (cadence) cadence.textContent = copy.cadence;
   if (equiv) equiv.textContent = copy.equiv;
   if (methodsPrice) methodsPrice.textContent = copy.methods;
-  if (start) start.disabled = annual && !ANNUAL_CHECKOUT_READY;
+  applyOfferCta(annual);
+  setPaywallStatus("");
   return selectedOfferPlan;
+}
+
+var offerControlsBound = false;
+function bindOfferControls() {
+  var toggle = document.getElementById("offerPlanToggle");
+  if (!toggle || offerControlsBound) return;
+  if (typeof toggle.addEventListener !== "function") return;
+  offerControlsBound = true;
+  toggle.addEventListener("click", function (event) {
+    var target = event.target;
+    var btn = target && target.closest ? target.closest("[data-offer-plan]") : null;
+    if (!btn || !toggle.contains(btn)) return;
+    var plan = btn.getAttribute("data-offer-plan");
+    if (plan !== "monthly" && plan !== "annual") return;
+    event.preventDefault();
+    selectOfferPlan(plan);
+  });
 }
 
 function showOfferStep() {
@@ -381,22 +453,57 @@ function showPaymentMethods() {
   setPaywallStatus("");
 }
 
-function beginOfferCheckout() {
+async function beginOfferCheckout() {
   if (selectedOfferPlan === "annual" && !ANNUAL_CHECKOUT_READY) {
-    setPaywallStatus("Annual checkout is not available yet. Choose Monthly to start now.");
+    applyOfferCta(true);
     return false;
+  }
+  var userId = await sessionUserId();
+  if (userId) root.athlevoSessionUserId = userId;
+  if (!userId) {
+    rememberPricingHandoff();
+    if (typeof root.openAiSignup === "function") {
+      root.openAiSignup();
+      return true;
+    }
+    if (typeof root.openSignup === "function") {
+      root.openSignup(true);
+      return true;
+    }
+    goToAuthEntry();
+    if (typeof root.openLogin === "function") root.openLogin(true);
+    return true;
   }
   showPaymentMethods();
   return true;
 }
 
-function backFromPaywall() {
+function leavePublicPricing() {
+  hideAppTabbar();
+  if (typeof root.updateOpenAppUI === "function") {
+    try { root.updateOpenAppUI(false); } catch (e) {}
+  }
+  if (typeof root.showScreen === "function") root.showScreen("screen-landing");
+  try { root.history.replaceState({ athlevoNav: "landing" }, "", "/"); } catch (e2) {}
+}
+
+function backFromPaywall(opts) {
+  opts = opts || {};
   var screen = document.getElementById("screen-diagnostic-paywall");
-  if (screen && screen.classList && screen.classList.contains("is-choosing-method")) {
+  if (!opts.fromHistory && screen && screen.classList &&
+      screen.classList.contains("is-choosing-method")) {
     showOfferStep();
     return false;
   }
-  exitPaywall();
+  if (!root.athlevoSessionUserId) {
+    if (!opts.fromHistory) leavePublicPricing();
+    return true;
+  }
+  if (!opts.fromHistory) {
+    exitPaywall();
+    return true;
+  }
+  markPaywallExit();
   return true;
 }
 
@@ -456,21 +563,38 @@ async function sessionUserId() {
   }
 }
 
+function paintPricingScreen(unavailable) {
+  hideAppTabbar();
+  bindOfferControls();
+  if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
+  var card = document.getElementById("diagnosticPaywallCard");
+  setPaywallMode(unavailable === true ? "unavailable" : "checkout");
+  if (card) card.classList.toggle("is-unavailable", unavailable === true);
+  selectOfferPlan(selectedOfferPlan || "monthly");
+  showOfferStep();
+  syncOfferAudience();
+  syncPricingUrl();
+  try { root.document.title = "Pricing — Athlevo"; } catch (e) {}
+}
+
+function showPublicPricing() {
+  selectedOfferPlan = "monthly";
+  paintPricingScreen(false);
+  var status = document.getElementById("diagnosticPaywallStatus");
+  if (status) status.textContent = "";
+  return true;
+}
+
 function showPaywall(state, unavailable, opts) {
   opts = opts || {};
   clearPaywallExit();
-  hideAppTabbar();
-  if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
+  selectedOfferPlan = "monthly";
+  paintPricingScreen(unavailable === true);
   var limiter = document.getElementById("diagnosticPaywallLimiter");
   var status = document.getElementById("diagnosticPaywallStatus");
-  var card = document.getElementById("diagnosticPaywallCard");
   if (limiter) limiter.textContent = limiterLabel(state && state.primaryLimiter);
   /* unavailable=true is for real access/session failures only. A failed
      diagnostic import must never hide checkout CTAs. */
-  setPaywallMode(unavailable === true ? "unavailable" : "checkout");
-  if (card) card.classList.toggle("is-unavailable", unavailable === true);
-  selectOfferPlan("monthly");
-  showOfferStep();
   if (status) {
     if (unavailable === true) {
       status.textContent = "Payment is temporarily unavailable. Check your connection and try again.";
@@ -512,7 +636,7 @@ function showRecheck(state) {
 async function checkout(method) {
   if (checkoutInFlight) return false;
   if (selectedOfferPlan === "annual" && !ANNUAL_CHECKOUT_READY) {
-    setPaywallStatus("Annual checkout is not available yet. Choose Monthly to start now.");
+    applyOfferCta(true);
     showOfferStep();
     return false;
   }
@@ -790,6 +914,11 @@ root.AthlevoDiagnosticAcquisition = {
   beginOfferCheckout: beginOfferCheckout,
   showOfferStep: showOfferStep,
   backFromPaywall: backFromPaywall,
+  showPublicPricing: showPublicPricing,
+  rememberPricingHandoff: rememberPricingHandoff,
+  hasPricingHandoff: hasPricingHandoff,
+  clearPricingHandoff: clearPricingHandoff,
+  isPricingPath: isPricingPath,
   showPaywall: showPaywall,
   showActivation: showActivation,
   showRecheck: showRecheck,
@@ -815,5 +944,14 @@ if (typeof module !== "undefined" && module.exports) {
     currentForUser: currentForUser,
     isAcquisitionGated: isAcquisitionGated
   };
+}
+
+if (root.document) {
+  if (root.document.readyState === "loading" &&
+      typeof root.document.addEventListener === "function") {
+    root.document.addEventListener("DOMContentLoaded", bindOfferControls);
+  } else {
+    bindOfferControls();
+  }
 }
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

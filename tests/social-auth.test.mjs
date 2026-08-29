@@ -141,6 +141,15 @@ section("Redirect target");
   t("OAuth started from /ai-signup returns to /ai-signup",
     load({ origin: "https://athlevo.org", pathname: "/ai-signup" }).api.redirectTarget()
       === "https://athlevo.org/ai-signup");
+  t("OAuth started from /pricing returns to /pricing",
+    load({ origin: "https://athlevo.org", pathname: "/pricing" }).api.redirectTarget()
+      === "https://athlevo.org/pricing");
+  t("OAuth with pricing handoff flag returns to /pricing even from /",
+    load({
+      origin: "https://athlevo.org",
+      pathname: "/",
+      sessionSeed: { athlevo_pricing_handoff: "1" }
+    }).api.redirectTarget() === "https://athlevo.org/pricing");
   t("OAuth with signup handoff flag returns to /ai-signup even from /",
     load({
       origin: "https://athlevo.org",

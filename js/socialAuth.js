@@ -72,11 +72,15 @@
         try {
           var here = String(window.location.pathname || "").replace(/\/+$/, "");
           var handoff = false;
+          var pricingHandoff = false;
           try {
             handoff = window.sessionStorage &&
               window.sessionStorage.getItem("athlevo_ai_signup_handoff") === "1";
-          } catch (e2) { handoff = false; }
-          if (here === "/ai-signup" || handoff) path = "/ai-signup";
+            pricingHandoff = window.sessionStorage &&
+              window.sessionStorage.getItem("athlevo_pricing_handoff") === "1";
+          } catch (e2) { handoff = false; pricingHandoff = false; }
+          if (here === "/pricing" || pricingHandoff) path = "/pricing";
+          else if (here === "/ai-signup" || handoff) path = "/ai-signup";
         } catch (e3) { path = "/"; }
         return origin + path;
       }

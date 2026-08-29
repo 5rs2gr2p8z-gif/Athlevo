@@ -224,7 +224,8 @@ section("13 — logged-out /ai-signup refresh remains auth handoff");
 section("14 — OAuth return from /ai-signup stays in the acquisition flow");
 {
   t("OAuth redirectTarget preserves /ai-signup",
-    /athlevo_ai_signup_handoff[\s\S]{0,200}\/ai-signup/.test(social));
+    /athlevo_ai_signup_handoff[\s\S]{0,450}\/ai-signup/.test(social) &&
+    /here === "\/ai-signup" \|\| handoff/.test(social));
   t("authenticated restore always continues via routeAfterAuth",
     /await routeAfterAuth\(session\.user\.id\)/.test(html));
   t("Google button on the reused welcome screen still starts OAuth",
@@ -786,14 +787,17 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
     /complete coaching system built around their actual training/.test(paywall));
   t("monthly / annual plan toggle exists",
     /id="offerPlanMonthly"/.test(paywall) && /id="offerPlanAnnual"/.test(paywall) &&
-    /selectOfferPlan\('monthly'\)/.test(paywall) && /selectOfferPlan\('annual'\)/.test(paywall));
+    /data-offer-plan="monthly"/.test(paywall) && /data-offer-plan="annual"/.test(paywall) &&
+    /function selectOfferPlan/.test(acq));
+  t("annual toggle is not disabled",
+    !/id="offerPlanAnnual"[^>]*\bdisabled\b/.test(paywall));
   t("annual savings are visible on the toggle",
     /Save ₱1,666/.test(paywall));
   t("Start Athlevo AI is the primary offer CTA",
     /beginOfferCheckout\(\)/.test(paywall) && /Start Athlevo AI/.test(paywall));
   t("payment methods are not the first offer choices",
     paywall.indexOf("Start Athlevo AI") < paywall.indexOf("checkout('card')") &&
-    paywall.indexOf("selectOfferPlan('monthly')") < paywall.indexOf("checkout('card')"));
+    paywall.indexOf("data-offer-plan=\"monthly\"") < paywall.indexOf("checkout('card')"));
   t("Choose how you’d like to pay. appears after the plan CTA",
     /Choose how you’d like to pay/.test(paywall));
   t("card payment option is white / non-danger visual treatment",
@@ -844,16 +848,25 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
     /Adaptive coaching/.test(paywall) &&
     /AI running coach/.test(paywall) &&
     /Race-specific training/.test(paywall));
+  t("feature rows have no paragraph descriptions",
+    !/Built around your goals/.test(paywall) &&
+    !/Adjusts for readiness/.test(paywall) &&
+    !/<small>/.test(paywall.slice(paywall.indexOf("offer-features"), paywall.indexOf("diagnostic-paywall-actions"))));
   t("annual checkout stays disabled until a real plan is configured",
     /ANNUAL_CHECKOUT_READY = false/.test(acq) &&
-    /Annual checkout is not available yet/.test(paywall) &&
+    /No slots available/.test(acq) &&
+    !/Annual checkout is not available yet/.test(acq) &&
     !/whop\.com\/checkout\/plan_/.test(acq));
+  t("/pricing is a real SPA route",
+    (vercel.rewrites || []).some(r => r.source === "/pricing" && r.destination === "/index.html") &&
+    /function isPricingPath/.test(html) &&
+    /showPublicPricing/.test(acq));
   t("no unsupported GCash or bank transfer",
     !/GCash|bank transfer|Bank transfer/i.test(paywall));
   t("no diagnostic-handoff copy on the offer page",
     !/Your diagnostic is saved|Start training with Athlevo|Let Athlevo build the training around it/.test(paywall));
   t("monthly checkout still uses the existing Whop plan",
-    /function checkout\(method\)[\s\S]{0,800}AthlevoAccessGuard/.test(acq) &&
+    /function checkout\(method\)[\s\S]{0,1600}AthlevoAccessGuard/.test(acq) &&
     /WHOP_CHECKOUT_URL = "https:\/\/whop\.com\/checkout\/plan_F5PftzWCJCQVw"/.test(guard));
   t("unavailable state still hides checkout actions",
     /is-unavailable[\s\S]{0,180}diagnostic-paywall-actions/.test(paywallCss));

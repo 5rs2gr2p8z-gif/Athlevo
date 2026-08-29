@@ -85,6 +85,12 @@ t("api/providers/index.js IS in the deployable tree", functions.includes("api/pr
       route.destination === "/index.html"
     )
   );
+  t("/pricing rewrites to the SPA",
+    (vercel.rewrites || []).some(route =>
+      route.source === "/pricing" &&
+      route.destination === "/index.html"
+    )
+  );
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

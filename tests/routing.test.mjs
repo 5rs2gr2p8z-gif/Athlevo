@@ -108,7 +108,8 @@ function makeWorld({
       "screen-landing": { active: false },
       "screen-welcome": { active: false },
       "screen-today": { active: false },
-      "screen-diagnostic": { active: false }
+      "screen-diagnostic": { active: false },
+      "screen-diagnostic-paywall": { active: false }
     },
     bodyClasses: new Set(["booting"]),
     tabbarDisplay: "none",
@@ -217,7 +218,21 @@ function makeWorld({
           store.delete("athlevo_paywall_exit");
           state.paywallExitCleared = true;
         },
-        verifiedPaidAccess: async () => ({ paid: !!paidAfterExit })
+        verifiedPaidAccess: async () => ({ paid: !!paidAfterExit }),
+        showPublicPricing() {
+          state.pricingShown = true;
+          Object.keys(state.screens).forEach(id => {
+            if (state.screens[id]) state.screens[id].active = false;
+          });
+          state.screens["screen-diagnostic-paywall"].active = true;
+        },
+        showPaywall() {
+          state.pricingShown = true;
+          Object.keys(state.screens).forEach(id => {
+            if (state.screens[id]) state.screens[id].active = false;
+          });
+          state.screens["screen-diagnostic-paywall"].active = true;
+        }
       },
       AthlevoDiagnosticUI: {
         start() {
@@ -281,6 +296,7 @@ function makeWorld({
     AthlevoBrain: { resetAthleteUI: () => {}, invalidateActivityCache: () => {} },
     history: { pushState() {}, replaceState(value) { state.historyState = value; } },
     isAiSignupPath: () => String(pathname || "").replace(/\/+$/, "") === "/ai-signup",
+    isPricingPath: () => String(pathname || "").replace(/\/+$/, "") === "/pricing",
     hasAiSignupHandoff: () => store.get("athlevo_ai_signup_handoff") === "1",
     rememberAiSignupHandoff: () => store.set("athlevo_ai_signup_handoff", "1"),
     openLogin: (userChose, source) => {
@@ -732,6 +748,36 @@ section("/ai acquisition routing");
   await api.restoreSession({}); api.endBootGate();
   t("authenticated /ai-signup continues via routeAfterAuth, not a second sales flow",
     state.routed === "u1" && state.diagnosticStarted !== true);
+}
+{
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/pricing" });
+  await api.restoreSession({}); api.endBootGate();
+  t("logged-out /pricing opens the public pricing page",
+    state.pricingShown === true &&
+    state.screens["screen-diagnostic-paywall"].active === true &&
+    state.diagnosticStarted !== true);
+  t("logged-out /pricing does not enter the app or restart /ai",
+    state.routed === null && state.screens["screen-today"].active === false &&
+    state.aiSignupShown !== true);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/pricing"
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("authenticated /pricing still uses routeAfterAuth so paid users reach the app",
+    state.routed === "u1" && state.diagnosticStarted !== true);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/pricing",
+    paywallExit: true, paidAfterExit: false
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("unpaid /pricing refresh stays on pricing, not Today",
+    state.routed === null &&
+    state.screens["screen-diagnostic-paywall"].active === true &&
+    state.screens["screen-today"].active === false);
 }
 {
   const { api, state } = makeWorld({
