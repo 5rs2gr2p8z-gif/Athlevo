@@ -38,6 +38,15 @@
   },{passive:false});
 })();
 </script>
+<script>
+(function markAiAcquisitionEntry(){
+  try {
+    if (String(location.pathname || "").replace(/\/+$/, "") === "/ai") {
+      document.documentElement.classList.add("athlevo-ai-entry");
+    }
+  } catch (e) {}
+})();
+</script>
 
 <!-- Apply the saved theme BEFORE first paint so the installed PWA never
      flashes white on launch. Runs synchronously in <head>. -->
@@ -3225,6 +3234,10 @@ body:not(.booting) #boot-gate{opacity:0;pointer-events:none;visibility:hidden}
    above the opaque content gate, but remains non-interactive until routing
    resolves. This avoids maintaining a second loading-only tab bar. */
 body.booting #tabbar{display:flex!important;z-index:9999;pointer-events:none}
+/* /ai ads must not sit on the Today skeleton or app tab bar. Opaque paper
+   overlay remains until the gate lifts; no new loading chrome. */
+html.athlevo-ai-entry body.booting #tabbar{display:none!important}
+html.athlevo-ai-entry .boot-shell{display:none}
 .boot-shell{position:relative;width:min(100%,430px);height:100dvh;margin:0 auto;
   overflow:hidden;background:var(--paper)}
 .boot-content{height:100%;box-sizing:border-box;overflow:hidden;
@@ -10292,7 +10305,17 @@ function endBootGate() {
   const anyVisible = document.querySelector('.screen.active');
   if (!anyVisible) {
     document.getElementById('tabbar').style.display = 'none';
-    showScreen(isStandaloneMode() ? "screen-welcome" : "screen-landing");
+    var pendingAiRestore = false;
+    try {
+      pendingAiRestore = !window.__athlevoSessionRestoreSettled &&
+        String((window.location && window.location.pathname) || "").replace(/\/+$/, "") === "/ai";
+    } catch (e) { pendingAiRestore = false; }
+    /* /ai must not fall back to landing/welcome while restoreSession is
+       still deciding diagnostic vs routeAfterAuth. Leave the device blank;
+       routing will paint the real surface. */
+    if (!pendingAiRestore) {
+      showScreen(isStandaloneMode() ? "screen-welcome" : "screen-landing");
+    }
   }
   if (window.AthlevoAppMotion &&
       typeof window.AthlevoAppMotion.syncIndicator === "function") {
@@ -10314,16 +10337,6 @@ function endBootGate() {
  */
 setTimeout(function () {
   if (document.body.classList.contains('booting')) {
-    var holdForAi = !window.__athlevoSessionRestoreSettled;
-    try {
-      holdForAi = holdForAi && (location.pathname || '').replace(/\/+$/, '') === '/ai';
-    } catch (holdErr) {
-      holdForAi = false;
-    }
-    if (holdForAi) {
-      console.warn("Boot gate held on /ai until session restore settles.");
-      return;
-    }
     console.warn("Boot gate released on timeout — the app will finish loading in place.");
     endBootGate();
   }

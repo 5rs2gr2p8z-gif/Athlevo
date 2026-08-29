@@ -264,7 +264,7 @@ function makeWorld({
        getUid: () => athlevoSessionUserId,
        getAuthPushed: () => athlevoAuthPushed
      };`);
-  return { api: fn(...Object.values(sandbox)), state };
+  return { api: fn(...Object.values(sandbox)), state, window: sandbox.window };
 }
 
 // Boot exactly as index.html does: restore, then always lift the gate.
@@ -489,9 +489,24 @@ section("/ai acquisition routing");
     /sessionRestoreTimedOut/.test(src));
   t("stored auth token on timeout does not start diagnostic",
     /stored token — not starting diagnostic/.test(src));
-  t("boot gate on /ai waits for restoreSession to settle",
-    /Boot gate held on \/ai until session restore settles/.test(html) &&
+  t("boot gate on /ai uses the same 6s fail-open as other public routes",
+    !/Boot gate held on \/ai until session restore settles/.test(html) &&
+    /Boot gate released on timeout/.test(html) &&
     /__athlevoSessionRestoreSettled/.test(html));
+  t("endBootGate does not paint landing under an unresolved /ai restore",
+    /pendingAiRestore/.test(extract("endBootGate")) &&
+    /showScreen\(isStandaloneMode\(\) \? "screen-welcome" : "screen-landing"\)/.test(extract("endBootGate")));
+}
+{
+  const { api, state, window: win } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
+  win.__athlevoSessionRestoreSettled = false;
+  api.endBootGate();
+  t("6s fail-open on /ai does not flash landing before restore paints",
+    state.screens["screen-landing"].active === false &&
+    state.screens["screen-welcome"].active === false &&
+    state.screens["screen-today"].active === false &&
+    state.diagnosticStarted !== true &&
+    !state.bodyClasses.has("booting"));
 }
 {
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
