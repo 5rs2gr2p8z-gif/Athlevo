@@ -239,7 +239,7 @@
     const style = doc.createElement("style");
     style.id = "athlevoNativeStateStyles";
     style.textContent =
-      ".athlevo-native{--athlevo-native-top:env(safe-area-inset-top,0px)}" +
+      ".athlevo-native{--athlevo-native-top:var(--athlevo-safe-top)}" +
       ".athlevo-native [data-install-cta],.athlevo-native #todayInstallCard," +
       ".athlevo-native #lpInstallNav,.athlevo-native #youInstallRow{display:none!important}" +
       ".athlevo-native body{padding-top:0}" +

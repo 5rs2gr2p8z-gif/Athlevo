@@ -715,7 +715,7 @@ body{
   justify-content: space-around;
   align-items: center;
 
-  padding: 10px 8px calc(14px + env(safe-area-inset-bottom));
+  padding: 10px 8px calc(14px + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)));
 
   background: var(--nav-glass);
   backdrop-filter: blur(18px);
@@ -731,7 +731,7 @@ body{
 .tab.on span{font-weight:700}
 .dotmark{display:none}
 .nav-active-indicator{position:absolute;z-index:0;left:0;
-  bottom:calc(max(10px, env(safe-area-inset-bottom)) + 2px);height:2px;
+  bottom:calc(max(10px, var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px))) + 2px);height:2px;
   width:24px;border-radius:var(--r-pill);background:var(--red);pointer-events:none;
   transform:translate3d(0,0,0);transform-origin:left center;
   transition:transform var(--motion-screen) var(--ease-standard),
@@ -1008,8 +1008,6 @@ input,textarea,select{color:var(--text)}
   #screen-coachai .composer,#screen-coachai .composer:focus-within,
   #screen-coachai .composer .send,#screen-coachai .coach-composer .chip{transition:none;transform:none}
 }
-#screen-coachai{padding-bottom:56px}
-
 /* ---------- train ---------- */
 .weekstrip{display:flex;gap:var(--s-2);padding:16px 22px 6px;overflow-x:auto;scrollbar-width:none}
 .weekstrip::-webkit-scrollbar{display:none}
@@ -1230,7 +1228,7 @@ input,textarea,select{color:var(--text)}
 
 /* ═══════════ premium onboarding wizard (v2) ═══════════ */
 #screen-onboard{padding-bottom:0}
-.ob2-top{display:flex;align-items:center;gap:14px;padding:16px 22px calc(16px + env(safe-area-inset-top));flex-shrink:0}
+.ob2-top{display:flex;align-items:center;gap:14px;padding:16px 22px;flex-shrink:0}
 .ob2-back{width:34px;height:34px;flex-shrink:0;border:none;background:var(--card);border-radius:50%;color:var(--text);font-size:var(--fs-h1);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity var(--dur-base),background var(--dur-base),transform var(--dur-fast)}
 .ob2-back[disabled]{opacity:0;pointer-events:none}
 /* One thin, understated progress line — recedes while the athlete reads the
@@ -1533,7 +1531,7 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
   html[data-theme="system"] .chat-result-card{background:var(--card);border-color:var(--line)}
   html[data-theme="system"] .chat-bubble-athlevo{background:var(--card)}
 }
-.diagnostic-paywall-scroll{width:100%;max-width:430px;margin:0 auto;padding:calc(28px + env(safe-area-inset-top)) 20px calc(28px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
+.diagnostic-paywall-scroll{width:100%;max-width:430px;margin:0 auto;padding:28px 20px calc(28px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
 .diagnostic-paywall-brand{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin-bottom:28px}
 .diagnostic-paywall-brand span{color:var(--red)}
 .diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-caption);font-weight:700;color:var(--good);margin-bottom:10px}
@@ -1799,9 +1797,14 @@ body.athlevo-sheet-locked{overflow:hidden}
   overflow-y: auto;
   overflow-x: hidden;
 
+  /* Status bar / notch / home indicator. env() is 0 under normal browser
+     chrome and non-zero when the installed app overlays the system UI.
+     Existing header padding is extra breathing room AFTER this inset. */
+  padding-top: var(--athlevo-safe-top, env(safe-area-inset-top, 0px));
+
   /* Clear the fixed nav in BOTH browser and standalone (adds the device
      safe-area inset so the last content is never hidden behind the bar). */
-  padding-bottom: calc(var(--athlevo-tabbar-height, 74px) + env(safe-area-inset-bottom) + 18px);
+  padding-bottom: calc(var(--athlevo-tabbar-height, 74px) + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)) + 18px);
 
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
@@ -1826,7 +1829,7 @@ body.athlevo-sheet-locked{overflow:hidden}
 
   /* Safe-area aware: extend the bar below the tabs by the device inset so the
      iPhone home indicator (standalone PWA) never overlaps the navigation. */
-  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  padding-bottom: max(10px, var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)));
 }
 /* Android WebView repaints a live 18px backdrop blur while each nested
    .screen performs native touch scrolling. Keep native scrolling intact and
@@ -2168,11 +2171,15 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 
 /* ===== COACH WORKSPACE LAYOUT ===== */
 .device{position:relative;overflow:hidden}
-:root{--athlevo-tabbar-height:74px}
+:root{
+  --athlevo-tabbar-height:74px;
+  --athlevo-safe-top:env(safe-area-inset-top,0px);
+  --athlevo-safe-bottom:env(safe-area-inset-bottom,0px);
+}
 
 #screen-coachai{
-  position:absolute;inset:0 0 calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom));
-  height:auto;min-height:0;padding:0;overflow:hidden;display:none;flex-direction:column;
+  position:absolute;inset:0 0 calc(var(--athlevo-tabbar-height) + var(--athlevo-safe-bottom));
+  height:auto;min-height:0;padding:var(--athlevo-safe-top) 0 0;overflow:hidden;display:none;flex-direction:column;
   background:var(--paper)
 }
 #screen-coachai.active{display:flex}
@@ -3311,7 +3318,8 @@ body.landing-active #tabbar{display:none!important}
 .screen.athlevo-hydration-surface.tab-entering{position:absolute}
 .athlevo-surface-skeleton{
   display:none;position:absolute;inset:0;z-index:8;overflow:hidden;
-  box-sizing:border-box;background:var(--paper);padding:28px 22px 110px;
+  box-sizing:border-box;background:var(--paper);
+  padding:calc(28px + var(--athlevo-safe-top, env(safe-area-inset-top, 0px))) 22px 110px;
   opacity:1;pointer-events:none
 }
 .athlevo-surface-loading>.athlevo-surface-skeleton,
