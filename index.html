@@ -5265,7 +5265,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-greet h1{font-size:var(--fs-display)}
 
   /* ── compact calendar strip ──────────────────────────────────── */
-  .tc{margin:0 22px 8px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 14px 10px;user-select:none;-webkit-user-select:none}
+  .tc{margin:0 22px 8px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 14px 10px;user-select:none;-webkit-user-select:none;pointer-events:auto;position:relative;z-index:2}
   .tc-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);padding:0 4px 10px}
   .tc-month{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;letter-spacing:-.01em;color:var(--text)}
   .tc-nav{display:flex;align-items:center;gap:6px}
@@ -5273,7 +5273,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
   .tc-today{font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--red);background:var(--red-soft);border:none;border-radius:var(--r-pill);padding:7px 12px;cursor:pointer}
   .tc-week{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--s-1)}
-  .tc-day{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 7px;border-radius:var(--r-md);cursor:pointer;border:1px solid transparent;background:none;font-family:var(--sans);min-height:52px;transition:background var(--dur-fast),border-color var(--dur-fast)}
+  .tc-day{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 7px;border-radius:var(--r-md);cursor:pointer;border:1px solid transparent;background:none;font-family:var(--sans);min-height:52px;min-width:44px;width:100%;pointer-events:auto;position:relative;z-index:1;transition:background var(--dur-fast),border-color var(--dur-fast)}
   .tc-dow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
   .tc-num{font-size:16px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
   .tc-dot{width:5px;height:5px;border-radius:50%;background:transparent}
@@ -10884,7 +10884,7 @@ setTimeout(function () {
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=1"></script>
-<script src="js/trainCalendar.js?v=93"></script>
+<script src="js/trainCalendar.js?v=94"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
 <script src="js/authRouteGuard.js?v=1"></script>

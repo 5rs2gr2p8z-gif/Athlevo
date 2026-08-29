@@ -196,11 +196,11 @@
     for (let i = 0; i < 7; i++) {
       const d = addDays(weekStart, i), dISO = iso(d), st = statusOf(byDate[dISO]);
       const cls = ["tc-day"]; if (dISO === selected) cls.push("sel"); if (dISO === tISO) cls.push("today");
-      html += `<button class="${cls.join(" ")}" type="button" onclick="AthlevoTrainCalendar.select('${dISO}')">
+      html += `<button class="${cls.join(" ")}" type="button" data-date="${dISO}" aria-pressed="${dISO === selected ? "true" : "false"}">
         <span class="tc-dow">${DOW[i]}</span><span class="tc-num">${d.getDate()}</span><span class="tc-dot ${st || ""}"></span></button>`;
     }
     cal.innerHTML = html + `</div>`;
-    attachSwipe(cal);
+    bindCalendarInteractions(cal);
     renderActivityFeed();
     renderWeekProgress();
     renderContext();
@@ -1204,7 +1204,11 @@
     const top = cal.offsetTop;
     if (screen.scrollTop > top + cal.offsetHeight) screen.scrollTop = Math.max(0, top);
   }
+  function isDateKey(dISO) {
+    return typeof dISO === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dISO);
+  }
   function select(dISO) {
+    if (!isDateKey(dISO)) return;
     selected = dISO;
     render();
     keepSelectedDayInView();
@@ -1213,6 +1217,22 @@
     if (activeDay && !reduce && typeof activeDay.animate === "function") {
       activeDay.animate([{ transform: "scale(.965)" }, { transform: "scale(1)" }], { duration: 180, easing: "cubic-bezier(.2,.7,.2,1)" });
     }
+  }
+  function bindCalendarInteractions(cal) {
+    if (!cal) return;
+    if (!cal._tcClick) {
+      cal._tcClick = true;
+      cal.addEventListener("click", event => {
+        if (event.target.closest && event.target.closest(".tc-nav")) return;
+        const day = event.target.closest ? event.target.closest(".tc-day") : null;
+        if (!day || (cal.contains && !cal.contains(day))) return;
+        const dISO = day.getAttribute && day.getAttribute("data-date");
+        if (!dISO) return;
+        if (event.preventDefault) event.preventDefault();
+        select(dISO);
+      });
+    }
+    attachSwipe(cal);
   }
 
   /* ── swipe gestures (unchanged) ──────────────────────────────────── */
@@ -1268,6 +1288,10 @@
       }
       if (gesture.intent === "vertical") { const current = gesture.dx; cleanup(gesture.id); gesture = null; settle(current); return; }
       if (gesture.intent !== "horizontal") return;
+      if (!gesture.captured) {
+        try { elem.setPointerCapture(event.pointerId); } catch (e) {}
+        gesture.captured = true;
+      }
       event.preventDefault();
       const now = event.timeStamp || Date.now();
       gesture.velocity = (event.clientX - gesture.lastX) / Math.max(1, now - gesture.lastTime);
@@ -1295,8 +1319,7 @@
       if (weekMotion) { try { weekMotion.cancel(); } catch (e) {} weekMotion = null; }
       const baseX = presentationX(currentTransform);
       elem.style.transform = currentTransform;
-      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: baseX, baseX, travelX: 0, intent: null, velocity: 0, lastX: event.clientX, lastTime: event.timeStamp || Date.now() };
-      try { elem.setPointerCapture(event.pointerId); } catch (e) {}
+      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: baseX, baseX, travelX: 0, intent: null, velocity: 0, lastX: event.clientX, lastTime: event.timeStamp || Date.now(), captured: false };
       elem.addEventListener("pointermove", move, { passive: false });
       elem.addEventListener("pointerup", end);
       elem.addEventListener("pointercancel", cancel);
@@ -1310,12 +1333,20 @@
     await loadWeek(weekStart);
     render();
   }
+  function hydrate(monday, selectedISO, map) {
+    weekStart = monday instanceof Date ? monday : mondayOf(civilToday());
+    selected = isDateKey(selectedISO) ? selectedISO : todayISO();
+    byDate = map && typeof map === "object" ? map : {};
+    render();
+  }
+  function getSelectedDate() { return selected; }
 
   window.AthlevoTrainCalendar = {
     open, prevWeek, nextWeek, goToday, select, openModal, closeModal, askCoach,
     activityDateKey, buildSelectedDayModel, cardMetricItems, sportTheme,
     activityCardHtml, plannedCardHtml, renderSelectedDayHtml,
     cardMiniProfile, cardProfileSeries,
-    VERSION: "train-calendar-v6"
+    hydrate, getSelectedDate,
+    VERSION: "train-calendar-v7"
   };
 })();
