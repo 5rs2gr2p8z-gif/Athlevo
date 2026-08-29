@@ -81,7 +81,7 @@
           } catch (e2) { handoff = false; pricingHandoff = false; }
           if (here === "/pricing" || pricingHandoff) path = "/pricing";
           else if (here === "/ai-signup") path = "/ai-signup";
-          else if (here === "/signup" || here === "/ai" || handoff) path = "/signup";
+          else if (here === "/signup" || handoff) path = "/signup";
         } catch (e3) { path = "/"; }
         return origin + path;
       }

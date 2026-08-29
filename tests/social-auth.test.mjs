@@ -144,9 +144,9 @@ section("Redirect target");
   t("OAuth started from /signup returns to /signup",
     load({ origin: "https://athlevo.org", pathname: "/signup" }).api.redirectTarget()
       === "https://athlevo.org/signup");
-  t("OAuth started from /ai returns to /signup",
+  t("OAuth started from /ai does not rewrite to /signup",
     load({ origin: "https://athlevo.org", pathname: "/ai" }).api.redirectTarget()
-      === "https://athlevo.org/signup");
+      === "https://athlevo.org/");
   t("OAuth started from /pricing returns to /pricing",
     load({ origin: "https://athlevo.org", pathname: "/pricing" }).api.redirectTarget()
       === "https://athlevo.org/pricing");

@@ -37,14 +37,16 @@ function extract(src, name) {
   return at >= 0 ? src.slice(at, at + 3500) : "";
 }
 
-section("1 — anonymous /ai is auth, not diagnostic or pricing");
+section("1 — anonymous /ai is diagnostic, not auth or pricing");
 {
-  t("logged-out /ai opens signup/auth, not diagnostic",
-    /typeof isAiEntryPath === "function" && isAiEntryPath\(\)/.test(html) &&
-    /aiSignupHandoff[\s\S]{0,500}openAiSignup/.test(html) &&
-    !/logged-out visitors enter the acquisition diagnostic/.test(html));
-  t("/ai is not a public diagnostic entry",
-    /logged-out visitors enter auth\/signup, not diagnostic/.test(html));
+  t("logged-out /ai starts the diagnostic, not signup",
+    /logged-out visitors enter the free diagnostic/.test(html) &&
+    /\/ai route: logged-out visitors see the diagnostic/.test(html) &&
+    !/logged-out visitors enter auth\/signup, not diagnostic/.test(html));
+  t("PERMANENT: anonymous /ai must never become auth/signup",
+    /\/ai route: logged-out visitors see the diagnostic/.test(html) &&
+    /if \(\(aiPath === "\/signup" \|\| aiPath === "\/ai-signup"\) &&[\s\S]{0,120}rememberAiSignupHandoff/.test(html) &&
+    !/if \(\(aiPath === "\/ai" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"\) &&[\s\S]{0,120}rememberAiSignupHandoff/.test(html));
 }
 
 section("2 — completed diagnostic CTA routes to /ai-signup, not Whop");
@@ -216,7 +218,8 @@ section("12 — old pending Whop entitlement can still be claimed");
 section("13 — logged-out /ai-signup refresh remains auth handoff");
 {
   t("restoreSession treats /ai-signup as auth, not diagnostic",
-    /isAiSignupPath\(\)[\s\S]{0,200}hasAiSignupHandoff\(\)[\s\S]{0,900}openAiSignup/.test(html));
+    /isSignupPath\(\)[\s\S]{0,400}hasAiSignupHandoff\(\)[\s\S]{0,900}openAiSignup/.test(html) &&
+    /function isSignupPath[\s\S]{0,180}\/ai-signup/.test(html));
   t("AI continuation source_surface restores the existing /ai-signup handoff",
     /sourceSurface === "ai_signup"[\s\S]{0,200}rememberAiSignupHandoff/.test(html) &&
     /aiSignupHandoff[\s\S]{0,400}consumeContinuation/.test(html));
@@ -230,7 +233,8 @@ section("14 — OAuth return from /ai-signup stays in the acquisition flow");
   t("OAuth redirectTarget preserves signup",
     /athlevo_ai_signup_handoff[\s\S]{0,500}\/signup/.test(social) &&
     /here === "\/ai-signup"/.test(social) &&
-    /here === "\/signup" \|\| here === "\/ai" \|\| handoff/.test(social));
+    /here === "\/signup" \|\| handoff/.test(social) &&
+    !/here === "\/signup" \|\| here === "\/ai" \|\| handoff/.test(social));
   t("authenticated restore always continues via routeAfterAuth",
     /await routeAfterAuth\(session\.user\.id\)/.test(html));
   t("Google button on the reused welcome screen still starts OAuth",
