@@ -369,6 +369,14 @@ function syncPricingUrl() {
   } catch (e) {}
 }
 
+function shouldSyncPricingUrl() {
+  try {
+    if (isPricingPath()) return true;
+    if (root.athlevoSessionUserId) return true;
+  } catch (e) {}
+  return false;
+}
+
 function syncOfferAudience() {
   var screen = document.getElementById("screen-diagnostic-paywall");
   var authed = !!root.athlevoSessionUserId;
@@ -573,11 +581,14 @@ function paintPricingScreen(unavailable) {
   selectOfferPlan(selectedOfferPlan || "monthly");
   showOfferStep();
   syncOfferAudience();
-  syncPricingUrl();
+  if (shouldSyncPricingUrl()) syncPricingUrl();
   try { root.document.title = "Pricing — Athlevo"; } catch (e) {}
 }
 
 function showPublicPricing() {
+  /* Direct /pricing is the only anonymous paint. Diagnostic/signup must
+     never be rewritten onto the public offer before auth. */
+  if (!isPricingPath()) return false;
   selectedOfferPlan = "monthly";
   paintPricingScreen(false);
   var status = document.getElementById("diagnosticPaywallStatus");

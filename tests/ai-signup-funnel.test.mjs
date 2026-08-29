@@ -861,6 +861,14 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
     (vercel.rewrites || []).some(r => r.source === "/pricing" && r.destination === "/index.html") &&
     /function isPricingPath/.test(html) &&
     /showPublicPricing/.test(acq));
+  t("inactive paywall screen is not forced visible over diagnostic",
+    !/#screen-diagnostic-paywall\{[^}]*display:\s*flex/.test(html) &&
+    /#screen-diagnostic-paywall\.active\{/.test(html));
+  t("public pricing paint requires the /pricing route",
+    /function showPublicPricing[\s\S]{0,280}if \(!isPricingPath\(\)\) return false/.test(acq));
+  t("anonymous diagnostic URLs are not rewritten to /pricing",
+    /function paintPricingScreen[\s\S]{0,700}shouldSyncPricingUrl/.test(acq) &&
+    /function shouldSyncPricingUrl[\s\S]{0,220}isPricingPath[\s\S]{0,120}athlevoSessionUserId/.test(acq));
   t("no unsupported GCash or bank transfer",
     !/GCash|bank transfer|Bank transfer/i.test(paywall));
   t("no diagnostic-handoff copy on the offer page",
@@ -958,7 +966,9 @@ section("Anonymous /ai conversion never shows payment");
     (ui.match(/presentConversionHandoff\(ready\)/g) || []).length >= 2);
   t("anonymous result CTA still goes to /ai-signup, not checkout",
     /id="diagCTA"[\s\S]{0,2200}openAiSignup\(\)/.test(ui) &&
-    !/id="diagCTA"[\s\S]{0,2200}\.checkout\(/.test(ui));
+    !/id="diagCTA"[\s\S]{0,2200}\.checkout\(/.test(ui) &&
+    !/id="diagCTA"[\s\S]{0,2200}showPublicPricing/.test(ui) &&
+    !/id="diagCTA"[\s\S]{0,2200}showPaywall/.test(ui));
 
   context.athlevoSessionUserId = "user-unpaid";
   const authChips = helpers.conversionHandoffOptions();

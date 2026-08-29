@@ -1568,8 +1568,9 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
   html[data-theme="system"] .chat-result-card{background:var(--card);border-color:var(--line)}
   html[data-theme="system"] .chat-bubble-athlevo{background:var(--card)}
 }
-#screen-diagnostic-paywall{padding-bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
-@media(min-width:880px){#screen-diagnostic-paywall{justify-content:center}}
+#screen-diagnostic-paywall{padding-bottom:0}
+#screen-diagnostic-paywall.active{flex-direction:column;align-items:center;justify-content:flex-start}
+@media(min-width:880px){#screen-diagnostic-paywall.active{justify-content:center}}
 .diagnostic-paywall-scroll{width:100%;max-width:400px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box;flex:0 1 auto}
 @media(min-width:720px){.diagnostic-paywall-scroll{max-width:420px;padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(28px + env(safe-area-inset-bottom))}}
 .diagnostic-paywall-top{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px;margin:0 0 10px;min-height:40px}
@@ -11080,7 +11081,7 @@ setTimeout(function () {
 <script src="js/diagnosticSalesEngine.js?v=3"></script>
 <script src="js/diagnosticUI.js?v=3"></script>
 <script src="js/diagnosticHandoff.js?v=3"></script>
-<script src="js/diagnosticAcquisition.js?v=4"></script>
+<script src="js/diagnosticAcquisition.js?v=5"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's
