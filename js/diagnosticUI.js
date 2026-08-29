@@ -121,6 +121,20 @@ function resetSkipCannedInterpretations() {
   skipCannedInterpretations = false;
 }
 
+/* Genuine start = at least one recorded diagnostic answer (chip/text),
+ * not engine.begin(), greeting paint, or silent autofill. Autofill may
+ * write history later; callers must prime this flag BEFORE autofill. */
+function hasRecordedDiagnosticAnswers(eng) {
+  eng = eng || engine;
+  if (!eng) return false;
+  if (eng.completed) return true;
+  return Array.isArray(eng.history) && eng.history.length > 0;
+}
+
+function primeDiagnosticStartedFromEngine(eng) {
+  diagnosticStartedFired = hasRecordedDiagnosticAnswers(eng || engine);
+}
+
 function markDiagnosticStarted(inputType) {
   if (diagnosticStartedFired) return;
   diagnosticStartedFired = true;
@@ -251,7 +265,7 @@ function startDiagnostic() {
     buildChatShell();
     renderResult();
     trackAiLandingViewed();
-    diagnosticStartedFired = true;
+    primeDiagnosticStartedFromEngine(engine);
     diagnosticCompletedFired = true;
     trackEvent("diagnostic_resumed", { state: "completed" });
     return;
@@ -276,7 +290,7 @@ function startDiagnostic() {
     trackEvent("diagnostic_viewed", { path: "/ai", page_path: "/ai" });
     renderConversationOpening();
   } else {
-    diagnosticStartedFired = true;
+    primeDiagnosticStartedFromEngine(engine);
     trackEvent("diagnostic_resumed", { state: "in_progress" });
     commitFullyKnownPendingQuestions();
     rebuildConversation(engine.nextQuestion());
@@ -1583,7 +1597,7 @@ function routeViaAi(message, field, q, fieldGroup) {
   Sales.callRouter(payload).then(function (result) {
     removeTypingIndicator();
     try {
-      trackEvent("diagnostic_ai_fallback_used", { question_key: q ? q.key : null });
+      trackDiagnosticAiFallback(result, q ? q.key : null);
       applyConversationalResult(result, message, field, fieldGroup);
     } catch (err) {
       setDiagnosticBusy(false);
@@ -3396,6 +3410,11 @@ function trackEvent(name, props) {
   } catch (e) {}
 }
 
+function trackDiagnosticAiFallback(result, questionKey) {
+  if (!result || result.usedFallback !== true) return;
+  trackEvent("diagnostic_ai_fallback_used", { question_key: questionKey || null });
+}
+
 /* ═══════════════════════════ DOM INIT ══════════════════════════════ */
 
 function initDOM() {
@@ -3465,11 +3484,15 @@ var DiagnosticUI = {
     failOpenDeadDiagnostic: failOpenDeadDiagnostic,
     advanceFlow: advanceFlow,
     handleComposerSend: handleComposerSend,
+    handleChipSelect: handleChipSelect,
     setDiagnosticBusy: setDiagnosticBusy,
     isBusy: function () { return busy; },
     presentQuestion: presentQuestion,
     getSkipCannedInterpretations: function () { return skipCannedInterpretations; },
     markDiagnosticStarted: markDiagnosticStarted,
+    hasRecordedDiagnosticAnswers: hasRecordedDiagnosticAnswers,
+    primeDiagnosticStartedFromEngine: primeDiagnosticStartedFromEngine,
+    trackDiagnosticAiFallback: trackDiagnosticAiFallback,
     trackAiLandingViewed: trackAiLandingViewed,
     completeDiagnostic: completeDiagnostic,
     getDiagnosticStartedFired: function () { return diagnosticStartedFired; },

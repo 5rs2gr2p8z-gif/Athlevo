@@ -350,6 +350,7 @@ section("Unmapped events");
   world.api.trackAthlevoEvent("diagnostic_started", { first_input_type: "chip" });
   world.api.trackAthlevoEvent("ai_signup_viewed", { from: "ai_diagnostic", path: "/ai-signup" });
   world.api.trackAthlevoEvent("subscription_activated", { provider: "whop", price_php: "597" });
+  world.api.trackAthlevoEvent("checkout_return_viewed", { outcome: "unpaid", provider: "whop" });
   t("payment_screen_viewed → no Meta conversion",
     !conversionCalls(world.fbqCalls).some(e => e.event === "InitiateCheckout" || e.event === "Lead"));
   t("diagnostic_started → no Meta conversion",
@@ -358,6 +359,9 @@ section("Unmapped events");
     conversionCalls(world.fbqCalls).length === 0);
   t("subscription_activated → no browser Meta Purchase",
     !conversionCalls(world.fbqCalls).some(e => e.event === "Purchase"));
+  t("checkout_return_viewed → no Meta conversion",
+    conversionCalls(world.fbqCalls).length === 0 &&
+    !/checkout_return_viewed/.test(pixelSrc.match(/CANONICAL_TO_META = \{[\s\S]*?\};/)[0]));
 }
 
 section("Privacy boundary");

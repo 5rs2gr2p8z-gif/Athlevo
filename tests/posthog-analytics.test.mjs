@@ -141,6 +141,7 @@ const EXPECTED_EVENTS = [
   "plan_generation_failed", "activation_failed",
   "free_limit_reached", "premium_feature_viewed", "upgrade_clicked",
   "upgrade_sheet_viewed", "checkout_started", "checkout_failed",
+  "checkout_return_viewed",
   "subscription_activated", "readiness_prompt_shown",
   "ai_landing_viewed", "ai_signup_viewed", "payment_screen_viewed",
   "payment_completed",
@@ -292,6 +293,26 @@ t("overly long strings are dropped", (() => {
     source: "a".repeat(100)   // > 80 chars
   });
   return !("source" in captured[0].props) || captured[0].props.source !== "a".repeat(100);
+})());
+
+t("checkout_return_viewed keeps outcome and drops payment identifiers", (() => {
+  const { api, captured } = makeAnalytics({ key: "phc_test" });
+  api.trackAthlevoEvent("checkout_return_viewed", {
+    outcome: "activating",
+    provider: "paymongo",
+    checkout_url: "https://checkout.paymongo.com/c/secret",
+    email: "runner@example.com",
+    session_id: "sess_123",
+    payment_id: "pay_123"
+  });
+  const props = captured[0].props;
+  return captured[0].name === "checkout_return_viewed"
+    && props.outcome === "activating"
+    && props.provider === "paymongo"
+    && !("checkout_url" in props)
+    && !("email" in props)
+    && !("session_id" in props)
+    && !("payment_id" in props);
 })());
 
 t("premium events contain only categorical feature and surface", (() => {

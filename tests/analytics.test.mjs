@@ -48,6 +48,7 @@ const REQUIRED = [
   "free_account_created", "onboarding_completed", "data_connection_completed",
   "free_limit_reached", "premium_feature_viewed", "upgrade_clicked",
   "upgrade_sheet_viewed", "checkout_started", "checkout_failed",
+  "checkout_return_viewed",
   "ai_landing_viewed", "ai_signup_viewed", "payment_screen_viewed",
   "payment_completed",
   "in_app_browser_signup_blocked", "external_signup_link_copied",

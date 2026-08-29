@@ -61,6 +61,7 @@ in `js/analyticsRegistry.js`.
 | `upgrade_sheet_viewed` | `js/accessGuard.js` `showUpgradeSheet()` | Sheet transitions from closed to genuinely visible for free/paid-inactive access | Authenticated app user | Per real open; repeated later opens may repeat | feature, upgrade-sheet surface, access tier |
 | `checkout_started` | `js/accessGuard.js` `checkout()` | Browser/native external handoff was successfully opened | Authenticated app user | Per successful explicit click | feature, upgrade-sheet surface |
 | `payment_completed` | `js/diagnosticAcquisition.js` after `verifiedPaidAccess` | Client returned and confirmed canonical `paid_active` (not a 24h performance trial) | Authenticated UUID | Once per user (client milestone) | provider, plan, price, source, attribution |
+| `checkout_return_viewed` | `js/diagnosticAcquisition.js` `resolveAfterAuth` on `checkout_return=1` | First settled unpaid / activating / paid observation for that return page load | Authenticated UUID | Once per page load; not a Meta event; not a canonical-funnel step | `outcome`, optional `provider`, attribution |
 | `subscription_activated` | Whop webhook / Whop claim / PayMongo webhook | Authoritative **server-side first paid activation** after a verified write to `public.subscriptions` | Verified server UUID as PostHog `distinct_id` | First paid grant only; replay is a no-op. PayMongo `event_type=renewed` does not recapture. Whop skips capture when the athlete is already `paid_active` (excluding the 24h trial). | `source`, `provider`, `plan_id`, `price_php` |
 
 ## Failure events
@@ -108,6 +109,42 @@ identification.
 
 Keep these meanings separate. Do not fire `payment_completed` from the server.
 
+Paid `/ai` PostHog funnel (canonical, unchanged):
+
+`ai_landing_viewed` → `diagnostic_started` → `diagnostic_completed` →
+`ai_signup_viewed` → `registration_completed` → `payment_screen_viewed` →
+`checkout_started` → `payment_completed`
+
+Server-authoritative: `subscription_activated`.
+
+`diagnostic_started` means the athlete submitted their first real diagnostic
+input (chip or typed answer). It does not mean page load, greeting paint,
+`engine.begin()`, persisted diagnostic state, or silent autofill. A reload
+before any recorded answer must still allow `diagnostic_started` on the first
+later chip/text. A reload after a recorded answer must not fire it again.
+
+`checkout_return_viewed` is a PostHog-only product event for a genuine
+`checkout_return=1` return from Whop/PayMongo. It is **not** part of the
+canonical eight-step funnel and has **no Meta mapping**. It fires once per
+page load, using the first *settled* return observation after the existing
+entitlement check (including the checkout-return poll when it runs):
+
+| `outcome` | Meaning |
+|---|---|
+| `unpaid` | Returned and Athlevo confirms no paid access and no active activation wait |
+| `activating` | Returned and Athlevo is still waiting/rechecking entitlement propagation |
+| `paid` | Returned and canonical `paid_active` is confirmed |
+
+If the same return poll goes `activating` → `paid`, only `paid` is recorded.
+Later unrelated paywall views do not fire this event. Allowed properties:
+`outcome`, optional `provider` (`whop` / `paymongo`) when already known, and
+the normal attribution keys. No payment IDs, checkout URLs, session IDs, QR
+contents, card data, emails, or names.
+
+`diagnostic_ai_fallback_used` fires only when the router result has
+`usedFallback === true` (timeout/error recovery). A successful AI/router
+call does not fire it.
+
 ## Meta Pixel (advertising layer)
 
 PostHog remains the source of truth. The browser Meta Pixel is a downstream
@@ -124,8 +161,8 @@ calls through UI code.
 | `payment_completed` | Purchase | `{ value: 597, currency: "PHP" }` |
 
 Unmapped product events (including `diagnostic_started`, `ai_signup_viewed`,
-`payment_screen_viewed`, and `subscription_activated`) do not send Meta
-conversions. PageView still fires once on full web document load from
+`payment_screen_viewed`, `checkout_return_viewed`, and `subscription_activated`)
+do not send Meta conversions. PageView still fires once on full web document load from
 `js/metaPixel.js`; SPA route changes do not fire a second PageView.
 
 Browser Meta Purchase currently depends on returning to Athlevo and confirming

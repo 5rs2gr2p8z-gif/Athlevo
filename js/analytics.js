@@ -73,7 +73,8 @@
     "state", "question_key", "questions_completed", "questions_answered",
     "primary_limiter", "recommended_product", "selected_product",
     "feasibility_rating", "injury_reported",
-    "buyer_intent", "checkout_method"
+    "buyer_intent", "checkout_method",
+    "outcome"
   ];
 
   /*
@@ -157,7 +158,8 @@
     },
     tab_name: {
       today: true, coach: true, train: true, trends: true, you: true, unknown: true
-    }
+    },
+    outcome: { unpaid: true, activating: true, paid: true }
   };
 
   /* ═══════════════════ attribution persistence ═════════════════════ */

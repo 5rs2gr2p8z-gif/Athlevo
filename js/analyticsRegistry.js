@@ -53,6 +53,7 @@
     upgrade_clicked:              { kind: "behavioural", props: ["feature", "surface"] },
     upgrade_sheet_viewed:         { kind: "behavioural", props: ["feature", "surface", "access_tier"] },
     checkout_started:             { kind: "behavioural", props: ["feature", "surface", "provider", "method", "price_php", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
+    checkout_return_viewed:        { kind: "behavioural", props: ["outcome", "provider", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     checkout_failed:              { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
     subscription_activated:       { kind: "milestone",   props: ["source", "provider", "plan_id", "price_php"] },
     whop_pending_purchase_claimed:{ kind: "milestone",   props: ["source"] },
@@ -211,7 +212,8 @@
     coaching_mode: { self_guided: true, human_coached: true },
     request_type: { adjustment: true, unable_to_complete: true, move: true, feedback: true, availability: true },
     selected_role: { athlete: true, coach: true },
-    application_status: { pending: true }
+    application_status: { pending: true },
+    outcome: { unpaid: true, activating: true, paid: true }
   };
 
   function canonicalName(name) {

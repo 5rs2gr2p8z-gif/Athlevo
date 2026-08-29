@@ -6,6 +6,26 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
+const CANONICAL_FUNNEL = [
+  "ai_landing_viewed",
+  "diagnostic_started",
+  "diagnostic_completed",
+  "ai_signup_viewed",
+  "registration_completed",
+  "payment_screen_viewed",
+  "checkout_started",
+  "payment_completed"
+];
+
+const ACQUISITION_ROW = {
+  data: {
+    import_key: "ik-1",
+    primary_limiter: "schedule",
+    acquisition_stage: "checkout_started"
+  },
+  error: null
+};
+
 let passed = 0;
 let failed = 0;
 const t = (name, cond, extra) => {
@@ -85,9 +105,14 @@ function makeAnalytics(opts = {}) {
 function loadDiagnosticUi(analytics) {
   const storage = new Map();
   const captured = analytics.captured;
+  const nodes = {
+    chatInput: { value: "", style: {}, classList: { add() {}, remove() {} }, setAttribute() {} },
+    chatQuickReplies: { innerHTML: "", style: {}, appendChild() {}, classList: { add() {}, remove() {} } },
+    chatThread: { children: [], appendChild() {}, classList: { add() {}, remove() {} } }
+  };
   const context = {
     console: { log() {}, warn() {}, error() {} },
-    Date, Math, Uint8Array,
+    Date, Math, Uint8Array, Promise,
     crypto: globalThis.crypto,
     localStorage: {
       getItem: key => storage.get(key) ?? null,
@@ -99,7 +124,7 @@ function loadDiagnosticUi(analytics) {
     document: {
       readyState: "complete",
       referrer: "",
-      getElementById: () => null,
+      getElementById: id => nodes[id] || null,
       addEventListener: () => {},
       querySelectorAll: () => [],
       querySelector: () => null,
@@ -126,7 +151,11 @@ function loadDiagnosticUi(analytics) {
   vm.runInContext(diagnosticSrc, context);
   vm.runInContext(salesSrc, context);
   vm.runInContext(uiSrc, context);
-  return { context, captured, helpers: context.AthlevoDiagnosticUI._internal, Engine: context.AthlevoDiagnostic };
+  return {
+    context, captured, nodes,
+    helpers: context.AthlevoDiagnosticUI._internal,
+    Engine: context.AthlevoDiagnostic
+  };
 }
 
 function finishDiagnostic(engine) {
@@ -179,7 +208,7 @@ function acquisitionWorld(opts = {}) {
         : { accessState: "free", isPerformanceTrial: false }
     },
     AthlevoDiagnosticHandoff: {
-      loadAcquisition: async () => ({ data: null, error: null }),
+      loadAcquisition: async () => opts.acquisition || { data: null, error: null },
       setAcquisitionStage: async () => ({ updated: true })
     },
     AthlevoAnalyticsRegistry: analytics.win.AthlevoAnalyticsRegistry,
@@ -192,9 +221,15 @@ function acquisitionWorld(opts = {}) {
   context.globalThis = context;
   vm.createContext(context);
   vm.runInContext(acqSrc, context);
-  const subscription = opts.paid
-    ? { plan_id: "performance", provider: opts.provider || "whop", status: "active" }
-    : { plan_id: "free", provider: "whop" };
+  let entitlementChecks = 0;
+  const subscriptionForCheck = () => {
+    entitlementChecks += 1;
+    const paidNow = opts.paid === true ||
+      (Number.isFinite(opts.paidAfterChecks) && entitlementChecks >= opts.paidAfterChecks);
+    return paidNow
+      ? { plan_id: "performance", provider: opts.provider || "whop", status: "active" }
+      : { plan_id: "free", provider: "whop" };
+  };
   const supabase = {
     from() {
       return {
@@ -202,7 +237,7 @@ function acquisitionWorld(opts = {}) {
           return {
             eq() {
               return {
-                maybeSingle: async () => ({ data: subscription, error: null }),
+                maybeSingle: async () => ({ data: subscriptionForCheck(), error: null }),
                 in() {
                   return {
                     order() {
@@ -310,12 +345,18 @@ section("2 — diagnostic start is interaction, not page view");
   t("page load does not emit diagnostic_started from engine.begin",
     /engine\.begin\(\);/.test(uiSrc) &&
     !/engine\.begin\(\);[\s\S]{0,160}diagnostic_started/.test(uiSrc));
+  t("in-progress resume primes started from recorded answers, not begun",
+    /primeDiagnosticStartedFromEngine\(engine\)/.test(uiSrc) &&
+    /function hasRecordedDiagnosticAnswers/.test(uiSrc) &&
+    /eng\.history\.length > 0/.test(uiSrc) &&
+    !/else \{\s*diagnosticStartedFired = true;/.test(uiSrc));
   const a = makeAnalytics();
   const { helpers, captured, Engine } = loadDiagnosticUi(a);
   helpers.trackAiLandingViewed();
   const engine = Engine.create();
   engine.begin();
   helpers.bindEngine(engine);
+  helpers.primeDiagnosticStartedFromEngine(engine);
   t("page view alone does not fire diagnostic_started",
     !captured.some(e => e.name === "diagnostic_started") &&
     helpers.getDiagnosticStartedFired() === false);
@@ -326,14 +367,94 @@ section("3 — first real diagnostic interaction");
   t("chip and composer paths mark diagnostic started",
     /markDiagnosticStarted\("chip"\)/.test(uiSrc) &&
     /markDiagnosticStarted\("text"\)/.test(uiSrc));
-  const a = makeAnalytics();
-  const { helpers, captured } = loadDiagnosticUi(a);
-  helpers.markDiagnosticStarted("chip");
-  helpers.markDiagnosticStarted("text");
-  helpers.markDiagnosticStarted("chip");
-  const started = captured.filter(e => e.name === "diagnostic_started");
-  t("first real diagnostic interaction fires diagnostic_started once",
-    started.length === 1 && started[0].props.first_input_type === "chip");
+  t("silent autofill paths never mark diagnostic started",
+    !uiSrc.slice(
+      uiSrc.indexOf("function commitFullyKnownPendingQuestions"),
+      uiSrc.indexOf("function mergeFactStore")
+    ).includes("markDiagnosticStarted"));
+
+  const chipWorld = makeAnalytics();
+  const chip = loadDiagnosticUi(chipWorld);
+  const chipEngine = chip.Engine.create();
+  chipEngine.begin();
+  chip.helpers.bindEngine(chipEngine);
+  chip.helpers.primeDiagnosticStartedFromEngine(chipEngine);
+  const goal = chip.Engine.getQuestion("goal");
+  chip.helpers.prepareQuestion(goal);
+  try {
+    chip.helpers.handleChipSelect(goal.fields[0], goal.fields[0].options[0], goal.fields);
+  } catch (e) {}
+  const chipStarted = chip.captured.filter(e => e.name === "diagnostic_started");
+  t("A. fresh visit → first chip → diagnostic_started once",
+    chipStarted.length === 1 &&
+    chipStarted[0].props.first_input_type === "chip");
+
+  const textWorld = makeAnalytics();
+  const text = loadDiagnosticUi(textWorld);
+  const textEngine = text.Engine.create();
+  textEngine.begin();
+  text.helpers.bindEngine(textEngine);
+  text.helpers.primeDiagnosticStartedFromEngine(textEngine);
+  text.helpers.prepareQuestion(goal);
+  text.nodes.chatInput.value = "5K";
+  try { text.helpers.handleComposerSend(); } catch (e) {}
+  const textStarted = text.captured.filter(e => e.name === "diagnostic_started");
+  t("B. fresh visit → first typed answer → diagnostic_started once",
+    textStarted.length === 1 &&
+    textStarted[0].props.first_input_type === "text");
+
+  const resumeWorld = makeAnalytics();
+  const resumed = loadDiagnosticUi(resumeWorld);
+  const begunEmpty = resumed.Engine.create();
+  begunEmpty.begin();
+  resumed.helpers.bindEngine(begunEmpty);
+  resumed.helpers.primeDiagnosticStartedFromEngine(begunEmpty);
+  t("reload before any answer does not treat diagnostic as started",
+    begunEmpty.begun === true &&
+    begunEmpty.history.length === 0 &&
+    resumed.helpers.getDiagnosticStartedFired() === false);
+  resumed.helpers.prepareQuestion(goal);
+  try {
+    resumed.helpers.handleChipSelect(goal.fields[0], goal.fields[0].options[1], goal.fields);
+  } catch (e) {}
+  const resumeStarted = resumed.captured.filter(e => e.name === "diagnostic_started");
+  t("C. reload before any answer → first answer after resume → diagnostic_started fires",
+    resumeStarted.length === 1 &&
+    resumeStarted[0].props.first_input_type === "chip");
+
+  const afterWorld = makeAnalytics();
+  const after = loadDiagnosticUi(afterWorld);
+  const answered = after.Engine.create();
+  answered.begin();
+  answered.recordAnswer("goal", { goal_distance: "5K" });
+  after.helpers.bindEngine(answered);
+  after.helpers.primeDiagnosticStartedFromEngine(answered);
+  t("recorded answers before reload count as already started",
+    after.helpers.hasRecordedDiagnosticAnswers(answered) === true &&
+    after.helpers.getDiagnosticStartedFired() === true);
+  after.helpers.markDiagnosticStarted("chip");
+  after.helpers.markDiagnosticStarted("text");
+  t("D. first answer → reload → second answer → diagnostic_started does NOT fire again",
+    after.captured.filter(e => e.name === "diagnostic_started").length === 0);
+
+  const autoWorld = makeAnalytics();
+  const auto = loadDiagnosticUi(autoWorld);
+  const autoEngine = auto.Engine.create();
+  autoEngine.begin();
+  auto.helpers.bindEngine(autoEngine);
+  auto.helpers.resetFactStore();
+  auto.helpers.applyExtractedFacts({ goal_distance: "Marathon" }, null);
+  if (typeof autoEngine.setPendingFacts === "function") autoEngine.setPendingFacts({});
+  auto.helpers.primeDiagnosticStartedFromEngine(autoEngine);
+  auto.helpers.commitFullyKnownPendingQuestions();
+  t("E. silent autofill alone does NOT count as diagnostic_started",
+    autoEngine.history.length > 0 &&
+    !auto.captured.some(e => e.name === "diagnostic_started") &&
+    auto.helpers.getDiagnosticStartedFired() === false);
+  auto.helpers.markDiagnosticStarted("text");
+  t("first real input after autofill-only still fires diagnostic_started once",
+    auto.captured.filter(e => e.name === "diagnostic_started").length === 1 &&
+    auto.captured.find(e => e.name === "diagnostic_started").props.first_input_type === "text");
 }
 
 section("4 — diagnostic completion");
@@ -513,6 +634,156 @@ section("11/12 — payment completed");
     paidEvents.length === 1 &&
     paidEvents[0].props.provider === "whop" &&
     paidEvents[0].props.price_php === 597);
+}
+
+section("12b — checkout_return_viewed");
+{
+  t("checkout_return_viewed is registered and not mapped to Meta",
+    /checkout_return_viewed:/.test(registrySrc) &&
+    /outcome:\s*\{ unpaid: true, activating: true, paid: true \}/.test(registrySrc) &&
+    !/checkout_return_viewed/.test(readFileSync("./js/metaPixel.js", "utf8")));
+  t("return observation is first settled state for this page load",
+    /var checkoutReturnViewedFired = false/.test(acqSrc) &&
+    /function trackCheckoutReturnViewed/.test(acqSrc) &&
+    /if \(returningFromCheckout\) trackCheckoutReturnViewed\("paid"/.test(acqSrc));
+
+  const unpaidReturn = acquisitionWorld({
+    href: "https://athlevo.org/ai-signup?checkout_return=1",
+    paid: false
+  });
+  await unpaidReturn.api.resolveAfterAuth(
+    "u-unpaid",
+    unpaidReturn.supabase,
+    null,
+    {},
+    { fromAiSignup: true }
+  );
+  await unpaidReturn.api.resolveAfterAuth(
+    "u-unpaid",
+    unpaidReturn.supabase,
+    null,
+    {},
+    { fromAiSignup: true }
+  );
+  const unpaidEvents = unpaidReturn.captured.filter(e => e.name === "checkout_return_viewed");
+  t("returned unpaid fires checkout_return_viewed once with outcome=unpaid",
+    unpaidEvents.length === 1 &&
+    unpaidEvents[0].props.outcome === "unpaid" &&
+    !unpaidReturn.captured.some(e => e.name === "payment_completed") &&
+    !("checkout_url" in (unpaidEvents[0].props || {})) &&
+    !("email" in (unpaidEvents[0].props || {})));
+
+  const activating = acquisitionWorld({
+    href: "https://athlevo.org/ai-signup?checkout_return=1",
+    paid: false,
+    acquisition: ACQUISITION_ROW
+  });
+  const activatingResult = await activating.api.resolveAfterAuth(
+    "u-activating",
+    activating.supabase,
+    null,
+    {},
+    { fromAiSignup: true }
+  );
+  const activatingEvents = activating.captured.filter(e => e.name === "checkout_return_viewed");
+  t("returned while entitlement is pending fires outcome=activating",
+    activatingResult.route === "activating" &&
+    activatingEvents.length === 1 &&
+    activatingEvents[0].props.outcome === "activating" &&
+    !activating.captured.some(e => e.name === "payment_completed"));
+
+  const paidReturn = acquisitionWorld({
+    href: "https://athlevo.org/ai-signup?checkout_return=1",
+    paid: true,
+    provider: "whop"
+  });
+  await paidReturn.api.resolveAfterAuth(
+    "u-paid-return",
+    paidReturn.supabase,
+    null,
+    { onboarding_complete: false },
+    { fromAiSignup: true }
+  );
+  const paidReturnEvents = paidReturn.captured.filter(e => e.name === "checkout_return_viewed");
+  t("returned paid fires outcome=paid without replacing payment_completed",
+    paidReturnEvents.length === 1 &&
+    paidReturnEvents[0].props.outcome === "paid" &&
+    paidReturnEvents[0].props.provider === "whop" &&
+    paidReturn.captured.filter(e => e.name === "payment_completed").length === 1);
+
+  const settledPaid = acquisitionWorld({
+    href: "https://athlevo.org/ai-signup?checkout_return=1",
+    paidAfterChecks: 2,
+    provider: "paymongo",
+    acquisition: ACQUISITION_ROW
+  });
+  await settledPaid.api.resolveAfterAuth(
+    "u-poll-paid",
+    settledPaid.supabase,
+    null,
+    { onboarding_complete: false },
+    { fromAiSignup: true }
+  );
+  const settledEvents = settledPaid.captured.filter(e => e.name === "checkout_return_viewed");
+  t("activating → paid in the same return poll records paid only",
+    settledEvents.length === 1 &&
+    settledEvents[0].props.outcome === "paid" &&
+    settledEvents[0].props.provider === "paymongo" &&
+    !settledEvents.some(e => e.props.outcome === "activating"));
+
+  const ordinaryPaywall = acquisitionWorld({ paid: false });
+  await ordinaryPaywall.api.resolveAfterAuth(
+    "u-paywall",
+    ordinaryPaywall.supabase,
+    null,
+    {},
+    { fromAiSignup: true }
+  );
+  t("unrelated paywall view does not fire checkout_return_viewed",
+    !ordinaryPaywall.captured.some(e => e.name === "checkout_return_viewed"));
+}
+
+section("12c — diagnostic_ai_fallback_used");
+{
+  const routeSrc = uiSrc.slice(
+    uiSrc.indexOf("function routeViaAi("),
+    uiSrc.indexOf("function applyConversationalResult")
+  );
+  t("router success path no longer always records fallback",
+    /trackDiagnosticAiFallback\(result/.test(routeSrc) &&
+    !/trackEvent\("diagnostic_ai_fallback_used"/.test(routeSrc) &&
+    /result\.usedFallback !== true/.test(uiSrc));
+
+  const successWorld = makeAnalytics();
+  const success = loadDiagnosticUi(successWorld);
+  success.helpers.trackDiagnosticAiFallback({ usedFallback: false, reply: "ok" }, "goal");
+  success.helpers.trackDiagnosticAiFallback({ reply: "ok" }, "goal");
+  t("normal router success → no fallback event",
+    !success.captured.some(e => e.name === "diagnostic_ai_fallback_used"));
+
+  const fallbackWorld = makeAnalytics();
+  const fallback = loadDiagnosticUi(fallbackWorld);
+  fallback.helpers.trackDiagnosticAiFallback({ usedFallback: true }, "goal");
+  const fallbackEvents = fallback.captured.filter(e => e.name === "diagnostic_ai_fallback_used");
+  t("actual fallback → exactly one fallback event",
+    fallbackEvents.length === 1 &&
+    fallbackEvents[0].props.question_key === "goal" &&
+    !("reply" in (fallbackEvents[0].props || {})) &&
+    !("message" in (fallbackEvents[0].props || {})));
+}
+
+section("12d — canonical eight-step funnel unchanged");
+{
+  t("canonical PostHog funnel order is unchanged",
+    CANONICAL_FUNNEL.join(" → ") ===
+    "ai_landing_viewed → diagnostic_started → diagnostic_completed → ai_signup_viewed → registration_completed → payment_screen_viewed → checkout_started → payment_completed");
+  t("every canonical funnel event remains registered",
+    CANONICAL_FUNNEL.every(name => new RegExp(name + ":").test(registrySrc)));
+  t("checkout_return_viewed is not a canonical funnel step",
+    !CANONICAL_FUNNEL.includes("checkout_return_viewed"));
+  t("subscription_activated remains server-authoritative and unmapped",
+    /subscription_activated:/.test(registrySrc) &&
+    !/subscription_activated/.test(readFileSync("./js/metaPixel.js", "utf8").match(/CANONICAL_TO_META = \{[\s\S]*?\};/)[0]));
 }
 
 section("13 — privacy");

@@ -53,6 +53,21 @@ function trackOnce(name, state, props) {
   track(name, props || {});
 }
 
+/* First settled checkout-return observation for this page load only.
+ * activating → paid inside the same return poll is recorded as paid,
+ * not as two events. Later paywall views without checkout_return do
+ * not fire. Not mapped to Meta. */
+var checkoutReturnViewedFired = false;
+
+function trackCheckoutReturnViewed(outcome, provider) {
+  if (checkoutReturnViewedFired) return;
+  if (outcome !== "unpaid" && outcome !== "activating" && outcome !== "paid") return;
+  checkoutReturnViewedFired = true;
+  var props = { outcome: outcome };
+  if (provider === "whop" || provider === "paymongo") props.provider = provider;
+  track("checkout_return_viewed", props);
+}
+
 function markDiagnosticCompleted(engine) {
   var result = engine && engine.result;
   if (!engine || !result || !result.athlevoRecommendation || result.athlevoRecommendation.safetyOverride) return null;
@@ -357,9 +372,11 @@ function isAcquisitionGated(userId, attachOutcome, profile, fromAiSignup) {
 async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeOpts) {
   acquisitionSupabase = supabase;
   var fromAiSignup = !!(routeOpts && routeOpts.fromAiSignup);
+  var returningFromCheckout = hasCheckoutReturn();
 
   var paid = await verifiedPaidAccess(supabase, userId);
   if (paid.paid) {
+    if (returningFromCheckout) trackCheckoutReturnViewed("paid", paid.provider);
     markPaymentCompleted(userId, paid);
     attachOutcome = await retryPendingDiagnosticAttach(userId, supabase, attachOutcome);
     clearCheckoutReturn();
@@ -395,6 +412,7 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
      athlete_diagnostics row still shows authenticated payment. */
   if (!loaded.data) {
     if (local || gated) {
+      if (returningFromCheckout) trackCheckoutReturnViewed("unpaid");
       showPaywall(bindAcquisitionUser(userId), false, {
         importDeferred: !!(loaded.error || (attachOutcome && attachOutcome.error))
       });
@@ -419,11 +437,13 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
     }
   }
   if (paid.unavailable) {
+    if (returningFromCheckout) trackCheckoutReturnViewed("unpaid");
     showPaywall(state, true);
     return { handled: true, route: "access_unavailable" };
   }
   if (!paid.paid) {
     if (hasCheckoutReturn()) {
+      trackCheckoutReturnViewed("activating");
       showRecheck(state);
       return { handled: true, route: "activating" };
     }
@@ -431,6 +451,7 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
     return { handled: true, route: "paywall" };
   }
 
+  if (returningFromCheckout) trackCheckoutReturnViewed("paid", paid.provider);
   markPaymentCompleted(userId, paid);
   clearCheckoutReturn();
 
@@ -521,6 +542,7 @@ root.AthlevoDiagnosticAcquisition = {
   showRecheck: showRecheck,
   recheckEntitlement: recheckEntitlement,
   hasCheckoutReturn: hasCheckoutReturn,
+  trackCheckoutReturnViewed: trackCheckoutReturnViewed,
   current: function () { return active || readLocal(); },
   clear: clearLocal
 };
