@@ -350,7 +350,7 @@ function bindFreshEngine() {
     "all race-detail fields already known must not be asked again"
   );
   assert.match(readFileSync("./js/diagnosticUI.js", "utf8"), /function proceedRaceDetails/);
-  assert.match(readFileSync("./js/diagnosticUI.js", "utf8"), /busy = false;\s*proceedRaceDetails\(\);/);
+  assert.match(readFileSync("./js/diagnosticUI.js", "utf8"), /setDiagnosticBusy\(false\);\s*proceedRaceDetails\(\);/);
 }
 
 {

@@ -115,7 +115,7 @@ const longest = { id: "recent_longest_run_km", type: "number", min: 0, max: 200 
 
 assert.match(uiSrc, /applyExtractedFacts\(extractDiagnosticFacts\(val, fieldEarly, q\), fieldEarly\.id\)/);
 assert.match(uiSrc, /awaitingSalesFollowup = true/);
-assert.match(uiSrc, /if \(awaitingSalesFollowup\) \{\s*awaitingSalesFollowup = false;\s*busy = false;\s*restoreCurrentFieldInput\(\);/);
+assert.match(uiSrc, /if \(awaitingSalesFollowup\) \{\s*awaitingSalesFollowup = false;\s*setDiagnosticBusy\(false\);\s*restoreCurrentFieldInput\(\);/);
 assert.doesNotMatch(uiSrc, /handleSalesDetour\([\s\S]{0,200}showValidationMsg/);
 assert.match(uiSrc, /function resumeDiagnosticAfterSales/);
 assert.match(uiSrc, /You mentioned you're around /);

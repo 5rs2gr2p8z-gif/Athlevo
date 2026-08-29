@@ -58,6 +58,37 @@ var NUMERIC_ALIASES = {
 var engine = null;
 var mode = "question";   // "question" | "result"
 var busy = false;
+var DEAD_STATE_RETRY_LABEL = "Continue";
+var DEAD_STATE_RETRY_VALUE = "__retry_diagnostic";
+var DEAD_STATE_MESSAGE = "I still need a bit more to continue. Tell me a little more about your running, or tap Continue.";
+
+function applyComposerBusyUi() {
+  var send = document.getElementById("chatSend");
+  var input = getComposerInput();
+  var composer = getComposer();
+  if (send) {
+    send.disabled = busy;
+    send.setAttribute("aria-disabled", busy ? "true" : "false");
+    send.setAttribute("aria-busy", busy ? "true" : "false");
+    send.setAttribute("aria-label", busy ? "Athlevo is responding" : "Send");
+    if (busy) send.classList.add("is-busy");
+    else send.classList.remove("is-busy");
+  }
+  if (input) {
+    input.disabled = busy;
+    input.setAttribute("aria-disabled", busy ? "true" : "false");
+  }
+  if (composer) {
+    composer.setAttribute("aria-busy", busy ? "true" : "false");
+    if (busy) composer.classList.add("is-busy");
+    else composer.classList.remove("is-busy");
+  }
+}
+
+function setDiagnosticBusy(next) {
+  busy = !!next;
+  applyComposerBusyUi();
+}
 var currentQuestion = null;
 var currentFieldData = {};
 var currentSubStep = 0;       // for compound questions split across sub-steps
@@ -333,10 +364,12 @@ function wireComposer() {
   input.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      if (busy) return;
       handleComposerSend();
     }
   });
   send.addEventListener("click", function () {
+    if (busy) return;
     handleComposerSend();
   });
 }
@@ -377,12 +410,16 @@ function appendUserMsg(thread, text, skipAnim) {
 }
 
 function appendTypingIndicator(thread) {
+  removeTypingIndicator();
   var el = createEl(
-    '<div class="chat-msg chat-msg-athlevo chat-typing" id="chatTyping">' +
+    '<div class="chat-msg chat-msg-athlevo chat-typing" id="chatTyping" role="status" aria-live="polite" aria-label="Athlevo is responding">' +
       '<div class="chat-bubble chat-bubble-athlevo">' +
-        '<span class="chat-typing-dot"></span>' +
-        '<span class="chat-typing-dot"></span>' +
-        '<span class="chat-typing-dot"></span>' +
+        '<span class="chat-typing-label">Athlevo is responding</span>' +
+        '<span class="chat-typing-dots" aria-hidden="true">' +
+          '<span class="chat-typing-dot"></span>' +
+          '<span class="chat-typing-dot"></span>' +
+          '<span class="chat-typing-dot"></span>' +
+        '</span>' +
       '</div>' +
     '</div>'
   );
@@ -460,9 +497,9 @@ function showComposer(placeholder) {
   if (composer) composer.style.display = "";
   if (input) {
     input.placeholder = "Type your answer here…";
-    input.value = "";
-    input.disabled = false;
+    if (!busy) input.value = "";
   }
+  applyComposerBusyUi();
 }
 
 function hideComposer() {
@@ -751,7 +788,7 @@ function nextActiveDependent(fieldGroup, answeredFieldId, data) {
 
 function handleChipSelect(field, opt, fieldGroup) {
   if (busy) return;
-  busy = true;
+  setDiagnosticBusy(true);
 
   var thread = getThread();
 
@@ -770,7 +807,7 @@ function handleChipSelect(field, opt, fieldGroup) {
     }
     // Re-render chips with selection state
     showMultiChipsWithState(field);
-    busy = false;
+    setDiagnosticBusy(false);
     return;
   }
 
@@ -791,7 +828,7 @@ function handleChipSelect(field, opt, fieldGroup) {
 
   if (dependent) {
     // Show dependent field as next sub-sub-step
-    busy = false;
+    setDiagnosticBusy(false);
     presentDependentField(dependent);
     return;
   }
@@ -824,7 +861,7 @@ function showMultiChipsWithState(field) {
   var doneBtn = createEl('<button class="chat-qr-chip chat-qr-done" type="button">Done</button>');
   doneBtn.addEventListener("click", function () {
     if (busy) return;
-    busy = true;
+    setDiagnosticBusy(true);
     var labels = [];
     for (var j = 0; j < field.options.length; j++) {
       if (cur.indexOf(field.options[j].value) >= 0) labels.push(field.options[j].label);
@@ -876,7 +913,7 @@ function presentDependentField(dep) {
 
 function handleRaceGateSelect(opt) {
   if (busy) return;
-  busy = true;
+  setDiagnosticBusy(true);
   markDiagnosticStarted("chip");
   var thread = getThread();
 
@@ -889,19 +926,19 @@ function handleRaceGateSelect(opt) {
     currentFieldData.goal_race = "";
     currentFieldData.goal_race_date = "";
     currentFieldData.goal_time = "";
-    busy = false;
+    setDiagnosticBusy(false);
     submitCurrentQuestion();
     return;
   }
 
   // "Yes" — skip any race-detail fields already in factStore.
-  busy = false;
+  setDiagnosticBusy(false);
   proceedRaceDetails();
 }
 
 function handleSkip(field) {
   if (busy) return;
-  busy = true;
+  setDiagnosticBusy(true);
   markDiagnosticStarted("chip");
 
   currentFieldData[field.id] = "";
@@ -959,7 +996,7 @@ function handleComposerSend() {
   if (!val) return;
 
   markDiagnosticStarted("text");
-  busy = true;
+  setDiagnosticBusy(true);
   input.value = "";
 
   var thread = getThread();
@@ -967,6 +1004,9 @@ function handleComposerSend() {
   var Sales = getSales();
 
   rememberTurn("athlete", val);
+  if (thread) appendUserMsg(thread, val);
+  hideQuickReplies();
+  scrollToBottom();
 
   var classification = Sales ? Sales.classify(val) : null;
   var extraPains = Sales ? Sales.detectPainPoints(val) : [];
@@ -982,7 +1022,6 @@ function handleComposerSend() {
   if (awaitingSalesFollowup) {
     var followup = decideSalesFollowup(val, classification, extraPains, fieldEarly, q);
     if (followup === "checkout") {
-      if (thread) appendUserMsg(thread, val);
       hideQuickReplies();
       scrollToBottom();
       handleSalesDetour({
@@ -994,11 +1033,10 @@ function handleComposerSend() {
       return;
     }
     if (followup === "resume") {
-      if (thread) appendUserMsg(thread, val);
       hideQuickReplies();
       scrollToBottom();
       awaitingSalesFollowup = false;
-      busy = false;
+      setDiagnosticBusy(false);
       resumeDiagnosticAfterSales();
       return;
     }
@@ -1008,7 +1046,6 @@ function handleComposerSend() {
 
   var highConfidenceSales = classification && classification.confidence >= 0.7;
   if (highConfidenceSales) {
-    if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
     handleSalesDetour(classification, val, extraPains);
@@ -1016,7 +1053,6 @@ function handleComposerSend() {
   }
   if (!classification && extraPains.length && Sales &&
       Sales.composeSalesReply(null, engine, salesState || Sales.emptySalesState(), extraPains)) {
-    if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
     handleSalesDetour({
@@ -1033,11 +1069,10 @@ function handleComposerSend() {
     if (!isValidFieldValue(nameDef, currentFieldData.goal_race)) {
       currentFieldData.goal_race = val;
     }
-    if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
     continueAfterOptionalAcknowledgement(val, nameDef, q, null, function () {
-      busy = false;
+      setDiagnosticBusy(false);
       proceedRaceDetails();
     });
     return;
@@ -1051,11 +1086,10 @@ function handleComposerSend() {
     } else if (!isValidFieldValue(dateDef, currentFieldData.goal_race_date)) {
       currentFieldData.goal_race_date = parsedDate;
     }
-    if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
     continueAfterOptionalAcknowledgement(val, dateDef, q, null, function () {
-      busy = false;
+      setDiagnosticBusy(false);
       proceedRaceDetails();
     });
     return;
@@ -1064,20 +1098,29 @@ function handleComposerSend() {
   if (q && q.key === "race_details" && currentSubStep === 0.7) {
     var mappedTime = NUMERIC_ALIASES[val.toLowerCase()] || val;
     currentFieldData.goal_time = mappedTime;
-    if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
     continueAfterOptionalAcknowledgement(val, findFieldDef("goal_time"), q, null, function () {
-      busy = false;
+      setDiagnosticBusy(false);
       submitCurrentQuestion();
     });
     return;
   }
 
-  if (!q) { busy = false; return; }
+  if (!q) {
+    applyExtractedFacts(extractDiagnosticFacts(val, null, null), null);
+    setDiagnosticBusy(false);
+    advanceFlow(thread);
+    return;
+  }
 
   var fieldGroup = subStepFields[Math.floor(currentSubStep)] || subStepFields[0];
-  if (!fieldGroup) { busy = false; return; }
+  if (!fieldGroup) {
+    applyExtractedFacts(extractDiagnosticFacts(val, null, q), null);
+    setDiagnosticBusy(false);
+    advanceFlow(thread);
+    return;
+  }
   var field = activeSubField || fieldGroup[0];
 
   var facts = extractDiagnosticFacts(val, field, q);
@@ -1090,7 +1133,7 @@ function handleComposerSend() {
     absorbGroupFacts(fieldGroup);
     var dependent = nextActiveDependent(fieldGroup, field.id, currentFieldData);
     if (dependent) {
-      busy = false;
+      setDiagnosticBusy(false);
       presentDependentField(dependent);
       return;
     }
@@ -1101,7 +1144,6 @@ function handleComposerSend() {
   function commitCurrent(value) {
     awaitingSalesFollowup = false;
     currentFieldData[field.id] = value;
-    if (thread) appendUserMsg(thread, val);
     if (shouldCallAiAcknowledgement(val, field, q)) {
       hideQuickReplies();
       scrollToBottom();
@@ -1116,7 +1158,7 @@ function handleComposerSend() {
         showAthlevoBubbles(painReply.reply, painReply.reply_2, true);
         salesState = Sales.markValueShown(salesState);
         trackEvent("diagnostic_value_demonstrated", { buyer_intent: "curious" });
-        busy = false;
+        setDiagnosticBusy(false);
         offerFollowUpChips(true);
         return;
       }
@@ -1138,11 +1180,10 @@ function handleComposerSend() {
   if (field.type === "chips" || field.type === "multichips") {
     if (awaitingSalesFollowup) {
       awaitingSalesFollowup = false;
-      busy = false;
+      setDiagnosticBusy(false);
       restoreCurrentFieldInput();
       return;
     }
-    if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
     if (Sales && Sales.looksLikeAQuestion(val)) {
@@ -1155,7 +1196,7 @@ function handleComposerSend() {
           afterFieldCommitted();
           return;
         }
-        busy = false;
+        setDiagnosticBusy(false);
         restoreCurrentFieldInput();
       });
       return;
@@ -1165,14 +1206,13 @@ function handleComposerSend() {
       return;
     }
     showChipClarification(field);
-    busy = false;
+    setDiagnosticBusy(false);
     restoreCurrentFieldInput();
     return;
   }
 
   if (field.type === "number") {
     if (Sales && Sales.looksLikeAQuestion(val)) {
-      if (thread) appendUserMsg(thread, val);
       hideQuickReplies();
       scrollToBottom();
       routeViaAi(val, field, q, fieldGroup);
@@ -1182,12 +1222,11 @@ function handleComposerSend() {
     if (n === null) {
       if (awaitingSalesFollowup) {
         awaitingSalesFollowup = false;
-        busy = false;
+        setDiagnosticBusy(false);
         restoreCurrentFieldInput();
         return;
       }
       if (shouldCallAiAcknowledgement(val, field, q)) {
-        if (thread) appendUserMsg(thread, val);
         hideQuickReplies();
         scrollToBottom();
         routeViaAiAcknowledgement(val, field, q, fieldGroup, function () {
@@ -1195,23 +1234,23 @@ function handleComposerSend() {
             afterFieldCommitted();
             return;
           }
-          busy = false;
+          setDiagnosticBusy(false);
           restoreCurrentFieldInput();
         });
         return;
       }
       showValidationMsg(conversationalNumberPrompt(field));
-      busy = false;
+      setDiagnosticBusy(false);
       return;
     }
     if (field.min != null && n < field.min) {
       showValidationMsg("That seems low — " + (field.label || "this") + " should be at least " + field.min + ".");
-      busy = false;
+      setDiagnosticBusy(false);
       return;
     }
     if (field.max != null && n > field.max) {
       showValidationMsg("That seems high — " + (field.label || "this") + " should be " + field.max + " or less.");
-      busy = false;
+      setDiagnosticBusy(false);
       return;
     }
     commitCurrent(n);
@@ -1219,7 +1258,6 @@ function handleComposerSend() {
   }
 
   if (Sales && Sales.looksLikeAQuestion(val)) {
-    if (thread) appendUserMsg(thread, val);
     hideQuickReplies();
     scrollToBottom();
     routeViaAi(val, field, q, fieldGroup);
@@ -1228,7 +1266,7 @@ function handleComposerSend() {
 
   if (field.maxLength && val.length > field.maxLength) {
     showValidationMsg("Please keep it under " + field.maxLength + " characters.");
-    busy = false;
+    setDiagnosticBusy(false);
     return;
   }
 
@@ -1321,14 +1359,18 @@ function shouldCallAiAcknowledgement(message, field, q) {
 
 function stripModelRouting(result) {
   if (!result || typeof result !== "object") return result;
-  result.show_checkout = false;
-  result.suggested_question_key = null;
-  if (result.next_action === "show_checkout" ||
-      result.next_action === "complete_diagnostic" ||
-      result.next_action === "handoff_to_existing_flow") {
-    result.next_action = "continue_diagnostic";
+  var out = {};
+  for (var key in result) {
+    if (Object.prototype.hasOwnProperty.call(result, key)) out[key] = result[key];
   }
-  return result;
+  out.show_checkout = false;
+  out.suggested_question_key = null;
+  if (out.next_action === "show_checkout" ||
+      out.next_action === "complete_diagnostic" ||
+      out.next_action === "handoff_to_existing_flow") {
+    out.next_action = "continue_diagnostic";
+  }
+  return out;
 }
 
 function storeModelReasoningFromResult(result) {
@@ -1445,7 +1487,7 @@ function handleSalesDetour(classification, message, extraPains) {
   applyExtractedFacts(extractDiagnosticFacts(message, field, currentQuestion), field ? field.id : null);
 
   if (!Sales) {
-    busy = false;
+    setDiagnosticBusy(false);
     restoreCurrentFieldInput();
     return;
   }
@@ -1458,7 +1500,7 @@ function handleSalesDetour(classification, message, extraPains) {
   );
   var composed = Sales.composeSalesReply(classification, engine, salesState, extraPains);
   if (!composed) {
-    busy = false;
+    setDiagnosticBusy(false);
     restoreCurrentFieldInput();
     return;
   }
@@ -1482,7 +1524,7 @@ function handleSalesDetour(classification, message, extraPains) {
 
   applyAnonymousConversionCopy(composed);
   showAthlevoBubbles(composed.reply, composed.reply_2, true);
-  busy = false;
+  setDiagnosticBusy(false);
   awaitingSalesFollowup = true;
   if (composed.show_checkout || composed.next_action === "show_checkout") {
     offerPaymentBridge();
@@ -1523,7 +1565,7 @@ function routeViaAi(message, field, q, fieldGroup) {
   var thread = getThread();
   if (!Sales) {
     showChipClarification(field);
-    busy = false;
+    setDiagnosticBusy(false);
     restoreCurrentFieldInput();
     return;
   }
@@ -1540,11 +1582,16 @@ function routeViaAi(message, field, q, fieldGroup) {
   );
   Sales.callRouter(payload).then(function (result) {
     removeTypingIndicator();
-    trackEvent("diagnostic_ai_fallback_used", { question_key: q ? q.key : null });
-    applyConversationalResult(result, message, field, fieldGroup);
+    try {
+      trackEvent("diagnostic_ai_fallback_used", { question_key: q ? q.key : null });
+      applyConversationalResult(result, message, field, fieldGroup);
+    } catch (err) {
+      setDiagnosticBusy(false);
+      restoreCurrentFieldInput();
+    }
   }, function () {
     removeTypingIndicator();
-    busy = false;
+    setDiagnosticBusy(false);
     restoreCurrentFieldInput();
   });
 }
@@ -1553,7 +1600,7 @@ function applyConversationalResult(result, message, field, fieldGroup) {
   var Sales = getSales();
   result = result || (Sales && Sales.FALLBACK_RESPONSE);
   if (!result) {
-    busy = false;
+    setDiagnosticBusy(false);
     restoreCurrentFieldInput();
     return;
   }
@@ -1601,7 +1648,7 @@ function applyConversationalResult(result, message, field, fieldGroup) {
       showAthlevoBubbles(result.reply, null, true);
     }
   }
-  busy = false;
+  setDiagnosticBusy(false);
 
   var filled = field && Object.prototype.hasOwnProperty.call(currentFieldData, field.id);
   if (result.next_action === "continue_diagnostic" && filled) {
@@ -1721,7 +1768,7 @@ function offerSignupHandoff() {
       beginCheckoutFromChat("signup");
       return;
     }
-    busy = false;
+    setDiagnosticBusy(false);
     restoreCurrentFieldInput();
   });
   showComposer("Or type here…");
@@ -1747,7 +1794,7 @@ function offerPaymentBridge() {
       beginCheckoutFromChat("card");
       return;
     }
-    busy = false;
+    setDiagnosticBusy(false);
     restoreCurrentFieldInput();
   });
   showComposer("Or type here…");
@@ -1821,7 +1868,7 @@ function beginCheckoutFromChat(method) {
   if (method === "local" && !root.athlevoSessionUserId) return;
   if (checkoutOpening) return;
   checkoutOpening = true;
-  busy = true;
+  setDiagnosticBusy(true);
   hideQuickReplies();
   var checkoutMethod = method === "local" ? "local" : "card";
   trackEvent("diagnostic_checkout_method_selected", {
@@ -1833,7 +1880,7 @@ function beginCheckoutFromChat(method) {
     if (rec && rec.safetyOverride) {
       showAthlevoBubbles(rec.strategy, null, true);
       checkoutOpening = false;
-      busy = false;
+      setDiagnosticBusy(false);
       restoreCurrentFieldInput();
       return;
     }
@@ -1860,14 +1907,14 @@ function beginCheckoutFromChat(method) {
   }
   opener.then(function (opened) {
     checkoutOpening = false;
-    busy = false;
+    setDiagnosticBusy(false);
     if (!opened) {
       showAthlevoBubbles("That payment option isn’t available right now. Card still works from here.", null, true);
       offerPaymentBridge();
     }
   }).catch(function () {
     checkoutOpening = false;
-    busy = false;
+    setDiagnosticBusy(false);
     offerPaymentBridge();
   });
 }
@@ -1915,7 +1962,7 @@ function proceedRaceDetails() {
     askGoalTime();
     return;
   }
-  busy = false;
+  setDiagnosticBusy(false);
   submitCurrentQuestion();
 }
 
@@ -1942,12 +1989,12 @@ function askRaceDate() {
       var skipBtn = createEl('<button class="chat-qr-chip chat-qr-skip" type="button">Skip</button>');
       skipBtn.addEventListener("click", function () {
         if (busy) return;
-        busy = true;
+        setDiagnosticBusy(true);
         currentFieldData.goal_race_date = "";
         if (getThread()) appendUserMsg(getThread(), "Skip");
         hideQuickReplies();
         scrollToBottom();
-        busy = false;
+        setDiagnosticBusy(false);
         proceedRaceDetails();
       });
       qr.appendChild(skipBtn);
@@ -1962,7 +2009,7 @@ function askRaceDate() {
 
 function askGoalTime() {
   if (takeKnownRaceDetail("goal_time")) {
-    busy = false;
+    setDiagnosticBusy(false);
     submitCurrentQuestion();
     return;
   }
@@ -1973,12 +2020,12 @@ function askGoalTime() {
       var skipBtn = createEl('<button class="chat-qr-chip chat-qr-skip" type="button">No specific goal</button>');
       skipBtn.addEventListener("click", function () {
         if (busy) return;
-        busy = true;
+        setDiagnosticBusy(true);
         currentFieldData.goal_time = "";
         if (getThread()) appendUserMsg(getThread(), "No specific goal");
         hideQuickReplies();
         scrollToBottom();
-        busy = false;
+        setDiagnosticBusy(false);
         submitCurrentQuestion();
       });
       qr.appendChild(skipBtn);
@@ -2739,14 +2786,14 @@ function advanceAfterChip() {
 
   if (nextSubStep < subStepFields.length) {
     // More sub-steps in this compound question
-    busy = false;
+    setDiagnosticBusy(false);
     (async function () {
       await delay(MSG_DELAY);
       presentSubStep(nextSubStep, true);
     })();
   } else {
     // All fields collected — submit
-    busy = false;
+    setDiagnosticBusy(false);
     submitCurrentQuestion();
   }
 }
@@ -2799,14 +2846,23 @@ function submitCurrentQuestion() {
  */
 async function advanceFlow(thread) {
   thread = thread || getThread();
+  var recoveredKeys = {};
   for (;;) {
     if (engine.canComplete()) {
+      setDiagnosticBusy(false);
       completeDiagnostic();
       return;
     }
 
     var next = engine.nextQuestion();
-    if (!next) return;
+    if (!next) {
+      next = recoverContinuationQuestion();
+      if (!next || recoveredKeys[next.key]) {
+        failOpenDeadDiagnostic(thread);
+        return;
+      }
+      recoveredKeys[next.key] = true;
+    }
 
     var autoAnswers = questionFullyKnownFromFacts(next);
     if (autoAnswers) {
@@ -2828,9 +2884,65 @@ async function advanceFlow(thread) {
     var subSteps = splitIntoSubSteps(next);
     var prompt = subSteps.length === 1 ? next.title : getSubStepPrompt(next, subSteps[0], 0, subSteps.length);
     if (thread) await showTypingThenMessage(thread, prompt);
+    setDiagnosticBusy(false);
     presentQuestion(next);
     return;
   }
+}
+
+function recoverContinuationQuestion() {
+  if (!engine) return null;
+  if (typeof engine.recoverContinuationQuestion === "function") {
+    return engine.recoverContinuationQuestion();
+  }
+  if (engine.completed || (typeof engine.canComplete === "function" && engine.canComplete())) {
+    return null;
+  }
+  var live = typeof engine.nextQuestion === "function" ? engine.nextQuestion() : null;
+  if (live) return live;
+  var Diagnostic = root.AthlevoDiagnostic;
+  if (!Diagnostic || typeof Diagnostic.getQuestion !== "function") return null;
+  var injurySatisfied = typeof engine._injurySafetySatisfied === "function"
+    ? engine._injurySafetySatisfied()
+    : !!(engine.known && engine.known.injury_status);
+  if (!injurySatisfied) {
+    var injury = Diagnostic.getQuestion("injury_status");
+    if (injury) return injury;
+  }
+  var questions = typeof Diagnostic.getQuestions === "function" ? Diagnostic.getQuestions() : [];
+  var i;
+  var q;
+  for (i = 0; i < questions.length; i++) {
+    q = questions[i];
+    if (q.key === "perceived_limiter") continue;
+    if (engine.history && engine.history.indexOf(q.key) >= 0) continue;
+    if (q.eligible && engine._stateView && !q.eligible(engine._stateView())) continue;
+    return q;
+  }
+  return null;
+}
+
+function failOpenDeadDiagnostic(thread) {
+  setDiagnosticBusy(false);
+  thread = thread || getThread();
+  if (thread) {
+    appendAthlevoMsg(thread, DEAD_STATE_MESSAGE);
+    rememberTurn("athlevo", DEAD_STATE_MESSAGE);
+    scrollToBottom();
+  }
+  showQuickReplies([{ label: DEAD_STATE_RETRY_LABEL, value: DEAD_STATE_RETRY_VALUE }], function (opt) {
+    if (!opt || opt.value !== DEAD_STATE_RETRY_VALUE) return;
+    hideQuickReplies();
+    setDiagnosticBusy(true);
+    Promise.resolve(advanceFlow(getThread())).then(function () {
+      setDiagnosticBusy(false);
+    }, function () {
+      setDiagnosticBusy(false);
+      restoreCurrentFieldInput();
+    });
+  });
+  showComposer("Type your answer here…");
+  setComposerMode("text");
 }
 
 /* ═══════════════════════════ VALIDATION ════════════════════════════ */
@@ -2928,6 +3040,20 @@ function rebuildConversation(activeQ) {
   // Active question or completion
   if (!activeQ && engine.canComplete()) {
     completeDiagnostic();
+    return;
+  }
+  if (!activeQ) {
+    var recovered = recoverContinuationQuestion();
+    if (recovered) {
+      thread.appendChild(createEl(
+        '<div class="chat-msg chat-msg-athlevo"><div class="chat-bubble chat-bubble-athlevo">' + esc(recovered.title) + '</div></div>'
+      ));
+      presentQuestion(recovered);
+    } else {
+      failOpenDeadDiagnostic(thread);
+    }
+    scrollToBottom();
+    updateProgress();
     return;
   }
   if (activeQ) {
@@ -3335,6 +3461,13 @@ var DiagnosticUI = {
     commitFullyKnownPendingQuestions: commitFullyKnownPendingQuestions,
     extractGoalTime: extractGoalTime,
     resetSkipCannedInterpretations: resetSkipCannedInterpretations,
+    recoverContinuationQuestion: recoverContinuationQuestion,
+    failOpenDeadDiagnostic: failOpenDeadDiagnostic,
+    advanceFlow: advanceFlow,
+    handleComposerSend: handleComposerSend,
+    setDiagnosticBusy: setDiagnosticBusy,
+    isBusy: function () { return busy; },
+    presentQuestion: presentQuestion,
     getSkipCannedInterpretations: function () { return skipCannedInterpretations; },
     markDiagnosticStarted: markDiagnosticStarted,
     trackAiLandingViewed: trackAiLandingViewed,
@@ -3349,7 +3482,17 @@ var DiagnosticUI = {
       currentQuestion = null;
       currentSubStep = 0;
       activeSubField = null;
+      subStepFields = [];
       resetSkipCannedInterpretations();
+      setDiagnosticBusy(false);
+      diagnosticCompletedFired = false;
+    },
+    prepareQuestion: function (q) {
+      currentQuestion = q;
+      currentFieldData = {};
+      currentSubStep = 0;
+      activeSubField = null;
+      subStepFields = q ? splitIntoSubSteps(q) : [];
     },
     getFactStore: function () { return factStore; },
     resetFactStore: function () {

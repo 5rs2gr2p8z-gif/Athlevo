@@ -1235,6 +1235,43 @@ DiagnosticEngine.prototype.nextQuestion = function () {
   return candidates[0].question;
 };
 
+/* Fail-open continuation when nextQuestion() is empty but canComplete()
+ * is still false. Does not change sufficiency, scoring, or the normal
+ * nextQuestion() path. Injury/safety first, then unanswered eligible
+ * questions, then answered questions whose provided facts never stuck. */
+DiagnosticEngine.prototype.recoverContinuationQuestion = function () {
+  if (this.completed || this.canComplete()) return null;
+  var live = this.nextQuestion();
+  if (live) return live;
+
+  if (!this._injurySafetySatisfied()) {
+    var injury = DiagnosticEngine.getQuestion("injury_status");
+    if (injury) return injury;
+  }
+
+  var i;
+  var q;
+  for (i = 0; i < QUESTIONS.length; i++) {
+    q = QUESTIONS[i];
+    if (q.key === "perceived_limiter") continue;
+    if (this.history.indexOf(q.key) >= 0) continue;
+    if (q.eligible && !q.eligible(this._stateView())) continue;
+    return q;
+  }
+
+  for (i = 0; i < QUESTIONS.length; i++) {
+    q = QUESTIONS[i];
+    if (this.history.indexOf(q.key) < 0) continue;
+    var stillNeeded = false;
+    for (var p = 0; p < q.provides.length; p++) {
+      if (this._provideStillNeeded(q.provides[p])) { stillNeeded = true; break; }
+    }
+    if (stillNeeded) return q;
+  }
+
+  return null;
+};
+
 /* Enough information for a useful diagnosis, including the injury gate. */
 DiagnosticEngine.prototype.canComplete = function () {
   if (!this.begun || this.completed) return !!this.completed;
