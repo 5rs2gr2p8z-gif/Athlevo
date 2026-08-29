@@ -1,12 +1,12 @@
 /*
  * ══════════════════════════════════════════════════════════════════════
  *  Athlevo — Date-First Training Calendar  (Train primary experience)
- *  v3 — Clean activity-feed + rich activity-detail redesign
+ *  v4 — Selected-day panel (calendar still marks the whole week)
  * ══════════════════════════════════════════════════════════════════════
  *
- *  PART 1: Compact calendar strip → chronological activity feed for the
- *  entire week, grouped by day. Each activity is a single compact row
- *  with key metrics. Tapping opens the rich detail view.
+ *  PART 1: Compact calendar strip → ONE selected date's planned
+ *  workout(s) and/or imported activities. Changing the selected date
+ *  replaces the panel; it never appends other days.
  *
  *  PART 2: Full-height detail sheet with: summary → workout structure →
  *  HR zones → chart sections → splits/laps → coach analysis.
@@ -40,7 +40,36 @@
   function mondayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
   function addDays(d, n) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() + n); return x; }
   const esc = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const todayISO = () => iso(new Date());
+  function civilToday() {
+    try {
+      if (window.AthlevoCalendar && typeof window.AthlevoCalendar.localCivil === "function") {
+        const tz = window.AthlevoCalendar.resolveTimezone(null);
+        const c = window.AthlevoCalendar.localCivil(new Date(), tz);
+        if (c && Number.isFinite(c.y)) return new Date(c.y, c.m - 1, c.d);
+      }
+    } catch (e) {}
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }
+  const todayISO = () => iso(civilToday());
+
+  function activityDateKey(activity) {
+    const raw = activity && (activity.start_date || activity.start_date_local);
+    if (!raw) return null;
+    const instant = raw instanceof Date ? raw : new Date(raw);
+    if (Number.isNaN(instant.getTime())) {
+      const s = String(raw);
+      return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
+    }
+    try {
+      if (window.AthlevoCalendar && typeof window.AthlevoCalendar.localCivil === "function") {
+        const tz = window.AthlevoCalendar.resolveTimezone(null);
+        const c = window.AthlevoCalendar.localCivil(instant, tz);
+        if (c && Number.isFinite(c.y)) return `${c.y}-${pad(c.m)}-${pad(c.d)}`;
+      }
+    } catch (e) {}
+    return iso(instant);
+  }
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
   const isRest = s => s && typeof isRestSession === "function" && isRestSession(s);
   const isRun = a => /run/i.test(a && (a.sport_type || a.activity_type || a.name) || "");
@@ -86,6 +115,7 @@
   async function loadWeek(monday) {
     byDate = {}; actById = {};
     const start = iso(monday), end = iso(addDays(monday, 6));
+    const actStart = iso(addDays(monday, -1)), actEnd = iso(addDays(monday, 7));
     let user = null;
     try { user = (await supabaseClient.auth.getUser()).data.user; } catch (e) {}
     if (!user) return;
@@ -93,7 +123,7 @@
 
     const [sessRes, actRes] = await Promise.all([
       base("training_sessions").gte("session_date", start).lte("session_date", end),
-      base("activities").gte("start_date", start + "T00:00:00").lte("start_date", end + "T23:59:59.999")
+      base("activities").gte("start_date", actStart + "T00:00:00").lte("start_date", actEnd + "T23:59:59.999")
     ].map(p => p.then(r => r).catch(() => ({ data: [] }))));
 
     const sessions = (sessRes && sessRes.data) || [];
@@ -119,7 +149,8 @@
       byDate[d].execution = s.id != null ? (execBySession[String(s.id)] || null) : null;
     });
     acts.forEach(a => {
-      const d = String(a.start_date).slice(0, 10);
+      const d = activityDateKey(a);
+      if (!d) return;
       byDate[d] = byDate[d] || { activities: [] };
       byDate[d].activities.push(a);
       if (a.id != null) actById[String(a.id)] = a;
@@ -251,108 +282,160 @@
     return `<div class="af-effort-bar">${bars}</div>`;
   }
 
-  /* ── activity feed (whole week, grouped by day) ─────────────────── */
+  /* ── selected-day model (planned + imported for ONE date) ───────── */
+  function buildSelectedDayModel(dISO, entry, todayKey) {
+    const REST = new Set(["rest", "rest_day", "restday", "off", "day_off"]);
+    const session = entry && entry.session ? entry.session : null;
+    const execution = entry && entry.execution ? entry.execution : null;
+    const activities = Array.isArray(entry && entry.activities) ? entry.activities.slice() : [];
+    const type = String(session && session.session_type || "").toLowerCase().replace(/[\s-]+/g, "_");
+    const rest = !!(session && REST.has(type));
+    const completed = !!(execution && (execution.status === "completed" || execution.status === "modified"));
+    const skipped = !!(execution && execution.status === "skipped");
+    const past = !!(dISO && todayKey && dISO < todayKey);
+    const future = !!(dISO && todayKey && dISO > todayKey);
+    const matchedId = execution && execution.imported_activity_id != null
+      ? String(execution.imported_activity_id) : null;
+    const matchedActs = [];
+    const unmatchedActs = [];
+    activities.forEach(a => {
+      if (matchedId && a && a.id != null && String(a.id) === matchedId) matchedActs.push(a);
+      else unmatchedActs.push(a);
+    });
+    if (completed && !matchedId && unmatchedActs.length === 1 && !matchedActs.length) {
+      matchedActs.push(unmatchedActs.shift());
+    }
+    const hasActs = activities.length > 0;
+    const missed = !!(session && !rest && past && !completed && !skipped && !hasActs);
+    const showPlan = !!(session && !rest && (
+      missed ||
+      skipped ||
+      (!completed && !hasActs) ||
+      (!completed && hasActs) ||
+      (completed && !matchedActs.length)
+    ));
+    return {
+      date: dISO,
+      session,
+      execution,
+      rest,
+      empty: !session && !hasActs,
+      missed,
+      skipped,
+      completed,
+      past,
+      future,
+      showPlan,
+      activities,
+      matchedActs,
+      unmatchedActs
+    };
+  }
+
+  function plannedCardHtml(model) {
+    const s = model.session;
+    const sType = typeof formatSessionType === "function"
+      ? formatSessionType(s.session_type)
+      : String(s.session_type || "Workout").replace(/[_-]+/g, " ");
+    const title = (s.title && String(s.title).trim()) || sType;
+    const intensity = s.intensity
+      ? String(s.intensity).replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+      : "";
+    const sub = [title !== sType ? sType : null, intensity].filter(Boolean).join(" · ");
+    const meta = [];
+    if (num(s.duration_minutes) > 0) meta.push(Math.round(s.duration_minutes) + " min");
+    if (num(s.distance_km) > 0) {
+      const km = Number(s.distance_km);
+      meta.push((Number.isInteger(km) ? String(km) : String(km)) + " km");
+    }
+    if (s.target_rpe) meta.push("RPE " + s.target_rpe);
+    else if (s.pace_guidance) meta.push(s.pace_guidance);
+    const badge = model.missed
+      ? `<span class="af-card-status af-card-status--missed">Missed</span>`
+      : model.skipped
+        ? `<span class="af-card-status af-card-status--missed">Not completed</span>`
+        : `<span class="af-card-cta">View plan</span>`;
+    const cls = ["af-card", "af-card--planned"];
+    if (model.missed || model.skipped) cls.push("af-card--missed");
+    return `<div class="${cls.join(" ")}" data-train-item="plan" onclick="AthlevoTrainCalendar.openModal('${model.date}')">
+      ${SPORT_ICON.run}
+      <div class="af-card-body">
+        <span class="af-card-name">${esc(title)}</span>
+        ${sub ? `<span class="af-card-source">${esc(sub)}</span>` : ""}
+        ${meta.length ? `<span class="af-card-meta">${esc(meta.join(" · "))}</span>` : ""}
+      </div>
+      ${badge}
+    </div>`;
+  }
+
+  function activityCardHtml(a, dISO, done) {
+    const name = sportLabel(a);
+    const source = a.name && a.name !== name ? a.name : null;
+    const metrics = activityMetrics(a);
+    const effort = miniEffortBar(a);
+    const id = a && a.id != null ? String(a.id) : "";
+    return `<div class="af-card${done ? " af-card--done" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
+      ${sportIcon(a)}
+      <div class="af-card-body">
+        <span class="af-card-name">${esc(name)}</span>
+        ${source ? `<span class="af-card-source">${esc(source)}</span>` : ""}
+        ${metrics ? `<span class="af-card-metrics">${esc(metrics)}</span>` : ""}
+        ${effort}
+      </div>
+      <span class="af-card-cta">Review</span>
+    </div>`;
+  }
+
+  function renderSelectedDayHtml(model) {
+    const dISO = model.date;
+    const tISO = todayISO();
+    const isToday = dISO === tISO;
+    const dayLabel = isToday ? "Today" : fmtDayHeader(dISO);
+    let html = `<div class="af-day" data-train-day="${esc(dISO)}">`;
+    html += `<div class="af-day-head"><span class="af-day-label${isToday ? " af-today" : ""}">${esc(dayLabel)}</span>`;
+    if (isToday) html += `<span class="af-day-date">${esc(fmtDayHeader(dISO))}</span>`;
+    html += `</div>`;
+
+    if (model.empty) {
+      html += `<p class="af-day-empty">${model.rest ? "Rest day" : "No training scheduled"}</p></div>`;
+      return html;
+    }
+
+    if (model.rest && !model.activities.length) {
+      html += `<div class="af-card af-card--rest" data-train-item="rest">
+        <div class="af-card-body">
+          <span class="af-card-name">Rest day</span>
+          <span class="af-card-meta">Recovery is part of the plan</span>
+        </div>
+      </div></div>`;
+      return html;
+    }
+
+    const showSections = model.showPlan && model.activities.length > 0;
+    if (model.showPlan) {
+      if (showSections) html += `<div class="af-section-label">Planned</div>`;
+      html += plannedCardHtml(model);
+    }
+    if (model.activities.length) {
+      if (showSections) html += `<div class="af-section-label">Completed</div>`;
+      const matchedIds = new Set(model.matchedActs.map(a => a && a.id != null ? String(a.id) : ""));
+      model.activities.forEach(a => {
+        const done = model.completed && a && a.id != null && matchedIds.has(String(a.id));
+        html += activityCardHtml(a, dISO, done);
+      });
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  /* ── selected-day panel (never a multi-day feed) ────────────────── */
   function renderActivityFeed() {
     const el = document.getElementById("trainDayPanel");
     if (!el) return;
-    const tISO = todayISO();
-    let html = "";
-    let hasContent = false;
-
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(weekStart, i), dISO = iso(d);
-      const entry = byDate[dISO] || null;
-      const acts = (entry && entry.activities) || [];
-      const session = entry && entry.session ? entry.session : null;
-      const ex = entry && entry.execution ? entry.execution : null;
-      const st = statusOf(entry);
-      const isToday = dISO === tISO;
-      const isSelected = dISO === selected;
-
-      // Day has content
-      if (session || acts.length) {
-        hasContent = true;
-        const dayLabel = isToday ? "Today" : fmtDayHeader(dISO);
-        html += `<div class="af-day${isSelected ? " af-day--sel" : ""}">`;
-        html += `<div class="af-day-head"><span class="af-day-label${isToday ? " af-today" : ""}">${esc(dayLabel)}</span>`;
-        if (isToday) html += `<span class="af-day-date">${esc(fmtDayHeader(dISO))}</span>`;
-        html += `</div>`;
-
-        // Rest day
-        if (session && isRest(session)) {
-          html += `<div class="af-card af-card--rest" onclick="AthlevoTrainCalendar.select('${dISO}')">
-            <div class="af-card-body">
-              <span class="af-card-name">Rest Day</span>
-              <span class="af-card-meta">Recovery is part of the plan</span>
-            </div>
-            ${st === "done" ? '<span class="af-card-status af-card-status--done">✓</span>' : ""}
-          </div>`;
-          html += `</div>`;
-          continue;
-        }
-
-        // Planned session (not yet executed, no matching activity)
-        if (session && !ex && !acts.length) {
-          const sType = typeof formatSessionType === "function" ? formatSessionType(session.session_type) : (session.session_type || "Workout");
-          const meta = [];
-          if (num(session.duration_minutes) > 0) meta.push(Math.round(session.duration_minutes) + "m");
-          if (num(session.distance_km) > 0) meta.push(session.distance_km + " km");
-          if (session.pace_guidance) meta.push(session.pace_guidance);
-          html += `<div class="af-card af-card--planned" onclick="AthlevoTrainCalendar.openModal('${dISO}')">
-            ${SPORT_ICON.run}
-            <div class="af-card-body">
-              <span class="af-card-name">${esc(sType)}</span>
-              ${meta.length ? `<span class="af-card-meta">${esc(meta.join(" · "))}</span>` : ""}
-              ${session.purpose ? `<span class="af-card-purpose">${esc(session.purpose.split(/[.!?]/)[0])}</span>` : ""}
-            </div>
-            <span class="af-card-cta">View</span>
-          </div>`;
-        }
-
-        // Activities (detected/imported workouts)
-        acts.forEach(a => {
-          const sport = canonSport(a);
-          const name = sportLabel(a);
-          const source = a.name && a.name !== name ? a.name : null;
-          const device = (a.raw_data && a.raw_data.device_name) || null;
-          const metrics = activityMetrics(a);
-          const effort = miniEffortBar(a);
-          const statusCls = ex && (ex.status === "completed" || ex.status === "modified") ? " af-card--done" : "";
-
-          html += `<div class="af-card${statusCls}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${a.id}')">
-            ${sportIcon(a)}
-            <div class="af-card-body">
-              <span class="af-card-name">${esc(name)}</span>
-              ${source ? `<span class="af-card-source">${esc(source)}</span>` : ""}
-              ${metrics ? `<span class="af-card-metrics">${esc(metrics)}</span>` : ""}
-              ${effort}
-            </div>
-            <span class="af-card-cta">Review</span>
-          </div>`;
-        });
-
-        // Planned session WITH activity (show both context)
-        if (session && !isRest(session) && acts.length && !ex) {
-          const sType = typeof formatSessionType === "function" ? formatSessionType(session.session_type) : (session.session_type || "Workout");
-          html += `<div class="af-plan-note" onclick="AthlevoTrainCalendar.openModal('${dISO}')">
-            Planned: ${esc(sType)} · <span>View plan</span>
-          </div>`;
-        }
-
-        html += `</div>`;
-      }
-    }
-
-    // Empty state
-    if (!hasContent) {
-      html = `<div class="af-empty">
-        <div class="af-empty-icon"><img src="assets/athlevo-icon.png" alt="" width="28" height="28"></div>
-        <p>${hasAnyPlan ? "No activities this week." : "No training plan yet."}</p>
-        ${hasAnyPlan ? "" : `<button class="af-empty-cta" type="button" onclick="(window.AthlevoPlan?AthlevoPlan.start():null)">Build My Plan</button>`}
-      </div>`;
-    }
-
-    el.innerHTML = html;
+    if (!selected) selected = todayISO();
+    const model = buildSelectedDayModel(selected, byDate[selected] || { activities: [] }, todayISO());
+    el.innerHTML = renderSelectedDayHtml(model);
+    el.dataset.selectedDay = selected;
   }
 
   /* ── weekly progress (compact, near header) ─────────────────────── */
@@ -967,10 +1050,18 @@
   }
   async function prevWeek() { interruptWeekMotion(); await goToWeek(addDays(weekStart, -7), selectedDow()); }
   async function nextWeek() { interruptWeekMotion(); await goToWeek(addDays(weekStart, 7), selectedDow()); }
-  async function goToday() { interruptWeekMotion(); selected = todayISO(); await goToWeek(mondayOf(new Date()), null); selected = todayISO(); render(); }
+  async function goToday() { interruptWeekMotion(); selected = todayISO(); await goToWeek(mondayOf(civilToday()), null); selected = todayISO(); render(); }
+  function keepSelectedDayInView() {
+    const screen = document.getElementById("screen-train");
+    const cal = document.getElementById("trainCalendar");
+    if (!screen || !cal) return;
+    const top = cal.offsetTop;
+    if (screen.scrollTop > top + cal.offsetHeight) screen.scrollTop = Math.max(0, top);
+  }
   function select(dISO) {
     selected = dISO;
     render();
+    keepSelectedDayInView();
     const activeDay = document.querySelector("#trainCalendar .tc-day.sel");
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (activeDay && !reduce && typeof activeDay.animate === "function") {
@@ -1068,11 +1159,15 @@
 
   async function open(planData) {
     hasAnyPlan = !!(planData && planData.hasPlan);
-    selected = todayISO(); weekStart = mondayOf(new Date());
+    selected = todayISO(); weekStart = mondayOf(civilToday());
     render();
     await loadWeek(weekStart);
     render();
   }
 
-  window.AthlevoTrainCalendar = { open, prevWeek, nextWeek, goToday, select, openModal, closeModal, askCoach, VERSION: "train-calendar-v3" };
+  window.AthlevoTrainCalendar = {
+    open, prevWeek, nextWeek, goToday, select, openModal, closeModal, askCoach,
+    activityDateKey, buildSelectedDayModel,
+    VERSION: "train-calendar-v4"
+  };
 })();

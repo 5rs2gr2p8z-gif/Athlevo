@@ -5284,13 +5284,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-day.sel .tc-dot.rest{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5)}
   .tc-day.other .tc-num{color:var(--ink3)}
 
-  /* ── activity feed (chronological, grouped by day) ───────────── */
-  .tc-panel{margin:0 22px 10px}
-  .af-day{margin-bottom:6px}
+  /* ── selected-day panel ──────────────────────────────────────── */
+  .tc-panel{margin:0 22px 12px}
+  .af-day{margin:0}
   .af-day-head{display:flex;align-items:baseline;justify-content:space-between;padding:10px 2px 6px}
   .af-day-label{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
   .af-day-label.af-today{color:var(--red)}
   .af-day-date{font-size:var(--fs-caption);color:var(--ink3)}
+  .af-section-label{font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:8px 2px 4px}
+  .af-day-empty{margin:4px 2px 8px;font-size:var(--fs-body-sm);color:var(--ink2)}
+  .af-card--missed{opacity:.92}
+  .af-card-status--missed{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);align-self:center;white-space:nowrap}
 
   /* ── activity card ───────────────────────────────────────────── */
   .af-card{display:flex;align-items:flex-start;gap:12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 14px;cursor:pointer;margin-bottom:6px;transition:background var(--dur-fast)}
@@ -10826,7 +10830,7 @@ setTimeout(function () {
 <script src="js/train.js?v=82"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
-<script src="js/trainCalendar.js?v=90"></script>
+<script src="js/trainCalendar.js?v=91"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
 <script src="js/authRouteGuard.js?v=1"></script>
