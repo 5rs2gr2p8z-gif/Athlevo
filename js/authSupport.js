@@ -133,7 +133,7 @@
   function isAiAcquisitionContext() {
     try {
       const path = String(window.location.pathname || "").replace(/\/+$/, "");
-      if (path === "/ai" || path === "/ai-signup") return true;
+      if (path === "/ai" || path === "/ai-signup" || path === "/signup") return true;
     } catch (error) {}
     try {
       if (window.sessionStorage &&
@@ -178,7 +178,7 @@
     const allowedIntent = safeIntent(intent) || "signup";
     const opts = options || {};
     const aiAcquisition = isAiAcquisitionContext();
-    const url = new URL(CANONICAL_URL + (aiAcquisition ? "/ai-signup" : "/"));
+    const url = new URL(CANONICAL_URL + (aiAcquisition ? "/signup" : "/"));
     url.searchParams.set("continue", allowedIntent);
     const browser = safeHandoffBrowser(opts.browser || handoffBrowser());
     const surface = aiAcquisition ? "ai_signup" : safeSurface(opts.sourceSurface);

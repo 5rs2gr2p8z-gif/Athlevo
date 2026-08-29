@@ -37,13 +37,14 @@ function extract(src, name) {
   return at >= 0 ? src.slice(at, at + 3500) : "";
 }
 
-section("1 — anonymous /ai still owns the diagnostic");
+section("1 — anonymous /ai is auth, not diagnostic or pricing");
 {
-  t("logged-out /ai still starts the diagnostic",
-    /pathname[\s\S]{0,80}=== '\/ai'[\s\S]{0,200}AthlevoDiagnosticUI\.start/.test(html) ||
-    /replace\(\/\\\/\+\$\/, ''\) === '\/ai'[\s\S]{0,180}AthlevoDiagnosticUI\.start/.test(html));
-  t("/ai is not a normal authenticated app entry",
-    /Direct \/ai route: logged-out visitors enter the acquisition diagnostic/.test(html));
+  t("logged-out /ai opens signup/auth, not diagnostic",
+    /typeof isAiEntryPath === "function" && isAiEntryPath\(\)/.test(html) &&
+    /aiSignupHandoff[\s\S]{0,500}openAiSignup/.test(html) &&
+    !/logged-out visitors enter the acquisition diagnostic/.test(html));
+  t("/ai is not a public diagnostic entry",
+    /logged-out visitors enter auth\/signup, not diagnostic/.test(html));
 }
 
 section("2 — completed diagnostic CTA routes to /ai-signup, not Whop");
@@ -62,6 +63,8 @@ section("3 — /ai-signup reuses existing Athlevo auth");
 {
   t("Vercel rewrites /ai-signup to the SPA",
     (vercel.rewrites || []).some(r => r.source === "/ai-signup" && r.destination === "/index.html"));
+  t("Vercel rewrites /signup to the SPA",
+    (vercel.rewrites || []).some(r => r.source === "/signup" && r.destination === "/index.html"));
   t("handoff reuses screen-welcome, not a second auth system",
     /function openAiSignup/.test(html) && /showScreen\("screen-welcome"\)/.test(extract(html, "openAiSignup")));
   t("copy asks to create an Athlevo account",
@@ -213,19 +216,21 @@ section("12 — old pending Whop entitlement can still be claimed");
 section("13 — logged-out /ai-signup refresh remains auth handoff");
 {
   t("restoreSession treats /ai-signup as auth, not diagnostic",
-    /isAiSignupPath\(\)[\s\S]{0,80}hasAiSignupHandoff\(\)[\s\S]{0,900}openAiSignup/.test(html));
+    /isAiSignupPath\(\)[\s\S]{0,200}hasAiSignupHandoff\(\)[\s\S]{0,900}openAiSignup/.test(html));
   t("AI continuation source_surface restores the existing /ai-signup handoff",
     /sourceSurface === "ai_signup"[\s\S]{0,200}rememberAiSignupHandoff/.test(html) &&
     /aiSignupHandoff[\s\S]{0,400}consumeContinuation/.test(html));
-  t("refresh keeps the /ai-signup URL",
-    /history\.replaceState\(\{ athlevoNav: "ai-signup" \}, "", "\/ai-signup"\)/.test(html));
+  t("refresh keeps the canonical /signup URL",
+    /history\.replaceState\(\{ athlevoNav: "signup" \}, "", signupPath\)/.test(html) ||
+    /replaceState\(\{ athlevoNav: "signup" \}[\s\S]{0,80}\/signup/.test(html));
 }
 
 section("14 — OAuth return from /ai-signup stays in the acquisition flow");
 {
-  t("OAuth redirectTarget preserves /ai-signup",
-    /athlevo_ai_signup_handoff[\s\S]{0,450}\/ai-signup/.test(social) &&
-    /here === "\/ai-signup" \|\| handoff/.test(social));
+  t("OAuth redirectTarget preserves signup",
+    /athlevo_ai_signup_handoff[\s\S]{0,500}\/signup/.test(social) &&
+    /here === "\/ai-signup"/.test(social) &&
+    /here === "\/signup" \|\| here === "\/ai" \|\| handoff/.test(social));
   t("authenticated restore always continues via routeAfterAuth",
     /await routeAfterAuth\(session\.user\.id\)/.test(html));
   t("Google button on the reused welcome screen still starts OAuth",
@@ -234,11 +239,11 @@ section("14 — OAuth return from /ai-signup stays in the acquisition flow");
 
 section("14b — IAB → external-browser AI signup continuation");
 {
-  t("AI IAB continuation lands on /ai-signup, not generic /",
-    /isAiAcquisitionContext[\s\S]{0,400}\/ai-signup/.test(authSupport) &&
+  t("AI IAB continuation lands on /signup, not generic /",
+    /isAiAcquisitionContext[\s\S]{0,400}\/signup/.test(authSupport) &&
     /aiAcquisition \? "ai_signup"/.test(authSupport));
-  t("generic landing/auth continuations are not rewritten to /ai-signup",
-    /CANONICAL_URL \+ \(aiAcquisition \? "\/ai-signup" : "\/"\)/.test(authSupport));
+  t("generic landing/auth continuations are not rewritten to /signup",
+    /CANONICAL_URL \+ \(aiAcquisition \? "\/signup" : "\/"\)/.test(authSupport));
   t("continuation allowlist is still only signup and login",
     /CONTINUATION_INTENTS = new Set\(\["signup", "login"\]\)/.test(authSupport));
   t("AI continuation never copies user IDs, emails, tokens, or diagnostic answers",

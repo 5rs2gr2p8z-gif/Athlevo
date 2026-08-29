@@ -6881,15 +6881,34 @@ function openAppEntry() {
 window.openAppEntry = openAppEntry;
 
 var AI_SIGNUP_HANDOFF_KEY = "athlevo_ai_signup_handoff";
-function isAiSignupPath() {
+function currentPathname() {
   try {
-    return String(window.location.pathname || "").replace(/\/+$/, "") === "/ai-signup";
-  } catch (e) { return false; }
+    return String(window.location.pathname || "").replace(/\/+$/, "");
+  } catch (e) { return ""; }
+}
+function isAiEntryPath() {
+  return currentPathname() === "/ai";
+}
+function isSignupPath() {
+  var path = currentPathname();
+  return path === "/signup" || path === "/ai-signup";
+}
+function isAiSignupPath() {
+  return isSignupPath();
+}
+function signupHistoryPath() {
+  try {
+    if (currentPathname() === "/ai-signup" &&
+        window.AthlevoSocialAuth &&
+        AthlevoSocialAuth.isOAuthReturn &&
+        AthlevoSocialAuth.isOAuthReturn()) {
+      return "/ai-signup";
+    }
+  } catch (e) {}
+  return "/signup";
 }
 function isPricingPath() {
-  try {
-    return String(window.location.pathname || "").replace(/\/+$/, "") === "/pricing";
-  } catch (e) { return false; }
+  return currentPathname() === "/pricing";
 }
 function rememberAiSignupHandoff() {
   try { sessionStorage.setItem(AI_SIGNUP_HANDOFF_KEY, "1"); } catch (e) {}
@@ -6934,11 +6953,12 @@ function openAiSignup(opts) {
   var modal = document.getElementById("authModal");
   if (modal && opts.fromRestore !== true) modal.style.display = "none";
   showScreen("screen-welcome");
+  var signupPath = signupHistoryPath();
   try {
-    if (opts.fromRestore === true || isAiSignupPath()) {
-      history.replaceState({ athlevoNav: "ai-signup" }, "", "/ai-signup");
+    if (opts.fromRestore === true || isSignupPath() || isAiEntryPath()) {
+      history.replaceState({ athlevoNav: "signup" }, "", signupPath);
     } else {
-      history.pushState({ athlevoNav: "ai-signup" }, "", "/ai-signup");
+      history.pushState({ athlevoNav: "signup" }, "", signupPath);
     }
   } catch (e) {}
   try {
@@ -6955,13 +6975,15 @@ function openAiSignup(opts) {
       AthlevoProductAnalytics.trackAthlevoEvent("ai_signup_viewed", {
         from: "ai_diagnostic",
         diagnostic_completed: diagnosticCompleted,
-        path: "/ai-signup",
-        page_path: "/ai-signup"
+        path: signupPath,
+        page_path: signupPath
       });
     }
   } catch (e) {}
 }
 window.isAiSignupPath = isAiSignupPath;
+window.isSignupPath = isSignupPath;
+window.isAiEntryPath = isAiEntryPath;
 window.isPricingPath = isPricingPath;
 window.rememberAiSignupHandoff = rememberAiSignupHandoff;
 window.hasAiSignupHandoff = hasAiSignupHandoff;
@@ -7136,13 +7158,9 @@ function renderNavState(state) {
       }
       return;
     }
-    if (path === "/ai-signup" && !athlevoSessionUserId) {
+    if ((path === "/signup" || path === "/ai-signup" || path === "/ai") &&
+        !athlevoSessionUserId) {
       if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
-      return;
-    }
-    if (path === "/ai" && !athlevoSessionUserId && window.AthlevoDiagnosticUI &&
-        typeof window.AthlevoDiagnosticUI.start === "function") {
-      window.AthlevoDiagnosticUI.start();
       return;
     }
   } catch (pathErr) {}
@@ -7176,7 +7194,7 @@ function renderNavState(state) {
     athlevoAuthPushed = false;
     if (tb) tb.style.display = 'none';
     showScreen('screen-welcome');
-  } else if (nav === 'ai-signup') {
+  } else if (nav === 'signup' || nav === 'ai-signup') {
     athlevoAuthPushed = false;
     if (tb) tb.style.display = 'none';
     if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
@@ -9945,7 +9963,8 @@ async function routeAfterAuth(userId) {
   var fromAiSignup = false;
   try {
     fromAiSignup = (typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff()) ||
-      (typeof isAiSignupPath === "function" && isAiSignupPath());
+      (typeof isAiSignupPath === "function" && isAiSignupPath()) ||
+      (typeof isAiEntryPath === "function" && isAiEntryPath());
   } catch (e) { fromAiSignup = false; }
   clearAppEntryIntent();
   if (typeof clearAiSignupHandoff === "function") clearAiSignupHandoff();
@@ -10557,10 +10576,14 @@ async function restoreSession(opts) {
         return true;
       }
       var pricingAfterExit = false;
+      var aiOrSignupAfterExit = false;
       try {
         pricingAfterExit = typeof isPricingPath === "function" && isPricingPath();
-      } catch (pricingExitErr) { pricingAfterExit = false; }
-      if (pricingAfterExit &&
+        aiOrSignupAfterExit =
+          (typeof isAiEntryPath === "function" && isAiEntryPath()) ||
+          (typeof isSignupPath === "function" && isSignupPath());
+      } catch (pricingExitErr) { pricingAfterExit = false; aiOrSignupAfterExit = false; }
+      if ((pricingAfterExit || aiOrSignupAfterExit) &&
           typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
         document.getElementById("tabbar").style.display = "none";
         window.AthlevoDiagnosticAcquisition.showPaywall(
@@ -10630,6 +10653,7 @@ async function restoreSession(opts) {
   } catch (e) {}
   try {
     aiSignupHandoff = (typeof isAiSignupPath === "function" && isAiSignupPath()) ||
+      (typeof isAiEntryPath === "function" && isAiEntryPath()) ||
       (typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff());
   } catch (e) { aiSignupHandoff = false; }
   if (aiSignupHandoff) {
@@ -10701,20 +10725,20 @@ async function restoreSession(opts) {
           }
         }
       } catch (storedErr) {}
-      var aiAcquisition = appEntryIntentReason() === 'ai';
+      var aiAcquisition = false;
       try {
-        var aiPath = (window.location && window.location.pathname) || '';
-        if (aiPath.replace(/\/+$/, '') === '/ai') aiAcquisition = true;
-      } catch (aiPathErr) {}
+        aiAcquisition =
+          (typeof isAiEntryPath === "function" && isAiEntryPath()) ||
+          (typeof isSignupPath === "function" && isSignupPath());
+      } catch (aiPathErr) { aiAcquisition = false; }
       if (storedAuth) {
         console.warn("Session restore timed out with a stored token — not starting diagnostic.");
         showScreen("screen-welcome");
+      } else if (aiAcquisition && typeof openAiSignup === "function") {
+        openAiSignup({ fromRestore: true });
       } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
                  window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
                  window.AthlevoDiagnosticUI.start && !athlevoSessionUserId) {
-        window.AthlevoDiagnosticUI.start();
-      } else if (aiAcquisition && window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start &&
-                 !athlevoSessionUserId) {
         window.AthlevoDiagnosticUI.start();
       } else if (isStandaloneMode() || hasAppEntryIntent()) {
         showScreen("screen-welcome");
@@ -10724,13 +10748,9 @@ async function restoreSession(opts) {
       }
     } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
                window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
-               window.AthlevoDiagnosticUI.start && !athlevoSessionUserId) {
-      window.AthlevoDiagnosticUI.start();
-    } else if ((appEntryIntentReason() === 'ai' ||
-                (window.location && String(window.location.pathname || '').replace(/\/+$/, '') === '/ai')) &&
-               window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start &&
-               !athlevoSessionUserId) {
-      // /ai route: logged-out visitors see the diagnostic intro, not auth.
+               window.AthlevoDiagnosticUI.start && !athlevoSessionUserId &&
+               !(typeof isAiEntryPath === "function" && isAiEntryPath()) &&
+               !(typeof isSignupPath === "function" && isSignupPath())) {
       window.AthlevoDiagnosticUI.start();
     } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
                 window.AthlevoCoachInvites.hasPendingInvite()) ||
@@ -11010,7 +11030,7 @@ setTimeout(function () {
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
 <script src="js/landingContent.js?v=79"></script>
-<script src="js/authSupport.js?v=75"></script>
+<script src="js/authSupport.js?v=76"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
 <script src="js/loadingContinuity.js?v=81"></script>
@@ -11035,7 +11055,7 @@ setTimeout(function () {
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
 <script src="js/trendsAnalytics.js?v=81"></script>
-<script src="js/socialAuth.js?v=73"></script>
+<script src="js/socialAuth.js?v=74"></script>
 <script src="js/analyticsRegistry.js?v=74"></script>
 <script src="js/metaPixel.js?v=69"></script>
 <script src="js/analytics.js?v=75"></script>
@@ -11780,14 +11800,15 @@ setTimeout(function () {
   async function initializeAthlevoApp() {
     const url = new URL(window.location.href);
 
-    // Direct /ai route: logged-out visitors enter the acquisition diagnostic.
+    // Direct /ai: logged-out visitors enter auth/signup, not diagnostic.
     // Authenticated visitors are routed by restoreSession (paid → app;
-    // unpaid → existing entitlement, never paid access from account alone).
+    // unpaid → /pricing). /signup is canonical; /ai-signup stays compatible.
     var aiPath = url.pathname.replace(/\/+$/, "");
-    if (aiPath === "/ai") {
+    if (aiPath === "/ai" || aiPath === "/signup" || aiPath === "/ai-signup") {
       rememberAppEntryIntent("ai");
     }
-    if (aiPath === "/ai-signup" && typeof rememberAiSignupHandoff === "function") {
+    if ((aiPath === "/ai" || aiPath === "/signup" || aiPath === "/ai-signup") &&
+        typeof rememberAiSignupHandoff === "function") {
       rememberAiSignupHandoff();
     }
 

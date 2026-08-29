@@ -295,7 +295,15 @@ function makeWorld({
     toast: () => {},
     AthlevoBrain: { resetAthleteUI: () => {}, invalidateActivityCache: () => {} },
     history: { pushState() {}, replaceState(value) { state.historyState = value; } },
-    isAiSignupPath: () => String(pathname || "").replace(/\/+$/, "") === "/ai-signup",
+    isAiSignupPath: () => {
+      const p = String(pathname || "").replace(/\/+$/, "");
+      return p === "/ai-signup" || p === "/signup";
+    },
+    isSignupPath: () => {
+      const p = String(pathname || "").replace(/\/+$/, "");
+      return p === "/ai-signup" || p === "/signup";
+    },
+    isAiEntryPath: () => String(pathname || "").replace(/\/+$/, "") === "/ai",
     isPricingPath: () => String(pathname || "").replace(/\/+$/, "") === "/pricing",
     hasAiSignupHandoff: () => store.get("athlevo_ai_signup_handoff") === "1",
     rememberAiSignupHandoff: () => store.set("athlevo_ai_signup_handoff", "1"),
@@ -647,8 +655,9 @@ section("/ai acquisition routing");
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
   state.store.set("athlevo_app_entry_intent", "ai");
   await api.restoreSession({}); api.endBootGate();
-  t("logged-out /ai starts the diagnostic",
-    state.diagnosticStarted === true && state.screens["screen-diagnostic"].active === true);
+  t("logged-out /ai starts signup/auth, not diagnostic",
+    state.aiSignupShown === true && state.screens["screen-welcome"].active === true &&
+    state.diagnosticStarted !== true);
   t("logged-out /ai does not enter the authenticated app",
     state.routed === null && state.screens["screen-today"].active === false);
   t("logged-out /ai does not show pricing before signup",
@@ -660,10 +669,10 @@ section("/ai acquisition routing");
     session: null, standalone: false, pathname: "/ai", pendingDiagnostic: true
   });
   await api.restoreSession({}); api.endBootGate();
-  t("diagnostic refresh before signup stays diagnostic, not pricing",
-    state.diagnosticStarted === true &&
+  t("anonymous /ai with pending diagnostic still opens auth, not pricing",
+    state.aiSignupShown === true &&
+    state.diagnosticStarted !== true &&
     state.pricingShown !== true &&
-    state.aiSignupShown !== true &&
     state.screens["screen-diagnostic-paywall"].active === false);
 }
 {
@@ -700,8 +709,9 @@ section("/ai acquisition routing");
   });
   state.store.set("athlevo_app_entry_intent", "ai");
   await api.restoreSession({}); api.endBootGate();
-  t("timeout without a stored token still shows /ai diagnostic",
-    state.diagnosticStarted === true && state.routed === null &&
+  t("timeout without a stored token still shows /ai signup/auth",
+    state.aiSignupShown === true && state.routed === null &&
+    state.diagnosticStarted !== true &&
     state.pricingShown !== true);
 }
 {
@@ -739,6 +749,17 @@ section("/ai acquisition routing");
   await api.restoreSession({}); api.endBootGate();
   t("paid/authenticated refresh on / still routes into the app",
     state.routed === "u1" && state.diagnosticStarted === false);
+}
+{
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/signup" });
+  await api.restoreSession({}); api.endBootGate();
+  t("logged-out /signup opens the existing auth/signup screen",
+    state.aiSignupShown === true && state.screens["screen-welcome"].active === true &&
+    state.diagnosticStarted !== true);
+  t("logged-out /signup does not 404 into diagnostic or pricing",
+    state.routed === null &&
+    state.pricingShown !== true &&
+    state.screens["screen-diagnostic-paywall"].active === false);
 }
 {
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai-signup" });
@@ -805,6 +826,17 @@ section("/ai acquisition routing");
   t("unpaid paywall-exit refresh stays on auth, not the app",
     state.routed === null && state.screens["screen-welcome"].active === true &&
     state.store.get("athlevo_paywall_exit") === "1");
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/ai",
+    paywallExit: true, paidAfterExit: false
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("unpaid /ai with paywall-exit still opens pricing, not anonymous auth",
+    state.routed === null &&
+    state.screens["screen-diagnostic-paywall"].active === true &&
+    state.screens["screen-today"].active === false);
 }
 {
   const { api, state } = makeWorld({

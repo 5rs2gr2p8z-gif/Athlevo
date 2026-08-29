@@ -85,6 +85,12 @@ t("api/providers/index.js IS in the deployable tree", functions.includes("api/pr
       route.destination === "/index.html"
     )
   );
+  t("/signup rewrites to the SPA",
+    (vercel.rewrites || []).some(route =>
+      route.source === "/signup" &&
+      route.destination === "/index.html"
+    )
+  );
   t("/pricing rewrites to the SPA",
     (vercel.rewrites || []).some(route =>
       route.source === "/pricing" &&

@@ -141,6 +141,12 @@ section("Redirect target");
   t("OAuth started from /ai-signup returns to /ai-signup",
     load({ origin: "https://athlevo.org", pathname: "/ai-signup" }).api.redirectTarget()
       === "https://athlevo.org/ai-signup");
+  t("OAuth started from /signup returns to /signup",
+    load({ origin: "https://athlevo.org", pathname: "/signup" }).api.redirectTarget()
+      === "https://athlevo.org/signup");
+  t("OAuth started from /ai returns to /signup",
+    load({ origin: "https://athlevo.org", pathname: "/ai" }).api.redirectTarget()
+      === "https://athlevo.org/signup");
   t("OAuth started from /pricing returns to /pricing",
     load({ origin: "https://athlevo.org", pathname: "/pricing" }).api.redirectTarget()
       === "https://athlevo.org/pricing");
@@ -150,12 +156,12 @@ section("Redirect target");
       pathname: "/",
       sessionSeed: { athlevo_pricing_handoff: "1" }
     }).api.redirectTarget() === "https://athlevo.org/pricing");
-  t("OAuth with signup handoff flag returns to /ai-signup even from /",
+  t("OAuth with signup handoff flag returns to /signup even from /",
     load({
       origin: "https://athlevo.org",
       pathname: "/",
       sessionSeed: { athlevo_ai_signup_handoff: "1" }
-    }).api.redirectTarget() === "https://athlevo.org/ai-signup");
+    }).api.redirectTarget() === "https://athlevo.org/signup");
 }
 
 /* ═══════════════════════ Apple is gated off ═════════════════════════ */

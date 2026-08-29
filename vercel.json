@@ -9,6 +9,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/signup",
+      "destination": "/index.html"
+    },
+    {
       "source": "/pricing",
       "destination": "/index.html"
     },

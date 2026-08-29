@@ -395,7 +395,7 @@ function continuationHasSecrets(url) {
 
 function isAiSignupContinuation(url, intent = "signup") {
   return url.origin === "https://athlevo.org" &&
-    url.pathname === "/ai-signup" &&
+    url.pathname === "/signup" &&
     url.searchParams.get("continue") === intent &&
     url.searchParams.get("source_surface") === "ai_signup" &&
     !continuationHasSecrets(url);
@@ -438,7 +438,7 @@ console.log("\n──── AI acquisition IAB continuation ────");
     pathname: "/ai-signup"
   });
   const loginUrl = await copyHandoffUrl(facebookLogin, "login", "auth");
-  test("Facebook IAB /ai-signup login continuation stays on /ai-signup",
+  test("Facebook IAB /ai-signup login continuation stays on /signup",
     isAiSignupContinuation(loginUrl, "login"));
 
   const flagged = environment({
@@ -447,7 +447,7 @@ console.log("\n──── AI acquisition IAB continuation ────");
     sessionSeed: { athlevo_ai_signup_handoff: "1" }
   });
   const flaggedUrl = await copyHandoffUrl(flagged, "signup", "auth");
-  test("existing AI signup handoff flag also produces /ai-signup continuation",
+  test("existing AI signup handoff flag also produces /signup continuation",
     isAiSignupContinuation(flaggedUrl, "signup"));
 
   const landing = environment({ userAgent: FACEBOOK_IOS, pathname: "/" });
