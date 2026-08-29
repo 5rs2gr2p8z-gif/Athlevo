@@ -790,10 +790,17 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
 
   t("limiter card no longer appears on payment page",
     !/diagnostic-paywall-limiter|diagnosticPaywallLimiter|Primary limiter/.test(paywall));
-  t("offer heading is the Athlevo AI value proposition",
-    /Your training\.[\s\S]{0,40}Your data\.[\s\S]{0,40}Your AI coach\./.test(paywall));
+  t("top branding is the logo mark only",
+    /diagnostic-paywall-brand/.test(paywall) &&
+    /athlevo-icon-transparent/.test(paywall) &&
+    !/Athlevo<span>\.<\/span>/.test(paywall) &&
+    !/diagnostic-paywall-brand">[\s\S]*Athlevo\s*<span>/.test(paywall));
+  t("offer heading is Built to Evolve With You",
+    /<h1 class="diagnostic-paywall-title">Built to Evolve With You<\/h1>/.test(paywall) &&
+    !/Your training\./.test(paywall));
   t("supporting coaching-system copy is visible",
-    /complete coaching system built around their actual training/.test(paywall));
+    /Personalized running coaching that adapts as you train\./.test(paywall) &&
+    !/complete coaching system built around their actual training/.test(paywall));
   t("monthly / annual plan toggle exists",
     /id="offerPlanMonthly"/.test(paywall) && /id="offerPlanAnnual"/.test(paywall) &&
     /data-offer-plan="monthly"/.test(paywall) && /data-offer-plan="annual"/.test(paywall) &&
@@ -856,7 +863,17 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
     /Personalized training plan/.test(paywall) &&
     /Adaptive coaching/.test(paywall) &&
     /AI running coach/.test(paywall) &&
-    /Race-specific training/.test(paywall));
+    /Progress tracking/.test(paywall) &&
+    (paywall.match(/class="offer-feature"/g) || []).length === 4);
+  t("old paywall feature labels are gone",
+    !/Readiness/.test(paywall) &&
+    !/Fitness, fatigue/.test(paywall) &&
+    !/Training load monitoring/.test(paywall) &&
+    !/Progress &amp; performance trends/.test(paywall) &&
+    !/Race-specific training/.test(paywall));
+  t("feature checks are light marks, not filled circular badges",
+    !/\.offer-feature-check\{[^}]*background:var\(--ink\)/.test(paywallCss) &&
+    !/\.offer-feature-check\{[^}]*border-radius:50%/.test(paywallCss));
   t("feature rows have no paragraph descriptions",
     !/Built around your goals/.test(paywall) &&
     !/Adjusts for readiness/.test(paywall) &&

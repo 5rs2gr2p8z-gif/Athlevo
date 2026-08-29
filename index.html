@@ -1555,47 +1555,46 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
 #screen-diagnostic-paywall{padding-bottom:0}
 #screen-diagnostic-paywall.active{flex-direction:column;align-items:center;justify-content:flex-start}
 @media(min-width:880px){#screen-diagnostic-paywall.active{justify-content:center}}
-.diagnostic-paywall-scroll{width:100%;max-width:400px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box;flex:0 1 auto}
-@media(min-width:720px){.diagnostic-paywall-scroll{max-width:420px;padding-top:calc(28px + env(safe-area-inset-top));padding-bottom:calc(28px + env(safe-area-inset-bottom))}}
-.diagnostic-paywall-top{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px;margin:0 0 10px;min-height:40px}
-.diagnostic-paywall-back{-webkit-appearance:none;appearance:none;background:none;border:0;padding:0;margin:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink2);border-radius:var(--r-md);flex:none;-webkit-tap-highlight-color:transparent;pointer-events:auto;position:relative;z-index:2}
-.diagnostic-paywall-back:active{background:var(--line)}
+.diagnostic-paywall-scroll{width:100%;max-width:360px;margin:0 auto;padding:calc(8px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box;flex:0 1 auto}
+@media(min-width:720px){.diagnostic-paywall-scroll{max-width:352px;padding-top:calc(40px + env(safe-area-inset-top));padding-bottom:calc(40px + env(safe-area-inset-bottom))}}
+@media(min-width:880px){.diagnostic-paywall-scroll{padding-top:calc(48px + env(safe-area-inset-top));padding-bottom:calc(48px + env(safe-area-inset-bottom))}}
+.diagnostic-paywall-top{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px;margin:0 0 6px;min-height:40px}
+.diagnostic-paywall-back{-webkit-appearance:none;appearance:none;background:none;border:0;padding:0;margin:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink3);border-radius:var(--r-md);flex:none;-webkit-tap-highlight-color:transparent;pointer-events:auto;position:relative;z-index:2}
+.diagnostic-paywall-back:active{background:var(--line);color:var(--ink2)}
 .diagnostic-paywall-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.diagnostic-paywall-back svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.diagnostic-paywall-brand{display:flex;align-items:center;justify-content:center;gap:7px;font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin:0}
-.diagnostic-paywall-brand img{width:20px;height:20px}
-.diagnostic-paywall-brand span{color:var(--red)}
-.diagnostic-paywall-hero{text-align:center;margin:0 0 12px}
-.diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--good);margin:0 0 8px}
+.diagnostic-paywall-back svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.diagnostic-paywall-brand{display:flex;align-items:center;justify-content:center;margin:0;font-size:0;line-height:0}
+.diagnostic-paywall-brand img{width:32px;height:32px;display:block}
+.diagnostic-paywall-hero{text-align:center;margin:0 0 10px}
+.diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--good);margin:0 0 6px}
 .diagnostic-paywall-kicker::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--good)}
-.diagnostic-paywall-title{font-family:var(--serif);font-size:clamp(1.5rem,5.2vw,1.95rem);font-weight:500;letter-spacing:-.04em;line-height:1.12;color:var(--text);margin:0}
-.diagnostic-paywall-lead{font-size:var(--fs-caption);line-height:1.4;color:var(--ink2);margin:8px auto 0;max-width:36ch}
-.diagnostic-paywall-toggle{display:flex;align-items:stretch;gap:2px;padding:3px;margin:0 auto 12px;max-width:280px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:999px;box-sizing:border-box;position:relative;z-index:3;pointer-events:auto}
-.diagnostic-paywall-toggle-btn{-webkit-appearance:none;appearance:none;flex:1;min-height:34px;border:0;border-radius:999px;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:12px;font-weight:650;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 8px;pointer-events:auto;position:relative;z-index:1;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-title{font-family:var(--serif);font-size:clamp(1.55rem,4.8vw,1.85rem);font-weight:500;letter-spacing:-.035em;line-height:1.15;color:var(--text);margin:0}
+.diagnostic-paywall-lead{font-size:13.5px;line-height:1.4;color:var(--ink2);margin:6px auto 0;max-width:34ch}
+.diagnostic-paywall-toggle{display:inline-flex;align-items:stretch;gap:2px;padding:2px;margin:0 auto 14px;width:auto;max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;box-sizing:border-box;position:relative;z-index:3;pointer-events:auto}
+.diagnostic-paywall-toggle-btn{-webkit-appearance:none;appearance:none;flex:1 1 auto;min-height:28px;border:0;border-radius:8px;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 11px;pointer-events:auto;position:relative;z-index:1;-webkit-tap-highlight-color:transparent}
 .diagnostic-paywall-toggle-btn:disabled{opacity:1;cursor:pointer}
-.diagnostic-paywall-toggle-btn.is-active{background:var(--paper);color:var(--text);box-shadow:var(--elev-1)}
+.diagnostic-paywall-toggle-btn.is-active{background:var(--paper);color:var(--text);box-shadow:0 1px 2px rgba(20,20,22,.06)}
 .diagnostic-paywall-toggle-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.diagnostic-paywall-save-chip{font-size:9px;font-weight:750;letter-spacing:.01em;color:var(--red);background:color-mix(in srgb,var(--red) 10%,transparent);border-radius:999px;padding:2px 6px;white-space:nowrap;pointer-events:none}
-.diagnostic-paywall-card{background:var(--paper);border:1px solid var(--line);border-radius:18px;box-shadow:var(--elev-1);padding:18px 18px 16px;box-sizing:border-box}
-@media(min-width:720px){.diagnostic-paywall-card{padding:20px 20px 16px}}
+.diagnostic-paywall-save-chip{font-size:9px;font-weight:700;letter-spacing:.01em;color:var(--red);background:color-mix(in srgb,var(--red) 10%,transparent);border-radius:6px;padding:1px 5px;white-space:nowrap;pointer-events:none}
+.diagnostic-paywall-card{background:var(--paper);border:1px solid color-mix(in srgb,var(--line) 72%,var(--text) 6%);border-radius:12px;box-shadow:0 1px 2px rgba(20,20,22,.04),0 8px 24px -10px rgba(20,20,22,.12),0 28px 48px -18px rgba(20,20,22,.16);padding:20px 22px 18px;box-sizing:border-box}
+@media(min-width:720px){.diagnostic-paywall-card{padding:22px 24px 20px}}
 .diagnostic-paywall-offer{display:block}
-.diagnostic-paywall-plan-name{margin:0;text-align:center;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
-.diagnostic-paywall-price-row{display:flex;align-items:baseline;justify-content:center;gap:6px;margin:6px 0 0;flex-wrap:wrap}
-.diagnostic-paywall-price{font-family:var(--serif);font-size:clamp(1.85rem,6.2vw,2.2rem);font-weight:500;letter-spacing:-.04em;color:var(--text);margin:0;text-align:center;line-height:1}
-.diagnostic-paywall-cadence{font-size:var(--fs-body-sm);font-weight:600;color:var(--ink2);margin:0}
-.diagnostic-paywall-equiv{margin:6px 0 0;text-align:center;font-size:12px;color:var(--ink2);line-height:1.35}
+.diagnostic-paywall-plan-name{margin:0;text-align:center;font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.diagnostic-paywall-price-row{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:8px 0 0;flex-wrap:nowrap}
+.diagnostic-paywall-price{font-family:var(--sans);font-size:clamp(2.35rem,8vw,2.75rem);font-weight:650;letter-spacing:-.035em;color:var(--text);margin:0;text-align:center;line-height:1}
+.diagnostic-paywall-cadence{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--ink3);margin:0;line-height:1;white-space:nowrap}
+.diagnostic-paywall-equiv{margin:6px 0 0;text-align:center;font-size:12px;color:var(--ink3);line-height:1.35}
 .diagnostic-paywall-save{display:none;margin:4px 0 0;text-align:center;font-size:12px;font-weight:700;color:var(--red)}
 .diagnostic-paywall-card.is-annual .diagnostic-paywall-save{display:block}
-.diagnostic-paywall-start{display:block;width:100%;margin:14px 0 0;border:0;border-radius:var(--r-pill);background:var(--red);color:#fff;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;letter-spacing:-.01em;padding:12px 16px;cursor:pointer;min-height:46px;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-start{display:block;width:100%;margin:16px 0 0;border:0;border-radius:10px;background:var(--red);color:#fff;font-family:var(--sans);font-size:14px;font-weight:650;letter-spacing:-.01em;padding:10px 16px;cursor:pointer;min-height:42px;line-height:1.2;-webkit-tap-highlight-color:transparent}
 .diagnostic-paywall-start:active{transform:scale(.99)}
 .diagnostic-paywall-start:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .diagnostic-paywall-start:disabled{opacity:.42;cursor:not-allowed;transform:none;background:var(--ink);color:#fff}
 .diagnostic-paywall-trust{margin:8px 0 0;text-align:center;font-size:11px;color:var(--ink3);line-height:1.35}
-.offer-features{list-style:none;margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--line);display:grid;gap:7px}
-@media(min-width:640px){.offer-features{grid-template-columns:1fr 1fr;gap:7px 16px}}
-.offer-feature{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:center;margin:0}
-.offer-feature-check{width:16px;height:16px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;line-height:1}
-.offer-feature span:last-child,.offer-feature b{display:block;font-size:12px;font-weight:650;color:var(--text);line-height:1.3}
+.offer-features{list-style:none;margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--line);display:grid;gap:8px}
+.offer-feature{display:grid;grid-template-columns:14px 1fr;gap:8px;align-items:center;margin:0}
+.offer-feature-check{width:auto;height:auto;border-radius:0;background:none;color:var(--red);display:flex;align-items:center;justify-content:flex-start;font-size:12px;font-weight:500;line-height:1}
+.offer-feature span:last-child,.offer-feature b{display:block;font-size:13px;font-weight:500;color:var(--text);line-height:1.35}
 #screen-diagnostic-paywall.is-public .diagnostic-paywall-kicker,
 #screen-diagnostic-paywall.is-public .diagnostic-paywall-switch{display:none}
 .diagnostic-paywall-recommended,.diagnostic-paywall-other{margin:0 0 8px;font-size:var(--fs-micro);font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
@@ -4460,14 +4459,13 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </svg>
       </button>
       <div class="diagnostic-paywall-brand">
-        <img src="assets/athlevo-icon-transparent.png" alt="" width="22" height="22">
-        Athlevo<span>.</span>
+        <img src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="32" height="32">
       </div>
     </div>
     <div class="diagnostic-paywall-hero">
       <p class="diagnostic-paywall-kicker">Your account is ready</p>
-      <h1 class="diagnostic-paywall-title">Your training.<br>Your data.<br>Your AI coach.</h1>
-      <p class="diagnostic-paywall-lead">Athlevo AI gives runners a complete coaching system built around their actual training.</p>
+      <h1 class="diagnostic-paywall-title">Built to Evolve With You</h1>
+      <p class="diagnostic-paywall-lead">Personalized running coaching that adapts as you train.</p>
     </div>
     <div class="diagnostic-paywall-toggle" id="offerPlanToggle" role="group" aria-label="Billing interval">
       <button type="button" class="diagnostic-paywall-toggle-btn is-active" id="offerPlanMonthly"
@@ -4504,23 +4502,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
           </li>
           <li class="offer-feature">
             <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>Readiness &amp; recovery</span>
-          </li>
-          <li class="offer-feature">
-            <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>Fitness, fatigue &amp; form</span>
-          </li>
-          <li class="offer-feature">
-            <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>Training load monitoring</span>
-          </li>
-          <li class="offer-feature">
-            <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>Progress &amp; performance trends</span>
-          </li>
-          <li class="offer-feature">
-            <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>Race-specific training</span>
+            <span>Progress tracking</span>
           </li>
         </ul>
       </div>
