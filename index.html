@@ -5241,7 +5241,15 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   :root{
     --zone-1:#3ecf8e;--zone-2:#6dc9a8;--zone-3:#e2a94a;--zone-4:#ef8a50;--zone-5:#ef5a60;
     --af-effort-warm:#c8ccd2;--af-effort-work:var(--red);--af-effort-recovery:#2f6fbf;
-    --af-effort-cool:#8b9199;--af-effort-easy:var(--good)
+    --af-effort-cool:#8b9199;--af-effort-easy:var(--good);
+    --sport-run:#c45a48;--sport-run-bg:color-mix(in srgb,var(--sport-run) 8%,var(--paper));
+    --sport-strength:#6d7075;--sport-strength-bg:color-mix(in srgb,var(--sport-strength) 8%,var(--paper));
+    --sport-ride:var(--info);--sport-ride-bg:color-mix(in srgb,var(--sport-ride) 8%,var(--paper));
+    --sport-swim:#2a8f8a;--sport-swim-bg:color-mix(in srgb,var(--sport-swim) 8%,var(--paper));
+    --sport-walk:#4d8a5c;--sport-walk-bg:color-mix(in srgb,var(--sport-walk) 8%,var(--paper));
+    --sport-other:#8a8d93;--sport-other-bg:color-mix(in srgb,var(--sport-other) 8%,var(--paper));
+    --ad-chart-pace:var(--sport-run);--ad-chart-hr:var(--trend-risk);
+    --ad-chart-elev:var(--sport-walk);--ad-chart-cadence:var(--info);--ad-chart-power:var(--trend-fatigue)
   }
   html[data-theme="dark"]{
     --zone-1:#3ecf8e;--zone-2:#6dc9a8;--zone-3:#e2a94a;--zone-4:#ef8a50;--zone-5:#ef5a60;
@@ -5285,7 +5293,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-day.other .tc-num{color:var(--ink3)}
 
   /* ── selected-day panel ──────────────────────────────────────── */
-  .tc-panel{margin:0 22px 12px}
+  .tc-panel{margin:0 22px 12px;overflow-x:hidden}
   .af-day{margin:0}
   .af-day-head{display:flex;align-items:baseline;justify-content:space-between;padding:10px 2px 6px}
   .af-day-label{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
@@ -5297,23 +5305,45 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-card-status--missed{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);align-self:center;white-space:nowrap}
 
   /* ── activity card ───────────────────────────────────────────── */
-  .af-card{display:flex;align-items:flex-start;gap:12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 14px;cursor:pointer;margin-bottom:6px;transition:background var(--dur-fast)}
-  .af-card--rest{background:var(--card);border-color:var(--line);padding:12px 14px}
+  .af-card{-webkit-appearance:none;appearance:none;display:flex;align-items:stretch;gap:0;width:100%;text-align:left;font-family:var(--sans);background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:0;cursor:pointer;margin-bottom:8px;min-height:44px;box-shadow:var(--elev-1);transition:background var(--dur-fast),box-shadow var(--dur-fast)}
+  .af-card:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+  .af-card-accent{flex:none;width:4px;border-radius:var(--r-md) 0 0 var(--r-md);background:var(--sport-accent,var(--ink3))}
+  .af-card-main{flex:1;min-width:0;padding:10px 12px 11px}
+  .af-card-top{display:flex;align-items:flex-start;gap:8px}
+  .af-card-titles{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .af-card-sport{font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--sport-accent,var(--ink3))}
+  .af-card-sport--planned{color:var(--ink3)}
+  .af-card-chevron{flex:none;color:var(--ink3);font-size:18px;line-height:1;margin-top:2px}
+  .af-card--rest{background:var(--card);border-color:var(--line);padding:12px 14px;box-shadow:none}
   .af-card--rest .af-card-name{color:var(--ink2);font-weight:600}
-  .af-card--planned{border-style:dashed;border-color:var(--ink3)}
-  .af-card--done{border-left:3px solid var(--good)}
+  .af-card--planned{border-style:dashed;border-color:var(--ink3);background:var(--paper);box-shadow:none}
+  .af-card--planned .af-card-main{padding:12px 14px}
+  .af-card--activity{overflow:hidden}
+  .af-card--run{--sport-accent:var(--sport-run);background:var(--sport-run-bg);border-color:color-mix(in srgb,var(--sport-run) 22%,var(--line))}
+  .af-card--strength{--sport-accent:var(--sport-strength);background:var(--sport-strength-bg);border-color:color-mix(in srgb,var(--sport-strength) 22%,var(--line))}
+  .af-card--ride{--sport-accent:var(--sport-ride);background:var(--sport-ride-bg);border-color:color-mix(in srgb,var(--sport-ride) 22%,var(--line))}
+  .af-card--swim{--sport-accent:var(--sport-swim);background:var(--sport-swim-bg);border-color:color-mix(in srgb,var(--sport-swim) 22%,var(--line))}
+  .af-card--walk{--sport-accent:var(--sport-walk);background:var(--sport-walk-bg);border-color:color-mix(in srgb,var(--sport-walk) 22%,var(--line))}
+  .af-card--other{--sport-accent:var(--sport-other);background:var(--sport-other-bg)}
+  .af-card--done{box-shadow:var(--elev-1)}
   .af-card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-  .af-card-name{font-size:var(--fs-body);font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .af-card-name{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .af-card-source{font-size:var(--fs-caption);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .af-card-meta{font-size:var(--fs-caption);color:var(--ink3)}
+  .af-card-meta{font-size:var(--fs-caption);color:var(--ink3);margin-top:4px}
   .af-card-metrics{font-size:var(--fs-caption);font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .af-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;margin-top:8px}
+  .af-card-metric{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .af-card-metric b{font-size:var(--fs-body-sm);font-weight:750;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .af-card-metric small{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em}
+  .af-card-plan{display:block;margin-top:6px;font-size:var(--fs-caption);color:var(--ink2)}
+  .af-card-spark{display:block;width:100%;height:22px;margin-top:8px;color:var(--sport-accent,var(--ink3))}
   .af-card-purpose{font-size:var(--fs-caption);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-  .af-card-cta{flex:none;font-size:var(--fs-caption);font-weight:700;color:var(--red);padding:4px 0;white-space:nowrap;align-self:center}
+  .af-card-cta{flex:none;font-size:var(--fs-caption);font-weight:700;color:var(--ink3);padding:4px 0;white-space:nowrap;align-self:center}
   .af-card-status{flex:none;align-self:center}
   .af-card-status--done{color:var(--good);font-weight:700;font-size:var(--fs-body)}
 
   /* ── sport icon ──────────────────────────────────────────────── */
-  .af-sport-icon{flex:none;width:22px;height:22px;color:var(--ink3);margin-top:2px}
+  .af-sport-icon{flex:none;width:20px;height:20px;color:var(--sport-accent,var(--ink3));margin-top:1px}
 
   /* ── effort bar ──────────────────────────────────────────────── */
   .af-effort-bar{display:flex;gap:1px;height:4px;border-radius:2px;overflow:hidden;margin-top:4px}
@@ -5353,9 +5383,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tw-modal-close{position:absolute;top:8px;right:10px;display:grid;place-items:center;min-width:44px;min-height:44px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer;z-index:1}
 
   /* ── activity detail: header ─────────────────────────────────── */
+  .ad-back{-webkit-appearance:none;appearance:none;border:none;background:none;padding:0 0 10px;margin:0;font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--ink2);cursor:pointer;min-height:44px}
+  .ad-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
   .ad-header{margin-bottom:16px}
   .ad-header-top{display:flex;align-items:flex-start;gap:12px}
-  .ad-header-top .af-sport-icon{width:28px;height:28px;color:var(--ink2);margin-top:2px}
+  .ad-header-top .af-sport-icon{width:28px;height:28px;color:var(--sport-accent,var(--ink2));margin-top:2px}
+  .ad-header--run{--sport-accent:var(--sport-run)}
+  .ad-header--ride{--sport-accent:var(--sport-ride)}
+  .ad-header--strength{--sport-accent:var(--sport-strength)}
+  .ad-header--swim{--sport-accent:var(--sport-swim)}
+  .ad-header--walk{--sport-accent:var(--sport-walk)}
+  .ad-header--other{--sport-accent:var(--sport-other)}
   .ad-header-info{flex:1;min-width:0}
   .ad-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.01em;color:var(--text);margin:0}
   .ad-source{font-size:var(--fs-caption);color:var(--ink3);display:block;margin-top:2px}
@@ -5401,11 +5439,23 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .ad-zone-pct{font-size:var(--fs-micro);color:var(--ink3);font-weight:600}
 
   /* ── chart sections ──────────────────────────────────────────── */
+  .ad-charts-root{margin:4px 0 8px}
+  .ad-charts{display:flex;flex-direction:column;gap:4px;width:100%;max-width:100%}
+  .ad-chart-section{padding:12px 0;border-top:1px solid var(--line)}
+  .ad-chart-section:first-child{border-top:none;padding-top:4px}
+  .ad-chart-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .ad-chart-readout{font-size:var(--fs-caption);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;min-height:1.2em}
   .ad-chart-stats{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px}
   .ad-chart-stat{font-size:var(--fs-caption);color:var(--ink2)}
   .ad-chart-stat b{font-size:var(--fs-body);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;margin-right:3px}
-  .ad-stream-chart{width:100%;height:80px;display:block;border-radius:var(--r-sm);overflow:hidden}
+  .ad-stream-chart{width:100%;height:112px;display:block;border-radius:var(--r-sm);overflow:hidden;touch-action:none}
+  .ad-chart-grid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+  .ad-chart-loading{font-size:var(--fs-caption);color:var(--ink3);padding:8px 0}
   .ad-chart-placeholder{font-size:var(--fs-caption);color:var(--ink3);padding:12px 0;font-style:italic}
+  @media(min-width:480px){
+    .tw-modal-box{max-width:430px}
+    .ad-stream-chart{height:120px}
+  }
 
   /* ── splits ──────────────────────────────────────────────────── */
   .ad-splits-table{font-size:var(--fs-caption);font-variant-numeric:tabular-nums}
@@ -10830,7 +10880,8 @@ setTimeout(function () {
 <script src="js/train.js?v=82"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
-<script src="js/trainCalendar.js?v=91"></script>
+<script src="js/activityStreams.js?v=1"></script>
+<script src="js/trainCalendar.js?v=92"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
 <script src="js/authRouteGuard.js?v=1"></script>

@@ -116,6 +116,14 @@ import {
 import { requirePaidAccess } from "../../lib/server/freemium.js";
 import { fetchWeatherContext } from "../../lib/server/weatherProvider.js";
 import { deriveWeatherRisk } from "../../lib/server/weatherRisk.js";
+import {
+  extractStoredStreams,
+  hasUsableStreams,
+  normalizeProviderStreams,
+  packStreamsForStore,
+  STRAVA_STREAM_KEYS,
+  INTERVALS_STREAM_TYPES
+} from "../../lib/server/activityStreams.js";
 
 /* ───────────────────────────── logging ──────────────────────────────── */
 
@@ -2106,6 +2114,187 @@ async function getCoachingUser(token) {
   return r.json();
 }
 
+/* ═════════════════════ ACTION: activity streams ═════════════════════
+ * On-demand time-series for one activity the caller owns. Calendar cards
+ * stay lightweight; detail fetches streams once, then we persist a
+ * downsampled copy on the activity so reopen does not re-hit the provider.
+ */
+
+async function readOwnedActivity(userId, activityId) {
+  const url = process.env.SUPABASE_URL;
+  const res = await fetch(
+    `${url}/rest/v1/activities?id=eq.${encodeURIComponent(activityId)}` +
+    `&user_id=eq.${encodeURIComponent(userId)}` +
+    `&select=id,source,external_activity_id,raw_data&limit=1`,
+    { headers: sbHeaders() }
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+async function persistActivityStreams(userId, activityId, raw, packed) {
+  const url = process.env.SUPABASE_URL;
+  const nextRaw = Object.assign({}, raw || {}, { activity_streams: packed });
+  await fetch(
+    `${url}/rest/v1/activities?id=eq.${encodeURIComponent(activityId)}` +
+    `&user_id=eq.${encodeURIComponent(userId)}`,
+    {
+      method: "PATCH",
+      headers: { ...sbHeaders(), Prefer: "return=minimal" },
+      body: JSON.stringify({ raw_data: nextRaw, updated_at: new Date().toISOString() })
+    }
+  );
+}
+
+async function readFreshStravaAccount(userId) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const res = await fetch(
+    `${url}/rest/v1/strava_accounts?user_id=eq.${encodeURIComponent(userId)}&select=*&limit=1`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+async function refreshStravaAccount(account) {
+  const currentUnixTime = Math.floor(Date.now() / 1000);
+  if (Number(account.expires_at) > currentUnixTime + 300) return account;
+  const response = await fetch("https://www.strava.com/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.STRAVA_CLIENT_ID || "",
+      client_secret: process.env.STRAVA_CLIENT_SECRET || "",
+      grant_type: "refresh_token",
+      refresh_token: account.refresh_token
+    })
+  });
+  const tokenData = await response.json();
+  if (!response.ok) return account;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  await fetch(
+    `${url}/rest/v1/strava_accounts?user_id=eq.${encodeURIComponent(account.user_id)}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_at: tokenData.expires_at,
+        updated_at: new Date().toISOString()
+      })
+    }
+  );
+  return {
+    ...account,
+    access_token: tokenData.access_token,
+    refresh_token: tokenData.refresh_token,
+    expires_at: tokenData.expires_at
+  };
+}
+
+async function fetchStravaActivityStreams(externalId, accessToken) {
+  const res = await fetch(
+    `https://www.strava.com/api/v3/activities/${encodeURIComponent(externalId)}/streams` +
+    `?keys=${STRAVA_STREAM_KEYS}&key_by_type=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function fetchIntervalsActivityStreams(externalId, accessToken) {
+  const path = `/activity/${encodeURIComponent(externalId)}/streams.json?types=${INTERVALS_STREAM_TYPES}`;
+  return intervalsFetch(path, accessToken, {});
+}
+
+async function actionActivityStreams(request, response) {
+  if (request.method !== "POST") {
+    response.setHeader("Allow", "POST");
+    return sendJson(response, 405, { error: "Method not allowed." });
+  }
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user?.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const activityId = String(body.activityId || body.activity_id || "").trim();
+  if (!activityId) return sendJson(response, 400, { error: "An activity is required." });
+
+  let row;
+  try {
+    row = await readOwnedActivity(user.id, activityId);
+  } catch (e) {
+    return sendJson(response, 503, { streams: null, available: [], reason: "unavailable" });
+  }
+  if (!row) return sendJson(response, 404, { streams: null, available: [], reason: "not_found" });
+
+  const raw = row.raw_data && typeof row.raw_data === "object" ? row.raw_data : {};
+  const stored = extractStoredStreams(raw);
+  if (hasUsableStreams(stored)) {
+    return sendJson(response, 200, { streams: stored, cached: true, source: raw.activity_streams && raw.activity_streams.source || row.source || null });
+  }
+
+  const source = String(row.source || "").toLowerCase();
+  const upstream = String(raw.upstream_source || "").toLowerCase();
+  const externalId = row.external_activity_id || raw.upstream_id || null;
+  let payload = null;
+  let fetchedFrom = null;
+
+  try {
+    if ((source === "intervals" || (!source && raw.upstream_source)) && externalId) {
+      const account = await readProviderAccount(user.id, "intervals");
+      if (account && account.access_token) {
+        payload = await fetchIntervalsActivityStreams(externalId, account.access_token);
+        fetchedFrom = "intervals";
+      }
+    }
+  } catch (e) {
+    payload = null;
+  }
+
+  if (payload && !hasUsableStreams(normalizeProviderStreams(payload))) {
+    payload = null;
+    fetchedFrom = null;
+  }
+
+  if (!payload && (source === "strava" || upstream === "strava") && (row.external_activity_id || raw.upstream_id)) {
+    try {
+      const stravaId = source === "strava" ? row.external_activity_id : (raw.upstream_id || row.external_activity_id);
+      let account = await readFreshStravaAccount(user.id);
+      if (account && account.access_token) {
+        account = await refreshStravaAccount(account);
+        payload = await fetchStravaActivityStreams(stravaId, account.access_token);
+        fetchedFrom = "strava";
+      }
+    } catch (e) {
+      payload = null;
+    }
+  }
+
+  const streams = normalizeProviderStreams(payload);
+  if (!hasUsableStreams(streams)) {
+    return sendJson(response, 200, { streams: null, available: [], reason: "no_streams", source: fetchedFrom || source || null });
+  }
+
+  const packed = packStreamsForStore(streams, { source: fetchedFrom || source || null });
+  if (packed) {
+    try { await persistActivityStreams(user.id, row.id, raw, packed); } catch (e) { /* cache is best-effort */ }
+  }
+
+  return sendJson(response, 200, { streams: packed || streams, cached: false, source: fetchedFrom || source || null });
+}
+
 /* ═════════════════════ ACTION: weather context ══════════════════════ */
 
 function roundedCoordinate(value, min, max) {
@@ -3538,6 +3727,10 @@ export default async function handler(request, response) {
       return actionWeatherContext(request, response);
     }
 
+    if (action === "activity_streams") {
+      return actionActivityStreams(request, response);
+    }
+
     // Coach Dashboard actions (consolidated from api/coach-dashboard.js).
     if (action === "coaching_dashboard_roster") {
       if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
@@ -3645,7 +3838,7 @@ export default async function handler(request, response) {
       action: [
         "connect", "callback", "finalize", "sync", "trends", "diagnose",
         "reanalyze", "status", "disconnect", "admin_analytics",
-        "weather_context",
+        "weather_context", "activity_streams",
         "coaching_dashboard_roster", "coaching_dashboard_athlete",
         "coaching_dashboard_review", "coaching_dashboard_workout", "athlete_coaching_mode",
         "coaching_invite_create", "coaching_invite_list", "coaching_invite_accept",

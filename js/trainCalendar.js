@@ -1,15 +1,15 @@
 /*
  * ══════════════════════════════════════════════════════════════════════
  *  Athlevo — Date-First Training Calendar  (Train primary experience)
- *  v4 — Selected-day panel (calendar still marks the whole week)
+ *  v5 — Selected-day panel + sport-colored activity cards + stream graphs
  * ══════════════════════════════════════════════════════════════════════
  *
  *  PART 1: Compact calendar strip → ONE selected date's planned
  *  workout(s) and/or imported activities. Changing the selected date
  *  replaces the panel; it never appends other days.
  *
- *  PART 2: Full-height detail sheet with: summary → workout structure →
- *  HR zones → chart sections → splits/laps → coach analysis.
+ *  PART 2: Activity cards are the primary tap target. Detail sheet:
+ *  summary → coach analysis → real stream graphs → deeper metrics.
  *
  *  Reads plan / executions / activities per week (RLS, read-only).
  *  Does NOT touch workout classification, plan generation, Trends,
@@ -110,6 +110,12 @@
   const sportLabel = a => CANON_SPORT_LABEL[canonSport(a)] || "Activity";
   const sportShort = a => CANON_SPORT_SHORT[canonSport(a)] || "Activity";
   const sportIcon = a => SPORT_ICON[canonSport(a)] || SPORT_ICON.run;
+  const SPORT_THEME = {
+    run: "run", ride: "ride", strength: "strength", swim: "swim",
+    walk: "walk", hike: "walk", mobility: "other", cross_training: "other",
+    rest: "other", other: "other"
+  };
+  const sportTheme = a => SPORT_THEME[canonSport(a)] || "other";
 
   /* ── data (read-only, RLS) ────────────────────────────────────────── */
   async function loadWeek(monday) {
@@ -233,29 +239,71 @@
   }
 
   /* ── activity metrics line ───────────────────────────────────────── */
-  function activityMetrics(a) {
+  function activityRpe(a, ex) {
+    if (ex && num(ex.actual_rpe) > 0) return num(ex.actual_rpe);
+    const raw = a && a.raw_data && typeof a.raw_data === "object" ? a.raw_data : {};
+    if (num(raw.perceived_exertion) > 0) return num(raw.perceived_exertion);
+    if (num(raw.icu_rpe) > 0) return num(raw.icu_rpe);
+    if (num(raw.rpe) > 0) return num(raw.rpe);
+    return null;
+  }
+  function strengthVolume(a) {
+    const raw = a && a.raw_data && typeof a.raw_data === "object" ? a.raw_data : {};
+    if (num(raw.total_volume_kg) > 0) return Math.round(raw.total_volume_kg) + " kg";
+    if (num(raw.total_volume) > 0) return Math.round(raw.total_volume) + " kg";
+    return null;
+  }
+  function activityPower(a) {
+    const raw = a && a.raw_data && typeof a.raw_data === "object" ? a.raw_data : {};
+    return num(raw.average_power_watts) || num(raw.average_watts) || num(raw.icu_average_watts) || null;
+  }
+  function cardMetricItems(a, ex) {
     const sport = canonSport(a);
-    const parts = [];
-    // Duration
-    if (a.moving_time_seconds) parts.push(fmtDuration(a.moving_time_seconds));
-    // Distance
-    if (a.distance_meters && sport !== "strength" && sport !== "mobility") {
-      parts.push((a.distance_meters / 1000).toFixed(1) + " km");
+    const items = [];
+    const push = (label, value) => {
+      if (value != null && value !== "" && value !== "—") items.push({ label, value: String(value) });
+    };
+    if (a.moving_time_seconds) push("Duration", fmtDuration(a.moving_time_seconds));
+    if (sport === "strength" || sport === "mobility") {
+      const load = activityLoad(a);
+      if (load) push("Load", String(load));
+      const vol = strengthVolume(a);
+      if (vol) push("Volume", vol);
+      return { sport, items };
     }
-    // Pace (runs only)
-    if (sport === "run" && a.distance_meters && a.moving_time_seconds) {
-      const paceSec = a.moving_time_seconds / (a.distance_meters / 1000);
-      parts.push(fmtPace(paceSec) + "/km");
+    if (a.distance_meters) push("Distance", (a.distance_meters / 1000).toFixed(1) + " km");
+    if ((sport === "run" || sport === "walk" || sport === "hike") && a.distance_meters && a.moving_time_seconds) {
+      push("Average pace", fmtPace(a.moving_time_seconds / (a.distance_meters / 1000)) + "/km");
     }
-    // Speed (rides)
-    if (sport === "ride" && a.distance_meters && a.moving_time_seconds) {
-      parts.push(((a.distance_meters / a.moving_time_seconds) * 3.6).toFixed(1) + " km/h");
+    if ((sport === "ride" || sport === "swim") && a.distance_meters && a.moving_time_seconds) {
+      push("Average speed", ((a.distance_meters / a.moving_time_seconds) * 3.6).toFixed(1) + " km/h");
     }
-    // Load
+    if (a.average_heartrate) push("HR", Math.round(a.average_heartrate) + " bpm");
     const load = activityLoad(a);
-    if (load) parts.push("Load " + load);
-
-    return parts.join(" · ");
+    if (load) push("Load", String(load));
+    if (sport === "ride") {
+      const pwr = activityPower(a);
+      if (pwr > 0) push("Average power", Math.round(pwr) + " W");
+    }
+    const rpe = activityRpe(a, ex);
+    if (rpe) push("RPE", String(rpe));
+    if (a.elevation_gain_meters && sport !== "ride") push("Elev", Math.round(a.elevation_gain_meters) + " m");
+    if (a.average_cadence && (sport === "run" || sport === "ride")) {
+      push("Cadence", Math.round(a.average_cadence) + (sport === "ride" ? " rpm" : " spm"));
+    }
+    return { sport, items };
+  }
+  function activityMetrics(a) {
+    return cardMetricItems(a).items.map(i => i.value).join(" · ");
+  }
+  function matchedPlanNote(session) {
+    if (!session) return "";
+    const sType = typeof formatSessionType === "function"
+      ? formatSessionType(session.session_type)
+      : String(session.session_type || "").replace(/[_-]+/g, " ");
+    const title = (session.title && String(session.title).trim()) || sType;
+    if (title) return `<span class="af-card-plan">Planned: ${esc(title)}</span>`;
+    return `<span class="af-card-plan">Completed as planned</span>`;
   }
 
   /* ── compact effort visualization (inline in feed card) ──────────── */
@@ -279,7 +327,32 @@
       return `<span style="flex:${pct};background:${tone}"></span>`;
     }).join("");
 
-    return `<div class="af-effort-bar">${bars}</div>`;
+    return `<div class="af-effort-bar" aria-hidden="true">${bars}</div>`;
+  }
+
+  function miniLapProfile(a) {
+    const raw = a && a.raw_data && typeof a.raw_data === "object" ? a.raw_data : {};
+    const laps = raw.laps || raw.splits;
+    if (!Array.isArray(laps) || laps.length < 2) return "";
+    const paces = laps.map(lap => {
+      const dist = Number(lap.distance || lap.distance_meters);
+      const time = Number(lap.moving_time || lap.elapsed_time || lap.time_seconds);
+      if (!(dist > 0) || !(time > 0)) return null;
+      return time / (dist / 1000);
+    });
+    const usable = paces.filter(v => Number.isFinite(v));
+    if (usable.length < 2) return "";
+    const W = 240, H = 28, PAD = 1;
+    let min = Math.min.apply(null, usable), max = Math.max.apply(null, usable);
+    if (max === min) { min -= 1; max += 1; }
+    const pts = paces.map((v, i) => {
+      const x = PAD + (i / Math.max(1, paces.length - 1)) * (W - 2 * PAD);
+      const y = Number.isFinite(v)
+        ? PAD + ((v - min) / (max - min)) * (H - 2 * PAD)
+        : H / 2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    return `<svg class="af-card-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="M${pts.join("L")}" fill="none" stroke="currentColor" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>`;
   }
 
   /* ── selected-day model (planned + imported for ONE date) ───────── */
@@ -357,33 +430,52 @@
         : `<span class="af-card-cta">View plan</span>`;
     const cls = ["af-card", "af-card--planned"];
     if (model.missed || model.skipped) cls.push("af-card--missed");
-    return `<div class="${cls.join(" ")}" data-train-item="plan" onclick="AthlevoTrainCalendar.openModal('${model.date}')">
-      ${SPORT_ICON.run}
-      <div class="af-card-body">
-        <span class="af-card-name">${esc(title)}</span>
-        ${sub ? `<span class="af-card-source">${esc(sub)}</span>` : ""}
+    return `<button type="button" class="${cls.join(" ")}" data-train-item="plan" onclick="AthlevoTrainCalendar.openModal('${model.date}')">
+      <div class="af-card-main">
+        <div class="af-card-top">
+          ${SPORT_ICON.run}
+          <div class="af-card-titles">
+            <span class="af-card-sport af-card-sport--planned">Planned</span>
+            <span class="af-card-name">${esc(title)}</span>
+            ${sub ? `<span class="af-card-source">${esc(sub)}</span>` : ""}
+          </div>
+          ${badge}
+        </div>
         ${meta.length ? `<span class="af-card-meta">${esc(meta.join(" · "))}</span>` : ""}
       </div>
-      ${badge}
-    </div>`;
+    </button>`;
   }
 
-  function activityCardHtml(a, dISO, done) {
+  function activityCardHtml(a, dISO, opts) {
+    const done = !!(opts && opts.done);
+    const session = opts && opts.session;
+    const ex = opts && opts.execution;
+    const theme = sportTheme(a);
     const name = sportLabel(a);
     const source = a.name && a.name !== name ? a.name : null;
-    const metrics = activityMetrics(a);
-    const effort = miniEffortBar(a);
+    const packed = cardMetricItems(a, ex);
+    const effort = miniEffortBar(a) || miniLapProfile(a);
     const id = a && a.id != null ? String(a.id) : "";
-    return `<div class="af-card${done ? " af-card--done" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
-      ${sportIcon(a)}
-      <div class="af-card-body">
-        <span class="af-card-name">${esc(name)}</span>
-        ${source ? `<span class="af-card-source">${esc(source)}</span>` : ""}
-        ${metrics ? `<span class="af-card-metrics">${esc(metrics)}</span>` : ""}
+    const grid = packed.items.slice(0, 8).map(i =>
+      `<span class="af-card-metric"><b>${esc(i.value)}</b><small>${esc(i.label)}</small></span>`
+    ).join("");
+    const planNote = done ? matchedPlanNote(session) : "";
+    return `<button type="button" class="af-card af-card--activity af-card--${theme}${done ? " af-card--done" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
+      <span class="af-card-accent" aria-hidden="true"></span>
+      <div class="af-card-main">
+        <div class="af-card-top">
+          ${sportIcon(a)}
+          <div class="af-card-titles">
+            <span class="af-card-sport">${esc(name)}</span>
+            ${source ? `<span class="af-card-name">${esc(source)}</span>` : ""}
+          </div>
+          <span class="af-card-chevron" aria-hidden="true">›</span>
+        </div>
+        ${grid ? `<div class="af-card-grid">${grid}</div>` : ""}
+        ${planNote}
         ${effort}
       </div>
-      <span class="af-card-cta">Review</span>
-    </div>`;
+    </button>`;
   }
 
   function renderSelectedDayHtml(model) {
@@ -421,7 +513,11 @@
       const matchedIds = new Set(model.matchedActs.map(a => a && a.id != null ? String(a.id) : ""));
       model.activities.forEach(a => {
         const done = model.completed && a && a.id != null && matchedIds.has(String(a.id));
-        html += activityCardHtml(a, dISO, done);
+        html += activityCardHtml(a, dISO, {
+          done,
+          session: done ? model.session : null,
+          execution: done ? model.execution : null
+        });
       });
     }
     html += `</div>`;
@@ -543,6 +639,8 @@
     else if (entry.execution && entry.execution.imported_activity_id && actById[String(entry.execution.imported_activity_id)]) act = actById[String(entry.execution.imported_activity_id)];
     else if (entry.activities && entry.activities.length === 1) act = entry.activities[0];
     const ex = entry.execution || null;
+    _openModalToken += 1;
+    const modalToken = _openModalToken;
 
     let html = "";
 
@@ -555,12 +653,13 @@
       const dateStr = fmtDayHeader(dISO);
       const startTime = act.start_date ? new Date(act.start_date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
 
-      html += `<div class="ad-header">
+      html += `<button type="button" class="ad-back" onclick="AthlevoTrainCalendar.closeModal()">Back</button>`;
+      html += `<div class="ad-header ad-header--${sportTheme(act)}">
         <div class="ad-header-top">
           ${sportIcon(act)}
           <div class="ad-header-info">
-            <h2 class="ad-title">${esc(name)}</h2>
-            ${source ? `<span class="ad-source">${esc(source)}</span>` : ""}
+            <h2 class="ad-title">${esc(source || name)}</h2>
+            <span class="ad-source">${esc(name)}</span>
           </div>
         </div>
         <div class="ad-header-meta">
@@ -569,12 +668,13 @@
         </div>
       </div>`;
 
-      /* ── SUMMARY STATS ─────────────────────────────────────────── */
       html += renderDetailSummary(act, ex, sport);
 
-      /* ── WORKOUT STRUCTURE VISUALIZATION ────────────────────────── */
       const recognition = (window.AthlevoCoach && AthlevoCoach.getStoredRecognition)
         ? AthlevoCoach.getStoredRecognition(act) : null;
+
+      html += renderCoachSection(act, recognition, s);
+      html += `<div id="ad-charts-root" class="ad-charts-root" data-activity-id="${esc(act.id != null ? String(act.id) : "")}"></div>`;
 
       if (recognition) {
         _wsvSegments = normalizeSegments(recognition, act);
@@ -585,33 +685,21 @@
             html += (window.WorkoutStructureView && WorkoutStructureView.render)
               ? WorkoutStructureView.render(_wsvSegments)
               : "";
-          } catch (e) {}
+          } catch (e) {
+            html += `<p class="ad-empty">Workout structure unavailable.</p>`;
+          }
           html += `</div>`;
         }
 
-        /* ── WORKOUT CLASSIFICATION (compact) ──────────────────── */
         html += `<div class="ad-section ad-classification">`;
         html += `<div class="ad-class-row">
           <span class="ad-class-type">${esc(AthlevoCoach.displayType ? AthlevoCoach.displayType(recognition.workoutType) : recognition.workoutType)}</span>
           <span class="ad-class-conf ${recognition.confidenceLabel === "High" ? "high" : ""}">${esc(recognition.confidenceLabel || "")}</span>
         </div>`;
-        if (recognition.coachSummary) {
-          const brief = String(recognition.coachSummary).split(/(?<=[.!?])\s+/).slice(0, 3).join(" ");
-          html += `<p class="ad-class-summary">${esc(brief)}</p>`;
-        }
         html += `</div>`;
       }
 
-      /* ── COACH ANALYSIS (Athlevo differentiator) ───────────────── */
-      html += renderCoachSection(act, recognition, s);
-
-      /* ── HR ZONES ──────────────────────────────────────────────── */
       html += renderHRZones(act);
-
-      /* ── CHART SECTIONS ────────────────────────────────────────── */
-      html += renderChartSections(act, sport);
-
-      /* ── SPLITS / LAPS ─────────────────────────────────────────── */
       html += renderSplits(act, sport);
 
     } else if (s && !isRest(s)) {
@@ -661,6 +749,25 @@
       m.classList.add("show");
       m.setAttribute("aria-hidden", "false");
     }
+    if (act) loadActivityCharts(act, modalToken);
+  }
+
+  let _openModalToken = 0;
+  async function loadActivityCharts(act, token) {
+    const root = document.getElementById("ad-charts-root");
+    if (!root || !window.AthlevoActivityStreams) return;
+    const AS = window.AthlevoActivityStreams;
+    const sport = canonSport(act);
+    const stored = AS.streamsFromActivity(act);
+    if (AS.hasUsableStreams(stored)) {
+      AS.renderInto(root, stored, sport);
+      return;
+    }
+    root.innerHTML = `<p class="ad-chart-loading">Loading graphs…</p>`;
+    let streams = null;
+    try { streams = await AS.loadStreams(act); } catch (e) { streams = null; }
+    if (token !== _openModalToken) return;
+    if (!AS.renderInto(root, streams, sport)) root.innerHTML = "";
   }
 
   /* ── Detail: Summary stats grid ────────────────────────────────── */
@@ -675,24 +782,34 @@
     if (act.moving_time_seconds) {
       items.push({ label: "Duration", value: fmtDuration(act.moving_time_seconds), unit: "" });
     }
-    // Pace (runs)
-    if (sport === "run" && act.distance_meters && act.moving_time_seconds) {
+    if ((sport === "run" || sport === "walk" || sport === "hike") && act.distance_meters && act.moving_time_seconds) {
       const paceSec = act.moving_time_seconds / (act.distance_meters / 1000);
-      items.push({ label: "Avg Pace", value: fmtPace(paceSec), unit: "/km" });
+      items.push({ label: "Average pace", value: fmtPace(paceSec), unit: "/km" });
     }
-    // Speed (rides)
-    if (sport === "ride" && act.distance_meters && act.moving_time_seconds) {
-      items.push({ label: "Avg Speed", value: ((act.distance_meters / act.moving_time_seconds) * 3.6).toFixed(1), unit: "km/h" });
+    if ((sport === "ride" || sport === "swim") && act.distance_meters && act.moving_time_seconds) {
+      items.push({ label: "Average speed", value: ((act.distance_meters / act.moving_time_seconds) * 3.6).toFixed(1), unit: "km/h" });
     }
-    // HR
     if (act.average_heartrate) {
-      items.push({ label: "Avg HR", value: Math.round(act.average_heartrate), unit: "bpm" });
+      items.push({ label: "Average HR", value: Math.round(act.average_heartrate), unit: "bpm" });
     }
-    // Load
+    if (act.max_heartrate) {
+      items.push({ label: "Max HR", value: Math.round(act.max_heartrate), unit: "bpm" });
+    }
     const load = activityLoad(act);
     if (load) items.push({ label: "Load", value: load, unit: "" });
-    // RPE
-    if (ex && ex.actual_rpe) items.push({ label: "RPE", value: ex.actual_rpe, unit: "/10" });
+    const rpe = activityRpe(act, ex);
+    if (rpe) items.push({ label: "RPE", value: rpe, unit: "/10" });
+    if (act.average_cadence) {
+      items.push({ label: "Cadence", value: Math.round(act.average_cadence), unit: sport === "ride" ? "rpm" : "spm" });
+    }
+    if (act.elevation_gain_meters && sport !== "strength" && sport !== "mobility") {
+      items.push({ label: "Elevation", value: Math.round(act.elevation_gain_meters), unit: "m" });
+    }
+    const pwr = activityPower(act);
+    if (pwr > 0) items.push({ label: "Average power", value: Math.round(pwr), unit: "W" });
+    if (sport === "strength" || sport === "mobility") {
+      items.push({ label: "Category", value: sportLabel(act), unit: "" });
+    }
     // Feel
     if (ex && ex.overall_feeling) {
       const feel = ex.overall_feeling === "easier" ? "Easy" : ex.overall_feeling === "harder" ? "Hard" : "Normal";
@@ -766,80 +883,12 @@
     return html;
   }
 
-  /* ── Detail: Chart sections (HR, Pace, Power, Elevation, Cadence) ── */
+  /* ── Detail: Chart sections (real streams only) ── */
   function renderChartSections(act, sport) {
-    const raw = act.raw_data && typeof act.raw_data === "object" ? act.raw_data : {};
-    let html = "";
-
-    // Heart Rate chart
-    if (act.average_heartrate || act.max_heartrate) {
-      html += `<div class="ad-section ad-chart-section">`;
-      html += `<div class="ad-section-h">Heart Rate</div>`;
-      html += `<div class="ad-chart-stats">`;
-      if (act.average_heartrate) html += `<span class="ad-chart-stat"><b>${Math.round(act.average_heartrate)}</b> avg bpm</span>`;
-      if (act.max_heartrate) html += `<span class="ad-chart-stat"><b>${Math.round(act.max_heartrate)}</b> max bpm</span>`;
-      html += `</div>`;
-      // Time-series chart placeholder (ready for stream data)
-      const hrStream = raw.heartrate_stream || raw.hr_stream || null;
-      if (hrStream && Array.isArray(hrStream) && hrStream.length > 2) {
-        html += renderStreamChart(hrStream, "var(--red)", act.average_heartrate);
-      } else {
-        html += `<div class="ad-chart-placeholder">Heart rate chart available with connected device data</div>`;
-      }
-      html += `</div>`;
-    }
-
-    // Pace chart (runs)
-    if (sport === "run" && act.distance_meters && act.moving_time_seconds) {
-      const avgPace = act.moving_time_seconds / (act.distance_meters / 1000);
-      const gap = raw.gap || raw.grade_adjusted_pace || null;
-      html += `<div class="ad-section ad-chart-section">`;
-      html += `<div class="ad-section-h">Pace</div>`;
-      html += `<div class="ad-chart-stats">`;
-      html += `<span class="ad-chart-stat"><b>${fmtPace(avgPace)}</b> avg /km</span>`;
-      if (gap) html += `<span class="ad-chart-stat"><b>${esc(String(gap))}</b> GAP</span>`;
-      html += `</div>`;
-      const paceStream = raw.pace_stream || raw.velocity_stream || null;
-      if (paceStream && Array.isArray(paceStream) && paceStream.length > 2) {
-        html += renderStreamChart(paceStream, "var(--good)", avgPace, true);
-      }
-      html += `</div>`;
-    }
-
-    // Power chart
-    const avgPower = num(raw.average_power_watts) || num(raw.average_watts);
-    const maxPower = num(raw.max_power_watts) || num(raw.max_watts);
-    if (avgPower > 0 || maxPower > 0) {
-      html += `<div class="ad-section ad-chart-section">`;
-      html += `<div class="ad-section-h">Power</div>`;
-      html += `<div class="ad-chart-stats">`;
-      if (avgPower) html += `<span class="ad-chart-stat"><b>${Math.round(avgPower)}</b> avg W</span>`;
-      if (maxPower) html += `<span class="ad-chart-stat"><b>${Math.round(maxPower)}</b> max W</span>`;
-      html += `</div></div>`;
-    }
-
-    // Elevation
-    if (act.elevation_gain_meters) {
-      html += `<div class="ad-section ad-chart-section">`;
-      html += `<div class="ad-section-h">Elevation</div>`;
-      html += `<div class="ad-chart-stats">`;
-      html += `<span class="ad-chart-stat"><b>${Math.round(act.elevation_gain_meters)}</b> m gain</span>`;
-      if (raw.max_elevation) html += `<span class="ad-chart-stat"><b>${Math.round(raw.max_elevation)}</b> m max</span>`;
-      html += `</div></div>`;
-    }
-
-    // Cadence
-    if (act.average_cadence) {
-      const unit = sport === "ride" ? "rpm" : "spm";
-      html += `<div class="ad-section ad-chart-section">`;
-      html += `<div class="ad-section-h">Cadence</div>`;
-      html += `<div class="ad-chart-stats">`;
-      html += `<span class="ad-chart-stat"><b>${Math.round(act.average_cadence)}</b> avg ${unit}</span>`;
-      if (raw.max_cadence) html += `<span class="ad-chart-stat"><b>${Math.round(raw.max_cadence)}</b> max ${unit}</span>`;
-      html += `</div></div>`;
-    }
-
-    return html;
+    if (!window.AthlevoActivityStreams) return "";
+    const streams = window.AthlevoActivityStreams.streamsFromActivity(act);
+    if (!window.AthlevoActivityStreams.hasUsableStreams(streams)) return "";
+    return window.AthlevoActivityStreams.renderStackedCharts(streams, sport);
   }
 
   /* ── SVG stream chart (inline, performant) ─────────────────────── */
@@ -1167,7 +1216,8 @@
 
   window.AthlevoTrainCalendar = {
     open, prevWeek, nextWeek, goToday, select, openModal, closeModal, askCoach,
-    activityDateKey, buildSelectedDayModel,
-    VERSION: "train-calendar-v4"
+    activityDateKey, buildSelectedDayModel, cardMetricItems, sportTheme,
+    activityCardHtml, plannedCardHtml, renderSelectedDayHtml,
+    VERSION: "train-calendar-v5"
   };
 })();
