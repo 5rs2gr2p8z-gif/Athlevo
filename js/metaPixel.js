@@ -12,13 +12,13 @@
  *      pipeline, never hardcoded here.
  *    · Deduplication: _fired tracks events already sent this page load
  *      so a re-render or SPA "navigation" does not double-count.
- *    · sessionStorage guard prevents StartTrial from re-firing on
- *      refresh after the initial confirmation.
+ *    · Conversion events are a downstream mirror of canonical Athlevo
+ *      product milestones via trackMapped(). Do not scatter fbq calls.
+ *    · Do NOT fire StartTrial. Athlevo has no trial.
  *
  *  Usage:
- *    AthlevoMetaPixel.init();          // called once on page load
- *    AthlevoMetaPixel.track("StartTrial");
- *    AthlevoMetaPixel.trackOnce("StartTrial");  // deduped across session
+ *    AthlevoMetaPixel.init();                 // called once on page load
+ *    AthlevoMetaPixel.trackMapped("diagnostic_completed");
  */
 (function (root) {
   "use strict";
@@ -28,6 +28,21 @@
   var _fired    = {};   // per-page-load dedup
 
   var SESSION_KEY = "athlevo_meta_pixel_fired";
+
+  /*
+   * Canonical Athlevo product event → Meta standard event.
+   * Unknown names are a no-op. Payloads are built here from scratch —
+   * never spread PostHog/product properties into Meta.
+   */
+  var CANONICAL_TO_META = {
+    ai_landing_viewed:      { event: "ViewContent",          once: false, commerce: false },
+    diagnostic_completed:   { event: "Lead",                 once: true,  commerce: false },
+    registration_completed: { event: "CompleteRegistration", once: true,  commerce: false },
+    checkout_started:       { event: "InitiateCheckout",     once: false, commerce: true },
+    payment_completed:      { event: "Purchase",             once: true,  commerce: true }
+  };
+
+  var META_COMMERCE = { value: 597, currency: "PHP" };
 
   /* ─────────────── helpers ────────────────────────────────────────── */
 
@@ -114,24 +129,32 @@
 
   /* ─────────────── tracking ───────────────────────────────────────── */
 
+  function resolveFbq() {
+    try {
+      if (root.fbq && typeof root.fbq === "function") return root.fbq;
+    } catch (e) {}
+    try {
+      if (typeof fbq === "function") return fbq;
+    } catch (e) {}
+    return null;
+  }
+
   /**
    * Fire a standard or custom Meta Pixel event.
-   * @param {string} eventName  e.g. 'StartTrial', 'Purchase'
+   * @param {string} eventName  e.g. 'Lead', 'Purchase'
    * @param {object} [params]   optional event parameters
    */
   function track(eventName, params) {
     if (!_pixelId) return;
     try {
-      if (typeof fbq === "function") {
-        fbq('track', eventName, params || {});
-      }
+      var fn = resolveFbq();
+      if (fn) fn("track", eventName, params || {});
     } catch (e) { /* silent */ }
   }
 
   /**
    * Fire an event at most ONCE per browser session (survives refresh).
-   * Use for conversion events like StartTrial that must not double-fire
-   * when the user refreshes the confirmation screen.
+   * Use for one-shot conversion events that must not double-fire.
    *
    * @param {string} eventName
    * @param {object} [params]
@@ -149,6 +172,35 @@
     return true;
   }
 
+  function metaParams(mapping) {
+    if (mapping && mapping.commerce) {
+      return { value: META_COMMERCE.value, currency: META_COMMERCE.currency };
+    }
+    return {};
+  }
+
+  /**
+   * Mirror a canonical Athlevo product event into a Meta standard event.
+   * Caller properties are ignored — Meta payloads are constructed here.
+   *
+   * @param {string} canonicalEventName
+   * @returns {boolean} true if a Meta event was dispatched (or queued)
+   */
+  function trackMapped(canonicalEventName) {
+    try {
+      if (isNativeRuntime()) return false;
+      if (!_pixelId) return false;
+      var mapping = CANONICAL_TO_META[canonicalEventName];
+      if (!mapping) return false;
+      var params = metaParams(mapping);
+      if (mapping.once) return trackOnce(mapping.event, params);
+      track(mapping.event, params);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /* ─────────────── auto-init on load ───────────────────────────────── */
 
   init();
@@ -156,12 +208,13 @@
   /* ─────────────── public API ─────────────────────────────────────── */
 
   root.AthlevoMetaPixel = {
-    init:      init,
-    track:     track,
-    trackOnce: trackOnce,
+    init:        init,
+    track:       track,
+    trackOnce:   trackOnce,
+    trackMapped: trackMapped,
     /** Exposed for testing — returns whether init() has run. */
-    isReady:   function () { return _initDone && !!_pixelId; },
-    VERSION:   "meta-pixel-v1"
+    isReady:     function () { return _initDone && !!_pixelId; },
+    VERSION:     "meta-pixel-v2"
   };
 
 })(window);

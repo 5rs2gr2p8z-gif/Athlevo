@@ -108,6 +108,35 @@ identification.
 
 Keep these meanings separate. Do not fire `payment_completed` from the server.
 
+## Meta Pixel (advertising layer)
+
+PostHog remains the source of truth. The browser Meta Pixel is a downstream
+mirror of canonical Athlevo events via `AthlevoMetaPixel.trackMapped()` in
+`js/analytics.js` after a legitimate product capture. Do not scatter `fbq`
+calls through UI code.
+
+| Athlevo event | Meta event | Meta payload |
+|---|---|---|
+| `ai_landing_viewed` | ViewContent | `{}` |
+| `diagnostic_completed` | Lead | `{}` |
+| `registration_completed` | CompleteRegistration | `{}` |
+| `checkout_started` | InitiateCheckout | `{ value: 597, currency: "PHP" }` |
+| `payment_completed` | Purchase | `{ value: 597, currency: "PHP" }` |
+
+Unmapped product events (including `diagnostic_started`, `ai_signup_viewed`,
+`payment_screen_viewed`, and `subscription_activated`) do not send Meta
+conversions. PageView still fires once on full web document load from
+`js/metaPixel.js`; SPA route changes do not fire a second PageView.
+
+Browser Meta Purchase currently depends on returning to Athlevo and confirming
+canonical `paid_active`. `subscription_activated` remains server-authoritative
+in PostHog but is **not** sent to Meta in this slice. A future Conversions API
+Purchase must share an `event_id` with the Pixel Purchase before both are
+enabled, or Meta will double-count.
+
+No diagnostic, health, training, race, email, name, or user-id fields are sent
+to Meta. Native iOS/Android leave the Pixel disabled.
+
 - `subscription_activated` is the authoritative server conversion. It is sent
   to PostHog from `lib/server/productAnalytics.js` after a verified Whop
   webhook, Whop claim (`reason=claimed`), or PayMongo webhook writes paid

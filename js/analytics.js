@@ -542,6 +542,12 @@
       }
       ph.capture(name, safe);
       if (VIEW_EVENTS[name]) _fired[name] = true;
+      try {
+        if (root.AthlevoMetaPixel &&
+            typeof root.AthlevoMetaPixel.trackMapped === "function") {
+          root.AthlevoMetaPixel.trackMapped(name);
+        }
+      } catch (metaErr) { /* Meta must never block product analytics */ }
       return true;
     } catch (e) { return false; }
   }

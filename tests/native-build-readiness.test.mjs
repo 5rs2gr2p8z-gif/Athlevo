@@ -134,6 +134,12 @@ test("Meta Pixel is disabled only for native runtimes", () => {
   const web = evaluate(false);
   assert.equal(native.api.isReady(), false);
   assert.equal(native.inserted.length, 0);
+  assert.equal(typeof native.api.trackMapped, "function");
+  assert.equal(native.api.trackMapped("ai_landing_viewed"), false);
+  assert.equal(native.api.trackMapped("diagnostic_completed"), false);
+  assert.equal(native.api.trackMapped("registration_completed"), false);
+  assert.equal(native.api.trackMapped("checkout_started"), false);
+  assert.equal(native.api.trackMapped("payment_completed"), false);
   assert.equal(web.api.isReady(), true);
   assert.equal(web.inserted.length, 1);
 });
