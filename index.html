@@ -1532,7 +1532,12 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
   html[data-theme="system"] .chat-bubble-athlevo{background:var(--card)}
 }
 .diagnostic-paywall-scroll{width:100%;max-width:430px;margin:0 auto;padding:28px 20px calc(28px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
-.diagnostic-paywall-brand{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin-bottom:28px}
+.diagnostic-paywall-top{display:flex;align-items:center;gap:8px;margin:0 0 22px;min-height:44px}
+.diagnostic-paywall-back{-webkit-appearance:none;appearance:none;background:none;border:0;padding:0;margin:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink2);border-radius:var(--r-md);flex:none;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-back:active{background:var(--line)}
+.diagnostic-paywall-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.diagnostic-paywall-back svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.diagnostic-paywall-brand{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);margin:0;flex:1}
 .diagnostic-paywall-brand span{color:var(--red)}
 .diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-caption);font-weight:700;color:var(--good);margin-bottom:10px}
 .diagnostic-paywall-kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
@@ -1547,6 +1552,7 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
 .diagnostic-paywall-primary:hover,.diagnostic-paywall-local:hover{background:var(--card2);border-color:color-mix(in srgb,var(--line) 70%,var(--text))}
 .diagnostic-paywall-primary:active,.diagnostic-paywall-local:active{transform:scale(.99);background:var(--card)}
 .diagnostic-paywall-primary:focus-visible,.diagnostic-paywall-local:focus-visible{outline:2px solid color-mix(in srgb,var(--red) 40%,transparent);outline-offset:2px}
+.diagnostic-paywall-primary:disabled,.diagnostic-paywall-local:disabled{opacity:.55;cursor:default;transform:none}
 .diagnostic-paywall-method-icon{flex:0 0 40px;width:40px;height:40px;border-radius:12px;background:var(--card);color:var(--text);display:flex;align-items:center;justify-content:center}
 .diagnostic-paywall-method-icon svg,.diagnostic-paywall-chevron svg{display:block}
 .diagnostic-paywall-method-copy{flex:1;min-width:0}
@@ -1555,6 +1561,8 @@ html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
 .diagnostic-paywall-chevron{flex:0 0 18px;color:var(--ink3)}
 .diagnostic-paywall-price{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;color:var(--text);margin:22px 0 2px;text-align:center}
 .diagnostic-paywall-renewal{font-size:var(--fs-caption);color:var(--ink3);margin:0;text-align:center}
+.diagnostic-paywall-switch{display:block;width:100%;margin:16px 0 0;padding:8px;border:0;background:none;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--ink3);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-switch:active{color:var(--text)}
 .diagnostic-paywall-status{min-height:20px;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--red);margin:12px 0 0;text-align:center}
 .diagnostic-paywall-activating,.diagnostic-paywall-recheck{display:none;text-align:center;margin-top:8px}
 .diagnostic-paywall-activating p,.diagnostic-paywall-recheck p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0 0 16px}
@@ -4367,7 +4375,15 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 <!-- Paid-first continuation for authenticated diagnostic acquisitions. -->
 <section class="screen" id="screen-diagnostic-paywall">
   <div class="diagnostic-paywall-scroll">
-    <div class="diagnostic-paywall-brand">Athlevo<span>.</span></div>
+    <div class="diagnostic-paywall-top">
+      <button type="button" class="diagnostic-paywall-back" aria-label="Back"
+        onclick="AthlevoDiagnosticAcquisition.exitPaywall()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 5l-7 7 7 7"></path>
+        </svg>
+      </button>
+      <div class="diagnostic-paywall-brand">Athlevo<span>.</span></div>
+    </div>
     <div class="diagnostic-paywall-card" id="diagnosticPaywallCard">
       <span class="diagnostic-paywall-kicker">Your account is ready</span>
       <h1 class="diagnostic-paywall-title">Activate your<br>Athlevo Pro access.</h1>
@@ -4404,6 +4420,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       </div>
       <p class="diagnostic-paywall-price">₱597/month</p>
       <p class="diagnostic-paywall-renewal">Cancel anytime</p>
+      <button type="button" class="diagnostic-paywall-switch"
+        onclick="AthlevoDiagnosticAcquisition.switchAccount()">Use a different account</button>
       <div class="diagnostic-paywall-activating" id="diagnosticPaywallActivating">
         <p>Activating your Athlevo account…</p>
       </div>
@@ -6954,6 +6972,16 @@ function renderNavState(state) {
   var modal = document.getElementById('authModal');
   var modalOpen = modal && modal.style.display === 'flex';
   var tb = document.getElementById('tabbar');
+  var paywallScreen = document.getElementById("screen-diagnostic-paywall");
+  if (paywallScreen && paywallScreen.classList.contains("active")) {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.exitPaywall === "function") {
+      window.AthlevoDiagnosticAcquisition.exitPaywall();
+    } else {
+      showScreen("screen-welcome");
+    }
+    return;
+  }
   // Backing out of the diagnostic → return to landing.
   var diagScreen = document.getElementById('screen-diagnostic');
   if (diagScreen && diagScreen.classList.contains('active')) {
@@ -6989,6 +7017,15 @@ function renderNavState(state) {
 window.addEventListener('popstate', function (e) { renderNavState(e.state); });
 window.addEventListener('athlevo:native-back', function (event) {
   if (event.defaultPrevented) return;
+  var paywall = document.getElementById("screen-diagnostic-paywall");
+  if (paywall && paywall.classList.contains("active")) {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.exitPaywall === "function") {
+      window.AthlevoDiagnosticAcquisition.exitPaywall();
+    }
+    event.preventDefault();
+    return;
+  }
   var modal = document.getElementById('authModal');
   if (!modal || modal.style.display !== 'flex') return;
   renderNavState({ athlevoNav: 'entry' });
@@ -10175,6 +10212,28 @@ async function restoreSession(opts) {
         }
       }
     } catch(e){}
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.hasPaywallExit === "function" &&
+        window.AthlevoDiagnosticAcquisition.hasPaywallExit()) {
+      var paidAfterExit = { paid: false };
+      if (typeof window.AthlevoDiagnosticAcquisition.verifiedPaidAccess === "function") {
+        try {
+          paidAfterExit = await window.AthlevoDiagnosticAcquisition.verifiedPaidAccess(
+            supabaseClient, session.user.id
+          );
+        } catch (paidExitErr) {
+          paidAfterExit = { paid: false };
+        }
+      }
+      if (paidAfterExit && paidAfterExit.paid) {
+        await routeAfterAuth(session.user.id);
+        return true;
+      }
+      document.getElementById("tabbar").style.display = "none";
+      if (typeof openAppEntry === "function") openAppEntry();
+      else showScreen("screen-welcome");
+      return false;
+    }
     await routeAfterAuth(session.user.id);
     return true;
   }

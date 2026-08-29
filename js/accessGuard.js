@@ -686,9 +686,14 @@
           checkoutUrl.hostname.toLowerCase() !== "checkout.paymongo.com") {
         throw new Error("unsafe_checkout_url");
       }
-      let opened = null;
-      if (window.AthlevoRuntime && window.AthlevoRuntime.openExternal) {
-        opened = await window.AthlevoRuntime.openExternal(checkoutUrl.toString());
+      const runtime = window.AthlevoRuntime;
+      const nativeApp = Boolean(
+        runtime && typeof runtime.isNative === "function" && runtime.isNative()
+      );
+      if (nativeApp) {
+        const opened = runtime && typeof runtime.openExternal === "function"
+          ? await runtime.openExternal(checkoutUrl.toString())
+          : null;
         if (!opened || opened.ok !== true) throw new Error("browser");
       } else if (window.location && typeof window.location.assign === "function") {
         window.location.assign(checkoutUrl.toString());

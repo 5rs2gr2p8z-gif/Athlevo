@@ -3,10 +3,12 @@
 "use strict";
 
 var STORAGE_KEY = "athlevo_diagnostic_acquisition_v1";
+var PAYWALL_EXIT_KEY = "athlevo_paywall_exit";
 var TTL_MS = 30 * 24 * 60 * 60 * 1000;
 var PAID_PROVIDERS = ["whop", "paymongo", "gcash_manual"];
 var active = null;
 var acquisitionSupabase = null;
+var checkoutInFlight = false;
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -245,8 +247,83 @@ function markPaymentCompleted(userId, paid) {
   writeLocal(state);
 }
 
+function hideAppTabbar() {
+  var tabbar = document.getElementById("tabbar");
+  if (tabbar && tabbar.style) tabbar.style.display = "none";
+}
+
+function setPaywallStatus(message) {
+  var status = document.getElementById("diagnosticPaywallStatus");
+  if (status) status.textContent = message || "";
+}
+
+function setPaywallBusy(busy) {
+  var buttons = document.querySelectorAll(
+    ".diagnostic-paywall-primary, .diagnostic-paywall-local"
+  );
+  for (var i = 0; i < buttons.length; i += 1) buttons[i].disabled = !!busy;
+}
+
+function markPaywallExit() {
+  try { root.sessionStorage.setItem(PAYWALL_EXIT_KEY, "1"); } catch (e) {}
+}
+
+function clearPaywallExit() {
+  try { root.sessionStorage.removeItem(PAYWALL_EXIT_KEY); } catch (e) {}
+}
+
+function hasPaywallExit() {
+  try { return root.sessionStorage.getItem(PAYWALL_EXIT_KEY) === "1"; }
+  catch (e) { return false; }
+}
+
+function goToAuthEntry() {
+  hideAppTabbar();
+  var modal = document.getElementById("authModal");
+  if (modal && modal.style) modal.style.display = "none";
+  if (typeof root.rememberAppEntryIntent === "function") {
+    root.rememberAppEntryIntent("entry");
+  }
+  if (typeof root.resetAiSignupWelcome === "function") root.resetAiSignupWelcome();
+  if (typeof root.showScreen === "function") root.showScreen("screen-welcome");
+  try { root.history.replaceState({ athlevoNav: "entry" }, ""); } catch (e) {}
+}
+
+function exitPaywall() {
+  markPaywallExit();
+  goToAuthEntry();
+}
+
+async function switchAccount() {
+  clearPaywallExit();
+  if (typeof root.clearAiSignupHandoff === "function") root.clearAiSignupHandoff();
+  if (typeof root.doLogout === "function") {
+    await root.doLogout();
+    return true;
+  }
+  goToAuthEntry();
+  return true;
+}
+
+async function sessionUserId() {
+  if (root.athlevoSessionUserId) return root.athlevoSessionUserId;
+  try {
+    var supabase = acquisitionSupabase || root.supabaseClient;
+    if (!supabase || !supabase.auth || typeof supabase.auth.getSession !== "function") {
+      return null;
+    }
+    var result = await supabase.auth.getSession();
+    var user = result && result.data && result.data.session && result.data.session.user;
+    return user && user.id ? user.id : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function showPaywall(state, unavailable, opts) {
   opts = opts || {};
+  clearPaywallExit();
+  hideAppTabbar();
   if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
   var limiter = document.getElementById("diagnosticPaywallLimiter");
   var status = document.getElementById("diagnosticPaywallStatus");
@@ -275,6 +352,7 @@ function showPaywall(state, unavailable, opts) {
 }
 
 function showActivation(state) {
+  hideAppTabbar();
   if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
   var limiter = document.getElementById("diagnosticPaywallLimiter");
   var status = document.getElementById("diagnosticPaywallStatus");
@@ -284,6 +362,7 @@ function showActivation(state) {
 }
 
 function showRecheck(state) {
+  hideAppTabbar();
   if (typeof root.showScreen === "function") root.showScreen("screen-diagnostic-paywall");
   var limiter = document.getElementById("diagnosticPaywallLimiter");
   var status = document.getElementById("diagnosticPaywallStatus");
@@ -293,27 +372,53 @@ function showRecheck(state) {
 }
 
 async function checkout(method) {
-  if (!root.athlevoSessionUserId) {
-    if (typeof root.openAiSignup === "function") {
-      root.openAiSignup();
-      return true;
-    }
+  if (checkoutInFlight) return false;
+  var userId = await sessionUserId();
+  if (userId) root.athlevoSessionUserId = userId;
+  if (!userId) {
+    setPaywallStatus("Sign in to continue to payment.");
+    goToAuthEntry();
+    if (typeof root.openLogin === "function") root.openLogin(true);
     return false;
   }
-  var state = active || readLocal();
-  if (!state || !root.AthlevoAccessGuard) return false;
-  var previous = state.stage;
-  await setStage(state, "checkout_started", acquisitionSupabase);
-  var context = {
-    feature: "trends",
-    surface: "diagnostic",
-    source: "ai_signup"
-  };
-  var opened = method === "local"
-    ? await root.AthlevoAccessGuard.checkoutLocal(context)
-    : await root.AthlevoAccessGuard.checkout(context);
-  if (!opened) await setStage(state, previous || "awaiting_payment", acquisitionSupabase);
-  return opened;
+  if (!root.AthlevoAccessGuard) {
+    setPaywallStatus("Payment is temporarily unavailable. Try again.");
+    return false;
+  }
+  var state = currentForUser(userId) || bindAcquisitionUser(userId);
+  var previous = state && state.stage;
+  checkoutInFlight = true;
+  setPaywallBusy(true);
+  setPaywallStatus(method === "local"
+    ? "Opening local checkout…"
+    : "Opening secure checkout…");
+  try {
+    await setStage(state, "checkout_started", acquisitionSupabase);
+    var context = {
+      feature: "trends",
+      surface: "diagnostic",
+      source: "ai_signup"
+    };
+    var opened = method === "local"
+      ? await root.AthlevoAccessGuard.checkoutLocal(context)
+      : await root.AthlevoAccessGuard.checkout(context);
+    if (!opened) {
+      await setStage(state, previous || "awaiting_payment", acquisitionSupabase);
+      setPaywallStatus(method === "local"
+        ? "Local payment is unavailable right now. Card payment still works."
+        : "Checkout could not be opened. Try again.");
+      return false;
+    }
+    setPaywallStatus("");
+    return true;
+  } catch (error) {
+    await setStage(state, previous || "awaiting_payment", acquisitionSupabase);
+    setPaywallStatus("Checkout could not be opened. Try again.");
+    return false;
+  } finally {
+    checkoutInFlight = false;
+    setPaywallBusy(false);
+  }
 }
 
 async function retryPendingDiagnosticAttach(userId, supabase, previous) {
@@ -376,6 +481,7 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
 
   var paid = await verifiedPaidAccess(supabase, userId);
   if (paid.paid) {
+    clearPaywallExit();
     if (returningFromCheckout) trackCheckoutReturnViewed("paid", paid.provider);
     markPaymentCompleted(userId, paid);
     attachOutcome = await retryPendingDiagnosticAttach(userId, supabase, attachOutcome);
@@ -541,6 +647,9 @@ root.AthlevoDiagnosticAcquisition = {
   showActivation: showActivation,
   showRecheck: showRecheck,
   recheckEntitlement: recheckEntitlement,
+  exitPaywall: exitPaywall,
+  switchAccount: switchAccount,
+  hasPaywallExit: hasPaywallExit,
   hasCheckoutReturn: hasCheckoutReturn,
   trackCheckoutReturnViewed: trackCheckoutReturnViewed,
   current: function () { return active || readLocal(); },
