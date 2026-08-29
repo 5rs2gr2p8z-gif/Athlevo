@@ -1541,18 +1541,7 @@ async function obWriteOnboardingRace() {
 }
 
 async function obFinish() {
-  const tabbar = document.getElementById("tabbar");
-  if (tabbar) tabbar.style.display = "flex";
-
-  // Persist the optional recent race BEFORE refreshing, so the Athlevo
-  // Score card reflects it immediately.
   await obWriteOnboardingRace();
-
-  try {
-    await AthlevoBrain.refreshAthleteUI();
-  } catch (error) {
-    console.error("Could not refresh athlete UI after onboarding:", error);
-  }
 
   if (window.AthlevoAnalytics) window.AthlevoAnalytics.track("onboarding_completed");
   try {
@@ -1565,7 +1554,6 @@ async function obFinish() {
     }
   } catch(e){}
 
-  // Complete the diagnostic-acquisition flow if this user came through it.
   try {
     if (window.AthlevoDiagnosticAcquisition &&
         typeof window.AthlevoDiagnosticAcquisition.completePostPaymentOnboarding === "function") {
@@ -1573,16 +1561,39 @@ async function obFinish() {
     }
   } catch (e) {}
 
-  /*
-   * Profile → training-data connection → app. Payment for diagnostic-
-   * acquisition users was handled before onboarding; legacy freemium users
-   * see upgrade prompts when they reach paid features.
-   */
+  if (await obOfferIfUnpaid()) return;
+
+  const tabbar = document.getElementById("tabbar");
+  if (tabbar) tabbar.style.display = "flex";
+
+  try {
+    await AthlevoBrain.refreshAthleteUI();
+  } catch (error) {
+    console.error("Could not refresh athlete UI after onboarding:", error);
+  }
+
   if (window.AthlevoConnect && typeof window.AthlevoConnect.start === "function") {
     try { await window.AthlevoConnect.start(); return; }
     catch (e) { console.warn("Training-data setup failed:", e); }
   }
   showScreen("screen-today");
+}
+
+async function obOfferIfUnpaid() {
+  if (window.AthlevoDiagnosticAcquisition &&
+      typeof window.AthlevoDiagnosticAcquisition.gateUnpaidAthlete === "function") {
+    try {
+      const gate = await window.AthlevoDiagnosticAcquisition.gateUnpaidAthlete(
+        obProfile && obProfile.id, supabaseClient, obProfile
+      );
+      return !(gate && gate.allowed);
+    } catch (e) {
+      return true;
+    }
+  }
+  const tabbar = document.getElementById("tabbar");
+  if (tabbar) tabbar.style.display = "none";
+  return true;
 }
 
 /**
@@ -2244,6 +2255,7 @@ function obRenderCoachPending() {
 
   body.querySelector("#obCoachPendingContinue").addEventListener("click", async () => {
     obClearIntent();
+    if (await obOfferIfUnpaid()) return;
     const tabbar = document.getElementById("tabbar");
     if (tabbar) tabbar.style.display = "flex";
     try { await AthlevoBrain.refreshAthleteUI(); } catch (e) {}
@@ -2297,8 +2309,9 @@ async function startAthlevoOnboarding() {
   try {
     obProfile = await obLoadProfile();
 
-    // ── Coach/admin bypass: already-onboarded users skip entirely ──
+    // ── Already-onboarded: still require paid entitlement for athletes ──
     if (obProfile.onboarding_complete) {
+      if (await obOfferIfUnpaid()) return;
       const tabbar = document.getElementById("tabbar");
       if (tabbar) tabbar.style.display = "flex";
       await AthlevoBrain.refreshAthleteUI();

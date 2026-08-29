@@ -252,6 +252,29 @@ function hideAppTabbar() {
   if (tabbar && tabbar.style) tabbar.style.display = "none";
 }
 
+/*
+ * Paid-only athlete gate. Coach/admin roles granted server-side may enter.
+ * A valid paid_active entitlement (not a performance trial) may enter.
+ * Everyone else is sent to the offer/payment page with no app shell.
+ */
+async function gateUnpaidAthlete(userId, supabase, profile) {
+  if (profile && (profile.role === "coach" || profile.role === "admin")) {
+    return { allowed: true, staff: true };
+  }
+  var paid = { paid: false };
+  try {
+    paid = await verifiedPaidAccess(supabase || acquisitionSupabase, userId);
+  } catch (e) {
+    paid = { paid: false };
+  }
+  if (paid && paid.paid) {
+    clearPaywallExit();
+    return { allowed: true, paid: true };
+  }
+  showPaywall(bindAcquisitionUser(userId), false);
+  return { allowed: false, route: "paywall" };
+}
+
 function setPaywallStatus(message) {
   var status = document.getElementById("diagnosticPaywallStatus");
   if (status) status.textContent = message || "";
@@ -467,10 +490,9 @@ function isAcquisitionGated(userId, attachOutcome, profile, fromAiSignup) {
     if (root.AthlevoDiagnostic && typeof root.AthlevoDiagnostic.hasPending === "function" &&
         root.AthlevoDiagnostic.hasPending()) return true;
   } catch (e) {}
-  // New /ai-signup accounts are paid-first. A completed-onboarding profile
-  // with no diagnostic is a legacy free account that happened to sign in
-  // on this route — do not convert them into a paywall.
-  if (fromAiSignup && !(profile && profile.onboarding_complete === true)) return true;
+  // All /ai-signup accounts are paid-first, including returning unpaid
+  // users whose onboarding is already complete. Authentication is not access.
+  if (fromAiSignup) return true;
   return false;
 }
 
@@ -636,6 +658,7 @@ root.AthlevoDiagnosticAcquisition = {
   resolveAfterAuth: resolveAfterAuth,
   reconcileWhopPurchase: reconcileWhopPurchase,
   verifiedPaidAccess: verifiedPaidAccess,
+  gateUnpaidAthlete: gateUnpaidAthlete,
   isDiagnosticAcquisition: isDiagnosticAcquisition,
   isAcquisitionGated: isAcquisitionGated,
   isPostPaymentOnboarding: isPostPaymentOnboarding,
@@ -662,6 +685,7 @@ if (typeof module !== "undefined" && module.exports) {
     markDiagnosticCompleted: markDiagnosticCompleted,
     markPaymentCompleted: markPaymentCompleted,
     verifiedPaidAccess: verifiedPaidAccess,
+    gateUnpaidAthlete: gateUnpaidAthlete,
     isDiagnosticAcquisition: isDiagnosticAcquisition,
     limiterLabel: limiterLabel,
     currentForUser: currentForUser,

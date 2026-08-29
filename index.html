@@ -9883,7 +9883,8 @@ async function routeAfterAuth(userId) {
   // A completed diagnostic is a paid-first acquisition path. Resolve it with
   // a raw subscription read that does not call ensure_free_trial: verified
   // paid access continues, otherwise the saved diagnostic paywall owns the
-  // route. Existing users without an active diagnostic stay on legacy routing.
+  // route. Unpaid athletes without an active diagnostic continue below and
+  // are stopped before the app shell.
   if (window.AthlevoDiagnosticAcquisition &&
       !(profile && (profile.role === "coach" || profile.role === "admin"))) {
     try {
@@ -9948,6 +9949,34 @@ async function routeAfterAuth(userId) {
   if (!completed) {
     startOnboarding();
     return;
+  }
+
+  // Authentication is not entitlement. Unpaid athletes never enter Today,
+  // tabs, or locked-Pro UI — the offer/payment page is the destination.
+  if (!(profile && (profile.role === "coach" || profile.role === "admin"))) {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.gateUnpaidAthlete === "function") {
+      try {
+        var unpaidGate = await window.AthlevoDiagnosticAcquisition.gateUnpaidAthlete(
+          userId, supabaseClient, profile
+        );
+        if (!routeIsCurrent()) return;
+        if (unpaidGate && unpaidGate.allowed === false) return;
+      } catch (unpaidGateErr) {
+        if (!routeIsCurrent()) return;
+        document.getElementById("tabbar").style.display = "none";
+        if (typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
+          window.AthlevoDiagnosticAcquisition.showPaywall(
+            window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+            false
+          );
+        }
+        return;
+      }
+    } else {
+      document.getElementById("tabbar").style.display = "none";
+      return;
+    }
   }
 
   /*

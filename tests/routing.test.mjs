@@ -531,6 +531,33 @@ section("Onboarding");
     /routeAfterAuth\(session\.user\.id\)/.test(src) && !/showScreen\("screen-today"\)/.test(src));
   t("12b. routeAfterAuth still starts onboarding when incomplete",
     /if \(!completed\) \{\s*startOnboarding\(\);/.test(html));
+  t("12c. unpaid athletes are gated before Today/tab bar", (() => {
+    const route = html.slice(
+      html.indexOf("async function routeAfterAuth"),
+      html.indexOf("async function restoreSession")
+    );
+    return /gateUnpaidAthlete/.test(route) &&
+      route.indexOf("gateUnpaidAthlete") < route.indexOf('showScreen("screen-today")') &&
+      route.indexOf("gateUnpaidAthlete") < route.indexOf('tabbar").style.display = "flex"');
+  })());
+  t("12d. incomplete onboarding starts before the unpaid gate", (() => {
+    const route = html.slice(
+      html.indexOf("async function routeAfterAuth"),
+      html.indexOf("async function restoreSession")
+    );
+    return route.indexOf("if (!completed)") < route.indexOf("gateUnpaidAthlete") &&
+      route.indexOf("startOnboarding()") < route.indexOf("gateUnpaidAthlete");
+  })());
+  t("12e. obFinish sends unpaid athletes to the offer before Today/tabs", (() => {
+    const onboarding = readFileSync("./js/onboarding.js", "utf8");
+    const finish = onboarding.slice(
+      onboarding.indexOf("async function obFinish"),
+      onboarding.indexOf("function obFirstIncompleteStep")
+    );
+    return /obOfferIfUnpaid/.test(finish) &&
+      finish.indexOf("obOfferIfUnpaid") < finish.indexOf('tabbar.style.display = "flex"') &&
+      finish.indexOf("obOfferIfUnpaid") < finish.indexOf('showScreen("screen-today")');
+  })());
   const r = await boot({ session: SESSION, standalone: false });
   t("13. returning onboarded user → Today", r.visible === "screen-today");
 }

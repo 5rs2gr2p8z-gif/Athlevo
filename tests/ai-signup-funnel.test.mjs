@@ -248,7 +248,7 @@ section("14b — IAB → external-browser AI signup continuation");
       )
     ));
   t("unpaid AI signup still uses existing paid-first gating",
-    /fromAiSignup && !\(profile && profile\.onboarding_complete === true\)/.test(acq));
+    /if \(fromAiSignup\) return true/.test(acq));
   t("paid_active still skips checkout after AI continuation login",
     /if \(paid\.paid\)/.test(acq) &&
     acq.indexOf("verifiedPaidAccess") < acq.indexOf("showPaywall"));
@@ -268,10 +268,10 @@ section("Payment identity and PayMongo stay authenticated");
 section("Acquisition gating vs legacy freemium");
 {
   t("new /ai-signup accounts without onboarding are gated",
-    /fromAiSignup && !\(profile && profile\.onboarding_complete === true\)/.test(acq));
-  t("completed-onboarding profiles without diagnostic stay on existing routing",
-    /fromAiSignup && !\(profile && profile\.onboarding_complete === true\)\) return true/.test(acq) &&
-    /return \{ handled: false, route: "existing" \}/.test(acq));
+    /if \(fromAiSignup\) return true/.test(acq));
+  t("completed-onboarding unpaid /ai-signup accounts are still gated",
+    /if \(fromAiSignup\) return true/.test(acq) &&
+    !/legacy free account/.test(acq));
   t("paid_active still skips the paywall",
     /if \(paid\.paid\)/.test(acq));
   t("unpaid later login uses bound local awaiting_payment, not diagnostic UI",
@@ -368,7 +368,13 @@ section("Activation helpers are executable");
 
 section("Executable unpaid /ai-signup cannot enter the app");
 {
-  function world({ href = "https://athlevo.org/ai-signup", paid = false, acquisitionRow = null } = {}) {
+  function world({
+    href = "https://athlevo.org/ai-signup",
+    paid = false,
+    trial = false,
+    subError = false,
+    acquisitionRow = null
+  } = {}) {
     const local = new Map();
     const shown = [];
     const context = {
@@ -389,9 +395,12 @@ section("Executable unpaid /ai-signup cannot enter the app");
       location: { href },
       history: { replaceState() {} },
       AthlevoPlan: {
-        _resolveEntitlement: (sub) => sub && sub.status === "active"
-          ? { accessState: "paid_active", isPerformanceTrial: false }
-          : { accessState: "free", isPerformanceTrial: false }
+        _resolveEntitlement: (sub) => {
+          if (trial) return { accessState: "paid_active", isPerformanceTrial: true };
+          return sub && sub.status === "active"
+            ? { accessState: "paid_active", isPerformanceTrial: false }
+            : { accessState: "free", isPerformanceTrial: false };
+        }
       },
       AthlevoDiagnosticHandoff: {
         loadAcquisition: async () => ({ data: acquisitionRow, error: null }),
@@ -403,7 +412,7 @@ section("Executable unpaid /ai-signup cannot enter the app");
     context.globalThis = context;
     vm.createContext(context);
     vm.runInContext(acq, context);
-    const subscription = paid
+    const subscription = (paid || trial)
       ? { plan_id: "performance", provider: "whop", status: "active" }
       : { plan_id: "free", provider: "whop" };
     const supabase = {
@@ -413,7 +422,9 @@ section("Executable unpaid /ai-signup cannot enter the app");
             return {
               eq() {
                 return {
-                  maybeSingle: async () => ({ data: subscription, error: null }),
+                  maybeSingle: async () => subError
+                    ? { data: null, error: { message: "unavailable" } }
+                    : { data: subscription, error: null },
                   in() {
                     return {
                       order() {
@@ -471,8 +482,65 @@ section("Executable unpaid /ai-signup cannot enter the app");
     const w = world();
     const result = await w.api.resolveAfterAuth("u-legacy", w.supabase, null,
       { onboarding_complete: true }, { fromAiSignup: true });
-    t("legacy free account with completed onboarding is not converted to a paywall",
-      result.handled === false && result.route === "existing");
+    t("unpaid completed-onboarding account is held on payment, not Today",
+      result.handled === true && result.route === "paywall" &&
+      w.shown.includes("screen-diagnostic-paywall"));
+  }
+  {
+    const w = world();
+    const gate = await w.api.gateUnpaidAthlete("u-unpaid", w.supabase,
+      { onboarding_complete: true, role: "athlete" });
+    t("gateUnpaidAthlete blocks unpaid athletes from the app shell",
+      gate.allowed === false && gate.route === "paywall" &&
+      w.shown.includes("screen-diagnostic-paywall"));
+  }
+  {
+    const w = world({ paid: true });
+    const gate = await w.api.gateUnpaidAthlete("u-paid-gate", w.supabase,
+      { onboarding_complete: true, role: "athlete" });
+    t("gateUnpaidAthlete allows paid_active athletes into the app",
+      gate.allowed === true && gate.paid === true);
+  }
+  {
+    const w = world();
+    const gate = await w.api.gateUnpaidAthlete("u-coach", w.supabase,
+      { onboarding_complete: true, role: "coach" });
+    t("gateUnpaidAthlete does not paywall server-granted coaches",
+      gate.allowed === true && gate.staff === true &&
+      !w.shown.includes("screen-diagnostic-paywall"));
+  }
+  {
+    const w = world({ trial: true });
+    const access = await w.api.verifiedPaidAccess(w.supabase, "u-trial");
+    const gate = await w.api.gateUnpaidAthlete("u-trial", w.supabase,
+      { onboarding_complete: true, role: "athlete" });
+    t("performance trial is not verified paid access", access.paid === false);
+    t("performance trial does not unlock the app",
+      gate.allowed === false && gate.route === "paywall" &&
+      w.shown.includes("screen-diagnostic-paywall"));
+  }
+  {
+    const w = world({ subError: true });
+    const gate = await w.api.gateUnpaidAthlete("u-unknown", w.supabase,
+      { onboarding_complete: true, role: "athlete" });
+    t("unknown entitlement fails closed to the offer, not the app",
+      gate.allowed === false && gate.route === "paywall");
+  }
+  {
+    const w = world({ href: "https://athlevo.org/ai-signup?checkout_return=1" });
+    const result = await w.api.resolveAfterAuth("u-cancel", w.supabase, null,
+      { onboarding_complete: true }, { fromAiSignup: true });
+    t("payment cancel/return still unpaid stays on the offer page",
+      result.handled === true && result.route === "paywall" &&
+      w.shown.includes("screen-diagnostic-paywall"));
+  }
+  {
+    const w = world({ paid: true, href: "https://athlevo.org/ai-signup?checkout_return=1" });
+    const result = await w.api.resolveAfterAuth("u-paid-return", w.supabase, null,
+      { onboarding_complete: true }, { fromAiSignup: true });
+    t("payment success with paid_active continues to the app",
+      result.paid === true && result.route === "app" && result.handled === false &&
+      !w.shown.includes("screen-diagnostic-paywall"));
   }
 }
 
@@ -540,7 +608,8 @@ section("Handoff failure must not block authenticated checkout");
           if (id === "diagnosticPaywallStatus") return statusEl;
           if (id === "diagnosticPaywallLimiter") return limiterEl;
           return { textContent: "", classList: { add() {}, remove() {}, toggle() {} } };
-        }
+        },
+        querySelectorAll: () => []
       },
       location: { href },
       history: { replaceState() {} },
