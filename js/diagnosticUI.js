@@ -428,7 +428,6 @@ function appendTypingIndicator(thread) {
   var el = createEl(
     '<div class="chat-msg chat-msg-athlevo chat-typing" id="chatTyping" role="status" aria-live="polite" aria-label="Athlevo is responding">' +
       '<div class="chat-bubble chat-bubble-athlevo">' +
-        '<span class="chat-typing-label">Athlevo is responding</span>' +
         '<span class="chat-typing-dots" aria-hidden="true">' +
           '<span class="chat-typing-dot"></span>' +
           '<span class="chat-typing-dot"></span>' +
@@ -618,15 +617,13 @@ async function renderConversationOpening() {
   var thread = getThread();
   if (!thread) return;
 
-  // Show Athlevo greeting
+  // Greeting once, then the first question once from the question bank.
   await showTypingThenMessage(thread, "Hi! I’m Athlevo, your endurance coach.");
   await delay(MSG_DELAY);
-  await showTypingThenMessage(thread, "What are you working toward?");
 
-  // Show first question
   var q = engine.nextQuestion();
   if (q) {
-    presentQuestion(q);
+    await presentQuestion(q, { showPrompt: true });
   }
 
   updateProgress();
@@ -655,7 +652,7 @@ async function showTypingThenMessageHTML(thread, html) {
 /**
  * Present a question: split it into sub-steps, show the first sub-step.
  */
-function presentQuestion(q) {
+async function presentQuestion(q, opts) {
   resetSkipCannedInterpretations();
   currentQuestion = q;
   currentFieldData = {};
@@ -669,15 +666,9 @@ function presentQuestion(q) {
   // Split into sub-steps
   subStepFields = splitIntoSubSteps(q);
 
-  // For single-field questions, use the question title already shown (if it was the opening)
-  // For multi-field, we need to show the first sub-step prompt
-  if (subStepFields.length === 1) {
-    // Single-field question — show quick replies + composer for this field
-    presentSubStep(0, false);
-  } else {
-    // Multi-field compound — show first sub-step
-    presentSubStep(0, false);
-  }
+  // Opening shows the first prompt. Restore/advance already painted it.
+  var showPrompt = !!(opts && opts.showPrompt);
+  await presentSubStep(0, showPrompt);
 }
 
 /**
@@ -3011,12 +3002,10 @@ function rebuildConversation(activeQ) {
   thread.innerHTML = "";
   mode = "question";
 
-  // Opening messages
+  // Greeting only. The goal question is painted once from history or as
+  // the active question — do not hardcode it here or it appears twice.
   thread.appendChild(createEl(
     '<div class="chat-msg chat-msg-athlevo"><div class="chat-bubble chat-bubble-athlevo">Hi! I’m Athlevo, your endurance coach.</div></div>'
-  ));
-  thread.appendChild(createEl(
-    '<div class="chat-msg chat-msg-athlevo"><div class="chat-bubble chat-bubble-athlevo">What are you working toward?</div></div>'
   ));
 
   // Replay history

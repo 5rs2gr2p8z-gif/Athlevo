@@ -1486,8 +1486,8 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 .chat-bubble-error{color:var(--red);background:var(--red-soft);font-size:var(--fs-body-sm)}
 
 /* ── Typing indicator ── */
-.chat-typing .chat-bubble{display:flex;align-items:center;gap:10px;padding:14px 18px}
-.chat-typing-label{font-size:var(--fs-caption);font-weight:600;color:var(--ink2);letter-spacing:.01em;white-space:nowrap}
+.chat-typing{max-width:none}
+.chat-typing .chat-bubble{display:inline-flex;align-items:center;justify-content:center;gap:0;width:fit-content;padding:12px 14px}
 .chat-typing-dots{display:inline-flex;align-items:center;gap:4px}
 .chat-typing-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ink2);opacity:.55;animation:chatDot 1.2s ease-in-out infinite}
 .chat-typing-dot:nth-child(2){animation-delay:.15s}
@@ -11108,11 +11108,11 @@ setTimeout(function () {
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=68"></script>
 <script src="js/onboarding.js?v=71"></script>
-<script src="js/diagnostic.js?v=3"></script>
-<script src="js/diagnosticSalesEngine.js?v=3"></script>
-<script src="js/diagnosticUI.js?v=3"></script>
-<script src="js/diagnosticHandoff.js?v=3"></script>
-<script src="js/diagnosticAcquisition.js?v=5"></script>
+<script src="js/diagnostic.js?v=6"></script>
+<script src="js/diagnosticSalesEngine.js?v=6"></script>
+<script src="js/diagnosticUI.js?v=6"></script>
+<script src="js/diagnosticHandoff.js?v=6"></script>
+<script src="js/diagnosticAcquisition.js?v=6"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

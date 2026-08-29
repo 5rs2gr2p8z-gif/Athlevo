@@ -12,6 +12,18 @@ assert.match(ui, /var q = currentQuestion;/, "submission must use the displayed 
 assert.doesNotMatch(ui, /var key = engine\.history\[engine\.history\.length - 1\]/);
 assert.match(ui, /engine\.previousQuestion\(currentQuestion \? currentQuestion\.key/);
 assert.match(ui, /your endurance coach/, "conversation opens with Athlevo greeting");
+assert.match(ui, /await presentQuestion\(q, \{ showPrompt: true \}\)/,
+  "opening paints the first question once from the question bank");
+assert.doesNotMatch(ui, /What are you working toward/);
+assert.match(readFileSync("./js/diagnostic.js", "utf8"), /What.?s your current running goal\?/);
+assert.doesNotMatch(
+  ui.slice(ui.indexOf("function rebuildConversation"), ui.indexOf("function getQuestionDef")),
+  /current running goal/,
+  "restore must not hardcode a second copy of the goal question"
+);
+assert.doesNotMatch(ui, /chat-typing-label/, "typing indicator has no visible status sentence");
+assert.match(ui, /aria-label="Athlevo is responding"/,
+  "typing indicator keeps screen-reader status text");
 assert.match(ui, /diagnostic_viewed/);
 assert.match(ui, /diagnostic_started/);
 assert.match(ui, /ai_landing_viewed/);

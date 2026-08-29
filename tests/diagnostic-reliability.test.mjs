@@ -190,6 +190,8 @@ function threadText(registry) {
   assert.match(uiSrc, /send\.disabled = busy/);
   assert.match(uiSrc, /aria-busy/);
   assert.match(uiSrc, /Athlevo is responding/);
+  assert.doesNotMatch(uiSrc, /chat-typing-label/);
+  assert.match(uiSrc, /aria-label="Athlevo is responding"/);
   assert.match(uiSrc, /if \(e\.key === "Enter" && !e\.shiftKey\) \{[\s\S]*?if \(busy\) return;[\s\S]*?handleComposerSend\(\);/);
   assert.match(uiSrc, /send\.addEventListener\("click", function \(\) \{\s*if \(busy\) return;\s*handleComposerSend\(\);/);
   assert.match(uiSrc, /if \(thread\) appendUserMsg\(thread, val\);/);

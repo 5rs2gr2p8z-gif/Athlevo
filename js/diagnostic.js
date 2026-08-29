@@ -240,7 +240,7 @@ var QUESTIONS = [
   {
     key: "goal",
     eyebrow: "Your goal",
-    title: "What are you working toward?",
+    title: "What’s your current running goal?",
     sub: "This shapes everything — how I'd build your training, what to prioritise, and what's realistic.",
     provides: ["goal", "goal_distance"],
     fields: [{
