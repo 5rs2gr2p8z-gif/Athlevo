@@ -32,7 +32,7 @@ console.log("Athlevo Diagnostic v1 loaded");
 
 var STORAGE_KEY = "athlevo_pending_diagnostic_v1";
 var SCHEMA_VERSION = 1;
-var ENGINE_VERSION = "diagnostic-engine-v2";
+var ENGINE_VERSION = "diagnostic-engine-v3";
 var STORAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 var MAX_HISTORY_LENGTH = 20;
 var MODEL_REASONING_LIMITERS = [
@@ -100,6 +100,49 @@ function isLongEnduranceDistance(distance) {
 
 function isEnduranceDistance(distance) {
   return distance === "Half marathon" || distance === "Marathon" || distance === "Ultra";
+}
+
+function asKm(value) {
+  var n = Number(value);
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+function longRunFloorKm(goal) {
+  if (goal === "Ultra") return 22;
+  if (goal === "Marathon") return 18;
+  if (goal === "Half marathon") return 12;
+  if (goal === "10K") return 8;
+  return 0;
+}
+
+function longRunAdequateKm(goal) {
+  if (goal === "Ultra") return 28;
+  if (goal === "Marathon") return 24;
+  if (goal === "Half marathon") return 16;
+  return 10;
+}
+
+function volumeIsSubstantial(km) {
+  return km != null && km >= 50;
+}
+
+function volumeIsLowForGoal(goal, km) {
+  if (km == null) return false;
+  var min = { "5K": 12, "10K": 20, "Half marathon": 28, "Marathon": 40, "Ultra": 50 };
+  return km < (min[goal] || 20);
+}
+
+function longRunIsShortForGoal(goal, longest) {
+  var floor = longRunFloorKm(goal);
+  return floor > 0 && longest != null && longest < floor;
+}
+
+function longRunIsAdequateForGoal(goal, longest) {
+  return longest != null && longest >= longRunAdequateKm(goal);
+}
+
+function hasRecentRaceResult(a) {
+  return !!(a && a.recent_race_dist && a.recent_race_dist !== "none" && a.recent_race_time);
 }
 
 function pendingFactFieldIndex() {
@@ -673,7 +716,7 @@ var QUESTIONS = [
         return "Legs failing before lungs in an experienced runner suggests either cumulative fatigue from insufficient recovery, or a muscular-endurance gap that specific work can address.";
       }
       if (limiter === "endurance") {
-        return "Fading in the second half is a pacing and fuelling signature more than a fitness one. It tells me your threshold relative to your race pace may be closer than it should be — or your long runs aren't doing the right work.";
+        return "Fading in the second half is usually a pacing, specificity, or fuelling signature more than a simple fitness gap. The next question is whether your current long runs and intensity are actually race-specific.";
       }
       if (limiter === "injury") {
         return "Pain stopping your runs is the most important signal. Before we talk about training structure, I need to understand what's happening — Athlevo never pushes through pain, and I won't build a plan that does.";
@@ -895,13 +938,18 @@ var LIMITER_RULES = [
     limiter: "endurance_pacing",
     label: "Endurance & pacing",
     test: function (s) {
+      var longest = asKm(s.recent_longest_run_km);
       return s.perceived_limiter === "endurance" ||
-        (s.goal_distance === "Marathon" || s.goal_distance === "Half marathon" || s.goal_distance === "Ultra");
+        (isEnduranceDistance(s.goal_distance) && longRunIsShortForGoal(s.goal_distance, longest));
     },
     weight: function (s) {
       var w = 0;
+      var longest = asKm(s.recent_longest_run_km);
+      var km = asKm(s.weekly_mileage);
       if (s.perceived_limiter === "endurance") w += 3;
-      if (s.goal_distance === "Marathon" || s.goal_distance === "Ultra") w += 1;
+      if (longRunIsShortForGoal(s.goal_distance, longest)) w += 2;
+      if (s.perceived_limiter === "endurance" && volumeIsSubstantial(km) &&
+          longRunIsAdequateForGoal(s.goal_distance, longest)) w += 1;
       if (s.experience === "5_plus" && s.perceived_limiter === "endurance") w += 1;
       return w;
     }
@@ -1754,14 +1802,27 @@ DiagnosticEngine.prototype._identifyStrengths = function () {
 
 DiagnosticEngine.prototype._explainLimiter = function (limiterKey) {
   var a = this.answers;
+  var km = asKm(a.weekly_mileage);
+  var longest = asKm(a.recent_longest_run_km);
+  var goal = a.goal_distance;
   var explanations = {
-    aerobic_base: "Your aerobic system — the engine that powers sustained running — isn't yet developed enough to support the paces or distances you're targeting. This is the single most common limiter, and the most responsive to the right training.",
+    aerobic_base: volumeIsLowForGoal(goal, km)
+      ? "Your current weekly volume is still light for this goal. The aerobic engine that supports sustained running needs more consistent easy work before the race distance is realistic."
+      : "Your aerobic system — the engine that powers sustained running — isn't yet developed enough to support the paces or distances you're targeting. This is the single most common limiter, and the most responsive to the right training.",
     running_durability: "Your musculoskeletal system — bones, tendons, connective tissue — needs more time and stimulus to handle the running load you're asking of it. This is different from cardiovascular fitness, and it adapts on a longer timescale.",
-    endurance_pacing: "You can run fast over short distances, but sustaining pace over the full distance is where things break down. This is typically a combination of inadequate long-run development, pacing strategy, and fuelling.",
     injury_management: "A current injury or recurring pain pattern is the primary constraint. No training plan is useful if it aggravates an existing issue — the first priority is understanding what your body can safely do right now.",
     training_structure: "You have the fitness and the commitment, but how your training is organised isn't producing adaptation. Experienced runners often plateau not from lack of effort but from lack of variation and periodisation.",
     consistency: "With limited training days available for your goal distance, the primary challenge is making every session count. The structure and specificity of each run matters more than it would with more available days."
   };
+  if (limiterKey === "endurance_pacing") {
+    if (volumeIsSubstantial(km) && longRunIsAdequateForGoal(goal, longest)) {
+      return "Your speed is ahead of your ability to sustain it. Based on your current training, the biggest opportunity is improving race-specific endurance and pacing—not simply adding more hard sessions.";
+    }
+    if (longRunIsShortForGoal(goal, longest) || volumeIsLowForGoal(goal, km)) {
+      return "Sustaining pace over the full distance is breaking down, and the endurance work behind it is still short of what this goal typically needs. Building that capacity is the priority—not adding more hard sessions.";
+    }
+    return "Sustaining effort over the full distance is the limiter. That usually comes from pacing, race-specific work, or how intensity is distributed—not from a missing easy run.";
+  }
   return explanations[limiterKey] || "This area appears to be the primary constraint on your running progress.";
 };
 
@@ -1786,7 +1847,15 @@ DiagnosticEngine.prototype._explainHoldingBack = function (primary) {
   }
 
   if (key === "endurance_pacing") {
-    return "The second-half fade you're experiencing usually has two contributors: long runs that aren't long enough or aren't structured to build race-specific endurance, and a pacing strategy that starts too fast relative to your current threshold. Both are fixable — but fixing one without the other won't solve it.";
+    var km = asKm(a.weekly_mileage);
+    var longest = asKm(a.recent_longest_run_km);
+    if (volumeIsSubstantial(km) && longRunIsAdequateForGoal(a.goal_distance, longest)) {
+      return "Overall volume is already substantial. The fade is more likely race-specific endurance, pacing, or fueling than a missing long-run distance.";
+    }
+    if (longRunIsShortForGoal(a.goal_distance, longest) || volumeIsLowForGoal(a.goal_distance, km)) {
+      return "Current endurance work is still short of what this goal typically needs. The long run and weekly volume both have to grow before the race distance is supported.";
+    }
+    return "The second-half fade usually comes from pacing relative to threshold, how the long run is structured, or fueling—not from one missing workout type.";
   }
 
   if (key === "injury_management") {
@@ -1805,10 +1874,18 @@ DiagnosticEngine.prototype._explainHoldingBack = function (primary) {
 };
 
 DiagnosticEngine.prototype._explainWhatWedChange = function (primary) {
-  if (!primary) return "A balanced, periodised approach with clear weekly structure.";
+  if (!primary) {
+    return [
+      "Give each week a simple hard/easy rhythm",
+      "Protect one longer aerobic run",
+      "Progress volume only when the current week feels repeatable"
+    ];
+  }
 
   var a = this.answers;
   var key = primary.limiter;
+  var km = asKm(a.weekly_mileage);
+  var longest = asKm(a.recent_longest_run_km);
   var changes = [];
 
   if (key === "aerobic_base") {
@@ -1816,23 +1893,31 @@ DiagnosticEngine.prototype._explainWhatWedChange = function (primary) {
     changes.push("Build weekly distance progressively — no more than 10% increase per week");
     if (a.training_days >= 4) {
       changes.push("Add a second easy run on existing training days before adding new days");
+    } else {
+      changes.push("Protect one weekly long run as the endurance session");
     }
-    changes.push("Introduce one weekly long run that's 25-30% of total volume");
   }
 
   if (key === "running_durability") {
     changes.push("Add 2 targeted running-specific strength sessions per week");
     changes.push("Reduce running intensity to allow musculoskeletal adaptation");
     changes.push("Build running volume more conservatively than your cardiovascular fitness allows");
-    if (a.training_status === "returning") {
-      changes.push("Start at 50-60% of your previous volume and rebuild over 6-8 weeks");
-    }
   }
 
   if (key === "endurance_pacing") {
-    changes.push("Restructure the weekly long run to include race-pace segments");
-    changes.push("Implement negative-split pacing strategy in training runs");
-    changes.push("Add threshold work specific to goal race demands");
+    if (volumeIsSubstantial(km) && longRunIsAdequateForGoal(a.goal_distance, longest)) {
+      changes.push("Restructure your long runs around marathon-specific endurance");
+      changes.push("Add threshold work appropriate to your current fitness");
+      changes.push("Control pacing so you can sustain effort deeper into the race");
+    } else if (longRunIsShortForGoal(a.goal_distance, longest) || volumeIsLowForGoal(a.goal_distance, km)) {
+      changes.push("Build weekly volume before adding more intensity");
+      changes.push("Grow the long run gradually toward race-specific distance");
+      changes.push("Keep most running easy while endurance catches up");
+    } else {
+      changes.push("Add race-pace segments to the weekly long run");
+      changes.push("Practice even or negative-split pacing in training");
+      changes.push("Add threshold work specific to the goal race");
+    }
   }
 
   if (key === "injury_management") {
@@ -1850,12 +1935,10 @@ DiagnosticEngine.prototype._explainWhatWedChange = function (primary) {
   if (key === "consistency") {
     changes.push("Design a minimal-effective-dose plan that's always executable");
     changes.push("Prioritise the 2-3 sessions that produce the most adaptation");
-    if (a.goal_distance === "Marathon" || a.goal_distance === "Ultra") {
-      changes.push("Make the long run non-negotiable — everything else flexes around it");
-    }
+    changes.push("Make the key endurance session non-negotiable — everything else flexes around it");
   }
 
-  return changes;
+  return changes.slice(0, 3);
 };
 
 /* ═══════════════════════════ GOAL FEASIBILITY ════════════════════════ */
@@ -1863,13 +1946,15 @@ DiagnosticEngine.prototype._explainWhatWedChange = function (primary) {
 DiagnosticEngine.prototype._assessFeasibility = function () {
   var a = this.answers;
   var goal = a.goal_distance;
-  var km = a.weekly_mileage || 0;
+  var km = asKm(a.weekly_mileage);
+  var longest = asKm(a.recent_longest_run_km);
   var exp = a.experience;
-  var days = a.training_days || 0;
+  var days = a.training_days;
   var status = a.training_status;
   var injury = a.injury_status;
+  var hasTimeGoal = !!(a.goal_time && String(a.goal_time).trim());
+  var hasRaceMarker = hasRecentRaceResult(a);
 
-  // Injury override
   if (injury && injury.severity === "significant") {
     return {
       rating: "not_advisable",
@@ -1881,105 +1966,131 @@ DiagnosticEngine.prototype._assessFeasibility = function () {
   if (goal === "General fitness") {
     return {
       rating: "realistic",
-      label: "Realistic",
-      explanation: "A general fitness goal with no race deadline gives us complete flexibility. Progress will come from consistency and structure, and there's no timeline pressure."
+      label: "Looks realistic",
+      explanation: "A general fitness goal with no race deadline gives us complete flexibility. Progress will come from consistency and structure."
     };
   }
 
-  // Build a score based on readiness signals
   var readiness = 0;
   var concerns = [];
+  var volumeLow = volumeIsLowForGoal(goal, km);
+  var longRunShort = longRunIsShortForGoal(goal, longest);
 
-  // Experience vs goal distance
   var distanceDifficulty = { "5K": 1, "10K": 2, "Half marathon": 3, "Marathon": 4, "Ultra": 5 };
   var expLevel = { "new": 1, "1_2_years": 2, "3_5_years": 3, "5_plus": 4 };
   var diff = (distanceDifficulty[goal] || 3);
-  var eLvl = (expLevel[exp] || 2);
+  var eLvl = exp ? (expLevel[exp] || 2) : null;
 
-  if (eLvl >= diff) readiness += 2;
-  else if (eLvl >= diff - 1) readiness += 1;
-  else concerns.push("the experience gap for this distance");
+  if (eLvl != null) {
+    if (eLvl >= diff) readiness += 2;
+    else if (eLvl >= diff - 1) readiness += 1;
+    else concerns.push("the experience gap for this distance");
+  }
 
-  // Volume vs distance
   var minWeeklyKm = { "5K": 15, "10K": 25, "Half marathon": 30, "Marathon": 40, "Ultra": 50 };
   var minKm = minWeeklyKm[goal] || 25;
-  if (km >= minKm) readiness += 2;
-  else if (km >= minKm * 0.6) readiness += 1;
-  else if (km > 0) concerns.push("current weekly volume relative to the distance");
-  else concerns.push("starting from zero volume");
+  if (km != null) {
+    if (km >= minKm) readiness += 2;
+    else if (km >= minKm * 0.6) readiness += 1;
+    else concerns.push("current weekly volume relative to the distance");
+  }
 
-  // Training days vs distance
   var minDays = { "5K": 3, "10K": 3, "Half marathon": 3, "Marathon": 4, "Ultra": 4 };
   var md = minDays[goal] || 3;
-  if (days >= md) readiness += 1;
-  else concerns.push("limited training days for this distance");
+  if (days != null && days !== "") {
+    var dayCount = Number(days) || 0;
+    if (dayCount >= md) readiness += 1;
+    else concerns.push("limited training days for this distance");
+  }
 
-  // Status modifiers
   if (status === "training_block") readiness += 1;
   if (status === "returning") concerns.push("returning from a break");
   if (status === "starting") concerns.push("building from a new starting point");
 
-  // Minor injury concern
   if (injury && injury.severity === "moderate") {
     concerns.push("an active issue affecting training");
     readiness -= 1;
   }
 
-  // Timeline pressure (if race date provided)
+  var weeksOut = null;
+  var minWeeks = { "5K": 6, "10K": 8, "Half marathon": 10, "Marathon": 16, "Ultra": 20 };
+  var mw = minWeeks[goal] || 12;
   if (a.goal_race_date) {
     var raceDate = new Date(a.goal_race_date);
-    var now = new Date();
-    var weeksOut = Math.round((raceDate - now) / (7 * 24 * 60 * 60 * 1000));
-    var minWeeks = { "5K": 6, "10K": 8, "Half marathon": 10, "Marathon": 16, "Ultra": 20 };
-    var mw = minWeeks[goal] || 12;
-    if (weeksOut < mw * 0.5) {
-      concerns.push("a very tight timeline");
-      readiness -= 2;
-    } else if (weeksOut < mw) {
-      concerns.push("a compressed timeline");
-      readiness -= 1;
-    } else {
-      readiness += 1;
+    if (!isNaN(raceDate.getTime())) {
+      weeksOut = Math.round((raceDate - new Date()) / (7 * 24 * 60 * 60 * 1000));
+      if (weeksOut < mw * 0.5) {
+        concerns.push("a very tight timeline");
+        readiness -= 2;
+      } else if (weeksOut < mw) {
+        concerns.push("a compressed timeline");
+        readiness -= 1;
+      } else {
+        readiness += 1;
+      }
     }
   }
 
-  // Map score to rating
+  var timelineVeryTight = weeksOut != null && weeksOut < mw * 0.5;
+
+  // A missing race result is incomplete evidence — not proof the goal is unrealistic.
+  if (hasTimeGoal && !hasRaceMarker) {
+    if (timelineVeryTight) {
+      return {
+        rating: "reassess",
+        label: "Needs reassessment",
+        explanation: "The current goal may be ahead of present capacity. We’d build toward it progressively rather than forcing the timeline — and without a recent race marker I wouldn’t lock the target in yet."
+      };
+    }
+    return {
+      rating: "insufficient_data",
+      label: "Not enough data yet",
+      explanation: "Without a recent race result, I wouldn’t lock in the target yet. We can still train toward it and recalibrate once there’s a current marker."
+    };
+  }
+
   if (readiness >= 5) {
     return {
       rating: "realistic",
-      label: "Realistic",
+      label: "Looks realistic",
       explanation: "Your current fitness, experience, and available training time align well with this goal. With the right structure, this is achievable."
     };
   }
   if (readiness >= 3) {
     return {
       rating: "realistic_structured",
-      label: "Realistic with structured progression",
-      explanation: "This is achievable, but it will require deliberate, progressive training. " +
-        (concerns.length > 0 ? "Key considerations: " + concerns.join(", ") + "." : "A structured plan is important.")
+      label: "Looks realistic",
+      explanation: "This looks achievable with structured progression" +
+        (concerns.length > 0 ? " — keeping " + concerns.join(" and ") + " in view." : ".")
     };
   }
   if (readiness >= 1) {
     return {
       rating: "aggressive",
-      label: "Aggressive but possible",
-      explanation: "This is a stretch goal given where you are now" +
+      label: "Ambitious but possible",
+      explanation: "This is a stretch from where you are now" +
         (concerns.length > 0 ? " — particularly " + concerns.join(" and ") : "") +
-        ". It's not impossible, but it requires disciplined, progressive training and realistic expectations about timeline."
+        ". It’s possible with disciplined, progressive training."
+    };
+  }
+  if (volumeLow || longRunShort || timelineVeryTight) {
+    return {
+      rating: "reassess",
+      label: "Needs reassessment",
+      explanation: "The current goal looks ahead of present capacity. We’d build the endurance first rather than forcing the timeline."
     };
   }
   if (readiness >= -1) {
     return {
       rating: "reassess",
-      label: "Requires reassessment",
-      explanation: "Given " + (concerns.length > 0 ? concerns.join(", ") : "the current situation") +
-        ", I'd recommend either adjusting the goal distance, extending the timeline, or focusing on building a stronger base first. This isn't a 'no' — it's a 'not yet in this form'."
+      label: "Needs reassessment",
+      explanation: "I’d reassess the target or timeline before locking it in. This isn’t a no — it’s not yet in this form."
     };
   }
   return {
     rating: "not_advisable",
     label: "Not currently advisable",
-    explanation: "With " + concerns.join(" and ") + ", pursuing this goal right now carries more risk than benefit. A shorter target distance or a longer timeline would set you up for genuine success rather than a forced attempt."
+    explanation: "Pursuing this goal right now carries more risk than benefit. A shorter target or a longer timeline would set you up better."
   };
 };
 

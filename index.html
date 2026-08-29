@@ -1525,46 +1525,30 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 
 /* ── Result card (inline in chat) ── */
 .chat-msg-result{max-width:100%;align-self:stretch}
-.chat-result-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
-.chat-result-section{padding:20px 20px 18px;border-bottom:1px solid var(--line)}
-.chat-result-section:last-child{border-bottom:none}
-.chat-result-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);opacity:.8;display:block;margin-bottom:6px}
-.chat-result-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--text);letter-spacing:-.02em;line-height:var(--lh-heading);margin:0}
-.chat-result-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:var(--fs-caption);font-weight:600;color:var(--ink2)}
-.chat-result-limiter{background:var(--card)}
-.chat-result-limiter-title{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--red);margin:6px 0 10px;letter-spacing:-.02em;line-height:1.15}
+.chat-result-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 18px 16px;box-sizing:border-box}
+.chat-result-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);display:block;margin-bottom:8px}
+.chat-result-limiter-title{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--red);margin:0 0 8px;letter-spacing:-.02em;line-height:1.15}
 .chat-result-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0}
-.chat-result-changes{list-style:none;padding:0;margin:10px 0 0}
-.chat-result-changes li{position:relative;padding:8px 0 8px 20px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);border-bottom:1px solid var(--line)}
-.chat-result-changes li:last-child{border-bottom:none}
-.chat-result-changes li::before{content:"";position:absolute;left:0;top:14px;width:7px;height:7px;border-radius:50%;background:var(--red);opacity:.5}
-.chat-result-feasibility{margin-top:8px}
-.chat-feas-realistic .chat-result-feas-badge{color:#1f9d5b;background:rgba(31,157,91,.1);border:1px solid rgba(31,157,91,.2)}
-.chat-feas-realistic-structured .chat-result-feas-badge{color:#b68a1a;background:rgba(182,138,26,.1);border:1px solid rgba(182,138,26,.2)}
-.chat-feas-aggressive .chat-result-feas-badge{color:#d97706;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.2)}
-.chat-feas-reassess .chat-result-feas-badge,.chat-feas-not-advisable .chat-result-feas-badge{color:var(--red);background:var(--red-soft);border:1px solid color-mix(in srgb,var(--red) 20%,transparent)}
-.chat-result-feas-badge{display:inline-block;font-size:var(--fs-caption);font-weight:700;letter-spacing:.02em;border-radius:var(--r-pill,100px);padding:6px 13px;margin-bottom:8px}
-.chat-result-safety{background:var(--red-soft)}
-.chat-result-rec-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--text);letter-spacing:-.02em;margin:4px 0 10px}
-.chat-result-caps{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-.chat-result-cap{font-size:var(--fs-caption);font-weight:600;color:var(--red);background:var(--red-soft);border-radius:var(--r-pill,100px);padding:5px 11px}
-
-/* ── CTA card ── */
-.chat-msg-cta{max-width:100%;align-self:stretch}
-.chat-cta-card{text-align:center;padding:6px 0 0}
+.chat-result-block{margin-top:16px}
+.chat-result-subhead{font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px}
+.chat-result-changes{list-style:none;padding:0;margin:0}
+.chat-result-changes li{position:relative;padding:5px 0 5px 18px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
+.chat-result-changes li::before{content:"→";position:absolute;left:0;top:5px;color:var(--red);font-weight:700}
+.chat-result-status{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;color:var(--red);margin:0 0 6px;letter-spacing:-.02em}
+.chat-result-safety-note{font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink2);margin:14px 0 0}
+.chat-result-offer{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.chat-result-offer-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--text);letter-spacing:-.02em;margin:0 0 6px}
+.chat-result-offer-lead{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0 0 8px}
+.chat-result-offer-features{font-size:var(--fs-caption);line-height:1.45;color:var(--ink2);margin:0 0 14px}
 .chat-cta-btn{width:100%;font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:.01em;padding:var(--s-4);border-radius:12px;border:none;background:var(--red);color:#fff;cursor:pointer;transition:background var(--dur-base),transform var(--dur-fast)}
 .chat-cta-btn:active{transform:scale(.985)}
 .chat-cta-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.chat-cta-note{font-size:var(--fs-caption);color:var(--ink3);margin:10px 0 0}
+.chat-cta-annual{font-size:var(--fs-caption);color:var(--ink3);margin:10px 0 0;text-align:center;pointer-events:none}
 
 /* ── Dark-mode overrides for chat ── */
-html[data-theme="dark"] .chat-result-limiter{background:var(--card)}
-html[data-theme="dark"] .chat-result-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
 html[data-theme="dark"] .chat-result-card{background:var(--card);border-color:var(--line)}
 html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
 @media(prefers-color-scheme:dark){
-  html[data-theme="system"] .chat-result-limiter{background:var(--card)}
-  html[data-theme="system"] .chat-result-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
   html[data-theme="system"] .chat-result-card{background:var(--card);border-color:var(--line)}
   html[data-theme="system"] .chat-bubble-athlevo{background:var(--card)}
 }
@@ -11108,11 +11092,11 @@ setTimeout(function () {
 <script src="js/workoutAnalysis.js?v=67"></script>
 <script src="js/legal.js?v=68"></script>
 <script src="js/onboarding.js?v=71"></script>
-<script src="js/diagnostic.js?v=6"></script>
-<script src="js/diagnosticSalesEngine.js?v=6"></script>
-<script src="js/diagnosticUI.js?v=6"></script>
-<script src="js/diagnosticHandoff.js?v=6"></script>
-<script src="js/diagnosticAcquisition.js?v=6"></script>
+<script src="js/diagnostic.js?v=7"></script>
+<script src="js/diagnosticSalesEngine.js?v=7"></script>
+<script src="js/diagnosticUI.js?v=7"></script>
+<script src="js/diagnosticHandoff.js?v=7"></script>
+<script src="js/diagnosticAcquisition.js?v=7"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

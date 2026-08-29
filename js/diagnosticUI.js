@@ -20,6 +20,7 @@
 
 var MSG_DELAY = 250;        // ms between sequential Athlevo messages
 var TYPING_DELAY = 400;     // ms for typing indicator before message
+var RESULT_THINK_DELAY = 1600; // ms of dots-only wait before the result card
 var SCROLL_DELAY = 60;
 
 /* ─── Text-input mapping tables ─── */
@@ -99,6 +100,7 @@ var activeSubField = null;    // the exact field within the current sub-step gro
                                // see nextActiveDependent().
 var interpretationCache = {};
 var resultTrackedFor = null;
+var resultSequenceStarted = false;
 
 /* Facts confidently extracted from free-text messages but not yet
  * committed to the engine (they belong to a field/question not currently
@@ -261,9 +263,10 @@ function startDiagnostic() {
     engine = pending;
   } else if (pending && pending.completed) {
     engine = pending;
+    resultSequenceStarted = true;
     showScreen("screen-diagnostic");
     buildChatShell();
-    renderResult();
+    renderResult({ restored: true });
     trackAiLandingViewed();
     primeDiagnosticStartedFromEngine(engine);
     diagnosticCompletedFired = true;
@@ -271,6 +274,7 @@ function startDiagnostic() {
     return;
   } else {
     engine = root.AthlevoDiagnostic.create();
+    resultSequenceStarted = false;
   }
 
   restoreFactStoreFromEngine();
@@ -3159,36 +3163,33 @@ async function showBuildAnimation(result) {
   var thread = getThread();
   if (!thread) { renderResult(); return; }
 
-  // Progress to 100%
   var fill = document.querySelector("#diagProgress .ob2-fill");
   if (fill) fill.style.transform = "scaleX(1)";
 
-  await showTypingThenMessage(thread, "Okay — I have enough to work with.");
-  await delay(MSG_DELAY);
-
-  var lines = [
-    "Analysing your running profile…",
-    "Identifying your primary limiter…",
-    "Assessing goal feasibility…",
-    "Building your coaching strategy…"
-  ];
-
-  for (var i = 0; i < lines.length; i++) {
-    await delay(reducedMotion() ? 100 : 400);
-    appendAthlevoMsg(thread, lines[i]);
-    scrollToBottom();
+  if (resultSequenceStarted || thread.querySelector(".chat-msg-result")) {
+    renderResult();
+    return;
   }
+  resultSequenceStarted = true;
 
-  await delay(reducedMotion() ? 200 : 600);
-  await showTypingThenMessage(thread, "Here’s what I’m seeing.");
-  await delay(MSG_DELAY);
-
+  appendTypingIndicator(thread);
+  scrollToBottom();
+  await delay(reducedMotion() ? 200 : RESULT_THINK_DELAY);
+  removeTypingIndicator();
+  ensureVerdictMessage(thread, false);
+  scrollToBottom();
   renderResult();
+}
+
+function ensureVerdictMessage(thread, skipAnim) {
+  if (!thread || thread.querySelector(".chat-msg-verdict")) return;
+  var el = appendAthlevoMsg(thread, "Okay — I see the main issue.", skipAnim);
+  if (el && el.classList) el.classList.add("chat-msg-verdict");
 }
 
 /* ═══════════════════════════ RESULT RENDERING ══════════════════════ */
 
-function renderResult() {
+function renderResult(opts) {
   mode = "result";
   hideQuickReplies();
   hideComposer();
@@ -3200,88 +3201,64 @@ function renderResult() {
   if (!result) return;
   currentQuestion = null;
 
-  // Back button
   var back = document.getElementById("diagBack");
   if (back) back.disabled = true;
 
-  // Build result card inline in the chat
+  var fill = document.querySelector("#diagProgress .ob2-fill");
+  if (fill) fill.style.transform = "scaleX(1)";
+
+  if (thread.querySelector(".chat-msg-result")) return;
+
+  ensureVerdictMessage(thread, !!(opts && opts.restored));
+
+  var rec = result.athlevoRecommendation;
+  var limiter = result.primaryLimiter;
   var html = '<div class="chat-result-card">';
 
-  // Profile summary
-  html += '<div class="chat-result-section">';
-  html += '<span class="chat-result-eyebrow">Your running profile</span>';
-  html += '<h3 class="chat-result-title">' + esc(result.profile.goal) + '</h3>';
-  html += '<div class="chat-result-meta">';
-  html += '<span>' + esc(result.profile.experience) + '</span>';
-  html += '<span>' + esc(result.profile.trainingStatus) + '</span>';
-  if (result.profile.weeklyMileage) html += '<span>' + Math.round(result.profile.weeklyMileage) + ' km/week</span>';
-  if (result.profile.trainingDays) html += '<span>' + result.profile.trainingDays + ' days/week</span>';
-  html += '</div></div>';
-
-  // Primary limiter
-  if (result.primaryLimiter) {
-    html += '<div class="chat-result-section chat-result-limiter">';
-    html += '<span class="chat-result-eyebrow">Primary limiter</span>';
-    html += '<h3 class="chat-result-limiter-title">' + esc(result.primaryLimiter.label) + '</h3>';
-    html += '<p class="chat-result-text">' + esc(result.primaryLimiter.explanation) + '</p>';
-    html += '</div>';
-
-    if (result.holdingBack) {
-      html += '<div class="chat-result-section">';
-      html += '<span class="chat-result-eyebrow">What’s holding you back</span>';
-      html += '<p class="chat-result-text">' + esc(result.holdingBack) + '</p>';
-      html += '</div>';
-    }
-
-    if (result.whatWedChange && result.whatWedChange.length > 0) {
-      html += '<div class="chat-result-section">';
-      html += '<span class="chat-result-eyebrow">What we’d change</span>';
-      html += '<ul class="chat-result-changes">';
-      for (var c = 0; c < result.whatWedChange.length; c++) {
-        html += '<li>' + esc(result.whatWedChange[c]) + '</li>';
-      }
-      html += '</ul></div>';
-    }
+  html += '<span class="chat-result-eyebrow">Your diagnosis</span>';
+  if (limiter) {
+    html += '<h3 class="chat-result-limiter-title">' + esc(limiter.label) + '</h3>';
+    html += '<p class="chat-result-text">' + esc(limiter.explanation) + '</p>';
+  } else {
+    html += '<h3 class="chat-result-limiter-title">Training structure</h3>';
+    html += '<p class="chat-result-text">The next step is giving your running a clearer structure so each week builds on the last.</p>';
   }
 
-  // Goal feasibility
+  var changes = result.whatWedChange;
+  if (changes && changes.length > 0) {
+    html += '<div class="chat-result-block">';
+    html += '<h4 class="chat-result-subhead">What I’d change</h4>';
+    html += '<ul class="chat-result-changes">';
+    for (var c = 0; c < Math.min(changes.length, 3); c++) {
+      html += '<li>' + esc(changes[c]) + '</li>';
+    }
+    html += '</ul></div>';
+  }
+
   if (result.feasibility) {
-    var fClass = "chat-feas-" + result.feasibility.rating.replace(/_/g, "-");
-    html += '<div class="chat-result-section">';
-    html += '<span class="chat-result-eyebrow">Goal feasibility</span>';
-    html += '<div class="chat-result-feasibility ' + fClass + '">';
-    html += '<span class="chat-result-feas-badge">' + esc(result.feasibility.label) + '</span>';
+    html += '<div class="chat-result-block">';
+    html += '<h4 class="chat-result-subhead">Your goal</h4>';
+    html += '<p class="chat-result-status">' + esc(result.feasibility.label) + '</p>';
     html += '<p class="chat-result-text">' + esc(result.feasibility.explanation) + '</p>';
-    html += '</div></div>';
-  }
-
-  // Safety
-  if (result.safetyFlags.requiresMedicalClearance) {
-    html += '<div class="chat-result-section chat-result-safety">';
-    html += '<p class="chat-result-text">Athlevo is not a medical provider. Based on what you’ve shared, please consult a qualified health professional before beginning or modifying any training program.</p>';
     html += '</div>';
   }
 
-  // Athlevo recommendation
-  var rec = result.athlevoRecommendation;
-  if (rec) {
-    html += '<div class="chat-result-section">';
-    html += '<span class="chat-result-eyebrow">How Athlevo would coach you</span>';
-    html += '<h3 class="chat-result-rec-title">' + esc(rec.heading) + '</h3>';
-    html += '<p class="chat-result-text">' + esc(rec.strategy) + '</p>';
-    if (!rec.safetyOverride && rec.capabilities) {
-      html += '<div class="chat-result-caps">';
-      for (var cap = 0; cap < rec.capabilities.length; cap++) {
-        html += '<span class="chat-result-cap">' + esc(rec.capabilities[cap]) + '</span>';
-      }
-      html += '</div>';
-    }
+  if (result.safetyFlags && result.safetyFlags.requiresMedicalClearance) {
+    html += '<p class="chat-result-safety-note">Athlevo is not a medical provider. Based on what you’ve shared, please consult a qualified health professional before beginning or modifying any training program.</p>';
+  }
+
+  if (!rec || !rec.safetyOverride) {
+    html += '<div class="chat-result-offer">';
+    html += '<h4 class="chat-result-offer-title">Train with Athlevo AI</h4>';
+    html += '<p class="chat-result-offer-lead">Your plan doesn’t stay fixed. It evolves with you.</p>';
+    html += '<p class="chat-result-offer-features">Personalized training · Adaptive coaching · AI running coach · Readiness &amp; recovery · Progress tracking</p>';
+    html += '<button class="chat-cta-btn" id="diagCTA" type="button">Start my training — ₱597/month</button>';
+    html += '<p class="chat-cta-annual">or ₱5,498/year — save ₱1,666</p>';
     html += '</div>';
   }
 
   html += '</div>';
 
-  // Append as a wide Athlevo message
   var resultEl = createEl(
     '<div class="chat-msg chat-msg-athlevo chat-msg-result">' + html + '</div>'
   );
@@ -3289,63 +3266,44 @@ function renderResult() {
   animateIn(resultEl);
   scrollToBottom();
 
-  // CTA
   if (!rec || !rec.safetyOverride) {
-    (async function () {
-      await delay(MSG_DELAY * 2);
-      var ctaEl = createEl(
-        '<div class="chat-msg chat-msg-athlevo chat-msg-cta">' +
-          '<div class="chat-cta-card">' +
-            '<button class="chat-cta-btn" id="diagCTA" type="button">Start my training · ₱597/month</button>' +
-            '<p class="chat-cta-note">Your diagnostic is saved.</p>' +
-          '</div>' +
-        '</div>'
-      );
-      thread.appendChild(ctaEl);
-      animateIn(ctaEl);
-      scrollToBottom();
-
-      // Wire CTA
-      var cta = document.getElementById("diagCTA");
-      if (cta) {
-        cta.addEventListener("click", function () {
-          trackEvent("diagnostic_signup_tapped", {
-            primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-            feasibility_rating: result.feasibility.rating
-          });
-          trackEvent("signup_started", { source_surface: "diagnostic" });
-          if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
-            root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
-          }
-          var returnedFromCheckout = root.AthlevoDiagnosticAcquisition &&
-            typeof root.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
-            root.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
-          if (returnedFromCheckout) {
-            if (typeof root.showCheckoutReturnWelcome === "function") {
-              root.showCheckoutReturnWelcome();
-            } else if (typeof root.openAiSignup === "function") {
-              root.openAiSignup();
-            } else if (typeof root.openAppEntry === "function") {
-              root.openAppEntry();
-            } else {
-              showScreen("screen-welcome");
-            }
-            return;
-          }
-          // Account-before-payment: never open Whop from the result CTA.
-          if (typeof root.openAiSignup === "function") {
+    var cta = document.getElementById("diagCTA");
+    if (cta) {
+      cta.addEventListener("click", function () {
+        trackEvent("diagnostic_signup_tapped", {
+          primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
+          feasibility_rating: result.feasibility ? result.feasibility.rating : null
+        });
+        trackEvent("signup_started", { source_surface: "diagnostic" });
+        if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
+          root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
+        }
+        var returnedFromCheckout = root.AthlevoDiagnosticAcquisition &&
+          typeof root.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
+          root.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
+        if (returnedFromCheckout) {
+          if (typeof root.showCheckoutReturnWelcome === "function") {
+            root.showCheckoutReturnWelcome();
+          } else if (typeof root.openAiSignup === "function") {
             root.openAiSignup();
-          } else if (root.openAppEntry) {
+          } else if (typeof root.openAppEntry === "function") {
             root.openAppEntry();
           } else {
             showScreen("screen-welcome");
           }
-        });
-      }
-    })();
+          return;
+        }
+        if (typeof root.openAiSignup === "function") {
+          root.openAiSignup();
+        } else if (root.openAppEntry) {
+          root.openAppEntry();
+        } else {
+          showScreen("screen-welcome");
+        }
+      });
+    }
   }
 
-  // Analytics
   var resultKey = engine.importKey ? engine.importKey() : "result";
   if (resultTrackedFor !== resultKey) {
     resultTrackedFor = resultKey;
@@ -3484,6 +3442,8 @@ var DiagnosticUI = {
     trackDiagnosticAiFallback: trackDiagnosticAiFallback,
     trackAiLandingViewed: trackAiLandingViewed,
     completeDiagnostic: completeDiagnostic,
+    renderResult: renderResult,
+    showBuildAnimation: showBuildAnimation,
     getDiagnosticStartedFired: function () { return diagnosticStartedFired; },
     getDiagnosticCompletedFired: function () { return diagnosticCompletedFired; },
     applyAcknowledgementResult: applyAcknowledgementResult,
@@ -3495,6 +3455,7 @@ var DiagnosticUI = {
       currentSubStep = 0;
       activeSubField = null;
       subStepFields = [];
+      resultSequenceStarted = false;
       resetSkipCannedInterpretations();
       setDiagnosticBusy(false);
       diagnosticCompletedFired = false;
