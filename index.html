@@ -10197,13 +10197,36 @@ async function restoreSession(opts) {
     return false;
   }
   var aiSignupHandoff = false;
+  var externalContinuation = null;
+  try {
+    var peekedContinuation = window.AthlevoEnv &&
+      typeof window.AthlevoEnv.readContinuation === "function"
+        ? window.AthlevoEnv.readContinuation()
+        : null;
+    if (peekedContinuation && peekedContinuation.sourceSurface === "ai_signup" &&
+        typeof rememberAiSignupHandoff === "function") {
+      rememberAiSignupHandoff();
+    }
+  } catch (e) {}
   try {
     aiSignupHandoff = (typeof isAiSignupPath === "function" && isAiSignupPath()) ||
       (typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff());
   } catch (e) { aiSignupHandoff = false; }
   if (aiSignupHandoff) {
+    try {
+      if (window.AthlevoEnv && typeof window.AthlevoEnv.consumeContinuation === "function") {
+        externalContinuation = window.AthlevoEnv.consumeContinuation();
+      }
+    } catch (e2) {}
     if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
     else showScreen("screen-welcome");
+    if (externalContinuation && externalContinuation.intent === "login") {
+      setTimeout(function () {
+        if (typeof openLogin === "function") {
+          openLogin(false, "external_handoff");
+        }
+      }, 0);
+    }
     return false;
   }
   if (window.__athlevoStaleSessionCleared) {
@@ -10220,7 +10243,7 @@ async function restoreSession(opts) {
     else showScreen("screen-welcome");
     return false;
   } else {
-    var externalContinuation =
+    externalContinuation =
       window.AthlevoEnv &&
       typeof window.AthlevoEnv.consumeContinuation === "function"
         ? window.AthlevoEnv.consumeContinuation()
@@ -10557,7 +10580,7 @@ setTimeout(function () {
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
 <script src="js/landingContent.js?v=79"></script>
-<script src="js/authSupport.js?v=74"></script>
+<script src="js/authSupport.js?v=75"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
 <script src="js/loadingContinuity.js?v=81"></script>

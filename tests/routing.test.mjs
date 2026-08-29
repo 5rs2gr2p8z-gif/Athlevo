@@ -187,7 +187,10 @@ function makeWorld({
         pathname,
         href: href || ("https://athlevo.org" + pathname)
       },
-      AthlevoEnv: { consumeContinuation: () => continuation },
+      AthlevoEnv: {
+        consumeContinuation: () => continuation,
+        readContinuation: () => continuation
+      },
       AthlevoDiagnostic: { hasPending: () => pendingDiagnostic },
       AthlevoDiagnosticAcquisition: {
         current: () => (acquisitionUserId ? { userId: acquisitionUserId } : null),
@@ -246,7 +249,12 @@ function makeWorld({
     history: { pushState() {}, replaceState(value) { state.historyState = value; } },
     isAiSignupPath: () => String(pathname || "").replace(/\/+$/, "") === "/ai-signup",
     hasAiSignupHandoff: () => store.get("athlevo_ai_signup_handoff") === "1",
+    rememberAiSignupHandoff: () => store.set("athlevo_ai_signup_handoff", "1"),
+    openLogin: (userChose, source) => {
+      state.loginOpened = { userChose, source };
+    },
     openAiSignup: () => {
+      store.set("athlevo_ai_signup_handoff", "1");
       state.aiSignupShown = true;
       Object.keys(state.screens).forEach(id => {
         if (state.screens[id]) state.screens[id].active = false;
@@ -301,6 +309,57 @@ section("Routing scenarios");
   });
   t("1c. valid external signup continuation opens the auth entry screen",
     r.visible === "screen-welcome" && !r.entered);
+  t("1c-generic. generic continuation is not an AI paid-acquisition signup",
+    r.state.aiSignupShown !== true &&
+    r.state.store.get("athlevo_ai_signup_handoff") !== "1");
+}
+{
+  const r = await boot({
+    session: null,
+    standalone: false,
+    continuation: {
+      intent: "signup",
+      browser: "instagram",
+      sourceSurface: "ai_signup"
+    }
+  });
+  t("1c-ai. external AI continuation restores /ai-signup paid-first intent",
+    r.visible === "screen-welcome" && r.state.aiSignupShown === true && !r.entered);
+  t("1c-ai-flag. AI continuation writes the existing signup handoff flag",
+    r.state.store.get("athlevo_ai_signup_handoff") === "1");
+  t("1c-ai-auth. public AI marker does not authenticate or enter the app",
+    r.state.routed === null && r.state.screens["screen-today"].active === false);
+}
+{
+  const r = await boot({
+    session: SESSION,
+    standalone: false,
+    continuation: {
+      intent: "signup",
+      browser: "instagram",
+      sourceSurface: "ai_signup"
+    }
+  });
+  t("1c-ai-session. AI marker cannot bypass restoreSession auth into a private route",
+    r.entered && r.state.routed === "u1");
+}
+{
+  const r = await boot({
+    session: null,
+    standalone: false,
+    continuation: {
+      intent: "login",
+      browser: "facebook",
+      sourceSurface: "ai_signup"
+    }
+  });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  t("1c-ai-login. AI login continuation restores paid-first intent then login",
+    r.state.aiSignupShown === true &&
+    r.state.loginOpened &&
+    r.state.loginOpened.userChose === false &&
+    r.state.loginOpened.source === "external_handoff" &&
+    !r.entered);
 }
 {
   const r = await boot({

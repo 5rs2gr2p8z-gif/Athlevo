@@ -26,7 +26,7 @@
   const CANONICAL_URL = "https://athlevo.org";
   const CONTINUATION_INTENTS = new Set(["signup", "login"]);
   const HANDOFF_BROWSERS = new Set(["facebook", "instagram"]);
-  const HANDOFF_SURFACES = new Set(["landing", "auth"]);
+  const HANDOFF_SURFACES = new Set(["landing", "auth", "ai_signup"]);
   const ATTRIBUTION_KEYS = [
     "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"
   ];
@@ -127,6 +127,23 @@
     return HANDOFF_BROWSERS.has(value) ? value : null;
   }
 
+  // True when this tab is already in the /ai paid-acquisition signup flow.
+  // Used only to choose the continuation path/surface — never for auth or
+  // entitlement. Diagnostic answers, emails, and user IDs stay out of the URL.
+  function isAiAcquisitionContext() {
+    try {
+      const path = String(window.location.pathname || "").replace(/\/+$/, "");
+      if (path === "/ai" || path === "/ai-signup") return true;
+    } catch (error) {}
+    try {
+      if (window.sessionStorage &&
+          window.sessionStorage.getItem("athlevo_ai_signup_handoff") === "1") {
+        return true;
+      }
+    } catch (error) {}
+    return false;
+  }
+
   function shortAttribution(value, key) {
     if (typeof value !== "string") return null;
     const clean = value.trim();
@@ -160,10 +177,11 @@
   function buildContinuationUrl(intent, options) {
     const allowedIntent = safeIntent(intent) || "signup";
     const opts = options || {};
-    const url = new URL(CANONICAL_URL + "/");
+    const aiAcquisition = isAiAcquisitionContext();
+    const url = new URL(CANONICAL_URL + (aiAcquisition ? "/ai-signup" : "/"));
     url.searchParams.set("continue", allowedIntent);
     const browser = safeHandoffBrowser(opts.browser || handoffBrowser());
-    const surface = safeSurface(opts.sourceSurface);
+    const surface = aiAcquisition ? "ai_signup" : safeSurface(opts.sourceSurface);
     if (browser) url.searchParams.set("handoff_browser", browser);
     url.searchParams.set("source_surface", surface);
     const attribution = attributionForHandoff();
@@ -296,7 +314,9 @@
     const copy = noticeCopy(opts.context, browserName);
     const intent = safeIntent(opts.intent) ||
       (opts.context === "login" || opts.context === "strava" ? "login" : "signup");
-    const sourceSurface = safeSurface(opts.sourceSurface);
+    const sourceSurface = isAiAcquisitionContext()
+      ? "ai_signup"
+      : safeSurface(opts.sourceSurface);
     const browser = safeHandoffBrowser(opts.browser || handoffBrowser());
     const continuationUrl = buildContinuationUrl(intent, {
       browser,
@@ -432,6 +452,7 @@
     buildContinuationUrl,
     readContinuation,
     consumeContinuation,
+    isAiAcquisitionContext,
     handoffBrowser,
     canonicalUrl: () => CANONICAL_URL
   };

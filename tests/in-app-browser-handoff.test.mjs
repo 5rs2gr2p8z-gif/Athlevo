@@ -131,14 +131,16 @@ function executeAuthSupport(window, document, navigator) {
 function environment({
   userAgent,
   search = "",
+  pathname = "/",
   attribution = null,
-  realAnalytics = false
+  realAnalytics = false,
+  sessionSeed = {}
 }) {
   const { document, elements, trigger } = makeDom();
   const copied = [];
   const events = [];
   const oauth = [];
-  const sessionStorage = memoryStorage();
+  const sessionStorage = memoryStorage(sessionSeed);
   const localStorage = memoryStorage();
   const navigator = {
     userAgent,
@@ -155,10 +157,10 @@ function environment({
     localStorage,
     location: {
       origin: "https://athlevo.org",
-      pathname: "/",
+      pathname,
       search,
       hash: "",
-      href: "https://athlevo.org/" + search
+      href: "https://athlevo.org" + pathname + search
     },
     matchMedia: () => ({ matches: false }),
     history: { replaceState() {} },
@@ -280,7 +282,9 @@ console.log("\n──── Copy-only handoff and safe URL ────");
         JSON.stringify(["browser", "intent", "source_surface"])));
   test("copied URL contains an allowlisted signup continuation",
     copiedUrl.origin === "https://athlevo.org" &&
-    copiedUrl.searchParams.get("continue") === "signup");
+    copiedUrl.pathname === "/" &&
+    copiedUrl.searchParams.get("continue") === "signup" &&
+    copiedUrl.searchParams.get("source_surface") === "landing");
   test("copied URL preserves approved UTM and fbclid values",
     copiedUrl.searchParams.get("utm_source") === "meta" &&
     copiedUrl.searchParams.get("utm_medium") === "paid_social" &&
@@ -381,6 +385,146 @@ console.log("\n──── Continuation routing and attribution restore ──�
     /landingStartFree[\s\S]*?interceptInAppAuthHandoff\("signup", "landing"\)/.test(indexSource) &&
     /function openSignup[\s\S]*?interceptInAppAuthHandoff\("signup", "auth"\)/.test(indexSource) &&
     /guardSignupHandoff\("signup", "auth"\)/.test(socialSource));
+}
+
+function continuationHasSecrets(url) {
+  const keys = [...url.searchParams.keys()];
+  return url.hash !== "" ||
+    keys.some(key => /^(user_id|email|distinct_id|import[_-]?key|access_token|refresh_token|code|id|next)$/i.test(key));
+}
+
+function isAiSignupContinuation(url, intent = "signup") {
+  return url.origin === "https://athlevo.org" &&
+    url.pathname === "/ai-signup" &&
+    url.searchParams.get("continue") === intent &&
+    url.searchParams.get("source_surface") === "ai_signup" &&
+    !continuationHasSecrets(url);
+}
+
+async function copyHandoffUrl(env, intent, surface) {
+  env.window.AthlevoEnv.guardSignupHandoff(intent, surface);
+  const overlay = env.elements.get("athlevoEnvNotice");
+  await overlay.querySelector("#athlevoEnvCopy").listeners.click();
+  return new URL(env.copied[0]);
+}
+
+console.log("\n──── AI acquisition IAB continuation ────");
+{
+  const instagramAi = environment({
+    userAgent: INSTAGRAM_IOS,
+    pathname: "/ai",
+    search: "?utm_source=meta&utm_medium=paid_social&utm_campaign=ai&fbclid=ig-ai"
+  });
+  const instagramUrl = await copyHandoffUrl(instagramAi, "signup", "auth");
+  test("Instagram IAB /ai signup continuation carries AI acquisition intent",
+    isAiSignupContinuation(instagramUrl, "signup") &&
+    instagramUrl.searchParams.get("handoff_browser") === "instagram" &&
+    instagramUrl.searchParams.get("utm_source") === "meta" &&
+    instagramUrl.searchParams.get("fbclid") === "ig-ai");
+
+  const facebookAiSignup = environment({
+    userAgent: FACEBOOK_IOS,
+    pathname: "/ai-signup",
+    search: "?utm_source=meta&fbclid=fb-ai"
+  });
+  const facebookUrl = await copyHandoffUrl(facebookAiSignup, "signup", "auth");
+  test("Facebook IAB /ai-signup continuation carries AI acquisition intent",
+    isAiSignupContinuation(facebookUrl, "signup") &&
+    facebookUrl.searchParams.get("handoff_browser") === "facebook" &&
+    facebookUrl.searchParams.get("fbclid") === "fb-ai");
+
+  const facebookLogin = environment({
+    userAgent: FACEBOOK_IOS,
+    pathname: "/ai-signup"
+  });
+  const loginUrl = await copyHandoffUrl(facebookLogin, "login", "auth");
+  test("Facebook IAB /ai-signup login continuation stays on /ai-signup",
+    isAiSignupContinuation(loginUrl, "login"));
+
+  const flagged = environment({
+    userAgent: INSTAGRAM_IOS,
+    pathname: "/",
+    sessionSeed: { athlevo_ai_signup_handoff: "1" }
+  });
+  const flaggedUrl = await copyHandoffUrl(flagged, "signup", "auth");
+  test("existing AI signup handoff flag also produces /ai-signup continuation",
+    isAiSignupContinuation(flaggedUrl, "signup"));
+
+  const landing = environment({ userAgent: FACEBOOK_IOS, pathname: "/" });
+  const landingUrl = await copyHandoffUrl(landing, "signup", "landing");
+  test("generic non-AI signup continuation still lands on /",
+    landingUrl.origin === "https://athlevo.org" &&
+    landingUrl.pathname === "/" &&
+    landingUrl.searchParams.get("continue") === "signup" &&
+    landingUrl.searchParams.get("source_surface") === "landing");
+}
+
+{
+  const safari = environment({
+    userAgent: SAFARI_IOS,
+    pathname: "/ai-signup",
+    search: "?continue=signup&handoff_browser=instagram&source_surface=ai_signup" +
+      "&utm_source=meta&fbclid=click-ai"
+  });
+  const continuation = safari.window.AthlevoEnv.consumeContinuation();
+  test("external browser accepts the AI signup continuation marker",
+    continuation &&
+    continuation.intent === "signup" &&
+    continuation.browser === "instagram" &&
+    continuation.sourceSurface === "ai_signup");
+  test("AI continuation restore returns only categorical routing fields",
+    JSON.stringify(Object.keys(continuation).sort()) ===
+      JSON.stringify(["browser", "intent", "sourceSurface"]));
+
+  const safariOAuth = environment({
+    userAgent: SAFARI_IOS,
+    pathname: "/ai-signup",
+    sessionSeed: { athlevo_ai_signup_handoff: "1" }
+  });
+  await safariOAuth.window.AthlevoSocialAuth.signInWithGoogle();
+  test("Safari Google OAuth after AI continuation returns to /ai-signup",
+    safariOAuth.oauth.length === 1 &&
+    safariOAuth.oauth[0].options.redirectTo === "https://athlevo.org/ai-signup");
+
+  const forged = environment({
+    userAgent: SAFARI_IOS,
+    search: "?continue=signup&source_surface=ai_signup&user_id=u-1&email=a@b.c"
+  });
+  const forgedContinuation = forged.window.AthlevoEnv.readContinuation();
+  test("forged AI marker still only yields categorical continuation data",
+    forgedContinuation &&
+    forgedContinuation.intent === "signup" &&
+    forgedContinuation.sourceSurface === "ai_signup" &&
+    !("user_id" in forgedContinuation) &&
+    !("email" in forgedContinuation));
+  test("forged AI marker does not create a session or grant entitlement",
+    !/paid_active|accessGuard|checkout|onboarding_complete/.test(
+      JSON.stringify(forgedContinuation)
+    ) &&
+    forged.window.AthlevoEnv.consumeContinuation().intent === "signup");
+
+  const openRedirect = environment({
+    userAgent: SAFARI_IOS,
+    search: "?continue=https%3A%2F%2Fevil.example&source_surface=ai_signup"
+  });
+  test("AI marker cannot widen the continue allowlist into an open redirect",
+    openRedirect.window.AthlevoEnv.readContinuation() === null);
+
+  const restore = indexSource.slice(
+    indexSource.indexOf("async function restoreSession"),
+    indexSource.indexOf("function endBootGate")
+  );
+  test("Safari AI continuation restores the existing /ai-signup handoff",
+    /sourceSurface === "ai_signup"[\s\S]{0,180}rememberAiSignupHandoff/.test(restore) &&
+    /aiSignupHandoff[\s\S]{0,500}openAiSignup/.test(restore));
+  test("AI continuation restore does not record registration_completed",
+    !/registration_completed/.test(authSupportSource) &&
+    !/registration_completed/.test(
+      restore.slice(
+        restore.indexOf("var aiSignupHandoff"),
+        restore.indexOf("if (window.__athlevoStaleSessionCleared)")
+      )
+    ));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

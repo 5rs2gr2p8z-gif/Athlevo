@@ -20,6 +20,7 @@ const acq = readFileSync("./js/diagnosticAcquisition.js", "utf8");
 const handoff = readFileSync("./js/diagnosticHandoff.js", "utf8");
 const onboard = readFileSync("./js/onboarding.js", "utf8");
 const social = readFileSync("./js/socialAuth.js", "utf8");
+const authSupport = readFileSync("./js/authSupport.js", "utf8");
 const guard = readFileSync("./js/accessGuard.js", "utf8");
 const vercel = JSON.parse(readFileSync("./vercel.json", "utf8"));
 const providers = readFileSync("./api/providers/index.js", "utf8");
@@ -212,7 +213,10 @@ section("12 — old pending Whop entitlement can still be claimed");
 section("13 — logged-out /ai-signup refresh remains auth handoff");
 {
   t("restoreSession treats /ai-signup as auth, not diagnostic",
-    /isAiSignupPath\(\)[\s\S]{0,80}hasAiSignupHandoff\(\)[\s\S]{0,120}openAiSignup/.test(html));
+    /isAiSignupPath\(\)[\s\S]{0,80}hasAiSignupHandoff\(\)[\s\S]{0,900}openAiSignup/.test(html));
+  t("AI continuation source_surface restores the existing /ai-signup handoff",
+    /sourceSurface === "ai_signup"[\s\S]{0,200}rememberAiSignupHandoff/.test(html) &&
+    /aiSignupHandoff[\s\S]{0,400}consumeContinuation/.test(html));
   t("refresh keeps the /ai-signup URL",
     /history\.replaceState\(\{ athlevoNav: "ai-signup" \}, "", "\/ai-signup"\)/.test(html));
 }
@@ -225,6 +229,29 @@ section("14 — OAuth return from /ai-signup stays in the acquisition flow");
     /await routeAfterAuth\(session\.user\.id\)/.test(html));
   t("Google button on the reused welcome screen still starts OAuth",
     /onclick="continueWithGoogle\(\)"/.test(html));
+}
+
+section("14b — IAB → external-browser AI signup continuation");
+{
+  t("AI IAB continuation lands on /ai-signup, not generic /",
+    /isAiAcquisitionContext[\s\S]{0,400}\/ai-signup/.test(authSupport) &&
+    /aiAcquisition \? "ai_signup"/.test(authSupport));
+  t("generic landing/auth continuations are not rewritten to /ai-signup",
+    /CANONICAL_URL \+ \(aiAcquisition \? "\/ai-signup" : "\/"\)/.test(authSupport));
+  t("continuation allowlist is still only signup and login",
+    /CONTINUATION_INTENTS = new Set\(\["signup", "login"\]\)/.test(authSupport));
+  t("AI continuation never copies user IDs, emails, tokens, or diagnostic answers",
+    !/user_id|distinct_id|importKey|access_token/.test(
+      authSupport.slice(
+        authSupport.indexOf("function buildContinuationUrl"),
+        authSupport.indexOf("function readContinuation")
+      )
+    ));
+  t("unpaid AI signup still uses existing paid-first gating",
+    /fromAiSignup && !\(profile && profile\.onboarding_complete === true\)/.test(acq));
+  t("paid_active still skips checkout after AI continuation login",
+    /if \(paid\.paid\)/.test(acq) &&
+    acq.indexOf("verifiedPaidAccess") < acq.indexOf("showPaywall"));
 }
 
 section("Payment identity and PayMongo stay authenticated");
