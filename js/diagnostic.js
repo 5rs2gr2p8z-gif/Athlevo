@@ -32,7 +32,7 @@ console.log("Athlevo Diagnostic v1 loaded");
 
 var STORAGE_KEY = "athlevo_pending_diagnostic_v1";
 var SCHEMA_VERSION = 1;
-var ENGINE_VERSION = "diagnostic-engine-v3";
+var ENGINE_VERSION = "diagnostic-engine-v4";
 var STORAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 var MAX_HISTORY_LENGTH = 20;
 var MODEL_REASONING_LIMITERS = [
@@ -143,6 +143,23 @@ function longRunIsAdequateForGoal(goal, longest) {
 
 function hasRecentRaceResult(a) {
   return !!(a && a.recent_race_dist && a.recent_race_dist !== "none" && a.recent_race_time);
+}
+
+function asDays(value) {
+  if (value == null || value === "") return null;
+  var n = Number(value);
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+function weeksUntilRace(a) {
+  if (!a || !a.goal_race_date) return null;
+  var raceDate = new Date(a.goal_race_date);
+  if (isNaN(raceDate.getTime())) return null;
+  return Math.round((raceDate - new Date()) / (7 * 24 * 60 * 60 * 1000));
+}
+
+function minWeeksForGoal(goal) {
+  return ({ "5K": 6, "10K": 8, "Half marathon": 10, "Marathon": 16, "Ultra": 20 })[goal] || 12;
 }
 
 function pendingFactFieldIndex() {
@@ -895,124 +912,145 @@ var QUESTIONS = [
 ];
 
 /* ═══════════════════════════ LIMITER ENGINE ══════════════════════════
- * Deterministic limiter identification from collected data points.
- * Each rule contributes evidence toward a limiter hypothesis.
+ * Combination classifier — not independent one-signal rules.
+ * Primary question: what should this athlete change next, given the
+ * facts actually collected? "Training structure" is a last resort.
  */
-var LIMITER_RULES = [
-  {
-    limiter: "aerobic_base",
-    label: "Aerobic base",
-    test: function (s) {
-      return s.perceived_limiter === "aerobic" ||
-        (s.experience === "new" && s.training_status !== "training_block") ||
-        (s.weekly_mileage != null && s.weekly_mileage < 20 && s.experience !== "5_plus");
-    },
-    weight: function (s) {
-      var w = 0;
-      if (s.perceived_limiter === "aerobic") w += 3;
-      if (s.experience === "new") w += 2;
-      if (s.weekly_mileage != null && s.weekly_mileage < 15) w += 2;
-      else if (s.weekly_mileage != null && s.weekly_mileage < 25) w += 1;
-      if (s.training_status === "starting") w += 2;
-      return w;
-    }
-  },
-  {
-    limiter: "running_durability",
-    label: "Running durability",
-    test: function (s) {
-      return s.perceived_limiter === "muscular" ||
-        (s.experience === "new" && s.perceived_limiter !== "aerobic") ||
-        (s.strength_training === "no" && s.perceived_limiter === "muscular");
-    },
-    weight: function (s) {
-      var w = 0;
-      if (s.perceived_limiter === "muscular") w += 3;
-      if (s.strength_training === "no" && s.perceived_limiter === "muscular") w += 2;
-      if (s.experience === "new" || s.experience === "1_2_years") w += 1;
-      if (s.training_status === "returning") w += 1;
-      return w;
-    }
-  },
-  {
-    limiter: "endurance_pacing",
-    label: "Endurance & pacing",
-    test: function (s) {
-      var longest = asKm(s.recent_longest_run_km);
-      return s.perceived_limiter === "endurance" ||
-        (isEnduranceDistance(s.goal_distance) && longRunIsShortForGoal(s.goal_distance, longest));
-    },
-    weight: function (s) {
-      var w = 0;
-      var longest = asKm(s.recent_longest_run_km);
-      var km = asKm(s.weekly_mileage);
-      if (s.perceived_limiter === "endurance") w += 3;
-      if (longRunIsShortForGoal(s.goal_distance, longest)) w += 2;
-      if (s.perceived_limiter === "endurance" && volumeIsSubstantial(km) &&
-          longRunIsAdequateForGoal(s.goal_distance, longest)) w += 1;
-      if (s.experience === "5_plus" && s.perceived_limiter === "endurance") w += 1;
-      return w;
-    }
-  },
-  {
-    limiter: "injury_management",
-    label: "Injury management",
-    test: function (s) {
-      return s.perceived_limiter === "injury" ||
-        (s.injury_status && s.injury_status.severity !== "none");
-    },
-    weight: function (s) {
-      var w = 0;
-      if (s.perceived_limiter === "injury") w += 3;
-      if (s.injury_status) {
-        if (s.injury_status.severity === "significant") w += 4;
-        else if (s.injury_status.severity === "moderate") w += 2;
-        else if (s.injury_status.severity === "minor") w += 1;
-      }
-      return w;
-    }
-  },
-  {
-    limiter: "training_structure",
-    label: "Training structure",
-    test: function (s) {
-      return s.training_structure === "random" || s.training_structure === "race_only" ||
-        ((s.experience === "3_5_years" || s.experience === "5_plus") &&
-          s.training_status === "maintaining" && s.perceived_limiter !== "injury");
-    },
-    weight: function (s) {
-      var w = 0;
-      if (s.training_structure === "random") w += 4;
-      if (s.training_structure === "race_only") w += 4;
-      if (s.training_structure === "mostly_easy" && s.goal_time) w += 1;
-      if (s.training_status === "maintaining" && (s.experience === "3_5_years" || s.experience === "5_plus")) w += 3;
-      if (s.perceived_limiter === "unclear") w += 2;
-      if (s.perceived_limiter === "mental") w += 1;
-      if (s.training_days >= 5 && s.weekly_mileage >= 40) w += 1;
-      return w;
-    }
-  },
-  {
-    limiter: "consistency",
-    label: "Consistency & availability",
-    test: function (s) {
-      return (s.training_days != null && s.training_days <= 3 &&
-        (s.goal_distance === "Marathon" || s.goal_distance === "Half marathon" ||
-         s.goal_distance === "Ultra")) || s.training_structure === "random";
-    },
-    weight: function (s) {
-      var w = 0;
-      if (s.training_days <= 2) w += 3;
-      else if (s.training_days <= 3) w += 1;
-      if (s.training_status === "returning") w += 1;
-      if (s.schedule_constraints) w += 1;
-      if (s.perceived_limiter === "mental") w += 1;
-      if (s.training_structure === "random") w += 2;
-      if (s.recent_consistency === "none" || s.recent_consistency === "occasional") w += 1;
-      return w;
+var DIAGNOSIS_LABELS = {
+  injury_management: "Injury management",
+  timeline_mismatch: "Goal/timeline mismatch",
+  aerobic_base: "Aerobic base",
+  volume_progression: "Volume progression",
+  consistency: "Training consistency",
+  running_durability: "Running durability",
+  intensity_distribution: "Intensity distribution",
+  recovery_fatigue: "Recovery & fatigue management",
+  race_specific_endurance: "Race-specific endurance",
+  pacing_durability: "Pacing & durability",
+  specificity_gap: "Specificity gap",
+  threshold_development: "Threshold development",
+  race_execution: "Race execution",
+  training_structure: "Training structure"
+};
+
+function classifyDiagnosis(s) {
+  s = s || {};
+  var km = asKm(s.weekly_mileage);
+  var longest = asKm(s.recent_longest_run_km);
+  var days = asDays(s.training_days);
+  var injury = s.injury_status;
+  var weeksOut = weeksUntilRace(s);
+  var mw = minWeeksForGoal(s.goal_distance);
+  var beginner = s.experience === "new" || s.training_status === "starting";
+  var fade = s.perceived_limiter === "endurance";
+  var strongBase = volumeIsSubstantial(km) && longRunIsAdequateForGoal(s.goal_distance, longest);
+  var lowPrep = volumeIsLowForGoal(s.goal_distance, km) || longRunIsShortForGoal(s.goal_distance, longest);
+  var tightTimeline = weeksOut != null && weeksOut < mw * 0.5;
+  var qualityHeavy = s.training_structure === "balanced_quality" &&
+    km != null && days != null &&
+    ((days >= 6 && km >= 60) || (days >= 5 && km >= 70));
+  var scores = [];
+
+  function add(key, weight) {
+    if (!(weight > 0) || !DIAGNOSIS_LABELS[key]) return;
+    scores.push({ limiter: key, label: DIAGNOSIS_LABELS[key], weight: weight });
+  }
+
+  if (injury && injury.severity === "significant") add("injury_management", 12);
+  else if (s.perceived_limiter === "injury") add("injury_management", 10);
+  else if (injury && injury.severity === "moderate") add("injury_management", 9);
+  else if (injury && injury.severity === "minor") add("injury_management", 3);
+
+  if (isLongEnduranceDistance(s.goal_distance) && tightTimeline && lowPrep) {
+    add("timeline_mismatch", 9);
+  }
+
+  if (s.perceived_limiter === "aerobic" && (km == null || km < 50)) {
+    add("aerobic_base", 7);
+  }
+
+  if (beginner && (km == null || km < 30) && !isLongEnduranceDistance(s.goal_distance)) {
+    add("aerobic_base", 7);
+  }
+  if (volumeIsLowForGoal(s.goal_distance, km) && !tightTimeline) {
+    add("aerobic_base", beginner ? 6 : 5);
+  }
+  if (longRunIsShortForGoal(s.goal_distance, longest) && volumeIsLowForGoal(s.goal_distance, km) && !tightTimeline) {
+    add("volume_progression", 6);
+  }
+
+  if ((s.recent_consistency === "none" || s.recent_consistency === "occasional") &&
+      (beginner || (km != null && km < 30))) {
+    add("consistency", 7);
+  }
+  if (days != null && days <= 3 && beginner) add("consistency", 6);
+  if (days != null && days <= 3 && isEnduranceDistance(s.goal_distance) && lowPrep) {
+    add("consistency", 4);
+  }
+
+  if (s.perceived_limiter === "muscular") {
+    if (s.training_structure === "balanced_quality" && km != null && km >= 50) {
+      add("intensity_distribution", 8);
+      add("recovery_fatigue", 6);
+    } else if (beginner || s.experience === "1_2_years") {
+      add("running_durability", 6);
+    } else {
+      add("recovery_fatigue", 6);
     }
   }
-];
+  if (qualityHeavy) add("intensity_distribution", 7);
+
+  if (fade && (strongBase || volumeIsSubstantial(km))) {
+    add("race_specific_endurance", 8);
+  } else if (fade && lowPrep) {
+    add("pacing_durability", tightTimeline ? 5 : 6);
+  }
+
+  if (isEnduranceDistance(s.goal_distance) && (strongBase || volumeIsSubstantial(km)) &&
+      (s.training_structure === "easy_long" || s.training_structure === "mostly_easy" || !s.training_structure)) {
+    add("specificity_gap", fade ? 6 : 7);
+  }
+
+  if (s.goal_time && s.training_structure === "mostly_easy" && km != null && km >= 30 && !beginner && !fade) {
+    add("threshold_development", 5);
+  }
+
+  if ((s.experience === "3_5_years" || s.experience === "5_plus") &&
+      s.training_status === "maintaining" && km != null && km >= 30 &&
+      s.perceived_limiter !== "injury") {
+    if (s.training_structure === "mostly_easy") add("threshold_development", 6);
+    else add("specificity_gap", 5);
+  }
+
+  if (hasRecentRaceResult(s) && !fade &&
+      !(injury && injury.severity && injury.severity !== "none") &&
+      (strongBase || (km != null && km >= 40 && !longRunIsShortForGoal(s.goal_distance, longest)))) {
+    add("race_execution", 6);
+  }
+
+  if (s.training_structure === "random" || s.training_structure === "race_only") {
+    add("training_structure", lowPrep ? 4 : 7);
+  }
+
+  scores.sort(function (a, b) { return b.weight - a.weight; });
+
+  if (scores.length === 0) {
+    if (isEnduranceDistance(s.goal_distance) && km != null && km >= 40) {
+      add("specificity_gap", 3);
+    } else if (km != null && km < 30) {
+      add("aerobic_base", 3);
+    } else if (beginner) {
+      add("consistency", 3);
+    } else {
+      add("specificity_gap", 2);
+    }
+    scores.sort(function (a, b) { return b.weight - a.weight; });
+  }
+
+  return scores;
+}
+
+var LIMITER_RULES = [];
 
 /* ═══════════════════════════ STATE MACHINE ═══════════════════════════ */
 
@@ -1651,19 +1689,7 @@ DiagnosticEngine.prototype._updateSafetyFlags = function () {
 /* ─── Hypothesis management ─── */
 
 DiagnosticEngine.prototype._updateHypotheses = function () {
-  var results = [];
-  for (var i = 0; i < LIMITER_RULES.length; i++) {
-    var rule = LIMITER_RULES[i];
-    if (rule.test(this.answers)) {
-      results.push({
-        limiter: rule.limiter,
-        label: rule.label,
-        weight: rule.weight(this.answers)
-      });
-    }
-  }
-  results.sort(function (a, b) { return b.weight - a.weight; });
-  this.hypotheses = results;
+  this.hypotheses = classifyDiagnosis(this.answers);
 };
 
 /* ═══════════════════════════ RESULT GENERATION ═══════════════════════
@@ -1805,25 +1831,64 @@ DiagnosticEngine.prototype._explainLimiter = function (limiterKey) {
   var km = asKm(a.weekly_mileage);
   var longest = asKm(a.recent_longest_run_km);
   var goal = a.goal_distance;
-  var explanations = {
-    aerobic_base: volumeIsLowForGoal(goal, km)
-      ? "Your current weekly volume is still light for this goal. The aerobic engine that supports sustained running needs more consistent easy work before the race distance is realistic."
-      : "Your aerobic system — the engine that powers sustained running — isn't yet developed enough to support the paces or distances you're targeting. This is the single most common limiter, and the most responsive to the right training.",
-    running_durability: "Your musculoskeletal system — bones, tendons, connective tissue — needs more time and stimulus to handle the running load you're asking of it. This is different from cardiovascular fitness, and it adapts on a longer timescale.",
-    injury_management: "A current injury or recurring pain pattern is the primary constraint. No training plan is useful if it aggravates an existing issue — the first priority is understanding what your body can safely do right now.",
-    training_structure: "You have the fitness and the commitment, but how your training is organised isn't producing adaptation. Experienced runners often plateau not from lack of effort but from lack of variation and periodisation.",
-    consistency: "With limited training days available for your goal distance, the primary challenge is making every session count. The structure and specificity of each run matters more than it would with more available days."
-  };
-  if (limiterKey === "endurance_pacing") {
-    if (volumeIsSubstantial(km) && longRunIsAdequateForGoal(goal, longest)) {
-      return "Your speed is ahead of your ability to sustain it. Based on your current training, the biggest opportunity is improving race-specific endurance and pacing—not simply adding more hard sessions.";
-    }
-    if (longRunIsShortForGoal(goal, longest) || volumeIsLowForGoal(goal, km)) {
-      return "Sustaining pace over the full distance is breaking down, and the endurance work behind it is still short of what this goal typically needs. Building that capacity is the priority—not adding more hard sessions.";
-    }
-    return "Sustaining effort over the full distance is the limiter. That usually comes from pacing, race-specific work, or how intensity is distributed—not from a missing easy run.";
+  var fade = a.perceived_limiter === "endurance";
+  var hasMarker = hasRecentRaceResult(a);
+  var key = limiterKey === "endurance_pacing" ? "race_specific_endurance" : limiterKey;
+
+  if (key === "injury_management") {
+    return "Pain or injury is the constraint that matters first. Performance work waits until training load is something your body can actually tolerate.";
   }
-  return explanations[limiterKey] || "This area appears to be the primary constraint on your running progress.";
+  if (key === "timeline_mismatch") {
+    return "The race is closer than the current endurance work can support. Weekly volume and the long run still have to grow before this distance is a fair ask—not a missing speed session.";
+  }
+  if (key === "aerobic_base") {
+    if (a.experience === "new" || a.training_status === "starting") {
+      return "The next step is repeatable easy running, not race-specific work. A first " + (goal || "race") + " is built from frequency and a pace you can hold a conversation at.";
+    }
+    return volumeIsLowForGoal(goal, km)
+      ? "Current weekly volume is still light for this goal. The aerobic engine needs more consistent easy work before the race distance is realistic."
+      : "Your aerobic system isn’t yet carrying the paces or distances you’re targeting. That responds fastest to consistent, genuinely easy running.";
+  }
+  if (key === "volume_progression") {
+    return "Endurance for this goal is still behind. Frequency and long-run duration need to rise before intensity or race-pace work will stick.";
+  }
+  if (key === "consistency") {
+    return "The limiter is whether consecutive weeks actually happen. Until the week is repeatable, more ambitious sessions won’t compound.";
+  }
+  if (key === "running_durability") {
+    return "Breathing is still under control when the legs fail—so tissue capacity is behind cardiovascular fitness. Load has to respect that longer adaptation timeline.";
+  }
+  if (key === "intensity_distribution") {
+    return "At this volume, stacking quality on most days is more likely to produce fatigue than fitness. The limiter is how hard days are placed, not how much you run.";
+  }
+  if (key === "recovery_fatigue") {
+    return "The work is already dense enough that recovery is the constraint. Adding another hard session would cost more than it returns.";
+  }
+  if (key === "race_specific_endurance" || key === "pacing_durability") {
+    if (volumeIsSubstantial(km) && (longRunIsAdequateForGoal(goal, longest) || longest != null && longest >= 22)) {
+      if (!hasMarker && fade) {
+        return "Your volume is already substantial, so mileage isn’t the hole. The late fade points to race-specific endurance and pacing, though without a recent marker I wouldn’t over-specify which is tighter.";
+      }
+      return "Your speed is ahead of your ability to sustain it. The opportunity is race-specific endurance and controlled pacing—not simply adding more hard sessions.";
+    }
+    return "Sustaining effort over the full distance is breaking down. That is a durability and pacing problem more than a missing easy run.";
+  }
+  if (key === "specificity_gap") {
+    if (volumeIsSubstantial(km)) {
+      return "Overall volume is already a strong base. What’s missing is making enough of that running specific to the race—not a generic rebuild.";
+    }
+    return "The work has a shape, but it isn’t pointed at the goal closely enough. Specificity will move the needle more than simply running more.";
+  }
+  if (key === "threshold_development") {
+    return "Easy volume is in place, but the sessions that raise sustainable race pace are under-dosed. The next stimulus is controlled threshold work, not more unfocused intensity.";
+  }
+  if (key === "race_execution") {
+    return "Volume and recent performance already support this target. The work now is execution—pacing, specificity, and arriving fresh—not another generic build-up.";
+  }
+  if (key === "training_structure") {
+    return "Availability or race urgency is shaping the week more than progression. A simpler hard/easy rhythm is the highest-leverage change.";
+  }
+  return "The next change should follow the pattern in your current training, not a generic template.";
 };
 
 DiagnosticEngine.prototype._explainHoldingBack = function (primary) {
@@ -1874,70 +1939,92 @@ DiagnosticEngine.prototype._explainHoldingBack = function (primary) {
 };
 
 DiagnosticEngine.prototype._explainWhatWedChange = function (primary) {
-  if (!primary) {
-    return [
-      "Give each week a simple hard/easy rhythm",
-      "Protect one longer aerobic run",
-      "Progress volume only when the current week feels repeatable"
-    ];
-  }
-
+  var key = primary && primary.limiter === "endurance_pacing"
+    ? "race_specific_endurance"
+    : (primary && primary.limiter);
   var a = this.answers;
-  var key = primary.limiter;
   var km = asKm(a.weekly_mileage);
   var longest = asKm(a.recent_longest_run_km);
-  var changes = [];
+  var byKey = {
+    injury_management: [
+      "Keep running load inside what the current issue can tolerate",
+      "Use non-aggravating aerobic work to hold fitness",
+      "Progress only after the pain pattern is clearly settling"
+    ],
+    timeline_mismatch: [
+      "Stabilize weekly frequency before adding intensity",
+      "Extend the long run gradually rather than jumping to race distance",
+      "Treat the date as a constraint—delay aggressive race-pace work"
+    ],
+    aerobic_base: [
+      "Stabilize weekly frequency first",
+      "Keep most running easy and conversational",
+      "Let the long run grow only after weeks become repeatable"
+    ],
+    volume_progression: [
+      "Build weekly volume before adding more intensity",
+      "Grow the long run gradually toward race-specific distance",
+      "Keep most running easy while endurance catches up"
+    ],
+    consistency: [
+      "Lock a week you can repeat when life gets noisy",
+      "Protect one longer aerobic run as the non-negotiable session",
+      "Progress volume only after consecutive weeks actually happen"
+    ],
+    running_durability: [
+      "Hold intensity down while tissue capacity catches up",
+      "Add running-specific strength twice a week if pain-free",
+      "Progress volume more slowly than fitness feels ready for"
+    ],
+    intensity_distribution: [
+      "Reduce the number of moderate or hard sessions",
+      "Separate quality days with genuinely easy running",
+      "Keep long-run intensity purposeful rather than turning every long run into a workout"
+    ],
+    recovery_fatigue: [
+      "Cut stacked hard days before adding any new quality",
+      "Make easy days actually easy so the key sessions can bite",
+      "Judge the week by how repeatable it feels, not how impressive it looks"
+    ],
+    race_specific_endurance: [
+      "Add marathon-pace segments late in selected long runs",
+      "Keep threshold work controlled rather than stacking more hard days",
+      "Practice race fueling and pacing under fatigue"
+    ],
+    pacing_durability: [
+      "Start race-specific sessions conservatively",
+      "Use controlled even or negative-split work",
+      "Practice target pace only when fatigue is low enough to execute it"
+    ],
+    specificity_gap: [
+      "Point the long run at the race with a small amount of goal-pace work",
+      "Keep one quality session clearly easier than a pile of medium days",
+      "Practice the pacing and fueling the goal actually demands"
+    ],
+    threshold_development: [
+      "Add one controlled threshold session each week",
+      "Protect easy days so that session stays high quality",
+      "Leave race-pace volume modest until threshold work is repeatable"
+    ],
+    race_execution: [
+      "Keep race-specific sessions controlled and well placed",
+      "Practice goal-pace work when fatigue is low enough to execute",
+      "Protect easy days so the key sessions stay sharp"
+    ],
+    training_structure: [
+      "Give each week a simple hard/easy rhythm",
+      "Make one session the priority and let the rest flex",
+      "Stop letting availability decide the whole week"
+    ]
+  };
 
-  if (key === "aerobic_base") {
-    changes.push("Increase the proportion of genuinely easy running to at least 80% of weekly volume");
-    changes.push("Build weekly distance progressively — no more than 10% increase per week");
-    if (a.training_days >= 4) {
-      changes.push("Add a second easy run on existing training days before adding new days");
-    } else {
-      changes.push("Protect one weekly long run as the endurance session");
-    }
+  if (key === "race_specific_endurance" &&
+      (longRunIsShortForGoal(a.goal_distance, longest) || volumeIsLowForGoal(a.goal_distance, km))) {
+    return byKey.volume_progression.slice();
   }
 
-  if (key === "running_durability") {
-    changes.push("Add 2 targeted running-specific strength sessions per week");
-    changes.push("Reduce running intensity to allow musculoskeletal adaptation");
-    changes.push("Build running volume more conservatively than your cardiovascular fitness allows");
-  }
-
-  if (key === "endurance_pacing") {
-    if (volumeIsSubstantial(km) && longRunIsAdequateForGoal(a.goal_distance, longest)) {
-      changes.push("Restructure your long runs around marathon-specific endurance");
-      changes.push("Add threshold work appropriate to your current fitness");
-      changes.push("Control pacing so you can sustain effort deeper into the race");
-    } else if (longRunIsShortForGoal(a.goal_distance, longest) || volumeIsLowForGoal(a.goal_distance, km)) {
-      changes.push("Build weekly volume before adding more intensity");
-      changes.push("Grow the long run gradually toward race-specific distance");
-      changes.push("Keep most running easy while endurance catches up");
-    } else {
-      changes.push("Add race-pace segments to the weekly long run");
-      changes.push("Practice even or negative-split pacing in training");
-      changes.push("Add threshold work specific to the goal race");
-    }
-  }
-
-  if (key === "injury_management") {
-    changes.push("Build training around what your body can currently tolerate");
-    changes.push("Prioritise activities that maintain fitness without aggravating the issue");
-    changes.push("Introduce progressive return-to-running protocol once cleared");
-  }
-
-  if (key === "training_structure") {
-    changes.push("Introduce genuine periodisation — structured blocks with different emphases");
-    changes.push("Differentiate easy and hard days more clearly (most runners train in the middle)");
-    changes.push("Add a weekly quality session that targets specific physiological demands");
-  }
-
-  if (key === "consistency") {
-    changes.push("Design a minimal-effective-dose plan that's always executable");
-    changes.push("Prioritise the 2-3 sessions that produce the most adaptation");
-    changes.push("Make the key endurance session non-negotiable — everything else flexes around it");
-  }
-
+  var changes = byKey[key];
+  if (!changes) changes = byKey.specificity_gap;
   return changes.slice(0, 3);
 };
 
@@ -2012,22 +2099,17 @@ DiagnosticEngine.prototype._assessFeasibility = function () {
     readiness -= 1;
   }
 
-  var weeksOut = null;
-  var minWeeks = { "5K": 6, "10K": 8, "Half marathon": 10, "Marathon": 16, "Ultra": 20 };
-  var mw = minWeeks[goal] || 12;
-  if (a.goal_race_date) {
-    var raceDate = new Date(a.goal_race_date);
-    if (!isNaN(raceDate.getTime())) {
-      weeksOut = Math.round((raceDate - new Date()) / (7 * 24 * 60 * 60 * 1000));
-      if (weeksOut < mw * 0.5) {
-        concerns.push("a very tight timeline");
-        readiness -= 2;
-      } else if (weeksOut < mw) {
-        concerns.push("a compressed timeline");
-        readiness -= 1;
-      } else {
-        readiness += 1;
-      }
+  var weeksOut = weeksUntilRace(a);
+  var mw = minWeeksForGoal(goal);
+  if (weeksOut != null) {
+    if (weeksOut < mw * 0.5) {
+      concerns.push("a very tight timeline");
+      readiness -= 2;
+    } else if (weeksOut < mw) {
+      concerns.push("a compressed timeline");
+      readiness -= 1;
+    } else {
+      readiness += 1;
     }
   }
 
@@ -2111,13 +2193,22 @@ DiagnosticEngine.prototype._buildAthlevoRecommendation = function () {
   }
   var primary = this.hypotheses.length > 0
     ? this.hypotheses[0].limiter
-    : "training_structure";
+    : "specificity_gap";
   var strategies = {
     consistency: "Your biggest opportunity isn't running harder. It's creating enough consistency for one week of training to build on the next. Athlevo would structure your training around the days you can realistically run and adjust your progression when your schedule changes.",
     running_durability: "Your cardiovascular fitness appears ahead of your running durability. Athlevo would initially prioritize sustainable volume, longer aerobic work and running-specific strength before introducing more demanding sessions.",
     aerobic_base: "Your next phase should focus on expanding how much running you can sustain comfortably. Athlevo would build that progressively rather than simply telling you to run harder.",
+    volume_progression: "Athlevo would grow endurance first and keep intensity modest until the long run and weekly volume can actually support the goal.",
     training_structure: "You're already putting in enough effort to improve. The missing piece is how that work is organized. Athlevo would give each session a purpose and progress your training based on how you're responding.",
-    endurance_pacing: "Your training needs a clearer balance between controlled aerobic work and the sessions that move your goal forward. Athlevo would set purposeful effort targets and adjust them as your endurance develops.",
+    endurance_pacing: "Athlevo would convert existing volume into race-specific endurance and more controlled pacing rather than simply adding harder sessions.",
+    race_specific_endurance: "Athlevo would convert existing volume into race-specific endurance and more controlled pacing rather than simply adding harder sessions.",
+    pacing_durability: "Athlevo would treat pacing and late-run durability as the training problem, not a request to run more.",
+    specificity_gap: "Athlevo would keep your volume and make more of it specific to the race you’re actually training for.",
+    intensity_distribution: "Athlevo would thin out stacked quality days and make easy days easy so the remaining hard sessions can work.",
+    recovery_fatigue: "Athlevo would manage fatigue first—protecting recovery so the work you already do can land.",
+    threshold_development: "Athlevo would add controlled threshold work on top of the easy volume you already have, without turning the whole week hard.",
+    race_execution: "Athlevo would keep the plan pointed at execution—pacing, specificity, and freshness—rather than another generic build.",
+    timeline_mismatch: "Athlevo would treat the date as a constraint and build durability first rather than forcing race-specific work onto an unready base.",
     schedule: "A rigid Monday–Sunday plan probably isn't the best fit for your situation. Athlevo can structure priority sessions around your actual availability and adjust when work or recovery changes.",
     injury_management: "Your progression needs to respect the physical issue you reported. Once training is appropriate, Athlevo would keep load increases measured and adjust around how your body is responding."
   };
@@ -2128,7 +2219,7 @@ DiagnosticEngine.prototype._buildAthlevoRecommendation = function () {
       (primary === "training_structure" || !strategies[primary])) {
     primary = "schedule";
   }
-  var strategy = strategies[primary] || strategies.training_structure;
+  var strategy = strategies[primary] || strategies.specificity_gap;
   return {
     safetyOverride: false,
     id: "athlevo_ai",

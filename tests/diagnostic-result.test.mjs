@@ -64,22 +64,23 @@ const LONG_RUN_TOO_SHORT = /long runs aren't long enough|aren't long enough|inad
   assert.doesNotMatch(uiSrc, /Building your coaching strategy/);
   assert.doesNotMatch(uiSrc, /Here’s what I’m seeing/);
   assert.doesNotMatch(uiSrc, /Okay — I have enough to work with/);
+  assert.doesNotMatch(uiSrc, /Okay — I see the main issue/);
+  assert.doesNotMatch(uiSrc, /I analyzed your profile/);
+  assert.doesNotMatch(uiSrc, /Based on my analysis/);
+  assert.doesNotMatch(uiSrc, /ensureVerdictMessage/);
+  assert.doesNotMatch(uiSrc, /chat-msg-verdict/);
 }
 
 {
   const build = uiSrc.slice(
     uiSrc.indexOf("async function showBuildAnimation"),
-    uiSrc.indexOf("function ensureVerdictMessage")
+    uiSrc.indexOf("function renderResult")
   );
   assert.match(build, /appendTypingIndicator/);
   assert.match(build, /RESULT_THINK_DELAY/);
   assert.match(uiSrc, /chat-typing-dots/);
   assert.doesNotMatch(build, /appendAthlevoMsg\(thread, lines/);
-}
-
-{
-  const matches = uiSrc.match(/Okay — I see the main issue\./g) || [];
-  assert.equal(matches.length, 1, "verdict line should appear once in source");
+  assert.match(build, /removeTypingIndicator\(\);\s*renderResult\(\)/);
 }
 
 {
@@ -118,9 +119,18 @@ const LONG_RUN_TOO_SHORT = /long runs aren't long enough|aren't long enough|inad
   assert.match(indexSrc, /content:"→"/);
   assert.match(chatSrc, /Volume ≠ specificity/);
   assert.match(engineSrc, /longRunIsAdequateForGoal/);
+  assert.match(engineSrc, /function classifyDiagnosis/);
   assert.match(engineSrc, /Not enough data yet/);
   assert.doesNotMatch(engineSrc, /Requires reassessment/);
 }
+
+const SPECIFIC_KEYS = new Set([
+  "race_specific_endurance", "pacing_durability", "specificity_gap",
+  "intensity_distribution", "recovery_fatigue", "aerobic_base",
+  "volume_progression", "consistency", "timeline_mismatch",
+  "race_execution", "threshold_development", "injury_management",
+  "running_durability"
+]);
 
 {
   const result = completeWith({
@@ -141,19 +151,41 @@ const LONG_RUN_TOO_SHORT = /long runs aren't long enough|aren't long enough|inad
     injury_status: { injury_has: "none", injury_area: "" }
   });
   const text = diagnosisText(result);
-  assert.equal(result.primaryLimiter && result.primaryLimiter.key, "endurance_pacing");
+  const key = result.primaryLimiter && result.primaryLimiter.key;
+  assert.ok(["race_specific_endurance", "pacing_durability", "specificity_gap"].includes(key), "high-volume fade should be specificity/pacing, got " + key);
+  assert.notEqual(key, "training_structure");
   assert.doesNotMatch(text, LONG_RUN_TOO_SHORT);
   assert.doesNotMatch(text, /too low|isn't yet developed enough|need more consistent easy work|grow the long run/i);
-  assert.match(result.primaryLimiter.explanation, /race-specific endurance|pacing/i);
+  assert.match(result.primaryLimiter.explanation, /race-specific|pacing|specificity/i);
+  assert.match(result.whatWedChange.join(" "), /pace|pacing|fueling|threshold|long run/i);
+  assert.doesNotMatch(result.whatWedChange.join(" "), /Give each week a simple hard\/easy rhythm/);
   assert.equal(result.whatWedChange.length, 3);
   assert.ok(
     result.feasibility.rating === "insufficient_data" || result.feasibility.rating === "reassess",
     "missing race marker should not pretend certainty, got " + result.feasibility.rating
   );
-  assert.ok(
-    result.feasibility.label === "Not enough data yet" || result.feasibility.label === "Needs reassessment"
-  );
-  assert.match(result.feasibility.explanation, /wouldn't lock|wouldn’t lock|progressively|marker/i);
+}
+
+{
+  const result = completeWith({
+    goal: { goal_distance: "Marathon" },
+    race_details: {
+      goal_race: "Pampanga Marathon",
+      goal_race_date: isoDaysFromNow(15),
+      goal_time: "Sub-4"
+    },
+    experience: { experience: "3_5_years" },
+    training_status: { training_status: "training_block" },
+    weekly_volume: { weekly_mileage: "90", weekly_hours: "8" },
+    current_capacity: { recent_consistency: "mostly_consistent", recent_longest_run_km: "26" },
+    recent_performance: { recent_race_dist: "none" },
+    training_days: { training_days: 5 },
+    training_structure: { training_structure: "easy_long" },
+    injury_status: { injury_has: "none", injury_area: "" }
+  });
+  const key = result.primaryLimiter && result.primaryLimiter.key;
+  assert.notEqual(key, "training_structure", "skipped fade question must not collapse to training structure");
+  assert.ok(SPECIFIC_KEYS.has(key), "got " + key);
 }
 
 {
@@ -174,9 +206,11 @@ const LONG_RUN_TOO_SHORT = /long runs aren't long enough|aren't long enough|inad
     injury_status: { injury_has: "none", injury_area: "" }
   });
   const text = diagnosisText(result);
-  assert.equal(result.primaryLimiter && result.primaryLimiter.key, "endurance_pacing");
-  assert.match(text, /volume|endurance|long run/i);
+  const key = result.primaryLimiter && result.primaryLimiter.key;
+  assert.ok(["timeline_mismatch", "aerobic_base", "volume_progression"].includes(key), "low-volume marathon soon, got " + key);
+  assert.match(text, /volume|endurance|long run|timeline|durability/i);
   assert.equal(result.whatWedChange.length, 3);
+  assert.doesNotMatch(result.whatWedChange.join(" "), /marathon-pace segments late/);
 }
 
 {
@@ -205,6 +239,45 @@ const LONG_RUN_TOO_SHORT = /long runs aren't long enough|aren't long enough|inad
 
 {
   const result = completeWith({
+    goal: { goal_distance: "Half marathon" },
+    race_details: { goal_race: "City Half", goal_race_date: "2027-03-01", goal_time: "1:40" },
+    experience: { experience: "3_5_years" },
+    training_status: { training_status: "training_block" },
+    weekly_volume: { weekly_mileage: "75", weekly_hours: "8" },
+    current_capacity: { recent_consistency: "consistent", recent_longest_run_km: "20" },
+    recent_performance: { recent_race_dist: "none" },
+    training_days: { training_days: 6 },
+    training_structure: { training_structure: "balanced_quality" },
+    perceived_limiter: { perceived_limiter: "muscular" },
+    injury_status: { injury_has: "none", injury_area: "" }
+  });
+  const key = result.primaryLimiter && result.primaryLimiter.key;
+  assert.ok(["intensity_distribution", "recovery_fatigue"].includes(key), "dense quality should be intensity/recovery, got " + key);
+  assert.match(result.whatWedChange.join(" "), /hard|easy|quality|fatigue/i);
+  assert.notEqual(key, "training_structure");
+}
+
+{
+  const result = completeWith({
+    goal: { goal_distance: "10K" },
+    race_details: { goal_race: "First 10K", goal_race_date: "2027-04-01", goal_time: "" },
+    experience: { experience: "new" },
+    training_status: { training_status: "starting" },
+    weekly_volume: { weekly_mileage: "18", weekly_hours: "3" },
+    current_capacity: { recent_consistency: "mostly_consistent", recent_longest_run_km: "6" },
+    recent_performance: { recent_race_dist: "none" },
+    training_days: { training_days: 3 },
+    training_structure: { training_structure: "mostly_easy" },
+    injury_status: { injury_has: "none", injury_area: "" }
+  });
+  const key = result.primaryLimiter && result.primaryLimiter.key;
+  assert.ok(["aerobic_base", "consistency"].includes(key), "beginner 10K should be base/consistency, got " + key);
+  assert.doesNotMatch(result.whatWedChange.join(" "), /marathon-pace|threshold work controlled rather than stacking/);
+  assert.match(result.whatWedChange.join(" "), /frequency|easy|repeat/i);
+}
+
+{
+  const result = completeWith({
     goal: { goal_distance: "10K" },
     race_details: {
       goal_race: "City 10K",
@@ -225,6 +298,28 @@ const LONG_RUN_TOO_SHORT = /long runs aren't long enough|aren't long enough|inad
     "strong baseline should look realistic, got " + result.feasibility.rating
   );
   assert.equal(result.feasibility.label, "Looks realistic");
+  const key = result.primaryLimiter && result.primaryLimiter.key;
+  assert.ok(["race_execution", "threshold_development", "specificity_gap"].includes(key), "got " + key);
+  assert.match(result.whatWedChange.join(" "), /pace|execution|easy|threshold|specific/i);
+  assert.doesNotMatch(result.whatWedChange.join(" "), /Give each week a simple hard\/easy rhythm/);
+}
+
+{
+  const result = completeWith({
+    goal: { goal_distance: "Marathon" },
+    race_details: { goal_race: "Race", goal_race_date: "2027-04-01", goal_time: "4:00" },
+    experience: { experience: "3_5_years" },
+    training_status: { training_status: "training_block" },
+    weekly_volume: { weekly_mileage: "70", weekly_hours: "7" },
+    current_capacity: { recent_consistency: "consistent", recent_longest_run_km: "24" },
+    recent_performance: { recent_race_dist: "none" },
+    training_days: { training_days: 5 },
+    training_structure: { training_structure: "easy_long" },
+    injury_status: { injury_has: "significant", injury_area: "Achilles" }
+  });
+  assert.equal(result.primaryLimiter && result.primaryLimiter.key, "injury_management");
+  assert.equal(result.feasibility.rating, "not_advisable");
+  assert.equal(result.athlevoRecommendation.safetyOverride, true);
 }
 
 function makeNode(tag, registry) {
@@ -394,10 +489,11 @@ function parseHtml(html, registry) {
     (child.className || "").split(/\s+/).includes("chat-msg-result")
   );
   const verdicts = thread.children.filter(child =>
-    (child.className || "").split(/\s+/).includes("chat-msg-verdict")
+    (child.className || "").split(/\s+/).includes("chat-msg-verdict") ||
+    /Okay — I see the main issue/.test(child.textContent || "")
   );
   assert.equal(cards.length, 1, "restore/refresh must not duplicate the result card");
-  assert.equal(verdicts.length, 1, "verdict message must not duplicate");
+  assert.equal(verdicts.length, 0, "result must not include a transition bubble");
   assert.match(cards[0].textContent, /Train with Athlevo AI/);
   assert.match(cards[0].textContent, /₱5,498\/year/);
   assert.doesNotMatch(cards[0].textContent, /Your running profile|Primary limiter|How Athlevo would coach you/);

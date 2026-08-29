@@ -3176,15 +3176,7 @@ async function showBuildAnimation(result) {
   scrollToBottom();
   await delay(reducedMotion() ? 200 : RESULT_THINK_DELAY);
   removeTypingIndicator();
-  ensureVerdictMessage(thread, false);
-  scrollToBottom();
   renderResult();
-}
-
-function ensureVerdictMessage(thread, skipAnim) {
-  if (!thread || thread.querySelector(".chat-msg-verdict")) return;
-  var el = appendAthlevoMsg(thread, "Okay — I see the main issue.", skipAnim);
-  if (el && el.classList) el.classList.add("chat-msg-verdict");
 }
 
 /* ═══════════════════════════ RESULT RENDERING ══════════════════════ */
@@ -3209,8 +3201,6 @@ function renderResult(opts) {
 
   if (thread.querySelector(".chat-msg-result")) return;
 
-  ensureVerdictMessage(thread, !!(opts && opts.restored));
-
   var rec = result.athlevoRecommendation;
   var limiter = result.primaryLimiter;
   var html = '<div class="chat-result-card">';
@@ -3220,8 +3210,8 @@ function renderResult(opts) {
     html += '<h3 class="chat-result-limiter-title">' + esc(limiter.label) + '</h3>';
     html += '<p class="chat-result-text">' + esc(limiter.explanation) + '</p>';
   } else {
-    html += '<h3 class="chat-result-limiter-title">Training structure</h3>';
-    html += '<p class="chat-result-text">The next step is giving your running a clearer structure so each week builds on the last.</p>';
+    html += '<h3 class="chat-result-limiter-title">Specificity gap</h3>';
+    html += '<p class="chat-result-text">The highest-leverage change is making the work you already do more specific to the goal—not adding generic structure.</p>';
   }
 
   var changes = result.whatWedChange;
