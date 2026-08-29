@@ -9,6 +9,14 @@ var PAID_PROVIDERS = ["whop", "paymongo", "gcash_manual"];
 var active = null;
 var acquisitionSupabase = null;
 var checkoutInFlight = false;
+var selectedOfferPlan = "monthly";
+/*
+ * Monthly Whop checkout is plan_F5PftzWCJCQVw via AthlevoAccessGuard.
+ * No annual Whop plan ID exists in the repo, env samples, or checkout config.
+ * PayMongo checkout is server-owned ATHLEVO_PRO_MONTHLY (₱597 / 30 days) and
+ * ignores the request body, so local annual would charge the wrong amount.
+ */
+var ANNUAL_CHECKOUT_READY = false;
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -218,11 +226,19 @@ async function reconcileWhopPurchase(supabase) {
 
 function setPaywallMode(mode) {
   var card = document.getElementById("diagnosticPaywallCard");
+  var screen = document.getElementById("screen-diagnostic-paywall");
   if (!card || !card.classList) return;
   card.classList.remove("is-activating", "is-recheck", "is-unavailable");
   if (mode === "activating") card.classList.add("is-activating");
   else if (mode === "recheck") card.classList.add("is-recheck");
   else if (mode === "unavailable") card.classList.add("is-unavailable");
+  if (screen && screen.classList) {
+    screen.classList.toggle("is-activating", mode === "activating");
+    screen.classList.toggle("is-recheck", mode === "recheck");
+    if (mode === "activating" || mode === "recheck" || mode === "unavailable") {
+      screen.classList.remove("is-choosing-method");
+    }
+  }
 }
 
 function markPaymentCompleted(userId, paid) {
@@ -282,9 +298,106 @@ function setPaywallStatus(message) {
 
 function setPaywallBusy(busy) {
   var buttons = document.querySelectorAll(
-    ".diagnostic-paywall-primary, .diagnostic-paywall-local"
+    ".diagnostic-paywall-primary, .diagnostic-paywall-local, .diagnostic-paywall-start"
   );
-  for (var i = 0; i < buttons.length; i += 1) buttons[i].disabled = !!busy;
+  for (var i = 0; i < buttons.length; i += 1) {
+    if (buttons[i].id === "offerStartCta" && selectedOfferPlan === "annual" &&
+        !ANNUAL_CHECKOUT_READY) {
+      buttons[i].disabled = true;
+      continue;
+    }
+    buttons[i].disabled = !!busy;
+  }
+}
+
+function formatOfferPrice(amount) {
+  return "₱" + Number(amount).toLocaleString("en-US");
+}
+
+function offerPlanCopy(plan) {
+  if (plan === "annual") {
+    return {
+      price: formatOfferPrice(5498),
+      cadence: "/ year",
+      equiv: "₱458/month billed annually.",
+      methods: "₱5,498/year",
+      pricePhp: 5498
+    };
+  }
+  return {
+    price: formatOfferPrice(597),
+    cadence: "/ month",
+    equiv: "Cancel anytime.",
+    methods: "₱597/month",
+    pricePhp: 597
+  };
+}
+
+function selectOfferPlan(plan) {
+  selectedOfferPlan = plan === "annual" ? "annual" : "monthly";
+  var annual = selectedOfferPlan === "annual";
+  var copy = offerPlanCopy(selectedOfferPlan);
+  var card = document.getElementById("diagnosticPaywallCard");
+  var monthlyBtn = document.getElementById("offerPlanMonthly");
+  var annualBtn = document.getElementById("offerPlanAnnual");
+  var price = document.getElementById("offerPlanPrice");
+  var cadence = document.getElementById("offerPlanCadence");
+  var equiv = document.getElementById("offerPlanEquiv");
+  var methodsPrice = document.getElementById("offerMethodsPrice");
+  var start = document.getElementById("offerStartCta");
+  if (card && card.classList) card.classList.toggle("is-annual", annual);
+  if (monthlyBtn) {
+    monthlyBtn.classList.toggle("is-active", !annual);
+    if (typeof monthlyBtn.setAttribute === "function") {
+      monthlyBtn.setAttribute("aria-selected", annual ? "false" : "true");
+    }
+  }
+  if (annualBtn) {
+    annualBtn.classList.toggle("is-active", annual);
+    if (typeof annualBtn.setAttribute === "function") {
+      annualBtn.setAttribute("aria-selected", annual ? "true" : "false");
+    }
+  }
+  if (price) price.textContent = copy.price;
+  if (cadence) cadence.textContent = copy.cadence;
+  if (equiv) equiv.textContent = copy.equiv;
+  if (methodsPrice) methodsPrice.textContent = copy.methods;
+  if (start) start.disabled = annual && !ANNUAL_CHECKOUT_READY;
+  return selectedOfferPlan;
+}
+
+function showOfferStep() {
+  var screen = document.getElementById("screen-diagnostic-paywall");
+  if (screen && screen.classList) screen.classList.remove("is-choosing-method");
+  setPaywallStatus("");
+}
+
+function showPaymentMethods() {
+  var screen = document.getElementById("screen-diagnostic-paywall");
+  if (screen && screen.classList) screen.classList.add("is-choosing-method");
+  var methodsPrice = document.getElementById("offerMethodsPrice");
+  var copy = offerPlanCopy(selectedOfferPlan);
+  if (methodsPrice) methodsPrice.textContent = copy.methods;
+  setPaywallStatus("");
+}
+
+function beginOfferCheckout() {
+  if (selectedOfferPlan === "annual" && !ANNUAL_CHECKOUT_READY) {
+    setPaywallStatus("Annual checkout is not available yet. Choose Monthly to start now.");
+    return false;
+  }
+  showPaymentMethods();
+  return true;
+}
+
+function backFromPaywall() {
+  var screen = document.getElementById("screen-diagnostic-paywall");
+  if (screen && screen.classList && screen.classList.contains("is-choosing-method")) {
+    showOfferStep();
+    return false;
+  }
+  exitPaywall();
+  return true;
 }
 
 function markPaywallExit() {
@@ -356,6 +469,8 @@ function showPaywall(state, unavailable, opts) {
      diagnostic import must never hide checkout CTAs. */
   setPaywallMode(unavailable === true ? "unavailable" : "checkout");
   if (card) card.classList.toggle("is-unavailable", unavailable === true);
+  selectOfferPlan("monthly");
+  showOfferStep();
   if (status) {
     if (unavailable === true) {
       status.textContent = "Payment is temporarily unavailable. Check your connection and try again.";
@@ -368,7 +483,7 @@ function showPaywall(state, unavailable, opts) {
   if (state && !unavailable) {
     trackOnce("payment_screen_viewed", state, {
       source: "ai_signup",
-      price_php: 597,
+      price_php: offerPlanCopy(selectedOfferPlan).pricePhp,
       plan: "athlevo_ai"
     });
   }
@@ -396,6 +511,11 @@ function showRecheck(state) {
 
 async function checkout(method) {
   if (checkoutInFlight) return false;
+  if (selectedOfferPlan === "annual" && !ANNUAL_CHECKOUT_READY) {
+    setPaywallStatus("Annual checkout is not available yet. Choose Monthly to start now.");
+    showOfferStep();
+    return false;
+  }
   var userId = await sessionUserId();
   if (userId) root.athlevoSessionUserId = userId;
   if (!userId) {
@@ -666,6 +786,10 @@ root.AthlevoDiagnosticAcquisition = {
   completePostPaymentOnboarding: completePostPaymentOnboarding,
   markAppEntered: markAppEntered,
   checkout: checkout,
+  selectOfferPlan: selectOfferPlan,
+  beginOfferCheckout: beginOfferCheckout,
+  showOfferStep: showOfferStep,
+  backFromPaywall: backFromPaywall,
   showPaywall: showPaywall,
   showActivation: showActivation,
   showRecheck: showRecheck,
