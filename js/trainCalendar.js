@@ -306,53 +306,150 @@
     return `<span class="af-card-plan">Completed as planned</span>`;
   }
 
-  /* ── compact effort visualization (inline in feed card) ──────────── */
-  function miniEffortBar(a) {
-    const recognition = (window.AthlevoCoach && AthlevoCoach.getStoredRecognition)
-      ? AthlevoCoach.getStoredRecognition(a) : null;
-    if (!recognition || !recognition.segments) return "";
-    const segs = recognition.segments.filter(s => s && s.duration > 0);
-    if (segs.length <= 1) return "";
-
-    const total = segs.reduce((sum, s) => sum + s.duration, 0);
-    if (total <= 0) return "";
-
-    const bars = segs.map(s => {
-      const pct = Math.max(2, (s.duration / total) * 100);
-      let tone = "var(--af-effort-easy)";
-      if (s.kind === "warmup") tone = "var(--af-effort-warm)";
-      else if (s.kind === "work") tone = "var(--af-effort-work)";
-      else if (s.kind === "recovery") tone = "var(--af-effort-recovery)";
-      else if (s.kind === "cooldown") tone = "var(--af-effort-cool)";
-      return `<span style="flex:${pct};background:${tone}"></span>`;
-    }).join("");
-
-    return `<div class="af-effort-bar" aria-hidden="true">${bars}</div>`;
+  /* ── completed-card mini profile (real laps / segments / cached streams) */
+  function storedRecognition(a) {
+    if (window.AthlevoCoach && typeof AthlevoCoach.getStoredRecognition === "function") {
+      return AthlevoCoach.getStoredRecognition(a);
+    }
+    const r = a && ((a.raw_data && a.raw_data.recognition) || a.recognition) || null;
+    return r && r.workoutType ? r : null;
   }
-
-  function miniLapProfile(a) {
+  function lapList(a) {
     const raw = a && a.raw_data && typeof a.raw_data === "object" ? a.raw_data : {};
-    const laps = raw.laps || raw.splits;
-    if (!Array.isArray(laps) || laps.length < 2) return "";
-    const paces = laps.map(lap => {
-      const dist = Number(lap.distance || lap.distance_meters);
-      const time = Number(lap.moving_time || lap.elapsed_time || lap.time_seconds);
-      if (!(dist > 0) || !(time > 0)) return null;
-      return time / (dist / 1000);
+    const laps = raw.laps || raw.splits || a.laps || a.splits;
+    return Array.isArray(laps) ? laps : [];
+  }
+  function lapDistanceM(lap) {
+    const d = num(lap && (lap.distance_meters || lap.distance));
+    return d > 0 ? d : null;
+  }
+  function lapTimeSec(lap) {
+    const t = num(lap && (lap.moving_time_seconds || lap.moving_time || lap.elapsed_time || lap.time_seconds));
+    return t > 0 ? t : null;
+  }
+  function expandWeighted(points) {
+    const usable = (points || []).filter(p => p && Number.isFinite(p.value) && p.weight > 0);
+    if (usable.length < 2) return null;
+    const total = usable.reduce((s, p) => s + p.weight, 0);
+    const out = [];
+    usable.forEach(p => {
+      const n = Math.max(2, Math.round((p.weight / total) * 72));
+      for (let i = 0; i < n; i += 1) out.push(p.value);
     });
-    const usable = paces.filter(v => Number.isFinite(v));
-    if (usable.length < 2) return "";
-    const W = 240, H = 28, PAD = 1;
-    let min = Math.min.apply(null, usable), max = Math.max.apply(null, usable);
+    return out.length >= 2 ? out : null;
+  }
+  function downsampleValues(values, cap) {
+    if (!values || values.length <= cap) return values ? values.slice() : [];
+    const step = Math.ceil(values.length / cap);
+    const out = [];
+    for (let i = 0; i < values.length; i += step) out.push(values[i]);
+    return out;
+  }
+  function cachedStreamProfile(a, sport) {
+    const AS = window.AthlevoActivityStreams;
+    if (!AS) return null;
+    const id = a && a.id != null ? String(a.id) : null;
+    const streams = (id && AS.cacheGet(id)) || AS.streamsFromActivity(a);
+    if (!AS.hasUsableStreams(streams)) return null;
+    if (sport === "ride") {
+      const power = AS.graphSeriesFor(streams, "power");
+      if (power && power.filter(Number.isFinite).length >= 3) return { values: downsampleValues(power, 80), invert: false };
+      if (streams.velocity && streams.velocity.filter(Number.isFinite).length >= 3) {
+        return { values: downsampleValues(streams.velocity, 80), invert: false };
+      }
+      return null;
+    }
+    if (sport === "strength" || sport === "mobility") {
+      const power = AS.graphSeriesFor(streams, "power");
+      return power && power.filter(Number.isFinite).length >= 3
+        ? { values: downsampleValues(power, 80), invert: false } : null;
+    }
+    const pace = AS.graphSeriesFor(streams, "pace");
+    if (pace && pace.filter(Number.isFinite).length >= 3) return { values: downsampleValues(pace, 80), invert: true };
+    if (streams.velocity && streams.velocity.filter(Number.isFinite).length >= 3) {
+      return { values: downsampleValues(streams.velocity, 80), invert: false };
+    }
+    return null;
+  }
+  function lapProfileSeries(a, sport) {
+    const laps = lapList(a);
+    if (laps.length < 2) return null;
+    if (sport === "ride") {
+      const power = expandWeighted(laps.map(lap => ({
+        value: num(lap.average_watts || lap.average_power_watts || lap.avg_watts),
+        weight: lapTimeSec(lap) || 1
+      })));
+      if (power) return { values: power, invert: false };
+      const speed = expandWeighted(laps.map(lap => {
+        const dist = lapDistanceM(lap), time = lapTimeSec(lap);
+        const spd = (dist > 0 && time > 0) ? dist / time : num(lap.average_speed);
+        return { value: spd, weight: time || 1 };
+      }));
+      return speed ? { values: speed, invert: false } : null;
+    }
+    if (sport === "strength" || sport === "mobility") return null;
+    const pace = expandWeighted(laps.map(lap => {
+      const dist = lapDistanceM(lap), time = lapTimeSec(lap);
+      let value = null;
+      if (dist > 20 && time > 0) value = time / (dist / 1000);
+      else if (num(lap.average_speed) > 0.3) value = 1000 / num(lap.average_speed);
+      else value = num(lap.average_pace || lap.pace);
+      return { value, weight: time || (dist > 0 ? dist : 1) };
+    }));
+    return pace ? { values: pace, invert: true } : null;
+  }
+  function segmentProfileSeries(a, sport) {
+    if (sport === "strength" || sport === "mobility") return null;
+    const rec = storedRecognition(a);
+    const segs = rec && Array.isArray(rec.segments) ? rec.segments : [];
+    const points = segs.map(s => {
+      if (!s || !(Number(s.duration) > 0)) return null;
+      let value = num(s.avgPace || s.pace || s.average_pace);
+      if (!(value > 0) && Number(s.distance) > 20 && Number(s.duration) > 0) {
+        value = Number(s.duration) / (Number(s.distance) / 1000);
+      }
+      return value > 0 ? { value, weight: Number(s.duration) } : null;
+    }).filter(Boolean);
+    const values = expandWeighted(points);
+    return values ? { values, invert: true } : null;
+  }
+  function cardProfileSeries(a) {
+    if (!a) return null;
+    const sport = canonSport(a);
+    return cachedStreamProfile(a, sport) || lapProfileSeries(a, sport) || segmentProfileSeries(a, sport);
+  }
+  function renderCardProfileSvg(values, invert) {
+    const sampled = downsampleValues(values, 96);
+    const finite = sampled.filter(v => Number.isFinite(v));
+    if (finite.length < 2) return "";
+    const W = 320, H = 48, PAD_X = 0, PAD_Y = 5;
+    let min = Math.min.apply(null, finite), max = Math.max.apply(null, finite);
     if (max === min) { min -= 1; max += 1; }
-    const pts = paces.map((v, i) => {
-      const x = PAD + (i / Math.max(1, paces.length - 1)) * (W - 2 * PAD);
-      const y = Number.isFinite(v)
-        ? PAD + ((v - min) / (max - min)) * (H - 2 * PAD)
-        : H / 2;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    const range = max - min;
+    const pts = [];
+    sampled.forEach((v, i) => {
+      if (!Number.isFinite(v)) return;
+      const x = PAD_X + (i / Math.max(1, sampled.length - 1)) * (W - 2 * PAD_X);
+      const norm = (v - min) / range;
+      const y = invert
+        ? PAD_Y + norm * (H - 2 * PAD_Y)
+        : H - PAD_Y - norm * (H - 2 * PAD_Y);
+      pts.push(x.toFixed(1) + "," + y.toFixed(1));
     });
-    return `<svg class="af-card-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="M${pts.join("L")}" fill="none" stroke="currentColor" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>`;
+    if (pts.length < 2) return "";
+    const line = "M" + pts.join("L");
+    const fill = "M0," + H + "L" + pts.join("L") + "L" + W + "," + H + "Z";
+    return `<svg class="af-card-profile-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <path d="${fill}" fill="currentColor" fill-opacity=".22"/>
+      <path d="${line}" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
+    </svg>`;
+  }
+  function cardMiniProfile(a) {
+    const series = cardProfileSeries(a);
+    if (!series || !series.values) return "";
+    const svg = renderCardProfileSvg(series.values, !!series.invert);
+    if (!svg) return "";
+    return `<div class="af-card-profile" aria-hidden="true">${svg}</div>`;
   }
 
   /* ── selected-day model (planned + imported for ONE date) ───────── */
@@ -454,13 +551,13 @@
     const name = sportLabel(a);
     const source = a.name && a.name !== name ? a.name : null;
     const packed = cardMetricItems(a, ex);
-    const effort = miniEffortBar(a) || miniLapProfile(a);
+    const profile = cardMiniProfile(a);
     const id = a && a.id != null ? String(a.id) : "";
     const grid = packed.items.slice(0, 8).map(i =>
       `<span class="af-card-metric"><b>${esc(i.value)}</b><small>${esc(i.label)}</small></span>`
     ).join("");
     const planNote = done ? matchedPlanNote(session) : "";
-    return `<button type="button" class="af-card af-card--activity af-card--${theme}${done ? " af-card--done" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
+    return `<button type="button" class="af-card af-card--activity af-card--${theme}${done ? " af-card--done" : ""}${profile ? " af-card--has-profile" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
       <span class="af-card-accent" aria-hidden="true"></span>
       <div class="af-card-main">
         <div class="af-card-top">
@@ -473,7 +570,7 @@
         </div>
         ${grid ? `<div class="af-card-grid">${grid}</div>` : ""}
         ${planNote}
-        ${effort}
+        ${profile}
       </div>
     </button>`;
   }
@@ -1218,6 +1315,7 @@
     open, prevWeek, nextWeek, goToday, select, openModal, closeModal, askCoach,
     activityDateKey, buildSelectedDayModel, cardMetricItems, sportTheme,
     activityCardHtml, plannedCardHtml, renderSelectedDayHtml,
-    VERSION: "train-calendar-v5"
+    cardMiniProfile, cardProfileSeries,
+    VERSION: "train-calendar-v6"
   };
 })();

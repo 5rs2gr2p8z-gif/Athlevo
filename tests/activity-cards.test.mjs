@@ -8,6 +8,7 @@
 import { readFileSync } from "node:fs";
 
 const calendar = readFileSync("./js/trainCalendar.js", "utf8");
+const streamsSrc = readFileSync("./js/activityStreams.js", "utf8");
 const html = readFileSync("./index.html", "utf8");
 
 let passed = 0;
@@ -73,6 +74,7 @@ const windowStub = {
   }
 };
 
+new Function("window", streamsSrc)(windowStub);
 new Function("window", calendar)(windowStub);
 const TC = windowStub.AthlevoTrainCalendar;
 
@@ -217,6 +219,109 @@ console.log("\n──── Selected-day composition ────");
   test("each card opens its own activity id",
     /openModal\('2026-08-24','r1'\)/.test(bothHtml) &&
     /openModal\('2026-08-24','s1'\)/.test(bothHtml));
+}
+
+console.log("\n──── Mini graph inside completed cards ────");
+{
+  const laps = [
+    { distance: 1000, moving_time: 360 },
+    { distance: 1000, moving_time: 340 },
+    { distance: 1000, moving_time: 355 },
+    { distance: 1000, moving_time: 370 }
+  ];
+  const runLaps = {
+    id: "hist-1",
+    sport_type: "Run",
+    name: "Lubao Running",
+    moving_time_seconds: 5640,
+    distance_meters: 16000,
+    average_heartrate: 161,
+    raw_data: { training_load: 105, laps }
+  };
+  const lapCard = TC.activityCardHtml(runLaps, "2026-08-24", {});
+  test("completed run + lap data renders a mini pace profile inside the card",
+    /af-card-profile/.test(lapCard) && /af-card-profile-svg/.test(lapCard) &&
+    /af-card--has-profile/.test(lapCard));
+  test("lap profile is real pace data, not a decorative placeholder",
+    !!TC.cardProfileSeries(runLaps) && TC.cardProfileSeries(runLaps).invert === true &&
+    TC.cardProfileSeries(runLaps).values.length >= 2);
+
+  const streamRun = {
+    id: "cached-stream",
+    sport_type: "Run",
+    moving_time_seconds: 3000,
+    distance_meters: 8000,
+    raw_data: {
+      activity_streams: {
+        time: [0, 30, 60, 90, 120, 150],
+        velocity: [3.0, 2.8, 2.9, 3.1, 2.7, 2.95]
+      }
+    }
+  };
+  const streamCard = TC.activityCardHtml(streamRun, "2026-08-25", {});
+  test("completed run + cached full stream renders a mini profile",
+    /af-card-profile/.test(streamCard) && !!TC.cardProfileSeries(streamRun));
+
+  const summaryOnly = {
+    id: "avg-only",
+    sport_type: "Run",
+    moving_time_seconds: 5640,
+    distance_meters: 16000,
+    average_heartrate: 161,
+    raw_data: { training_load: 105 }
+  };
+  test("completed run with only summary values has no fake graph",
+    TC.cardMiniProfile(summaryOnly) === "" &&
+    !/af-card-profile/.test(TC.activityCardHtml(summaryOnly, "2026-08-27", {})));
+
+  const planned = TC.plannedCardHtml({
+    date: "2026-08-30",
+    session: { session_type: "easy", title: "Aerobic", duration_minutes: 50 },
+    missed: false,
+    skipped: false
+  });
+  test("planned workout has no mini activity graph",
+    !/af-card-profile/.test(planned) && !/af-card--has-profile/.test(planned));
+
+  const matched = TC.buildSelectedDayModel("2026-08-25", {
+    session: { session_type: "threshold", title: "Threshold" },
+    execution: { status: "completed", imported_activity_id: "a1" },
+    activities: [{ ...runLaps, id: "a1" }]
+  }, "2026-08-30");
+  const matchedHtml = TC.renderSelectedDayHtml(matched);
+  test("matched plan + completed still shows the mini graph",
+    /Planned: Threshold/.test(matchedHtml) && /af-card-profile/.test(matchedHtml) &&
+    !/data-train-item="plan"/.test(matchedHtml));
+
+  const runA = { ...runLaps, id: "r1" };
+  const lift = { id: "s1", sport_type: "WeightTraining", name: "Lift", moving_time_seconds: 1800, raw_data: { training_load: 40 } };
+  const runB = {
+    id: "r2", sport_type: "Run", name: "PM",
+    moving_time_seconds: 1800, distance_meters: 4000,
+    raw_data: { laps: [{ distance: 1000, moving_time: 300 }, { distance: 1000, moving_time: 280 }] }
+  };
+  const both = TC.renderSelectedDayHtml(TC.buildSelectedDayModel("2026-08-24", {
+    activities: [runA, lift, runB]
+  }, "2026-08-30"));
+  test("each eligible same-day activity has its own profile",
+    /af-card-profile/.test(TC.activityCardHtml(runA, "2026-08-24", {})) &&
+    /af-card-profile/.test(TC.activityCardHtml(runB, "2026-08-24", {})) &&
+    !/af-card-profile/.test(TC.activityCardHtml(lift, "2026-08-24", {})) &&
+    (both.match(/class="af-card-profile"/g) || []).length === 2 &&
+    /data-activity-id="r1"/.test(both) && /data-activity-id="r2"/.test(both) && /data-activity-id="s1"/.test(both));
+
+  test("mini graph uses the sport accent token",
+    /color:var\(--sport-accent/.test(html) && /af-card-profile/.test(html));
+  test("graph container has a visible non-zero height",
+    /\.af-card-profile\{[^}]*height:46px/.test(html.replace(/\s+/g, "")) ||
+    /height:46px/.test(html) && /af-card-profile/.test(html));
+  test("tapping the card still opens detail graphs",
+    /openModal\('2026-08-24','hist-1'\)/.test(lapCard) &&
+    /loadActivityCharts/.test(calendar) && /loadStreams\(act\)/.test(calendar));
+  test("selected-day cards do not prefetch streams",
+    !/activity_streams/.test(extractFunction(calendar, "loadWeek")) &&
+    !/loadStreams/.test(extractFunction(calendar, "activityCardHtml")) &&
+    !/loadStreams/.test(extractFunction(calendar, "cardMiniProfile")));
 }
 
 console.log("\n──── Architecture ────");

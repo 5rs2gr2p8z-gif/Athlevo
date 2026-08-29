@@ -5308,7 +5308,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-card{-webkit-appearance:none;appearance:none;display:flex;align-items:stretch;gap:0;width:100%;text-align:left;font-family:var(--sans);background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:0;cursor:pointer;margin-bottom:8px;min-height:44px;box-shadow:var(--elev-1);transition:background var(--dur-fast),box-shadow var(--dur-fast)}
   .af-card:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
   .af-card-accent{flex:none;width:4px;border-radius:var(--r-md) 0 0 var(--r-md);background:var(--sport-accent,var(--ink3))}
-  .af-card-main{flex:1;min-width:0;padding:10px 12px 11px}
+  .af-card-main{flex:1;min-width:0;display:flex;flex-direction:column;padding:10px 12px 11px}
   .af-card-top{display:flex;align-items:flex-start;gap:8px}
   .af-card-titles{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
   .af-card-sport{font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--sport-accent,var(--ink3))}
@@ -5319,6 +5319,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-card--planned{border-style:dashed;border-color:var(--ink3);background:var(--paper);box-shadow:none}
   .af-card--planned .af-card-main{padding:12px 14px}
   .af-card--activity{overflow:hidden}
+  .af-card--has-profile .af-card-main{padding-bottom:0}
   .af-card--run{--sport-accent:var(--sport-run);background:var(--sport-run-bg);border-color:color-mix(in srgb,var(--sport-run) 22%,var(--line))}
   .af-card--strength{--sport-accent:var(--sport-strength);background:var(--sport-strength-bg);border-color:color-mix(in srgb,var(--sport-strength) 22%,var(--line))}
   .af-card--ride{--sport-accent:var(--sport-ride);background:var(--sport-ride-bg);border-color:color-mix(in srgb,var(--sport-ride) 22%,var(--line))}
@@ -5336,7 +5337,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-card-metric b{font-size:var(--fs-body-sm);font-weight:750;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
   .af-card-metric small{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em}
   .af-card-plan{display:block;margin-top:6px;font-size:var(--fs-caption);color:var(--ink2)}
-  .af-card-spark{display:block;width:100%;height:22px;margin-top:8px;color:var(--sport-accent,var(--ink3))}
+  .af-card-profile{display:block;width:calc(100% + 24px);height:46px;margin:10px -12px 0;color:var(--sport-accent,var(--ink3));overflow:hidden;flex:none}
+  .af-card-profile-svg{display:block;width:100%;height:46px}
+  .af-card-spark{display:block;width:100%;height:46px;margin-top:8px;color:var(--sport-accent,var(--ink3))}
   .af-card-purpose{font-size:var(--fs-caption);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
   .af-card-cta{flex:none;font-size:var(--fs-caption);font-weight:700;color:var(--ink3);padding:4px 0;white-space:nowrap;align-self:center}
   .af-card-status{flex:none;align-self:center}
@@ -10881,7 +10884,7 @@ setTimeout(function () {
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=1"></script>
-<script src="js/trainCalendar.js?v=92"></script>
+<script src="js/trainCalendar.js?v=93"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
 <script src="js/authRouteGuard.js?v=1"></script>
