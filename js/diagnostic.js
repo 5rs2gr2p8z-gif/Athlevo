@@ -35,6 +35,33 @@ var SCHEMA_VERSION = 1;
 var ENGINE_VERSION = "diagnostic-engine-v2";
 var STORAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 var MAX_HISTORY_LENGTH = 20;
+var MODEL_REASONING_LIMITERS = [
+  "consistency", "aerobic_base", "threshold_capacity", "excessive_intensity",
+  "aerobic_durability", "pacing", "timeline_mismatch", "injury_risk", "unclear_baseline"
+];
+var MODEL_REASONING_EXPECTATIONS = [
+  "realistic", "realistic_aggressive", "ambitious",
+  "needs_baseline", "timeline_too_short", "clearance_first"
+];
+var MODEL_REASONING_CONCERNS = [
+  "recent_layoff", "recent_sickness", "sudden_load_increase", "high_intensity_density",
+  "long_run_load_mismatch", "poor_recovery", "recurring_niggle", "aggressive_race_start",
+  "late_race_fade", "low_training_frequency", "goal_timeline_mismatch", "multiple_races",
+  "hidden_cross_training_load", "strength_interference", "excessive_zone2_focus",
+  "low_specificity", "inconsistent_training", "over_specific_too_early", "durability_gap"
+];
+var MODEL_REASONING_FLAGS = [
+  "high_intensity_density", "late_fade", "aggressive_start", "recent_sickness",
+  "recent_return", "only_easy_running", "short_timeline", "low_volume_for_goal",
+  "strong_recent_baseline", "no_recent_baseline", "other_sport_load"
+];
+var MODEL_REASONING_SIGNATURE_KEYS = [
+  "goal_distance", "goal_time", "goal_race", "goal_race_date",
+  "weekly_mileage", "weekly_hours", "recent_longest_run_km",
+  "recent_race_dist", "recent_race_time", "training_structure",
+  "training_status", "recent_consistency", "training_days", "experience",
+  "injury_has", "injury_status", "perceived_limiter", "other_training"
+];
 var MAX_TEXT_LENGTHS = {
   goal_race: 120,
   goal_time: 40,
@@ -967,6 +994,10 @@ function DiagnosticEngine() {
   // Extracted field values that have not yet been recordAnswer()'d.
   // Persisted with the diagnostic so refresh still skips known fields.
   this.pendingFacts = {};
+
+  // Validated model coaching judgment. Deterministic answers still win.
+  // Cleared when the relevant fact signature changes.
+  this.modelReasoning = null;
 }
 
 DiagnosticEngine.prototype._goalDistance = function () {
@@ -1352,6 +1383,117 @@ DiagnosticEngine.prototype.setPendingFacts = function (facts) {
   this._save();
 };
 
+function signatureFactValue(value) {
+  if (value == null || value === "") return "";
+  if (typeof value === "object") {
+    try { return JSON.stringify(value); } catch (e) { return ""; }
+  }
+  return String(value);
+}
+
+function filterStoredKeys(list, allowed) {
+  if (!Array.isArray(list)) return [];
+  var out = [];
+  for (var i = 0; i < list.length && out.length < 8; i++) {
+    var item = list[i];
+    if (typeof item !== "string" || allowed.indexOf(item) < 0) continue;
+    if (out.indexOf(item) >= 0) continue;
+    out.push(item);
+  }
+  return out;
+}
+
+function sanitizeStoredLimiter(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var key = typeof raw.key === "string" ? raw.key : "";
+  if (MODEL_REASONING_LIMITERS.indexOf(key) < 0) return null;
+  var why = typeof raw.why === "string" ? raw.why.trim().slice(0, 400) : "";
+  if (!why) return null;
+  var label = typeof raw.label === "string" ? raw.label.trim().slice(0, 80) : key;
+  return { key: key, label: label, why: why };
+}
+
+function sanitizeStoredExpectation(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var rating = typeof raw.rating === "string" ? raw.rating : "";
+  if (MODEL_REASONING_EXPECTATIONS.indexOf(rating) < 0) return null;
+  var text = typeof raw.text === "string" ? raw.text.trim().slice(0, 300) : "";
+  if (!text) return null;
+  return { rating: rating, text: text };
+}
+
+function sanitizeReasoningPayload(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var primary = sanitizeStoredLimiter(raw.primary_limiter);
+  var secondary = primary ? sanitizeStoredLimiter(raw.secondary_limiter) : null;
+  if (secondary && primary && secondary.key === primary.key) secondary = null;
+  var confidence = raw.diagnostic_confidence;
+  if (typeof confidence !== "number" || !isFinite(confidence) || confidence < 0 || confidence > 1) {
+    confidence = null;
+  }
+  var summary = typeof raw.diagnostic_summary === "string" ? raw.diagnostic_summary.trim().slice(0, 500) : "";
+  var direction = typeof raw.recommended_direction === "string" ? raw.recommended_direction.trim().slice(0, 400) : "";
+  return {
+    primary_limiter: primary,
+    secondary_limiter: secondary,
+    diagnostic_confidence: confidence,
+    diagnostic_summary: summary || null,
+    recommended_direction: direction || null,
+    expectation: sanitizeStoredExpectation(raw.expectation),
+    coach_concerns: filterStoredKeys(raw.coach_concerns, MODEL_REASONING_CONCERNS),
+    context_flags: filterStoredKeys(raw.context_flags, MODEL_REASONING_FLAGS)
+  };
+}
+
+function sanitizeStoredModelReasoning(raw) {
+  if (!isPlainObject(raw)) return null;
+  if (typeof raw.signature !== "string" || !raw.signature || raw.signature.length > 800) return null;
+  return {
+    signature: raw.signature.slice(0, 800),
+    generatedAt: typeof raw.generatedAt === "string" ? raw.generatedAt.slice(0, 40) : null,
+    reasoning: sanitizeReasoningPayload(raw.reasoning)
+  };
+}
+
+DiagnosticEngine.prototype.reasoningSignature = function () {
+  var parts = [];
+  for (var i = 0; i < MODEL_REASONING_SIGNATURE_KEYS.length; i++) {
+    var key = MODEL_REASONING_SIGNATURE_KEYS[i];
+    parts.push(key + "=" + signatureFactValue(this.answers[key]));
+  }
+  return parts.join("|");
+};
+
+DiagnosticEngine.prototype._pruneStaleModelReasoning = function () {
+  if (!this.modelReasoning) return;
+  if (this.modelReasoning.signature !== this.reasoningSignature()) {
+    this.modelReasoning = null;
+  }
+};
+
+DiagnosticEngine.prototype.getModelReasoning = function () {
+  this._pruneStaleModelReasoning();
+  return this.modelReasoning && this.modelReasoning.reasoning
+    ? this.modelReasoning.reasoning
+    : null;
+};
+
+DiagnosticEngine.prototype.setModelReasoning = function (reasoning) {
+  var sanitized = sanitizeReasoningPayload(reasoning);
+  this.modelReasoning = {
+    signature: this.reasoningSignature(),
+    generatedAt: new Date().toISOString(),
+    reasoning: sanitized
+  };
+  this._save();
+  return sanitized;
+};
+
+DiagnosticEngine.prototype.clearModelReasoning = function () {
+  this.modelReasoning = null;
+  this._save();
+};
+
 DiagnosticEngine.prototype._applyPendingFactsToDerivedState = function () {
   var pending = sanitizePendingFacts(this.pendingFacts);
   for (var key in pending) {
@@ -1404,6 +1546,7 @@ DiagnosticEngine.prototype._rebuildDerivedState = function () {
   this._applyPendingFactsToDerivedState();
   this._updateSafetyFlags();
   this._updateHypotheses();
+  this._pruneStaleModelReasoning();
 };
 
 /* ─── Safety flag management ─── */
@@ -1495,7 +1638,11 @@ DiagnosticEngine.prototype._generateResult = function () {
     },
 
     // ── Raw data for profile attachment ──
-    rawAnswers: JSON.parse(JSON.stringify(a))
+    rawAnswers: JSON.parse(JSON.stringify(a)),
+
+    // Validated model coaching judgment for later slices. Does not replace
+    // the deterministic limiter/result card in this slice.
+    modelReasoning: this.getModelReasoning()
   };
 };
 
@@ -1872,7 +2019,8 @@ DiagnosticEngine.prototype._save = function () {
       currentIndex: this.currentIndex,
       completed: this.completed,
       result: this.result,
-      pendingFacts: sanitizePendingFacts(this.pendingFacts)
+      pendingFacts: sanitizePendingFacts(this.pendingFacts),
+      modelReasoning: sanitizeStoredModelReasoning(this.modelReasoning)
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (e) {
@@ -1901,6 +2049,7 @@ DiagnosticEngine.load = function () {
     engine.completedAt = payload.completedAt || null;
     engine.result = payload.result || null;
     engine.pendingFacts = sanitizePendingFacts(payload.pendingFacts);
+    engine.modelReasoning = sanitizeStoredModelReasoning(payload.modelReasoning);
     engine._rebuildDerivedState();
 
     return engine;

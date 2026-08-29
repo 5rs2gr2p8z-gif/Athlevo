@@ -197,7 +197,136 @@ assert.doesNotMatch(source, /if \(!reply\) return null/);
   assert.equal(res.body.answer.reply, "");
   assert.equal(res.body.answer.extracted_facts.weekly_mileage, 35);
   assert.equal(res.body.answer.show_checkout, true, "API may still return the field; the client must ignore it");
+  assert.equal(res.body.answer.primary_limiter, null);
+  assert.equal(res.body.answer.diagnostic_summary, null);
 }
+
+{
+  openAiCalls = 0;
+  openAiImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      output_text: JSON.stringify({
+        intent: "diagnostic_answer",
+        next_action: "complete_diagnostic",
+        reply: "With a 25:00 5K, ~25 km/week, and two interval sessions, more intensity is not the first move.",
+        reply_2: null,
+        extracted_facts: {
+          goal_distance: "5K", goal_race: null, goal_race_date: null, goal_time: "sub-20",
+          experience: null, training_status: null, weekly_mileage: 25, weekly_hours: null,
+          recent_consistency: null, recent_longest_run_km: null, recent_race_dist: "5K",
+          recent_race_time: "25:00", training_days: null, training_structure: "balanced_quality",
+          training_structure_other: null, perceived_limiter: null, injury_has: null,
+          injury_area: null, train_time: null, schedule_constraints: null, other_training: null
+        },
+        suggested_question_key: "injury_status",
+        show_checkout: true,
+        confidence: 0.8,
+        pain_points: ["plateau"],
+        buyer_intent: "curious",
+        primary_limiter: {
+          key: "excessive_intensity",
+          label: "ignored",
+          why: "With a 25:00 5K, ~25 km/week, and two interval sessions already in the week, the bigger issue is not lack of hard running."
+        },
+        secondary_limiter: {
+          key: "aerobic_base",
+          label: "Aerobic base",
+          why: "Weekly volume is modest for a sub-20 jump."
+        },
+        diagnostic_confidence: 0.74,
+        diagnostic_summary: "Intensity density is ahead of aerobic and threshold support.",
+        recommended_direction: "Strengthen aerobic and threshold support before adding more 5K-specific intensity.",
+        expectation: {
+          rating: "realistic_aggressive",
+          text: "The goal is realistic but aggressive relative to the current baseline."
+        },
+        coach_concerns: ["high_intensity_density", "low_specificity"],
+        context_flags: ["high_intensity_density"]
+      })
+    })
+  });
+  const res = recorder();
+  await handler({
+    method: "POST",
+    headers: { origin: "https://athlevo.org", "content-type": "application/json" },
+    body: { message: "I want sub-20 for 5K. I recently ran 25:00, I run around 25km a week, and I usually do two interval sessions." }
+  }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.answer.primary_limiter.key, "excessive_intensity");
+  assert.equal(res.body.answer.primary_limiter.label, "Intensity density");
+  assert.equal(res.body.answer.show_checkout, true, "server still does not force show_checkout false");
+  assert.equal(res.body.answer.next_action, "complete_diagnostic", "server may echo next_action; the client must ignore it");
+  assert.equal(res.body.answer.suggested_question_key, "injury_status");
+  assert.equal(res.body.answer.buyer_intent, "curious");
+  assert.equal(res.body.answer.extracted_facts.weekly_mileage, 25);
+}
+
+{
+  openAiImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      output_text: JSON.stringify({
+        intent: "diagnostic_answer",
+        next_action: "continue_diagnostic",
+        reply: "Got it.",
+        reply_2: null,
+        extracted_facts: {
+          goal_distance: null, goal_race: null, goal_race_date: null, goal_time: null,
+          experience: null, training_status: null, weekly_mileage: null, weekly_hours: null,
+          recent_consistency: null, recent_longest_run_km: null, recent_race_dist: null,
+          recent_race_time: null, training_days: null, training_structure: null,
+          training_structure_other: null, perceived_limiter: null, injury_has: null,
+          injury_area: null, train_time: null, schedule_constraints: null, other_training: null
+        },
+        suggested_question_key: null,
+        show_checkout: false,
+        confidence: 0.4,
+        pain_points: [],
+        buyer_intent: "none",
+        primary_limiter: { key: "speed", label: "Speed", why: "Need more speed." },
+        secondary_limiter: { key: "endurance", label: "Endurance", why: "Need more endurance." },
+        diagnostic_confidence: 9,
+        diagnostic_summary: "n/a",
+        recommended_direction: "unknown",
+        expectation: { rating: "you_will_pr", text: "You will PR." },
+        coach_concerns: ["recent_sickness", "not_real"],
+        context_flags: ["late_fade", "invented"]
+      })
+    })
+  });
+  const res = recorder();
+  await handler({
+    method: "POST",
+    headers: { origin: "https://athlevo.org", "content-type": "application/json" },
+    body: { message: "I fade late." }
+  }, res);
+  assert.equal(res.body.answer.primary_limiter, null);
+  assert.equal(res.body.answer.secondary_limiter, null);
+  assert.equal(res.body.answer.diagnostic_confidence, null);
+  assert.equal(res.body.answer.diagnostic_summary, null);
+  assert.equal(res.body.answer.recommended_direction, null);
+  assert.equal(res.body.answer.expectation, null);
+  assert.deepEqual(res.body.answer.coach_concerns, ["recent_sickness"]);
+  assert.deepEqual(res.body.answer.context_flags, ["late_fade"]);
+}
+
+assert.match(source, /primary limiting factor/i);
+assert.match(source, /one primary limiter/i);
+assert.match(source, /athlete-specific evidence/i);
+assert.match(source, /generic laundry list/i);
+assert.match(source, /does not diagnose injuries/i);
+assert.match(source, /does not guarantee race results/i);
+assert.match(source, /DIRECTION, NOT A FULL PLAN/);
+assert.match(source, /Do not ask the next diagnostic question/);
+assert.match(source, /You do NOT control checkout, signup, or payment/);
+assert.match(source, /perceived limiter as supporting evidence only/i);
+assert.match(source, /show_checkout must be false/);
+assert.match(source, /primary_limiter: LIMITER_SCHEMA/);
+assert.match(source, /diagnostic_confidence/);
+assert.match(source, /coach_concerns/);
+assert.match(source, /context_flags/);
+assert.match(source, /ALLOWED_LIMITERS/);
 
 {
   const { default: providersHandler } = await import("../api/providers/index.js?diagnostic-chat-providers");

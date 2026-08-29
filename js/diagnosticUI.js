@@ -1331,6 +1331,22 @@ function stripModelRouting(result) {
   return result;
 }
 
+function storeModelReasoningFromResult(result) {
+  if (!engine || typeof engine.setModelReasoning !== "function") return;
+  if (!result || result.usedFallback) return;
+  var Sales = getSales();
+  var reasoning = Sales && typeof Sales.validateDiagnosticReasoning === "function"
+    ? Sales.validateDiagnosticReasoning(result)
+    : null;
+  if (!reasoning) return;
+  var hasJudgment = !!(reasoning.primary_limiter || reasoning.diagnostic_summary ||
+    reasoning.recommended_direction || reasoning.expectation);
+  if (!hasJudgment && typeof engine.getModelReasoning === "function" && engine.getModelReasoning()) {
+    return;
+  }
+  engine.setModelReasoning(reasoning);
+}
+
 function isUsableAcknowledgement(result) {
   if (!result || result.usedFallback) return false;
   var reply = String(result.reply || "").trim();
@@ -1413,6 +1429,7 @@ function routeViaAiAcknowledgement(message, field, q, fieldGroup, onContinue) {
 function applyAcknowledgementResult(result, message, field, fieldGroup) {
   result = stripModelRouting(result || {});
   mergeAiExtractedFacts(result.extracted_facts, message, field ? field.id : null);
+  storeModelReasoningFromResult(result);
   var ack = acknowledgementText(result);
   if (ack) {
     skipCannedInterpretations = true;
@@ -1543,6 +1560,7 @@ function applyConversationalResult(result, message, field, fieldGroup) {
 
   result = stripModelRouting(result);
   mergeAiExtractedFacts(result.extracted_facts, message, field ? field.id : null);
+  storeModelReasoningFromResult(result);
   if (Sales) {
     var classish = { intent: result.intent, next_action: result.next_action, confidence: result.confidence };
     salesState = Sales.applySalesSignals(
@@ -3304,6 +3322,7 @@ var DiagnosticUI = {
     applyExtractedFacts: applyExtractedFacts,
     mergeAiExtractedFacts: mergeAiExtractedFacts,
     stripModelRouting: stripModelRouting,
+    storeModelReasoningFromResult: storeModelReasoningFromResult,
     hasAckWorthyContext: hasAckWorthyContext,
     isUsableAcknowledgement: isUsableAcknowledgement,
     acknowledgementText: acknowledgementText,

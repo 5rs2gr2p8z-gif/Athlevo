@@ -188,6 +188,8 @@ function hydrate(msg, field, q) {
   assert.doesNotMatch(ackSrc, /offerPaymentBridge/);
   assert.match(applySrc, /stripModelRouting/);
   assert.match(ackSrc, /stripModelRouting/);
+  assert.match(applySrc, /storeModelReasoningFromResult/);
+  assert.match(ackSrc, /storeModelReasoningFromResult/);
   assert.equal(helpers.shouldCallAiAcknowledgement("I run 35km a week.", mileageField, { key: "weekly_volume" }), true);
 }
 
@@ -280,18 +282,18 @@ function hydrate(msg, field, q) {
 }
 
 {
-  const complete = helpers.stripModelRouting({
+  const hijack = helpers.stripModelRouting({
     next_action: "complete_diagnostic",
-    show_checkout: false,
-    reply: "You're done."
+    show_checkout: true,
+    suggested_question_key: "injury_status",
+    reply: "You're done.",
+    primary_limiter: { key: "aerobic_base", label: "Aerobic base", why: "Volume is low." },
+    diagnostic_summary: "Aerobic support is the limiter."
   });
-  assert.equal(complete.next_action, "continue_diagnostic");
-  const handoff = helpers.stripModelRouting({
-    next_action: "handoff_to_existing_flow",
-    show_checkout: true
-  });
-  assert.equal(handoff.next_action, "continue_diagnostic");
-  assert.equal(handoff.show_checkout, false);
+  assert.equal(hijack.next_action, "continue_diagnostic");
+  assert.equal(hijack.show_checkout, false);
+  assert.equal(hijack.suggested_question_key, null);
+  assert.equal(hijack.primary_limiter.key, "aerobic_base", "reasoning fields survive routing strip");
 }
 
 /* skipCannedInterpretations applies only to the acknowledged turn */

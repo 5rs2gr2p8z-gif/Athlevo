@@ -122,4 +122,29 @@ for (const mutate of [
   assert.equal(Object.keys(stillValid.getPendingFacts()).length, 0);
 }
 
+{
+  const { Engine, values } = world();
+  const engine = Engine.create();
+  engine.begin();
+  engine.recordAnswer("goal", { goal_distance: "5K" });
+  engine.setPendingFacts({ weekly_mileage: 25, recent_race_time: "25:00" });
+  engine.setModelReasoning({
+    primary_limiter: { key: "excessive_intensity", label: "Intensity density", why: "Two interval sessions at 25 km/week." },
+    diagnostic_summary: "Intensity density is ahead of aerobic support.",
+    recommended_direction: "Strengthen aerobic support first.",
+    expectation: { rating: "realistic_aggressive", text: "Aggressive relative to current volume." },
+    diagnostic_confidence: 0.7,
+    coach_concerns: ["high_intensity_density"],
+    context_flags: ["high_intensity_density"]
+  });
+  const restored = Engine.load();
+  assert.equal(restored.getModelReasoning().primary_limiter.key, "excessive_intensity");
+  const payload = JSON.parse(values.get(STORAGE_KEY));
+  payload.modelReasoning = "not-an-object";
+  values.set(STORAGE_KEY, JSON.stringify(payload));
+  const stillValid = Engine.load();
+  assert.ok(stillValid, "malformed modelReasoning must not invalidate the diagnostic");
+  assert.equal(stillValid.getModelReasoning(), null);
+}
+
 console.log("PASS — diagnostic persistence validation, TTL, corruption handling, completion, and OAuth restore");

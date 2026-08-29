@@ -687,6 +687,113 @@ var ALLOWED_NEXT_ACTIONS = [
 var ALLOWED_PAINS = ["guessing", "uncertainty", "unstructured", "injury_concern", "schedule", "plateau"];
 var ALLOWED_BUYER_INTENT = ["none", "curious", "considering", "ready"];
 
+var ALLOWED_LIMITERS = [
+  "consistency", "aerobic_base", "threshold_capacity", "excessive_intensity",
+  "aerobic_durability", "pacing", "timeline_mismatch", "injury_risk", "unclear_baseline"
+];
+var LIMITER_LABELS = {
+  consistency: "Consistency",
+  aerobic_base: "Aerobic base",
+  threshold_capacity: "Threshold capacity",
+  excessive_intensity: "Intensity density",
+  aerobic_durability: "Aerobic durability",
+  pacing: "Pacing",
+  timeline_mismatch: "Timeline",
+  injury_risk: "Injury risk",
+  unclear_baseline: "Unclear baseline"
+};
+var ALLOWED_EXPECTATIONS = [
+  "realistic", "realistic_aggressive", "ambitious",
+  "needs_baseline", "timeline_too_short", "clearance_first"
+];
+var ALLOWED_CONCERNS = [
+  "recent_layoff", "recent_sickness", "sudden_load_increase", "high_intensity_density",
+  "long_run_load_mismatch", "poor_recovery", "recurring_niggle", "aggressive_race_start",
+  "late_race_fade", "low_training_frequency", "goal_timeline_mismatch", "multiple_races",
+  "hidden_cross_training_load", "strength_interference", "excessive_zone2_focus",
+  "low_specificity", "inconsistent_training", "over_specific_too_early", "durability_gap"
+];
+var ALLOWED_CONTEXT_FLAGS = [
+  "high_intensity_density", "late_fade", "aggressive_start", "recent_sickness",
+  "recent_return", "only_easy_running", "short_timeline", "low_volume_for_goal",
+  "strong_recent_baseline", "no_recent_baseline", "other_sport_load"
+];
+
+function sanitizeCoachText(raw, max) {
+  if (typeof raw !== "string") return null;
+  var text = raw.trim().replace(/\s+/g, " ");
+  if (!text) return null;
+  if (/^(n\/a|na|none|null|undefined|unknown|-|—|\.|…)$/i.test(text)) return null;
+  return text.slice(0, max);
+}
+
+function sanitizeLimiter(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var key = typeof raw.key === "string" ? raw.key : "";
+  if (ALLOWED_LIMITERS.indexOf(key) < 0) return null;
+  var why = sanitizeCoachText(raw.why, 400);
+  if (!why) return null;
+  return { key: key, label: LIMITER_LABELS[key], why: why };
+}
+
+function sanitizeExpectation(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var rating = typeof raw.rating === "string" ? raw.rating : "";
+  if (ALLOWED_EXPECTATIONS.indexOf(rating) < 0) return null;
+  var text = sanitizeCoachText(raw.text, 300);
+  if (!text) return null;
+  return { rating: rating, text: text };
+}
+
+function sanitizeKeyedList(raw, allowed, max) {
+  if (!Array.isArray(raw)) return [];
+  var out = [];
+  for (var i = 0; i < raw.length && out.length < max; i++) {
+    var item = raw[i];
+    if (typeof item !== "string" || allowed.indexOf(item) < 0) continue;
+    if (out.indexOf(item) >= 0) continue;
+    out.push(item);
+  }
+  return out;
+}
+
+function sanitizeDiagnosticConfidence(raw) {
+  if (typeof raw !== "number" || !isFinite(raw)) return null;
+  if (raw < 0 || raw > 1) return null;
+  return Math.round(raw * 1000) / 1000;
+}
+
+function validateDiagnosticReasoning(raw) {
+  raw = raw || {};
+  var primary = sanitizeLimiter(raw.primary_limiter);
+  var secondary = primary ? sanitizeLimiter(raw.secondary_limiter) : null;
+  if (secondary && primary && secondary.key === primary.key) secondary = null;
+  return {
+    primary_limiter: primary,
+    secondary_limiter: secondary,
+    diagnostic_confidence: sanitizeDiagnosticConfidence(raw.diagnostic_confidence),
+    diagnostic_summary: sanitizeCoachText(raw.diagnostic_summary, 500),
+    recommended_direction: sanitizeCoachText(raw.recommended_direction, 400),
+    expectation: sanitizeExpectation(raw.expectation),
+    coach_concerns: sanitizeKeyedList(raw.coach_concerns, ALLOWED_CONCERNS, 8),
+    context_flags: sanitizeKeyedList(raw.context_flags, ALLOWED_CONTEXT_FLAGS, 8)
+  };
+}
+
+function pickDiagnosticReasoning(validated) {
+  if (!validated || typeof validated !== "object") return null;
+  return {
+    primary_limiter: validated.primary_limiter || null,
+    secondary_limiter: validated.secondary_limiter || null,
+    diagnostic_confidence: validated.diagnostic_confidence == null ? null : validated.diagnostic_confidence,
+    diagnostic_summary: validated.diagnostic_summary || null,
+    recommended_direction: validated.recommended_direction || null,
+    expectation: validated.expectation || null,
+    coach_concerns: Array.isArray(validated.coach_concerns) ? validated.coach_concerns.slice() : [],
+    context_flags: Array.isArray(validated.context_flags) ? validated.context_flags.slice() : []
+  };
+}
+
 function sanitizedAnswers(answers) {
   var out = {};
   answers = answers || {};
@@ -726,6 +833,9 @@ function buildRouterPayload(engine, currentQuestionKey, message, salesState, rec
     missing_question_keys: engine && typeof engine.missingRequiredKeys === "function"
       ? engine.missingRequiredKeys().slice(0, 12)
       : [],
+    diagnostic_sufficiency: engine && typeof engine.hasDiagnosticSufficiency === "function"
+      ? !!engine.hasDiagnosticSufficiency()
+      : false,
     primary_limiter: limiter ? limiter.limiter : null,
     grounded_recommendation: (rec && !rec.safetyOverride) ? {
       strategy: rec.strategy,
@@ -780,6 +890,7 @@ function validateRouterResponse(raw) {
     }
   }
   var buyerIntent = ALLOWED_BUYER_INTENT.indexOf(raw.buyer_intent) >= 0 ? raw.buyer_intent : "none";
+  var reasoning = validateDiagnosticReasoning(raw);
 
   return {
     intent: intent,
@@ -791,7 +902,15 @@ function validateRouterResponse(raw) {
     show_checkout: showCheckout,
     confidence: confidence,
     pain_points: pains,
-    buyer_intent: buyerIntent
+    buyer_intent: buyerIntent,
+    primary_limiter: reasoning.primary_limiter,
+    secondary_limiter: reasoning.secondary_limiter,
+    diagnostic_confidence: reasoning.diagnostic_confidence,
+    diagnostic_summary: reasoning.diagnostic_summary,
+    recommended_direction: reasoning.recommended_direction,
+    expectation: reasoning.expectation,
+    coach_concerns: reasoning.coach_concerns,
+    context_flags: reasoning.context_flags
   };
 }
 
@@ -808,6 +927,14 @@ var FALLBACK_RESPONSE = Object.freeze({
   confidence: 0,
   pain_points: [],
   buyer_intent: "none",
+  primary_limiter: null,
+  secondary_limiter: null,
+  diagnostic_confidence: null,
+  diagnostic_summary: null,
+  recommended_direction: null,
+  expectation: null,
+  coach_concerns: Object.freeze([]),
+  context_flags: Object.freeze([]),
   usedFallback: true
 });
 
@@ -865,11 +992,18 @@ var AthlevoDiagnosticSales = {
   shouldUseAiFallback: shouldUseAiFallback,
   buildRouterPayload: buildRouterPayload,
   validateRouterResponse: validateRouterResponse,
+  validateDiagnosticReasoning: validateDiagnosticReasoning,
+  pickDiagnosticReasoning: pickDiagnosticReasoning,
   callRouter: callRouter,
   FALLBACK_RESPONSE: FALLBACK_RESPONSE,
   KNOWN_ANSWER_KEYS: KNOWN_ANSWER_KEYS,
   ALLOWED_INTENTS: ALLOWED_INTENTS,
-  ALLOWED_NEXT_ACTIONS: ALLOWED_NEXT_ACTIONS
+  ALLOWED_NEXT_ACTIONS: ALLOWED_NEXT_ACTIONS,
+  ALLOWED_LIMITERS: ALLOWED_LIMITERS,
+  ALLOWED_EXPECTATIONS: ALLOWED_EXPECTATIONS,
+  ALLOWED_CONCERNS: ALLOWED_CONCERNS,
+  ALLOWED_CONTEXT_FLAGS: ALLOWED_CONTEXT_FLAGS,
+  LIMITER_LABELS: LIMITER_LABELS
 };
 
 root.AthlevoDiagnosticSales = AthlevoDiagnosticSales;

@@ -88,14 +88,15 @@ function assertNotReasked(engine, keys) {
   }
 }
 
-/* ── Source invariants: this slice does not add model diagnosis ── */
+/* ── Source invariants: deterministic code still owns the funnel ── */
 {
   assert.match(engineSrc, /hasDiagnosticSufficiency/);
   assert.doesNotMatch(engineSrc, /callRouter|diagnostic-chat|OPENAI/);
   assert.match(uiSrc, /silent skip/);
-  assert.match(chatSrc, /You extract facts and write a short acknowledgement/);
-  assert.doesNotMatch(chatSrc, /primary_limiter[\s\S]{0,40}enum/);
+  assert.match(chatSrc, /You are the diagnostic reasoning layer inside Athlevo/);
+  assert.match(chatSrc, /You do NOT run the funnel/);
   assert.equal(typeof Engine.create().hasDiagnosticSufficiency, "function");
+  assert.equal(typeof Engine.create().getModelReasoning, "function");
 }
 
 /* CASE A — too much intensity for current base */

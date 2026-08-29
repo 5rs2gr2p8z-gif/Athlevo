@@ -234,11 +234,70 @@ function engine(answers) {
   assert.ok(empty);
   assert.equal(empty.reply, "");
   assert.equal(empty.show_checkout, false);
+  assert.equal(empty.primary_limiter, null);
+  assert.equal(empty.secondary_limiter, null);
+  assert.equal(empty.diagnostic_summary, null);
+  assert.equal(empty.recommended_direction, null);
+  assert.equal(empty.expectation, null);
+  assert.ok(Array.isArray(empty.coach_concerns) && empty.coach_concerns.length === 0);
+  assert.ok(Array.isArray(empty.context_flags) && empty.context_flags.length === 0);
 }
 
 {
   assert.equal(Sales.validateRouterResponse(null), null);
   assert.equal(Sales.validateRouterResponse("nope"), null);
+}
+
+{
+  const reasoning = Sales.validateRouterResponse({
+    intent: "diagnostic_answer",
+    next_action: "continue_diagnostic",
+    reply: "With 25 km weeks and two interval sessions, more hard running is not the first move.",
+    extracted_facts: { weekly_mileage: 25 },
+    pain_points: ["plateau"],
+    buyer_intent: "curious",
+    primary_limiter: { key: "excessive_intensity", label: "ignored", why: "25:00 5K at ~25 km/week with two interval sessions." },
+    secondary_limiter: { key: "aerobic_base", label: "Aerobic base", why: "Weekly volume is modest for a sub-20 jump." },
+    diagnostic_confidence: 0.72,
+    diagnostic_summary: "Intensity density is ahead of aerobic support.",
+    recommended_direction: "Strengthen aerobic and threshold support before adding more 5K-specific intensity.",
+    expectation: { rating: "realistic_aggressive", text: "The goal is realistic but aggressive relative to the current baseline." },
+    coach_concerns: ["high_intensity_density", "high_intensity_density", "not_a_real_concern"],
+    context_flags: ["high_intensity_density", "invented_flag"]
+  });
+  assert.equal(reasoning.extracted_facts.weekly_mileage, 25);
+  assert.equal(reasoning.buyer_intent, "curious");
+  assert.equal(reasoning.pain_points[0], "plateau");
+  assert.equal(reasoning.primary_limiter.key, "excessive_intensity");
+  assert.equal(reasoning.primary_limiter.label, "Intensity density");
+  assert.equal(reasoning.secondary_limiter.key, "aerobic_base");
+  assert.equal(reasoning.diagnostic_confidence, 0.72);
+  assert.equal(reasoning.coach_concerns.join(","), "high_intensity_density");
+  assert.equal(reasoning.context_flags.join(","), "high_intensity_density");
+}
+
+{
+  const filtered = Sales.validateRouterResponse({
+    intent: "diagnostic_answer",
+    next_action: "continue_diagnostic",
+    reply: "Got it.",
+    primary_limiter: { key: "speed", label: "Speed", why: "Need more speedwork." },
+    secondary_limiter: { key: "endurance", why: "Need more endurance." },
+    diagnostic_confidence: 1.8,
+    diagnostic_summary: "   ",
+    recommended_direction: "n/a",
+    expectation: { rating: "guaranteed", text: "You will hit sub-20." },
+    coach_concerns: ["speed", "recent_sickness"],
+    context_flags: ["late_fade", "magic"]
+  });
+  assert.equal(filtered.primary_limiter, null);
+  assert.equal(filtered.secondary_limiter, null);
+  assert.equal(filtered.diagnostic_confidence, null);
+  assert.equal(filtered.diagnostic_summary, null);
+  assert.equal(filtered.recommended_direction, null);
+  assert.equal(filtered.expectation, null);
+  assert.equal(filtered.coach_concerns.join(","), "recent_sickness");
+  assert.equal(filtered.context_flags.join(","), "late_fade");
 }
 
 {
