@@ -485,6 +485,126 @@
     return `<div class="af-card-profile" aria-hidden="true">${svg}</div>`;
   }
 
+  /* ── Segmented workout strip for completed activity cards ────────── */
+  /*
+   * Builds a horizontal segmented strip: red = work, gray = easy/recovery.
+   * Segment widths are proportional to duration. Heights vary slightly by
+   * relative intensity. Uses real data in priority order:
+   *   1. Recognition segments (kind: warmup/work/recovery/cooldown/steady)
+   *   2. Lap data with pace-based classification
+   *   3. Single block fallback from activity summary
+   */
+  function classifyLapIntensity(lap, medianPace) {
+    const dist = lapDistanceM(lap), time = lapTimeSec(lap);
+    if (!dist || !time || dist < 20) return "easy";
+    const pace = time / (dist / 1000);
+    // If pace is > 8% faster than median, it's work
+    if (medianPace && pace < medianPace * 0.92) return "work";
+    return "easy";
+  }
+
+  function stripSegmentsFromRecognition(a) {
+    const rec = storedRecognition(a);
+    if (!rec || !Array.isArray(rec.segments)) return null;
+    const segs = rec.segments.filter(s => s && Number(s.duration) > 0);
+    const structured = segs.filter(s => s.kind && s.kind !== "steady");
+    if (structured.length < 1) {
+      // Single steady segment — use it but don't fabricate structure
+      if (segs.length === 1) return [{
+        duration: Number(segs[0].duration),
+        intensity: "easy",
+        relativeEffort: 0.4
+      }];
+      return null;
+    }
+    return structured.map(s => {
+      const isWork = s.kind === "work";
+      const isRecovery = s.kind === "recovery" || s.kind === "cooldown" || s.kind === "warmup";
+      return {
+        duration: Number(s.duration),
+        intensity: isWork ? "work" : "easy",
+        relativeEffort: isWork ? 0.85 : (s.kind === "warmup" || s.kind === "cooldown" ? 0.4 : 0.3)
+      };
+    });
+  }
+
+  function stripSegmentsFromLaps(a) {
+    const sport = canonSport(a);
+    if (sport === "strength" || sport === "mobility") return null;
+    const laps = lapList(a);
+    if (laps.length < 2) return null;
+    // Compute median pace for classification
+    const paces = laps.map(lap => {
+      const dist = lapDistanceM(lap), time = lapTimeSec(lap);
+      return (dist && dist > 20 && time) ? time / (dist / 1000) : null;
+    }).filter(p => p != null).sort((a, b) => a - b);
+    const medianPace = paces.length ? paces[Math.floor(paces.length / 2)] : null;
+    // Check if there's meaningful variation (>8% spread between fast and slow quartile)
+    const hasMeaningfulVariation = paces.length >= 3 &&
+      (paces[Math.floor(paces.length * 0.75)] - paces[Math.floor(paces.length * 0.25)]) >
+      paces[Math.floor(paces.length * 0.25)] * 0.08;
+
+    return laps.map(lap => {
+      const time = lapTimeSec(lap) || 60;
+      let intensity = "easy";
+      let effort = 0.4;
+      if (hasMeaningfulVariation) {
+        intensity = classifyLapIntensity(lap, medianPace);
+        if (intensity === "work") effort = 0.85;
+      }
+      return { duration: time, intensity, relativeEffort: effort };
+    }).filter(s => s.duration > 0);
+  }
+
+  function stripSegmentsFromSummary(a) {
+    const sport = canonSport(a);
+    const dur = num(a.moving_time_seconds) || num(a.elapsed_time_seconds);
+    if (!dur || dur <= 0) return null;
+    // For strength / mobility, return a neutral single block
+    if (sport === "strength" || sport === "mobility") {
+      return [{ duration: dur, intensity: "neutral", relativeEffort: 0.5 }];
+    }
+    // Check recognition for workout type to determine if this was quality
+    const rec = storedRecognition(a);
+    const type = rec && rec.workoutType ? rec.workoutType : "";
+    const isQuality = /Threshold|VO2|Interval|Tempo|Repetition|Hill|Speed|Race|Time Trial/i.test(type);
+    return [{
+      duration: dur,
+      intensity: isQuality ? "work" : "easy",
+      relativeEffort: isQuality ? 0.7 : 0.4
+    }];
+  }
+
+  function buildStripSegments(a) {
+    return stripSegmentsFromRecognition(a)
+      || stripSegmentsFromLaps(a)
+      || stripSegmentsFromSummary(a)
+      || [];
+  }
+
+  function cardWorkoutStrip(a) {
+    if (!a) return "";
+    const sport = canonSport(a);
+    const segments = buildStripSegments(a);
+    if (!segments.length) return "";
+    const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
+    if (totalDur <= 0) return "";
+
+    const blocks = segments.map(seg => {
+      const widthPct = (seg.duration / totalDur) * 100;
+      // Height: 24px base, up to 38px for max effort
+      const minH = 20, maxH = 36;
+      const h = Math.round(minH + (seg.relativeEffort || 0.4) * (maxH - minH));
+      let cls = "af-strip-seg";
+      if (seg.intensity === "work") cls += " af-strip-seg--work";
+      else if (seg.intensity === "neutral") cls += " af-strip-seg--neutral";
+      else cls += " af-strip-seg--easy";
+      return `<div class="${cls}" style="flex-basis:${widthPct.toFixed(2)}%;height:${h}px" aria-hidden="true"></div>`;
+    }).join("");
+
+    return `<div class="af-card-strip" aria-label="Workout structure" aria-hidden="true">${blocks}</div>`;
+  }
+
   /* ── selected-day model (planned + imported for ONE date) ───────── */
   function buildSelectedDayModel(dISO, entry, todayKey) {
     const REST = new Set(["rest", "rest_day", "restday", "off", "day_off"]);
@@ -584,24 +704,31 @@
     const name = sportLabel(a);
     const source = a.name && a.name !== name ? a.name : null;
     const packed = cardMetricItems(a, ex);
-    const profile = cardMiniProfile(a);
+    const strip = cardWorkoutStrip(a);
     const id = a && a.id != null ? String(a.id) : "";
-    const lines = (packed.lines || []).map(line => `<div class="af-card-line">${esc(line)}</div>`).join("");
     const planNote = done ? matchedPlanNote(session) : "";
-    return `<button type="button" class="af-card af-card--activity af-card--${theme}${done ? " af-card--done" : ""}${profile ? " af-card--has-profile" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
-      <span class="af-card-accent" aria-hidden="true"></span>
+    // Device / source line
+    const deviceName = a.device_name || (a.raw_data && a.raw_data.device_name) || null;
+    const sourceApp = a.source || (a.raw_data && a.raw_data.source) || null;
+    const deviceLine = [deviceName, sourceApp].filter(Boolean).join(" · ");
+    // Metric values inline — no big labels
+    const metricValues = (packed.items || []).slice(0, 5).map(
+      item => `<span class="af-card-metric-val">${esc(item.value)}</span>`
+    ).join("");
+    return `<button type="button" class="af-card af-card--activity af-card--premium af-card--${theme}${done ? " af-card--done" : ""}${strip ? " af-card--has-strip" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
       <div class="af-card-main">
         <div class="af-card-top">
           ${sportIcon(a)}
           <div class="af-card-titles">
             <span class="af-card-sport">${esc(name)}</span>
             ${source ? `<span class="af-card-name">${esc(source)}</span>` : ""}
+            ${deviceLine ? `<span class="af-card-device">${esc(deviceLine)}</span>` : ""}
           </div>
           <span class="af-card-chevron" aria-hidden="true">›</span>
         </div>
-        ${lines ? `<div class="af-card-lines">${lines}</div>` : ""}
+        ${strip}
+        ${metricValues ? `<div class="af-card-metrics-row">${metricValues}</div>` : ""}
         ${planNote}
-        ${profile}
       </div>
     </button>`;
   }

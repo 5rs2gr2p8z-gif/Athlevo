@@ -5348,6 +5348,36 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   /* ── sport icon ──────────────────────────────────────────────── */
   .af-sport-icon{flex:none;width:20px;height:20px;color:var(--sport-accent,var(--ink3));margin-top:1px}
 
+  /* ── premium activity card overrides ─────────────────────────── */
+  .af-card--premium{border-radius:16px;border:1px solid color-mix(in srgb,var(--line) 70%,transparent);box-shadow:0 1px 3px rgba(20,20,22,.06),0 4px 14px -4px rgba(20,20,22,.09);overflow:hidden;background:var(--paper)}
+  .af-card--premium .af-card-accent{display:none}
+  .af-card--premium .af-card-main{padding:14px 16px 14px}
+  .af-card--premium .af-card-top{gap:10px;align-items:flex-start}
+  .af-card--premium .af-sport-icon{width:24px;height:24px;margin-top:0;color:var(--sport-accent,var(--ink2))}
+  .af-card--premium .af-card-sport{font-size:var(--fs-micro);font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--sport-accent,var(--ink2))}
+  .af-card--premium .af-card-name{font-size:var(--fs-body-sm);font-weight:600;color:var(--text);line-height:1.3}
+  .af-card--premium .af-card-device{font-size:11px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;font-weight:400}
+  .af-card--premium .af-card-chevron{color:var(--ink3);font-size:20px;margin-top:1px;opacity:.6}
+  .af-card--premium .af-card-plan{margin-top:2px;font-size:11px;color:var(--ink3);font-weight:500}
+  .af-card--premium.af-card--run{border-color:color-mix(in srgb,var(--sport-run) 18%,var(--line))}
+  .af-card--premium.af-card--ride{border-color:color-mix(in srgb,var(--sport-ride) 18%,var(--line))}
+  .af-card--premium.af-card--strength{border-color:color-mix(in srgb,var(--sport-strength) 14%,var(--line))}
+  .af-card--premium.af-card--swim{border-color:color-mix(in srgb,var(--sport-swim) 18%,var(--line))}
+  .af-card--premium.af-card--walk{border-color:color-mix(in srgb,var(--sport-walk) 18%,var(--line))}
+  .af-card--premium:active{transform:scale(.985);box-shadow:0 1px 2px rgba(20,20,22,.08)}
+
+  /* ── segmented workout strip ─────────────────────────────────── */
+  .af-card-strip{display:flex;align-items:flex-end;gap:2px;width:100%;margin:10px 0 4px;min-height:20px;padding:0}
+  .af-strip-seg{border-radius:3px;transition:opacity var(--dur-fast);flex-shrink:0;flex-grow:0;min-width:4px}
+  .af-strip-seg--work{background:var(--sport-accent,var(--red))}
+  .af-strip-seg--easy{background:color-mix(in srgb,var(--ink3) 30%,var(--line))}
+  .af-strip-seg--neutral{background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 25%,var(--line))}
+
+  /* ── metrics row (values only, no big labels) ────────────────── */
+  .af-card-metrics-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .af-card-metric-val{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);letter-spacing:-.01em;line-height:1.35;white-space:nowrap}
+  .af-card-metric-val + .af-card-metric-val::before{content:"·";color:var(--ink3);margin-right:0;font-weight:400;display:inline-block;width:10px;text-align:center;margin-left:-5px}
+
   /* ── effort bar ──────────────────────────────────────────────── */
   .af-effort-bar{display:flex;gap:1px;height:4px;border-radius:2px;overflow:hidden;margin-top:4px}
   .af-effort-bar span{display:block;height:100%;border-radius:1px}
@@ -5523,6 +5553,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     .tc-btn:hover{background:var(--card2)}
     .tc-day:hover{background:var(--card)}
     .af-card:hover{background:var(--card2)}
+    .af-card--premium:hover{background:var(--card2);box-shadow:0 2px 8px rgba(20,20,22,.08),0 6px 20px -6px rgba(20,20,22,.12)}
     .ad-ask-coach:hover{filter:brightness(1.05)}
     .apl-review-btn:hover,.apl-apply:hover,.apl-keep:hover{filter:brightness(1.05)}
   }

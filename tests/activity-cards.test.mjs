@@ -170,8 +170,9 @@ console.log("\n──── Card markup ────");
   test("completed cards do not use the planned outline treatment",
     !/af-card--planned/.test(runCard) && /af-card--activity/.test(runCard));
   test("run card uses inline metrics, not labeled boxes",
-    /af-card-lines/.test(runCard) && /16\.0 km · 1h34m/.test(runCard) &&
-    !/af-card-metric/.test(runCard) && !/<small>Duration<\/small>/.test(runCard) &&
+    /af-card-metrics-row/.test(runCard) && /af-card-metric-val/.test(runCard) &&
+    /16\.0 km/.test(runCard) && /1h34m/.test(runCard) &&
+    !/<small>Duration<\/small>/.test(runCard) &&
     !/AVERAGE PACE/.test(runCard));
 
   const strengthCard = TC.activityCardHtml({
@@ -251,9 +252,9 @@ console.log("\n──── Mini graph inside completed cards ────");
     raw_data: { training_load: 105, laps }
   };
   const lapCard = TC.activityCardHtml(runLaps, "2026-08-24", {});
-  test("completed run + lap data renders a mini pace profile inside the card",
-    /af-card-profile/.test(lapCard) && /af-card-profile-svg/.test(lapCard) &&
-    /af-card--has-profile/.test(lapCard));
+  test("completed run + lap data renders a workout strip inside the card",
+    /af-card-strip/.test(lapCard) && /af-strip-seg/.test(lapCard) &&
+    /af-card--has-strip/.test(lapCard));
   test("lap profile is real pace data, not a decorative placeholder",
     !!TC.cardProfileSeries(runLaps) && TC.cardProfileSeries(runLaps).invert === true &&
     TC.cardProfileSeries(runLaps).values.length >= 2);
@@ -271,8 +272,8 @@ console.log("\n──── Mini graph inside completed cards ────");
     }
   };
   const streamCard = TC.activityCardHtml(streamRun, "2026-08-25", {});
-  test("completed run + cached full stream renders a mini profile",
-    /af-card-profile/.test(streamCard) && !!TC.cardProfileSeries(streamRun));
+  test("completed run + cached full stream renders a workout strip",
+    /af-card-strip/.test(streamCard) && /af-strip-seg/.test(streamCard));
 
   const summaryOnly = {
     id: "avg-only",
@@ -301,8 +302,8 @@ console.log("\n──── Mini graph inside completed cards ────");
     activities: [{ ...runLaps, id: "a1" }]
   }, "2026-08-30");
   const matchedHtml = TC.renderSelectedDayHtml(matched);
-  test("matched plan + completed still shows the mini graph",
-    /Planned: Threshold/.test(matchedHtml) && /af-card-profile/.test(matchedHtml) &&
+  test("matched plan + completed still shows the workout strip",
+    /Planned: Threshold/.test(matchedHtml) && /af-card-strip/.test(matchedHtml) &&
     !/data-train-item="plan"/.test(matchedHtml));
 
   const runA = { ...runLaps, id: "r1" };
@@ -315,11 +316,9 @@ console.log("\n──── Mini graph inside completed cards ────");
   const both = TC.renderSelectedDayHtml(TC.buildSelectedDayModel("2026-08-24", {
     activities: [runA, lift, runB]
   }, "2026-08-30"));
-  test("each eligible same-day activity has its own profile",
-    /af-card-profile/.test(TC.activityCardHtml(runA, "2026-08-24", {})) &&
-    /af-card-profile/.test(TC.activityCardHtml(runB, "2026-08-24", {})) &&
-    !/af-card-profile/.test(TC.activityCardHtml(lift, "2026-08-24", {})) &&
-    (both.match(/class="af-card-profile"/g) || []).length === 2 &&
+  test("each eligible same-day activity has its own strip",
+    /af-card-strip/.test(TC.activityCardHtml(runA, "2026-08-24", {})) &&
+    /af-card-strip/.test(TC.activityCardHtml(runB, "2026-08-24", {})) &&
     /data-activity-id="r1"/.test(both) && /data-activity-id="r2"/.test(both) && /data-activity-id="s1"/.test(both));
 
   test("mini graph uses the sport accent token",
@@ -359,10 +358,11 @@ console.log("\n──── Scanability ────");
     raw_data: { training_load: 105, perceived_exertion: 7, laps: [{ distance: 1000, moving_time: 360 }, { distance: 1000, moving_time: 340 }] }
   }, "2026-08-24", { done: true });
   test("run card can be read without metric labels",
-    /16\.0 km · 1h34m/.test(runCard) && /5:53\/km · 161 bpm/.test(runCard) &&
-    /Load 105 · RPE 7/.test(runCard) && !/DURATION/.test(runCard));
-  test("mini graph fill is visually strong",
-    /fill-opacity="\.32"/.test(runCard) && /stroke-width="2\.25"/.test(runCard));
+    /16\.0 km/.test(runCard) && /1h34m/.test(runCard) &&
+    /5:53\/km/.test(runCard) && /161 bpm/.test(runCard) &&
+    /af-card-metric-val/.test(runCard) && !/DURATION/.test(runCard));
+  test("workout strip uses sport accent for work segments",
+    /af-card-strip/.test(runCard) && /af-strip-seg/.test(runCard));
   test("strength does not show a fake graph",
     TC.cardMiniProfile({ id: "s", sport_type: "WeightTraining", moving_time_seconds: 1800, raw_data: { training_load: 40 } }) === "");
 

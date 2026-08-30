@@ -171,9 +171,9 @@ TC.hydrate(monday, "2026-08-24", byDate);
 test("selected-day activity cards still open the activity modal",
   /openModal\('2026-08-24','r24'\)/.test(nodes.trainDayPanel.innerHTML) &&
   /af-card--activity/.test(nodes.trainDayPanel.innerHTML));
-test("mini graph lives on the activity card, not the date row",
-  /af-card-profile/.test(nodes.trainDayPanel.innerHTML) &&
-  !/af-card-profile/.test(nodes.trainCalendar.innerHTML));
+test("workout strip lives on the activity card, not the date row",
+  /af-card-strip/.test(nodes.trainDayPanel.innerHTML) &&
+  !/af-card-strip/.test(nodes.trainCalendar.innerHTML));
 test("exactly one selected date exists",
   (nodes.trainCalendar.innerHTML.match(/class="[^"]*\btc-day\b[^"]*\bsel\b/g) || []).length === 1 &&
   (nodes.trainCalendar.innerHTML.match(/aria-pressed="true"/g) || []).length === 1);
