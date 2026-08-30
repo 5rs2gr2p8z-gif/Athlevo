@@ -466,21 +466,20 @@
     return "Fitness and fatigue are moving together, keeping Form relatively balanced.";
   }
 
-  function statusCoaching(zone) {
-    if (!zone) return "Training status needs more history.";
-    if (zone.key === "fresh") {
-      return "You are currently fresh enough for a key session, assuming readiness and pain signals remain normal.";
-    }
-    if (zone.key === "maintaining") {
-      return "Training stress and freshness are currently balanced.";
-    }
-    if (zone.key === "gaining") {
-      return "Current training stress is supporting fitness gains; keep recovery signals in view.";
-    }
-    if (zone.key === "risk") {
-      return "Accumulated fatigue is elevated; protect recovery before adding more load.";
-    }
-    return "Form is very high relative to recent load, which may indicate detraining.";
+  function statusDisplayName(zone) {
+    if (!zone) return "";
+    if (zone.key === "maintaining") return "Balanced";
+    if (zone.key === "gaining") return "Building";
+    return zone.label;
+  }
+
+  function statusLeadCopy(zone) {
+    if (!zone) return "Your training trends are still forming.";
+    if (zone.key === "fresh") return "You're recovered enough for quality training.";
+    if (zone.key === "maintaining") return "Your training load is currently well balanced.";
+    if (zone.key === "gaining") return "You're carrying productive training stress.";
+    if (zone.key === "risk") return "Fatigue is high. Recovery should take priority.";
+    return "Training stimulus has been low recently.";
   }
 
   function metricMarkup(label, value) {
@@ -500,85 +499,39 @@
     const latestFatigue = latestValue(days, "fatigue");
     const latestForm = latestValue(days, "form");
     const zone = latestForm ? classifyForm(latestForm.value) : null;
-    const loadValues = days.slice(-7).filter(day => day.completedLoad !== null);
-    const sevenDayLoad = loadValues.length
-      ? loadValues.reduce((total, day) => total + day.completedLoad, 0)
-      : null;
 
     state.innerHTML = notice ? `<div class="trend-warning" role="status">${escapeHtml(notice)}</div>` : "";
     content.hidden = false;
 
     const summary = document.getElementById("trendsHeaderSummary");
     if (summary) {
-      const values = [];
-      if (zone) values.push(zone.label);
-      if (latestFitness) values.push(`Fitness ${fmt(latestFitness.value)}`);
-      if (latestFatigue) values.push(`Fatigue ${fmt(latestFatigue.value)}`);
-      if (latestForm) values.push(`Form ${fmt(latestForm.value, true)}`);
-      summary.textContent = values.length ? values.join(" · ") : "Your training trends are still forming.";
+      summary.hidden = true;
+      summary.textContent = "";
     }
+
+    const statusName = document.getElementById("trendStatusName");
+    const statusCopy = document.getElementById("trendStatusCopy");
+    if (statusName) statusName.textContent = statusDisplayName(zone) || "Trends";
+    if (statusCopy) statusCopy.textContent = statusLeadCopy(zone);
 
     const strip = document.getElementById("trendMetricStrip");
     if (strip) {
       strip.innerHTML = [
-        latestFitness ? metricMarkup("Fitness", fmt(latestFitness.value)) : "",
-        latestFatigue ? metricMarkup("Fatigue", fmt(latestFatigue.value)) : "",
-        latestForm ? metricMarkup("Form", fmt(latestForm.value, true)) : "",
-        sevenDayLoad !== null ? metricMarkup("7-day load", fmt(sevenDayLoad)) : ""
+        metricMarkup("Fitness", latestFitness ? fmt(latestFitness.value) : "—"),
+        metricMarkup("Fatigue", latestFatigue ? fmt(latestFatigue.value) : "—"),
+        metricMarkup("Form", latestForm ? fmt(latestForm.value, true) : "—")
       ].join("");
     }
 
     const statusTitle = document.getElementById("trendStatusTitle");
-    if (statusTitle) statusTitle.textContent = zone
-      ? `Training Status: ${zone.label}`
-      : "Training Status";
-    const statusInterpretation = document.getElementById("trendStatusInterpretation");
-    if (statusInterpretation) statusInterpretation.textContent = statusCoaching(zone);
+    if (statusTitle) statusTitle.textContent = "Training Balance";
+    const statusFormValue = document.getElementById("trendStatusFormValue");
+    if (statusFormValue) {
+      statusFormValue.textContent = latestForm ? `Form ${fmt(latestForm.value, true)}` : "";
+    }
     const statusSummary = document.getElementById("trendStatusSummary");
     if (statusSummary) statusSummary.textContent = accessibleSummary(data, days);
     renderStatusChart(document.getElementById("trendStatusChart"), days);
-
-    const fitnessValues = document.getElementById("trendFitnessValues");
-    if (fitnessValues) {
-      fitnessValues.textContent = [
-        latestFitness ? `Fitness ${fmt(latestFitness.value)}` : "",
-        latestFatigue ? `Fatigue ${fmt(latestFatigue.value)}` : ""
-      ].filter(Boolean).join(" · ");
-    }
-    const fitnessCopy = document.getElementById("trendFitnessInterpretation");
-    if (fitnessCopy) fitnessCopy.textContent = fitnessInterpretation(days);
-    const fitnessSummary = document.getElementById("trendFitnessSummary");
-    if (fitnessSummary) fitnessSummary.textContent = accessibleSummary(data, days);
-    renderFitnessChart(document.getElementById("trendFitnessChart"), days);
-
-    const buckets = aggregateTrainingLoad(days, data.range);
-    const comparison = loadWeekComparison(days, data.newest);
-    const loadValuesEl = document.getElementById("trendLoadValues");
-    if (loadValuesEl) {
-      const current = comparison.current === null ? "—" : fmt(comparison.current);
-      loadValuesEl.textContent = `${comparison.inProgress ? "This week in progress" : "Current week"} · ${current}`;
-    }
-    const loadCopy = document.getElementById("trendLoadInterpretation");
-    if (loadCopy) {
-      if (!comparison.comparable) {
-        loadCopy.textContent = "A same-point prior-week comparison is not available yet.";
-      } else if (comparison.percent === null) {
-        loadCopy.textContent = `Previous week at the same point: ${fmt(comparison.previous)}.`;
-      } else {
-        loadCopy.textContent = `${comparison.percent > 0 ? "+" : ""}${comparison.percent}% versus the same elapsed point last week.`;
-      }
-    }
-    const loadSummary = document.getElementById("trendLoadSummary");
-    if (loadSummary) {
-      loadSummary.textContent = comparison.current === null
-        ? "No measured training load is available for the current week."
-        : `Current week load is ${fmt(comparison.current)}${comparison.comparable ? ` versus ${fmt(comparison.previous)} at the same point last week` : ""}.`;
-    }
-    const plannedLegend = document.getElementById("trendPlannedLegend");
-    if (plannedLegend) {
-      plannedLegend.hidden = !hasPlannedLoad(buckets);
-    }
-    renderLoadChart(document.getElementById("trendLoadChart"), buckets);
 
     const noticeEl = document.getElementById("trendHistoryNotice");
     if (noticeEl) {
@@ -639,7 +592,10 @@
     if (content) content.hidden = true;
     if (preview) preview.hidden = true;
     if (ranges) ranges.hidden = true;
-    if (summary) summary.textContent = "Checking Athlevo Pro access…";
+    if (summary) {
+      summary.hidden = false;
+      summary.textContent = "Checking Athlevo Pro access…";
+    }
   }
 
   function renderPerformancePreview() {
@@ -653,7 +609,10 @@
     if (content) content.hidden = true;
     if (preview) preview.hidden = false;
     if (ranges) ranges.hidden = true;
-    if (summary) summary.textContent = "Athlevo Pro analytics";
+    if (summary) {
+      summary.hidden = true;
+      summary.textContent = "";
+    }
     try {
       if (root.AthlevoAccessGuard) {
         root.AthlevoAccessGuard.trackPremiumView(
@@ -772,6 +731,8 @@
     loadWeekComparison,
     hasPlannedLoad,
     accessibleSummary,
+    statusDisplayName,
+    statusLeadCopy,
     renderStatusChart,
     renderFitnessChart,
     renderLoadChart,

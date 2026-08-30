@@ -340,9 +340,12 @@ section("Graph-first UI and accessibility");
     { key: "2026-07-25", label: "Jul 25", completed: 45, planned: null },
     { key: "2026-07-29", label: "Jul 29", completed: 60, planned: null }
   ]);
-  test("exactly three primary graph views exist",
-    (trendsMarkup.match(/data-trend-graph=/g) || []).length === 3);
-  test("no separate duplicate Form graph exists",
+  test("exactly one primary graph view exists",
+    (trendsMarkup.match(/data-trend-graph=/g) || []).length === 1 &&
+    /data-trend-graph="training-status"/.test(trendsMarkup));
+  test("Fitness vs Fatigue and Training Load graphs are not on the athlete Trends screen",
+    !/data-trend-graph="fitness-fatigue"/.test(trendsMarkup) &&
+    !/data-trend-graph="training-load"/.test(trendsMarkup) &&
     !/data-trend-graph="form"/.test(trendsMarkup));
   test("all five Training Status bands render with direct labels",
     ["Detraining", "Fresh", "Maintaining", "Gaining Fitness", "High Risk"]
@@ -353,39 +356,22 @@ section("Graph-first UI and accessibility");
     (statusHost.innerHTML.match(/class="trend-zone-boundary"/g) || []).length === 4 &&
     ["+25", "+5", "−5", "−20"].every(value =>
       statusHost.innerHTML.includes(`>${value}</text>`)));
-  test("Training Status explicitly identifies the gray series as Form",
-    /class="trend-legend trend-status-legend"[\s\S]*?class="form"[\s\S]*?>Form<\/span>/.test(
-      trendsMarkup
-    ) &&
-    /\.trend-legend \.form i\{background:var\(--trend-form\)\}/.test(html) &&
+  test("Training Balance chart still plots the Form series",
+    /id="trendStatusTitle">Training Balance</.test(trendsMarkup) &&
     /class="trend-series trend-form-series"/.test(statusHost.innerHTML));
   test("latest Form value is labeled directly beside the latest point",
     /class="trend-latest-label trend-latest-label-form"[\s\S]*?>Form \+14<\/text>/.test(
       statusHost.innerHTML
     ));
-  test("compact Form education and expanded zone definitions are present",
-    trendsMarkup.includes(
-      "Form shows the balance between long-term fitness and short-term fatigue."
-    ) &&
-    trendsMarkup.includes("Form = Fitness − Fatigue") &&
-    trendsMarkup.includes(
-      "The gray line is your Form over time. Its current value determines your Training Status."
-    ) &&
-    trendsMarkup.includes("Positive Form: fresher") &&
-    trendsMarkup.includes("Near zero: balanced") &&
-    trendsMarkup.includes("Negative Form: carrying fatigue") &&
-    [
-      "very low recent load; fitness may begin declining",
-      "reduced fatigue; often suitable for racing or key sessions",
-      "fitness and fatigue are relatively balanced",
-      "productive training load with manageable fatigue",
-      "fatigue is unusually high and recovery should be prioritized"
-    ].every(copy => trendsMarkup.includes(copy)));
-  test("Training Status remains derived from latest Form without a duplicate graph",
-    /statusTitle\.textContent = zone[\s\S]*?`Training Status: \$\{zone\.label\}`/.test(
-      clientSource
-    ) &&
-    /<span class="trend-graph-values">Form<\/span>/.test(trendsMarkup) &&
+  test("educational Form formula and zone essays are not on the main screen",
+    !trendsMarkup.includes("Form = Fitness − Fatigue") &&
+    !trendsMarkup.includes("Positive Form: fresher") &&
+    !trendsMarkup.includes("About Training Status") &&
+    !/id="trendStatusInterpretation"/.test(trendsMarkup));
+  test("Training Balance keeps Form on the chart without repeating status",
+    /statusTitle\.textContent = "Training Balance"/.test(clientSource) &&
+    /id="trendStatusFormValue"/.test(trendsMarkup) &&
+    !/`Training Status: \$\{zone\.label\}`/.test(clientSource) &&
     !/data-trend-graph="form"/.test(trendsMarkup));
   test("Fitness/Fatigue chart has a plot surface, scale, grid, dates, and latest labels",
     /class="trend-plot-surface"/.test(fitnessHost.innerHTML) &&
@@ -394,10 +380,7 @@ section("Graph-first UI and accessibility");
     /Fitness 45<\/text>/.test(fitnessHost.innerHTML) &&
     /Fatigue 39<\/text>/.test(fitnessHost.innerHTML) &&
     /Jul/.test(fitnessHost.innerHTML));
-  test("Fitness/Fatigue education is concise and dynamic from real deltas",
-    trendsMarkup.includes(
-      "Fitness reflects your longer-term training load. Fatigue reacts more quickly to recent training."
-    ) &&
+  test("Fitness/Fatigue interpretation helpers stay available without being shown",
     analytics.fitnessInterpretation([
       { date: "2026-07-22", fitness: 50, fatigue: 60 },
       { date: "2026-07-23", fitness: null, fatigue: null },
@@ -434,9 +417,7 @@ section("Graph-first UI and accessibility");
     (loadHost.innerHTML.match(/class="trend-grid-line"/g) || []).length === 3 &&
     /class="trend-axis-label"/.test(loadHost.innerHTML) &&
     /Jul/.test(loadHost.innerHTML));
-  test("Planned legend remains hidden when every planned value is unavailable",
-    /id="trendPlannedLegend" hidden/.test(trendsMarkup) &&
-    /plannedLegend\.hidden = !hasPlannedLoad\(buckets\)/.test(clientSource) &&
+  test("Planned-load helper remains truthful when planned values are unavailable",
     analytics.hasPlannedLoad([
       { planned: null },
       { planned: null }
@@ -454,9 +435,32 @@ section("Graph-first UI and accessibility");
     /Completed \$\{fmt\(bucket\.completed\)\}/.test(clientSource) &&
     /element\.setAttribute\("role", "img"\)/.test(clientSource) &&
     !/element\.setAttribute\("role", "button"\)/.test(clientSource));
-  test("charts have accessible text summaries",
-    (trendsMarkup.match(/class="trend-text-summary"/g) || []).length === 3 &&
-    /tabindex="0"/.test(trendsMarkup));
+  test("the Form chart keeps one accessible text summary",
+    (trendsMarkup.match(/class="trend-text-summary/g) || []).length === 1 &&
+    /id="trendStatusSummary"/.test(trendsMarkup));
+  test("Fitness, Fatigue, and Form appear once and 7-day load is hidden",
+    /metricMarkup\("Fitness"/.test(clientSource) &&
+    /metricMarkup\("Fatigue"/.test(clientSource) &&
+    /metricMarkup\("Form"/.test(clientSource) &&
+    (clientSource.match(/metricMarkup\("/g) || []).length === 3 &&
+    !/7-day load/.test(trendsMarkup + clientSource) &&
+    !/Fresh · Fitness/.test(clientSource));
+  test("status copy follows the existing Form zone without a new calculation",
+    analytics.statusDisplayName(analytics.classifyForm(14)) === "Fresh" &&
+    analytics.statusDisplayName(analytics.classifyForm(0)) === "Balanced" &&
+    analytics.statusDisplayName(analytics.classifyForm(-10)) === "Building" &&
+    analytics.statusDisplayName(analytics.classifyForm(-21)) === "High Risk" &&
+    analytics.statusDisplayName(analytics.classifyForm(26)) === "Detraining" &&
+    analytics.statusLeadCopy(analytics.classifyForm(14)) ===
+      "You're recovered enough for quality training." &&
+    analytics.statusLeadCopy(analytics.classifyForm(0)) ===
+      "Your training load is currently well balanced." &&
+    analytics.statusLeadCopy(analytics.classifyForm(-10)) ===
+      "You're carrying productive training stress." &&
+    analytics.statusLeadCopy(analytics.classifyForm(-21)) ===
+      "Fatigue is high. Recovery should take priority." &&
+    analytics.statusLeadCopy(analytics.classifyForm(26)) ===
+      "Training stimulus has been low recently.");
   test("native SVG is responsive inside the narrow app shell",
     /\.trend-svg\{[^}]*width:100%[^}]*height:auto/.test(html) &&
     /\.trend-chart\{[^}]*width:100%[^}]*overflow:hidden/.test(html) &&

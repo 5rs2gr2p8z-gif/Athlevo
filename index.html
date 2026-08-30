@@ -2781,6 +2781,10 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 .trends-shell{margin:0 22px;min-width:0}
 .trends-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s-3)}
 .trends-current{margin:6px 0 0;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);font-variant-numeric:tabular-nums}
+.trend-status-lead{padding:2px 0 10px}
+.trend-status-name{margin:0;font-size:var(--fs-h2);font-weight:750;letter-spacing:.06em;text-transform:uppercase;line-height:1.15;color:var(--text)}
+.trend-status-copy{margin:6px 0 0;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
+.trend-visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .trend-range{display:flex;gap:2px;padding:3px;background:var(--card);border-radius:var(--r-pill);flex-shrink:0}
 .trend-range button{min-height:30px;padding:5px 8px;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink2);font-family:var(--sans);font-size:var(--fs-micro);font-weight:650;cursor:pointer}
 .trend-range button.is-active{background:var(--paper);color:var(--text);box-shadow:var(--elev-1)}
@@ -2832,9 +2836,8 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 .trend-history-notice{margin:0 0 var(--s-3);padding:var(--s-3);background:var(--card);border-radius:var(--r-md)}
 .trend-history-notice strong{display:block;font-size:var(--fs-body-sm)}
 .trend-history-notice span{display:block;margin-top:3px;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
-.trend-metric-strip{display:flex;gap:var(--s-5);overflow-x:auto;padding:var(--s-3) 0 var(--s-4);border-bottom:1px solid var(--line);scrollbar-width:none}
-.trend-metric-strip::-webkit-scrollbar{display:none}
-.trend-metric{flex:0 0 auto}
+.trend-metric-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-3);padding:4px 0 16px;border-bottom:1px solid var(--line)}
+.trend-metric{min-width:0}
 .trend-metric span{display:block;font-size:var(--fs-micro);font-weight:650;letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink3)}
 .trend-metric strong{display:block;margin-top:2px;font-size:var(--fs-h3);font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
 .trend-graph{padding:var(--s-6) 0;border-bottom:1px solid var(--line);min-width:0}
@@ -5662,10 +5665,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <div class="greet">
     <div class="trends-head-row">
-      <div>
-        <h1 class="serif">Trends</h1>
-        <p class="trends-current" id="trendsHeaderSummary">Loading training trends…</p>
-      </div>
+      <h1 class="serif">Trends</h1>
       <div class="trend-range" id="trendRangeControls" aria-label="Trend time range" hidden>
         <button type="button" data-trend-range="6w" aria-pressed="false">6 weeks</button>
         <button type="button" class="is-active" data-trend-range="3m" aria-pressed="true">3 months</button>
@@ -5673,6 +5673,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <button type="button" data-trend-range="1y" aria-pressed="false">1 year</button>
       </div>
     </div>
+    <p class="trends-current" id="trendsHeaderSummary" hidden></p>
   </div>
 
   <div id="trendsState" aria-live="polite"></div>
@@ -5736,77 +5737,21 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <span>Athlevo needs more completed training history before longer-term trends become reliable.</span>
     </div>
 
+    <div class="trend-status-lead" id="trendStatusLead">
+      <h2 class="trend-status-name" id="trendStatusName"></h2>
+      <p class="trend-status-copy" id="trendStatusCopy"></p>
+    </div>
+
     <div class="trend-metric-strip" id="trendMetricStrip" aria-label="Current training metrics"></div>
 
     <article class="trend-graph trend-graph-status" data-trend-graph="training-status">
       <div class="trend-graph-head">
-        <h2 class="trend-graph-title" id="trendStatusTitle">Training Status</h2>
-        <span class="trend-graph-values">Form</span>
-      </div>
-      <div class="trend-legend trend-status-legend" aria-hidden="true">
-        <span class="form"><i></i>Form</span>
+        <h2 class="trend-graph-title" id="trendStatusTitle">Training Balance</h2>
+        <span class="trend-graph-values" id="trendStatusFormValue"></span>
       </div>
       <div class="trend-chart" id="trendStatusChart"></div>
-      <div class="trend-chart-context">
-        <p class="trend-formula">Form = Fitness − Fatigue</p>
-        <p>The gray line is your Form over time. Its current value determines your Training Status.</p>
-        <p>Form shows the balance between long-term fitness and short-term fatigue.</p>
-        <div class="trend-form-key" aria-label="How to interpret Form">
-          <span>Positive Form: fresher</span>
-          <span>Near zero: balanced</span>
-          <span>Negative Form: carrying fatigue</span>
-        </div>
-      </div>
-      <p class="trend-interpretation" id="trendStatusInterpretation"></p>
-      <p class="trend-text-summary" id="trendStatusSummary" tabindex="0"></p>
-      <details class="trend-about">
-        <summary>About Training Status</summary>
-        <ul>
-          <li><strong>Detraining:</strong> very low recent load; fitness may begin declining.</li>
-          <li><strong>Fresh:</strong> reduced fatigue; often suitable for racing or key sessions.</li>
-          <li><strong>Maintaining:</strong> fitness and fatigue are relatively balanced.</li>
-          <li><strong>Gaining Fitness:</strong> productive training load with manageable fatigue.</li>
-          <li><strong>High Risk:</strong> fatigue is unusually high and recovery should be prioritized.</li>
-        </ul>
-      </details>
+      <p class="trend-text-summary trend-visually-hidden" id="trendStatusSummary"></p>
     </article>
-
-    <article class="trend-graph" data-trend-graph="fitness-fatigue">
-      <div class="trend-graph-head">
-        <div>
-          <h2 class="trend-graph-title">Fitness vs Fatigue</h2>
-          <div class="trend-legend" aria-hidden="true">
-            <span><i></i>Fitness</span>
-            <span class="fatigue"><i></i>Fatigue</span>
-          </div>
-        </div>
-        <span class="trend-graph-values" id="trendFitnessValues"></span>
-      </div>
-      <div class="trend-chart" id="trendFitnessChart"></div>
-      <div class="trend-chart-context">
-        <p>Fitness reflects your longer-term training load. Fatigue reacts more quickly to recent training.</p>
-      </div>
-      <p class="trend-interpretation" id="trendFitnessInterpretation"></p>
-      <p class="trend-text-summary" id="trendFitnessSummary" tabindex="0"></p>
-    </article>
-
-    <article class="trend-graph" data-trend-graph="training-load">
-      <div class="trend-graph-head">
-        <div>
-          <h2 class="trend-graph-title">Training Load</h2>
-          <div class="trend-legend" aria-hidden="true">
-            <span class="completed"><i></i>Completed</span>
-            <span class="planned" id="trendPlannedLegend" hidden><i></i>Planned</span>
-          </div>
-        </div>
-        <span class="trend-graph-values" id="trendLoadValues"></span>
-      </div>
-      <div class="trend-chart" id="trendLoadChart"></div>
-      <p class="trend-interpretation" id="trendLoadInterpretation"></p>
-      <p class="trend-text-summary" id="trendLoadSummary" tabindex="0"></p>
-    </article>
-
-    <div class="spacer-lg"></div>
   </div>
 
 </section>
@@ -10929,7 +10874,7 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js?v=67"></script>
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
-<script src="js/trendsAnalytics.js?v=81"></script>
+<script src="js/trendsAnalytics.js?v=82"></script>
 <script src="js/socialAuth.js?v=75"></script>
 <script src="js/analyticsRegistry.js?v=74"></script>
 <script src="js/metaPixel.js?v=69"></script>
