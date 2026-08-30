@@ -5372,6 +5372,13 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-strip-seg--work{background:var(--sport-accent,var(--red))}
   .af-strip-seg--easy{background:color-mix(in srgb,var(--ink3) 30%,var(--line))}
   .af-strip-seg--neutral{background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 25%,var(--line))}
+  .af-pstrip{display:flex;align-items:flex-end;gap:2px;width:100%;margin:8px 0 4px;min-height:14px;padding:0}
+  .af-pstrip-seg{height:14px;border-radius:3px;flex-shrink:0;flex-grow:0;min-width:4px;opacity:.85}
+  .af-pstrip-seg--work{background:color-mix(in srgb,var(--red) 65%,var(--paper));border:1px dashed color-mix(in srgb,var(--red) 40%,transparent)}
+  .af-pstrip-seg--warm{background:color-mix(in srgb,var(--ink3) 18%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 25%,transparent)}
+  .af-pstrip-seg--recovery{background:color-mix(in srgb,var(--info) 15%,var(--paper));border:1px dashed color-mix(in srgb,var(--info) 25%,transparent)}
+  .af-pstrip-seg--cool{background:color-mix(in srgb,var(--ink3) 14%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 20%,transparent)}
+  .af-pstrip-seg--steady{background:color-mix(in srgb,var(--ink3) 12%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 18%,transparent)}
 
   /* ── metrics row (values only, no big labels) ────────────────── */
   .af-card-metrics-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:4px;font-variant-numeric:tabular-nums}
@@ -5434,6 +5441,19 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   /* ── activity detail: compact metric line ─────────────────────── */
   .ad-metrics{margin:0 0 10px;font-size:var(--fs-body-sm);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.4;overflow-wrap:anywhere}
+  /* ── activity detail: metric grid (Intervals-style) ────────────── */
+  .ad-metric-grid{display:flex;flex-wrap:wrap;gap:2px 12px;margin:0 0 12px;padding:0}
+  .ad-metric-grid--secondary{margin-top:-4px;margin-bottom:10px}
+  .ad-metric-cell{display:flex;flex-direction:column;min-width:0;padding:4px 0}
+  .ad-metric-val{font-size:var(--fs-body);font-weight:750;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.2;white-space:nowrap}
+  .ad-metric-cell--sm .ad-metric-val{font-size:var(--fs-body-sm);font-weight:650}
+  .ad-metric-lbl{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;line-height:1.3}
+  .ad-metric-cell--sm .ad-metric-lbl{font-size:10px}
+
+  /* ── activity detail: GPS route map ────────────────────────────── */
+  .ad-route{margin:0 0 12px;border-radius:var(--r-sm);overflow:hidden;background:color-mix(in srgb,var(--ink3) 6%,var(--paper))}
+  .ad-route-svg{display:block;width:100%;height:auto;max-height:200px}
+  .ad-route-deferred{min-height:0}
   .ad-summary{margin:0 0 10px}
 
   /* ── activity detail: sections ───────────────────────────────── */

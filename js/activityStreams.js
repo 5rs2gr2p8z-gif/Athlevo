@@ -13,10 +13,11 @@
     velocity: "velocity", velocity_smooth: "velocity", speed: "velocity",
     altitude: "altitude", elevation: "altitude",
     cadence: "cadence",
-    watts: "watts", power: "watts"
+    watts: "watts", power: "watts",
+    latlng: "latlng", lat_lng: "latlng"
   };
   const METRIC_KEYS = ["heartrate", "velocity", "altitude", "cadence", "watts"];
-  const ALL_KEYS = ["time", "distance"].concat(METRIC_KEYS);
+  const ALL_KEYS = ["time", "distance"].concat(METRIC_KEYS).concat(["latlng"]);
   const GRAPH_ORDER = ["pace", "heartrate", "elevation", "cadence", "power"];
   const GRAPH_META = {
     pace: { label: "Pace", unit: "/km", color: "var(--ad-chart-pace)", invert: true },
@@ -30,7 +31,7 @@
   const inflight = new Map();
 
   function emptyStreams() {
-    return { version: 1, time: null, distance: null, heartrate: null, velocity: null, altitude: null, cadence: null, watts: null };
+    return { version: 1, time: null, distance: null, heartrate: null, velocity: null, altitude: null, cadence: null, watts: null, latlng: null };
   }
 
   function asFiniteArray(value) {
@@ -53,10 +54,11 @@
   }
 
   function alignSeries(streams) {
-    const lengths = ALL_KEYS.map(k => streams[k] && streams[k].length).filter(n => Number.isFinite(n) && n > 0);
+    const lengths = ALL_KEYS.filter(k => k !== "latlng").map(k => streams[k] && streams[k].length).filter(n => Number.isFinite(n) && n > 0);
     if (!lengths.length) return;
     const n = Math.min.apply(null, lengths);
     ALL_KEYS.forEach(k => {
+      if (k === "latlng") return; // latlng is [[lat,lng],...], not a numeric series
       if (streams[k] && streams[k].length > n) streams[k] = streams[k].slice(0, n);
     });
   }
@@ -67,6 +69,12 @@
     const apply = (type, data) => {
       const key = TYPE_ALIASES[String(type || "").toLowerCase()];
       if (!key || streams[key]) return;
+      if (key === "latlng") {
+        // latlng is [[lat,lng],...] — pass through without numeric coercion
+        const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+        if (arr && arr.length >= 2) streams.latlng = arr;
+        return;
+      }
       const series = seriesFromEntry(data);
       if (series) streams[key] = series;
     };

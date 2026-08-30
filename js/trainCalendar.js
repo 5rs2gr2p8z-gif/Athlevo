@@ -88,13 +88,13 @@
     cross_training: "Cross-train", rest: "Rest", other: "Activity"
   };
   const SPORT_ICON = {
-    run: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M7 21l3-7 2.5 2 4.5-5"/><path d="M17 14l1 7"/><path d="M7 11l2-2 3 3"/></svg>`,
-    ride: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17L9 4h4l3 5h3"/><path d="M9 9l3 8"/></svg>`,
-    strength: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14M18 5v14M3 8h3M18 8h3M3 16h3M18 16h3M6 8h12M6 16h12"/></svg>`,
-    swim: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18c1.333-1 2.667-1 4 0s2.667 1 4 0 2.667-1 4 0 2.667 1 4 0"/><path d="M2 14c1.333-1 2.667-1 4 0s2.667 1 4 0 2.667-1 4 0 2.667 1 4 0"/><circle cx="10" cy="6" r="2"/><path d="M16 11l-4-2-4 2"/></svg>`,
-    walk: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l1-7 2 1 3-4"/><path d="M16 14l1 7"/><path d="M10 11l1-3 3 2"/></svg>`,
-    hike: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20l5-8 4 4 5-9 4 8"/><circle cx="13" cy="4" r="2"/></svg>`,
-    mobility: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M8 21l2-6M16 21l-2-6M9 11c0-2 1.5-3 3-3s3 1 3 3-1.5 4-3 6c-1.5-2-3-4-3-6z"/></svg>`
+    run: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="4" r="2"/><path d="M8 21l2.4-6.5M16.5 21l-1.5-5.5M6.5 11.5l3-2.5 2.5 2.5 4-4.5"/></svg>`,
+    ride: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="17" r="3"/><circle cx="17.5" cy="17" r="3"/><path d="M6.5 17l3.5-11h3l2 4h3"/><path d="M10 10l3 7"/></svg>`,
+    strength: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 5v14M17.5 5v14M3 8h3.5M17.5 8h3.5M3 16h3.5M17.5 16h3.5M6.5 8h11M6.5 16h11"/></svg>`,
+    swim: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0"/><path d="M2 14c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0"/><circle cx="10.5" cy="6" r="2"/><path d="M16 11l-5.5-2-3.5 2"/></svg>`,
+    walk: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l1.5-7M16 21l-1.5-5.5M10.5 11l1-3 3 2"/></svg>`,
+    hike: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l1.5-7M16 21l-1.5-5.5M10.5 11l1-3 3 2"/><line x1="7" y1="6" x2="7" y2="21"/><path d="M7 6l3 2"/></svg>`,
+    mobility: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M9 21l1.5-5M15 21l-1.5-5M9 12c0-2 1.5-3 3-3s3 1 3 3c0 1.5-1.5 3.5-3 5.5-1.5-2-3-4-3-5.5z"/></svg>`
   };
   const canonSport = a => {
     const SC = window.SportClassification;
@@ -655,6 +655,165 @@
     };
   }
 
+  /* ── Planned workout structure strip ─────────────────────────────── */
+  /*
+   * Builds a visual representation of the PRESCRIBED workout structure.
+   * Uses real session data: warmup[], main_set[], cooldown[] arrays,
+   * duration_minutes, session_type, and recognized structure patterns.
+   * Priority: 1) explicit structured steps  2) session-type heuristic
+   *           3) single neutral block fallback
+   */
+  function parsePrescribedDuration(text) {
+    if (!text || typeof text !== "string") return null;
+    // "15 min warm-up" → 15*60, "8:00 threshold" → 480, "2km recovery" → ~600
+    const minMatch = text.match(/(\d+)\s*(?:min|minutes?|m\b)/i);
+    if (minMatch) return Number(minMatch[1]) * 60;
+    const clockMatch = text.match(/(\d{1,2}):(\d{2})/);
+    if (clockMatch) return Number(clockMatch[1]) * 60 + Number(clockMatch[2]);
+    const secMatch = text.match(/(\d+)\s*(?:sec|seconds?|s\b)/i);
+    if (secMatch) return Number(secMatch[1]);
+    const kmMatch = text.match(/(\d+(?:\.\d+)?)\s*km/i);
+    if (kmMatch) return Math.round(Number(kmMatch[1]) * 300); // ~5min/km estimate
+    return null;
+  }
+
+  function parsePrescribedKind(text, sectionHint) {
+    if (!text || typeof text !== "string") return sectionHint || "steady";
+    const t = text.toLowerCase();
+    if (/warm/i.test(t)) return "warmup";
+    if (/cool/i.test(t)) return "cooldown";
+    if (/recovery|jog|rest|walk/i.test(t)) return "recovery";
+    if (QUALITY_RE.test(t)) return "work";
+    if (/easy|steady|aerobic|endurance|long/i.test(t)) return "steady";
+    return sectionHint || "steady";
+  }
+
+  function extractRepetitions(items) {
+    // Parse "3 × 8 min threshold / 2 min recovery" patterns from main_set
+    const segments = [];
+    items.forEach(text => {
+      if (!text || typeof text !== "string") return;
+      // Check for repetition pattern: "3x8min threshold w/ 2min rest"
+      const repMatch = text.match(/(\d+)\s*[x×]\s*(.*)/i);
+      if (repMatch) {
+        const reps = Number(repMatch[1]);
+        const rest = repMatch[2];
+        // Try to split work/recovery from the rest text
+        const parts = rest.split(/\s*(?:w(?:\/|ith)|\+|,|\/)\s*/i);
+        const workText = parts[0] || rest;
+        const recText = parts[1] || null;
+        const workDur = parsePrescribedDuration(workText) || 300;
+        const recDur = recText ? (parsePrescribedDuration(recText) || 120) : 120;
+        for (let i = 0; i < Math.min(reps, 12); i++) {
+          segments.push({ kind: "work", duration: workDur, text: workText });
+          if (i < reps - 1 && recDur > 0) {
+            segments.push({ kind: "recovery", duration: recDur, text: recText || "Recovery" });
+          }
+        }
+        return;
+      }
+      // Single item
+      const kind = parsePrescribedKind(text, "work");
+      const dur = parsePrescribedDuration(text) || 300;
+      segments.push({ kind, duration: dur, text });
+    });
+    return segments;
+  }
+
+  function buildPlannedStripSegments(session) {
+    if (!session) return [];
+    const type = String(session.session_type || "").toLowerCase();
+    const REST_TYPES = new Set(["rest", "rest_day", "off", "day_off"]);
+    if (REST_TYPES.has(type.replace(/[\s-]+/g, "_"))) return [];
+
+    const warmup = Array.isArray(session.warmup) ? session.warmup.filter(Boolean) : [];
+    const mainSet = Array.isArray(session.main_set) ? session.main_set.filter(Boolean) : [];
+    const cooldown = Array.isArray(session.cooldown) ? session.cooldown.filter(Boolean) : [];
+    const hasStructure = warmup.length > 0 || mainSet.length > 0 || cooldown.length > 0;
+
+    if (hasStructure) {
+      const segments = [];
+      // Warmup
+      warmup.forEach(text => {
+        const dur = parsePrescribedDuration(text) || (num(session.duration_minutes) ? Math.round(num(session.duration_minutes) * 60 * 0.15) : 600);
+        segments.push({ kind: "warmup", duration: dur });
+      });
+      // Main set — may contain repetitions
+      const mainSegments = extractRepetitions(mainSet);
+      if (mainSegments.length > 0) {
+        segments.push(...mainSegments);
+      } else {
+        mainSet.forEach(text => {
+          const kind = parsePrescribedKind(text, "work");
+          const dur = parsePrescribedDuration(text) || 600;
+          segments.push({ kind, duration: dur });
+        });
+      }
+      // Cooldown
+      cooldown.forEach(text => {
+        const dur = parsePrescribedDuration(text) || (num(session.duration_minutes) ? Math.round(num(session.duration_minutes) * 60 * 0.1) : 300);
+        segments.push({ kind: "cooldown", duration: dur });
+      });
+      return segments.filter(s => s.duration > 0);
+    }
+
+    // Fallback: use session_type + total duration to create simple block(s)
+    const totalSec = (num(session.duration_minutes) || 45) * 60;
+    const isQualitySession = QUALITY_RE.test(type);
+
+    if (isQualitySession) {
+      // Inferred structure: warmup 15% + work 70% + cooldown 15%
+      const warmSec = Math.round(totalSec * 0.15);
+      const coolSec = Math.round(totalSec * 0.15);
+      const workSec = totalSec - warmSec - coolSec;
+      return [
+        { kind: "warmup", duration: warmSec },
+        { kind: "work", duration: workSec },
+        { kind: "cooldown", duration: coolSec }
+      ];
+    }
+
+    // Simple single block for easy/long/steady runs
+    return [{ kind: "steady", duration: totalSec }];
+  }
+
+  function plannedWorkoutStrip(session) {
+    const segments = buildPlannedStripSegments(session);
+    if (!segments.length) return "";
+    const totalDur = segments.reduce((s, seg) => s + seg.duration, 0);
+    if (totalDur <= 0) return "";
+
+    const KIND_TO_CLS = {
+      work: "af-pstrip-seg--work",
+      warmup: "af-pstrip-seg--warm",
+      recovery: "af-pstrip-seg--recovery",
+      cooldown: "af-pstrip-seg--cool",
+      steady: "af-pstrip-seg--steady"
+    };
+
+    const blocks = segments.map(seg => {
+      const widthPct = (seg.duration / totalDur) * 100;
+      const cls = "af-pstrip-seg " + (KIND_TO_CLS[seg.kind] || "af-pstrip-seg--steady");
+      return `<div class="${cls}" style="flex-basis:${widthPct.toFixed(2)}%" aria-hidden="true"></div>`;
+    }).join("");
+
+    return `<div class="af-pstrip" aria-label="Planned workout structure" aria-hidden="true">${blocks}</div>`;
+  }
+
+  function plannedCardSportIcon(session) {
+    // Determine sport from session type
+    const type = String(session.session_type || "").toLowerCase();
+    if (/strength|weight|gym/i.test(type)) return SPORT_ICON.strength;
+    if (/ride|bike|cycl/i.test(type)) return SPORT_ICON.ride;
+    if (/swim/i.test(type)) return SPORT_ICON.swim;
+    if (/walk/i.test(type)) return SPORT_ICON.walk;
+    if (/hike/i.test(type)) return SPORT_ICON.hike;
+    if (/mobil|yoga|stretch|flex/i.test(type)) return SPORT_ICON.mobility;
+    return SPORT_ICON.run;
+  }
+
+
+
   function plannedCardHtml(model) {
     const s = model.session;
     const sType = typeof formatSessionType === "function"
@@ -680,10 +839,11 @@
         : `<span class="af-card-cta">View plan</span>`;
     const cls = ["af-card", "af-card--planned"];
     if (model.missed || model.skipped) cls.push("af-card--missed");
+    const strip = plannedWorkoutStrip(s);
     return `<button type="button" class="${cls.join(" ")}" data-train-item="plan" onclick="AthlevoTrainCalendar.openModal('${model.date}')">
       <div class="af-card-main">
         <div class="af-card-top">
-          ${SPORT_ICON.run}
+          ${plannedCardSportIcon(s)}
           <div class="af-card-titles">
             <span class="af-card-sport af-card-sport--planned">Planned</span>
             <span class="af-card-name">${esc(title)}</span>
@@ -691,6 +851,7 @@
           </div>
           ${badge}
         </div>
+        ${strip}
         ${meta.length ? `<span class="af-card-meta">${esc(meta.join(" · "))}</span>` : ""}
       </div>
     </button>`;
@@ -841,6 +1002,139 @@
    *  PART 2 — RICH ACTIVITY DETAIL
    * ══════════════════════════════════════════════════════════════════ */
 
+
+  /* ── GPS / Route rendering (polyline decode + SVG map) ─────────── */
+  /*
+   * Lightweight polyline decoder (Google Encoded Polyline Algorithm).
+   * No external map library needed — renders a clean SVG route trace.
+   */
+  function decodePolyline(encoded) {
+    if (!encoded || typeof encoded !== "string") return [];
+    const points = [];
+    let lat = 0, lng = 0, i = 0;
+    while (i < encoded.length) {
+      let shift = 0, result = 0, b;
+      do { b = encoded.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+      shift = 0; result = 0;
+      do { b = encoded.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+      points.push([lat / 1e5, lng / 1e5]);
+    }
+    return points;
+  }
+
+  function extractRouteData(act) {
+    if (!act) return null;
+    const raw = act.raw_data && typeof act.raw_data === "object" ? act.raw_data : {};
+    const norm = raw.normalized && typeof raw.normalized === "object" ? raw.normalized : {};
+
+    // Priority 1: stored summary polyline (from Strava map object)
+    const mapObj = norm.map || raw.map || null;
+    if (mapObj && mapObj.summary_polyline) {
+      const pts = decodePolyline(mapObj.summary_polyline);
+      if (pts.length >= 2) return pts;
+    }
+    if (typeof raw.summary_polyline === "string" && raw.summary_polyline) {
+      const pts = decodePolyline(raw.summary_polyline);
+      if (pts.length >= 2) return pts;
+    }
+    // Priority 2: stored polyline
+    if (typeof raw.polyline === "string" && raw.polyline) {
+      const pts = decodePolyline(raw.polyline);
+      if (pts.length >= 2) return pts;
+    }
+
+    // Priority 3: latlng from activity streams (cached)
+    const AS = window.AthlevoActivityStreams;
+    if (AS) {
+      const id = act.id != null ? String(act.id) : null;
+      const streams = (id && AS.cacheGet(id)) || AS.streamsFromActivity(act);
+      const latlng = streams && streams.latlng;
+      if (Array.isArray(latlng) && latlng.length >= 2) {
+        // latlng can be array of [lat,lng] pairs
+        if (Array.isArray(latlng[0])) return latlng.filter(p => Array.isArray(p) && p.length >= 2);
+        // Or flat alternating lat,lng
+        if (latlng.length >= 4 && typeof latlng[0] === "number") {
+          const pts = [];
+          for (let i = 0; i < latlng.length - 1; i += 2) pts.push([latlng[i], latlng[i + 1]]);
+          return pts.length >= 2 ? pts : null;
+        }
+      }
+    }
+    return null;
+  }
+
+  function isOutdoorGpsSport(act) {
+    if (!act) return false;
+    const raw = act.raw_data && typeof act.raw_data === "object" ? act.raw_data : {};
+    if (raw.trainer) return false;
+    const sport = canonSport(act);
+    if (sport === "strength" || sport === "mobility") return false;
+    const hasGps = raw.has_gps || raw.hasGps;
+    // If explicitly flagged as no GPS, skip
+    if (hasGps === false) return false;
+    // Check for indoor indicators
+    const type = String(act.sport_type || act.activity_type || act.name || "").toLowerCase();
+    if (/indoor|treadmill|virtual|trainer|zwift|stationary/i.test(type)) return false;
+    return true;
+  }
+
+  function renderRouteMap(points) {
+    if (!points || points.length < 2) return "";
+    // Compute bounding box
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    points.forEach(([lat, lng]) => {
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    });
+    const latRange = maxLat - minLat || 0.001;
+    const lngRange = maxLng - minLng || 0.001;
+    // Aspect ratio: longitude needs cos(lat) correction
+    const midLat = (minLat + maxLat) / 2;
+    const cosLat = Math.cos(midLat * Math.PI / 180);
+    const effectiveLngRange = lngRange * cosLat;
+
+    const W = 360, PAD = 16;
+    const aspect = effectiveLngRange / latRange;
+    const H = Math.max(140, Math.min(240, Math.round((W - 2 * PAD) / Math.max(aspect, 0.5)) + 2 * PAD));
+    const drawW = W - 2 * PAD, drawH = H - 2 * PAD;
+
+    // Scale and fit
+    const scaleX = drawW / (lngRange || 0.001);
+    const scaleY = drawH / (latRange || 0.001);
+    const scale = Math.min(scaleX, scaleY * cosLat);
+
+    const cx = (minLng + maxLng) / 2, cy = (minLat + maxLat) / 2;
+    const toX = lng => W / 2 + (lng - cx) * scale * cosLat;
+    const toY = lat => H / 2 - (lat - cy) * scale; // flip Y
+
+    // Downsample for rendering (max ~200 points)
+    const step = Math.max(1, Math.ceil(points.length / 200));
+    const sampled = [];
+    for (let i = 0; i < points.length; i += step) sampled.push(points[i]);
+    if (sampled[sampled.length - 1] !== points[points.length - 1]) sampled.push(points[points.length - 1]);
+
+    const pathData = sampled.map((p, i) => {
+      const x = toX(p[1]).toFixed(1), y = toY(p[0]).toFixed(1);
+      return (i === 0 ? "M" : "L") + x + "," + y;
+    }).join("");
+
+    const startPt = sampled[0], endPt = sampled[sampled.length - 1];
+    const sx = toX(startPt[1]).toFixed(1), sy = toY(startPt[0]).toFixed(1);
+    const ex = toX(endPt[1]).toFixed(1), ey = toY(endPt[0]).toFixed(1);
+
+    return `<div class="ad-route" aria-label="Route map">
+      <svg class="ad-route-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+        <path d="${pathData}" fill="none" stroke="var(--sport-accent,var(--red))" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+        <circle cx="${sx}" cy="${sy}" r="4" fill="var(--sport-accent,var(--red))" opacity=".9"/>
+        <circle cx="${ex}" cy="${ey}" r="3.5" fill="var(--paper)" stroke="var(--sport-accent,var(--red))" stroke-width="2"/>
+      </svg>
+    </div>`;
+  }
+
   function openModal(dISO, activityId) {
     const entry = byDate[dISO] || {};
     let s = entry.session ? entry.session : null;
@@ -857,7 +1151,7 @@
 
     let html = "";
 
-    /* ── TOP: Activity header ──────────────────────────────────────── */
+    /* ── Completed activity detail (Intervals-style) ───────────────── */
     if (act) {
       const sport = canonSport(act);
       const name = sportLabel(act);
@@ -865,7 +1159,7 @@
       const dateStr = fmtDayHeader(dISO);
       const startTime = act.start_date ? new Date(act.start_date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
 
-      html += `<button type="button" class="ad-back" onclick="AthlevoTrainCalendar.closeModal()">Back</button>`;
+      html += `<button type="button" class="ad-back" onclick="AthlevoTrainCalendar.closeModal()">← Back</button>`;
       html += `<div class="ad-header ad-header--${sportTheme(act)}">
         <div class="ad-header-info">
           <h2 class="ad-title">${esc(source || name)}</h2>
@@ -873,15 +1167,32 @@
         </div>
       </div>`;
 
+      /* ── Compact metric grid ──────────────────────────────────────── */
       html += renderDetailSummary(act, ex, sport);
 
+      /* ── Coach analysis (1-2 sentences max) ───────────────────────── */
       const recognition = (window.AthlevoCoach && AthlevoCoach.getStoredRecognition)
         ? AthlevoCoach.getStoredRecognition(act) : null;
-
       html += renderCoachSection(act, recognition, s);
+
+      /* ── GPS Route map (outdoor activities with GPS only) ─────────── */
+      if (isOutdoorGpsSport(act)) {
+        const routePoints = extractRouteData(act);
+        if (routePoints) {
+          html += renderRouteMap(routePoints);
+        } else {
+          // Placeholder — may load after streams arrive
+          html += `<div id="ad-route-deferred" class="ad-route-deferred"></div>`;
+        }
+      }
+
+      /* ── Splits strip (compact horizontal scroll) ─────────────────── */
       html += renderSplitsStrip(act, sport);
+
+      /* ── Synchronized graph stack ─────────────────────────────────── */
       html += `<div id="ad-charts-root" class="ad-charts-root" data-activity-id="${esc(act.id != null ? String(act.id) : "")}"></div>`;
 
+      /* ── Workout structure (segment timeline) ─────────────────────── */
       if (recognition) {
         _wsvSegments = normalizeSegments(recognition, act);
         if (_wsvSegments.length > 0) {
@@ -898,6 +1209,7 @@
         }
       }
 
+      /* ── HR Zones ─────────────────────────────────────────────────── */
       html += renderHRZones(act);
 
     } else if (s && !isRest(s)) {
@@ -941,6 +1253,7 @@
     const stored = AS.streamsFromActivity(act);
     if (AS.hasUsableStreams(stored)) {
       AS.renderInto(root, stored, sport);
+      tryDeferredRoute(act, stored);
       return;
     }
     root.innerHTML = `<p class="ad-chart-loading">Loading graphs…</p>`;
@@ -948,36 +1261,95 @@
     try { streams = await AS.loadStreams(act); } catch (e) { streams = null; }
     if (token !== _openModalToken) return;
     if (!AS.renderInto(root, streams, sport)) root.innerHTML = "";
+    tryDeferredRoute(act, streams);
   }
 
-  /* ── Detail: compact metric line ───────────────────────────────── */
+  function tryDeferredRoute(act, streams) {
+    const el = document.getElementById("ad-route-deferred");
+    if (!el || !isOutdoorGpsSport(act)) return;
+    // Try latlng from streams
+    if (streams && streams.latlng && Array.isArray(streams.latlng) && streams.latlng.length >= 2) {
+      let pts = null;
+      if (Array.isArray(streams.latlng[0])) {
+        pts = streams.latlng.filter(p => Array.isArray(p) && p.length >= 2);
+      } else if (streams.latlng.length >= 4 && typeof streams.latlng[0] === "number") {
+        pts = [];
+        for (let i = 0; i < streams.latlng.length - 1; i += 2) pts.push([streams.latlng[i], streams.latlng[i + 1]]);
+      }
+      if (pts && pts.length >= 2) {
+        el.outerHTML = renderRouteMap(pts);
+        return;
+      }
+    }
+    // Re-check route data now that streams may be cached
+    const routePoints = extractRouteData(act);
+    if (routePoints) {
+      el.outerHTML = renderRouteMap(routePoints);
+    } else {
+      el.remove();
+    }
+  }
+
+  /* ── Detail: Intervals-style compact metric grid ────────────────── */
   function renderDetailSummary(act, ex, sport) {
-    const parts = [];
+    const raw = act.raw_data && typeof act.raw_data === "object" ? act.raw_data : {};
+    const primary = [];
+    const secondary = [];
+    const addP = (label, value) => { if (value != null && value !== "") primary.push({ label, value: String(value) }); };
+    const addS = (label, value) => { if (value != null && value !== "") secondary.push({ label, value: String(value) }); };
+
     if (act.distance_meters && sport !== "strength" && sport !== "mobility") {
-      parts.push((act.distance_meters / 1000).toFixed(1) + " km");
+      addP("Distance", (act.distance_meters / 1000).toFixed(2) + " km");
     }
-    if (act.moving_time_seconds) parts.push(fmtDuration(act.moving_time_seconds));
+    if (act.moving_time_seconds) addP("Duration", fmtDuration(act.moving_time_seconds));
+
     if ((sport === "run" || sport === "walk" || sport === "hike") && act.distance_meters && act.moving_time_seconds) {
-      parts.push(fmtPace(act.moving_time_seconds / (act.distance_meters / 1000)) + "/km");
+      addP("Pace", fmtPace(act.moving_time_seconds / (act.distance_meters / 1000)) + "/km");
     } else if (sport === "swim" && act.distance_meters && act.moving_time_seconds) {
-      parts.push(fmtPace(act.moving_time_seconds / (act.distance_meters / 100)) + "/100m");
+      addP("Pace", fmtPace(act.moving_time_seconds / (act.distance_meters / 100)) + "/100m");
     } else if (sport === "ride" && act.distance_meters && act.moving_time_seconds) {
-      parts.push(((act.distance_meters / act.moving_time_seconds) * 3.6).toFixed(1) + " km/h");
+      addP("Speed", ((act.distance_meters / act.moving_time_seconds) * 3.6).toFixed(1) + " km/h");
     }
-    if (act.average_heartrate) parts.push(Math.round(act.average_heartrate) + " bpm");
+
+    if (act.average_heartrate) addP("Avg HR", Math.round(act.average_heartrate) + " bpm");
+
     const load = activityLoad(act);
-    if (load) parts.push("Load " + load);
+    if (load) addP("Load", String(load));
     const rpe = activityRpe(act, ex);
-    if (rpe) parts.push("RPE " + rpe);
-    if (sport === "ride") {
-      const pwr = activityPower(act);
-      if (pwr > 0) parts.push(Math.round(pwr) + " W");
+    if (rpe) addP("RPE", String(rpe));
+
+    // Secondary metrics
+    const maxHr = num(act.max_heartrate) || num(raw.max_heartrate);
+    if (maxHr) addS("Max HR", Math.round(maxHr) + " bpm");
+    if (act.average_cadence || raw.average_cadence) {
+      const cad = Math.round(num(act.average_cadence) || num(raw.average_cadence));
+      addS("Cadence", cad + (sport === "ride" ? " rpm" : " spm"));
     }
+    if (act.elevation_gain_meters) addS("Elevation", Math.round(act.elevation_gain_meters) + " m");
+    const pwr = activityPower(act);
+    if (pwr > 0) addS("Power", Math.round(pwr) + " W");
     if ((sport === "strength" || sport === "mobility") && strengthVolume(act)) {
-      parts.push(strengthVolume(act));
+      addS("Volume", strengthVolume(act));
     }
-    if (!parts.length) return "";
-    return `<p class="ad-metrics">${esc(parts.join(" · "))}</p>`;
+    const cals = num(raw.calories_kcal);
+    if (cals > 0) addS("Calories", Math.round(cals) + " kcal");
+
+    if (!primary.length && !secondary.length) return "";
+
+    let html = `<div class="ad-metric-grid">`;
+    primary.forEach(m => {
+      html += `<div class="ad-metric-cell"><span class="ad-metric-val">${esc(m.value)}</span><span class="ad-metric-lbl">${esc(m.label)}</span></div>`;
+    });
+    html += `</div>`;
+
+    if (secondary.length) {
+      html += `<div class="ad-metric-grid ad-metric-grid--secondary">`;
+      secondary.forEach(m => {
+        html += `<div class="ad-metric-cell ad-metric-cell--sm"><span class="ad-metric-val">${esc(m.value)}</span><span class="ad-metric-lbl">${esc(m.label)}</span></div>`;
+      });
+      html += `</div>`;
+    }
+    return html;
   }
 
   function clipCoachText(text) {
