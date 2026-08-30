@@ -5264,8 +5264,29 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-greet{padding:28px 22px 10px}
   .tc-greet h1{font-size:var(--fs-display)}
 
+  /* Train has exactly one scroll container: #screen-train. Nothing nested
+     inside it may become a scroll box, or touch scrolling that starts on the
+     cards is absorbed by the inner box instead of chaining out to here.
+
+     The tab-bar clearance is an in-flow spacer rather than padding-bottom
+     because .screen is a flex column, and WebKit leaves a flex scroll
+     container's end padding out of the scrollable overflow region — the last
+     card then stays pinned under the fixed nav no matter how far you scroll. */
+  #screen-train{
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
+    padding-bottom:0;
+  }
+  #screen-train::after{
+    content:"";
+    display:block;
+    flex:0 0 auto;
+    height:calc(var(--athlevo-tabbar-height, 74px) + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)) + 18px);
+  }
+
   /* ── compact calendar strip ──────────────────────────────────── */
-  #screen-train{overflow-x:hidden}
   .tc{margin:0 22px 8px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 14px 10px;user-select:none;-webkit-user-select:none;pointer-events:auto;position:relative;z-index:2}
   .tc-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);padding:0 4px 10px}
   .tc-month{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;letter-spacing:-.01em;color:var(--text)}
@@ -5294,7 +5315,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-day.other .tc-num{color:var(--ink3)}
 
   /* ── selected-day panel ──────────────────────────────────────── */
-  .tc-panel{margin:0 22px 12px;overflow-x:hidden}
+  .tc-panel{margin:0 22px 12px}
   .af-day{margin:0}
   .af-day-head{display:flex;align-items:baseline;justify-content:space-between;padding:10px 2px 6px}
   .af-day-label{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
@@ -5488,7 +5509,10 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .ad-zone-pct{font-size:var(--fs-micro);color:var(--ink3);font-weight:600}
 
   /* ── chart sections ──────────────────────────────────────────── */
-  .ad-charts-root{margin:0 0 8px;overflow-x:hidden}
+  /* No overflow here: .tw-modal-box is the sheet's scroll container and an
+     inner scroll box would swallow touch scrolling over the graphs. Each
+     .ad-stream-chart already clips its own SVG. */
+  .ad-charts-root{margin:0 0 8px}
   .ad-charts{display:flex;flex-direction:column;gap:0;width:100%;max-width:100%}
   .ad-chart-section{padding:2px 0 0;border:none}
   .ad-chart-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:1.15em;padding:2px 0 1px}
@@ -10889,7 +10913,7 @@ setTimeout(function () {
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=2"></script>
-<script src="js/trainCalendar.js?v=96"></script>
+<script src="js/trainCalendar.js?v=97"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
 <script src="js/authRouteGuard.js?v=1"></script>

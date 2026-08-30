@@ -87,14 +87,20 @@
     walk: "Walk", hike: "Hike", mobility: "Mobility",
     cross_training: "Cross-train", rest: "Rest", other: "Activity"
   };
+  /* Sport glyphs are the Material Design Icons silhouettes (@mdi/svg 7.4.47,
+     Apache-2.0): run, bike, weight-lifter, swim, walk, hiking, yoga. One
+     source set keeps the family consistent, and filled silhouettes read
+     correctly at 20px where a stroked figure turns into loose sticks. */
+  const sportSvg = path =>
+    `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${path}"/></svg>`;
   const SPORT_ICON = {
-    run: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="4" r="2"/><path d="M8 21l2.4-6.5M16.5 21l-1.5-5.5M6.5 11.5l3-2.5 2.5 2.5 4-4.5"/></svg>`,
-    ride: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="17" r="3"/><circle cx="17.5" cy="17" r="3"/><path d="M6.5 17l3.5-11h3l2 4h3"/><path d="M10 10l3 7"/></svg>`,
-    strength: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 5v14M17.5 5v14M3 8h3.5M17.5 8h3.5M3 16h3.5M17.5 16h3.5M6.5 8h11M6.5 16h11"/></svg>`,
-    swim: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0"/><path d="M2 14c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0"/><circle cx="10.5" cy="6" r="2"/><path d="M16 11l-5.5-2-3.5 2"/></svg>`,
-    walk: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l1.5-7M16 21l-1.5-5.5M10.5 11l1-3 3 2"/></svg>`,
-    hike: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l1.5-7M16 21l-1.5-5.5M10.5 11l1-3 3 2"/><line x1="7" y1="6" x2="7" y2="21"/><path d="M7 6l3 2"/></svg>`,
-    mobility: `<svg class="af-sport-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M9 21l1.5-5M15 21l-1.5-5M9 12c0-2 1.5-3 3-3s3 1 3 3c0 1.5-1.5 3.5-3 5.5-1.5-2-3-4-3-5.5z"/></svg>`
+    run: sportSvg("M13.5,5.5C14.59,5.5 15.5,4.58 15.5,3.5C15.5,2.38 14.59,1.5 13.5,1.5C12.39,1.5 11.5,2.38 11.5,3.5C11.5,4.58 12.39,5.5 13.5,5.5M9.89,19.38L10.89,15L13,17V23H15V15.5L12.89,13.5L13.5,10.5C14.79,12 16.79,13 19,13V11C17.09,11 15.5,10 14.69,8.58L13.69,7C13.29,6.38 12.69,6 12,6C11.69,6 11.5,6.08 11.19,6.08L6,8.28V13H8V9.58L9.79,8.88L8.19,17L3.29,16L2.89,18L9.89,19.38Z"),
+    ride: sportSvg("M5,20.5A3.5,3.5 0 0,1 1.5,17A3.5,3.5 0 0,1 5,13.5A3.5,3.5 0 0,1 8.5,17A3.5,3.5 0 0,1 5,20.5M5,12A5,5 0 0,0 0,17A5,5 0 0,0 5,22A5,5 0 0,0 10,17A5,5 0 0,0 5,12M14.8,10H19V8.2H15.8L13.86,4.93C13.57,4.43 13,4.1 12.4,4.1C11.93,4.1 11.5,4.29 11.2,4.6L7.5,8.29C7.19,8.6 7,9 7,9.5C7,10.13 7.33,10.66 7.85,10.97L11.2,13V18H13V11.5L10.75,9.85L13.07,7.5M19,20.5A3.5,3.5 0 0,1 15.5,17A3.5,3.5 0 0,1 19,13.5A3.5,3.5 0 0,1 22.5,17A3.5,3.5 0 0,1 19,20.5M19,12A5,5 0 0,0 14,17A5,5 0 0,0 19,22A5,5 0 0,0 24,17A5,5 0 0,0 19,12M16,4.8C17,4.8 17.8,4 17.8,3C17.8,2 17,1.2 16,1.2C15,1.2 14.2,2 14.2,3C14.2,4 15,4.8 16,4.8Z"),
+    strength: sportSvg("M12 5C10.89 5 10 5.89 10 7S10.89 9 12 9 14 8.11 14 7 13.11 5 12 5M22 1V6H20V4H4V6H2V1H4V3H20V1H22M15 11.26V23H13V18H11V23H9V11.26C6.93 10.17 5.5 8 5.5 5.5L5.5 5H7.5L7.5 5.5C7.5 8 9.5 10 12 10S16.5 8 16.5 5.5L16.5 5H18.5L18.5 5.5C18.5 8 17.07 10.17 15 11.26Z"),
+    swim: sportSvg("M2,18C4.22,17 6.44,16 8.67,16C10.89,16 13.11,18 15.33,18C17.56,18 19.78,16 22,16V19C19.78,19 17.56,21 15.33,21C13.11,21 10.89,19 8.67,19C6.44,19 4.22,20 2,21V18M8.67,13C7.89,13 7.12,13.12 6.35,13.32L11.27,9.88L10.23,8.64C10.09,8.47 10,8.24 10,8C10,7.66 10.17,7.35 10.44,7.17L16.16,3.17L17.31,4.8L12.47,8.19L17.7,14.42C16.91,14.75 16.12,15 15.33,15C13.11,15 10.89,13 8.67,13M18,7A2,2 0 0,1 20,9A2,2 0 0,1 18,11A2,2 0 0,1 16,9A2,2 0 0,1 18,7Z"),
+    walk: sportSvg("M14.12,10H19V8.2H15.38L13.38,4.87C13.08,4.37 12.54,4.03 11.92,4.03C11.74,4.03 11.58,4.06 11.42,4.11L6,5.8V11H7.8V7.33L9.91,6.67L6,22H7.8L10.67,13.89L13,17V22H14.8V15.59L12.31,11.05L13.04,8.18M14,3.8C15,3.8 15.8,3 15.8,2C15.8,1 15,0.2 14,0.2C13,0.2 12.2,1 12.2,2C12.2,3 13,3.8 14,3.8Z"),
+    hike: sportSvg("M17.47 8.67H19V23H17.47V12.6C16.67 12.44 15.92 12.14 15.21 11.71S13.9 10.78 13.39 10.2L12.77 13.27L15 15.47V23H13V17L10.76 14.8L8.89 23H6.73C6.73 23 9.86 7.22 9.89 7.09C10 6.61 10.22 6.24 10.59 6C10.96 5.73 11.33 5.6 11.71 5.6C12.1 5.6 12.46 5.69 12.79 5.87C13.13 6.04 13.39 6.29 13.58 6.61L14.64 8.24C14.93 8.78 15.32 9.25 15.81 9.63S16.86 10.3 17.47 10.5V8.67M8.55 5.89L7.4 5.65C6.83 5.5 6.31 5.62 5.84 5.94C5.38 6.26 5.1 6.7 5 7.28L4.19 11.26C4.16 11.55 4.22 11.81 4.38 12.05C4.54 12.29 4.75 12.42 5 12.46L7.21 12.89L8.55 5.89M13 1C11.9 1 11 1.9 11 3S11.9 5 13 5 15 4.11 15 3 14.11 1 13 1Z"),
+    mobility: sportSvg("M13 2C11.9 2 11 2.9 11 4C11 5.11 11.9 6 13 6C14.11 6 15 5.11 15 4C15 2.9 14.11 2 13 2M4 7V9H10V15L4.93 20.07L6.34 21.5L13.06 14.77L17 17.13V21H19V16.57C19 16.21 18.82 15.89 18.5 15.71L15 13.6V9H21V7H4Z")
   };
   const canonSport = a => {
     const SC = window.SportClassification;
@@ -203,6 +209,7 @@
     bindCalendarInteractions(cal);
     renderActivityFeed();
     clearTrainExtras();
+    releaseTrainScrollLock();
   }
 
   /* ── format helpers ──────────────────────────────────────────────── */
@@ -1599,10 +1606,12 @@
     if (!m) return;
     if (window.AthlevoSheet && window.AthlevoSheet.isOpen(m)) {
       window.AthlevoSheet.close(m);
+      setTimeout(releaseTrainScrollLock, 400);
       return;
     }
     m.classList.remove("show");
     m.setAttribute("aria-hidden", "true");
+    releaseTrainScrollLock();
   }
 
   /* ── navigation (unchanged) ────────────────────────────────────── */
@@ -1623,12 +1632,24 @@
   async function prevWeek() { interruptWeekMotion(); await goToWeek(addDays(weekStart, -7), selectedDow()); }
   async function nextWeek() { interruptWeekMotion(); await goToWeek(addDays(weekStart, 7), selectedDow()); }
   async function goToday() { interruptWeekMotion(); selected = todayISO(); await goToWeek(mondayOf(civilToday()), null); selected = todayISO(); render(); }
+  /* The sheet engine parks overflow:hidden on the active screen while a sheet
+     is open. If a close is ever interrupted the inline style outlives the
+     sheet and Train stops scrolling, so clear it whenever no sheet is up. */
+  function releaseTrainScrollLock() {
+    const screen = document.getElementById("screen-train");
+    if (!screen || !screen.style.overflow) return;
+    const sheetOpen = !!(window.AthlevoSheet && window.AthlevoSheet.activeRoot());
+    if (!sheetOpen) screen.style.overflow = "";
+  }
+  /* Switching dates lands at the top of the new day's content when the reader
+     was already scrolled into the cards, and leaves the position alone when
+     they were above them. */
   function keepSelectedDayInView() {
     const screen = document.getElementById("screen-train");
-    const cal = document.getElementById("trainCalendar");
-    if (!screen || !cal) return;
-    const top = cal.offsetTop;
-    if (screen.scrollTop > top + cal.offsetHeight) screen.scrollTop = Math.max(0, top);
+    const panel = document.getElementById("trainDayPanel");
+    if (!screen || !panel) return;
+    const panelTop = Math.max(0, panel.offsetTop - 8);
+    if (screen.scrollTop > panelTop) screen.scrollTop = panelTop;
   }
   function isDateKey(dISO) {
     return typeof dISO === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dISO);
@@ -1780,6 +1801,6 @@
     cardMiniProfile, cardProfileSeries,
     hydrate, getSelectedDate,
     clipCoachText, renderDetailSummary, renderSplitsStrip, renderCoachSection,
-    VERSION: "train-calendar-v8"
+    VERSION: "train-calendar-v9"
   };
 })();

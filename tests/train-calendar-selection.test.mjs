@@ -193,5 +193,44 @@ test("week swipe still exists and still ignores the Today/arrow nav cluster",
   /function attachSwipe/.test(calendar) &&
   /closest\("\.tc-nav"\)/.test(calendar));
 
+console.log("\n──── Scrolling ────");
+const trainScrollRule = (html.match(/#screen-train\{[^}]*\}/) || [""])[0];
+test("#screen-train is the declared scroll container",
+  /overflow-y:auto/.test(trainScrollRule) &&
+  /-webkit-overflow-scrolling:touch/.test(trainScrollRule),
+  trainScrollRule.slice(0, 120));
+test("tab-bar clearance is an in-flow spacer, not scroller padding",
+  /padding-bottom:0/.test(trainScrollRule) &&
+  /#screen-train::after\{[^}]*height:calc\(var\(--athlevo-tabbar-height[^}]*--athlevo-safe-bottom/.test(
+    html.replace(/\s*\n\s*/g, "")
+  ));
+test("nothing inside Train opens a competing scroll container",
+  /\.tc-panel\{margin:0 22px 12px\}/.test(html) &&
+  /\.ad-charts-root\{margin:0 0 8px\}/.test(html));
+test("switching dates lands on the selected-day content instead of trapping scroll",
+  /function keepSelectedDayInView/.test(calendar) &&
+  /trainDayPanel[\s\S]{0,220}scrollTop = panelTop/.test(calendar));
+test("a stale sheet scroll lock cannot outlive the activity detail",
+  /function releaseTrainScrollLock/.test(calendar) &&
+  /AthlevoSheet\.activeRoot\(\)[\s\S]{0,90}screen\.style\.overflow = ""/.test(calendar) &&
+  /function closeModal[\s\S]{0,320}releaseTrainScrollLock/.test(calendar));
+
+console.log("\n──── Sport icons ────");
+const runGlyph = (calendar.match(/run: sportSvg\("([^"]+)"\)/) || [])[1] || "";
+test("sport glyphs come from one filled icon set, not hand-drawn strokes",
+  /@mdi\/svg/.test(calendar) &&
+  /fill="currentColor"/.test(calendar) &&
+  !/class="af-sport-icon"[^`]*stroke="currentColor"/.test(calendar));
+test("every sport in the family uses the shared glyph builder",
+  ["run", "ride", "strength", "swim", "walk", "hike", "mobility"]
+    .every(sport => new RegExp(`${sport}: sportSvg\\("`).test(calendar)));
+test("the run glyph is a closed silhouette with a head, torso and both legs",
+  runGlyph.length > 300 &&
+  (runGlyph.match(/Z/g) || []).length >= 1 &&
+  /^M13\.5,5\.5C14\.59,5\.5/.test(runGlyph),
+  runGlyph.slice(0, 40));
+test("run icon sits in the 18-20px card band and keeps the sport accent colour",
+  /\.af-sport-icon\{[^}]*width:20px;height:20px[^}]*color:var\(--sport-accent,var\(--ink3\)\)/.test(html));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
