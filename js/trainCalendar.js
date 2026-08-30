@@ -1155,6 +1155,7 @@
     const ex = entry.execution || null;
     _openModalToken += 1;
     const modalToken = _openModalToken;
+    _wsvSegments = [];
 
     let html = "";
 
@@ -1196,25 +1197,11 @@
       /* ── Splits strip (compact horizontal scroll) ─────────────────── */
       html += renderSplitsStrip(act, sport);
 
-      /* ── Synchronized graph stack ─────────────────────────────────── */
+      /* ── Continuous telemetry graphs (the visual centerpiece) ──── */
       html += `<div id="ad-charts-root" class="ad-charts-root" data-activity-id="${esc(act.id != null ? String(act.id) : "")}"></div>`;
 
-      /* ── Workout structure (segment timeline) ─────────────────────── */
-      if (recognition) {
-        _wsvSegments = normalizeSegments(recognition, act);
-        if (_wsvSegments.length > 0) {
-          html += `<div class="ad-section">`;
-          html += `<div class="ad-section-h">Workout Structure</div>`;
-          try {
-            html += (window.WorkoutStructureView && WorkoutStructureView.render)
-              ? WorkoutStructureView.render(_wsvSegments)
-              : "";
-          } catch (e) {
-            html += `<p class="ad-empty">Workout structure unavailable.</p>`;
-          }
-          html += `</div>`;
-        }
-      }
+      /* ── Secondary: interval blocks only when they add information ─ */
+      html += workoutStructureHtml(recognition, act);
 
       /* ── HR Zones ─────────────────────────────────────────────────── */
       html += renderHRZones(act);
@@ -1232,7 +1219,9 @@
     const body = document.getElementById("trainWorkoutModalBody");
     if (body) {
       body.innerHTML = html || `<p class="ad-empty">No details available.</p>`;
-      if (window.WorkoutStructureView) WorkoutStructureView.mount(body, _wsvSegments);
+      if (_wsvSegments.length && window.WorkoutStructureView && typeof window.WorkoutStructureView.mount === "function") {
+        window.WorkoutStructureView.mount(body, _wsvSegments);
+      }
     }
     const m = document.getElementById("trainWorkoutModal");
     if (m && window.AthlevoSheet) {
@@ -1596,6 +1585,27 @@
     }
     return (window.AthlevoCoach && AthlevoCoach.displayType ? AthlevoCoach.displayType(type) : type) || "Run";
   }
+  function workoutStructureHtml(recognition, act) {
+    _wsvSegments = [];
+    if (!recognition) return "";
+    const segments = normalizeSegments(recognition, act);
+    const structured = segments.filter(s => s && s.kind && s.kind !== "steady");
+    if (structured.length < 2) return "";
+    _wsvSegments = segments;
+    try {
+      const inner = (window.WorkoutStructureView && typeof window.WorkoutStructureView.render === "function")
+        ? window.WorkoutStructureView.render(_wsvSegments)
+        : "";
+      if (!inner) {
+        _wsvSegments = [];
+        return "";
+      }
+      return `<div class="ad-section ad-section--secondary"><div class="ad-section-h">Workout Structure</div>${inner}</div>`;
+    } catch (e) {
+      _wsvSegments = [];
+      return "";
+    }
+  }
   function normalizeSegments(rec, act) {
     const raw = ((rec && rec.segments) || []).filter(s => s && s.duration > 0);
     const structured = raw.filter(s => s.kind !== "steady");
@@ -1832,6 +1842,7 @@
     cardMiniProfile, cardProfileSeries,
     hydrate, getSelectedDate,
     clipCoachText, renderDetailSummary, renderSplitsStrip, renderCoachSection,
-    VERSION: "train-calendar-v9"
+    workoutStructureHtml, normalizeSegments,
+    VERSION: "train-calendar-v10"
   };
 })();

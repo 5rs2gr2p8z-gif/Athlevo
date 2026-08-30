@@ -397,6 +397,31 @@ console.log("\n──── Scanability ────");
     /ad-coach-text/.test(coach) && !/Ask Coach/.test(coach) &&
     (coach.match(/[.!?]/g) || []).length <= 2);
 
+  windowStub.WorkoutStructureView = {
+    render: segs => `<div class="wsv">${segs.map(s => s.kind).join(",")}</div>`
+  };
+  test("steady-only recognition does not render a Workout Structure block",
+    TC.workoutStructureHtml({ workoutType: "threshold", segments: [{ kind: "steady", duration: 3600 }] }, {
+      moving_time_seconds: 3600, distance_meters: 10000
+    }) === "");
+  test("structured intervals still render below the telemetry stack",
+    /ad-section--secondary/.test(TC.workoutStructureHtml({
+      workoutType: "threshold",
+      segments: [
+        { kind: "warmup", duration: 600 },
+        { kind: "work", duration: 1200 },
+        { kind: "recovery", duration: 180 }
+      ]
+    }, { moving_time_seconds: 1980 })) &&
+    /warmup,work,recovery/.test(TC.workoutStructureHtml({
+      workoutType: "threshold",
+      segments: [
+        { kind: "warmup", duration: 600 },
+        { kind: "work", duration: 1200 },
+        { kind: "recovery", duration: 180 }
+      ]
+    }, { moving_time_seconds: 1980 })));
+
   test("Train no longer shows weekly progress or training context below cards",
     !/<details class="train-more">/.test(html) &&
     /id="trainWeekProgress"/.test(html) &&

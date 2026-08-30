@@ -206,7 +206,7 @@ test("tab-bar clearance is an in-flow spacer, not scroller padding",
   ));
 test("nothing inside Train opens a competing scroll container",
   /\.tc-panel\{margin:0 22px 12px\}/.test(html) &&
-  /\.ad-charts-root\{margin:0 0 8px\}/.test(html));
+  /\.ad-charts-root\{margin:6px 0 14px\}/.test(html));
 test("switching dates lands on the selected-day content instead of trapping scroll",
   /function keepSelectedDayInView/.test(calendar) &&
   /trainDayPanel[\s\S]{0,220}scrollTop = panelTop/.test(calendar));

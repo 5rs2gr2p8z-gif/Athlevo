@@ -52,7 +52,7 @@ console.log("\n──── Normalize real provider payloads ────");
     { type: "watts", data: [200, 210, 190, 205] }
   ]);
   test("Intervals array streams normalize",
-    availableGraphKeys(intervals, "ride").join(",") === "heartrate,power");
+    availableGraphKeys(intervals, "ride").join(",") === "power,heartrate");
 }
 
 console.log("\n──── Do not invent graphs from averages ────");
@@ -157,10 +157,37 @@ console.log("\n──── Client cache + render ────");
   test("empty streams render no fake charts",
     AS.renderStackedCharts({ heartrate: null }, "run") === "");
   test("stacked graphs share one timeline width and aligned vertical grid",
-    (html.match(/viewBox="0 0 360 88"/g) || []).length >= 2 &&
-    /ad-chart-grid--v/.test(html) &&
-    !/ad-chart-stats/.test(html) &&
-    /ad-chart-label/.test(html));
+    (html.match(/viewBox="0 0 640 100"/g) || []).length >= 2 &&
+    /adg-vgrid/.test(html) &&
+    /adg-line/.test(html) &&
+    /adg-fill/.test(html) &&
+    /adg-chart-label/.test(html) &&
+    !/wsv__segment/.test(html));
+  test("run graphs follow Pace → Power → Heart Rate → Cadence → Elevation",
+    AS.GRAPH_ORDER.join(",") === "pace,power,heartrate,cadence,elevation");
+
+  const withPower = AS.renderStackedCharts({
+    time: [0, 300, 600, 900, 1200],
+    velocity: [3.2, 2.8, 3.4, 2.9, 3.1],
+    watts: [280, 310, 250, 340, 300],
+    heartrate: [140, 155, 148, 162, 158],
+    cadence: [168, 172, 166, 174, 170],
+    altitude: [18, 22, 27, 21, 19]
+  }, "run");
+  const order = [...withPower.matchAll(/data-stream="([^"]+)"/g)].map(m => m[1]);
+  test("rendered run stack is Pace, Power, HR, Cadence, Elevation",
+    order.join(",") === "pace,power,heartrate,cadence,elevation");
+  test("each telemetry chart is a polyline plus translucent fill, not a box",
+    (withPower.match(/class="adg-line"/g) || []).length === 5 &&
+    (withPower.match(/class="adg-fill"/g) || []).length === 5 &&
+    !/wsv__segment/.test(withPower) &&
+    !/<div class="segment/.test(withPower));
+  test("flat elevation is omitted so treadmill noise does not become a graph",
+    AS.availableGraphKeys({
+      velocity: [3, 3.1, 2.9, 3],
+      heartrate: [140, 142, 141, 143],
+      altitude: [12.1, 12.2, 12.0, 12.3]
+    }, "run").join(",") === "pace,heartrate");
 }
 
 console.log("\n──── Wiring ────");
@@ -176,6 +203,11 @@ test("calendar week loader still selects lightweight activity rows only", (() =>
 test("no-stream detail still keeps coach analysis",
   /renderCoachSection/.test(calendar) &&
   /ad-coach/.test(calendar));
+test("charts mount before Workout Structure in the detail sheet",
+  calendar.indexOf('id="ad-charts-root"') < calendar.indexOf("workoutStructureHtml("));
+test("a single steady red block is not treated as the activity graph",
+  /structured\.length < 2/.test(calendar) &&
+  /ad-section--secondary/.test(calendar));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

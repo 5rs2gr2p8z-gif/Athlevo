@@ -19,13 +19,13 @@
   };
   const METRIC_KEYS = ["heartrate", "velocity", "altitude", "cadence", "watts"];
   const ALL_KEYS = ["time", "distance"].concat(METRIC_KEYS).concat(["latlng"]);
-  const GRAPH_ORDER = ["pace", "heartrate", "elevation", "cadence", "power"];
+  const GRAPH_ORDER = ["pace", "power", "heartrate", "cadence", "elevation"];
   const GRAPH_META = {
-    pace:      { label: "PACE",      unit: "/km", color: "#4A6FA5", fillOpacity: 0.18, invert: true },
-    heartrate: { label: "HR",        unit: "bpm", color: "#C62828", fillOpacity: 0.16, invert: false },
-    elevation: { label: "ELEVATION", unit: "m",   color: "#78909C", fillOpacity: 0.25, invert: false },
-    cadence:   { label: "CADENCE",   unit: "spm", color: "#7E57C2", fillOpacity: 0.15, invert: false },
-    power:     { label: "POWER",     unit: "W",   color: "#5E35B1", fillOpacity: 0.18, invert: false }
+    pace:      { label: "PACE",       unit: "/km", color: "#4A6FA5", fillOpacity: 0.20, invert: true },
+    power:     { label: "POWER",      unit: "W",   color: "#5E35B1", fillOpacity: 0.18, invert: false },
+    heartrate: { label: "HEART RATE", unit: "bpm", color: "#C62828", fillOpacity: 0.18, invert: false },
+    cadence:   { label: "CADENCE",    unit: "spm", color: "#7E57C2", fillOpacity: 0.16, invert: false },
+    elevation: { label: "ELEVATION",  unit: "m",   color: "#78909C", fillOpacity: 0.22, invert: false }
   };
 
   /* ── data plumbing (unchanged) ─────────────────────────────────── */
@@ -143,15 +143,23 @@
     return METRIC_KEYS.some(k => Array.isArray(streams[k]) && streams[k].filter(v => Number.isFinite(v)).length >= 3);
   }
 
+  function elevationIsMeaningful(streams) {
+    const alt = streams && streams.altitude;
+    if (!Array.isArray(alt)) return false;
+    const finite = alt.filter(v => Number.isFinite(v));
+    if (finite.length < 3) return false;
+    return Math.max.apply(null, finite) - Math.min.apply(null, finite) >= 5;
+  }
+
   function availableGraphKeys(streams, sport) {
     const keys = [];
     if (!hasUsableStreams(streams)) return keys;
     const usable = key => Array.isArray(streams[key]) && streams[key].filter(v => Number.isFinite(v)).length >= 3;
     if (usable("velocity") && sport !== "strength" && sport !== "mobility") keys.push("pace");
-    if (usable("heartrate")) keys.push("heartrate");
-    if (usable("altitude")) keys.push("elevation");
-    if (usable("cadence")) keys.push("cadence");
     if (usable("watts")) keys.push("power");
+    if (usable("heartrate")) keys.push("heartrate");
+    if (usable("cadence")) keys.push("cadence");
+    if (usable("altitude") && elevationIsMeaningful(streams)) keys.push("elevation");
     return GRAPH_ORDER.filter(k => keys.indexOf(k) >= 0);
   }
 
@@ -289,9 +297,9 @@
 
   /* ── SVG chart builder ─────────────────────────────────────────── */
 
-  const CHART_H = 90;
-  const Y_LABEL_W = 36;
-  const PAD_Y = 6;
+  const CHART_W = 640;
+  const CHART_H = 100;
+  const PAD_Y = 8;
 
   function niceYTicks(min, max, count) {
     if (max === min) { min -= 1; max += 1; }
@@ -311,27 +319,71 @@
     return String(Math.round(value));
   }
 
-  function downsampleForDraw(values, maxPoints) {
-    if (!values || values.length <= maxPoints) return values ? values.slice() : [];
+  function downsamplePaired(values, times, maxPoints) {
+    if (!values || !values.length) return { values: [], times: null };
+    if (values.length <= maxPoints) {
+      return {
+        values: values.slice(),
+        times: times && times.length === values.length ? times.slice() : null
+      };
+    }
     const step = Math.ceil(values.length / maxPoints);
-    const out = [];
-    for (let i = 0; i < values.length; i += step) out.push(values[i]);
-    return out;
+    const outV = [];
+    const outT = [];
+    const keepTime = times && times.length === values.length;
+    for (let i = 0; i < values.length; i += step) {
+      outV.push(values[i]);
+      if (keepTime) outT.push(times[i]);
+    }
+    return { values: outV, times: outT.length ? outT : null };
   }
 
-  function buildChartSVG(values, meta, key, gridPositions) {
-    const sampled = downsampleForDraw(values, 280);
-    const nums = sampled.filter(v => Number.isFinite(v));
+  function streamDuration(streams) {
+    if (streams && streams.time && streams.time.length >= 2) {
+      const t0 = Number(streams.time[0]) || 0;
+      const t1 = Number(streams.time[streams.time.length - 1]);
+      if (Number.isFinite(t1) && t1 > t0) return t1 - t0;
+    }
+    return 0;
+  }
+
+  function sharedGridRatios(streams) {
+    const duration = streamDuration(streams);
+    if (duration > 0) {
+      let step = 15 * 60;
+      if (duration <= 20 * 60) step = 5 * 60;
+      else if (duration <= 90 * 60) step = 15 * 60;
+      else if (duration <= 3 * 3600) step = 30 * 60;
+      else step = 60 * 60;
+      const ratios = [];
+      for (let t = step; t < duration - step * 0.15; t += step) ratios.push(t / duration);
+      if (ratios.length) return ratios;
+    }
+    return [0.25, 0.5, 0.75];
+  }
+
+  function xForSample(i, sampled, sampledTime, plotW) {
+    if (sampledTime && sampledTime.length === sampled.length) {
+      const t0 = Number(sampledTime[0]) || 0;
+      const t1 = Number(sampledTime[sampledTime.length - 1]);
+      const t = Number(sampledTime[i]);
+      if (Number.isFinite(t) && Number.isFinite(t1) && t1 > t0) {
+        return ((t - t0) / (t1 - t0)) * plotW;
+      }
+    }
+    return (i / Math.max(1, sampled.length - 1)) * plotW;
+  }
+
+  function buildChartSVG(values, meta, key, gridPositions, times) {
+    const sampled = downsamplePaired(values, times, 280);
+    const nums = sampled.values.filter(v => Number.isFinite(v));
     if (nums.length < 3) return "";
 
-    const W = 100; // percentage-based viewBox, scaled by CSS
+    const W = CHART_W;
     const H = CHART_H;
-    const plotX = 0;
-    const plotW = W;
     let min = Math.min.apply(null, nums), max = Math.max.apply(null, nums);
     if (max === min) { min -= 1; max += 1; }
-    // Add 5% padding to range
-    const rangePad = (max - min) * 0.05;
+    const rangePad = (max - min) * 0.06;
     min -= rangePad;
     max += rangePad;
     const range = max - min;
@@ -343,40 +395,39 @@
         : H - PAD_Y - norm * (H - 2 * PAD_Y);
     };
 
-    // Build grid lines (shared vertical positions)
     let gridSvg = "";
     gridPositions.forEach(ratio => {
-      const x = (ratio * plotW).toFixed(2);
-      gridSvg += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="' + H + '" class="adg-vgrid"/>';
+      const x = (ratio * W).toFixed(2);
+      gridSvg += '<line class="adg-vgrid" x1="' + x + '" y1="0" x2="' + x + '" y2="' + H + '"/>';
     });
 
-    // Y-axis reference lines + labels
     const yTicks = niceYTicks(min, max, 2);
     let yLabelHtml = "";
     yTicks.forEach(val => {
       const y = toY(val);
-      gridSvg += '<line x1="0" y1="' + y.toFixed(1) + '" x2="' + W + '" y2="' + y.toFixed(1) + '" class="adg-hgrid"/>';
+      gridSvg += '<line class="adg-hgrid" x1="0" y1="' + y.toFixed(1) + '" x2="' + W + '" y2="' + y.toFixed(1) + '"/>';
       yLabelHtml += '<span class="adg-ylabel" style="top:' + ((y / H) * 100).toFixed(1) + '%">' + formatYLabel(key, val) + '</span>';
     });
 
-    // Build path
     const points = [];
-    sampled.forEach((v, i) => {
+    sampled.values.forEach((v, i) => {
       if (!Number.isFinite(v)) return;
-      const x = plotX + (i / Math.max(1, sampled.length - 1)) * plotW;
-      const y = toY(v);
-      points.push(x.toFixed(2) + "," + y.toFixed(1));
+      const x = xForSample(i, sampled.values, sampled.times, W);
+      points.push(x.toFixed(2) + "," + toY(v).toFixed(1));
     });
     if (points.length < 3) return "";
 
+    const clipId = "adg-clip-" + key;
     const linePath = "M" + points.join("L");
-    const areaPath = "M" + (plotX) + "," + H + "L" + points.join("L") + "L" + (plotX + plotW) + "," + H + "Z";
+    const areaPath = "M0," + H + "L" + points.join("L") + "L" + W + "," + H + "Z";
 
-    const svg = '<svg class="adg-svg" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">'
+    const svg = '<svg class="adg-svg" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" aria-hidden="true">'
+      + '<defs><clipPath id="' + clipId + '"><rect x="0" y="0" width="' + W + '" height="' + H + '"/></clipPath></defs>'
       + gridSvg
-      + '<path d="' + areaPath + '" fill="' + meta.color + '" fill-opacity="' + meta.fillOpacity + '"/>'
-      + '<path d="' + linePath + '" fill="none" stroke="' + meta.color + '" stroke-width="1.8" vector-effect="non-scaling-stroke"/>'
-      + '</svg>';
+      + '<g clip-path="url(#' + clipId + ')">'
+      + '<path class="adg-fill" d="' + areaPath + '" fill="' + meta.color + '" fill-opacity="' + meta.fillOpacity + '"/>'
+      + '<path class="adg-line" d="' + linePath + '" fill="none" stroke="' + meta.color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'
+      + "</g></svg>";
 
     return { svg: svg, yLabels: yLabelHtml, min: min, max: max };
   }
@@ -384,29 +435,26 @@
   /* ── Time axis ─────────────────────────────────────────────────── */
 
   function buildTimeAxis(streams, gridPositions) {
-    const n = streams.time ? streams.time.length : (streams.distance ? streams.distance.length : 0);
-    if (n < 2) return "";
-
+    const duration = streamDuration(streams);
     const labels = [];
-    // Always show 0 and end
-    if (streams.time) {
-      const maxT = streams.time[streams.time.length - 1] || 0;
-      labels.push({ ratio: 0, text: "0" });
+    if (duration > 0) {
+      const t0 = Number(streams.time[0]) || 0;
+      labels.push({ ratio: 0, text: fmtElapsed(t0) });
       gridPositions.forEach(r => {
-        const idx = Math.round(r * (streams.time.length - 1));
-        const t = streams.time[idx];
-        if (Number.isFinite(t)) labels.push({ ratio: r, text: fmtElapsed(t) });
+        labels.push({ ratio: r, text: fmtElapsed(t0 + r * duration) });
       });
-      labels.push({ ratio: 1, text: fmtElapsed(maxT) });
-    } else if (streams.distance) {
+      labels.push({ ratio: 1, text: fmtElapsed(t0 + duration) });
+    } else if (streams.distance && streams.distance.length >= 2) {
       const maxD = streams.distance[streams.distance.length - 1] || 0;
-      labels.push({ ratio: 0, text: "0" });
+      labels.push({ ratio: 0, text: "0 km" });
       gridPositions.forEach(r => {
         const idx = Math.round(r * (streams.distance.length - 1));
         const d = streams.distance[idx];
-        if (Number.isFinite(d)) labels.push({ ratio: r, text: (d / 1000).toFixed(1) + "k" });
+        if (Number.isFinite(d)) labels.push({ ratio: r, text: (d / 1000).toFixed(1) });
       });
       labels.push({ ratio: 1, text: (maxD / 1000).toFixed(1) + " km" });
+    } else {
+      return "";
     }
 
     let html = '<div class="adg-time-axis">';
@@ -443,14 +491,9 @@
     const keys = availableGraphKeys(streams, sport);
     if (!keys.length) return "";
 
-    // Compute shared grid positions (vertical lines at regular intervals)
-    const gridCount = 4;
-    const gridPositions = [];
-    for (let i = 1; i < gridCount; i++) gridPositions.push(i / gridCount);
+    const gridPositions = sharedGridRatios(streams);
 
-    let html = '<div class="adg-stack" role="group" aria-label="Activity graphs">';
-
-    // Crosshair tooltip (shared)
+    let html = '<div class="adg-stack" role="group" aria-label="Activity telemetry">';
     html += '<div class="adg-crosshair-tooltip" id="adgCrosshairTooltip"></div>';
 
     keys.forEach((key, idx) => {
@@ -462,14 +505,13 @@
       if (finite.length < 3) return;
 
       const avg = formatAvgValue(key, series, sport);
-      const unitLabel = key === "cadence" && sport === "ride" ? "rpm" : meta.unit;
-      const built = buildChartSVG(series, meta, key, gridPositions);
+      const built = buildChartSVG(series, meta, key, gridPositions, streams.time);
       if (!built) return;
 
       html += '<div class="adg-chart' + (idx === 0 ? " adg-chart--first" : "") + '" data-stream="' + key + '">'
         + '<div class="adg-chart-head">'
         + '<span class="adg-chart-label" style="color:' + meta.color + '">' + meta.label + '</span>'
-        + (avg ? '<span class="adg-chart-avg">' + avg + ' avg</span>' : '')
+        + (avg ? '<span class="adg-chart-avg">' + avg + '</span>' : '')
         + '<span class="adg-chart-readout"></span>'
         + '</div>'
         + '<div class="adg-chart-body">'
@@ -482,9 +524,7 @@
         + '</div>';
     });
 
-    // Shared time axis at the bottom
     html += buildTimeAxis(streams, gridPositions);
-
     html += '</div>';
     return html;
   }
@@ -511,6 +551,25 @@
     const refSeries = seriesMap[keys[0]];
     if (!refSeries) return;
     const dataLen = refSeries.length;
+    const times = streams.time && streams.time.length ? streams.time : null;
+
+    function indexFromRatio(ratio) {
+      const clamped = Math.max(0, Math.min(1, ratio));
+      if (times && times.length >= 2) {
+        const t0 = Number(times[0]) || 0;
+        const t1 = Number(times[times.length - 1]);
+        if (Number.isFinite(t1) && t1 > t0) {
+          const target = t0 + clamped * (t1 - t0);
+          let best = 0, bestD = Infinity;
+          for (let i = 0; i < times.length; i += 1) {
+            const d = Math.abs(Number(times[i]) - target);
+            if (d < bestD) { bestD = d; best = i; }
+          }
+          return best;
+        }
+      }
+      return Math.max(0, Math.min(dataLen - 1, Math.round(clamped * (dataLen - 1))));
+    }
 
     const tooltip = stack.querySelector(".adg-crosshair-tooltip");
     let active = false;
@@ -518,7 +577,7 @@
     function showCrosshair(ratio) {
       const clampedRatio = Math.max(0, Math.min(1, ratio));
       const pct = (clampedRatio * 100).toFixed(2) + "%";
-      const idx = Math.max(0, Math.min(dataLen - 1, Math.round(clampedRatio * (dataLen - 1))));
+      const idx = indexFromRatio(clampedRatio);
 
       charts.forEach(c => {
         const line = c.querySelector(".adg-crosshair");

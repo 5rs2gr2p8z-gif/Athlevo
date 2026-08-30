@@ -5512,7 +5512,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   /* No overflow here: .tw-modal-box is the sheet's scroll container and an
      inner scroll box would swallow touch scrolling over the graphs. Each
      .ad-stream-chart already clips its own SVG. */
-  .ad-charts-root{margin:0 0 8px}
+  .ad-charts-root{margin:6px 0 14px}
   .ad-charts{display:flex;flex-direction:column;gap:0;width:100%;max-width:100%}
   .ad-chart-section{padding:2px 0 0;border:none}
   .ad-chart-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:1.15em;padding:2px 0 1px}
@@ -10866,7 +10866,7 @@ setTimeout(function () {
 .adg-chart-body{position:relative;display:flex;align-items:stretch;gap:0}
 .adg-ylabels{position:absolute;left:0;top:0;bottom:0;width:36px;z-index:2;pointer-events:none;display:flex;flex-direction:column;justify-content:center}
 .adg-ylabel{position:absolute;left:0;font-size:9px;font-weight:600;color:var(--ink3);font-variant-numeric:tabular-nums;transform:translateY(-50%);line-height:1;padding-right:4px;text-align:right;width:34px}
-.adg-plot{position:relative;flex:1;min-width:0;height:90px;touch-action:none;cursor:crosshair;overflow:hidden;margin-left:36px}
+.adg-plot{position:relative;flex:1;min-width:0;height:100px;touch-action:none;cursor:crosshair;overflow:hidden;margin-left:36px}
 .adg-svg{display:block;width:100%;height:100%;overflow:hidden}
 .adg-vgrid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;opacity:.5}
 .adg-hgrid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;opacity:.35;stroke-dasharray:3 3}
@@ -10881,8 +10881,11 @@ setTimeout(function () {
 .adg-time-label:first-child{transform:translateX(0)}
 .adg-time-label:last-child{transform:translateX(-100%)}
 .ad-chart-empty{font-size:var(--fs-caption);color:var(--ink3);padding:10px 0;font-style:italic;text-align:center}
+.adg-line{pointer-events:none}
+.adg-fill{pointer-events:none}
+.ad-section--secondary{padding-top:10px;opacity:.94}
 @media(min-width:480px){
-  .adg-plot{height:94px}
+  .adg-plot{height:104px}
 }
 </style>
 </body>
@@ -10943,7 +10946,7 @@ setTimeout(function () {
 <script src="js/train.js?v=82"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
-<script src="js/activityStreams.js?v=3"></script>
+<script src="js/activityStreams.js?v=4"></script>
 <script src="js/trainCalendar.js?v=98"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
