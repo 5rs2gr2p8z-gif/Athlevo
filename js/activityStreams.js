@@ -280,11 +280,22 @@
     return out;
   }
 
+  const CHART_W = 360;
+  const CHART_H = 88;
+  const CHART_PAD_X = 0;
+
+  function sharedVerticalGrid() {
+    return [0.25, 0.5, 0.75].map(r => {
+      const x = (CHART_PAD_X + r * (CHART_W - 2 * CHART_PAD_X)).toFixed(1);
+      return `<line x1="${x}" y1="0" x2="${x}" y2="${CHART_H}" class="ad-chart-grid ad-chart-grid--v"/>`;
+    }).join("");
+  }
+
   function renderLineChart(values, color, invertY) {
     const sampled = downsampleForDraw(values, 220);
     const nums = sampled.filter(v => Number.isFinite(v));
     if (nums.length < 3) return "";
-    const W = 360, H = 112, PAD_X = 2, PAD_Y = 8;
+    const W = CHART_W, H = CHART_H, PAD_X = CHART_PAD_X, PAD_Y = 6;
     let min = Math.min.apply(null, nums), max = Math.max.apply(null, nums);
     if (max === min) { min -= 1; max += 1; }
     const range = max - min;
@@ -301,13 +312,10 @@
     if (points.length < 3) return "";
     const path = `M${points.join("L")}`;
     const fill = `M${PAD_X},${H}L${points.join("L")}L${W - PAD_X},${H}Z`;
-    const y1 = (H / 4).toFixed(1), y2 = (H / 2).toFixed(1), y3 = (H * 3 / 4).toFixed(1);
     return `<svg class="ad-stream-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">
-      <line x1="${PAD_X}" y1="${y1}" x2="${W - PAD_X}" y2="${y1}" class="ad-chart-grid"/>
-      <line x1="${PAD_X}" y1="${y2}" x2="${W - PAD_X}" y2="${y2}" class="ad-chart-grid"/>
-      <line x1="${PAD_X}" y1="${y3}" x2="${W - PAD_X}" y2="${y3}" class="ad-chart-grid"/>
-      <path d="${fill}" fill="${color}" fill-opacity=".10"/>
-      <path d="${path}" fill="none" stroke="${color}" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
+      ${sharedVerticalGrid()}
+      <path d="${fill}" fill="${color}" fill-opacity=".18"/>
+      <path d="${path}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/>
     </svg>`;
   }
 
@@ -322,13 +330,11 @@
       if (!series || !meta) return;
       const finite = series.filter(v => Number.isFinite(v));
       if (finite.length < 3) return;
-      const avg = finite.reduce((s, v) => s + v, 0) / finite.length;
       html += `<section class="ad-chart-section" data-stream="${key}">
         <div class="ad-chart-head">
-          <div class="ad-section-h">${meta.label}</div>
-          <div class="ad-chart-readout" aria-live="polite"></div>
+          <span class="ad-chart-label">${meta.label}</span>
+          <span class="ad-chart-readout" aria-live="polite"></span>
         </div>
-        <div class="ad-chart-stats"><span class="ad-chart-stat"><b>${formatMetricValue(key, avg, sport)}</b> avg</span></div>
         ${renderLineChart(series, meta.color, meta.invert)}
       </section>`;
     });

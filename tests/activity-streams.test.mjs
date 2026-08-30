@@ -156,6 +156,11 @@ console.log("\n──── Client cache + render ────");
     !/data-stream="elevation"/.test(html) && !/data-stream="power"/.test(html));
   test("empty streams render no fake charts",
     AS.renderStackedCharts({ heartrate: null }, "run") === "");
+  test("stacked graphs share one timeline width and aligned vertical grid",
+    (html.match(/viewBox="0 0 360 88"/g) || []).length >= 2 &&
+    /ad-chart-grid--v/.test(html) &&
+    !/ad-chart-stats/.test(html) &&
+    /ad-chart-label/.test(html));
 }
 
 console.log("\n──── Wiring ────");
@@ -170,7 +175,7 @@ test("calendar week loader still selects lightweight activity rows only", (() =>
 })());
 test("no-stream detail still keeps coach analysis",
   /renderCoachSection/.test(calendar) &&
-  /Coach Analysis/.test(calendar));
+  /ad-coach/.test(calendar));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

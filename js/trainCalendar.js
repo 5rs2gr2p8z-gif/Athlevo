@@ -1,7 +1,7 @@
 /*
  * ══════════════════════════════════════════════════════════════════════
  *  Athlevo — Date-First Training Calendar  (Train primary experience)
- *  v5 — Selected-day panel + sport-colored activity cards + stream graphs
+ *  v8 — Scannable selected-day cards + tightly stacked detail graphs
  * ══════════════════════════════════════════════════════════════════════
  *
  *  PART 1: Compact calendar strip → ONE selected date's planned
@@ -9,7 +9,7 @@
  *  replaces the panel; it never appends other days.
  *
  *  PART 2: Activity cards are the primary tap target. Detail sheet:
- *  summary → coach analysis → real stream graphs → deeper metrics.
+ *  compact metrics → one coach line → splits strip → stacked graphs.
  *
  *  Reads plan / executions / activities per week (RLS, read-only).
  *  Does NOT touch workout classification, plan generation, Trends,
@@ -202,8 +202,7 @@
     cal.innerHTML = html + `</div>`;
     bindCalendarInteractions(cal);
     renderActivityFeed();
-    renderWeekProgress();
-    renderContext();
+    clearTrainExtras();
   }
 
   /* ── format helpers ──────────────────────────────────────────────── */
@@ -218,7 +217,11 @@
     const m = Math.round(sec / 60);
     if (m < 60) return `${m}m`;
     const h = Math.floor(m / 60), rm = m % 60;
-    return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
+    return rm > 0 ? `${h}h${rm}m` : `${h}h`;
+  }
+  function fmtSplitClock(sec) {
+    const s = Math.max(0, Math.round(Number(sec) || 0));
+    return `${Math.floor(s / 60)}:${pad(s % 60)}`;
   }
 
   /* ── compute load from activity ──────────────────────────────────── */
@@ -260,41 +263,71 @@
   function cardMetricItems(a, ex) {
     const sport = canonSport(a);
     const items = [];
+    const lines = [];
     const push = (label, value) => {
       if (value != null && value !== "" && value !== "—") items.push({ label, value: String(value) });
     };
-    if (a.moving_time_seconds) push("Duration", fmtDuration(a.moving_time_seconds));
+    const line = (...parts) => {
+      const clean = parts.filter(v => v != null && v !== "" && v !== "—");
+      if (clean.length) lines.push(clean.join(" · "));
+    };
+
+    const dist = (a.distance_meters && sport !== "strength" && sport !== "mobility")
+      ? (a.distance_meters / 1000).toFixed(1) + " km" : null;
+    const dur = a.moving_time_seconds ? fmtDuration(a.moving_time_seconds) : null;
+    const loadVal = activityLoad(a);
+    const load = loadVal ? "Load " + loadVal : null;
+    const rpeVal = activityRpe(a, ex);
+    const rpe = rpeVal ? "RPE " + rpeVal : null;
+    const hr = a.average_heartrate ? Math.round(a.average_heartrate) + " bpm" : null;
+
     if (sport === "strength" || sport === "mobility") {
-      const load = activityLoad(a);
-      if (load) push("Load", String(load));
+      if (dur) push("Duration", dur);
+      if (loadVal) push("Load", String(loadVal));
       const vol = strengthVolume(a);
       if (vol) push("Volume", vol);
-      return { sport, items };
+      line(dur, load);
+      if (vol) lines.push(vol);
+      return { sport, items, lines };
     }
-    if (a.distance_meters) push("Distance", (a.distance_meters / 1000).toFixed(1) + " km");
-    if ((sport === "run" || sport === "walk" || sport === "hike") && a.distance_meters && a.moving_time_seconds) {
-      push("Average pace", fmtPace(a.moving_time_seconds / (a.distance_meters / 1000)) + "/km");
-    }
-    if ((sport === "ride" || sport === "swim") && a.distance_meters && a.moving_time_seconds) {
-      push("Average speed", ((a.distance_meters / a.moving_time_seconds) * 3.6).toFixed(1) + " km/h");
-    }
-    if (a.average_heartrate) push("HR", Math.round(a.average_heartrate) + " bpm");
-    const load = activityLoad(a);
-    if (load) push("Load", String(load));
+
+    if (dist) push("Distance", dist);
+    if (dur) push("Duration", dur);
+    line(dist, dur);
+
     if (sport === "ride") {
-      const pwr = activityPower(a);
-      if (pwr > 0) push("Average power", Math.round(pwr) + " W");
+      const spd = (a.distance_meters && a.moving_time_seconds)
+        ? ((a.distance_meters / a.moving_time_seconds) * 3.6).toFixed(1) + " km/h" : null;
+      if (spd) push("Average speed", spd);
+      if (hr) push("HR", hr);
+      line(spd, hr);
+      const pwrVal = activityPower(a);
+      const pwr = pwrVal > 0 ? Math.round(pwrVal) + " W" : null;
+      if (pwr) push("Average power", pwr);
+      if (loadVal) push("Load", String(loadVal));
+      line(load, pwr);
+      return { sport, items, lines };
     }
-    const rpe = activityRpe(a, ex);
-    if (rpe) push("RPE", String(rpe));
-    if (a.elevation_gain_meters && sport !== "ride") push("Elev", Math.round(a.elevation_gain_meters) + " m");
-    if (a.average_cadence && (sport === "run" || sport === "ride")) {
-      push("Cadence", Math.round(a.average_cadence) + (sport === "ride" ? " rpm" : " spm"));
+
+    let pace = null;
+    if (a.distance_meters && a.moving_time_seconds) {
+      if (sport === "swim") {
+        pace = fmtPace(a.moving_time_seconds / (a.distance_meters / 100)) + "/100m";
+      } else if (sport === "run" || sport === "walk" || sport === "hike") {
+        pace = fmtPace(a.moving_time_seconds / (a.distance_meters / 1000)) + "/km";
+      }
+      if (pace) push("Average pace", pace);
     }
-    return { sport, items };
+    if (hr) push("HR", hr);
+    line(pace, hr);
+    if (loadVal) push("Load", String(loadVal));
+    if (rpeVal) push("RPE", String(rpeVal));
+    line(load, rpe);
+    return { sport, items, lines };
   }
   function activityMetrics(a) {
-    return cardMetricItems(a).items.map(i => i.value).join(" · ");
+    const packed = cardMetricItems(a);
+    return (packed.lines && packed.lines.length ? packed.lines : packed.items.map(i => i.value)).join(" · ");
   }
   function matchedPlanNote(session) {
     if (!session) return "";
@@ -422,7 +455,7 @@
     const sampled = downsampleValues(values, 96);
     const finite = sampled.filter(v => Number.isFinite(v));
     if (finite.length < 2) return "";
-    const W = 320, H = 48, PAD_X = 0, PAD_Y = 5;
+    const W = 320, H = 50, PAD_X = 0, PAD_Y = 4;
     let min = Math.min.apply(null, finite), max = Math.max.apply(null, finite);
     if (max === min) { min -= 1; max += 1; }
     const range = max - min;
@@ -440,8 +473,8 @@
     const line = "M" + pts.join("L");
     const fill = "M0," + H + "L" + pts.join("L") + "L" + W + "," + H + "Z";
     return `<svg class="af-card-profile-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-      <path d="${fill}" fill="currentColor" fill-opacity=".22"/>
-      <path d="${line}" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke"/>
+      <path d="${fill}" fill="currentColor" fill-opacity=".32"/>
+      <path d="${line}" fill="none" stroke="currentColor" stroke-width="2.25" vector-effect="non-scaling-stroke"/>
     </svg>`;
   }
   function cardMiniProfile(a) {
@@ -553,9 +586,7 @@
     const packed = cardMetricItems(a, ex);
     const profile = cardMiniProfile(a);
     const id = a && a.id != null ? String(a.id) : "";
-    const grid = packed.items.slice(0, 8).map(i =>
-      `<span class="af-card-metric"><b>${esc(i.value)}</b><small>${esc(i.label)}</small></span>`
-    ).join("");
+    const lines = (packed.lines || []).map(line => `<div class="af-card-line">${esc(line)}</div>`).join("");
     const planNote = done ? matchedPlanNote(session) : "";
     return `<button type="button" class="af-card af-card--activity af-card--${theme}${done ? " af-card--done" : ""}${profile ? " af-card--has-profile" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
       <span class="af-card-accent" aria-hidden="true"></span>
@@ -568,7 +599,7 @@
           </div>
           <span class="af-card-chevron" aria-hidden="true">›</span>
         </div>
-        ${grid ? `<div class="af-card-grid">${grid}</div>` : ""}
+        ${lines ? `<div class="af-card-lines">${lines}</div>` : ""}
         ${planNote}
         ${profile}
       </div>
@@ -670,58 +701,14 @@
     };
   }
 
-  function renderWeekProgress() {
-    const el = document.getElementById("trainWeekProgress");
-    if (!el) return;
-    const w = weekSummary();
-    if (!w.anyPlan && w.completedKm === 0) { el.innerHTML = ""; return; }
-
-    const pct = w.hasPlannedKm && w.plannedKm > 0 ? Math.round((w.completedKm / w.plannedKm) * 100) : null;
-
-    el.innerHTML = `
-      <div class="twp">
-        <div class="twp-row">
-          <div class="twp-stat">
-            <span class="twp-val">${w.completedKm}${w.hasPlannedKm ? `<small>/${w.plannedKm}</small>` : ""}</span>
-            <span class="twp-unit">km</span>
-          </div>
-          <div class="twp-stat">
-            <span class="twp-val">${w.completedSessions}${w.anyPlan ? `<small>/${w.plannedSessions}</small>` : ""}</span>
-            <span class="twp-unit">sessions</span>
-          </div>
-          ${w.plannedQ > 0 ? `<div class="twp-stat">
-            <span class="twp-val">${w.completedQ}<small>/${w.plannedQ}</small></span>
-            <span class="twp-unit">quality</span>
-          </div>` : ""}
-          ${w.plannedLong ? `<div class="twp-stat">
-            <span class="twp-val">${w.completedLong ? "✓" : "—"}</span>
-            <span class="twp-unit">long run</span>
-          </div>` : ""}
-        </div>
-        ${w.hasPlannedKm ? `<div class="twp-bar"><i style="width:${Math.min(100, pct || 0)}%"></i></div>` : ""}
-      </div>`;
+  function clearTrainExtras() {
+    ["trainWeekProgress", "trainContext"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = "";
+    });
   }
-
-  /* ── training context (compact) ──────────────────────────────────── */
-  function renderContext() {
-    const el = document.getElementById("trainContext");
-    if (!el) return;
-    let s = null;
-    for (let i = 0; i < 7; i++) { const e = byDate[iso(addDays(weekStart, i))]; if (e && e.session) { s = e.session; break; } }
-    if (!s || !(s.phase || s.week_focus || s.weeks_until_race != null)) {
-      el.innerHTML = "";
-      return;
-    }
-    const phase = s.phase ? String(s.phase).replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : null;
-    const wtr = num(s.weeks_until_race);
-    const race = wtr != null && wtr > 0 ? `${wtr}w to race` : (wtr === 0 ? "Race week" : null);
-    const focus = s.week_focus || null;
-
-    const parts = [phase, race].filter(Boolean);
-    if (!parts.length && !focus) { el.innerHTML = ""; return; }
-
-    el.innerHTML = `<div class="tcx">${parts.length ? `<span class="tcx-inline">${parts.map(p => esc(p)).join(" · ")}</span>` : ""}${focus ? `<span class="tcx-focus">${esc(focus)}</span>` : ""}</div>`;
-  }
+  function renderWeekProgress() { clearTrainExtras(); }
+  function renderContext() { clearTrainExtras(); }
 
   /* ══════════════════════════════════════════════════════════════════
    *  PART 2 — RICH ACTIVITY DETAIL
@@ -732,7 +719,9 @@
     let s = entry.session ? entry.session : null;
     if (s && window.AthlevoPrescription && typeof window.AthlevoPrescription.repair === "function") s = window.AthlevoPrescription.repair(s);
     let act = null;
+    const fromDay = (entry.activities || []).find(a => a && activityId && String(a.id) === String(activityId));
     if (activityId && actById[String(activityId)]) act = actById[String(activityId)];
+    else if (fromDay) act = fromDay;
     else if (entry.execution && entry.execution.imported_activity_id && actById[String(entry.execution.imported_activity_id)]) act = actById[String(entry.execution.imported_activity_id)];
     else if (entry.activities && entry.activities.length === 1) act = entry.activities[0];
     const ex = entry.execution || null;
@@ -746,22 +735,14 @@
       const sport = canonSport(act);
       const name = sportLabel(act);
       const source = act.name && act.name !== name ? act.name : null;
-      const device = (act.raw_data && act.raw_data.device_name) || null;
       const dateStr = fmtDayHeader(dISO);
       const startTime = act.start_date ? new Date(act.start_date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : null;
 
       html += `<button type="button" class="ad-back" onclick="AthlevoTrainCalendar.closeModal()">Back</button>`;
       html += `<div class="ad-header ad-header--${sportTheme(act)}">
-        <div class="ad-header-top">
-          ${sportIcon(act)}
-          <div class="ad-header-info">
-            <h2 class="ad-title">${esc(source || name)}</h2>
-            <span class="ad-source">${esc(name)}</span>
-          </div>
-        </div>
-        <div class="ad-header-meta">
-          <span>${esc(dateStr)}${startTime ? " · " + esc(startTime) : ""}</span>
-          ${device ? `<span>${esc(device)}</span>` : ""}
+        <div class="ad-header-info">
+          <h2 class="ad-title">${esc(source || name)}</h2>
+          <div class="ad-header-meta">${esc(dateStr)}${startTime ? " · " + esc(startTime) : ""} · ${esc(name)}</div>
         </div>
       </div>`;
 
@@ -771,6 +752,7 @@
         ? AthlevoCoach.getStoredRecognition(act) : null;
 
       html += renderCoachSection(act, recognition, s);
+      html += renderSplitsStrip(act, sport);
       html += `<div id="ad-charts-root" class="ad-charts-root" data-activity-id="${esc(act.id != null ? String(act.id) : "")}"></div>`;
 
       if (recognition) {
@@ -787,17 +769,9 @@
           }
           html += `</div>`;
         }
-
-        html += `<div class="ad-section ad-classification">`;
-        html += `<div class="ad-class-row">
-          <span class="ad-class-type">${esc(AthlevoCoach.displayType ? AthlevoCoach.displayType(recognition.workoutType) : recognition.workoutType)}</span>
-          <span class="ad-class-conf ${recognition.confidenceLabel === "High" ? "high" : ""}">${esc(recognition.confidenceLabel || "")}</span>
-        </div>`;
-        html += `</div>`;
       }
 
       html += renderHRZones(act);
-      html += renderSplits(act, sport);
 
     } else if (s && !isRest(s)) {
       /* ── Plan-only view (no activity yet) ──────────────────────── */
@@ -806,24 +780,6 @@
       html += `<div class="ad-header"><div class="ad-header-top"><div class="ad-header-info"><h2 class="ad-title">Rest Day</h2></div></div>
         <div class="ad-header-meta"><span>${esc(fmtDayHeader(dISO))}</span></div></div>
         <p class="ad-rest-msg">Recovery is part of the plan. Your body adapts during rest.</p>`;
-    }
-
-    /* ── Legacy fallback analysis (no stored recognition) ────────── */
-    if (act && !((window.AthlevoCoach && AthlevoCoach.getStoredRecognition) ? AthlevoCoach.getStoredRecognition(act) : null) && window.AthlevoWorkoutClassifier) {
-      const laps = act.raw_data && (act.raw_data.laps || act.raw_data.splits);
-      const cls = window.AthlevoWorkoutClassifier.classifyActivity({
-        distanceKm: act.distance_meters ? act.distance_meters / 1000 : null,
-        movingSec: act.moving_time_seconds, elapsedSec: act.elapsed_time_seconds,
-        avgHr: act.average_heartrate, maxHr: act.max_heartrate, maxSpeed: act.max_speed_mps,
-        laps, name: act.name, title: act.name
-      }, { zones: null, planned: s ? { session_type: s.session_type, main_set: s.main_set } : null });
-      html += `<div class="ad-section"><div class="ad-section-h">Analysis</div>`;
-      html += `<div class="ad-kv"><span>Detected type</span><b>${esc(cls.primaryType)}</b></div>`;
-      html += `<div class="ad-kv"><span>Confidence</span><span class="ad-class-conf ${cls.confidence === "high" ? "high" : ""}">${esc(cls.confidenceLabel)}</span></div>`;
-      if (cls.intervals) html += `<div class="ad-kv"><span>Intervals</span><b>${cls.intervals.reps} × ${cls.intervals.workPaceSec ? fmtPace(cls.intervals.workPaceSec) + "/km" : "reps"}</b></div>`;
-      const impact = cls.intensity === "high" ? "Strong speed / top-end stimulus." : cls.intensity === "threshold" ? "Positive threshold-capacity evidence." : "Aerobic base maintained.";
-      html += `<div class="ad-impact">${esc(impact)}</div>`;
-      html += `</div>`;
     }
 
     /* ── Render into modal ────────────────────────────────────────── */
@@ -867,84 +823,65 @@
     if (!AS.renderInto(root, streams, sport)) root.innerHTML = "";
   }
 
-  /* ── Detail: Summary stats grid ────────────────────────────────── */
+  /* ── Detail: compact metric line ───────────────────────────────── */
   function renderDetailSummary(act, ex, sport) {
-    const items = [];
-
-    // Distance
+    const parts = [];
     if (act.distance_meters && sport !== "strength" && sport !== "mobility") {
-      items.push({ label: "Distance", value: (act.distance_meters / 1000).toFixed(2), unit: "km" });
+      parts.push((act.distance_meters / 1000).toFixed(1) + " km");
     }
-    // Duration
-    if (act.moving_time_seconds) {
-      items.push({ label: "Duration", value: fmtDuration(act.moving_time_seconds), unit: "" });
-    }
+    if (act.moving_time_seconds) parts.push(fmtDuration(act.moving_time_seconds));
     if ((sport === "run" || sport === "walk" || sport === "hike") && act.distance_meters && act.moving_time_seconds) {
-      const paceSec = act.moving_time_seconds / (act.distance_meters / 1000);
-      items.push({ label: "Average pace", value: fmtPace(paceSec), unit: "/km" });
+      parts.push(fmtPace(act.moving_time_seconds / (act.distance_meters / 1000)) + "/km");
+    } else if (sport === "swim" && act.distance_meters && act.moving_time_seconds) {
+      parts.push(fmtPace(act.moving_time_seconds / (act.distance_meters / 100)) + "/100m");
+    } else if (sport === "ride" && act.distance_meters && act.moving_time_seconds) {
+      parts.push(((act.distance_meters / act.moving_time_seconds) * 3.6).toFixed(1) + " km/h");
     }
-    if ((sport === "ride" || sport === "swim") && act.distance_meters && act.moving_time_seconds) {
-      items.push({ label: "Average speed", value: ((act.distance_meters / act.moving_time_seconds) * 3.6).toFixed(1), unit: "km/h" });
-    }
-    if (act.average_heartrate) {
-      items.push({ label: "Average HR", value: Math.round(act.average_heartrate), unit: "bpm" });
-    }
-    if (act.max_heartrate) {
-      items.push({ label: "Max HR", value: Math.round(act.max_heartrate), unit: "bpm" });
-    }
+    if (act.average_heartrate) parts.push(Math.round(act.average_heartrate) + " bpm");
     const load = activityLoad(act);
-    if (load) items.push({ label: "Load", value: load, unit: "" });
+    if (load) parts.push("Load " + load);
     const rpe = activityRpe(act, ex);
-    if (rpe) items.push({ label: "RPE", value: rpe, unit: "/10" });
-    if (act.average_cadence) {
-      items.push({ label: "Cadence", value: Math.round(act.average_cadence), unit: sport === "ride" ? "rpm" : "spm" });
+    if (rpe) parts.push("RPE " + rpe);
+    if (sport === "ride") {
+      const pwr = activityPower(act);
+      if (pwr > 0) parts.push(Math.round(pwr) + " W");
     }
-    if (act.elevation_gain_meters && sport !== "strength" && sport !== "mobility") {
-      items.push({ label: "Elevation", value: Math.round(act.elevation_gain_meters), unit: "m" });
+    if ((sport === "strength" || sport === "mobility") && strengthVolume(act)) {
+      parts.push(strengthVolume(act));
     }
-    const pwr = activityPower(act);
-    if (pwr > 0) items.push({ label: "Average power", value: Math.round(pwr), unit: "W" });
-    if (sport === "strength" || sport === "mobility") {
-      items.push({ label: "Category", value: sportLabel(act), unit: "" });
-    }
-    // Feel
-    if (ex && ex.overall_feeling) {
-      const feel = ex.overall_feeling === "easier" ? "Easy" : ex.overall_feeling === "harder" ? "Hard" : "Normal";
-      items.push({ label: "Feel", value: feel, unit: "" });
-    }
-    // Calories
-    const raw = act.raw_data && typeof act.raw_data === "object" ? act.raw_data : {};
-    if (num(raw.calories) > 0) items.push({ label: "Calories", value: Math.round(raw.calories), unit: "kcal" });
+    if (!parts.length) return "";
+    return `<p class="ad-metrics">${esc(parts.join(" · "))}</p>`;
+  }
 
-    if (!items.length) return "";
-
-    return `<div class="ad-summary">${items.map(i =>
-      `<div class="ad-summary-item"><span class="ad-summary-val">${esc(String(i.value))}${i.unit ? `<small>${esc(i.unit)}</small>` : ""}</span><span class="ad-summary-label">${esc(i.label)}</span></div>`
-    ).join("")}</div>`;
+  function clipCoachText(text) {
+    const raw = String(text || "").replace(/\s+/g, " ").trim();
+    if (!raw) return "";
+    const sentences = raw.split(/(?<=[.!?])\s+/).filter(Boolean);
+    let out = sentences.slice(0, 2).join(" ");
+    if (out.length > 240) {
+      const cut = out.slice(0, 220);
+      const last = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf(" "));
+      out = (last > 80 ? cut.slice(0, last) : cut).trim();
+      if (!/[.!?]$/.test(out)) out += ".";
+    }
+    return out;
   }
 
   /* ── Detail: Coach analysis section ────────────────────────────── */
   function renderCoachSection(act, recognition, session) {
-    let html = `<div class="ad-section ad-coach">`;
-    html += `<div class="ad-section-h">Coach Analysis</div>`;
-
+    let text = "";
     if (recognition && recognition.coachSummary) {
-      html += `<p class="ad-coach-text">${esc(recognition.coachSummary)}</p>`;
+      text = clipCoachText(recognition.coachSummary);
     } else {
-      // Generate a simple interpretation
       const sport = canonSport(act);
       if (sport === "run" && act.average_heartrate && act.moving_time_seconds) {
         const min = Math.round(act.moving_time_seconds / 60);
         const hr = Math.round(act.average_heartrate);
-        html += `<p class="ad-coach-text">${min} minute ${sportShort(act).toLowerCase()} at ${hr} bpm average heart rate.</p>`;
-      } else {
-        html += `<p class="ad-coach-text ad-coach-placeholder">Detailed analysis will appear here after your workout is processed.</p>`;
+        text = `${min} minute ${sportShort(act).toLowerCase()} at ${hr} bpm average heart rate.`;
       }
     }
-
-    html += `<button class="ad-ask-coach" type="button" onclick="AthlevoTrainCalendar.askCoach('${act.id}')">Ask Coach about this activity</button>`;
-    html += `</div>`;
-    return html;
+    if (!text) return "";
+    return `<div class="ad-coach"><p class="ad-coach-text">${esc(text)}</p></div>`;
   }
 
   /* ── Detail: HR zones ──────────────────────────────────────────── */
@@ -1032,36 +969,28 @@
     </svg>`;
   }
 
-  /* ── Detail: Splits / Laps ─────────────────────────────────────── */
-  function renderSplits(act, sport) {
-    const raw = act.raw_data && typeof act.raw_data === "object" ? act.raw_data : {};
-    const laps = raw.laps || raw.splits || null;
-    if (!laps || !Array.isArray(laps) || laps.length < 2) return "";
-
-    let html = `<div class="ad-section ad-splits">`;
-    html += `<div class="ad-section-h">Splits</div>`;
-    html += `<div class="ad-splits-table"><div class="ad-splits-head">`;
-    html += `<span>#</span><span>Dist</span><span>Pace</span>`;
-    if (act.average_heartrate) html += `<span>HR</span>`;
-    html += `</div>`;
-
-    laps.forEach((lap, i) => {
-      const dist = lap.distance || lap.distance_meters;
-      const distKm = dist ? (dist > 1000 ? (dist / 1000).toFixed(2) : dist.toFixed(2)) : null;
-      const time = lap.moving_time || lap.elapsed_time || lap.time_seconds;
-      const pace = (dist && time && sport === "run") ? fmtPace(time / (dist / 1000)) : null;
-      const hr = lap.average_heartrate || lap.avg_hr;
-
-      html += `<div class="ad-splits-row">
-        <span>${i + 1}</span>
-        <span>${distKm ? distKm + " km" : "—"}</span>
-        <span>${pace ? pace + "/km" : "—"}</span>
-        ${act.average_heartrate ? `<span>${hr ? Math.round(hr) : "—"}</span>` : ""}
-      </div>`;
-    });
-
-    html += `</div></div>`;
-    return html;
+  /* ── Detail: compact splits strip (real laps only) ─────────────── */
+  function renderSplitsStrip(act, sport) {
+    const laps = lapList(act);
+    if (laps.length < 2) return "";
+    const cells = laps.map(lap => {
+      const time = lapTimeSec(lap);
+      const dist = lapDistanceM(lap);
+      const hr = num(lap && (lap.average_heartrate || lap.avg_hr || lap.average_hr));
+      let pace = null;
+      if (dist > 20 && time > 0 && sport !== "ride" && sport !== "strength" && sport !== "mobility") {
+        pace = sport === "swim"
+          ? fmtPace(time / (dist / 100)) + "/100m"
+          : fmtPace(time / (dist / 1000)) + "/km";
+      }
+      const bits = [];
+      if (time > 0) bits.push(`<span class="ad-split-time">${esc(fmtSplitClock(time))}</span>`);
+      if (pace) bits.push(`<span class="ad-split-pace">${esc(pace)}</span>`);
+      if (hr > 0) bits.push(`<span class="ad-split-hr">${Math.round(hr)} bpm</span>`);
+      return bits.length ? `<div class="ad-split" role="listitem">${bits.join("")}</div>` : "";
+    }).filter(Boolean);
+    if (cells.length < 2) return "";
+    return `<div class="ad-splits-strip" role="list" aria-label="Splits">${cells.join("")}</div>`;
   }
 
   /* ── Detail: Plan-only view ────────────────────────────────────── */
@@ -1080,9 +1009,7 @@
     if (s.pace_guidance) items.push({ label: "Target Pace", value: s.pace_guidance });
     if (s.target_rpe) items.push({ label: "Target RPE", value: s.target_rpe });
     if (items.length) {
-      html += `<div class="ad-summary">${items.map(i =>
-        `<div class="ad-summary-item"><span class="ad-summary-val">${esc(i.value)}</span><span class="ad-summary-label">${esc(i.label)}</span></div>`
-      ).join("")}</div>`;
+      html += `<p class="ad-metrics">${esc(items.map(i => i.value).join(" · "))}</p>`;
     }
 
     if (s.purpose) html += `<div class="ad-section"><div class="ad-section-h">Purpose</div><p class="ad-plan-text">${esc(s.purpose)}</p></div>`;
@@ -1337,6 +1264,12 @@
     weekStart = monday instanceof Date ? monday : mondayOf(civilToday());
     selected = isDateKey(selectedISO) ? selectedISO : todayISO();
     byDate = map && typeof map === "object" ? map : {};
+    actById = {};
+    Object.keys(byDate).forEach(key => {
+      const acts = byDate[key] && byDate[key].activities;
+      if (!Array.isArray(acts)) return;
+      acts.forEach(a => { if (a && a.id != null) actById[String(a.id)] = a; });
+    });
     render();
   }
   function getSelectedDate() { return selected; }
@@ -1347,6 +1280,7 @@
     activityCardHtml, plannedCardHtml, renderSelectedDayHtml,
     cardMiniProfile, cardProfileSeries,
     hydrate, getSelectedDate,
-    VERSION: "train-calendar-v7"
+    clipCoachText, renderDetailSummary, renderSplitsStrip, renderCoachSection,
+    VERSION: "train-calendar-v8"
   };
 })();

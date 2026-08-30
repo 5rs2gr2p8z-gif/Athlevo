@@ -104,7 +104,7 @@ console.log("\n──── Metric rules by sport ────");
     raw_data: { training_load: 105, perceived_exertion: 7 }
   });
   const labels = run.items.map(i => i.label);
-  const values = run.items.map(i => i.value).join(" ");
+  const lines = run.lines.join(" | ");
   test("run card includes duration, distance, pace, HR, load, RPE",
     labels.includes("Duration") && labels.includes("Distance") &&
     labels.includes("Average pace") && labels.includes("HR") &&
@@ -112,10 +112,14 @@ console.log("\n──── Metric rules by sport ────");
   test("run card does not invent missing cadence or elevation",
     !labels.includes("Cadence") && !labels.includes("Elev"));
   test("run values stay real",
-    /1h 34m/.test(values) && /16\.0 km/.test(values) && /161 bpm/.test(values) && /105/.test(values));
+    /1h34m/.test(lines) && /16\.0 km/.test(lines) && /161 bpm/.test(lines) && /Load 105/.test(lines) && /RPE 7/.test(lines));
+  test("run card uses compact unlabeled lines",
+    run.lines[0] === "16.0 km · 1h34m" &&
+    run.lines[1] === "5:53/km · 161 bpm" &&
+    run.lines[2] === "Load 105 · RPE 7");
 
   const sparse = TC.cardMetricItems({ sport_type: "Run", name: "Easy" });
-  test("missing run data yields no fake metrics", sparse.items.length === 0);
+  test("missing run data yields no fake metrics", sparse.items.length === 0 && sparse.lines.length === 0);
 
   const strength = TC.cardMetricItems({
     sport_type: "WeightTraining",
@@ -128,6 +132,8 @@ console.log("\n──── Metric rules by sport ────");
   test("strength shows duration, load, volume — not distance or pace",
     sLabels.includes("Duration") && sLabels.includes("Load") && sLabels.includes("Volume") &&
     !sLabels.includes("Distance") && !sLabels.includes("Average pace") && !sLabels.includes("HR"));
+  test("strength lines stay compact",
+    /40m/.test(strength.lines.join(" ")) && /Load 40/.test(strength.lines.join(" ")) && /8200 kg/.test(strength.lines.join(" ")));
 
   const ride = TC.cardMetricItems({
     sport_type: "Ride",
@@ -140,6 +146,8 @@ console.log("\n──── Metric rules by sport ────");
   test("cycling shows speed and power, not running pace",
     rLabels.includes("Average speed") && rLabels.includes("Average power") &&
     !rLabels.includes("Average pace"));
+  test("cycling lines use speed not pace",
+    /28\.0 km\/h/.test(ride.lines.join(" ")) && !/\/km/.test(ride.lines.join(" ")));
 }
 
 console.log("\n──── Card markup ────");
@@ -161,6 +169,10 @@ console.log("\n──── Card markup ────");
     /Planned: Threshold/.test(runCard) && !/af-card--planned/.test(runCard));
   test("completed cards do not use the planned outline treatment",
     !/af-card--planned/.test(runCard) && /af-card--activity/.test(runCard));
+  test("run card uses inline metrics, not labeled boxes",
+    /af-card-lines/.test(runCard) && /16\.0 km · 1h34m/.test(runCard) &&
+    !/af-card-metric/.test(runCard) && !/<small>Duration<\/small>/.test(runCard) &&
+    !/AVERAGE PACE/.test(runCard));
 
   const strengthCard = TC.activityCardHtml({
     id: "act-str",
@@ -313,8 +325,8 @@ console.log("\n──── Mini graph inside completed cards ────");
   test("mini graph uses the sport accent token",
     /color:var\(--sport-accent/.test(html) && /af-card-profile/.test(html));
   test("graph container has a visible non-zero height",
-    /\.af-card-profile\{[^}]*height:46px/.test(html.replace(/\s+/g, "")) ||
-    /height:46px/.test(html) && /af-card-profile/.test(html));
+    /\.af-card-profile\{[^}]*height:50px/.test(html.replace(/\s+/g, "")) ||
+    /height:50px/.test(html) && /af-card-profile/.test(html));
   test("tapping the card still opens detail graphs",
     /openModal\('2026-08-24','hist-1'\)/.test(lapCard) &&
     /loadActivityCharts/.test(calendar) && /loadStreams\(act\)/.test(calendar));
@@ -334,6 +346,64 @@ test("detail loads streams only after the card is opened",
 test("activityStreams script is loaded before the calendar",
   /activityStreams\.js/.test(html) &&
   html.indexOf("activityStreams.js") < html.indexOf("trainCalendar.js"));
+
+console.log("\n──── Scanability ────");
+{
+  const runCard = TC.activityCardHtml({
+    id: "scan-run",
+    sport_type: "Run",
+    name: "Lubao Running",
+    moving_time_seconds: 5640,
+    distance_meters: 16000,
+    average_heartrate: 161,
+    raw_data: { training_load: 105, perceived_exertion: 7, laps: [{ distance: 1000, moving_time: 360 }, { distance: 1000, moving_time: 340 }] }
+  }, "2026-08-24", { done: true });
+  test("run card can be read without metric labels",
+    /16\.0 km · 1h34m/.test(runCard) && /5:53\/km · 161 bpm/.test(runCard) &&
+    /Load 105 · RPE 7/.test(runCard) && !/DURATION/.test(runCard));
+  test("mini graph fill is visually strong",
+    /fill-opacity="\.32"/.test(runCard) && /stroke-width="2\.25"/.test(runCard));
+  test("strength does not show a fake graph",
+    TC.cardMiniProfile({ id: "s", sport_type: "WeightTraining", moving_time_seconds: 1800, raw_data: { training_load: 40 } }) === "");
+
+  const detail = TC.renderDetailSummary({
+    sport_type: "Run",
+    moving_time_seconds: 5640,
+    distance_meters: 16000,
+    average_heartrate: 161,
+    raw_data: { training_load: 105, perceived_exertion: 7 }
+  }, null, "run");
+  test("detail top is one compact metric line",
+    /ad-metrics/.test(detail) && /16\.0 km · 1h34m · 5:53\/km · 161 bpm · Load 105 · RPE 7/.test(detail) &&
+    !/ad-summary-item/.test(detail));
+
+  const longCoach = TC.clipCoachText("First sentence stays. Second sentence also stays. Third sentence must drop.");
+  test("coach analysis is clipped to two sentences",
+    longCoach === "First sentence stays. Second sentence also stays.");
+
+  const laps = [
+    { distance: 1000, moving_time: 355, average_heartrate: 150 },
+    { distance: 1000, moving_time: 360, average_heartrate: 154 }
+  ];
+  const strip = TC.renderSplitsStrip({ raw_data: { laps } }, "run");
+  test("splits strip appears only with real laps",
+    /ad-splits-strip/.test(strip) && /5:55/.test(strip) && /150 bpm/.test(strip));
+  test("no splits strip without real laps",
+    TC.renderSplitsStrip({ raw_data: {} }, "run") === "" &&
+    TC.renderSplitsStrip({ raw_data: { laps: [{ distance: 1000, moving_time: 300 }] } }, "run") === "");
+
+  const coach = TC.renderCoachSection({ sport_type: "Run", moving_time_seconds: 3600, average_heartrate: 150 }, { coachSummary: "Pace stayed controlled, but HR drifted steadily in the final third. That points more to durability than pacing. Extra unused sentence." }, null);
+  test("coach block is one short interpretation",
+    /ad-coach-text/.test(coach) && !/Ask Coach/.test(coach) &&
+    (coach.match(/[.!?]/g) || []).length <= 2);
+
+  test("Train no longer shows weekly progress or training context below cards",
+    !/<details class="train-more">/.test(html) &&
+    /id="trainWeekProgress"/.test(html) &&
+    /display:none/.test(html.slice(html.indexOf('id="trainWeekProgress"') - 180, html.indexOf('id="trainWeekProgress"'))) &&
+    /clearTrainExtras/.test(calendar) &&
+    !/renderWeekProgress\(\);\s*renderContext\(\)/.test(extractFunction(calendar, "render")));
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

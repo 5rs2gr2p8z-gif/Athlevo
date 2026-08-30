@@ -5265,6 +5265,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-greet h1{font-size:var(--fs-display)}
 
   /* ── compact calendar strip ──────────────────────────────────── */
+  #screen-train{overflow-x:hidden}
   .tc{margin:0 22px 8px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 14px 10px;user-select:none;-webkit-user-select:none;pointer-events:auto;position:relative;z-index:2}
   .tc-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);padding:0 4px 10px}
   .tc-month{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;letter-spacing:-.01em;color:var(--text)}
@@ -5305,10 +5306,10 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-card-status--missed{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);align-self:center;white-space:nowrap}
 
   /* ── activity card ───────────────────────────────────────────── */
-  .af-card{-webkit-appearance:none;appearance:none;display:flex;align-items:stretch;gap:0;width:100%;text-align:left;font-family:var(--sans);background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:0;cursor:pointer;margin-bottom:8px;min-height:44px;box-shadow:var(--elev-1);transition:background var(--dur-fast),box-shadow var(--dur-fast)}
+  .af-card{-webkit-appearance:none;appearance:none;display:flex;flex-direction:column;align-items:stretch;gap:0;width:100%;text-align:left;font-family:var(--sans);background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:0;cursor:pointer;margin-bottom:8px;min-height:44px;box-shadow:var(--elev-1);overflow:hidden;transition:background var(--dur-fast),box-shadow var(--dur-fast)}
   .af-card:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-  .af-card-accent{flex:none;width:4px;border-radius:var(--r-md) 0 0 var(--r-md);background:var(--sport-accent,var(--ink3))}
-  .af-card-main{flex:1;min-width:0;display:flex;flex-direction:column;padding:10px 12px 11px}
+  .af-card-accent{display:block;width:100%;height:4px;flex:none;background:var(--sport-accent,var(--ink3))}
+  .af-card-main{flex:1;min-width:0;display:flex;flex-direction:column;padding:8px 12px 10px}
   .af-card-top{display:flex;align-items:flex-start;gap:8px}
   .af-card-titles{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
   .af-card-sport{font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--sport-accent,var(--ink3))}
@@ -5317,28 +5318,27 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-card--rest{background:var(--card);border-color:var(--line);padding:12px 14px;box-shadow:none}
   .af-card--rest .af-card-name{color:var(--ink2);font-weight:600}
   .af-card--planned{border-style:dashed;border-color:var(--ink3);background:var(--paper);box-shadow:none}
+  .af-card--planned .af-card-accent{display:none}
   .af-card--planned .af-card-main{padding:12px 14px}
-  .af-card--activity{overflow:hidden}
+  .af-card--activity{overflow:hidden;background:var(--paper)}
   .af-card--has-profile .af-card-main{padding-bottom:0}
-  .af-card--run{--sport-accent:var(--sport-run);background:var(--sport-run-bg);border-color:color-mix(in srgb,var(--sport-run) 22%,var(--line))}
-  .af-card--strength{--sport-accent:var(--sport-strength);background:var(--sport-strength-bg);border-color:color-mix(in srgb,var(--sport-strength) 22%,var(--line))}
-  .af-card--ride{--sport-accent:var(--sport-ride);background:var(--sport-ride-bg);border-color:color-mix(in srgb,var(--sport-ride) 22%,var(--line))}
-  .af-card--swim{--sport-accent:var(--sport-swim);background:var(--sport-swim-bg);border-color:color-mix(in srgb,var(--sport-swim) 22%,var(--line))}
-  .af-card--walk{--sport-accent:var(--sport-walk);background:var(--sport-walk-bg);border-color:color-mix(in srgb,var(--sport-walk) 22%,var(--line))}
-  .af-card--other{--sport-accent:var(--sport-other);background:var(--sport-other-bg)}
+  .af-card--run{--sport-accent:var(--sport-run);border-color:color-mix(in srgb,var(--sport-run) 32%,var(--line))}
+  .af-card--strength{--sport-accent:var(--sport-strength);border-color:color-mix(in srgb,var(--sport-strength) 28%,var(--line))}
+  .af-card--ride{--sport-accent:var(--sport-ride);border-color:color-mix(in srgb,var(--sport-ride) 32%,var(--line))}
+  .af-card--swim{--sport-accent:var(--sport-swim);border-color:color-mix(in srgb,var(--sport-swim) 32%,var(--line))}
+  .af-card--walk{--sport-accent:var(--sport-walk);border-color:color-mix(in srgb,var(--sport-walk) 32%,var(--line))}
+  .af-card--other{--sport-accent:var(--sport-other)}
   .af-card--done{box-shadow:var(--elev-1)}
   .af-card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
   .af-card-name{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .af-card-source{font-size:var(--fs-caption);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .af-card-meta{font-size:var(--fs-caption);color:var(--ink3);margin-top:4px}
   .af-card-metrics{font-size:var(--fs-caption);font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-  .af-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;margin-top:8px}
-  .af-card-metric{display:flex;flex-direction:column;gap:1px;min-width:0}
-  .af-card-metric b{font-size:var(--fs-body-sm);font-weight:750;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-  .af-card-metric small{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em}
-  .af-card-plan{display:block;margin-top:6px;font-size:var(--fs-caption);color:var(--ink2)}
-  .af-card-profile{display:block;width:calc(100% + 24px);height:46px;margin:10px -12px 0;color:var(--sport-accent,var(--ink3));overflow:hidden;flex:none}
-  .af-card-profile-svg{display:block;width:100%;height:46px}
+  .af-card-lines{display:flex;flex-direction:column;gap:1px;margin-top:6px}
+  .af-card-line{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.35}
+  .af-card-plan{display:block;margin-top:5px;font-size:var(--fs-caption);color:var(--ink3)}
+  .af-card-profile{display:block;width:calc(100% + 24px);height:50px;margin:8px -12px 0;color:var(--sport-accent,var(--ink3));overflow:hidden;flex:none}
+  .af-card-profile-svg{display:block;width:100%;height:50px}
   .af-card-spark{display:block;width:100%;height:46px;margin-top:8px;color:var(--sport-accent,var(--ink3))}
   .af-card-purpose{font-size:var(--fs-caption);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
   .af-card-cta{flex:none;font-size:var(--fs-caption);font-weight:700;color:var(--ink3);padding:4px 0;white-space:nowrap;align-self:center}
@@ -5381,14 +5381,14 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tw-modal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
   .tw-modal.show{display:flex}
   .tw-modal-ov{position:absolute;inset:0;background:var(--backdrop);backdrop-filter:blur(2px)}
-  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
+  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:92vh;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
   @media(min-width:480px){.tw-modal{align-items:center}.tw-modal-box{border-radius:var(--r-lg);max-height:88vh}}
   .tw-modal-close{position:absolute;top:8px;right:10px;display:grid;place-items:center;min-width:44px;min-height:44px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer;z-index:1}
 
   /* ── activity detail: header ─────────────────────────────────── */
   .ad-back{-webkit-appearance:none;appearance:none;border:none;background:none;padding:0 0 10px;margin:0;font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--ink2);cursor:pointer;min-height:44px}
   .ad-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-  .ad-header{margin-bottom:16px}
+  .ad-header{margin-bottom:10px}
   .ad-header-top{display:flex;align-items:flex-start;gap:12px}
   .ad-header-top .af-sport-icon{width:28px;height:28px;color:var(--sport-accent,var(--ink2));margin-top:2px}
   .ad-header--run{--sport-accent:var(--sport-run)}
@@ -5400,14 +5400,11 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .ad-header-info{flex:1;min-width:0}
   .ad-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.01em;color:var(--text);margin:0}
   .ad-source{font-size:var(--fs-caption);color:var(--ink3);display:block;margin-top:2px}
-  .ad-header-meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:var(--fs-caption);color:var(--ink3)}
+  .ad-header-meta{margin-top:4px;font-size:var(--fs-caption);color:var(--ink3)}
 
-  /* ── activity detail: summary stats ──────────────────────────── */
-  .ad-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:2px;background:var(--card);border-radius:var(--r-md);padding:14px 12px;margin-bottom:16px}
-  .ad-summary-item{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center;padding:4px 2px}
-  .ad-summary-val{font-size:var(--fs-body);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-  .ad-summary-val small{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);margin-left:1px}
-  .ad-summary-label{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em}
+  /* ── activity detail: compact metric line ─────────────────────── */
+  .ad-metrics{margin:0 0 10px;font-size:var(--fs-body-sm);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.4;overflow-wrap:anywhere}
+  .ad-summary{margin:0 0 10px}
 
   /* ── activity detail: sections ───────────────────────────────── */
   .ad-section{padding:14px 0;border-top:1px solid var(--line)}
@@ -5423,9 +5420,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .ad-class-summary{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:6px 0 0}
 
   /* ── coach analysis ──────────────────────────────────────────── */
-  .ad-coach{background:var(--card);border:none;border-radius:var(--r-md);padding:14px 16px !important;margin:0 0 4px}
-  .ad-coach .ad-section-h{color:var(--red);margin-bottom:6px}
-  .ad-coach-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0 0 10px}
+  .ad-coach{padding:0 0 10px;margin:0}
+  .ad-coach-text{font-size:var(--fs-body-sm);line-height:1.4;color:var(--ink2);margin:0}
   .ad-coach-placeholder{color:var(--ink3);font-style:italic}
   .ad-ask-coach{-webkit-appearance:none;appearance:none;width:100%;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;color:var(--red);background:var(--red-soft);border:none;border-radius:var(--r-pill);padding:10px 16px;cursor:pointer;text-align:center;transition:filter var(--dur-fast)}
 
@@ -5442,25 +5438,27 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .ad-zone-pct{font-size:var(--fs-micro);color:var(--ink3);font-weight:600}
 
   /* ── chart sections ──────────────────────────────────────────── */
-  .ad-charts-root{margin:4px 0 8px}
-  .ad-charts{display:flex;flex-direction:column;gap:4px;width:100%;max-width:100%}
-  .ad-chart-section{padding:12px 0;border-top:1px solid var(--line)}
-  .ad-chart-section:first-child{border-top:none;padding-top:4px}
-  .ad-chart-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-  .ad-chart-readout{font-size:var(--fs-caption);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;min-height:1.2em}
-  .ad-chart-stats{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px}
-  .ad-chart-stat{font-size:var(--fs-caption);color:var(--ink2)}
-  .ad-chart-stat b{font-size:var(--fs-body);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;margin-right:3px}
-  .ad-stream-chart{width:100%;height:112px;display:block;border-radius:var(--r-sm);overflow:hidden;touch-action:none}
+  .ad-charts-root{margin:0 0 8px;overflow-x:hidden}
+  .ad-charts{display:flex;flex-direction:column;gap:0;width:100%;max-width:100%}
+  .ad-chart-section{padding:2px 0 0;border:none}
+  .ad-chart-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:1.15em;padding:2px 0 1px}
+  .ad-chart-label{font-size:var(--fs-micro);font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3)}
+  .ad-chart-readout{font-size:var(--fs-caption);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+  .ad-stream-chart{width:100%;height:88px;display:block;overflow:hidden;touch-action:none}
   .ad-chart-grid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+  .ad-chart-grid--v{stroke:color-mix(in srgb,var(--line) 80%,transparent);opacity:.85}
   .ad-chart-loading{font-size:var(--fs-caption);color:var(--ink3);padding:8px 0}
   .ad-chart-placeholder{font-size:var(--fs-caption);color:var(--ink3);padding:12px 0;font-style:italic}
   @media(min-width:480px){
     .tw-modal-box{max-width:430px}
-    .ad-stream-chart{height:120px}
+    .ad-stream-chart{height:92px}
   }
 
-  /* ── splits ──────────────────────────────────────────────────── */
+  /* ── splits strip ────────────────────────────────────────────── */
+  .ad-splits-strip{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;max-width:100%;-webkit-overflow-scrolling:touch;padding:2px 0 8px;scrollbar-width:thin}
+  .ad-split{flex:none;min-width:76px;display:flex;flex-direction:column;gap:1px;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper)}
+  .ad-split-time{font-size:var(--fs-body-sm);font-weight:750;color:var(--text);font-variant-numeric:tabular-nums}
+  .ad-split-pace,.ad-split-hr{font-size:var(--fs-caption);color:var(--ink2);font-variant-numeric:tabular-nums}
   .ad-splits-table{font-size:var(--fs-caption);font-variant-numeric:tabular-nums}
   .ad-splits-head{display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:4px;padding:6px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;font-size:var(--fs-micro)}
   .ad-splits-row{display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:4px;padding:6px 0;border-bottom:1px solid var(--line);color:var(--text)}
@@ -5538,66 +5536,22 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div id="adaptiveWeeklyReview"></div>
   <div id="adaptivePlanModal" class="apl-modal"></div>
 
-
-  <!-- ══════════ WEEKLY PROGRESS — selected week ══════════ -->
-  <div id="trainWeekProgress"></div>
-
-  <!-- ══════════ TRAINING CONTEXT — selected date's phase/plan ══════════ -->
-  <div id="trainContext"></div>
-
-  <!-- ══════════ SECONDARY PLAN DETAILS (collapsed by default) ══════════ -->
-  <details class="train-more">
-    <summary><span>Training context</span><i class="tm-caret">›</i></summary>
-    <div class="train-more-body">
-
-  <div id="trainHeader"></div>
-
-  <div class="spacer-md"></div>
-
-  <div class="statgrid">
-
-    <div class="stat">
-      <span class="eyebrow">Weekly distance target</span>
-      <b class="num" id="trainWeeklyDistance">—</b>
-      <small>Self-reported during onboarding</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Weekly hours target</span>
-      <b class="num" id="trainWeeklyHours">—</b>
-      <small>Self-reported during onboarding</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Training availability</span>
-      <b class="num" id="trainAvailableDays">—</b>
-      <small>Reliable days per week</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Preferred training time</span>
-      <b class="num" id="trainPreferredTime">—</b>
-      <small>Based on your normal schedule</small>
-    </div>
-
-  </div>
-
-  <!-- Retained (hidden) legacy nodes so existing writers never crash. History
-       listings are intentionally not shown — history lives in the calendar. -->
+  <!-- Retained (hidden) so existing writers never crash. Train ends at the
+       selected-day cards; history and weekly targets live elsewhere. -->
   <div style="display:none" aria-hidden="true">
+    <div id="trainWeekProgress"></div>
+    <div id="trainContext"></div>
+    <div id="trainHeader"></div>
+    <b id="trainWeeklyDistance">—</b>
+    <b id="trainWeeklyHours">—</b>
+    <b id="trainAvailableDays">—</b>
+    <b id="trainPreferredTime">—</b>
     <div id="weeklyProgress"></div>
     <div id="weekSessions"></div>
     <span id="trainSummaryTitle"></span>
     <span id="trainSummaryContext"></span>
     <div id="trainRecentActivities"></div>
   </div>
-
-  <div class="spacer-lg"></div>
-
-    </div>
-  </details>
-
-  <div class="spacer-lg"></div>
 
 </section>
 
@@ -10883,8 +10837,8 @@ setTimeout(function () {
 <script src="js/train.js?v=82"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
-<script src="js/activityStreams.js?v=1"></script>
-<script src="js/trainCalendar.js?v=94"></script>
+<script src="js/activityStreams.js?v=2"></script>
+<script src="js/trainCalendar.js?v=96"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
 <script src="js/authRouteGuard.js?v=1"></script>
