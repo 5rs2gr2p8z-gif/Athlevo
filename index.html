@@ -5294,7 +5294,15 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:var(--fs-h3);line-height:1;cursor:pointer;display:grid;place-items:center;transition:background var(--dur-fast)}
   .tc-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
   .tc-today{font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--red);background:var(--red-soft);border:none;border-radius:var(--r-pill);padding:7px 12px;cursor:pointer}
-  .tc-week{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--s-1)}
+  .tc-week-viewport{overflow:hidden;position:relative;width:100%}
+  .tc-week-track{display:flex;width:100%;will-change:auto}
+  .tc-week-track--pair{width:200%}
+  .tc-week-track--pair .tc-week{flex:0 0 50%;width:50%;min-width:0}
+  .tc-week{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--s-1);min-width:0}
+  .tc-month{display:inline-block;transform:translate3d(0,0,0)}
+  @media (prefers-reduced-motion: reduce){
+    .tc-week-track,.tc-month{transition:none!important;transform:none!important}
+  }
   .tc-day{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 7px;border-radius:var(--r-md);cursor:pointer;border:1px solid transparent;background:none;font-family:var(--sans);min-height:52px;min-width:44px;width:100%;pointer-events:auto;position:relative;z-index:1;transition:background var(--dur-fast),border-color var(--dur-fast)}
   .tc-dow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
   .tc-num{font-size:16px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
@@ -10950,7 +10958,7 @@ setTimeout(function () {
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=5"></script>
-<script src="js/trainCalendar.js?v=99"></script>
+<script src="js/trainCalendar.js?v=100"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
 <script src="js/authRouteGuard.js?v=1"></script>

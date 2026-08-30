@@ -33,6 +33,9 @@
   let hasAnyPlan = false;
   let weekMotion = null;
   let weekMotionToken = 0;
+  let weekSlideLock = false;
+  const WEEK_SLIDE_MS = 260;
+  const WEEK_SLIDE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
   /* ── date helpers (local) ─────────────────────────────────────────── */
   const pad = n => String(n).padStart(2, "0");
@@ -184,28 +187,45 @@
    * ══════════════════════════════════════════════════════════════════ */
 
   /* ── compact calendar strip ──────────────────────────────────────── */
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function monthText(monday) {
+    const mid = addDays(monday, 3);
+    return MONTHS[mid.getMonth()] + " " + mid.getFullYear();
+  }
+
+  function weekDaysHtml(monday) {
+    const tISO = todayISO();
+    let html = "";
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(monday, i), dISO = iso(d), st = statusOf(byDate[dISO]);
+      const cls = ["tc-day"]; if (dISO === selected) cls.push("sel"); if (dISO === tISO) cls.push("today");
+      html += `<button class="${cls.join(" ")}" type="button" data-date="${dISO}" aria-pressed="${dISO === selected ? "true" : "false"}">
+        <span class="tc-dow">${DOW[i]}</span><span class="tc-num">${d.getDate()}</span><span class="tc-dot ${st || ""}"></span></button>`;
+    }
+    return html;
+  }
+
   function render() {
     const cal = document.getElementById("trainCalendar");
     if (!cal) return;
-    const mid = addDays(weekStart, 3);
-    let html = `
+    weekSlideLock = false;
+    cal.innerHTML = `
       <div class="tc-head">
-        <span class="tc-month">${MONTHS[mid.getMonth()]} ${mid.getFullYear()}</span>
+        <span class="tc-month">${monthText(weekStart)}</span>
         <div class="tc-nav">
           <button class="tc-today" type="button" onclick="AthlevoTrainCalendar.goToday()">Today</button>
           <button class="tc-btn" type="button" aria-label="Previous week" onclick="AthlevoTrainCalendar.prevWeek()">‹</button>
           <button class="tc-btn" type="button" aria-label="Next week" onclick="AthlevoTrainCalendar.nextWeek()">›</button>
         </div>
       </div>
-      <div class="tc-week">`;
-    const tISO = todayISO();
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(weekStart, i), dISO = iso(d), st = statusOf(byDate[dISO]);
-      const cls = ["tc-day"]; if (dISO === selected) cls.push("sel"); if (dISO === tISO) cls.push("today");
-      html += `<button class="${cls.join(" ")}" type="button" data-date="${dISO}" aria-pressed="${dISO === selected ? "true" : "false"}">
-        <span class="tc-dow">${DOW[i]}</span><span class="tc-num">${d.getDate()}</span><span class="tc-dot ${st || ""}"></span></button>`;
-    }
-    cal.innerHTML = html + `</div>`;
+      <div class="tc-week-viewport">
+        <div class="tc-week-track">
+          <div class="tc-week">${weekDaysHtml(weekStart)}</div>
+        </div>
+      </div>`;
     bindCalendarInteractions(cal);
     renderActivityFeed();
     clearTrainExtras();
@@ -1669,24 +1689,139 @@
     releaseTrainScrollLock();
   }
 
-  /* ── navigation (unchanged) ────────────────────────────────────── */
+  /* ── navigation ──────────────────────────────────────────────── */
   function selectedDow() { const [y, m, d] = selected.split("-").map(Number); return (new Date(y, m - 1, d).getDay() + 6) % 7; }
   async function goToWeek(monday, keepDow) {
+    const loaded = monday;
     weekStart = monday;
     if (keepDow != null) selected = iso(addDays(monday, keepDow));
+    weekSlideLock = false;
     render();
     await loadWeek(monday);
+    if (iso(weekStart) !== iso(loaded)) return;
     render();
+  }
+  function cleanupWeekSlideDom() {
+    const cal = document.getElementById("trainCalendar");
+    const viewport = cal && cal.querySelector ? cal.querySelector(".tc-week-viewport") : null;
+    const track = viewport && viewport.querySelector ? viewport.querySelector(".tc-week-track") : null;
+    if (!track) return;
+    const weeks = track.querySelectorAll ? track.querySelectorAll(".tc-week") : [];
+    for (let i = 0; i < weeks.length - 1; i += 1) weeks[i].remove();
+    track.classList.remove("tc-week-track--pair");
+    track.style.transform = "";
+    track.style.transition = "";
+    const monthEl = cal && cal.querySelector ? cal.querySelector(".tc-month") : null;
+    if (monthEl) {
+      monthEl.style.transform = "";
+      monthEl.style.opacity = "";
+      monthEl.style.transition = "";
+    }
   }
   function interruptWeekMotion() {
     weekMotionToken += 1;
+    weekSlideLock = false;
     if (weekMotion) { try { weekMotion.cancel(); } catch (e) {} weekMotion = null; }
     const cal = document.getElementById("trainCalendar");
     if (cal) cal.style.transform = "";
+    cleanupWeekSlideDom();
   }
-  async function prevWeek() { interruptWeekMotion(); await goToWeek(addDays(weekStart, -7), selectedDow()); }
-  async function nextWeek() { interruptWeekMotion(); await goToWeek(addDays(weekStart, 7), selectedDow()); }
-  async function goToday() { interruptWeekMotion(); selected = todayISO(); await goToWeek(mondayOf(civilToday()), null); selected = todayISO(); render(); }
+  function waitForWeekSlide(el, ms) {
+    return new Promise(resolve => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; resolve(); };
+      const timer = setTimeout(finish, ms + 50);
+      if (!el || !el.addEventListener) { clearTimeout(timer); finish(); return; }
+      const onEnd = event => {
+        if (event.target !== el) return;
+        if (event.propertyName && event.propertyName !== "transform") return;
+        el.removeEventListener("transitionend", onEnd);
+        clearTimeout(timer);
+        finish();
+      };
+      el.addEventListener("transitionend", onEnd);
+    });
+  }
+  function slideMonthLabel(el, text, direction) {
+    if (!el || el.textContent === text) return;
+    if (prefersReducedMotion()) { el.textContent = text; return; }
+    el.style.transition = "transform " + WEEK_SLIDE_MS + "ms " + WEEK_SLIDE_EASE + ", opacity " + WEEK_SLIDE_MS + "ms " + WEEK_SLIDE_EASE;
+    el.style.transform = "translate3d(" + (direction > 0 ? "-8px" : "8px") + ",0,0)";
+    el.style.opacity = "0.55";
+    el.textContent = text;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.transform = "translate3d(0,0,0)";
+        el.style.opacity = "1";
+      });
+    });
+  }
+  async function slideToAdjacent(direction) {
+    if (weekSlideLock) return;
+    const dow = selectedDow();
+    const monday = addDays(weekStart, direction * 7);
+    const cal = document.getElementById("trainCalendar");
+    const viewport = cal && cal.querySelector ? cal.querySelector(".tc-week-viewport") : null;
+    const track = viewport && viewport.querySelector ? viewport.querySelector(".tc-week-track") : null;
+    const current = track && track.querySelector ? track.querySelector(".tc-week") : null;
+    if (!viewport || !track || !current || prefersReducedMotion()) {
+      await goToWeek(monday, dow);
+      return;
+    }
+
+    weekSlideLock = true;
+    const token = ++weekMotionToken;
+    weekStart = monday;
+    selected = iso(addDays(monday, dow));
+
+    const incoming = document.createElement("div");
+    incoming.className = "tc-week";
+    incoming.innerHTML = weekDaysHtml(weekStart);
+    track.classList.add("tc-week-track--pair");
+    if (direction > 0) {
+      track.appendChild(incoming);
+      track.style.transform = "translate3d(0,0,0)";
+    } else {
+      track.insertBefore(incoming, current);
+      track.style.transform = "translate3d(-50%,0,0)";
+    }
+
+    slideMonthLabel(cal.querySelector(".tc-month"), monthText(weekStart), direction);
+    renderActivityFeed();
+    clearTrainExtras();
+    keepSelectedDayInView();
+
+    void track.offsetWidth;
+    track.style.transition = "transform " + WEEK_SLIDE_MS + "ms " + WEEK_SLIDE_EASE;
+    track.style.transform = direction > 0 ? "translate3d(-50%,0,0)" : "translate3d(0,0,0)";
+
+    const dataPromise = loadWeek(weekStart);
+    await waitForWeekSlide(track, WEEK_SLIDE_MS);
+    if (token !== weekMotionToken) { weekSlideLock = false; return; }
+
+    current.remove();
+    track.classList.remove("tc-week-track--pair");
+    track.style.transition = "";
+    track.style.transform = "";
+    weekSlideLock = false;
+
+    await dataPromise;
+    if (token !== weekMotionToken || iso(weekStart) !== iso(monday)) return;
+    const live = track.querySelector(".tc-week");
+    if (live) live.innerHTML = weekDaysHtml(weekStart);
+    renderActivityFeed();
+  }
+  async function prevWeek() { if (weekSlideLock) return; await slideToAdjacent(-1); }
+  async function nextWeek() { if (weekSlideLock) return; await slideToAdjacent(1); }
+  async function goToday() {
+    interruptWeekMotion();
+    selected = todayISO();
+    const monday = mondayOf(civilToday());
+    await goToWeek(monday, null);
+    if (iso(weekStart) !== iso(monday)) return;
+    selected = todayISO();
+    render();
+  }
   /* The sheet engine parks overflow:hidden on the active screen while a sheet
      is open. If a close is ever interrupted the inline style outlives the
      sheet and Train stops scrolling, so clear it whenever no sheet is up. */
@@ -1857,6 +1992,6 @@
     hydrate, getSelectedDate,
     clipCoachText, renderDetailSummary, renderSplitsStrip, renderCoachSection,
     workoutStructureHtml, normalizeSegments,
-    VERSION: "train-calendar-v11"
+    VERSION: "train-calendar-v12"
   };
 })();

@@ -65,6 +65,7 @@ const helpers = new Function("window", `
 
 const feed = extractFunction(calendar, "renderActivityFeed");
 const render = extractFunction(calendar, "render");
+const weekDays = extractFunction(calendar, "weekDaysHtml");
 const selectFn = extractFunction(calendar, "select");
 const goTodayFn = extractFunction(calendar, "goToday");
 const openFn = extractFunction(calendar, "open");
@@ -73,9 +74,10 @@ console.log("\n──── Source: selected day replaces the week feed ──�
 test("the detail renderer no longer loops seven dates",
   !/for\s*\(\s*let\s+i\s*=\s*0;\s*i\s*<\s*7/.test(feed));
 test("the calendar strip still walks seven days for markers",
-  /for\s*\(\s*let\s+i\s*=\s*0;\s*i\s*<\s*7/.test(render) &&
-  /tc-dot/.test(render) &&
-  /statusOf\(byDate\[dISO\]\)/.test(render));
+  /for\s*\(\s*let\s+i\s*=\s*0;\s*i\s*<\s*7/.test(weekDays) &&
+  /tc-dot/.test(weekDays) &&
+  /statusOf\(byDate\[dISO\]\)/.test(weekDays) &&
+  /weekDaysHtml\(weekStart\)/.test(render));
 test("selecting a date re-renders in place instead of appending",
   /selected = dISO/.test(selectFn) && /render\(\)/.test(selectFn) &&
   /el\.innerHTML = renderSelectedDayHtml/.test(feed));
@@ -194,7 +196,7 @@ test("the selected-day wrapper is the only day block written into the panel",
   /el\.dataset\.selectedDay = selected/.test(feed));
 test("calendar marker status still comes from the full week map",
   /function statusOf/.test(calendar) &&
-  /tc-dot \$\{st/.test(render));
+  /tc-dot \$\{st/.test(weekDays));
 test("week data is still loaded for the strip, not deleted",
   /base\("training_sessions"\)/.test(calendar) &&
   /base\("activities"\)/.test(calendar) &&

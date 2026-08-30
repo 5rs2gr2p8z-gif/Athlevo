@@ -178,6 +178,43 @@ test("exactly one selected date exists",
   (nodes.trainCalendar.innerHTML.match(/class="[^"]*\btc-day\b[^"]*\bsel\b/g) || []).length === 1 &&
   (nodes.trainCalendar.innerHTML.match(/aria-pressed="true"/g) || []).length === 1);
 
+console.log("\n──── Week slide navigation ────");
+test("calendar dates live in an overflow-hidden viewport + track",
+  /tc-week-viewport/.test(calendar) &&
+  /tc-week-track/.test(calendar) &&
+  /tc-week-viewport\{overflow:hidden/.test(html.replace(/\s+/g, "")));
+test("arrow handlers slide instead of instantly destroying the current week",
+  /async function slideToAdjacent/.test(calendar) &&
+  /function prevWeek[\s\S]{0,80}slideToAdjacent\(-1\)/.test(calendar) &&
+  /function nextWeek[\s\S]{0,80}slideToAdjacent\(1\)/.test(calendar) &&
+  /translate3d\(-50%/.test(calendar));
+test("next slides the current week left; previous slides it right",
+  /direction > 0 \? "translate3d\(-50%/.test(calendar) &&
+  /insertBefore\(incoming, current\)/.test(calendar) &&
+  /translate3d\(-50%,0,0\)/.test(calendar));
+test("week slide uses a short native ease and GPU transforms",
+  /WEEK_SLIDE_MS = 260/.test(calendar) &&
+  /0\.22, 1, 0\.36, 1/.test(calendar + html) &&
+  /translate3d/.test(calendar));
+test("rapid arrow clicks are locked for the duration of one slide",
+  /if \(weekSlideLock\) return/.test(calendar) &&
+  /weekSlideLock = true/.test(calendar) &&
+  /weekSlideLock = false/.test(calendar));
+test("reduced motion skips the horizontal week slide",
+  /prefers-reduced-motion: reduce/.test(html) &&
+  /prefersReducedMotion\(\)[\s\S]{0,180}goToWeek/.test(calendar));
+
+TC.hydrate(monday, "2026-08-30", byDate);
+await TC.nextWeek();
+test("next week advances the selected weekday by 7 days",
+  TC.getSelectedDate() === "2026-09-06");
+await TC.prevWeek();
+test("previous week returns to the original selected date",
+  TC.getSelectedDate() === "2026-08-30");
+test("after several transitions the date row is still a single week",
+  (nodes.trainCalendar.innerHTML.match(/class="tc-week"/g) || []).length === 1 &&
+  (nodes.trainCalendar.innerHTML.match(/class="[^"]*\btc-day\b/g) || []).length === 7);
+
 console.log("\n──── Listener strategy ────");
 test("day buttons carry a data-date attribute",
   /data-date="\$\{dISO\}"/.test(calendar));
