@@ -21,6 +21,7 @@
     { key: "gaining", label: "Gaining Fitness", min: -20, max: -5 },
     { key: "risk", label: "High Risk", min: -Infinity, max: -20 }
   ]);
+  const ZONE_THRESHOLDS = Object.freeze([25, 5, -5, -20]);
 
   let selectedRange = "3m";
   const confirmedCache = new Map();
@@ -123,6 +124,62 @@
     return segments;
   }
 
+  function thresholdsBetween(from, to) {
+    const lo = Math.min(from, to);
+    const hi = Math.max(from, to);
+    const found = ZONE_THRESHOLDS.filter(threshold => threshold > lo && threshold < hi);
+    return to >= from
+      ? found.slice().sort((a, b) => a - b)
+      : found.slice().sort((a, b) => b - a);
+  }
+
+  function zoneAfterCrossing(from, to, threshold) {
+    return classifyForm(to > from ? threshold : threshold - 1e-6);
+  }
+
+  function interpolateFormPoint(prev, next, threshold, y) {
+    const span = next.value - prev.value;
+    const t = span === 0 ? 0 : (threshold - prev.value) / span;
+    return {
+      index: prev.index + t * (next.index - prev.index),
+      value: threshold,
+      date: next.date,
+      x: prev.x + t * (next.x - prev.x),
+      y: y(threshold),
+      crossing: true
+    };
+  }
+
+  function formZoneSegments(days, x, y) {
+    const colored = [];
+    lineSegments(days, "form", x, y).forEach(points => {
+      if (!points.length) return;
+      let zone = classifyForm(points[0].value);
+      let current = [points[0]];
+      for (let index = 1; index < points.length; index += 1) {
+        const prev = current[current.length - 1];
+        const next = points[index];
+        thresholdsBetween(prev.value, next.value).forEach(threshold => {
+          const cross = interpolateFormPoint(prev, next, threshold, y);
+          current.push(cross);
+          if (zone && current.length > 1) colored.push({ zone: zone.key, points: current });
+          zone = zoneAfterCrossing(prev.value, next.value, threshold);
+          current = [cross];
+        });
+        current.push(next);
+        const nextZone = classifyForm(next.value);
+        if (nextZone && zone && nextZone.key !== zone.key) {
+          current.pop();
+          if (current.length > 1) colored.push({ zone: zone.key, points: current });
+          zone = nextZone;
+          current = [current[current.length - 1] || prev, next];
+        }
+      }
+      if (current.length > 1 && zone) colored.push({ zone: zone.key, points: current });
+    });
+    return colored;
+  }
+
   function pathFor(points) {
     return points.map((point, index) =>
       `${index ? "L" : "M"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`
@@ -169,9 +226,10 @@
     const max = Math.max(35, ...values);
     const x = index => left + (index / Math.max(1, days.length - 1)) * plotWidth;
     const y = value => top + ((max - value) / Math.max(1, max - min)) * plotHeight;
-    const segments = lineSegments(days, "form", x, y);
+    const segments = formZoneSegments(days, x, y);
     const latest = latestValue(days, "form");
     const current = classifyForm(latest.value);
+    const currentKey = current ? current.key : "maintaining";
     const latestX = x(latest.index);
     const latestY = y(latest.value);
     const placeLatestLabelLeft = latestX > width - right - 60;
@@ -193,13 +251,17 @@
       <text class="trend-threshold-label" x="${width - right + 5}" y="${y(value) + 3}">${value > 0 ? `+${value}` : `−${Math.abs(value)}`}</text>`
     ).join("");
 
-    const paths = segments.map(points =>
-      `<path class="trend-series trend-form-series" d="${pathFor(points)}"></path>`
+    const paths = segments.map(segment =>
+      `<path class="trend-series trend-form-series trend-form-series-${segment.zone}" d="${pathFor(segment.points)}"></path>`
     ).join("");
 
-    const points = segments.flat().map(point =>
-      `<circle class="trend-hit" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="5" data-tooltip="${escapeHtml(`${shortDate(point.date)} · Form ${fmt(point.value, true)}`)}"></circle>`
-    ).join("");
+    const points = days.map((day, index) => {
+      const value = finite(day.form);
+      if (value === null) return "";
+      const zone = classifyForm(value);
+      const tooltip = `${shortDate(day.date)}\nForm ${fmt(value, true)}${zone ? `\n${zone.label}` : ""}`;
+      return `<circle class="trend-hit trend-hit-${zone ? zone.key : "maintaining"}" cx="${x(index).toFixed(2)}" cy="${y(value).toFixed(2)}" r="5" data-tooltip="${escapeHtml(tooltip)}"></circle>`;
+    }).join("");
 
     host.innerHTML = `
       <svg class="trend-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Training Status Form chart">
@@ -208,8 +270,8 @@
         ${boundaries}
         <line class="trend-zero-line" x1="${left}" y1="${y(0)}" x2="${width - right}" y2="${y(0)}"></line>
         ${paths}${points}
-        <circle class="trend-latest trend-latest-${current.key}" cx="${latestX}" cy="${latestY}" r="5"></circle>
-        <text class="trend-latest-label trend-latest-label-form" x="${latestLabelX}" y="${latestLabelY}" text-anchor="${placeLatestLabelLeft ? "end" : "start"}">Form ${escapeHtml(fmt(latest.value, true))}</text>
+        <circle class="trend-latest trend-latest-${currentKey}" cx="${latestX}" cy="${latestY}" r="5"></circle>
+        <text class="trend-latest-label trend-latest-label-form trend-latest-label-${currentKey}" x="${latestLabelX}" y="${latestLabelY}" text-anchor="${placeLatestLabelLeft ? "end" : "start"}">Form ${escapeHtml(fmt(latest.value, true))}</text>
         ${chartDates(days, width, left, right, height - 8)}
       </svg>
       <div class="trend-chart-tooltip" aria-live="polite"></div>`;
@@ -745,6 +807,7 @@
     classifyForm,
     expandTrendDays,
     lineSegments,
+    formZoneSegments,
     aggregateTrainingLoad,
     loadWeekComparison,
     hasPlannedLoad,

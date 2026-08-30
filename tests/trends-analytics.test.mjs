@@ -358,9 +358,44 @@ section("Graph-first UI and accessibility");
       statusHost.innerHTML.includes(`>${value}</text>`)));
   test("Training Balance chart still plots the Form series",
     /id="trendStatusTitle">Training Balance</.test(trendsMarkup) &&
-    /class="trend-series trend-form-series"/.test(statusHost.innerHTML));
+    /class="trend-series trend-form-series trend-form-series-/.test(statusHost.innerHTML));
+  test("Form line is split into zone-colored segments, not one gray stroke",
+    /trend-form-series-detraining/.test(statusHost.innerHTML) &&
+    /trend-form-series-fresh/.test(statusHost.innerHTML) &&
+    /trend-form-series-maintaining/.test(statusHost.innerHTML) &&
+    /trend-form-series-gaining/.test(statusHost.innerHTML) &&
+    (statusHost.innerHTML.match(/class="trend-series trend-form-series trend-form-series-/g) || []).length >= 4 &&
+    !/<path class="trend-series trend-form-series"/.test(statusHost.innerHTML));
+  test("Form color changes interpolate at zone thresholds",
+    analytics.formZoneSegments([
+      { date: "2026-07-25", form: -4 },
+      { date: "2026-07-26", form: -8 }
+    ], index => index, value => value).some(segment =>
+      segment.zone === "maintaining" &&
+      segment.points.some(point => point.value === -5 && point.crossing)
+    ) &&
+    analytics.formZoneSegments([
+      { date: "2026-07-25", form: 8 },
+      { date: "2026-07-26", form: -2 },
+      { date: "2026-07-27", form: -12 },
+      { date: "2026-07-28", form: -25 },
+      { date: "2026-07-29", form: 6 }
+    ], index => index, value => value).map(segment => segment.zone).join(">") ===
+      "fresh>maintaining>gaining>risk>gaining>maintaining>fresh");
+  test("current Form marker and hover hits use the point's zone color",
+    /class="trend-latest trend-latest-fresh"/.test(statusHost.innerHTML) &&
+    /trend-latest-label-form trend-latest-label-fresh/.test(statusHost.innerHTML) &&
+    /trend-hit trend-hit-detraining/.test(statusHost.innerHTML) &&
+    /Gaining Fitness/.test(statusHost.innerHTML));
+  test("chart explanations stay collapsed and do not restore old essays",
+    (trendsMarkup.match(/class="trend-explain"/g) || []).length === 3 &&
+    (trendsMarkup.match(/What does this mean\?/g) || []).length === 3 &&
+    !/class="trend-explain"[^>]*\sopen/.test(trendsMarkup) &&
+    trendsMarkup.includes("Training Balance shows the relationship") &&
+    trendsMarkup.includes("Fitness reflects longer-term training adaptation") &&
+    trendsMarkup.includes("Training Load shows how much training stress"));
   test("latest Form value is labeled directly beside the latest point",
-    /class="trend-latest-label trend-latest-label-form"[\s\S]*?>Form \+14<\/text>/.test(
+    /class="trend-latest-label trend-latest-label-form trend-latest-label-fresh"[\s\S]*?>Form \+14<\/text>/.test(
       statusHost.innerHTML
     ));
   test("educational Form formula and zone essays are not on the main screen",

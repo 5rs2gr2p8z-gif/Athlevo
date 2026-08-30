@@ -472,7 +472,7 @@
   --trend-fresh:#397fbd;
   --trend-maintaining:#777b82;
   --trend-gaining:#27865a;
-  --trend-risk:#c4484d;
+  --trend-risk:#c0272d;
   --trend-detraining:#9a6b32;
   --trend-load:#c0272d;
   --trend-zone-fresh:rgba(57,127,189,.10);
@@ -2873,10 +2873,20 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 .trend-threshold-label{fill:var(--ink3);font-variant-numeric:tabular-nums}
 .trend-latest-label{font-weight:750}
 .trend-latest-label-form{fill:var(--trend-form)}
+.trend-latest-label-form.trend-latest-label-detraining{fill:var(--trend-detraining)}
+.trend-latest-label-form.trend-latest-label-fresh{fill:var(--trend-fresh)}
+.trend-latest-label-form.trend-latest-label-maintaining{fill:var(--trend-maintaining)}
+.trend-latest-label-form.trend-latest-label-gaining{fill:var(--trend-gaining)}
+.trend-latest-label-form.trend-latest-label-risk{fill:var(--trend-risk)}
 .trend-latest-label-fitness{fill:var(--trend-fitness)}
 .trend-latest-label-fatigue{fill:var(--trend-fatigue)}
 .trend-series{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .trend-form-series{stroke:var(--trend-form)}
+.trend-form-series-detraining{stroke:var(--trend-detraining)}
+.trend-form-series-fresh{stroke:var(--trend-fresh)}
+.trend-form-series-maintaining{stroke:var(--trend-maintaining)}
+.trend-form-series-gaining{stroke:var(--trend-gaining)}
+.trend-form-series-risk{stroke:var(--trend-risk)}
 .trend-fitness-series{stroke:var(--trend-fitness)}
 .trend-fatigue-series{stroke:var(--trend-fatigue)}
 .trend-latest{stroke:var(--paper);stroke-width:2;vector-effect:non-scaling-stroke}
@@ -2889,7 +2899,25 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 .trend-hit{fill:transparent;stroke:none;cursor:crosshair}
 .trend-hit-area{fill:transparent;cursor:crosshair}
 .trend-hit:focus,.trend-hit-area:focus{outline:none}
-.trend-hit.is-active,.trend-hit-area.is-active{stroke:var(--focus-ring);stroke-width:1;vector-effect:non-scaling-stroke}
+.trend-hit.is-active{stroke:var(--paper);stroke-width:2;vector-effect:non-scaling-stroke}
+.trend-hit-detraining.is-active{fill:var(--trend-detraining)}
+.trend-hit-fresh.is-active{fill:var(--trend-fresh)}
+.trend-hit-maintaining.is-active{fill:var(--trend-maintaining)}
+.trend-hit-gaining.is-active{fill:var(--trend-gaining)}
+.trend-hit-risk.is-active{fill:var(--trend-risk)}
+.trend-hit-area.is-active{stroke:var(--focus-ring);stroke-width:1;vector-effect:non-scaling-stroke}
+.trend-explain{margin:8px 0 0;min-width:0}
+.trend-explain summary{display:inline-flex;align-items:center;gap:5px;max-width:100%;
+  font-size:var(--fs-caption);font-weight:650;line-height:var(--lh-caption);color:var(--ink3);
+  cursor:pointer;list-style:none}
+.trend-explain summary::-webkit-details-marker{display:none}
+.trend-explain summary::after{content:"▾";font-size:10px;line-height:1}
+.trend-explain[open] summary::after{content:"▴"}
+.trend-explain dl{margin:8px 0 0;min-width:0}
+.trend-explain dt{margin-top:8px;font-size:var(--fs-micro);font-weight:750;
+  letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink3)}
+.trend-explain dt:first-child{margin-top:0}
+.trend-explain dd{margin:3px 0 0;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
 .trend-load-completed{fill:var(--trend-load)}
 .trend-load-planned{fill:transparent;stroke:var(--ink3);stroke-width:1;vector-effect:non-scaling-stroke}
 .trend-load-baseline{stroke:var(--ink2);stroke-width:1;vector-effect:non-scaling-stroke}
@@ -5751,6 +5779,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <span class="trend-graph-values" id="trendStatusFormValue"></span>
       </div>
       <div class="trend-chart" id="trendStatusChart"></div>
+      <details class="trend-explain">
+        <summary>What does this mean?</summary>
+        <dl>
+          <dt>What it is</dt>
+          <dd>Training Balance shows the relationship between your longer-term fitness and recent fatigue.</dd>
+          <dt>Why it matters</dt>
+          <dd>It helps show whether you're fresh, carrying productive training stress, or accumulating too much fatigue.</dd>
+          <dt>What Athlevo does with it</dt>
+          <dd>Athlevo can use this balance to guide when to push, maintain, or recover.</dd>
+        </dl>
+      </details>
       <p class="trend-text-summary trend-visually-hidden" id="trendStatusSummary"></p>
     </article>
 
@@ -5765,6 +5804,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </div>
       </div>
       <div class="trend-chart" id="trendFitnessChart"></div>
+      <details class="trend-explain">
+        <summary>What does this mean?</summary>
+        <dl>
+          <dt>What it is</dt>
+          <dd>Fitness reflects longer-term training adaptation. Fatigue reacts more quickly to recent training.</dd>
+          <dt>Why it matters</dt>
+          <dd>If fatigue rises faster than fitness for too long, recovery becomes more important.</dd>
+          <dt>What Athlevo does with it</dt>
+          <dd>Athlevo can adjust training load, protect easy days, or delay harder work when fatigue becomes excessive.</dd>
+        </dl>
+      </details>
       <p class="trend-text-summary trend-visually-hidden" id="trendFitnessSummary"></p>
     </article>
 
@@ -5779,6 +5829,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </div>
       </div>
       <div class="trend-chart" id="trendLoadChart"></div>
+      <details class="trend-explain">
+        <summary>What does this mean?</summary>
+        <dl>
+          <dt>What it is</dt>
+          <dd>Training Load shows how much training stress you've completed over time.</dd>
+          <dt>Why it matters</dt>
+          <dd>Steady progression usually builds fitness more safely than sudden spikes.</dd>
+          <dt>What Athlevo does with it</dt>
+          <dd>Athlevo can use load trends to avoid unnecessary spikes and keep progression appropriate.</dd>
+        </dl>
+      </details>
       <p class="trend-text-summary trend-visually-hidden" id="trendLoadSummary"></p>
     </article>
 
@@ -10905,7 +10966,7 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js?v=67"></script>
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
-<script src="js/trendsAnalytics.js?v=83"></script>
+<script src="js/trendsAnalytics.js?v=84"></script>
 <script src="js/socialAuth.js?v=75"></script>
 <script src="js/analyticsRegistry.js?v=74"></script>
 <script src="js/metaPixel.js?v=69"></script>
