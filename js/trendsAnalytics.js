@@ -533,6 +533,24 @@
     if (statusSummary) statusSummary.textContent = accessibleSummary(data, days);
     renderStatusChart(document.getElementById("trendStatusChart"), days);
 
+    const fitnessSummary = document.getElementById("trendFitnessSummary");
+    if (fitnessSummary) fitnessSummary.textContent = accessibleSummary(data, days);
+    renderFitnessChart(document.getElementById("trendFitnessChart"), days);
+
+    const buckets = aggregateTrainingLoad(days, data.range || selectedRange);
+    const loadSummary = document.getElementById("trendLoadSummary");
+    if (loadSummary) {
+      const comparison = loadWeekComparison(days, data.newest);
+      loadSummary.textContent = comparison.current === null
+        ? "No measured training load is available for the current week."
+        : `Current week load is ${fmt(comparison.current)}${comparison.comparable ? ` versus ${fmt(comparison.previous)} at the same point last week` : ""}.`;
+    }
+    const plannedLegend = document.getElementById("trendPlannedLegend");
+    if (plannedLegend) {
+      plannedLegend.hidden = !hasPlannedLoad(buckets);
+    }
+    renderLoadChart(document.getElementById("trendLoadChart"), buckets);
+
     const noticeEl = document.getElementById("trendHistoryNotice");
     if (noticeEl) {
       const measuredDays = days.filter(day =>

@@ -2847,6 +2847,7 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 .trend-graph-values{font-size:var(--fs-caption);font-weight:650;color:var(--ink2);font-variant-numeric:tabular-nums;text-align:right}
 .trend-legend{display:flex;align-items:center;gap:var(--s-3);margin-top:4px;font-size:var(--fs-caption);color:var(--ink2)}
 .trend-legend span{display:inline-flex;align-items:center;gap:5px}
+.trend-legend span[hidden]{display:none}
 .trend-legend i{width:16px;height:2px;background:var(--trend-fitness)}
 .trend-legend .form i{background:var(--trend-form)}
 .trend-legend .fatigue i{background:var(--trend-fatigue)}
@@ -5752,6 +5753,36 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="trend-chart" id="trendStatusChart"></div>
       <p class="trend-text-summary trend-visually-hidden" id="trendStatusSummary"></p>
     </article>
+
+    <article class="trend-graph" data-trend-graph="fitness-fatigue">
+      <div class="trend-graph-head">
+        <div>
+          <h2 class="trend-graph-title">Fitness &amp; Fatigue</h2>
+          <div class="trend-legend" aria-hidden="true">
+            <span><i></i>Fitness</span>
+            <span class="fatigue"><i></i>Fatigue</span>
+          </div>
+        </div>
+      </div>
+      <div class="trend-chart" id="trendFitnessChart"></div>
+      <p class="trend-text-summary trend-visually-hidden" id="trendFitnessSummary"></p>
+    </article>
+
+    <article class="trend-graph" data-trend-graph="training-load">
+      <div class="trend-graph-head">
+        <div>
+          <h2 class="trend-graph-title">Training Load</h2>
+          <div class="trend-legend" aria-hidden="true">
+            <span class="completed"><i></i>Completed</span>
+            <span class="planned" id="trendPlannedLegend" hidden><i></i>Planned</span>
+          </div>
+        </div>
+      </div>
+      <div class="trend-chart" id="trendLoadChart"></div>
+      <p class="trend-text-summary trend-visually-hidden" id="trendLoadSummary"></p>
+    </article>
+
+    <div class="spacer-lg"></div>
   </div>
 
 </section>
@@ -10874,7 +10905,7 @@ setTimeout(function () {
 <script src="js/calendarWeeks.js?v=67"></script>
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
-<script src="js/trendsAnalytics.js?v=82"></script>
+<script src="js/trendsAnalytics.js?v=83"></script>
 <script src="js/socialAuth.js?v=75"></script>
 <script src="js/analyticsRegistry.js?v=74"></script>
 <script src="js/metaPixel.js?v=69"></script>

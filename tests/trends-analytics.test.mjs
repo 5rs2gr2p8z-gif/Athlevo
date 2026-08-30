@@ -340,12 +340,12 @@ section("Graph-first UI and accessibility");
     { key: "2026-07-25", label: "Jul 25", completed: 45, planned: null },
     { key: "2026-07-29", label: "Jul 29", completed: 60, planned: null }
   ]);
-  test("exactly one primary graph view exists",
-    (trendsMarkup.match(/data-trend-graph=/g) || []).length === 1 &&
-    /data-trend-graph="training-status"/.test(trendsMarkup));
-  test("Fitness vs Fatigue and Training Load graphs are not on the athlete Trends screen",
-    !/data-trend-graph="fitness-fatigue"/.test(trendsMarkup) &&
-    !/data-trend-graph="training-load"/.test(trendsMarkup) &&
+  test("exactly three primary graph views exist",
+    (trendsMarkup.match(/data-trend-graph=/g) || []).length === 3 &&
+    /data-trend-graph="training-status"/.test(trendsMarkup) &&
+    /data-trend-graph="fitness-fatigue"/.test(trendsMarkup) &&
+    /data-trend-graph="training-load"/.test(trendsMarkup));
+  test("no separate duplicate Form graph exists",
     !/data-trend-graph="form"/.test(trendsMarkup));
   test("all five Training Status bands render with direct labels",
     ["Detraining", "Fresh", "Maintaining", "Gaining Fitness", "High Risk"]
@@ -380,6 +380,13 @@ section("Graph-first UI and accessibility");
     /Fitness 45<\/text>/.test(fitnessHost.innerHTML) &&
     /Fatigue 39<\/text>/.test(fitnessHost.innerHTML) &&
     /Jul/.test(fitnessHost.innerHTML));
+  test("Fitness & Fatigue heading is restored without an education paragraph",
+    /Fitness &amp; Fatigue/.test(trendsMarkup) &&
+    /id="trendFitnessChart"/.test(trendsMarkup) &&
+    !trendsMarkup.includes(
+      "Fitness reflects your longer-term training load. Fatigue reacts more quickly to recent training."
+    ) &&
+    !/id="trendFitnessInterpretation"/.test(trendsMarkup));
   test("Fitness/Fatigue interpretation helpers stay available without being shown",
     analytics.fitnessInterpretation([
       { date: "2026-07-22", fitness: 50, fatigue: 60 },
@@ -411,6 +418,11 @@ section("Graph-first UI and accessibility");
       { date: "2026-07-28", fitness: null, fatigue: null },
       { date: "2026-07-29", fitness: 50, fatigue: 45 }
     ]) === "Fitness and fatigue are both rising as recent training accumulates.");
+  test("Training Load heading is restored without a week-total or essay",
+    />Training Load</.test(trendsMarkup) &&
+    /id="trendLoadChart"/.test(trendsMarkup) &&
+    !/id="trendLoadValues"/.test(trendsMarkup) &&
+    !/id="trendLoadInterpretation"/.test(trendsMarkup));
   test("Training Load chart has a plot surface, baseline, grid, and date labels",
     /class="trend-plot-surface"/.test(loadHost.innerHTML) &&
     /class="trend-load-baseline"/.test(loadHost.innerHTML) &&
@@ -435,9 +447,12 @@ section("Graph-first UI and accessibility");
     /Completed \$\{fmt\(bucket\.completed\)\}/.test(clientSource) &&
     /element\.setAttribute\("role", "img"\)/.test(clientSource) &&
     !/element\.setAttribute\("role", "button"\)/.test(clientSource));
-  test("the Form chart keeps one accessible text summary",
-    (trendsMarkup.match(/class="trend-text-summary/g) || []).length === 1 &&
-    /id="trendStatusSummary"/.test(trendsMarkup));
+  test("charts keep accessible text summaries without visible essays",
+    (trendsMarkup.match(/class="trend-text-summary/g) || []).length === 3 &&
+    /id="trendStatusSummary"/.test(trendsMarkup) &&
+    /id="trendFitnessSummary"/.test(trendsMarkup) &&
+    /id="trendLoadSummary"/.test(trendsMarkup) &&
+    /trend-visually-hidden/.test(trendsMarkup));
   test("Fitness, Fatigue, and Form appear once and 7-day load is hidden",
     /metricMarkup\("Fitness"/.test(clientSource) &&
     /metricMarkup\("Fatigue"/.test(clientSource) &&
