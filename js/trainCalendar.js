@@ -1237,10 +1237,14 @@
       m.classList.add("show");
       m.setAttribute("aria-hidden", "false");
     }
-    if (act) loadActivityCharts(act, modalToken);
+    if (act) {
+      _lastChartActivity = act;
+      loadActivityCharts(act, modalToken);
+    }
   }
 
   let _openModalToken = 0;
+  let _lastChartActivity = null;
   async function loadActivityCharts(act, token) {
     const root = document.getElementById("ad-charts-root");
     if (!root) return;
@@ -1286,9 +1290,19 @@
     if (AS.hasUsableStreams(streams)) {
       AS.renderInto(root, streams, sport);
     } else {
-      root.innerHTML = '<p class="ad-chart-empty">Detailed stream data not available for this activity.</p>';
+      const info = typeof AS.lastLoadInfo === "function" ? AS.lastLoadInfo() : null;
+      const failed = !!(info && info.reason === "fetch_failed");
+      if (failed) {
+        root.innerHTML = '<div class="ad-chart-error"><p>We couldn\'t load the detailed activity data. This is a connection problem, not missing telemetry.</p><button type="button" class="ad-chart-retry" onclick="AthlevoTrainCalendar.retryActivityCharts()">Try again</button></div>';
+      } else {
+        root.innerHTML = '<p class="ad-chart-empty">Detailed stream data not available for this activity.</p>';
+      }
     }
     tryDeferredRoute(act, streams);
+  }
+
+  function retryActivityCharts() {
+    if (_lastChartActivity) loadActivityCharts(_lastChartActivity, _openModalToken);
   }
 
   function tryDeferredRoute(act, streams) {
@@ -1836,13 +1850,13 @@
   function getSelectedDate() { return selected; }
 
   window.AthlevoTrainCalendar = {
-    open, prevWeek, nextWeek, goToday, select, openModal, closeModal, askCoach,
+    open, prevWeek, nextWeek, goToday, select, openModal, closeModal, retryActivityCharts, askCoach,
     activityDateKey, buildSelectedDayModel, cardMetricItems, sportTheme,
     activityCardHtml, plannedCardHtml, renderSelectedDayHtml,
     cardMiniProfile, cardProfileSeries,
     hydrate, getSelectedDate,
     clipCoachText, renderDetailSummary, renderSplitsStrip, renderCoachSection,
     workoutStructureHtml, normalizeSegments,
-    VERSION: "train-calendar-v10"
+    VERSION: "train-calendar-v11"
   };
 })();

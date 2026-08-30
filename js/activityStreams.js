@@ -11,15 +11,18 @@
     time: "time", timer_time: "time", elapsed_time: "time",
     distance: "distance",
     heartrate: "heartrate", heart_rate: "heartrate", hr: "heartrate",
+    fixed_heartrate: "heartrate",
     velocity: "velocity", velocity_smooth: "velocity", speed: "velocity",
-    altitude: "altitude", elevation: "altitude",
+    ga_velocity: "velocity",
+    altitude: "altitude", elevation: "altitude", fixed_altitude: "altitude",
     cadence: "cadence",
-    watts: "watts", power: "watts",
-    latlng: "latlng", lat_lng: "latlng"
+    watts: "watts", power: "watts", raw_watts: "watts", fixed_watts: "watts",
+    latlng: "latlng", lat_lng: "latlng",
+    icu_speed: "velocity", pace: "velocity", fixed_cadence: "cadence"
   };
   const METRIC_KEYS = ["heartrate", "velocity", "altitude", "cadence", "watts"];
   const ALL_KEYS = ["time", "distance"].concat(METRIC_KEYS).concat(["latlng"]);
-  const GRAPH_ORDER = ["pace", "power", "heartrate", "cadence", "elevation"];
+  const GRAPH_ORDER = ["pace", "heartrate", "cadence", "power", "elevation"];
   const GRAPH_META = {
     pace:      { label: "PACE",       unit: "/km", color: "#4A6FA5", fillOpacity: 0.20, invert: true },
     power:     { label: "POWER",      unit: "W",   color: "#5E35B1", fillOpacity: 0.18, invert: false },
@@ -32,6 +35,7 @@
 
   const memoryCache = new Map();
   const inflight = new Map();
+  let lastLoadInfo = null;
 
   function emptyStreams() {
     return { version: 1, time: null, distance: null, heartrate: null, velocity: null, altitude: null, cadence: null, watts: null, latlng: null };
@@ -50,43 +54,104 @@
   }
 
   function seriesFromEntry(entry) {
-    if (!entry) return null;
+    if (entry == null) return null;
     if (Array.isArray(entry)) return asFiniteArray(entry);
     if (typeof entry === "object") return asFiniteArray(entry.data || entry.values || entry.stream);
     return null;
   }
 
   function alignSeries(streams) {
-    const lengths = ALL_KEYS.filter(k => k !== "latlng").map(k => streams[k] && streams[k].length).filter(n => Number.isFinite(n) && n > 0);
-    if (!lengths.length) return;
-    const n = Math.min.apply(null, lengths);
+    const metricMax = METRIC_KEYS.reduce((n, k) => Math.max(n, streams[k] ? streams[k].length : 0), 0);
+    const n = (streams.time && streams.time.length >= 3) ? streams.time.length : metricMax;
+    if (!n) return;
     ALL_KEYS.forEach(k => {
       if (k === "latlng") return;
       if (streams[k] && streams[k].length > n) streams[k] = streams[k].slice(0, n);
     });
   }
 
+  function unwrapStreamsPayload(payload) {
+    if (!payload) return null;
+    if (Array.isArray(payload)) return payload;
+    if (payload.streams && (Array.isArray(payload.streams) || typeof payload.streams === "object")) return payload.streams;
+    return payload;
+  }
+
+  function maybeVelocityFromPace(series) {
+    if (!series) return null;
+    const first = series.find(v => Number.isFinite(v));
+    if (Number.isFinite(first) && first >= 40) {
+      return series.map(v => Number.isFinite(v) && v > 0 ? 1000 / v : null);
+    }
+    return series;
+  }
+
+  function deriveVelocityFromDistance(time, distance) {
+    if (!Array.isArray(time) || !Array.isArray(distance) || time.length < 3 || distance.length < 3) return null;
+    const n = Math.min(time.length, distance.length);
+    const out = [];
+    let usable = 0;
+    for (let i = 0; i < n; i += 1) {
+      if (i === 0) { out.push(null); continue; }
+      const dt = Number(time[i]) - Number(time[i - 1]);
+      const dd = Number(distance[i]) - Number(distance[i - 1]);
+      if (Number.isFinite(dt) && dt > 0 && Number.isFinite(dd) && dd >= 0) {
+        out.push(dd / dt);
+        usable += 1;
+      } else out.push(null);
+    }
+    if (out[0] == null && Number.isFinite(out[1])) out[0] = out[1];
+    return usable >= 3 ? out : null;
+  }
+
   function normalizeProviderStreams(payload) {
     const streams = emptyStreams();
-    if (!payload) return streams;
+    const incoming = unwrapStreamsPayload(payload);
+    if (!incoming) return streams;
+    let lat = null;
+    let lng = null;
     const apply = (type, data) => {
-      const key = TYPE_ALIASES[String(type || "").toLowerCase()];
-      if (!key || streams[key]) return;
-      if (key === "latlng") {
-        const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
-        if (arr && arr.length >= 2) streams.latlng = arr;
+      const rawType = String(type || "").toLowerCase();
+      if (rawType === "lat" || rawType === "latitude") {
+        lat = seriesFromEntry(data);
         return;
       }
-      const series = seriesFromEntry(data);
+      if (rawType === "lng" || rawType === "lon" || rawType === "longitude") {
+        lng = seriesFromEntry(data);
+        return;
+      }
+      const key = TYPE_ALIASES[rawType];
+      if (!key || streams[key]) return;
+      if (key === "latlng") {
+        if (Array.isArray(data) && data.length >= 2 && Array.isArray(data[0])) streams.latlng = data;
+        else if (data && Array.isArray(data.data) && Array.isArray(data.data2) && data.data.length >= 2) {
+          streams.latlng = data.data.map((la, i) => [la, data.data2[i]]);
+        } else {
+          const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+          if (arr && arr.length >= 2) streams.latlng = arr;
+        }
+        return;
+      }
+      let series = seriesFromEntry(data);
+      if (key === "velocity") series = maybeVelocityFromPace(series);
       if (series) streams[key] = series;
     };
-    if (Array.isArray(payload)) {
-      payload.forEach(item => {
+    if (Array.isArray(incoming)) {
+      incoming.forEach(item => {
         if (item && typeof item === "object") apply(item.type || item.name || item.key, item);
       });
-    } else if (typeof payload === "object") {
-      Object.keys(payload).forEach(type => apply(type, payload[type]));
+    } else if (typeof incoming === "object") {
+      Object.keys(incoming).forEach(type => apply(type, incoming[type]));
     }
+    if (!streams.latlng && lat && lng) {
+      const n = Math.min(lat.length, lng.length);
+      const pts = [];
+      for (let i = 0; i < n; i += 1) {
+        if (Number.isFinite(lat[i]) && Number.isFinite(lng[i])) pts.push([lat[i], lng[i]]);
+      }
+      if (pts.length >= 2) streams.latlng = pts;
+    }
+    if (!streams.velocity) streams.velocity = deriveVelocityFromDistance(streams.time, streams.distance);
     alignSeries(streams);
     return streams;
   }
@@ -156,9 +221,9 @@
     if (!hasUsableStreams(streams)) return keys;
     const usable = key => Array.isArray(streams[key]) && streams[key].filter(v => Number.isFinite(v)).length >= 3;
     if (usable("velocity") && sport !== "strength" && sport !== "mobility") keys.push("pace");
-    if (usable("watts")) keys.push("power");
     if (usable("heartrate")) keys.push("heartrate");
     if (usable("cadence")) keys.push("cadence");
+    if (usable("watts")) keys.push("power");
     if (usable("altitude") && elevationIsMeaningful(streams)) keys.push("elevation");
     return GRAPH_ORDER.filter(k => keys.indexOf(k) >= 0);
   }
@@ -199,14 +264,25 @@
     activity.raw_data.activity_streams = streams;
   }
 
+  function rememberLoadInfo(info) {
+    lastLoadInfo = info && typeof info === "object" ? info : null;
+    return lastLoadInfo;
+  }
+
   async function fetchRemoteStreams(activityId) {
-    if (typeof supabaseClient === "undefined" || !supabaseClient.auth) return null;
+    if (typeof supabaseClient === "undefined" || !supabaseClient.auth) {
+      rememberLoadInfo({ reason: "fetch_failed", http_status: 0 });
+      return null;
+    }
     let token = null;
     try {
       const session = await supabaseClient.auth.getSession();
       token = session && session.data && session.data.session && session.data.session.access_token;
     } catch (e) { token = null; }
-    if (!token) return null;
+    if (!token) {
+      rememberLoadInfo({ reason: "fetch_failed", http_status: 401 });
+      return null;
+    }
     const res = await fetch("/api/providers?action=activity_streams", {
       method: "POST",
       headers: {
@@ -216,15 +292,25 @@
       body: JSON.stringify({ activityId: String(activityId) }),
       cache: "no-store"
     });
-    if (!res.ok) {
-      console.warn("[Athlevo] stream fetch HTTP", res.status);
+    let body = null;
+    try { body = await res.json(); } catch (e) { body = null; }
+    rememberLoadInfo({
+      reason: (body && body.reason) || (res.ok ? "no_streams" : "fetch_failed"),
+      http_status: (body && body.http_status) || res.status,
+      source: body && body.source || null,
+      fetched_from: body && body.fetched_from || null,
+      upstream_source: body && body.upstream_source || null,
+      external_id: body && body.external_id || null,
+      activity_id: body && body.activity_id || null,
+      available: (body && body.available) || [],
+      sample_counts: (body && body.sample_counts) || {},
+      payload_keys: (body && body.payload_keys) || []
+    });
+    if (!res.ok && (!body || !body.streams)) {
+      console.warn("[Athlevo] stream fetch HTTP", res.status, lastLoadInfo && lastLoadInfo.reason);
       return null;
     }
-    const body = await res.json();
-    if (!body || !body.streams) {
-      if (body && body.reason) console.info("[Athlevo] no streams:", body.reason);
-      return null;
-    }
+    if (!body || !body.streams) return null;
     const streams = normalizeProviderStreams(body.streams);
     return hasUsableStreams(streams) ? streams : null;
   }
@@ -688,6 +774,8 @@
     renderStackedCharts,
     renderInto,
     formatMetricValue,
+    lastLoadInfo: () => lastLoadInfo,
+    deriveVelocityFromDistance,
     GRAPH_ORDER
   };
 })(typeof window !== "undefined" ? window : globalThis);

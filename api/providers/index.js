@@ -121,6 +121,12 @@ import {
   hasUsableStreams,
   normalizeProviderStreams,
   packStreamsForStore,
+  availableGraphKeys,
+  streamSampleCounts,
+  payloadShapeKeys,
+  intervalsActivityIdCandidates,
+  intervalsStreamsQuery,
+  parseIntervalsCsv,
   STRAVA_STREAM_KEYS,
   INTERVALS_STREAM_TYPES
 } from "../../lib/server/activityStreams.js";
@@ -624,7 +630,9 @@ async function intervalsFetch(path, accessToken, meta) {
     if (meta) {
       try { meta.errorBody = (await res.text()).slice(0, 300); } catch (e) {}
     }
-    throw new Error(`Intervals.icu request failed (${res.status}).`);
+    const err = new Error(`Intervals.icu request failed (${res.status}).`);
+    err.httpStatus = res.status;
+    throw err;
   }
 
   const body = await res.json();
@@ -2212,9 +2220,94 @@ async function fetchStravaActivityStreams(externalId, accessToken) {
   return res.json();
 }
 
+function intervalsStreamPaths(id) {
+  const typed = intervalsStreamsQuery(INTERVALS_STREAM_TYPES);
+  return [
+    `/activity/${encodeURIComponent(id)}/streams.json?${typed}`,
+    `/activity/${encodeURIComponent(id)}/streams.json`,
+    `/activity/${encodeURIComponent(id)}/streams.csv`
+  ];
+}
+
+async function intervalsFetchStreams(path, accessToken, meta) {
+  const wantsCsv = /\.csv(\?|$)/.test(path);
+  const res = await fetch(`${INTERVALS_API_BASE}${path}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: wantsCsv ? "text/csv,application/json,*/*" : "application/json"
+    }
+  });
+  if (meta) {
+    meta.httpStatus = res.status;
+    meta.contentType = res.headers.get("content-type") || null;
+    meta.path = path.split("?")[0];
+  }
+  if (res.status === 401) {
+    const err = new Error("unauthorized");
+    err.authExpired = true;
+    err.httpStatus = 401;
+    throw err;
+  }
+  if (res.status === 403) {
+    const err = new Error("forbidden");
+    err.forbidden = true;
+    err.httpStatus = 403;
+    throw err;
+  }
+  if (res.status === 429) {
+    const err = new Error("rate limit");
+    err.rateLimited = true;
+    err.httpStatus = 429;
+    throw err;
+  }
+  if (!res.ok) {
+    const err = new Error(`Intervals.icu request failed (${res.status}).`);
+    err.httpStatus = res.status;
+    throw err;
+  }
+  const text = await res.text();
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    try { return JSON.parse(trimmed); } catch (e) { return null; }
+  }
+  return parseIntervalsCsv(trimmed);
+}
+
 async function fetchIntervalsActivityStreams(externalId, accessToken) {
-  const path = `/activity/${encodeURIComponent(externalId)}/streams.json?types=${INTERVALS_STREAM_TYPES}`;
-  return intervalsFetch(path, accessToken, {});
+  const ids = intervalsActivityIdCandidates(externalId);
+  let lastError = null;
+  let lastMeta = {};
+  let lastEmpty = null;
+  for (const id of ids) {
+    for (const path of intervalsStreamPaths(id)) {
+      const meta = {};
+      try {
+        const payload = await intervalsFetchStreams(path, accessToken, meta);
+        const streams = normalizeProviderStreams(payload);
+        if (hasUsableStreams(streams)) {
+          return { payload, streams, meta, externalId: id };
+        }
+        lastEmpty = { payload, meta, externalId: id };
+      } catch (error) {
+        lastError = error;
+        lastMeta = meta;
+        if (error && error.authExpired) throw error;
+      }
+    }
+  }
+  if (lastEmpty) {
+    const err = new Error("intervals_streams_empty");
+    err.empty = true;
+    err.meta = lastEmpty.meta;
+    err.payload = lastEmpty.payload;
+    err.externalId = lastEmpty.externalId;
+    err.httpStatus = (lastEmpty.meta && lastEmpty.meta.httpStatus) || 200;
+    throw err;
+  }
+  const err = lastError || new Error("intervals_streams_failed");
+  err.meta = lastMeta;
+  throw err;
 }
 
 async function actionActivityStreams(request, response) {
@@ -2240,59 +2333,110 @@ async function actionActivityStreams(request, response) {
   if (!row) return sendJson(response, 404, { streams: null, available: [], reason: "not_found" });
 
   const raw = row.raw_data && typeof row.raw_data === "object" ? row.raw_data : {};
-  const stored = extractStoredStreams(raw);
-  if (hasUsableStreams(stored)) {
-    return sendJson(response, 200, { streams: stored, cached: true, source: raw.activity_streams && raw.activity_streams.source || row.source || null });
-  }
-
   const source = String(row.source || "").toLowerCase();
   const upstream = String(raw.upstream_source || "").toLowerCase();
   const externalId = row.external_activity_id || raw.upstream_id || null;
-  let payload = null;
-  let fetchedFrom = null;
+  const diagnostics = {
+    activity_id: row.id,
+    source: source || null,
+    upstream_source: raw.upstream_source || null,
+    external_id: externalId,
+    cached: false,
+    fetched_from: null,
+    reason: null,
+    http_status: null,
+    payload_keys: [],
+    available: [],
+    sample_counts: {}
+  };
 
-  try {
-    if ((source === "intervals" || (!source && raw.upstream_source)) && externalId) {
+  const stored = extractStoredStreams(raw);
+  if (hasUsableStreams(stored)) {
+    diagnostics.cached = true;
+    diagnostics.fetched_from = (raw.activity_streams && raw.activity_streams.source) || source || null;
+    diagnostics.available = availableGraphKeys(stored, "run");
+    diagnostics.sample_counts = streamSampleCounts(stored);
+    diagnostics.reason = "ok";
+    return sendJson(response, 200, { streams: stored, ...diagnostics });
+  }
+
+  let payload = null;
+  let fetchFailed = false;
+  let intervalsAttempted = false;
+
+  /* Intervals.icu is a gateway. Garmin/COROS/Strava-originated rows stored
+     with source=intervals must be fetched from Intervals, not rerouted. */
+  if ((source === "intervals" || (!source && raw.upstream_source)) && externalId) {
+    intervalsAttempted = true;
+    try {
       const account = await readProviderAccount(user.id, "intervals");
       if (account && account.access_token) {
-        payload = await fetchIntervalsActivityStreams(externalId, account.access_token);
-        fetchedFrom = "intervals";
+        const fetched = await fetchIntervalsActivityStreams(externalId, account.access_token);
+        payload = fetched && fetched.payload;
+        diagnostics.fetched_from = "intervals";
+        diagnostics.http_status = fetched && fetched.meta && fetched.meta.httpStatus || 200;
+        diagnostics.payload_keys = payloadShapeKeys(payload);
+        diagnostics.external_id = (fetched && fetched.externalId) || externalId;
+      } else {
+        fetchFailed = true;
+        diagnostics.reason = "fetch_failed";
+        diagnostics.http_status = 503;
+      }
+    } catch (e) {
+      const status = Number(e && e.httpStatus) || Number(e && e.meta && e.meta.httpStatus) || 502;
+      diagnostics.http_status = status;
+      diagnostics.payload_keys = payloadShapeKeys(e && e.payload);
+      diagnostics.external_id = (e && e.externalId) || diagnostics.external_id;
+      if (e && e.empty) {
+        diagnostics.fetched_from = "intervals";
+        diagnostics.reason = "no_streams";
+      } else if (status === 404) {
+        diagnostics.reason = "no_streams";
+      } else {
+        fetchFailed = true;
+        diagnostics.reason = "fetch_failed";
       }
     }
-  } catch (e) {
-    payload = null;
   }
 
-  if (payload && !hasUsableStreams(normalizeProviderStreams(payload))) {
-    payload = null;
-    fetchedFrom = null;
-  }
+  let streams = normalizeProviderStreams(payload);
 
-  if (!payload && (source === "strava" || upstream === "strava") && (row.external_activity_id || raw.upstream_id)) {
+  const stravaOwned = source === "strava" || (!intervalsAttempted && upstream === "strava");
+  if (!hasUsableStreams(streams) && stravaOwned && (row.external_activity_id || raw.upstream_id)) {
     try {
       const stravaId = source === "strava" ? row.external_activity_id : (raw.upstream_id || row.external_activity_id);
       let account = await readFreshStravaAccount(user.id);
       if (account && account.access_token) {
         account = await refreshStravaAccount(account);
         payload = await fetchStravaActivityStreams(stravaId, account.access_token);
-        fetchedFrom = "strava";
+        diagnostics.fetched_from = "strava";
+        diagnostics.payload_keys = payloadShapeKeys(payload);
+        streams = normalizeProviderStreams(payload);
+        fetchFailed = false;
       }
     } catch (e) {
-      payload = null;
+      fetchFailed = true;
+      diagnostics.http_status = diagnostics.http_status || 502;
     }
   }
 
-  const streams = normalizeProviderStreams(payload);
   if (!hasUsableStreams(streams)) {
-    return sendJson(response, 200, { streams: null, available: [], reason: "no_streams", source: fetchedFrom || source || null });
+    diagnostics.reason = diagnostics.reason || (fetchFailed ? "fetch_failed" : "no_streams");
+    diagnostics.available = [];
+    diagnostics.sample_counts = {};
+    const status = diagnostics.reason === "fetch_failed" ? 502 : 200;
+    return sendJson(response, status, { streams: null, ...diagnostics });
   }
 
-  const packed = packStreamsForStore(streams, { source: fetchedFrom || source || null });
+  const packed = packStreamsForStore(streams, { source: diagnostics.fetched_from || source || null });
   if (packed) {
     try { await persistActivityStreams(user.id, row.id, raw, packed); } catch (e) { /* cache is best-effort */ }
   }
-
-  return sendJson(response, 200, { streams: packed || streams, cached: false, source: fetchedFrom || source || null });
+  const usable = packed || streams;
+  diagnostics.reason = "ok";
+  diagnostics.available = availableGraphKeys(usable, "run");
+  diagnostics.sample_counts = streamSampleCounts(usable);
+  return sendJson(response, 200, { streams: usable, ...diagnostics });
 }
 
 /* ═════════════════════ ACTION: weather context ══════════════════════ */

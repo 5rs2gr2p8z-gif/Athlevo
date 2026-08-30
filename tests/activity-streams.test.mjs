@@ -13,7 +13,14 @@ import {
   availableGraphKeys,
   graphSeriesFor,
   packStreamsForStore,
-  paceSeriesFromVelocity
+  paceSeriesFromVelocity,
+  deriveVelocityFromDistance,
+  intervalsActivityIdCandidates,
+  intervalsStreamsQuery,
+  parseIntervalsCsv,
+  INTERVALS_STREAM_TYPES,
+  streamSampleCounts,
+  unwrapStreamsPayload
 } from "../lib/server/activityStreams.js";
 
 const clientSrc = readFileSync("./js/activityStreams.js", "utf8");
@@ -52,7 +59,64 @@ console.log("\n──── Normalize real provider payloads ────");
     { type: "watts", data: [200, 210, 190, 205] }
   ]);
   test("Intervals array streams normalize",
-    availableGraphKeys(intervals, "ride").join(",") === "power,heartrate");
+    availableGraphKeys(intervals, "ride").join(",") === "heartrate,power");
+
+  const icuOfficial = normalizeProviderStreams([
+    { type: "time", data: [0, 1, 2, 3, 4] },
+    { type: "heartrate", data: [140, 142, 144, 146, 148] },
+    { type: "velocity_smooth", data: [3.1, 3.0, 2.9, 3.2, 3.1] },
+    { type: "ga_velocity", data: [2.8, 2.9, 2.7, 2.8, 2.85] }
+  ]);
+  test("Intervals official array payload yields pace + HR from partial streams",
+    hasUsableStreams(icuOfficial) &&
+    availableGraphKeys(icuOfficial, "run").join(",") === "pace,heartrate");
+  test("Intervals stream type list never asks for bare velocity or Strava latlng",
+    INTERVALS_STREAM_TYPES.includes("velocity_smooth") &&
+    INTERVALS_STREAM_TYPES.includes("heartrate") &&
+    !/(^|,)velocity(,|$)/.test(INTERVALS_STREAM_TYPES) &&
+    !/(^|,)latlng(,|$)/.test(INTERVALS_STREAM_TYPES));
+  test("Intervals types query repeats types= and includes defaults", (() => {
+    const q = intervalsStreamsQuery(INTERVALS_STREAM_TYPES);
+    return /types=heartrate/.test(q) && /types=cadence/.test(q) &&
+      /includeDefaults=true/.test(q) && !/types=time,distance/.test(q);
+  })());
+  test("Intervals activity ids try both i-prefixed and bare forms",
+    intervalsActivityIdCandidates("i123").join(",") === "i123,123" &&
+    intervalsActivityIdCandidates("123").join(",") === "123,i123");
+
+  const wrapped = normalizeProviderStreams({
+    streams: {
+      time: [0, 1, 2, 3, 4],
+      heartrate: { data: [140, 142, 144, 146, 148] },
+      heart_rate: { data: [1, 2, 3] }
+    }
+  });
+  test("wrapped Intervals {streams:{}} payloads still yield HR",
+    unwrapStreamsPayload({ streams: { heartrate: [1, 2, 3] } }).heartrate.length === 3 &&
+    wrapped.heartrate && wrapped.heartrate[0] === 140);
+
+  const csv = parseIntervalsCsv("time,heartrate,distance\n0,140,0\n1,142,3\n2,144,6\n3,146,9\n4,148,12");
+  test("Intervals CSV streams parse into columns",
+    csv && csv.heartrate.length === 5 && csv.heartrate[0] === 140);
+
+  const fromDistance = normalizeProviderStreams({
+    time: [0, 10, 20, 30, 40],
+    distance: [0, 30, 62, 90, 124]
+  });
+  test("time + distance still produce a pace graph when speed is missing",
+    availableGraphKeys(fromDistance, "run").includes("pace") &&
+    deriveVelocityFromDistance(fromDistance.time, fromDistance.distance).length >= 4);
+  test("partial streams report real sample counts",
+    streamSampleCounts(fromDistance).time === 5 &&
+    streamSampleCounts(fromDistance).distance === 5);
+
+  const mixedLen = normalizeProviderStreams({
+    time: Array.from({ length: 20 }, (_, i) => i),
+    heartrate: Array.from({ length: 20 }, (_, i) => 140 + i),
+    distance: [0, 3, 6]
+  });
+  test("a short extra series does not collapse a long HR stream",
+    mixedLen.heartrate && mixedLen.heartrate.length === 20);
 }
 
 console.log("\n──── Do not invent graphs from averages ────");
@@ -163,8 +227,8 @@ console.log("\n──── Client cache + render ────");
     /adg-fill/.test(html) &&
     /adg-chart-label/.test(html) &&
     !/wsv__segment/.test(html));
-  test("run graphs follow Pace → Power → Heart Rate → Cadence → Elevation",
-    AS.GRAPH_ORDER.join(",") === "pace,power,heartrate,cadence,elevation");
+  test("run graphs follow Pace → Heart Rate → Cadence → Power → Elevation",
+    AS.GRAPH_ORDER.join(",") === "pace,heartrate,cadence,power,elevation");
 
   const withPower = AS.renderStackedCharts({
     time: [0, 300, 600, 900, 1200],
@@ -175,8 +239,8 @@ console.log("\n──── Client cache + render ────");
     altitude: [18, 22, 27, 21, 19]
   }, "run");
   const order = [...withPower.matchAll(/data-stream="([^"]+)"/g)].map(m => m[1]);
-  test("rendered run stack is Pace, Power, HR, Cadence, Elevation",
-    order.join(",") === "pace,power,heartrate,cadence,elevation");
+  test("rendered run stack is Pace, HR, Cadence, Power, Elevation",
+    order.join(",") === "pace,heartrate,cadence,power,elevation");
   test("each telemetry chart is a polyline plus translucent fill, not a box",
     (withPower.match(/class="adg-line"/g) || []).length === 5 &&
     (withPower.match(/class="adg-fill"/g) || []).length === 5 &&
@@ -208,6 +272,19 @@ test("charts mount before Workout Structure in the detail sheet",
 test("a single steady red block is not treated as the activity graph",
   /structured\.length < 2/.test(calendar) &&
   /ad-section--secondary/.test(calendar));
+test("Intervals-owned rows fetch Intervals streams even when upstream is Garmin",
+  /source === "intervals"[\s\S]{0,400}fetchIntervalsActivityStreams/.test(providers) &&
+  /upstream_source/.test(providers) &&
+  /Do not route it through Strava|must be fetched from Intervals/.test(providers));
+test("API failures are not labelled as missing telemetry",
+  /reason === "fetch_failed"/.test(calendar) &&
+  /ad-chart-retry/.test(calendar) &&
+  /fetch_failed/.test(providers));
+test("Intervals stream request uses repeated types and CSV fallback",
+  /intervalsStreamsQuery/.test(providers) &&
+  /streams\.csv/.test(providers) &&
+  /hasUsableStreams\(streams\)/.test(providers) &&
+  !/(^|,)velocity(,|$)/.test(INTERVALS_STREAM_TYPES));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
