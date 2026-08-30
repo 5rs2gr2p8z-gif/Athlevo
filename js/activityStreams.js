@@ -1,6 +1,7 @@
 /*
- * Athlevo — on-demand activity streams + stacked analysis graphs.
- * Calendar cards stay lightweight. Detail fetches streams once, then caches.
+ * Athlevo — Synchronized Activity Graph Stack
+ * Intervals.icu-inspired stacked time-series graphs with shared x-axis,
+ * synchronized crosshair, and compact Athlevo styling.
  */
 (function (root) {
   "use strict";
@@ -20,12 +21,14 @@
   const ALL_KEYS = ["time", "distance"].concat(METRIC_KEYS).concat(["latlng"]);
   const GRAPH_ORDER = ["pace", "heartrate", "elevation", "cadence", "power"];
   const GRAPH_META = {
-    pace: { label: "Pace", unit: "/km", color: "var(--ad-chart-pace)", invert: true },
-    heartrate: { label: "Heart Rate", unit: "bpm", color: "var(--ad-chart-hr)", invert: false },
-    elevation: { label: "Elevation", unit: "m", color: "var(--ad-chart-elev)", invert: false },
-    cadence: { label: "Cadence", unit: "spm", color: "var(--ad-chart-cadence)", invert: false },
-    power: { label: "Power", unit: "W", color: "var(--ad-chart-power)", invert: false }
+    pace:      { label: "PACE",      unit: "/km", color: "#4A6FA5", fillOpacity: 0.18, invert: true },
+    heartrate: { label: "HR",        unit: "bpm", color: "#C62828", fillOpacity: 0.16, invert: false },
+    elevation: { label: "ELEVATION", unit: "m",   color: "#78909C", fillOpacity: 0.25, invert: false },
+    cadence:   { label: "CADENCE",   unit: "spm", color: "#7E57C2", fillOpacity: 0.15, invert: false },
+    power:     { label: "POWER",     unit: "W",   color: "#5E35B1", fillOpacity: 0.18, invert: false }
   };
+
+  /* ── data plumbing (unchanged) ─────────────────────────────────── */
 
   const memoryCache = new Map();
   const inflight = new Map();
@@ -58,7 +61,7 @@
     if (!lengths.length) return;
     const n = Math.min.apply(null, lengths);
     ALL_KEYS.forEach(k => {
-      if (k === "latlng") return; // latlng is [[lat,lng],...], not a numeric series
+      if (k === "latlng") return;
       if (streams[k] && streams[k].length > n) streams[k] = streams[k].slice(0, n);
     });
   }
@@ -70,7 +73,6 @@
       const key = TYPE_ALIASES[String(type || "").toLowerCase()];
       if (!key || streams[key]) return;
       if (key === "latlng") {
-        // latlng is [[lat,lng],...] — pass through without numeric coercion
         const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
         if (arr && arr.length >= 2) streams.latlng = arr;
         return;
@@ -175,15 +177,8 @@
   function cacheKey(activity) {
     return activity && activity.id != null ? String(activity.id) : null;
   }
-
-  function cacheGet(id) {
-    return memoryCache.get(String(id)) || null;
-  }
-
-  function cacheSet(id, streams) {
-    if (id == null) return;
-    memoryCache.set(String(id), streams);
-  }
+  function cacheGet(id) { return memoryCache.get(String(id)) || null; }
+  function cacheSet(id, streams) { if (id != null) memoryCache.set(String(id), streams); }
 
   function streamsFromActivity(activity) {
     const raw = activity && activity.raw_data && typeof activity.raw_data === "object" ? activity.raw_data : {};
@@ -213,9 +208,15 @@
       body: JSON.stringify({ activityId: String(activityId) }),
       cache: "no-store"
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn("[Athlevo] stream fetch HTTP", res.status);
+      return null;
+    }
     const body = await res.json();
-    if (!body || !body.streams) return null;
+    if (!body || !body.streams) {
+      if (body && body.reason) console.info("[Athlevo] no streams:", body.reason);
+      return null;
+    }
     const streams = normalizeProviderStreams(body.streams);
     return hasUsableStreams(streams) ? streams : null;
   }
@@ -241,10 +242,17 @@
         attachStreams(activity, streams);
       }
       return streams;
-    }).catch(() => emptyStreams()).finally(() => { inflight.delete(id); });
+    }).catch(e => {
+      console.warn("[Athlevo] stream load error:", e);
+      return emptyStreams();
+    }).finally(() => { inflight.delete(id); });
     inflight.set(id, pending);
     return pending;
   }
+
+  /* ══════════════════════════════════════════════════════════════════
+   *  PART 2 — Synchronized Graph Stack Renderer
+   * ══════════════════════════════════════════════════════════════════ */
 
   function pad(n) { return String(n).padStart(2, "0"); }
 
@@ -253,13 +261,13 @@
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     const r = s % 60;
-    return h > 0 ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`;
+    return h > 0 ? h + ":" + pad(m) + ":" + pad(r) : m + ":" + pad(r);
   }
 
   function fmtPace(sec) {
     if (!Number.isFinite(sec) || sec <= 0) return "—";
     const s = Math.round(sec);
-    return `${Math.floor(s / 60)}:${pad(s % 60)}`;
+    return Math.floor(s / 60) + ":" + pad(s % 60);
   }
 
   function formatMetricValue(key, value, sport) {
@@ -272,12 +280,35 @@
     return String(Math.round(value));
   }
 
-  function axisFor(streams, index) {
-    if (streams.time && Number.isFinite(streams.time[index])) return { kind: "time", label: fmtElapsed(streams.time[index]) };
-    if (streams.distance && Number.isFinite(streams.distance[index])) {
-      return { kind: "distance", label: (streams.distance[index] / 1000).toFixed(2) + " km" };
-    }
-    return { kind: "index", label: "" };
+  function formatAvgValue(key, values, sport) {
+    const finite = values.filter(v => Number.isFinite(v));
+    if (!finite.length) return "";
+    const avg = finite.reduce((a, b) => a + b, 0) / finite.length;
+    return formatMetricValue(key, avg, sport);
+  }
+
+  /* ── SVG chart builder ─────────────────────────────────────────── */
+
+  const CHART_H = 90;
+  const Y_LABEL_W = 36;
+  const PAD_Y = 6;
+
+  function niceYTicks(min, max, count) {
+    if (max === min) { min -= 1; max += 1; }
+    const range = max - min;
+    const step = range / (count + 1);
+    const ticks = [];
+    for (let i = 1; i <= count; i++) ticks.push(min + step * i);
+    return ticks;
+  }
+
+  function formatYLabel(key, value) {
+    if (key === "pace") return fmtPace(value);
+    if (key === "heartrate") return String(Math.round(value));
+    if (key === "elevation") return String(Math.round(value));
+    if (key === "cadence") return String(Math.round(value));
+    if (key === "power") return String(Math.round(value));
+    return String(Math.round(value));
   }
 
   function downsampleForDraw(values, maxPoints) {
@@ -288,94 +319,287 @@
     return out;
   }
 
-  const CHART_W = 360;
-  const CHART_H = 88;
-  const CHART_PAD_X = 0;
-
-  function sharedVerticalGrid() {
-    return [0.25, 0.5, 0.75].map(r => {
-      const x = (CHART_PAD_X + r * (CHART_W - 2 * CHART_PAD_X)).toFixed(1);
-      return `<line x1="${x}" y1="0" x2="${x}" y2="${CHART_H}" class="ad-chart-grid ad-chart-grid--v"/>`;
-    }).join("");
-  }
-
-  function renderLineChart(values, color, invertY) {
-    const sampled = downsampleForDraw(values, 220);
+  function buildChartSVG(values, meta, key, gridPositions) {
+    const sampled = downsampleForDraw(values, 280);
     const nums = sampled.filter(v => Number.isFinite(v));
     if (nums.length < 3) return "";
-    const W = CHART_W, H = CHART_H, PAD_X = CHART_PAD_X, PAD_Y = 6;
+
+    const W = 100; // percentage-based viewBox, scaled by CSS
+    const H = CHART_H;
+    const plotX = 0;
+    const plotW = W;
     let min = Math.min.apply(null, nums), max = Math.max.apply(null, nums);
     if (max === min) { min -= 1; max += 1; }
+    // Add 5% padding to range
+    const rangePad = (max - min) * 0.05;
+    min -= rangePad;
+    max += rangePad;
     const range = max - min;
+
+    const toY = v => {
+      const norm = (v - min) / range;
+      return meta.invert
+        ? PAD_Y + norm * (H - 2 * PAD_Y)
+        : H - PAD_Y - norm * (H - 2 * PAD_Y);
+    };
+
+    // Build grid lines (shared vertical positions)
+    let gridSvg = "";
+    gridPositions.forEach(ratio => {
+      const x = (ratio * plotW).toFixed(2);
+      gridSvg += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="' + H + '" class="adg-vgrid"/>';
+    });
+
+    // Y-axis reference lines + labels
+    const yTicks = niceYTicks(min, max, 2);
+    let yLabelHtml = "";
+    yTicks.forEach(val => {
+      const y = toY(val);
+      gridSvg += '<line x1="0" y1="' + y.toFixed(1) + '" x2="' + W + '" y2="' + y.toFixed(1) + '" class="adg-hgrid"/>';
+      yLabelHtml += '<span class="adg-ylabel" style="top:' + ((y / H) * 100).toFixed(1) + '%">' + formatYLabel(key, val) + '</span>';
+    });
+
+    // Build path
     const points = [];
     sampled.forEach((v, i) => {
       if (!Number.isFinite(v)) return;
-      const x = PAD_X + (i / Math.max(1, sampled.length - 1)) * (W - 2 * PAD_X);
-      const norm = (v - min) / range;
-      const y = invertY
-        ? PAD_Y + norm * (H - 2 * PAD_Y)
-        : H - PAD_Y - norm * (H - 2 * PAD_Y);
-      points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+      const x = plotX + (i / Math.max(1, sampled.length - 1)) * plotW;
+      const y = toY(v);
+      points.push(x.toFixed(2) + "," + y.toFixed(1));
     });
     if (points.length < 3) return "";
-    const path = `M${points.join("L")}`;
-    const fill = `M${PAD_X},${H}L${points.join("L")}L${W - PAD_X},${H}Z`;
-    return `<svg class="ad-stream-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">
-      ${sharedVerticalGrid()}
-      <path d="${fill}" fill="${color}" fill-opacity=".18"/>
-      <path d="${path}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/>
-    </svg>`;
+
+    const linePath = "M" + points.join("L");
+    const areaPath = "M" + (plotX) + "," + H + "L" + points.join("L") + "L" + (plotX + plotW) + "," + H + "Z";
+
+    const svg = '<svg class="adg-svg" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">'
+      + gridSvg
+      + '<path d="' + areaPath + '" fill="' + meta.color + '" fill-opacity="' + meta.fillOpacity + '"/>'
+      + '<path d="' + linePath + '" fill="none" stroke="' + meta.color + '" stroke-width="1.8" vector-effect="non-scaling-stroke"/>'
+      + '</svg>';
+
+    return { svg: svg, yLabels: yLabelHtml, min: min, max: max };
   }
+
+  /* ── Time axis ─────────────────────────────────────────────────── */
+
+  function buildTimeAxis(streams, gridPositions) {
+    const n = streams.time ? streams.time.length : (streams.distance ? streams.distance.length : 0);
+    if (n < 2) return "";
+
+    const labels = [];
+    // Always show 0 and end
+    if (streams.time) {
+      const maxT = streams.time[streams.time.length - 1] || 0;
+      labels.push({ ratio: 0, text: "0" });
+      gridPositions.forEach(r => {
+        const idx = Math.round(r * (streams.time.length - 1));
+        const t = streams.time[idx];
+        if (Number.isFinite(t)) labels.push({ ratio: r, text: fmtElapsed(t) });
+      });
+      labels.push({ ratio: 1, text: fmtElapsed(maxT) });
+    } else if (streams.distance) {
+      const maxD = streams.distance[streams.distance.length - 1] || 0;
+      labels.push({ ratio: 0, text: "0" });
+      gridPositions.forEach(r => {
+        const idx = Math.round(r * (streams.distance.length - 1));
+        const d = streams.distance[idx];
+        if (Number.isFinite(d)) labels.push({ ratio: r, text: (d / 1000).toFixed(1) + "k" });
+      });
+      labels.push({ ratio: 1, text: (maxD / 1000).toFixed(1) + " km" });
+    }
+
+    let html = '<div class="adg-time-axis">';
+    labels.forEach(l => {
+      html += '<span class="adg-time-label" style="left:' + (l.ratio * 100).toFixed(1) + '%">' + l.text + '</span>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  /* ── Crosshair tooltip ─────────────────────────────────────────── */
+
+  function crosshairValueHtml(streams, keys, index, sport) {
+    const parts = [];
+    // Time
+    if (streams.time && Number.isFinite(streams.time[index])) {
+      parts.push('<span class="adg-xh-time">' + fmtElapsed(streams.time[index]) + '</span>');
+    }
+    keys.forEach(key => {
+      const series = graphSeriesFor(streams, key);
+      if (!series) return;
+      const val = series[index];
+      if (!Number.isFinite(val)) return;
+      const m = GRAPH_META[key];
+      parts.push('<span class="adg-xh-val" style="color:' + m.color + '">'
+        + m.label + ' ' + formatMetricValue(key, val, sport) + '</span>');
+    });
+    return parts.join("");
+  }
+
+  /* ── Main render ───────────────────────────────────────────────── */
 
   function renderStackedCharts(streams, sport) {
     const keys = availableGraphKeys(streams, sport);
     if (!keys.length) return "";
-    const cadenceMeta = Object.assign({}, GRAPH_META.cadence, { unit: sport === "ride" ? "rpm" : "spm" });
-    let html = `<div class="ad-charts" role="group" aria-label="Activity graphs">`;
-    keys.forEach(key => {
+
+    // Compute shared grid positions (vertical lines at regular intervals)
+    const gridCount = 4;
+    const gridPositions = [];
+    for (let i = 1; i < gridCount; i++) gridPositions.push(i / gridCount);
+
+    let html = '<div class="adg-stack" role="group" aria-label="Activity graphs">';
+
+    // Crosshair tooltip (shared)
+    html += '<div class="adg-crosshair-tooltip" id="adgCrosshairTooltip"></div>';
+
+    keys.forEach((key, idx) => {
       const series = graphSeriesFor(streams, key);
-      const meta = key === "cadence" ? cadenceMeta : GRAPH_META[key];
+      const meta = GRAPH_META[key];
       if (!series || !meta) return;
+
       const finite = series.filter(v => Number.isFinite(v));
       if (finite.length < 3) return;
-      html += `<section class="ad-chart-section" data-stream="${key}">
-        <div class="ad-chart-head">
-          <span class="ad-chart-label">${meta.label}</span>
-          <span class="ad-chart-readout" aria-live="polite"></span>
-        </div>
-        ${renderLineChart(series, meta.color, meta.invert)}
-      </section>`;
+
+      const avg = formatAvgValue(key, series, sport);
+      const unitLabel = key === "cadence" && sport === "ride" ? "rpm" : meta.unit;
+      const built = buildChartSVG(series, meta, key, gridPositions);
+      if (!built) return;
+
+      html += '<div class="adg-chart' + (idx === 0 ? " adg-chart--first" : "") + '" data-stream="' + key + '">'
+        + '<div class="adg-chart-head">'
+        + '<span class="adg-chart-label" style="color:' + meta.color + '">' + meta.label + '</span>'
+        + (avg ? '<span class="adg-chart-avg">' + avg + ' avg</span>' : '')
+        + '<span class="adg-chart-readout"></span>'
+        + '</div>'
+        + '<div class="adg-chart-body">'
+        + '<div class="adg-ylabels">' + built.yLabels + '</div>'
+        + '<div class="adg-plot">'
+        + built.svg
+        + '<div class="adg-crosshair"></div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
     });
-    html += `</div>`;
+
+    // Shared time axis at the bottom
+    html += buildTimeAxis(streams, gridPositions);
+
+    html += '</div>';
     return html;
   }
 
+  /* ── Interaction: synchronized crosshair ───────────────────────── */
+
   function bindChartInteraction(rootEl, streams, sport) {
     if (!rootEl || !streams) return;
-    const sections = rootEl.querySelectorAll(".ad-chart-section");
-    sections.forEach(section => {
-      const key = section.getAttribute("data-stream");
-      const series = graphSeriesFor(streams, key);
-      const svg = section.querySelector(".ad-stream-chart");
-      const readout = section.querySelector(".ad-chart-readout");
-      if (!series || !svg || !readout) return;
-      const showAt = ratio => {
-        const idx = Math.max(0, Math.min(series.length - 1, Math.round(ratio * (series.length - 1))));
-        const axis = axisFor(streams, idx);
-        const value = formatMetricValue(key, series[idx], sport);
-        readout.textContent = [axis.label, value].filter(Boolean).join(" · ");
-      };
-      const fromEvent = event => {
-        const rect = svg.getBoundingClientRect();
-        if (!rect.width) return;
-        const x = (event.clientX != null ? event.clientX : (event.touches && event.touches[0] && event.touches[0].clientX)) - rect.left;
-        showAt(Math.max(0, Math.min(1, x / rect.width)));
-      };
-      svg.addEventListener("pointermove", fromEvent);
-      svg.addEventListener("pointerdown", fromEvent);
-      svg.addEventListener("pointerleave", () => { readout.textContent = ""; });
+
+    const stack = rootEl.querySelector(".adg-stack");
+    if (!stack) return;
+
+    const charts = stack.querySelectorAll(".adg-chart");
+    const keys = [];
+    const seriesMap = {};
+    charts.forEach(c => {
+      const k = c.getAttribute("data-stream");
+      keys.push(k);
+      seriesMap[k] = graphSeriesFor(streams, k);
+    });
+
+    if (!keys.length) return;
+
+    const refSeries = seriesMap[keys[0]];
+    if (!refSeries) return;
+    const dataLen = refSeries.length;
+
+    const tooltip = stack.querySelector(".adg-crosshair-tooltip");
+    let active = false;
+
+    function showCrosshair(ratio) {
+      const clampedRatio = Math.max(0, Math.min(1, ratio));
+      const pct = (clampedRatio * 100).toFixed(2) + "%";
+      const idx = Math.max(0, Math.min(dataLen - 1, Math.round(clampedRatio * (dataLen - 1))));
+
+      charts.forEach(c => {
+        const line = c.querySelector(".adg-crosshair");
+        if (line) {
+          line.style.left = pct;
+          line.classList.add("active");
+        }
+        const readout = c.querySelector(".adg-chart-readout");
+        const key = c.getAttribute("data-stream");
+        const series = seriesMap[key];
+        if (readout && series) {
+          readout.textContent = formatMetricValue(key, series[idx], sport);
+        }
+      });
+
+      if (tooltip) {
+        tooltip.innerHTML = crosshairValueHtml(streams, keys, idx, sport);
+        tooltip.style.left = pct;
+        tooltip.classList.add("active");
+      }
+      active = true;
+    }
+
+    function hideCrosshair() {
+      charts.forEach(c => {
+        const line = c.querySelector(".adg-crosshair");
+        if (line) line.classList.remove("active");
+        const readout = c.querySelector(".adg-chart-readout");
+        if (readout) readout.textContent = "";
+      });
+      if (tooltip) tooltip.classList.remove("active");
+      active = false;
+    }
+
+    function ratioFromEvent(e, target) {
+      const rect = target.getBoundingClientRect();
+      if (!rect.width) return -1;
+      const clientX = e.clientX != null ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : -1);
+      if (clientX < 0) return -1;
+      return (clientX - rect.left) / rect.width;
+    }
+
+    // Attach to each chart's plot area
+    charts.forEach(c => {
+      const plot = c.querySelector(".adg-plot");
+      if (!plot) return;
+
+      plot.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        const r = ratioFromEvent(e, plot);
+        if (r >= 0) showCrosshair(r);
+      });
+      plot.addEventListener("pointermove", e => {
+        if (e.buttons > 0 || e.pointerType === "mouse") {
+          const r = ratioFromEvent(e, plot);
+          if (r >= 0) showCrosshair(r);
+        }
+      });
+      plot.addEventListener("pointerleave", () => { hideCrosshair(); });
+      plot.addEventListener("pointerup", () => { /* keep visible until leave */ });
+
+      // Touch
+      plot.addEventListener("touchstart", e => {
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          const rect = plot.getBoundingClientRect();
+          showCrosshair((touch.clientX - rect.left) / rect.width);
+        }
+      }, { passive: true });
+      plot.addEventListener("touchmove", e => {
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          const rect = plot.getBoundingClientRect();
+          showCrosshair((touch.clientX - rect.left) / rect.width);
+        }
+      }, { passive: true });
+      plot.addEventListener("touchend", () => { hideCrosshair(); }, { passive: true });
     });
   }
+
+  /* ── Public render entry point ─────────────────────────────────── */
 
   function renderInto(el, streams, sport) {
     if (!el) return false;
@@ -387,6 +611,8 @@
     bindChartInteraction(el, streams, sport);
     return true;
   }
+
+  /* ── Public API ────────────────────────────────────────────────── */
 
   root.AthlevoActivityStreams = {
     extractStoredStreams,

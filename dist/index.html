@@ -38,6 +38,15 @@
   },{passive:false});
 })();
 </script>
+<script>
+(function markAiAcquisitionEntry(){
+  try {
+    if (String(location.pathname || "").replace(/\/+$/, "") === "/ai") {
+      document.documentElement.classList.add("athlevo-ai-entry");
+    }
+  } catch (e) {}
+})();
+</script>
 
 <!-- Apply the saved theme BEFORE first paint so the installed PWA never
      flashes white on launch. Runs synchronously in <head>. -->
@@ -114,6 +123,43 @@
       }
     } catch (e) {}
   } catch (e) {}
+
+  /*
+   * Google / Apple auth OAuth return. Captured before the Supabase client
+   * runs detectSessionInUrl, which strips ?code= / #access_token= from the
+   * address bar. restoreSession() reads THIS flag, not the live URL.
+   * Booleans only — never tokens, codes, or profile data.
+   */
+  try {
+    var authKey = "athlevo_auth_oauth_return";
+    var path = String(window.location.pathname || "").replace(/\/+$/, "");
+    var search = String(window.location.search || "");
+    var hash = String(window.location.hash || "");
+    var skipAuth = path === "/reset-password" || /[#&]type=recovery/.test(hash) ||
+      /[?&]intervals=/.test(search) || window.__athlevoOAuthReturn;
+    if (!skipAuth) {
+      var live = /[?&](code|error)=/.test(search) || /access_token=|[#&]error=/.test(hash);
+      if (!live) {
+        try {
+          var savedAuth = JSON.parse(sessionStorage.getItem(authKey) || "null");
+          if (savedAuth && savedAuth.at && (Date.now() - savedAuth.at) < 120000) {
+            window.__athlevoAuthOAuthReturn = savedAuth;
+          }
+        } catch (eAuth) {}
+      } else {
+        var blob = (search + "&" + hash).toLowerCase();
+        var cancelled = /[?&#]error=/.test(search + hash) &&
+          /access_denied|user_denied|cancelled|canceled/.test(blob);
+        var authSnap = {
+          at: Date.now(),
+          cancelled: !!cancelled,
+          hasError: /[?&#]error=/.test(search + hash) && !cancelled
+        };
+        window.__athlevoAuthOAuthReturn = authSnap;
+        try { sessionStorage.setItem(authKey, JSON.stringify(authSnap)); } catch (eAuth2) {}
+      }
+    }
+  } catch (eAuth3) {}
 
   /*
    * Stage trail. Records WHICH step the return reached, never the token
@@ -580,6 +626,9 @@ a:focus-visible,button:focus-visible,summary:focus-visible,[role="button"]:focus
 textarea:focus-visible,.cf-chip:focus-visible,.ss-btn:focus-visible,.ss-banner-cta:focus-visible,
 .apl-review-btn:focus-visible,.apl-keep:focus-visible,.apl-apply:focus-visible{
   outline:2px solid var(--focus-ring);outline-offset:2px}
+/* Safari fires :focus-visible on programmatic .focus() for tabindex="-1" elements.
+   Suppress the outline ring for non-interactive focus targets. */
+[tabindex="-1"]:focus-visible{outline:none}
 /* ── Typography utilities — compose the tokens, never duplicate values ── */
 .type-display{font-family:var(--font-display);font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--fw-semibold);letter-spacing:var(--ls-tight)}
 .type-h1{font-family:var(--font-display);font-size:var(--fs-h1);line-height:var(--lh-heading);font-weight:var(--fw-semibold);letter-spacing:var(--ls-tight)}
@@ -703,7 +752,7 @@ body{
   justify-content: space-around;
   align-items: center;
 
-  padding: 10px 8px calc(14px + env(safe-area-inset-bottom));
+  padding: 10px 8px calc(14px + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)));
 
   background: var(--nav-glass);
   backdrop-filter: blur(18px);
@@ -719,7 +768,7 @@ body{
 .tab.on span{font-weight:700}
 .dotmark{display:none}
 .nav-active-indicator{position:absolute;z-index:0;left:0;
-  bottom:calc(max(10px, env(safe-area-inset-bottom)) + 2px);height:2px;
+  bottom:calc(max(10px, var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px))) + 2px);height:2px;
   width:24px;border-radius:var(--r-pill);background:var(--red);pointer-events:none;
   transform:translate3d(0,0,0);transform-origin:left center;
   transition:transform var(--motion-screen) var(--ease-standard),
@@ -766,30 +815,6 @@ body{
 .rd-secondary{width:100%;margin-top:8px;border:0;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:650;padding:10px;cursor:pointer;border-radius:var(--r-pill)}
 .rd-secondary:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .rd-settings-link{width:calc(100% - 44px);border:0;text-align:left;font-family:var(--sans)}
-
-/* ---------- latest workout analysis card ---------- */
-.lwa{margin:0 22px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5);overflow:hidden}
-.lwa-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.lwa-eyebrow{font-size:var(--fs-micro);font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
-.lwa-status{font-size:var(--fs-micro);font-weight:750;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:var(--r-pill)}
-.lwa-status.excellent{background:var(--good-soft);color:var(--good)}
-.lwa-status.harder{background:var(--warn-soft);color:var(--warn)}
-.lwa-status.different,.lwa-status.missed{background:var(--red-soft);color:var(--red)}
-.lwa-status.unplanned{background:var(--card);color:var(--ink2)}
-.lwa-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.01em;margin:10px 0 2px;line-height:var(--lh-heading)}
-.lwa-metrics{display:flex;flex-wrap:wrap;gap:14px 20px;margin:12px 0 2px}
-.lwa-metric{display:flex;flex-direction:column;gap:2px}
-.lwa-metric b{font-size:var(--fs-h3);font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--text)}
-.lwa-metric small{font-size:var(--fs-micro);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
-.lwa-section{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
-.lwa-section-label{font-size:var(--fs-micro);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
-.lwa-section p{font-size:var(--fs-body);line-height:1.6;color:var(--text);margin:0}
-.lwa-recovery{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.lwa-recovery li{position:relative;padding-left:18px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
-.lwa-recovery li::before{content:"";position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--red)}
-.lwa-empty{margin:0 22px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
-.lwa-empty .lwa-eyebrow{display:block;margin-bottom:6px}
-.lwa-empty p{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0}
 
 /* decision card — the signature */
 .decision{margin:0 22px;background:var(--ink);color:#fff;border-radius:var(--r-lg);padding:22px;overflow:hidden}
@@ -840,17 +865,6 @@ body{
 .spark{margin-top:10px;display:flex;align-items:flex-end;gap:3px;height:26px}
 .spark i{flex:1;background:var(--line);border-radius:2px}
 .spark i.hi{background:var(--ink)}
-
-/* race + note */
-.race{margin:0 22px;display:flex;align-items:center;justify-content:space-between;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
-.race b{font-size:var(--fs-body);font-weight:650;display:block}
-.race small{font-size:var(--fs-caption);color:var(--ink2)}
-.race .days{text-align:right}
-.race .days b{font-size:var(--fs-h1);font-weight:700;letter-spacing:-.03em}
-.race .days small{letter-spacing:.08em;text-transform:uppercase;font-weight:600;font-size:var(--fs-micro);color:var(--ink3)}
-.coachnote{margin:14px 22px 0;background:var(--red-soft);border-radius:var(--r-lg);padding:18px 20px}
-.coachnote .eyebrow{color:var(--red);margin-bottom:6px}
-.coachnote p{font-size:var(--fs-body);line-height:var(--lh-body)}
 
 /* ---------- chat ---------- */
 .chat-head{padding:20px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:var(--s-3);flex-shrink:0}
@@ -948,40 +962,54 @@ body{
   padding:7px 13px;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--ink2);
   cursor:pointer;transition:border-color var(--dur-base) var(--ease-standard),
   background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
-/* Suggested-reply chips get the same instant press cue as every other
-   tap surface so they never feel like dead pixels. */
-
 /* ── Composer (textarea replaces input for multi-line) ────────────── */
-.composer{display:flex;align-items:flex-end;gap:var(--s-2);padding:6px 6px 6px 16px;
-  flex-shrink:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--field);
-  transition:border-color var(--dur-base) var(--ease-standard),
-  box-shadow var(--dur-base) var(--ease-standard)}
-.composer:focus-within{border-color:var(--ink3);outline:2px solid var(--focus-ring);outline-offset:2px;box-shadow:none}
-.composer textarea{flex:1;min-height:36px;border:none;background:transparent;color:var(--text);
-  padding:8px 0;font-family:var(--sans);font-size:var(--fs-body);outline:none;resize:none;
-  overflow-y:auto;max-height:120px;line-height:var(--lh-body)}
-.composer textarea:focus{border-color:transparent}
+.composer{--focus-ring:color-mix(in srgb,var(--text) 50%,transparent);
+  display:flex;align-items:flex-end;gap:var(--s-2);min-width:0;padding:6px 6px 6px 16px;
+  flex-shrink:0;border:1px solid var(--border-default);border-radius:var(--r-lg);background:var(--paper);
+  transition:border-color var(--motion-fast) var(--ease-standard),
+  box-shadow var(--motion-fast) var(--ease-standard),transform var(--motion-fast) var(--ease-standard)}
+#screen-coachai .composer:focus-within{border-color:color-mix(in srgb,var(--text) 30%,var(--line));
+  outline:none;box-shadow:var(--elev-1);transform:translateY(-1px)}
+/* Text-entry controls are focus-visible on Safari even after a pointer click.
+   Keep the textarea visually transparent and move the accessible state to the
+   unified composer surface. Keyboard focus gets a slightly stronger neutral
+   halo without falling back to the global blue control ring. */
+#screen-coachai .composer:has(textarea:focus-visible){
+  border-color:color-mix(in srgb,var(--text) 42%,var(--line));
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--text) 14%,transparent),var(--elev-1)}
+#screen-coachai .composer textarea{flex:1;width:100%;min-width:0;min-height:36px;max-height:120px;
+  border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--text);
+  padding:8px 0;font-family:var(--font-ui);font-size:var(--fs-body);line-height:var(--lh-body);
+  outline:none;resize:none;overflow-y:auto;-webkit-appearance:none;appearance:none}
+#screen-coachai .composer textarea:focus,
+#screen-coachai .composer textarea:focus-visible{border:0;outline:none;outline-offset:0;box-shadow:none}
 .composer textarea::placeholder,.ci-input::placeholder{color:var(--ink3);opacity:1}
-/* Legacy input support (other composers) */
-.composer input{flex:1;border:1px solid var(--line);background:var(--field);color:var(--text);border-radius:var(--r-pill);padding:13px 18px;font-family:var(--sans);font-size:var(--fs-body);outline:none;transition:border-color var(--dur-base)}
-.composer input:focus{border-color:var(--ink3)}
-.composer input::placeholder{color:var(--ink3);opacity:1}
 /* Form-control contrast safety in both themes. */
 input,textarea,select{color:var(--text)}
 .send{width:36px;height:36px;border-radius:var(--r-md);background:var(--ink);border:none;cursor:pointer;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  transition:transform var(--dur-fast) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard)}
+  transition:transform var(--motion-fast) var(--ease-standard),opacity var(--motion-fast) var(--ease-standard),
+  background-color var(--motion-fast) var(--ease-standard),box-shadow var(--motion-fast) var(--ease-standard)}
 /* While a message is in flight the send button visibly stands down and
    swallows further taps so a double-tap can't submit twice. */
 .send.is-sending{opacity:.55;pointer-events:none}
-.send:disabled{opacity:.5;cursor:default}
-.send:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.send:disabled{opacity:.42;cursor:default}
+#screen-coachai .composer .send:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+#screen-coachai .composer .send:active:not(:disabled):not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.is-loading):not(.is-sending){
+  opacity:1;transform:scale(.96)}
+#screen-coachai .coach-composer .chip:active:not(:disabled):not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.is-loading){
+  opacity:1;transform:scale(.98)}
 .send.is-sending svg.send-arrow{display:none}
 .send.is-sending svg.send-stop{display:block!important}
 .send svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .send svg.send-stop{stroke:none;width:16px;height:16px}
-#screen-coachai{padding-bottom:56px}
-
+@media (max-width:600px){
+  #screen-coachai .composer textarea{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  #screen-coachai .composer,#screen-coachai .composer:focus-within,
+  #screen-coachai .composer .send,#screen-coachai .coach-composer .chip{transition:none;transform:none}
+}
 /* ---------- train ---------- */
 .weekstrip{display:flex;gap:var(--s-2);padding:16px 22px 6px;overflow-x:auto;scrollbar-width:none}
 .weekstrip::-webkit-scrollbar{display:none}
@@ -1175,6 +1203,11 @@ input,textarea,select{color:var(--text)}
 .w-mark{font-family:"Space Grotesk",var(--sans);font-size:38px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .w-mark i{font-style:normal;color:var(--red)}
 .w-tag{font-size:var(--fs-h3);color:var(--ink2);margin:18px auto 0;line-height:var(--lh-body);max-width:300px}
+.w-ai-title{display:none;font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.02em;line-height:1.2;margin:18px auto 0;max-width:320px;color:var(--text)}
+.w-ai-title.is-visible{display:block}
+#screen-welcome.is-ai-signup .w-tag{display:none}
+.w-continue-note{display:none;font-size:var(--fs-body);color:var(--ink2);margin:12px auto 0;line-height:var(--lh-body);max-width:300px}
+.w-continue-note.is-visible{display:block}
 .w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:12px}
 .w-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:15px var(--s-4);border-radius:var(--r-pill);cursor:pointer;border:1px solid var(--line);background:var(--paper);color:var(--text);transition:transform var(--dur-fast),opacity var(--dur-base);-webkit-tap-highlight-color:transparent}
 .w-btn:active{transform:scale(.97)}
@@ -1197,7 +1230,7 @@ input,textarea,select{color:var(--text)}
 
 /* ═══════════ premium onboarding wizard (v2) ═══════════ */
 #screen-onboard{padding-bottom:0}
-.ob2-top{display:flex;align-items:center;gap:14px;padding:16px 22px calc(16px + env(safe-area-inset-top));flex-shrink:0}
+.ob2-top{display:flex;align-items:center;gap:14px;padding:16px 22px;flex-shrink:0}
 .ob2-back{width:34px;height:34px;flex-shrink:0;border:none;background:var(--card);border-radius:50%;color:var(--text);font-size:var(--fs-h1);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity var(--dur-base),background var(--dur-base),transform var(--dur-fast)}
 .ob2-back[disabled]{opacity:0;pointer-events:none}
 /* One thin, understated progress line — recedes while the athlete reads the
@@ -1322,6 +1355,261 @@ textarea.ob2-input{min-height:92px;resize:none;line-height:var(--lh-body)}
 .connect-card{margin-top:12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s-4);text-align:center}
 .connect-card .ilogo{margin:0 auto 10px}
 .connect-card b{font-size:var(--fs-body)}
+
+/* ══════════════ DIAGNOSTIC RESULT STYLES ══════════════ */
+#screen-diagnostic{padding-bottom:0;overflow:hidden}
+.diag-intro{justify-content:center;min-height:60vh}
+.diag-intro .diag-cta-primary{margin-top:28px}
+.diag-result{padding:8px 22px calc(40px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch}
+.diag-section{padding:24px 0;border-bottom:1px solid var(--line)}
+.diag-section:last-child{border-bottom:none;padding-bottom:40px}
+.diag-profile-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.diag-profile-meta span{font-size:var(--fs-caption);font-weight:600;color:var(--ink2);background:var(--card);border:1px solid var(--line);border-radius:var(--r-pill,100px);padding:6px 12px}
+.diag-strength{margin-top:16px}
+.diag-strength-label{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;color:var(--text);margin:0 0 4px;letter-spacing:-.01em}
+.diag-strength-detail{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0}
+.diag-limiter-section{background:var(--card);margin:0 -22px;padding:24px 22px;border-bottom:1px solid var(--line)}
+.diag-limiter-title{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--red);margin:8px 0 12px;letter-spacing:-.02em;line-height:1.15}
+.diag-limiter-explanation{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0}
+.diag-narrative{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:10px 0 0}
+.diag-changes{list-style:none;padding:0;margin:14px 0 0}
+.diag-changes li{position:relative;padding:10px 0 10px 22px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);border-bottom:1px solid var(--line)}
+.diag-changes li:last-child{border-bottom:none}
+.diag-changes li::before{content:"";position:absolute;left:0;top:16px;width:8px;height:8px;border-radius:50%;background:var(--red);opacity:.5}
+.diag-feasibility{margin-top:12px}
+.diag-feasibility-badge{display:inline-block;font-size:var(--fs-caption);font-weight:700;letter-spacing:.02em;border-radius:var(--r-pill,100px);padding:7px 14px;margin-bottom:10px}
+.diag-feasibility-realistic .diag-feasibility-badge{color:#1f9d5b;background:rgba(31,157,91,.1);border:1px solid rgba(31,157,91,.2)}
+.diag-feasibility-realistic-structured .diag-feasibility-badge{color:#b68a1a;background:rgba(182,138,26,.1);border:1px solid rgba(182,138,26,.2)}
+.diag-feasibility-aggressive .diag-feasibility-badge{color:#d97706;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.2)}
+.diag-feasibility-reassess .diag-feasibility-badge,.diag-feasibility-not-advisable .diag-feasibility-badge{color:var(--red);background:var(--red-soft);border:1px solid color-mix(in srgb,var(--red) 20%,transparent)}
+.diag-feasibility-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0}
+.diag-safety{background:var(--red-soft);margin:0 -22px;padding:18px 22px;border-radius:0}
+.diag-safety-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0;font-weight:500}
+.diag-rec-card{background:var(--paper);border:2px solid var(--red);border-radius:var(--r-md);padding:20px;margin-top:14px}
+.diag-rec-card.selected,.diag-alt-item.selected{box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 16%,transparent)}
+.diag-rec-name{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--text);margin:0 0 10px;letter-spacing:-.02em}
+.diag-rec-rationale{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:0 0 16px}
+.diag-rec-caps{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px}
+.diag-rec-caps li{font-size:var(--fs-caption);font-weight:600;color:var(--red);background:var(--red-soft);border-radius:var(--r-pill,100px);padding:5px 11px}
+.diag-alternatives{margin-top:18px}
+.diag-alt-label{font-size:var(--fs-micro);font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:10px}
+.diag-alt-item{display:flex;flex-direction:column;gap:2px;padding:12px 0;border-top:1px solid var(--line)}
+.diag-alt-item strong{font-size:var(--fs-body);font-weight:600;color:var(--text)}
+.diag-alt-item span{font-size:var(--fs-caption);color:var(--ink2);line-height:var(--lh-caption,1.4)}
+.diag-product-select{align-self:flex-start;margin-top:12px;border:1px solid var(--red);border-radius:var(--r-pill,100px);background:transparent;color:var(--red);font:650 var(--fs-caption)/1 var(--sans);padding:9px 14px;cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast),transform var(--dur-fast)}
+.diag-product-select:hover{background:var(--red-soft)}
+.diag-product-select:active{transform:scale(.97)}
+.diag-product-select:focus-visible{outline:2px solid var(--text);outline-offset:3px}
+.diag-cta-section{text-align:center;padding:30px 0 calc(20px + env(safe-area-inset-bottom))}
+.diag-cta-primary{width:100%;font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:.01em;padding:var(--s-4);border-radius:12px;border:none;background:var(--red);color:#fff;cursor:pointer;transition:background var(--dur-base),transform var(--dur-fast)}
+.diag-cta-primary:active{transform:scale(.985)}
+.diag-cta-sub{font-size:var(--fs-caption);color:var(--ink3);margin:12px 0 0}
+.diag-cta-price{font-family:var(--serif);font-size:var(--fs-display,2rem);font-weight:600;color:var(--text);margin:0 0 2px;letter-spacing:-.02em}
+.diag-cta-price-note{font-size:var(--fs-body-sm);color:var(--ink2);margin:0 0 18px}
+html[data-theme="dark"] .diag-limiter-section{background:var(--card)}
+html[data-theme="dark"] .diag-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
+html[data-theme="dark"] .diag-rec-card{background:var(--card)}
+@media(prefers-color-scheme:dark){
+  html[data-theme="system"] .diag-limiter-section{background:var(--card)}
+  html[data-theme="system"] .diag-safety{background:color-mix(in srgb,var(--red) 10%,var(--paper))}
+  html[data-theme="system"] .diag-rec-card{background:var(--card)}
+}
+/* ══════════════ CONVERSATION THREAD STYLES ══════════════ */
+.conv-thread{display:flex;flex-direction:column;gap:0;padding:0 0 40px}
+.conv-header{padding:18px 0 24px;text-align:left}
+.conv-brand{font-family:var(--serif);font-size:var(--fs-h2);font-weight:600;color:var(--text);letter-spacing:-.02em}
+.conv-brand span{color:var(--red)}
+.conv-role{display:block;font-size:var(--fs-caption);font-weight:600;color:var(--ink3);letter-spacing:.03em;margin-top:2px}
+.conv-athlevo-msg{font-family:var(--serif);font-size:var(--fs-h3);font-weight:400;line-height:var(--lh-body);color:var(--text);margin:16px 0 0;letter-spacing:-.01em}
+.conv-athlevo-msg:first-of-type{margin-top:0}
+.conv-context{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:6px 0 0}
+.conv-q-wrap{margin:18px 0 0;padding:0}
+.conv-echo{display:flex;align-items:baseline;gap:10px;margin:14px 0 0;padding:10px 0;border-bottom:1px solid var(--line)}
+.conv-echo-label{font-size:var(--fs-caption);font-weight:700;color:var(--ink3);letter-spacing:.03em;text-transform:uppercase;flex-shrink:0}
+.conv-echo-value{font-size:var(--fs-body-sm);font-weight:500;color:var(--text);line-height:var(--lh-body)}
+.conv-divider{width:100%;height:1px;background:var(--line);margin:20px 0}
+/* ══════════════════════════════════════════════════════════════════════
+   Chat-style diagnostic UI
+   ══════════════════════════════════════════════════════════════════════ */
+.chat-body{display:flex;flex-direction:column;flex:1;min-height:0;height:100%;max-height:100vh;max-height:100dvh;overflow:hidden}
+.chat-header{display:flex;align-items:center;gap:12px;padding:14px 22px 10px;flex-shrink:0;border-bottom:1px solid var(--line)}
+.chat-avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;object-fit:cover;display:block}
+.chat-header-text{display:flex;flex-direction:column;gap:1px}
+.chat-header-name{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);letter-spacing:-.01em}
+.chat-header-role{font-size:var(--fs-caption);font-weight:600;color:var(--ink3);letter-spacing:.02em}
+
+.chat-thread{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 22px 24px;display:flex;flex-direction:column;gap:6px}
+
+/* ── Messages ── */
+.chat-msg{display:flex;max-width:84%}
+.chat-msg-athlevo{align-self:flex-start}
+.chat-msg-user{align-self:flex-end}
+
+.chat-bubble{padding:11px 16px;font-family:var(--sans);font-size:var(--fs-body);line-height:var(--lh-body);border-radius:18px;word-break:break-word}
+.chat-bubble-athlevo{background:var(--card);color:var(--text);border-bottom-left-radius:6px}
+.chat-bubble-user{background:var(--red);color:#fff;border-bottom-right-radius:6px}
+.chat-bubble-error{color:var(--red);background:var(--red-soft);font-size:var(--fs-body-sm)}
+
+/* ── Typing indicator ── */
+.chat-typing{max-width:none}
+.chat-typing .chat-bubble{display:inline-flex;align-items:center;justify-content:center;gap:0;width:fit-content;padding:12px 14px}
+.chat-typing-dots{display:inline-flex;align-items:center;gap:4px}
+.chat-typing-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ink2);opacity:.55;animation:chatDot 1.2s ease-in-out infinite}
+.chat-typing-dot:nth-child(2){animation-delay:.15s}
+.chat-typing-dot:nth-child(3){animation-delay:.3s}
+@keyframes chatDot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:.8;transform:translateY(-4px)}}
+@media(prefers-reduced-motion:reduce){.chat-typing-dot{animation:none;opacity:.5}}
+
+/* ── Quick replies ── */
+.chat-quick-replies{flex-shrink:0;display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;gap:8px;padding:8px 22px;border-top:1px solid var(--line);background:var(--paper)}
+.chat-quick-replies::-webkit-scrollbar{height:4px}
+.chat-quick-replies::-webkit-scrollbar-thumb{background:var(--line);border-radius:100px}
+.chat-quick-replies:empty,.chat-quick-replies[style*="display: none"]{border-top:none;padding:0}
+.chat-qr-chip{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-pill,100px);padding:9px 16px;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:600;color:var(--text);cursor:pointer;transition:border-color var(--dur-base),background var(--dur-base),color var(--dur-base),transform var(--dur-fast);min-height:var(--tap-target);display:inline-flex;align-items:center;flex-shrink:0;white-space:nowrap}
+.chat-qr-chip:active{transform:scale(.96)}
+.chat-qr-chip:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.chat-qr-sel{border-color:var(--red);color:var(--red);background:var(--red-soft);font-weight:700}
+.chat-qr-done{border-color:var(--red);color:#fff;background:var(--red);font-weight:700}
+.chat-qr-done:active{background:var(--athlevo-red-dark)}
+.chat-qr-skip{color:var(--ink3);border-style:dashed}
+.chat-qr-pay{border-color:var(--red);color:var(--red);background:var(--red-soft);font-weight:700}
+.chat-qr-pay-primary{border-color:var(--red);color:#fff;background:var(--red)}
+.chat-qr-pay-primary:active{background:var(--athlevo-red-dark)}
+
+/* ── Composer ── */
+.chat-composer{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--paper)}
+.chat-composer-input{flex:1;min-width:0;border:1px solid var(--line);background:var(--field);border-radius:var(--r-pill,100px);padding:11px 18px;font-family:var(--sans);font-size:var(--fs-body);color:var(--text);outline:none;transition:border-color var(--dur-base)}
+.chat-composer-input::placeholder{color:var(--ink3)}
+.chat-composer-input:focus{border-color:var(--ink2)}
+.chat-composer-input:focus-visible{outline:none;border-color:var(--ink2);box-shadow:0 0 0 2px color-mix(in srgb,var(--focus-ring) 25%,transparent)}
+.chat-composer-send{width:40px;height:40px;flex-shrink:0;border:none;background:var(--red);color:#fff;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background var(--dur-base),transform var(--dur-fast),opacity var(--dur-fast)}
+.chat-composer-send:active{transform:scale(.92)}
+.chat-composer-send:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.chat-composer-send.is-busy,.chat-composer-send:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.chat-composer.is-busy .chat-composer-input{opacity:.72}
+
+/* ── Result card (inline in chat) ── */
+.chat-msg-result{max-width:100%;align-self:stretch}
+.chat-result-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 18px 16px;box-sizing:border-box}
+.chat-result-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);display:block;margin-bottom:8px}
+.chat-result-limiter-title{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;color:var(--red);margin:0 0 8px;letter-spacing:-.02em;line-height:1.15}
+.chat-result-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0}
+.chat-result-block{margin-top:16px}
+.chat-result-subhead{font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px}
+.chat-result-changes{list-style:none;padding:0;margin:0}
+.chat-result-changes li{position:relative;padding:5px 0 5px 18px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
+.chat-result-changes li::before{content:"→";position:absolute;left:0;top:5px;color:var(--red);font-weight:700}
+.chat-result-status{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;color:var(--red);margin:0 0 6px;letter-spacing:-.02em}
+.chat-result-safety-note{font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--ink2);margin:14px 0 0}
+.chat-result-offer{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.chat-result-offer-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--text);letter-spacing:-.02em;margin:0 0 6px}
+.chat-result-offer-lead{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0 0 8px}
+.chat-result-offer-features{font-size:var(--fs-caption);line-height:1.45;color:var(--ink2);margin:0 0 14px}
+.chat-cta-btn{width:100%;font-family:var(--sans);font-size:var(--fs-h3);font-weight:700;letter-spacing:.01em;padding:var(--s-4);border-radius:12px;border:none;background:var(--red);color:#fff;cursor:pointer;transition:background var(--dur-base),transform var(--dur-fast)}
+.chat-cta-btn:active{transform:scale(.985)}
+.chat-cta-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.chat-cta-annual{font-size:var(--fs-caption);color:var(--ink3);margin:10px 0 0;text-align:center;pointer-events:none}
+
+/* ── Dark-mode overrides for chat ── */
+html[data-theme="dark"] .chat-result-card{background:var(--card);border-color:var(--line)}
+html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
+@media(prefers-color-scheme:dark){
+  html[data-theme="system"] .chat-result-card{background:var(--card);border-color:var(--line)}
+  html[data-theme="system"] .chat-bubble-athlevo{background:var(--card)}
+}
+#screen-diagnostic-paywall{padding-bottom:0}
+#screen-diagnostic-paywall.active{flex-direction:column;align-items:center;justify-content:flex-start}
+@media(min-width:880px){#screen-diagnostic-paywall.active{justify-content:center}}
+.diagnostic-paywall-scroll{width:100%;max-width:min(436px,100%);margin:0 auto;padding:calc(8px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));overflow-x:hidden;overflow-y:auto;box-sizing:border-box;flex:0 1 auto}
+@media(min-width:720px){.diagnostic-paywall-scroll{max-width:436px;padding-top:calc(40px + env(safe-area-inset-top));padding-bottom:calc(40px + env(safe-area-inset-bottom))}}
+@media(min-width:880px){.diagnostic-paywall-scroll{padding-top:calc(48px + env(safe-area-inset-top));padding-bottom:calc(48px + env(safe-area-inset-bottom))}}
+.diagnostic-paywall-top{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px;margin:0 0 6px;min-height:40px}
+.diagnostic-paywall-back{-webkit-appearance:none;appearance:none;background:none;border:0;padding:0;margin:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink3);border-radius:var(--r-md);flex:none;-webkit-tap-highlight-color:transparent;pointer-events:auto;position:relative;z-index:2}
+.diagnostic-paywall-back:active{background:var(--line);color:var(--ink2)}
+.diagnostic-paywall-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.diagnostic-paywall-back svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.diagnostic-paywall-brand{display:flex;align-items:center;justify-content:center;margin:0;font-size:0;line-height:0}
+.diagnostic-paywall-brand img{width:32px;height:32px;display:block}
+.diagnostic-paywall-hero{text-align:center;margin:0 0 10px}
+.diagnostic-paywall-kicker{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--good);margin:0 0 6px}
+.diagnostic-paywall-kicker::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--good)}
+.diagnostic-paywall-title{font-family:var(--serif);font-size:clamp(1.55rem,4.8vw,1.85rem);font-weight:500;letter-spacing:-.035em;line-height:1.15;color:var(--text);margin:0}
+.diagnostic-paywall-lead{font-size:13.5px;line-height:1.4;color:var(--ink2);margin:6px auto 0;max-width:34ch}
+.diagnostic-paywall-toggle{display:flex;align-items:stretch;gap:2px;padding:2px;width:fit-content;max-width:100%;margin-inline:auto;margin-block:0 14px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-sizing:border-box;position:relative;z-index:3;pointer-events:auto}
+.diagnostic-paywall-toggle-btn{-webkit-appearance:none;appearance:none;flex:1 1 auto;min-height:28px;border:0;border-radius:8px;background:transparent;color:var(--ink2);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 11px;pointer-events:auto;position:relative;z-index:1;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-toggle-btn:disabled{opacity:1;cursor:pointer}
+.diagnostic-paywall-toggle-btn.is-active{background:var(--paper);color:var(--text);box-shadow:0 1px 2px rgba(20,20,22,.06)}
+.diagnostic-paywall-toggle-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.diagnostic-paywall-save-chip{font-size:9px;font-weight:700;letter-spacing:.01em;color:var(--red);background:color-mix(in srgb,var(--red) 10%,transparent);border-radius:6px;padding:1px 5px;white-space:nowrap;pointer-events:none}
+.diagnostic-paywall-card{background:var(--paper);border:1px solid color-mix(in srgb,var(--line) 72%,var(--text) 6%);border-radius:12px;box-shadow:0 1px 2px rgba(20,20,22,.04),0 8px 24px -10px rgba(20,20,22,.12),0 28px 48px -18px rgba(20,20,22,.16);padding:22px 24px 20px;box-sizing:border-box}
+@media(min-width:720px){.diagnostic-paywall-card{padding:24px 28px 22px}}
+.diagnostic-paywall-offer{display:block}
+.diagnostic-paywall-plan-name{margin:0;text-align:center;font-size:12px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.diagnostic-paywall-price-row{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:8px 0 0;flex-wrap:nowrap}
+.diagnostic-paywall-price{font-family:var(--sans);font-size:clamp(2.5rem,8.2vw,3rem);font-weight:650;letter-spacing:-.035em;color:var(--text);margin:0;text-align:center;line-height:1}
+.diagnostic-paywall-cadence{font-family:var(--sans);font-size:15px;font-weight:500;color:var(--ink3);margin:0;line-height:1;white-space:nowrap}
+.diagnostic-paywall-equiv{margin:6px 0 0;text-align:center;font-size:13px;color:var(--ink3);line-height:1.35}
+.diagnostic-paywall-save{display:none;margin:4px 0 0;text-align:center;font-size:13px;font-weight:700;color:var(--red)}
+.diagnostic-paywall-card.is-annual .diagnostic-paywall-save{display:block}
+.diagnostic-paywall-start{display:block;width:100%;margin:16px 0 0;border:0;border-radius:10px;background:var(--red);color:#fff;font-family:var(--sans);font-size:15px;font-weight:650;letter-spacing:-.01em;padding:10px 16px;cursor:pointer;min-height:44px;line-height:1.2;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-start:active{transform:scale(.99)}
+.diagnostic-paywall-start:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.diagnostic-paywall-start:disabled{opacity:.42;cursor:not-allowed;transform:none;background:var(--ink);color:#fff}
+.diagnostic-paywall-trust{margin:8px 0 0;text-align:center;font-size:12px;color:var(--ink3);line-height:1.35}
+.offer-features{list-style:none;margin:14px 0 0;padding:12px 0 0;border-top:1px solid var(--line);display:grid;gap:10px}
+.offer-feature{display:grid;grid-template-columns:14px 1fr;gap:8px;align-items:center;margin:0}
+.offer-feature-check{width:auto;height:auto;border-radius:0;background:none;color:var(--red);display:flex;align-items:center;justify-content:flex-start;font-size:13px;font-weight:500;line-height:1}
+.offer-feature span:last-child,.offer-feature b{display:block;font-size:14px;font-weight:500;color:var(--text);line-height:1.35}
+#screen-diagnostic-paywall.is-public .diagnostic-paywall-kicker,
+#screen-diagnostic-paywall.is-public .diagnostic-paywall-switch{display:none}
+.diagnostic-paywall-recommended,.diagnostic-paywall-other{margin:0 0 8px;font-size:var(--fs-micro);font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.diagnostic-paywall-other{margin:0 0 8px;text-transform:none;letter-spacing:0;font-size:var(--fs-caption);font-weight:650;color:var(--ink2)}
+.diagnostic-paywall-or{display:flex;align-items:center;gap:12px;margin:14px 0 12px;color:var(--ink3);font-size:var(--fs-micro);font-weight:750;letter-spacing:.1em}
+.diagnostic-paywall-or::before,.diagnostic-paywall-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.diagnostic-paywall-actions{display:none;gap:0;min-width:0}
+.diagnostic-paywall-methods-back{display:block;width:fit-content;margin:0 0 14px;padding:0;border:0;background:none;font-family:var(--sans);font-size:var(--fs-caption);font-weight:650;color:var(--ink2);cursor:pointer}
+.diagnostic-paywall-methods-title{margin:0 0 4px;font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.02em;color:var(--text)}
+.diagnostic-paywall-methods-price{margin:0 0 16px;font-size:var(--fs-body-sm);color:var(--ink2)}
+.diagnostic-paywall-primary,.diagnostic-paywall-local{display:flex;align-items:center;gap:12px;width:100%;min-width:0;min-height:72px;box-sizing:border-box;margin:0;padding:14px 14px 14px 12px;text-align:left;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;color:var(--text);background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--elev-1);cursor:pointer;overflow:hidden;transition:transform var(--dur-fast),background var(--dur-base),border-color var(--dur-base),box-shadow var(--dur-base)}
+.diagnostic-paywall-primary:hover,.diagnostic-paywall-local:hover{background:var(--card2);border-color:color-mix(in srgb,var(--line) 70%,var(--text))}
+.diagnostic-paywall-primary:active,.diagnostic-paywall-local:active{transform:scale(.99);background:var(--card)}
+.diagnostic-paywall-primary:focus-visible,.diagnostic-paywall-local:focus-visible{outline:2px solid color-mix(in srgb,var(--red) 40%,transparent);outline-offset:2px}
+.diagnostic-paywall-primary:disabled,.diagnostic-paywall-local:disabled{opacity:.55;cursor:default;transform:none}
+.diagnostic-paywall-method-icon{flex:0 0 40px;width:40px;height:40px;border-radius:12px;background:var(--card);color:var(--text);display:flex;align-items:center;justify-content:center}
+.diagnostic-paywall-method-icon svg,.diagnostic-paywall-chevron svg{display:block}
+.diagnostic-paywall-method-copy{flex:1;min-width:0}
+.diagnostic-paywall-method-copy b{display:block;font-size:var(--fs-body-sm);font-weight:700;color:var(--text);line-height:1.25}
+.diagnostic-paywall-method-copy small{display:block;margin-top:3px;font-size:var(--fs-caption);font-weight:500;color:var(--ink3);line-height:1.35}
+.diagnostic-paywall-chevron{flex:0 0 18px;color:var(--ink3)}
+.diagnostic-paywall-renewal{font-size:var(--fs-caption);color:var(--ink3);margin:0;text-align:center}
+.diagnostic-paywall-switch{display:block;width:100%;margin:12px 0 0;padding:6px;border:0;background:none;font-family:var(--sans);font-size:11px;font-weight:600;color:var(--ink3);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
+.diagnostic-paywall-switch:active{color:var(--text)}
+.diagnostic-paywall-status{min-height:16px;font-size:11px;line-height:1.35;color:var(--red);margin:8px 0 0;text-align:center}
+.diagnostic-paywall-activating,.diagnostic-paywall-recheck{display:none;text-align:center;margin-top:8px}
+.diagnostic-paywall-activating p,.diagnostic-paywall-recheck p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0 0 16px}
+#screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-hero,
+#screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-toggle,
+#screen-diagnostic-paywall.is-activating .diagnostic-paywall-hero,
+#screen-diagnostic-paywall.is-activating .diagnostic-paywall-toggle,
+#screen-diagnostic-paywall.is-recheck .diagnostic-paywall-hero,
+#screen-diagnostic-paywall.is-recheck .diagnostic-paywall-toggle{display:none}
+#screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-offer{display:none}
+#screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-actions{display:grid}
+.diagnostic-paywall-card.is-activating .diagnostic-paywall-offer,
+.diagnostic-paywall-card.is-activating .diagnostic-paywall-actions,
+.diagnostic-paywall-card.is-recheck .diagnostic-paywall-offer,
+.diagnostic-paywall-card.is-recheck .diagnostic-paywall-actions{display:none}
+.diagnostic-paywall-card.is-activating .diagnostic-paywall-switch,
+.diagnostic-paywall-card.is-recheck .diagnostic-paywall-switch,
+.diagnostic-paywall-card.is-unavailable .diagnostic-paywall-switch{display:none}
+.diagnostic-paywall-card.is-activating .diagnostic-paywall-activating{display:block}
+.diagnostic-paywall-card.is-recheck .diagnostic-paywall-recheck{display:block}
+.diagnostic-paywall-recheck-btn,.diagnostic-paywall-return-btn{width:100%;border-radius:12px;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;padding:15px;cursor:pointer;margin-top:8px}
+.diagnostic-paywall-recheck-btn{border:1px solid var(--ink);background:var(--ink);color:#fff}
+.diagnostic-paywall-return-btn{border:1px solid var(--line);background:var(--paper);color:var(--text)}
+.diagnostic-paywall-card.is-unavailable .diagnostic-paywall-offer,
+.diagnostic-paywall-card.is-unavailable .diagnostic-paywall-actions{display:none}
+#screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-card.is-unavailable .diagnostic-paywall-actions{display:none}
 .connect-card p{font-size:var(--fs-caption);color:var(--ink2);margin:4px 0 12px}
 .connect-card button{width:100%;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:var(--s-3);border-radius:var(--r-pill);border:none;background:var(--ink);color:#fff;cursor:pointer}
 .importbar{height:6px;background:var(--line);border-radius:var(--r-pill);overflow:hidden;margin-top:12px}
@@ -1553,9 +1841,14 @@ body.athlevo-sheet-locked{overflow:hidden}
   overflow-y: auto;
   overflow-x: hidden;
 
+  /* Status bar / notch / home indicator. env() is 0 under normal browser
+     chrome and non-zero when the installed app overlays the system UI.
+     Existing header padding is extra breathing room AFTER this inset. */
+  padding-top: var(--athlevo-safe-top, env(safe-area-inset-top, 0px));
+
   /* Clear the fixed nav in BOTH browser and standalone (adds the device
      safe-area inset so the last content is never hidden behind the bar). */
-  padding-bottom: calc(var(--athlevo-tabbar-height, 74px) + env(safe-area-inset-bottom) + 18px);
+  padding-bottom: calc(var(--athlevo-tabbar-height, 74px) + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)) + 18px);
 
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
@@ -1580,7 +1873,7 @@ body.athlevo-sheet-locked{overflow:hidden}
 
   /* Safe-area aware: extend the bar below the tabs by the device inset so the
      iPhone home indicator (standalone PWA) never overlaps the navigation. */
-  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  padding-bottom: max(10px, var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)));
 }
 /* Android WebView repaints a live 18px backdrop blur while each nested
    .screen performs native touch scrolling. Keep native scrolling intact and
@@ -1922,11 +2215,15 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 
 /* ===== COACH WORKSPACE LAYOUT ===== */
 .device{position:relative;overflow:hidden}
-:root{--athlevo-tabbar-height:74px}
+:root{
+  --athlevo-tabbar-height:74px;
+  --athlevo-safe-top:env(safe-area-inset-top,0px);
+  --athlevo-safe-bottom:env(safe-area-inset-bottom,0px);
+}
 
 #screen-coachai{
-  position:absolute;inset:0 0 calc(var(--athlevo-tabbar-height) + env(safe-area-inset-bottom));
-  height:auto;min-height:0;padding:0;overflow:hidden;display:none;flex-direction:column;
+  position:absolute;inset:0 0 calc(var(--athlevo-tabbar-height) + var(--athlevo-safe-bottom));
+  height:auto;min-height:0;padding:var(--athlevo-safe-top) 0 0;overflow:hidden;display:none;flex-direction:column;
   background:var(--paper)
 }
 #screen-coachai.active{display:flex}
@@ -2704,47 +3001,6 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 .cib-arrow{color:var(--red);font-weight:800;font-size:var(--fs-caption)}
 .cib-next{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
 
-/* ---------- Your Development (Athlete Identity & Progression) ---------- */
-.dev{margin:12px 22px 4px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5)}
-.dev-head{margin-bottom:14px}
-.dev-eyebrow{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
-.dev-sub{display:block;font-size:var(--fs-caption);color:var(--ink3);margin-top:2px}
-.dev-empty{font-size:var(--fs-body-sm);color:var(--ink3);line-height:var(--lh-body)}
-.dev-progs{display:flex;flex-direction:column;gap:var(--s-4)}
-.dev-prog-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.dev-prog-label{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
-.dev-prog-pct{font-size:var(--fs-body-sm);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
-.dev-bar{height:7px;background:var(--line);border-radius:var(--r-pill);overflow:hidden;margin:7px 0}
-.dev-bar i{display:block;height:100%;border-radius:var(--r-pill)}
-.dev-bar i.up{background:var(--good)}
-.dev-bar i.flat{background:var(--warn)}
-.dev-bar i.down{background:var(--red)}
-.dev-bar i.build{background:var(--ink3)}
-.dev-prog-meta{display:flex;align-items:baseline;gap:var(--s-2)}
-.dev-trend{font-size:var(--fs-micro);font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:var(--r-pill);white-space:nowrap}
-.dev-trend.up{background:var(--good-soft);color:var(--good)}
-.dev-trend.flat{background:var(--warn-soft);color:var(--warn)}
-.dev-trend.down{background:var(--red-soft);color:var(--red)}
-.dev-trend.build{background:var(--card);color:var(--ink3)}
-.dev-reason{font-size:var(--fs-caption);color:var(--ink2);line-height:var(--lh-body)}
-.dev-milestone{font-size:var(--fs-caption);color:var(--ink2);margin:6px 0 0;line-height:var(--lh-body)}
-.dev-k{font-size:var(--fs-micro);font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-right:5px}
-.dev-section{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
-.dev-section-h{display:block;font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px}
-.dev-ach{display:flex;flex-direction:column;gap:1px;padding:7px 0;border-top:1px solid var(--line)}
-.dev-ach:first-of-type{border-top:none}
-.dev-ach-title{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
-.dev-ach-reason{font-size:var(--fs-caption);color:var(--ink3)}
-.dev-tl{display:flex;flex-direction:column}
-.dev-tl-row{display:flex;gap:var(--s-3);align-items:flex-start;position:relative;padding:5px 0}
-.dev-tl-row::before{content:"";position:absolute;left:4px;top:14px;bottom:-5px;width:1.5px;background:var(--line)}
-.dev-tl-row:last-child::before{display:none}
-.dev-tl-dot{width:9px;height:9px;border-radius:50%;background:var(--ink3);margin-top:4px;flex-shrink:0;z-index:1}
-.dev-tl-row.now .dev-tl-dot{background:var(--red)}
-.dev-tl-body{display:flex;flex-direction:column}
-.dev-tl-label{font-size:var(--fs-body-sm);font-weight:650;color:var(--text)}
-.dev-tl-date{font-size:var(--fs-micro);color:var(--ink3)}
-
 /* ---------- automatic race detection prompt ---------- */
 .rdc{margin:8px 22px 4px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
 .rdc-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
@@ -2992,6 +3248,10 @@ body:not(.booting) #boot-gate{opacity:0;pointer-events:none;visibility:hidden}
    above the opaque content gate, but remains non-interactive until routing
    resolves. This avoids maintaining a second loading-only tab bar. */
 body.booting #tabbar{display:flex!important;z-index:9999;pointer-events:none}
+/* /ai ads must not sit on the Today skeleton or app tab bar. Opaque paper
+   overlay remains until the gate lifts; no new loading chrome. */
+html.athlevo-ai-entry body.booting #tabbar{display:none!important}
+html.athlevo-ai-entry .boot-shell{display:none}
 .boot-shell{position:relative;width:min(100%,430px);height:100dvh;margin:0 auto;
   overflow:hidden;background:var(--paper)}
 .boot-content{height:100%;box-sizing:border-box;overflow:hidden;
@@ -3040,6 +3300,11 @@ body.booting #tabbar{display:flex!important;z-index:9999;pointer-events:none}
 body.landing-active{background:var(--paper)}
 body.landing-active .device{max-width:none;border-radius:0;box-shadow:none;margin:0;min-height:100dvh;background:var(--paper)}
 body.landing-active #tabbar{display:none!important}
+body.paywall-active{background:var(--paper)}
+body.paywall-active .device{max-width:none;margin:0;min-height:100dvh;border-radius:0;box-shadow:none;background:var(--paper)}
+@media(min-width:480px){body.paywall-active .device{margin:0;min-height:100dvh;border-radius:0}}
+body.paywall-active #tabbar{display:none!important}
+body.paywall-active #screen-diagnostic-paywall{padding-bottom:0}
 #screen-landing{padding:0;background:var(--paper);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased}
 #screen-landing .lp-wrap{max-width:1120px;margin:0 auto;padding:0 clamp(20px,5vw,40px);width:100%;box-sizing:border-box}
 
@@ -3061,7 +3326,8 @@ body.landing-active #tabbar{display:none!important}
 .screen.athlevo-hydration-surface.tab-entering{position:absolute}
 .athlevo-surface-skeleton{
   display:none;position:absolute;inset:0;z-index:8;overflow:hidden;
-  box-sizing:border-box;background:var(--paper);padding:28px 22px 110px;
+  box-sizing:border-box;background:var(--paper);
+  padding:calc(28px + var(--athlevo-safe-top, env(safe-area-inset-top, 0px))) 22px 110px;
   opacity:1;pointer-events:none
 }
 .athlevo-surface-loading>.athlevo-surface-skeleton,
@@ -3668,6 +3934,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .why-toggle:hover{background:rgba(255,255,255,.16)}
   .coach-starter:hover{border-color:var(--ink3);background:var(--card2)}
   .coach-error-retry:hover,.coach-jump-latest:hover,.chip:hover{border-color:var(--ink3)}
+  #screen-coachai .composer .send:not(:disabled):hover{background:color-mix(in srgb,var(--ink) 88%,var(--paper));box-shadow:var(--elev-1)}
+  #screen-coachai .coach-composer .chip:hover{background:color-mix(in srgb,var(--card2) 76%,var(--paper))}
   .wsv__segment:hover{filter:brightness(1.05)}
   .wsv__more:hover{color:var(--text)}
   .ob-chip:hover,.sc-act:hover,.sc-act-edit-btn:hover,.rdc-opt:hover{border-color:var(--text)}
@@ -3757,7 +4025,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <a href="#about">About</a>
       </div>
       <div class="lp-nav-cta">
-        <a class="lp-btn sm" href="#train-with-athlevo">Train With Athlevo</a>
+        <a class="lp-btn sm" href="/ai">Train With Athlevo</a>
       </div>
     </div>
   </nav>
@@ -3772,8 +4040,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <p class="lp-lead">Personalized endurance coaching — from an adaptive app you run yourself to a coach in your corner every week.</p>
         <p class="lp-hero-proof">300+ runners coached · marathon, hybrid &amp; performance goals.</p>
         <div class="lp-cta">
-          <button class="lp-btn" type="button" data-cta-location="hero_ai" onclick="landingStartFree(this)">Install Athlevo — Free</button>
-          <a class="lp-btn ghost" href="#train-with-athlevo">Explore Coaching</a>
+          <a class="lp-btn" href="/ai" data-cta-location="hero_ai" onclick="return landingStartFree(this)">Start Training</a>
+          <a class="lp-btn ghost" href="https://www.facebook.com/profile.php?id=61574957235305" target="_blank" rel="noopener noreferrer">Explore Coaching</a>
         </div>
       </div>
       <div class="lp-editorial-media lp-photo-hero">
@@ -3830,7 +4098,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
     <div class="lp-wrap lp-appshow-foot">
       <p class="lp-appshow-close">Your plan. Your coach. Your training data. One system.</p>
-      <button class="lp-btn" type="button" data-cta-location="showcase_ai" onclick="landingStartFree(this)">Install Athlevo — Free</button>
+      <a class="lp-btn" href="/ai" data-cta-location="showcase_ai" onclick="return landingStartFree(this)">Start Training</a>
     </div>
   </section>
   <script>
@@ -4008,8 +4276,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <h2 class="lp-h2">Your training should make sense.</h2>
       <p class="lp-body">Whether you want an adaptive system you can follow independently or a coach actively guiding the process, there is a place to start with Athlevo.</p>
       <div class="lp-cta">
-        <button class="lp-btn light" type="button" data-cta-location="final_ai" onclick="landingStartFree(this)">Start with Athlevo AI</button>
-        <a class="lp-btn ghost-light" href="mailto:support@athlevo.org?subject=Athlevo%20Human%20Coaching">Talk to a Coach</a>
+        <a class="lp-btn light" href="/ai" data-cta-location="final_ai" onclick="return landingStartFree(this)">Start with Athlevo AI</a>
+        <a class="lp-btn ghost-light" href="https://www.facebook.com/profile.php?id=61574957235305" target="_blank" rel="noopener noreferrer">Talk to a Coach</a>
       </div>
       <p class="lp-enrollment">Already speaking with an Athlevo coach? <a href="mailto:support@athlevo.org?subject=Continue%20Athlevo%20Enrollment">Continue your enrollment.</a></p>
     </div>
@@ -4043,6 +4311,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="w-mark">Athlevo<i>.</i></div>
     </div>
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
+    <h1 class="w-ai-title" id="wAiSignupTitle" hidden>Create your Athlevo account</h1>
+    <p class="w-continue-note" id="wCheckoutContinue">Create your Athlevo account to continue.</p>
+    <p class="w-continue-note" id="wWelcomeBack">Welcome back. Sign in to continue.</p>
   </div>
   <div class="w-btns">
     <button class="w-btn apple" id="authBtnApple" onclick="continueWithApple()">
@@ -4057,7 +4328,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <span class="w-btn-icon"><svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="19" height="15" rx="2.5" stroke="#fff" stroke-width="1.2" fill="none"/><path d="M1 1l9 7 9-7" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
       Continue with Email
     </button>
-    <p class="w-signup-link">Don't have an account? <a onclick="openSignup(true)">Sign up</a></p>
+    <p class="w-signup-link" id="wSignupLink">Don't have an account? <a onclick="openSignup(true)">Sign up</a></p>
   </div>
 </section>
 
@@ -4082,6 +4353,131 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
      displayed fabricated athlete data (214 activities, ≈4:55/km, marathon
      / hilly / September, "Dean") and were only reachable from the old
      scripted onboarding, which has been replaced by js/onboarding.js. -->
+
+
+<!-- ══════════════ PRE-SIGNUP DIAGNOSTIC ══════════════ -->
+<section class="screen" id="screen-diagnostic">
+
+    <div class="ob2-top">
+        <button class="ob2-back" id="diagBack" type="button" aria-label="Go back" disabled>&#8249;</button>
+        <div class="ob2-progress" id="diagProgress" role="img" aria-label="Diagnostic progress"></div>
+    </div>
+
+    <div class="ob2-body" id="diagBody"></div>
+
+    <div class="ob2-foot" id="diagFoot">
+        <p class="ob2-msg" id="diagMsg" role="status" aria-live="polite"></p>
+        <button class="ob2-continue" id="diagContinue" type="button">Continue</button>
+    </div>
+
+</section>
+
+<!-- Paid-first continuation for authenticated diagnostic acquisitions. -->
+<section class="screen" id="screen-diagnostic-paywall">
+  <div class="diagnostic-paywall-scroll">
+    <div class="diagnostic-paywall-top">
+      <button type="button" class="diagnostic-paywall-back" aria-label="Back"
+        onclick="AthlevoDiagnosticAcquisition.backFromPaywall()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 5l-7 7 7 7"></path>
+        </svg>
+      </button>
+      <div class="diagnostic-paywall-brand">
+        <img src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="32" height="32">
+      </div>
+    </div>
+    <div class="diagnostic-paywall-hero">
+      <p class="diagnostic-paywall-kicker">Your account is ready</p>
+      <h1 class="diagnostic-paywall-title">Built to Evolve With You</h1>
+      <p class="diagnostic-paywall-lead">Personalized running coaching that adapts as you train.</p>
+    </div>
+    <div class="diagnostic-paywall-toggle" id="offerPlanToggle" role="group" aria-label="Billing interval">
+      <button type="button" class="diagnostic-paywall-toggle-btn is-active" id="offerPlanMonthly"
+        data-offer-plan="monthly" aria-pressed="true">Monthly</button>
+      <button type="button" class="diagnostic-paywall-toggle-btn" id="offerPlanAnnual"
+        data-offer-plan="annual" aria-pressed="false">
+        Annual <span class="diagnostic-paywall-save-chip">Save ₱1,666</span>
+      </button>
+    </div>
+    <div class="diagnostic-paywall-card" id="diagnosticPaywallCard">
+      <div class="diagnostic-paywall-offer" id="diagnosticPaywallOffer">
+        <p class="diagnostic-paywall-plan-name">Athlevo AI</p>
+        <div class="diagnostic-paywall-price-row">
+          <p class="diagnostic-paywall-price" id="offerPlanPrice">₱597</p>
+          <p class="diagnostic-paywall-cadence" id="offerPlanCadence">/ month</p>
+        </div>
+        <p class="diagnostic-paywall-equiv" id="offerPlanEquiv">Cancel anytime.</p>
+        <p class="diagnostic-paywall-save" id="offerPlanSave">Save ₱1,666</p>
+        <button type="button" class="diagnostic-paywall-start" id="offerStartCta"
+          onclick="AthlevoDiagnosticAcquisition.beginOfferCheckout()">Start Athlevo AI</button>
+        <p class="diagnostic-paywall-trust">Cancel anytime · Secure payment</p>
+        <ul class="offer-features">
+          <li class="offer-feature">
+            <span class="offer-feature-check" aria-hidden="true">✓</span>
+            <span>Personalized training plan</span>
+          </li>
+          <li class="offer-feature">
+            <span class="offer-feature-check" aria-hidden="true">✓</span>
+            <span>Adaptive coaching</span>
+          </li>
+          <li class="offer-feature">
+            <span class="offer-feature-check" aria-hidden="true">✓</span>
+            <span>AI running coach</span>
+          </li>
+          <li class="offer-feature">
+            <span class="offer-feature-check" aria-hidden="true">✓</span>
+            <span>Progress tracking</span>
+          </li>
+        </ul>
+      </div>
+      <div class="diagnostic-paywall-actions" id="diagnosticPaywallActions">
+        <button type="button" class="diagnostic-paywall-methods-back"
+          onclick="AthlevoDiagnosticAcquisition.showOfferStep()">Choose a different plan</button>
+        <h2 class="diagnostic-paywall-methods-title">Choose how you’d like to pay</h2>
+        <p class="diagnostic-paywall-methods-price" id="offerMethodsPrice">₱597/month</p>
+        <p class="diagnostic-paywall-recommended">Recommended</p>
+        <button class="diagnostic-paywall-primary" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('card')">
+          <span class="diagnostic-paywall-method-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2.5" y="5" width="19" height="14" rx="2.2"></rect>
+              <path d="M2.5 9.5h19"></path>
+              <path d="M6 15h4.5"></path>
+            </svg>
+          </span>
+          <span class="diagnostic-paywall-method-copy">
+            <b>Pay with credit / debit card</b>
+            <small>Secure card payment</small>
+          </span>
+          <span class="diagnostic-paywall-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+          </span>
+        </button>
+        <p class="diagnostic-paywall-or">OR</p>
+        <p class="diagnostic-paywall-other">Other ways to pay</p>
+        <button class="diagnostic-paywall-local" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('local')">
+          <span class="diagnostic-paywall-method-copy">
+            <b>QRPh · Maya · GrabPay</b>
+            <small>Pay using your preferred local payment method</small>
+          </span>
+          <span class="diagnostic-paywall-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+          </span>
+        </button>
+      </div>
+      <button type="button" class="diagnostic-paywall-switch"
+        onclick="AthlevoDiagnosticAcquisition.switchAccount()">Use a different account</button>
+      <div class="diagnostic-paywall-activating" id="diagnosticPaywallActivating">
+        <p>Activating your Athlevo account…</p>
+      </div>
+      <div class="diagnostic-paywall-recheck" id="diagnosticPaywallRecheckPanel">
+        <p>Your payment is still being confirmed. This can take a few seconds.</p>
+        <button class="diagnostic-paywall-recheck-btn" type="button" onclick="AthlevoDiagnosticAcquisition.recheckEntitlement()">Check again</button>
+        <button class="diagnostic-paywall-return-btn" type="button" onclick="AthlevoDiagnosticAcquisition.showPaywall(AthlevoDiagnosticAcquisition.current())">Return to payment</button>
+      </div>
+      <p class="diagnostic-paywall-status" id="diagnosticPaywallStatus" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
 
 <!-- ══════════════ PLAN SETUP (proactive plan-building CTA) ══════════════ -->
 <style>
@@ -4545,32 +4941,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     .tpc-conf,
     .cib-conf{display:none!important}
 
-    /* ═══════════ COMPACT LATEST WORKOUT ANALYSIS ═══════════
-       The default card shows: eyebrow, result badge, title, distance /
-       duration / pace / avg-HR metrics and one short coach takeaway.
-       Full coach insight, recovery focus and training impact live behind
-       "View full analysis" — a native <details> so the disclosure works
-       without JS and inherits the app's reduced-motion behaviour. */
-    .lwa-full{margin-top:14px}
-    .lwa-full > summary{list-style:none;cursor:pointer;
-      display:inline-flex;align-items:center;gap:6px;
-      background:none;border:none;padding:8px 4px;
-      font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:600;color:var(--ink2);
-      transition:color var(--dur-fast) var(--ease-standard)}
-    .lwa-full > summary::-webkit-details-marker{display:none}
-    @media (hover:hover) and (pointer:fine){
-      .lwa-full > summary:hover{color:var(--text)}
-    }
-    .lwa-full > summary::after{content:"";width:12px;height:12px;
-      border-right:2px solid currentColor;border-bottom:2px solid currentColor;
-      transform:rotate(45deg);margin-left:2px;margin-bottom:3px;
-      transition:transform var(--dur-base) var(--ease-standard)}
-    .lwa-full[open] > summary::after{transform:rotate(-135deg);margin-bottom:-1px}
-    .lwa-full .lwa-section:first-of-type{margin-top:6px}
-    .lwa-takeaway{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
-      font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
-    .lwa-takeaway-label{display:block;font-size:var(--fs-micro);font-weight:700;
-      letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
   </style>
   <div class="today-plan-loading" id="todayPlanLoadingState" aria-label="Loading today’s training">
     <span class="skel today-skeleton-line today-skeleton-line--eyebrow"></span>
@@ -4774,67 +5144,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div id="syncBanner" class="ss-banner-wrap"></div>
   <div id="raceDetectCard"></div>
 
-  <!-- ═══════════ TRAINING PACES (kept below the visual summary) ═══════════ -->
+  <!-- ═══════════ TRAINING PACES — final Today content ═══════════ -->
   <div id="trainingPacesCard"></div>
-
-  <!-- Coach Insights card was removed from Today: the full briefing
-       already contains the coach's analysis and recommendation, and
-       the standalone card was a duplicate surface. The underlying
-       renderer (window.renderCoachInsights in coachBrainData.js)
-       and its data collection are untouched — with no #coachInsightsCard
-       mount present it early-returns. -->
-
-  <!-- ===== LATEST WORKOUT ANALYSIS (proactive coaching on recent work) ===== -->
-  <div id="latestWorkoutAnalysis"></div>
-
-<!-- The standalone Daily Readiness card and its manual "Start readiness
-     check" CTA were removed from Today. The renderer (renderReadinessCard
-     in js/readiness.js) is unchanged — with no #readinessEmptyState mount
-     present it early-returns. Any readiness records already stored are
-     still read passively by CoachBrainData.collectSignals() and shown as
-     Athlevo Direction. -->
-
-<!-- ===== YOUR DEVELOPMENT (Athlete Identity & Progression) ===== -->
-<div id="developmentCard"></div>
-
-<div class="spacer-md"></div>
-
-<!-- The dark "Latest activity" card was removed from Today: the
-     Latest Workout Analysis section directly above already covers the
-     most useful information about the athlete's most recent workout,
-     so this dark card was a duplicate. Underlying activity data and
-     sync functionality are untouched — brain.js still populates any
-     Latest Activity fields elsewhere (setText no-ops when the element
-     is absent), and js/syncStatus.js still owns the sync banner and
-     card. -->
-
-  <!-- Note: the sparkline stat grid that used to live here has been folded
-       into the "At a glance" strip above the Athlevo Score, so no metric
-       is duplicated. The strip uses the exact same #todaySevenDay* IDs
-       that js/brain.js writes into. -->
-
-  <div class="race">
-  <div>
-    <b id="todayRaceName">No target race set</b>
-    <small id="todayRaceContext">
-      Add a race and date in your athlete profile.
-    </small>
-  </div>
-
-  <div class="days">
-    <b class="num" id="todayRaceDays">—</b>
-    <small>Days</small>
-  </div>
-</div>
-
- <div class="coachnote" id="todayCoachNoteSection">
-  <span class="eyebrow">Coach’s note</span>
-
-  <p id="todayCoachNote">
-    No personal coach note has been recorded yet.
-  </p>
-</div>
-  <div class="spacer-lg"></div>
 </section>
 
 <!-- ══════════════ COACH AI ══════════════ -->
@@ -4924,21 +5235,70 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   </div>
 
   <style>
-  /* ═══════════ DATE-FIRST TRAINING CALENDAR ═══════════ */
+  /* ═══════════ TRAIN v3 — Activity Feed + Rich Detail ═══════════ */
+
+  /* ── zone + effort custom properties ─────────────────────────── */
+  :root{
+    --zone-1:#3ecf8e;--zone-2:#6dc9a8;--zone-3:#e2a94a;--zone-4:#ef8a50;--zone-5:#ef5a60;
+    --af-effort-warm:#c8ccd2;--af-effort-work:var(--red);--af-effort-recovery:#2f6fbf;
+    --af-effort-cool:#8b9199;--af-effort-easy:var(--good);
+    --sport-run:#c45a48;--sport-run-bg:color-mix(in srgb,var(--sport-run) 8%,var(--paper));
+    --sport-strength:#6d7075;--sport-strength-bg:color-mix(in srgb,var(--sport-strength) 8%,var(--paper));
+    --sport-ride:var(--info);--sport-ride-bg:color-mix(in srgb,var(--sport-ride) 8%,var(--paper));
+    --sport-swim:#2a8f8a;--sport-swim-bg:color-mix(in srgb,var(--sport-swim) 8%,var(--paper));
+    --sport-walk:#4d8a5c;--sport-walk-bg:color-mix(in srgb,var(--sport-walk) 8%,var(--paper));
+    --sport-other:#8a8d93;--sport-other-bg:color-mix(in srgb,var(--sport-other) 8%,var(--paper));
+    --ad-chart-pace:var(--sport-run);--ad-chart-hr:var(--trend-risk);
+    --ad-chart-elev:var(--sport-walk);--ad-chart-cadence:var(--info);--ad-chart-power:var(--trend-fatigue)
+  }
+  html[data-theme="dark"]{
+    --zone-1:#3ecf8e;--zone-2:#6dc9a8;--zone-3:#e2a94a;--zone-4:#ef8a50;--zone-5:#ef5a60;
+    --af-effort-warm:#4a4f57;--af-effort-recovery:#5b9bd8;--af-effort-cool:#6a707a
+  }
+  @media(prefers-color-scheme:dark){html[data-theme="system"]{
+    --zone-1:#3ecf8e;--zone-2:#6dc9a8;--zone-3:#e2a94a;--zone-4:#ef8a50;--zone-5:#ef5a60;
+    --af-effort-warm:#4a4f57;--af-effort-recovery:#5b9bd8;--af-effort-cool:#6a707a
+  }}
+
+  /* ── greeting ────────────────────────────────────────────────── */
   .tc-greet{padding:28px 22px 10px}
   .tc-greet h1{font-size:var(--fs-display)}
-  .tc{margin:0 22px 12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 14px 12px;user-select:none;-webkit-user-select:none}
-  .tc-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);padding:0 4px 12px}
+
+  /* Train has exactly one scroll container: #screen-train. Nothing nested
+     inside it may become a scroll box, or touch scrolling that starts on the
+     cards is absorbed by the inner box instead of chaining out to here.
+
+     The tab-bar clearance is an in-flow spacer rather than padding-bottom
+     because .screen is a flex column, and WebKit leaves a flex scroll
+     container's end padding out of the scrollable overflow region — the last
+     card then stays pinned under the fixed nav no matter how far you scroll. */
+  #screen-train{
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
+    padding-bottom:0;
+  }
+  #screen-train::after{
+    content:"";
+    display:block;
+    flex:0 0 auto;
+    height:calc(var(--athlevo-tabbar-height, 74px) + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)) + 18px);
+  }
+
+  /* ── compact calendar strip ──────────────────────────────────── */
+  .tc{margin:0 22px 8px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 14px 10px;user-select:none;-webkit-user-select:none;pointer-events:auto;position:relative;z-index:2}
+  .tc-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);padding:0 4px 10px}
   .tc-month{font-family:var(--serif);font-size:var(--fs-h3);font-weight:500;letter-spacing:-.01em;color:var(--text)}
   .tc-nav{display:flex;align-items:center;gap:6px}
-  .tc-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:var(--fs-h3);line-height:1;cursor:pointer;display:grid;place-items:center;transition:background var(--dur-fast)}
+  .tc-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:var(--fs-h3);line-height:1;cursor:pointer;display:grid;place-items:center;transition:background var(--dur-fast)}
   .tc-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-  .tc-today{font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--red);background:var(--red-soft);border:none;border-radius:var(--r-pill);padding:8px 13px;cursor:pointer}
+  .tc-today{font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--red);background:var(--red-soft);border:none;border-radius:var(--r-pill);padding:7px 12px;cursor:pointer}
   .tc-week{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--s-1)}
-  .tc-day{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0 9px;border-radius:var(--r-md);cursor:pointer;border:1px solid transparent;background:none;font-family:var(--sans);min-height:60px;transition:background var(--dur-fast),border-color var(--dur-fast)}
+  .tc-day{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 7px;border-radius:var(--r-md);cursor:pointer;border:1px solid transparent;background:none;font-family:var(--sans);min-height:52px;min-width:44px;width:100%;pointer-events:auto;position:relative;z-index:1;transition:background var(--dur-fast),border-color var(--dur-fast)}
   .tc-dow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
-  .tc-num{font-size:var(--fs-h3);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
-  .tc-dot{width:6px;height:6px;border-radius:50%;background:transparent}
+  .tc-num{font-size:16px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
+  .tc-dot{width:5px;height:5px;border-radius:50%;background:transparent}
   .tc-dot.planned{background:var(--ink3)}
   .tc-dot.done{background:var(--good)}
   .tc-dot.mod{background:var(--warn)}
@@ -4953,31 +5313,246 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tc-day.sel .tc-dot.planned{background:rgba(255,255,255,.7)}
   .tc-day.sel .tc-dot.rest{box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5)}
   .tc-day.other .tc-num{color:var(--ink3)}
-  .tc-panel{margin:0 22px 16px}
+
+  /* ── selected-day panel ──────────────────────────────────────── */
+  .tc-panel{margin:0 22px 12px}
+  .af-day{margin:0}
+  .af-day-head{display:flex;align-items:baseline;justify-content:space-between;padding:10px 2px 6px}
+  .af-day-label{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
+  .af-day-label.af-today{color:var(--red)}
+  .af-day-date{font-size:var(--fs-caption);color:var(--ink3)}
+  .af-section-label{font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:8px 2px 4px}
+  .af-day-empty{margin:4px 2px 8px;font-size:var(--fs-body-sm);color:var(--ink2)}
+  .af-card--missed{opacity:.92}
+  .af-card-status--missed{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);align-self:center;white-space:nowrap}
+
+  /* ── activity card ───────────────────────────────────────────── */
+  .af-card{-webkit-appearance:none;appearance:none;display:flex;flex-direction:column;align-items:stretch;gap:0;width:100%;text-align:left;font-family:var(--sans);background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:0;cursor:pointer;margin-bottom:8px;min-height:44px;box-shadow:var(--elev-1);overflow:hidden;transition:background var(--dur-fast),box-shadow var(--dur-fast)}
+  .af-card:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+  .af-card-accent{display:block;width:100%;height:4px;flex:none;background:var(--sport-accent,var(--ink3))}
+  .af-card-main{flex:1;min-width:0;display:flex;flex-direction:column;padding:8px 12px 10px}
+  .af-card-top{display:flex;align-items:flex-start;gap:8px}
+  .af-card-titles{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .af-card-sport{font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--sport-accent,var(--ink3))}
+  .af-card-sport--planned{color:var(--ink3)}
+  .af-card-chevron{flex:none;color:var(--ink3);font-size:18px;line-height:1;margin-top:2px}
+  .af-card--rest{background:var(--card);border-color:var(--line);padding:12px 14px;box-shadow:none}
+  .af-card--rest .af-card-name{color:var(--ink2);font-weight:600}
+  .af-card--planned{border-style:dashed;border-color:var(--ink3);background:var(--paper);box-shadow:none}
+  .af-card--planned .af-card-accent{display:none}
+  .af-card--planned .af-card-main{padding:12px 14px}
+  .af-card--activity{overflow:hidden;background:var(--paper)}
+  .af-card--has-profile .af-card-main{padding-bottom:0}
+  .af-card--run{--sport-accent:var(--sport-run);border-color:color-mix(in srgb,var(--sport-run) 32%,var(--line))}
+  .af-card--strength{--sport-accent:var(--sport-strength);border-color:color-mix(in srgb,var(--sport-strength) 28%,var(--line))}
+  .af-card--ride{--sport-accent:var(--sport-ride);border-color:color-mix(in srgb,var(--sport-ride) 32%,var(--line))}
+  .af-card--swim{--sport-accent:var(--sport-swim);border-color:color-mix(in srgb,var(--sport-swim) 32%,var(--line))}
+  .af-card--walk{--sport-accent:var(--sport-walk);border-color:color-mix(in srgb,var(--sport-walk) 32%,var(--line))}
+  .af-card--other{--sport-accent:var(--sport-other)}
+  .af-card--done{box-shadow:var(--elev-1)}
+  .af-card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .af-card-name{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .af-card-source{font-size:var(--fs-caption);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .af-card-meta{font-size:var(--fs-caption);color:var(--ink3);margin-top:4px}
+  .af-card-metrics{font-size:var(--fs-caption);font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .af-card-lines{display:flex;flex-direction:column;gap:1px;margin-top:6px}
+  .af-card-line{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.35}
+  .af-card-plan{display:block;margin-top:5px;font-size:var(--fs-caption);color:var(--ink3)}
+  .af-card-profile{display:block;width:calc(100% + 24px);height:50px;margin:8px -12px 0;color:var(--sport-accent,var(--ink3));overflow:hidden;flex:none}
+  .af-card-profile-svg{display:block;width:100%;height:50px}
+  .af-card-spark{display:block;width:100%;height:46px;margin-top:8px;color:var(--sport-accent,var(--ink3))}
+  .af-card-purpose{font-size:var(--fs-caption);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .af-card-cta{flex:none;font-size:var(--fs-caption);font-weight:700;color:var(--ink3);padding:4px 0;white-space:nowrap;align-self:center}
+  .af-card-status{flex:none;align-self:center}
+  .af-card-status--done{color:var(--good);font-weight:700;font-size:var(--fs-body)}
+
+  /* ── sport icon ──────────────────────────────────────────────── */
+  .af-sport-icon{flex:none;width:20px;height:20px;color:var(--sport-accent,var(--ink3));margin-top:1px}
+
+  /* ── premium activity card overrides ─────────────────────────── */
+  .af-card--premium{border-radius:16px;border:1px solid color-mix(in srgb,var(--line) 70%,transparent);box-shadow:0 1px 3px rgba(20,20,22,.06),0 4px 14px -4px rgba(20,20,22,.09);overflow:hidden;background:var(--paper)}
+  .af-card--premium .af-card-accent{display:none}
+  .af-card--premium .af-card-main{padding:14px 16px 14px}
+  .af-card--premium .af-card-top{gap:10px;align-items:flex-start}
+  .af-card--premium .af-sport-icon{width:24px;height:24px;margin-top:0;color:var(--sport-accent,var(--ink2))}
+  .af-card--premium .af-card-sport{font-size:var(--fs-micro);font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--sport-accent,var(--ink2))}
+  .af-card--premium .af-card-name{font-size:var(--fs-body-sm);font-weight:600;color:var(--text);line-height:1.3}
+  .af-card--premium .af-card-device{font-size:11px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;font-weight:400}
+  .af-card--premium .af-card-chevron{color:var(--ink3);font-size:20px;margin-top:1px;opacity:.6}
+  .af-card--premium .af-card-plan{margin-top:2px;font-size:11px;color:var(--ink3);font-weight:500}
+  .af-card--premium.af-card--run{border-color:color-mix(in srgb,var(--sport-run) 18%,var(--line))}
+  .af-card--premium.af-card--ride{border-color:color-mix(in srgb,var(--sport-ride) 18%,var(--line))}
+  .af-card--premium.af-card--strength{border-color:color-mix(in srgb,var(--sport-strength) 14%,var(--line))}
+  .af-card--premium.af-card--swim{border-color:color-mix(in srgb,var(--sport-swim) 18%,var(--line))}
+  .af-card--premium.af-card--walk{border-color:color-mix(in srgb,var(--sport-walk) 18%,var(--line))}
+  .af-card--premium:active{transform:scale(.985);box-shadow:0 1px 2px rgba(20,20,22,.08)}
+
+  /* ── segmented workout strip ─────────────────────────────────── */
+  .af-card-strip{display:flex;align-items:flex-end;gap:2px;width:100%;margin:10px 0 4px;min-height:20px;padding:0}
+  .af-strip-seg{border-radius:3px;transition:opacity var(--dur-fast);flex-shrink:0;flex-grow:0;min-width:4px}
+  .af-strip-seg--work{background:var(--sport-accent,var(--red))}
+  .af-strip-seg--easy{background:color-mix(in srgb,var(--ink3) 30%,var(--line))}
+  .af-strip-seg--neutral{background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 25%,var(--line))}
+  .af-pstrip{display:flex;align-items:flex-end;gap:2px;width:100%;margin:8px 0 4px;min-height:14px;padding:0}
+  .af-pstrip-seg{height:14px;border-radius:3px;flex-shrink:0;flex-grow:0;min-width:4px;opacity:.85}
+  .af-pstrip-seg--work{background:color-mix(in srgb,var(--red) 65%,var(--paper));border:1px dashed color-mix(in srgb,var(--red) 40%,transparent)}
+  .af-pstrip-seg--warm{background:color-mix(in srgb,var(--ink3) 18%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 25%,transparent)}
+  .af-pstrip-seg--recovery{background:color-mix(in srgb,var(--info) 15%,var(--paper));border:1px dashed color-mix(in srgb,var(--info) 25%,transparent)}
+  .af-pstrip-seg--cool{background:color-mix(in srgb,var(--ink3) 14%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 20%,transparent)}
+  .af-pstrip-seg--steady{background:color-mix(in srgb,var(--ink3) 12%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 18%,transparent)}
+
+  /* ── metrics row (values only, no big labels) ────────────────── */
+  .af-card-metrics-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .af-card-metric-val{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);letter-spacing:-.01em;line-height:1.35;white-space:nowrap}
+  .af-card-metric-val + .af-card-metric-val::before{content:"·";color:var(--ink3);margin-right:0;font-weight:400;display:inline-block;width:10px;text-align:center;margin-left:-5px}
+
+  /* ── effort bar ──────────────────────────────────────────────── */
+  .af-effort-bar{display:flex;gap:1px;height:4px;border-radius:2px;overflow:hidden;margin-top:4px}
+  .af-effort-bar span{display:block;height:100%;border-radius:1px}
+
+  /* ── plan note (inline link to plan when activity exists) ─────── */
+  .af-plan-note{font-size:var(--fs-caption);color:var(--ink3);padding:4px 14px 8px;cursor:pointer}
+  .af-plan-note span{color:var(--red);font-weight:600}
+
+  /* ── empty state ─────────────────────────────────────────────── */
+  .af-empty{text-align:center;padding:40px 20px}
+  .af-empty-icon{width:52px;height:52px;border-radius:var(--r-md);background:var(--card);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 14px}
+  .af-empty p{font-size:var(--fs-body-sm);color:var(--ink2);margin:0 0 16px}
+  .af-empty-cta{border:none;border-radius:var(--r-pill);background:var(--ink);color:#fff;font-family:var(--sans);font-weight:700;font-size:var(--fs-body);padding:12px 24px;cursor:pointer}
+
+  /* ── weekly progress (compact inline bar) ────────────────────── */
+  .twp{margin:0 22px 8px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px}
+  .twp-row{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  .twp-stat{display:flex;align-items:baseline;gap:4px}
+  .twp-val{font-size:var(--fs-body);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+  .twp-val small{font-size:var(--fs-caption);font-weight:600;color:var(--ink3)}
+  .twp-unit{font-size:var(--fs-caption);color:var(--ink3);font-weight:600}
+  .twp-bar{height:6px;border-radius:var(--r-pill);background:var(--card);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden;margin-top:8px}
+  .twp-bar i{display:block;height:100%;border-radius:var(--r-pill);background:linear-gradient(90deg,var(--athlevo-red),var(--red));transition:width .5s var(--ease-standard)}
+
+  /* ── training context (compact inline) ───────────────────────── */
+  .tcx{margin:0 22px 10px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:0 2px}
+  .tcx-inline{font-size:var(--fs-caption);font-weight:700;color:var(--ink3);letter-spacing:.02em}
+  .tcx-focus{font-size:var(--fs-caption);color:var(--ink2)}
+
+  /* ── detail sheet (full height) ──────────────────────────────── */
+  .tw-modal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
+  .tw-modal.show{display:flex}
+  .tw-modal-ov{position:absolute;inset:0;background:var(--backdrop);backdrop-filter:blur(2px)}
+  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:96vh;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
+  @media(min-width:480px){.tw-modal{align-items:center}.tw-modal-box{border-radius:var(--r-lg);max-height:92vh;max-width:520px}}
+  .tw-modal-close{position:absolute;top:8px;right:10px;display:grid;place-items:center;min-width:44px;min-height:44px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer;z-index:1}
+
+  /* ── activity detail: header ─────────────────────────────────── */
+  .ad-back{-webkit-appearance:none;appearance:none;border:none;background:none;padding:0 0 10px;margin:0;font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--ink2);cursor:pointer;min-height:44px}
+  .ad-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+  .ad-header{margin-bottom:10px}
+  .ad-header-top{display:flex;align-items:flex-start;gap:12px}
+  .ad-header-top .af-sport-icon{width:28px;height:28px;color:var(--sport-accent,var(--ink2));margin-top:2px}
+  .ad-header--run{--sport-accent:var(--sport-run)}
+  .ad-header--ride{--sport-accent:var(--sport-ride)}
+  .ad-header--strength{--sport-accent:var(--sport-strength)}
+  .ad-header--swim{--sport-accent:var(--sport-swim)}
+  .ad-header--walk{--sport-accent:var(--sport-walk)}
+  .ad-header--other{--sport-accent:var(--sport-other)}
+  .ad-header-info{flex:1;min-width:0}
+  .ad-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;letter-spacing:-.01em;color:var(--text);margin:0}
+  .ad-source{font-size:var(--fs-caption);color:var(--ink3);display:block;margin-top:2px}
+  .ad-header-meta{margin-top:4px;font-size:var(--fs-caption);color:var(--ink3)}
+
+  /* ── activity detail: compact metric line ─────────────────────── */
+  .ad-metrics{margin:0 0 10px;font-size:var(--fs-body-sm);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.4;overflow-wrap:anywhere}
+  /* ── activity detail: metric grid (Intervals-style) ────────────── */
+  .ad-metric-grid{display:flex;flex-wrap:wrap;gap:2px 12px;margin:0 0 12px;padding:0}
+  .ad-metric-grid--secondary{margin-top:-4px;margin-bottom:10px}
+  .ad-metric-cell{display:flex;flex-direction:column;min-width:0;padding:4px 0}
+  .ad-metric-val{font-size:var(--fs-body);font-weight:750;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.2;white-space:nowrap}
+  .ad-metric-cell--sm .ad-metric-val{font-size:var(--fs-body-sm);font-weight:650}
+  .ad-metric-lbl{font-size:var(--fs-micro);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;line-height:1.3}
+  .ad-metric-cell--sm .ad-metric-lbl{font-size:10px}
+
+  /* ── activity detail: GPS route map ────────────────────────────── */
+  .ad-route{margin:0 0 12px;border-radius:var(--r-sm);overflow:hidden;background:color-mix(in srgb,var(--ink3) 6%,var(--paper))}
+  .ad-route-svg{display:block;width:100%;height:auto;max-height:200px}
+  .ad-route-deferred{min-height:0}
+  .ad-summary{margin:0 0 10px}
+
+  /* ── activity detail: sections ───────────────────────────────── */
+  .ad-section{padding:14px 0;border-top:1px solid var(--line)}
+  .ad-section:first-of-type{border-top:none;padding-top:0}
+  .ad-section-h{font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
+
+  /* ── classification ──────────────────────────────────────────── */
+  .ad-classification{padding:10px 0}
+  .ad-class-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .ad-class-type{font-size:var(--fs-body);font-weight:700;color:var(--text)}
+  .ad-class-conf{font-size:var(--fs-micro);font-weight:700;padding:3px 8px;border-radius:var(--r-pill);background:var(--card);color:var(--ink3)}
+  .ad-class-conf.high{background:var(--good-soft);color:var(--good)}
+  .ad-class-summary{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin:6px 0 0}
+
+  /* ── coach analysis ──────────────────────────────────────────── */
+  .ad-coach{padding:0 0 10px;margin:0}
+  .ad-coach-text{font-size:var(--fs-body-sm);line-height:1.4;color:var(--ink2);margin:0}
+  .ad-coach-placeholder{color:var(--ink3);font-style:italic}
+  .ad-ask-coach{-webkit-appearance:none;appearance:none;width:100%;font-family:var(--sans);font-size:var(--fs-body-sm);font-weight:700;color:var(--red);background:var(--red-soft);border:none;border-radius:var(--r-pill);padding:10px 16px;cursor:pointer;text-align:center;transition:filter var(--dur-fast)}
+
+  /* ── HR zones ────────────────────────────────────────────────── */
+  .ad-zones-list{display:flex;flex-direction:column;gap:6px}
+  .ad-zone-row{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;font-size:var(--fs-caption)}
+  .ad-zone-info{min-width:90px}
+  .ad-zone-name{font-weight:700;color:var(--text);display:block;font-size:var(--fs-caption)}
+  .ad-zone-range{font-size:var(--fs-micro);color:var(--ink3);display:block}
+  .ad-zone-bar-wrap{height:8px;background:var(--card);border-radius:var(--r-pill);overflow:hidden}
+  .ad-zone-bar{height:100%;border-radius:var(--r-pill);min-width:2px;transition:width .4s var(--ease-standard)}
+  .ad-zone-time{text-align:right;min-width:48px;display:flex;flex-direction:column;align-items:flex-end}
+  .ad-zone-time span{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+  .ad-zone-pct{font-size:var(--fs-micro);color:var(--ink3);font-weight:600}
+
+  /* ── chart sections ──────────────────────────────────────────── */
+  /* No overflow here: .tw-modal-box is the sheet's scroll container and an
+     inner scroll box would swallow touch scrolling over the graphs. Each
+     .ad-stream-chart already clips its own SVG. */
+  .ad-charts-root{margin:0 0 8px}
+  .ad-charts{display:flex;flex-direction:column;gap:0;width:100%;max-width:100%}
+  .ad-chart-section{padding:2px 0 0;border:none}
+  .ad-chart-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:1.15em;padding:2px 0 1px}
+  .ad-chart-label{font-size:var(--fs-micro);font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3)}
+  .ad-chart-readout{font-size:var(--fs-caption);font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+  .ad-stream-chart{width:100%;height:88px;display:block;overflow:hidden;touch-action:none}
+  .ad-chart-grid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+  .ad-chart-grid--v{stroke:color-mix(in srgb,var(--line) 80%,transparent);opacity:.85}
+  .ad-chart-loading{font-size:var(--fs-caption);color:var(--ink3);padding:8px 0}
+  .ad-chart-placeholder{font-size:var(--fs-caption);color:var(--ink3);padding:12px 0;font-style:italic}
+  @media(min-width:480px){
+    .tw-modal-box{max-width:520px}
+    .ad-stream-chart{height:92px}
+  }
+
+  /* ── splits strip ────────────────────────────────────────────── */
+  .ad-splits-strip{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;max-width:100%;-webkit-overflow-scrolling:touch;padding:2px 0 8px;scrollbar-width:thin}
+  .ad-split{flex:none;min-width:76px;display:flex;flex-direction:column;gap:1px;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper)}
+  .ad-split-time{font-size:var(--fs-body-sm);font-weight:750;color:var(--text);font-variant-numeric:tabular-nums}
+  .ad-split-pace,.ad-split-hr{font-size:var(--fs-caption);color:var(--ink2);font-variant-numeric:tabular-nums}
+  .ad-splits-table{font-size:var(--fs-caption);font-variant-numeric:tabular-nums}
+  .ad-splits-head{display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:4px;padding:6px 0;border-bottom:1px solid var(--line);font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;font-size:var(--fs-micro)}
+  .ad-splits-row{display:grid;grid-template-columns:32px 1fr 1fr 1fr;gap:4px;padding:6px 0;border-bottom:1px solid var(--line);color:var(--text)}
+  .ad-splits-row:last-child{border-bottom:none}
+
+  /* ── misc detail ─────────────────────────────────────────────── */
+  .ad-kv{display:flex;justify-content:space-between;gap:var(--s-3);font-size:var(--fs-body-sm);padding:4px 0;color:var(--ink2)}
+  .ad-kv b{color:var(--text);font-weight:650}
+  .ad-impact{margin-top:10px;background:var(--good-soft);border-radius:var(--r-sm);padding:10px 14px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
+  .ad-plan-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0}
+  .ad-plan-list{margin:4px 0 0;padding-left:16px}
+  .ad-plan-list li{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:3px 0}
+  .ad-rest-msg{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);padding:12px 0}
+  .ad-empty{font-size:var(--fs-body-sm);color:var(--ink3);padding:20px 0;text-align:center}
+
+  /* ── legacy compat (kept so other modules don't crash) ────────── */
   .tcp-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s-5);box-shadow:var(--elev-2)}
-  .tcp-date{font-size:var(--fs-micro);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
-  .tcp-status{display:inline-block;margin-top:8px;font-size:var(--fs-micro);font-weight:700;letter-spacing:.04em;padding:5px 11px;border-radius:var(--r-pill)}
-  .tcp-status.planned{background:var(--card);color:var(--ink2)}
-  .tcp-status.done{background:var(--good-soft);color:var(--good)}
-  .tcp-status.mod{background:var(--warn-soft);color:var(--warn)}
-  .tcp-status.skip{background:var(--red-soft);color:var(--red)}
-  .tcp-status.rest{background:var(--card);color:var(--ink3)}
-  .tcp-status.activity{background:var(--red-soft);color:var(--red)}
-  .tcp-title{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;letter-spacing:-.01em;color:var(--text);margin-top:10px}
-  .tcp-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:var(--fs-body-sm);color:var(--ink2)}
-  .tcp-meta b{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
-  .tcp-sec{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
-  .tcp-sec-label{font-size:var(--fs-micro);font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
-  .tcp-sec p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text);margin:0}
-  .tcp-sec ul{margin:0;padding-left:18px}
-  .tcp-sec li{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text);margin:4px 0}
-  .tcp-exec{margin-top:16px;background:var(--good-soft);border-radius:var(--r-md);padding:13px 15px}
-  .tcp-exec .tcp-sec-label{color:var(--good)}
-  .tcp-empty{text-align:center;padding:26px 20px}
-  .tcp-empty .tcp-empty-icon{width:56px;height:56px;border-radius:var(--r-md);background:var(--card);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 14px}
-  .tcp-empty h3{font-family:var(--serif);font-weight:500;font-size:var(--fs-h2);color:var(--text)}
-  .tcp-empty p{font-size:var(--fs-body-sm);color:var(--ink2);margin:6px 0 16px}
   .tcp-cta{border:none;border-radius:var(--r-pill);background:var(--ink);color:#fff;font-family:var(--sans);font-weight:700;font-size:var(--fs-body);padding:14px 26px;cursor:pointer}
+
+  /* ── secondary details (unchanged) ───────────────────────────── */
   .train-more{margin:0 22px}
   .train-more>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);font-size:var(--fs-body-sm);font-weight:650;color:var(--text)}
   .train-more>summary::-webkit-details-marker{display:none}
@@ -4985,64 +5560,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .train-more[open] .tm-caret{transform:rotate(90deg)}
   .train-more-body{padding-top:14px}
 
-  /* Weekly progress (selected week) */
-  .twp{margin:0 22px 12px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
-  .twp-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-  .twp-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
-  .twp-pct{font-size:var(--fs-caption);font-weight:800;color:var(--good)}
-  .twp-pct.zero{color:var(--ink3)}
-  .twp-vol{font-size:var(--fs-h1);font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em;margin-top:8px}
-  .twp-vol small{font-size:var(--fs-body-sm);font-weight:600;color:var(--ink3)}
-  .twp-bar{height:9px;border-radius:var(--r-pill);background:var(--card);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden;margin:10px 0 12px}
-  .twp-bar i{display:block;height:100%;border-radius:var(--r-pill);background:linear-gradient(90deg,var(--athlevo-red),var(--red));transition:width .5s var(--ease-standard)}
-  .twp-stats{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:var(--fs-caption);color:var(--ink2)}
-  .twp-stats b{color:var(--text);font-weight:700}
-  .twp-unavail{font-size:var(--fs-caption);color:var(--ink3);margin-top:4px}
-
-  /* Training context (date-aware phase) */
-  .tcx{margin:0 22px 16px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
-  .tcx-eyebrow{font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
-  .tcx-phase{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--text);margin-top:6px}
-  .tcx-phase .tcx-wk{font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--red);margin-left:8px}
-  .tcx-purpose{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2);margin-top:6px}
-  .tcx-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:var(--fs-caption);color:var(--ink2)}
-  .tcx-meta b{color:var(--text);font-weight:700}
-  .tcx-caution{margin-top:10px;font-size:var(--fs-caption);line-height:var(--lh-body);color:var(--warn)}
-  .tcx-none{font-size:var(--fs-body-sm);color:var(--ink3)}
-
-  /* clickable panel + multiple-activity list */
-  .tcp-card.clickable{cursor:pointer}
-  .tcp-more{margin-top:12px;font-size:var(--fs-caption);font-weight:700;color:var(--red)}
-  .tcp-actlist{display:flex;flex-direction:column;gap:var(--s-2);margin-top:4px}
-  .tcp-actrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;cursor:pointer;font-family:var(--sans)}
-  .tcp-actrow .tcp-actsport{font-size:var(--fs-micro);font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);background:var(--paper);border:1px solid var(--line);border-radius:var(--r-pill);padding:4px 9px}
-  .tcp-actrow b{flex:1;font-size:var(--fs-body);font-weight:650;color:var(--text)}
-  .tcp-actrow small{font-size:var(--fs-caption);color:var(--ink2);font-variant-numeric:tabular-nums}
-
-  /* detail sheet */
-  /* Hidden by default in CSS. It previously carried an inline
-   style="display:none", which outranks .tw-modal.show — so the workout
-   modal could never open and "Tap for full workout" did nothing. */
-.tw-modal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
-  .tw-modal.show{display:flex}
-  .tw-modal-ov{position:absolute;inset:0;background:var(--backdrop);backdrop-filter:blur(2px)}
-  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:24px 22px calc(28px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
-  @media(min-width:480px){.tw-modal{align-items:center}.tw-modal-box{border-radius:var(--r-lg);max-height:86vh}}
-  .tw-modal-close{position:absolute;top:8px;right:10px;display:grid;place-items:center;min-width:44px;min-height:44px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer}
-  .twm-kicker{font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--red)}
-  .twm-title{font-family:var(--serif);font-size:var(--fs-h1);font-weight:500;letter-spacing:-.01em;color:var(--text);margin-top:4px}
-  .twm-block{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
-  .twm-block:first-of-type{border-top:none;padding-top:6px}
-  .twm-block-h{font-size:var(--fs-micro);font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
-  .twm-row{display:flex;justify-content:space-between;gap:var(--s-3);font-size:var(--fs-body);padding:5px 0;color:var(--ink2)}
-  .twm-row b{color:var(--text);font-weight:650;text-align:right}
-  .twm-p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text);margin:6px 0 0}
-  .twm-ul{margin:6px 0 0;padding-left:18px}
-  .twm-ul li{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text);margin:4px 0}
-  .twm-conf{display:inline-block;font-size:var(--fs-micro);font-weight:700;padding:4px 10px;border-radius:var(--r-pill);background:var(--card);color:var(--ink2)}
-  .twm-conf.high{background:var(--good-soft);color:var(--good)}
-  .twm-impact{margin-top:14px;background:var(--good-soft);border-radius:var(--r-md);padding:13px 15px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text)}
-  /* ── Adaptive Smart Plan v2 — plan-update card, weekly review, review sheet ── */
+  /* ── Adaptive Smart Plan v2 (unchanged) ──────────────────────── */
   #adaptivePlanCard:empty,#adaptiveWeeklyReview:empty{display:none}
   .apl-card{display:flex;align-items:center;gap:var(--s-3);background:var(--card);border:1px solid var(--line);
     border-radius:var(--r-md);padding:14px 16px;margin:12px 0}
@@ -5078,6 +5596,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   @media (hover:hover) and (pointer:fine){
     .tc-btn:hover{background:var(--card2)}
     .tc-day:hover{background:var(--card)}
+    .af-card:hover{background:var(--card2)}
+    .af-card--premium:hover{background:var(--card2);box-shadow:0 2px 8px rgba(20,20,22,.08),0 6px 20px -6px rgba(20,20,22,.12)}
+    .ad-ask-coach:hover{filter:brightness(1.05)}
     .apl-review-btn:hover,.apl-apply:hover,.apl-keep:hover{filter:brightness(1.05)}
   }
   </style>
@@ -5090,66 +5611,22 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div id="adaptiveWeeklyReview"></div>
   <div id="adaptivePlanModal" class="apl-modal"></div>
 
-
-  <!-- ══════════ WEEKLY PROGRESS — selected week ══════════ -->
-  <div id="trainWeekProgress"></div>
-
-  <!-- ══════════ TRAINING CONTEXT — selected date's phase/plan ══════════ -->
-  <div id="trainContext"></div>
-
-  <!-- ══════════ SECONDARY PLAN DETAILS (collapsed by default) ══════════ -->
-  <details class="train-more">
-    <summary><span>Training context</span><i class="tm-caret">›</i></summary>
-    <div class="train-more-body">
-
-  <div id="trainHeader"></div>
-
-  <div class="spacer-md"></div>
-
-  <div class="statgrid">
-
-    <div class="stat">
-      <span class="eyebrow">Weekly distance target</span>
-      <b class="num" id="trainWeeklyDistance">—</b>
-      <small>Self-reported during onboarding</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Weekly hours target</span>
-      <b class="num" id="trainWeeklyHours">—</b>
-      <small>Self-reported during onboarding</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Training availability</span>
-      <b class="num" id="trainAvailableDays">—</b>
-      <small>Reliable days per week</small>
-    </div>
-
-    <div class="stat">
-      <span class="eyebrow">Preferred training time</span>
-      <b class="num" id="trainPreferredTime">—</b>
-      <small>Based on your normal schedule</small>
-    </div>
-
-  </div>
-
-  <!-- Retained (hidden) legacy nodes so existing writers never crash. History
-       listings are intentionally not shown — history lives in the calendar. -->
+  <!-- Retained (hidden) so existing writers never crash. Train ends at the
+       selected-day cards; history and weekly targets live elsewhere. -->
   <div style="display:none" aria-hidden="true">
+    <div id="trainWeekProgress"></div>
+    <div id="trainContext"></div>
+    <div id="trainHeader"></div>
+    <b id="trainWeeklyDistance">—</b>
+    <b id="trainWeeklyHours">—</b>
+    <b id="trainAvailableDays">—</b>
+    <b id="trainPreferredTime">—</b>
     <div id="weeklyProgress"></div>
     <div id="weekSessions"></div>
     <span id="trainSummaryTitle"></span>
     <span id="trainSummaryContext"></span>
     <div id="trainRecentActivities"></div>
   </div>
-
-  <div class="spacer-lg"></div>
-
-    </div>
-  </details>
-
-  <div class="spacer-lg"></div>
 
 </section>
 
@@ -5807,7 +6284,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   </button>
 </nav>
 </div>
-<script src="vendor/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
  // Build identifier attached to feedback submissions.
  window.ATHLEVO_BUILD = "2026.07.13";
@@ -6071,6 +6548,7 @@ async function doForgotPassword() {
 // ── Reset password form (shown after clicking the emailed link) ──
 
 function showResetForm() {
+  window.__athlevoRecoveryHandled = true;
   // Show the auth modal with the reset form
   document.getElementById('authModal').style.display = 'flex';
   document.getElementById('signupForm').style.display = 'none';
@@ -6200,40 +6678,79 @@ async function doResetPassword() {
 }
 
 // ── Detect Supabase PASSWORD_RECOVERY event ──
-// When user clicks the emailed reset link, Supabase exchanges the token
-// in the URL fragment and fires PASSWORD_RECOVERY. We listen for that
-// to show the reset form automatically.
+// The implicit flow delivers recovery tokens in the URL hash fragment:
+//   /reset-password#access_token=…&type=recovery
+// Supabase's detectSessionInUrl (inside getSession) parses the hash,
+// creates a session, and fires PASSWORD_RECOVERY via onAuthStateChange.
+//
+// Detection strategy (deterministic, no guesswork):
+//   1. Check the hash for type=recovery BEFORE Supabase consumes it.
+//   2. If found, set a flag so restoreSession() skips routeAfterAuth().
+//   3. The PASSWORD_RECOVERY listener is the canonical trigger for showResetForm().
+//   4. A conservative 12-second fallback catches edge cases where the event
+//      never fires (corrupted token, network partition during exchange).
+//
+// This avoids both the "flash of dashboard" and false expired-link errors
+// on slow mobile connections.
+
+// Deterministic: check BEFORE Supabase strips the hash.
+window.__athlevoRecoveryIntent = false;
+window.__athlevoRecoveryHandled = false;
+
+(function detectRecoveryUrl() {
+  // Check hash fragment for type=recovery (Supabase implicit flow format)
+  try {
+    var hash = window.location.hash || '';
+    if (/[#&]type=recovery/.test(hash)) {
+      window.__athlevoRecoveryIntent = true;
+      return;
+    }
+  } catch (e) {}
+  // Also set the flag if we're on /reset-password with any hash tokens
+  // (access_token present means Supabase is about to process a recovery)
+  try {
+    if (window.location.pathname === '/reset-password' &&
+        /[#&]access_token=/.test(window.location.hash || '')) {
+      window.__athlevoRecoveryIntent = true;
+    }
+  } catch (e) {}
+})();
+
 (function() {
   if (!supabaseClient || !supabaseClient.auth) return;
+
+  // Primary: PASSWORD_RECOVERY event from Supabase (fires exactly once
+  // per recovery-token exchange, so duplicate showResetForm is guarded).
   supabaseClient.auth.onAuthStateChange(function(event, session) {
-    if (event === 'PASSWORD_RECOVERY') {
+    if (event === 'PASSWORD_RECOVERY' && !window.__athlevoRecoveryHandled) {
+      window.__athlevoRecoveryHandled = true;
       showResetForm();
     }
   });
 
-  // Also handle direct /reset-password navigation in case the hash is
-  // already consumed by the time onAuthStateChange fires. Check URL.
-  if (window.location.pathname === '/reset-password') {
-    // Supabase will handle the hash tokens via detectSessionInUrl.
-    // If there's a recovery type in the hash, let onAuthStateChange handle it.
-    // If someone navigates here without tokens (expired/invalid link),
-    // show a message after a brief wait for Supabase to process.
+  // Fallback for /reset-password without tokens (expired or invalid link,
+  // or the user navigated here manually). Only needed when NO recovery
+  // intent was detected in the URL — those are handled by the listener
+  // above. A generous 12-second timeout avoids false positives on slow
+  // mobile connections where Supabase token exchange takes several seconds.
+  if (window.location.pathname === '/reset-password' && !window.__athlevoRecoveryIntent) {
+    // No hash tokens at all — this is either an expired link whose
+    // fragment was already consumed, or a direct navigation. Wait for
+    // a PASSWORD_RECOVERY event in case Supabase still resolves something
+    // from localStorage, but show the expired state if nothing comes.
     setTimeout(function() {
-      var resetForm = document.getElementById('resetForm');
-      if (resetForm && resetForm.style.display === 'none') {
-        // No PASSWORD_RECOVERY event fired — link is likely expired/invalid
-        document.getElementById('authModal').style.display = 'flex';
-        document.getElementById('signupForm').style.display = 'none';
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('forgotForm').style.display = 'block';
-        document.getElementById('resetForm').style.display = 'none';
-        var fpMsg = document.getElementById('fpMsg');
-        if (fpMsg) {
-          fpMsg.style.color = 'var(--red)';
-          fpMsg.textContent = 'This reset link has expired or is invalid. Please request a new one.';
-        }
+      if (window.__athlevoRecoveryHandled) return; // already showing reset form
+      document.getElementById('authModal').style.display = 'flex';
+      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('forgotForm').style.display = 'block';
+      document.getElementById('resetForm').style.display = 'none';
+      var fpMsg = document.getElementById('fpMsg');
+      if (fpMsg) {
+        fpMsg.style.color = 'var(--red)';
+        fpMsg.textContent = 'This reset link has expired or is invalid. Please request a new one.';
       }
-    }, 2500);
+    }, 12000);
   }
 })();
 
@@ -6248,10 +6765,141 @@ function openAppEntry() {
   athlevoAuthPushed = false;
   var tb = document.getElementById('tabbar');
   if (tb) tb.style.display = 'none';
+  if (typeof resetAiSignupWelcome === "function") resetAiSignupWelcome();
   showScreen('screen-welcome');
   try { history.pushState({ athlevoNav: 'entry' }, ''); } catch (_) {}
 }
 window.openAppEntry = openAppEntry;
+
+var AI_SIGNUP_HANDOFF_KEY = "athlevo_ai_signup_handoff";
+function currentPathname() {
+  try {
+    return String(window.location.pathname || "").replace(/\/+$/, "");
+  } catch (e) { return ""; }
+}
+function isAiEntryPath() {
+  return currentPathname() === "/ai";
+}
+function isSignupPath() {
+  var path = currentPathname();
+  return path === "/signup" || path === "/ai-signup";
+}
+function isAiSignupPath() {
+  return isSignupPath();
+}
+function signupHistoryPath() {
+  try {
+    if (currentPathname() === "/ai-signup" &&
+        window.AthlevoSocialAuth &&
+        AthlevoSocialAuth.isOAuthReturn &&
+        AthlevoSocialAuth.isOAuthReturn()) {
+      return "/ai-signup";
+    }
+  } catch (e) {}
+  return "/signup";
+}
+function isPricingPath() {
+  return currentPathname() === "/pricing";
+}
+function rememberAiSignupHandoff() {
+  try { sessionStorage.setItem(AI_SIGNUP_HANDOFF_KEY, "1"); } catch (e) {}
+}
+function hasAiSignupHandoff() {
+  try { return sessionStorage.getItem(AI_SIGNUP_HANDOFF_KEY) === "1"; }
+  catch (e) { return false; }
+}
+function clearAiSignupHandoff() {
+  try { sessionStorage.removeItem(AI_SIGNUP_HANDOFF_KEY); } catch (e) {}
+}
+function applyAiSignupWelcomeCopy() {
+  var screen = document.getElementById("screen-welcome");
+  var title = document.getElementById("wAiSignupTitle");
+  var checkout = document.getElementById("wCheckoutContinue");
+  var back = document.getElementById("wWelcomeBack");
+  var link = document.getElementById("wSignupLink");
+  var emailBtn = document.getElementById("authBtnEmail");
+  if (screen) screen.classList.add("is-ai-signup");
+  if (title) { title.hidden = false; title.classList.add("is-visible"); }
+  if (checkout) { checkout.hidden = true; checkout.classList.remove("is-visible"); }
+  if (back) { back.hidden = true; back.classList.remove("is-visible"); }
+  if (link) link.innerHTML = 'Already have an account? <a onclick="openLogin(true)">Sign in</a>';
+  if (emailBtn) emailBtn.setAttribute("onclick", "openSignup(true)");
+}
+function resetAiSignupWelcome() {
+  var screen = document.getElementById("screen-welcome");
+  var title = document.getElementById("wAiSignupTitle");
+  var link = document.getElementById("wSignupLink");
+  var emailBtn = document.getElementById("authBtnEmail");
+  if (screen) screen.classList.remove("is-ai-signup");
+  if (title) { title.hidden = true; title.classList.remove("is-visible"); }
+  if (link) link.innerHTML = 'Don\'t have an account? <a onclick="openSignup(true)">Sign up</a>';
+  if (emailBtn) emailBtn.setAttribute("onclick", "openLogin(true)");
+}
+function openAiSignup(opts) {
+  opts = opts || {};
+  rememberAiSignupHandoff();
+  applyAiSignupWelcomeCopy();
+  var tb = document.getElementById("tabbar");
+  if (tb) tb.style.display = "none";
+  var modal = document.getElementById("authModal");
+  if (modal && opts.fromRestore !== true) modal.style.display = "none";
+  showScreen("screen-welcome");
+  var signupPath = signupHistoryPath();
+  try {
+    if (opts.fromRestore === true || isSignupPath()) {
+      history.replaceState({ athlevoNav: "signup" }, "", signupPath);
+    } else {
+      history.pushState({ athlevoNav: "signup" }, "", signupPath);
+    }
+  } catch (e) {}
+  try {
+    if (window.AthlevoProductAnalytics &&
+        typeof AthlevoProductAnalytics.trackAthlevoEvent === "function") {
+      var diagnosticCompleted = false;
+      try {
+        var pending = window.AthlevoDiagnostic &&
+          typeof AthlevoDiagnostic.load === "function"
+          ? AthlevoDiagnostic.load()
+          : null;
+        diagnosticCompleted = !!(pending && pending.completed);
+      } catch (e2) { diagnosticCompleted = false; }
+      AthlevoProductAnalytics.trackAthlevoEvent("ai_signup_viewed", {
+        from: "ai_diagnostic",
+        diagnostic_completed: diagnosticCompleted,
+        path: signupPath,
+        page_path: signupPath
+      });
+    }
+  } catch (e) {}
+}
+window.isAiSignupPath = isAiSignupPath;
+window.isSignupPath = isSignupPath;
+window.isAiEntryPath = isAiEntryPath;
+window.isPricingPath = isPricingPath;
+window.rememberAiSignupHandoff = rememberAiSignupHandoff;
+window.hasAiSignupHandoff = hasAiSignupHandoff;
+window.clearAiSignupHandoff = clearAiSignupHandoff;
+window.openAiSignup = openAiSignup;
+
+function hasWhopCheckoutReturn() {
+  try {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function") {
+      return window.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
+    }
+    return new URL(window.location.href).searchParams.get("checkout_return") === "1";
+  } catch (e) { return false; }
+}
+function showCheckoutReturnWelcome() {
+  rememberAppEntryIntent("ai");
+  openAppEntry();
+  var note = document.getElementById("wCheckoutContinue");
+  if (note) {
+    note.hidden = false;
+    note.classList.add("is-visible");
+  }
+}
+window.showCheckoutReturnWelcome = showCheckoutReturnWelcome;
 
 /*
  * Public-site mode and app-entry mode are separate navigation intents.
@@ -6261,7 +6909,7 @@ window.openAppEntry = openAppEntry;
  * without permanently changing a future fresh visit to athlevo.org.
  */
 function rememberAppEntryIntent(reason) {
-  try { sessionStorage.setItem('athlevo_app_entry_intent', reason === 'logout' ? 'logout' : 'entry'); } catch (e) {}
+  try { var v = reason === 'logout' ? 'logout' : (reason === 'ai' ? 'ai' : 'entry'); sessionStorage.setItem('athlevo_app_entry_intent', v); } catch (e) {}
 }
 function hasAppEntryIntent() {
   try { return Boolean(sessionStorage.getItem('athlevo_app_entry_intent')); }
@@ -6274,6 +6922,42 @@ function appEntryIntentReason() {
 function clearAppEntryIntent() {
   try { sessionStorage.removeItem('athlevo_app_entry_intent'); } catch (e) {}
 }
+
+function hasStoredAthlevoAuthToken() {
+  try {
+    for (var si = 0; si < localStorage.length; si++) {
+      var sk = localStorage.key(si);
+      if (sk && sk.indexOf('sb-') === 0 && sk.indexOf('auth-token') >= 0) {
+        var sv = localStorage.getItem(sk);
+        if (sv && sv.indexOf('access_token') >= 0) return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+function hasReturningAthlevoAccountMarker() {
+  if (typeof hasStoredAthlevoAuthToken === "function" && hasStoredAthlevoAuthToken()) return true;
+  try {
+    var acq = window.AthlevoDiagnosticAcquisition &&
+      typeof window.AthlevoDiagnosticAcquisition.current === "function" &&
+      window.AthlevoDiagnosticAcquisition.current();
+    if (acq && acq.userId) return true;
+  } catch (e) {}
+  return false;
+}
+
+function showReturningUserWelcome() {
+  rememberAppEntryIntent("entry");
+  openAppEntry();
+  var note = document.getElementById("wWelcomeBack");
+  if (note) {
+    note.hidden = false;
+    note.classList.add("is-visible");
+  }
+}
+window.hasReturningAthlevoAccountMarker = hasReturningAthlevoAccountMarker;
+window.showReturningUserWelcome = showReturningUserWelcome;
 
 // Landing CTAs. Logged in → straight into the app (never asked to create a
 // second account). Logged out → the app entry screen.
@@ -6296,21 +6980,26 @@ function landingOpenApp()    {
   }
 }
 function landingStartFree(trigger)  {
-  if (athlevoSessionUserId) { openAthlevoApp(); return; }
   var locationName = trigger && trigger.dataset
     ? trigger.dataset.ctaLocation
     : "landing";
-  rememberLandingAuthEntry(locationName);
-  trackAuthChoice("signup_cta_clicked", {
-    cta_text: trigger && trigger.textContent
-      ? trigger.textContent.trim()
-      : "Build My Training Plan",
-    cta_location: locationName,
-    destination: "screen-welcome"
-  });
-  if (interceptInAppAuthHandoff("signup", "landing")) return;
-  rememberAppEntryIntent();
-  openAppEntry();
+  if (!athlevoSessionUserId) {
+    rememberLandingAuthEntry(locationName);
+    trackAuthChoice("signup_cta_clicked", {
+      cta_text: trigger && trigger.textContent
+        ? trigger.textContent.trim()
+        : "Start Training",
+      cta_location: locationName,
+      destination: "/ai"
+    });
+    if (interceptInAppAuthHandoff("signup", "landing")) return false;
+  }
+  var href = trigger && typeof trigger.getAttribute === "function"
+    ? trigger.getAttribute("href")
+    : "";
+  if (href === "/ai") return true;
+  try { window.location.assign("/ai"); } catch (e) {}
+  return true;
 }
 function landingStartBeta(trigger)  { landingStartFree(trigger); }
 function landingSignIn()     {
@@ -6341,9 +7030,53 @@ function renderNavState(state) {
   if (nav === 'landing' && (athlevoSessionUserId || isStandaloneMode() || appEntryIntentReason() === 'logout')) {
     nav = 'entry';
   }
+  try {
+    var path = String(window.location.pathname || "").replace(/\/+$/, "");
+    if (path === "/pricing") {
+      if (athlevoSessionUserId) {
+        if (window.AthlevoDiagnosticAcquisition &&
+            typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
+          window.AthlevoDiagnosticAcquisition.showPaywall(
+            window.AthlevoDiagnosticAcquisition.current() || { userId: athlevoSessionUserId },
+            false
+          );
+        }
+      } else if (window.AthlevoDiagnosticAcquisition &&
+          typeof window.AthlevoDiagnosticAcquisition.showPublicPricing === "function") {
+        window.AthlevoDiagnosticAcquisition.showPublicPricing();
+      } else {
+        showScreen("screen-diagnostic-paywall");
+      }
+      return;
+    }
+    if ((path === "/signup" || path === "/ai-signup") && !athlevoSessionUserId) {
+      if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
+      return;
+    }
+    if (path === "/ai" && !athlevoSessionUserId && window.AthlevoDiagnosticUI &&
+        typeof window.AthlevoDiagnosticUI.start === "function") {
+      window.AthlevoDiagnosticUI.start();
+      return;
+    }
+  } catch (pathErr) {}
   var modal = document.getElementById('authModal');
   var modalOpen = modal && modal.style.display === 'flex';
   var tb = document.getElementById('tabbar');
+  var paywallScreen = document.getElementById("screen-diagnostic-paywall");
+  if (paywallScreen && paywallScreen.classList.contains("active")) {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.backFromPaywall === "function") {
+      window.AthlevoDiagnosticAcquisition.backFromPaywall({ fromHistory: true });
+    }
+    /* Fall through so the popped path can paint. Do not replaceState. */
+  }
+  // Backing out of the diagnostic → return to landing.
+  var diagScreen = document.getElementById('screen-diagnostic');
+  if (diagScreen && diagScreen.classList.contains('active')) {
+    showScreen('screen-landing');
+    if (typeof updateOpenAppUI === 'function') updateOpenAppUI(!!athlevoSessionUserId);
+    return;
+  }
   // Backing out of an open auth form → return to the app entry screen.
   if (modalOpen) {
     modal.style.display = 'none';
@@ -6356,6 +7089,11 @@ function renderNavState(state) {
     athlevoAuthPushed = false;
     if (tb) tb.style.display = 'none';
     showScreen('screen-welcome');
+  } else if (nav === 'signup' || nav === 'ai-signup') {
+    athlevoAuthPushed = false;
+    if (tb) tb.style.display = 'none';
+    if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
+    else showScreen('screen-welcome');
   } else if (nav === 'landing') {
     clearAppEntryIntent();
     athlevoAuthPushed = false;
@@ -6367,6 +7105,18 @@ function renderNavState(state) {
 window.addEventListener('popstate', function (e) { renderNavState(e.state); });
 window.addEventListener('athlevo:native-back', function (event) {
   if (event.defaultPrevented) return;
+  var paywall = document.getElementById("screen-diagnostic-paywall");
+  if (paywall && paywall.classList.contains("active")) {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.backFromPaywall === "function") {
+      window.AthlevoDiagnosticAcquisition.backFromPaywall();
+    } else if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.exitPaywall === "function") {
+      window.AthlevoDiagnosticAcquisition.exitPaywall();
+    }
+    event.preventDefault();
+    return;
+  }
   var modal = document.getElementById('authModal');
   if (!modal || modal.style.display !== 'flex') return;
   renderNavState({ athlevoNav: 'entry' });
@@ -6593,7 +7343,17 @@ async function doSignup(bypassEmbeddedWarning) {
       msg.textContent = 'Account created!';
       try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
       closeAuth();
-      startOnboarding();
+      try {
+        if (window.AthlevoDiagnosticAcquisition &&
+            typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+          window.AthlevoDiagnosticAcquisition.clearPaywallExit();
+        }
+      } catch (e) {}
+      try {
+        if (window.__athlevoRoutingFor === user.id) return;
+        window.__athlevoRoutingFor = user.id;
+      } catch (e) {}
+      await routeAfterAuth(user.id);
       return;
     }
 
@@ -6614,7 +7374,17 @@ async function doSignup(bypassEmbeddedWarning) {
         msg.textContent = 'Account created!';
         try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
         closeAuth();
-        startOnboarding();
+        try {
+          if (window.AthlevoDiagnosticAcquisition &&
+              typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+            window.AthlevoDiagnosticAcquisition.clearPaywallExit();
+          }
+        } catch (e) {}
+        try {
+          if (window.__athlevoRoutingFor === user.id) return;
+          window.__athlevoRoutingFor = user.id;
+        } catch (e) {}
+        await routeAfterAuth(user.id);
         return;
       }
     }
@@ -6736,6 +7506,16 @@ async function doLogin(bypassEmbeddedWarning) {
   try {
     // Single authoritative post-auth routing flow (Today/Train/Trends/…).
     const user = authenticatedUser;
+    try {
+      if (window.AthlevoDiagnosticAcquisition &&
+          typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+        window.AthlevoDiagnosticAcquisition.clearPaywallExit();
+      }
+    } catch (e) {}
+    try {
+      if (window.__athlevoRoutingFor === user.id) return;
+      window.__athlevoRoutingFor = user.id;
+    } catch (e) {}
     await routeAfterAuth(user.id);
   } catch (e) {
     console.error('Post-login initialization failed:', e);
@@ -6762,6 +7542,8 @@ async function doLogout() {
   }
 
   athlevoSessionUserId = null;
+  try { window.athlevoSessionUserId = null; } catch (e) {}
+  try { window.__athlevoRoutingFor = null; } catch (e) {}
 
   // Clear profile photo state so the next user starts fresh
   window._athlevoProfilePhotoUrl = null;
@@ -7095,6 +7877,7 @@ async function confirmDeleteAccount() {
       AthlevoBrain.invalidateActivityCache();
     }
     athlevoSessionUserId = null;
+    try { window.__athlevoRoutingFor = null; } catch (e) {}
     try {
       sessionStorage.clear();
       localStorage.clear();
@@ -7652,9 +8435,10 @@ function showScreen(id){
    * authenticated path can finish loading data before Today becomes visible.
    * endBootGate() owns the reveal.
    */
-  // Landing is the only full-width marketing screen; everything else runs
-  // inside the phone-framed app shell.
+  // Landing and pricing are full-width public surfaces; the rest of the
+  // product stays inside the phone-framed app shell.
   document.body.classList.toggle('landing-active', id==='screen-landing');
+  document.body.classList.toggle('paywall-active', id==='screen-diagnostic-paywall');
   if(id==='screen-landing' && window.AthlevoProductAnalytics) try {
     trackScreenWhenVisible(
       'screen-landing',
@@ -8811,78 +9595,6 @@ async function renderTodayPassiveStatus(profile){
   }
 }
 
-/* ─────────────────────── COMPACT LATEST WORKOUT ANALYSIS ─────────────
-   The workoutAnalysis renderer replaces innerHTML on every refresh.
-   After each refresh we (a) pull the first sentence of "Coach insight"
-   into a compact takeaway line, and (b) wrap the long sections in a
-   <details class="lwa-full"> so they only appear on request. Pure
-   presentation — the source content is unchanged. */
-function compressLatestWorkoutAnalysis(){
-  var root = document.querySelector("#latestWorkoutAnalysis .lwa");
-  if (!root || root.dataset.lwaCompressed === "true") return;
-
-  var sections = Array.prototype.slice.call(root.querySelectorAll(".lwa-section"));
-  if (!sections.length) return;
-
-  var insightSection = null;
-  sections.forEach(function(sec){
-    var lbl = sec.querySelector(".lwa-section-label");
-    if (lbl && /coach insight/i.test((lbl.textContent || "").trim())){
-      insightSection = sec;
-    }
-  });
-
-  var takeaway = "";
-  if (insightSection){
-    var p = insightSection.querySelector("p");
-    takeaway = firstSentence(p && p.textContent);
-  }
-
-  if (takeaway){
-    var takeawayEl = document.createElement("div");
-    takeawayEl.className = "lwa-takeaway";
-    takeawayEl.innerHTML =
-      '<span class="lwa-takeaway-label">Coach takeaway</span>' +
-      '<span class="lwa-takeaway-text"></span>';
-    takeawayEl.querySelector(".lwa-takeaway-text").textContent = takeaway;
-    var metrics = root.querySelector(".lwa-metrics");
-    if (metrics && metrics.parentNode === root){
-      metrics.parentNode.insertBefore(takeawayEl, metrics.nextSibling);
-    } else {
-      root.insertBefore(takeawayEl, sections[0]);
-    }
-  }
-
-  var details = document.createElement("details");
-  details.className = "lwa-full";
-  var summary = document.createElement("summary");
-  summary.textContent = "View full analysis";
-  details.appendChild(summary);
-  var first = sections[0];
-  first.parentNode.insertBefore(details, first);
-  sections.forEach(function(sec){ details.appendChild(sec); });
-
-  root.dataset.lwaCompressed = "true";
-}
-
-/* Observe the latest-workout mount for renderer refreshes so the
-   compression re-applies whenever the card re-renders. */
-(function initLatestWorkoutObserver(){
-  function attach(){
-    var mount = document.getElementById("latestWorkoutAnalysis");
-    if (!mount || mount.dataset.lwaWatched === "true") return;
-    mount.dataset.lwaWatched = "true";
-    try {
-      new MutationObserver(function(){ compressLatestWorkoutAnalysis(); })
-        .observe(mount, { childList: true, subtree: false });
-    } catch (e) {}
-    compressLatestWorkoutAnalysis();
-  }
-  if (document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", attach);
-  } else { attach(); }
-})();
-
 /* Kick both Today helpers on initial load and whenever brain.js signals
    a Today refresh (see js/brain.js refreshAthleteUI which calls these
    two names at the end, when they exist). */
@@ -9070,7 +9782,14 @@ async function routeAfterAuth(userId) {
   }
   // Keep the "Open App" affordance in sync after interactive login/signup.
   athlevoSessionUserId = userId;
+  try { window.athlevoSessionUserId = athlevoSessionUserId; } catch (e) {}
+  var fromAiSignup = false;
+  try {
+    fromAiSignup = (typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff()) ||
+      (typeof isAiSignupPath === "function" && isAiSignupPath());
+  } catch (e) { fromAiSignup = false; }
   clearAppEntryIntent();
+  if (typeof clearAiSignupHandoff === "function") clearAiSignupHandoff();
   const { data: profile, error } = await supabaseClient
     .from("profiles")
     .select("onboarding_complete, goal, device, role")
@@ -9081,6 +9800,14 @@ async function routeAfterAuth(userId) {
 
   if (error) {
     console.error("Profile lookup failed:", error.message);
+    if (fromAiSignup && window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
+      window.AthlevoDiagnosticAcquisition.showPaywall(
+        window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+        false
+      );
+      return;
+    }
     startOnboarding();
     return;
   }
@@ -9097,6 +9824,35 @@ async function routeAfterAuth(userId) {
   }
   if (!routeIsCurrent()) return;
 
+  // Bind any unmatched Whop purchase to this authenticated email before
+  // diagnostic attach or paywall routing, so a real buyer is not sent to
+  // the paywall while the claim is still in flight.
+  if (window.AthlevoDiagnosticAcquisition &&
+      typeof window.AthlevoDiagnosticAcquisition.reconcileWhopPurchase === "function") {
+    try {
+      await window.AthlevoDiagnosticAcquisition.reconcileWhopPurchase(supabaseClient);
+    } catch (claimErr) {
+      console.warn("Whop entitlement claim failed (non-fatal):", claimErr);
+    }
+    if (!routeIsCurrent()) return;
+  }
+
+  // ── Diagnostic handoff: attach pre-signup diagnostic data to profile ──
+  // Runs before onboarding routing so profile fields are populated when
+  // onboarding starts (allowing it to skip already-answered questions).
+  var diagResult = null;
+  if (window.AthlevoDiagnosticHandoff && window.AthlevoDiagnosticHandoff.attach) {
+    try {
+      diagResult = await window.AthlevoDiagnosticHandoff.attach(userId, supabaseClient);
+      if (diagResult && diagResult.attached) {
+        console.log("Diagnostic data attached to profile");
+      }
+    } catch (diagErr) {
+      console.warn("Diagnostic handoff failed (non-fatal):", diagErr);
+    }
+    if (!routeIsCurrent()) return;
+  }
+
   // Coach/admin bypass: existing coaches and admins whose role was granted
   // server-side skip athlete onboarding entirely. Their onboarding_complete
   // flag is set by js/onboarding.js on first visit so this path only fires
@@ -9105,6 +9861,61 @@ async function routeAfterAuth(userId) {
       !profile.onboarding_complete) {
     startOnboarding(); // onboarding.js detects the role and auto-completes
     return;
+  }
+
+  // A completed diagnostic is a paid-first acquisition path. Resolve it with
+  // a raw subscription read that does not call ensure_free_trial: verified
+  // paid access continues, otherwise the saved diagnostic paywall owns the
+  // route. Unpaid athletes without an active diagnostic continue below and
+  // are stopped before the app shell.
+  if (window.AthlevoDiagnosticAcquisition &&
+      !(profile && (profile.role === "coach" || profile.role === "admin"))) {
+    try {
+      var acquisitionRoute = await window.AthlevoDiagnosticAcquisition.resolveAfterAuth(
+        userId, supabaseClient, diagResult, profile, { fromAiSignup: fromAiSignup }
+      );
+      if (!routeIsCurrent()) return;
+      if (acquisitionRoute && acquisitionRoute.route === "onboarding") {
+        startOnboarding();
+        return;
+      }
+      if (acquisitionRoute && acquisitionRoute.handled) return;
+    } catch (acquisitionError) {
+      console.warn("Diagnostic acquisition routing unavailable.");
+      if (window.AthlevoDiagnosticAcquisition &&
+          typeof window.AthlevoDiagnosticAcquisition.verifiedPaidAccess === "function") {
+        try {
+          var paidDuringError = await window.AthlevoDiagnosticAcquisition.verifiedPaidAccess(
+            supabaseClient, userId
+          );
+          if (paidDuringError && paidDuringError.paid) {
+            if (!routeIsCurrent()) return;
+            /* fall through to onboarding/app routing */
+          } else if (window.AthlevoDiagnosticAcquisition.current() || fromAiSignup) {
+            window.AthlevoDiagnosticAcquisition.showPaywall(
+              window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+              false
+            );
+            return;
+          }
+        } catch (paidErr) {
+          if (window.AthlevoDiagnosticAcquisition.current() || fromAiSignup) {
+            window.AthlevoDiagnosticAcquisition.showPaywall(
+              window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+              false
+            );
+            return;
+          }
+        }
+      } else if (window.AthlevoDiagnosticAcquisition &&
+          (window.AthlevoDiagnosticAcquisition.current() || fromAiSignup)) {
+        window.AthlevoDiagnosticAcquisition.showPaywall(
+          window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+          false
+        );
+        return;
+      }
+    }
   }
 
   // Use the authoritative onboarding_complete flag (the same signal
@@ -9121,6 +9932,34 @@ async function routeAfterAuth(userId) {
   if (!completed) {
     startOnboarding();
     return;
+  }
+
+  // Authentication is not entitlement. Unpaid athletes never enter Today,
+  // tabs, or locked-Pro UI — the offer/payment page is the destination.
+  if (!(profile && (profile.role === "coach" || profile.role === "admin"))) {
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.gateUnpaidAthlete === "function") {
+      try {
+        var unpaidGate = await window.AthlevoDiagnosticAcquisition.gateUnpaidAthlete(
+          userId, supabaseClient, profile
+        );
+        if (!routeIsCurrent()) return;
+        if (unpaidGate && unpaidGate.allowed === false) return;
+      } catch (unpaidGateErr) {
+        if (!routeIsCurrent()) return;
+        document.getElementById("tabbar").style.display = "none";
+        if (typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
+          window.AthlevoDiagnosticAcquisition.showPaywall(
+            window.AthlevoDiagnosticAcquisition.current() || { userId: userId },
+            false
+          );
+        }
+        return;
+      }
+    } else {
+      document.getElementById("tabbar").style.display = "none";
+      return;
+    }
   }
 
   /*
@@ -9170,6 +10009,9 @@ async function routeAfterAuth(userId) {
 
   document.getElementById("tabbar").style.display = "flex";
   showScreen("screen-today");
+  if (window.AthlevoDiagnosticAcquisition) {
+    window.AthlevoDiagnosticAcquisition.markAppEntered();
+  }
 
   // Resolve athlete coaching authority before loading any AI-authored
   // coaching surface. init() synchronously masks the hidden Coach AI DOM,
@@ -9328,19 +10170,85 @@ async function restoreSession(opts) {
    * athlete staring at the boot screen forever. On timeout we fall through
    * to the unauthenticated surface, which is recoverable (they can sign in)
    * rather than a hang, which is not.
+   *
+   * Google OAuth is a special case: detectSessionInUrl may still be exchanging
+   * the return params when this runs. A missing session here is not proof of
+   * logout. We wait a bounded extra window and do not paint signup/paywall/app
+   * until that wait finishes.
    */
+  var authOAuthReturn = null;
+  try { authOAuthReturn = window.__athlevoAuthOAuthReturn || null; } catch (e) {}
+  if (!authOAuthReturn) {
+    try {
+      var savedAuthOAuth = JSON.parse(sessionStorage.getItem("athlevo_auth_oauth_return") || "null");
+      if (savedAuthOAuth && savedAuthOAuth.at && (Date.now() - savedAuthOAuth.at) < 120000) {
+        authOAuthReturn = savedAuthOAuth;
+      }
+    } catch (e2) {}
+  }
+  if (!authOAuthReturn) {
+    try {
+      if (window.AthlevoSocialAuth && AthlevoSocialAuth.isOAuthReturn && AthlevoSocialAuth.isOAuthReturn()) {
+        authOAuthReturn = { live: true, cancelled: false, hasError: false };
+      }
+    } catch (e3) {}
+  }
+  var oauthCancelled = !!(authOAuthReturn && authOAuthReturn.cancelled);
+  var oauthFailed = !!(authOAuthReturn && authOAuthReturn.hasError);
+  var oauthPending = !!(authOAuthReturn && !oauthCancelled && !oauthFailed);
+  var nativeAuthReturn = !!opts.nativeCallback;
+  var freshAuthReturn = oauthPending || nativeAuthReturn;
+  if (oauthPending) {
+    try { window.__athlevoAuthRestoring = true; } catch (e4) {}
+  }
+
   let session = null;
-  try {
-    const result = await Promise.race([
-      supabaseClient.auth.getSession(),
-      new Promise(resolve =>
-        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 8000))
-    ]);
-    if (result.timedOut) console.warn("Session restore timed out — showing signed-out state.");
-    if (result.error) console.error("Session restore failed:", result.error);
-    session = result.data ? result.data.session : null;
-  } catch (error) {
-    console.error("Session restore threw:", error);
+  let sessionRestoreTimedOut = false;
+
+  async function readSessionOnce(timeoutMs) {
+    try {
+      const result = await Promise.race([
+        supabaseClient.auth.getSession(),
+        new Promise(resolve =>
+          setTimeout(() => resolve({ data: { session: null }, timedOut: true }), timeoutMs))
+      ]);
+      return result || { data: { session: null } };
+    } catch (error) {
+      console.error("Session restore threw:", error);
+      return { data: { session: null }, error: error };
+    }
+  }
+
+  if (oauthPending) {
+    var oauthWaitMs = 4000;
+    try {
+      if (typeof window.__athlevoOAuthWaitMs === "number") oauthWaitMs = window.__athlevoOAuthWaitMs;
+    } catch (e5) {}
+    console.info("OAuth return — waiting for session.");
+    var oauthDeadline = Date.now() + Math.max(0, oauthWaitMs);
+    var oauthSlice = Math.min(800, Math.max(50, oauthWaitMs));
+    while (Date.now() <= oauthDeadline) {
+      var remaining = oauthDeadline - Date.now();
+      var result = await readSessionOnce(Math.min(oauthSlice, Math.max(remaining, 1)));
+      if (result.error) console.error("Session restore failed:", result.error);
+      session = result.data ? result.data.session : null;
+      if (session && session.user) break;
+      session = null;
+      if (Date.now() >= oauthDeadline) break;
+      await new Promise(function (resolve) { setTimeout(resolve, 80); });
+    }
+    if (!session) console.warn("OAuth return — no session after wait.");
+    else console.info("OAuth return — session ready.");
+  } else {
+    try {
+      const result = await readSessionOnce(8000);
+      sessionRestoreTimedOut = !!(result && result.timedOut);
+      if (sessionRestoreTimedOut) console.warn("Session restore timed out — showing signed-out state.");
+      if (result.error) console.error("Session restore failed:", result.error);
+      session = result.data ? result.data.session : null;
+    } catch (error) {
+      console.error("Session restore threw:", error);
+    }
   }
 
   /*
@@ -9362,20 +10270,39 @@ async function restoreSession(opts) {
         // Fix A: getUser() timed out — the session token is still valid,
         // so preserve it and route into the app instead of signing out.
         console.warn("getUser() timed out — proceeding with existing session.");
+      } else if (userError && window.AthlevoSession &&
+          AthlevoSession.isTemporalJwtError(userError)) {
+        const recovered = await AthlevoSession.getVerifiedSession(supabaseClient);
+        if (recovered.session && recovered.user) {
+          session = recovered.session;
+          console.info("Recovered a stale session with a verified refreshed token.");
+        } else {
+          console.warn("Temporal session recovery failed — signing out.");
+          session = null;
+          try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
+        }
       } else if (userError || !(userData && userData.user)) {
-        console.warn("Session user no longer exists — signing out.", userError && userError.message);
-        session = null;
-        try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
-        try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
-        try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
-        try {
-          sessionStorage.removeItem("athlevo_oauth_return");
-          sessionStorage.removeItem("athlevo_oauth_trail");
-          sessionStorage.removeItem("athlevo_guided_setup");
-          sessionStorage.removeItem("athlevo_guided_wearable");
-        } catch (e) { /* private mode */ }
-        try { delete window.__athlevoOAuthReturn; } catch (e) {}
-        window.__athlevoStaleSessionCleared = true;
+        var userStatus = Number(userError && userError.status);
+        var userCode = String(userError && userError.code || "").toLowerCase();
+        var definitiveGone = userStatus === 401 || userStatus === 403 ||
+          userCode === "session_not_found" || userCode === "bad_jwt";
+        if (freshAuthReturn && !definitiveGone) {
+          console.warn("getUser() failed after OAuth return — keeping session.");
+        } else {
+          console.warn("Session user no longer exists — signing out.", userError && userError.message);
+          session = null;
+          try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
+          try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
+          try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
+          try {
+            sessionStorage.removeItem("athlevo_oauth_return");
+            sessionStorage.removeItem("athlevo_oauth_trail");
+            sessionStorage.removeItem("athlevo_guided_setup");
+            sessionStorage.removeItem("athlevo_guided_wearable");
+          } catch (e) { /* private mode */ }
+          try { delete window.__athlevoOAuthReturn; } catch (e) {}
+          window.__athlevoStaleSessionCleared = true;
+        }
       }
     } catch (e) {
       // Network failure during validation: let the session through rather
@@ -9386,6 +10313,35 @@ async function restoreSession(opts) {
   }
 
   athlevoSessionUserId = session ? session.user.id : null;
+  try { window.athlevoSessionUserId = athlevoSessionUserId; } catch (e) {}
+
+  // ── Password recovery intercept ──
+  // When the user arrives via a recovery link, Supabase creates a valid
+  // session. We must NOT route into the app — the PASSWORD_RECOVERY
+  // listener will show the reset form instead. Show the auth modal with
+  // a brief loading state so the user sees a calm transition.
+  if (session && window.__athlevoRecoveryIntent && !window.__athlevoRecoveryHandled) {
+    console.log("Recovery session detected — waiting for PASSWORD_RECOVERY event.");
+    document.getElementById('authModal').style.display = 'flex';
+    document.getElementById('signupForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'none';
+    document.getElementById('resetForm').style.display = 'none';
+    // The PASSWORD_RECOVERY listener (already registered) will call
+    // showResetForm() once Supabase finishes processing the token.
+    // Safety: if it still hasn't fired after 12 s, show the expired state.
+    setTimeout(function() {
+      if (window.__athlevoRecoveryHandled) return;
+      window.__athlevoRecoveryHandled = true;
+      document.getElementById('forgotForm').style.display = 'block';
+      var fpMsg = document.getElementById('fpMsg');
+      if (fpMsg) {
+        fpMsg.style.color = 'var(--red)';
+        fpMsg.textContent = 'This reset link has expired or is invalid. Please request a new one.';
+      }
+    }, 12000);
+    return false;
+  }
 
   // Authenticated → into the app, in BOTH browser and installed PWA.
   // routeAfterAuth is onboarding-aware, so a first-time athlete still gets
@@ -9409,6 +10365,60 @@ async function restoreSession(opts) {
         }
       }
     } catch(e){}
+    if (freshAuthReturn &&
+        window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+      try {
+        window.AthlevoDiagnosticAcquisition.clearPaywallExit();
+        console.info("OAuth return — paywall exit flag cleared.");
+      } catch (e) {}
+    }
+    try {
+      if (window.__athlevoRoutingFor === session.user.id) {
+        return true;
+      }
+      window.__athlevoRoutingFor = session.user.id;
+    } catch (e) {}
+    if (!freshAuthReturn &&
+        window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.hasPaywallExit === "function" &&
+        window.AthlevoDiagnosticAcquisition.hasPaywallExit()) {
+      var paidAfterExit = { paid: false };
+      if (typeof window.AthlevoDiagnosticAcquisition.verifiedPaidAccess === "function") {
+        try {
+          paidAfterExit = await window.AthlevoDiagnosticAcquisition.verifiedPaidAccess(
+            supabaseClient, session.user.id
+          );
+        } catch (paidExitErr) {
+          paidAfterExit = { paid: false };
+        }
+      }
+      if (paidAfterExit && paidAfterExit.paid) {
+        await routeAfterAuth(session.user.id);
+        return true;
+      }
+      var pricingAfterExit = false;
+      var aiOrSignupAfterExit = false;
+      try {
+        pricingAfterExit = typeof isPricingPath === "function" && isPricingPath();
+        aiOrSignupAfterExit =
+          (typeof isAiEntryPath === "function" && isAiEntryPath()) ||
+          (typeof isSignupPath === "function" && isSignupPath());
+      } catch (pricingExitErr) { pricingAfterExit = false; aiOrSignupAfterExit = false; }
+      if ((pricingAfterExit || aiOrSignupAfterExit) &&
+          typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
+        document.getElementById("tabbar").style.display = "none";
+        window.AthlevoDiagnosticAcquisition.showPaywall(
+          window.AthlevoDiagnosticAcquisition.current() || { userId: session.user.id },
+          false
+        );
+        return false;
+      }
+      document.getElementById("tabbar").style.display = "none";
+      if (typeof openAppEntry === "function") openAppEntry();
+      else showScreen("screen-welcome");
+      return false;
+    }
     await routeAfterAuth(session.user.id);
     return true;
   }
@@ -9416,13 +10426,97 @@ async function restoreSession(opts) {
   // No session. The installed app must never show marketing — an athlete
   // who opened their training app wants to sign in, not read a pitch.
   document.getElementById('tabbar').style.display = 'none';
+  // Logged-out Whop return: auth, not another checkout. Query param is not
+  // proof of payment — entitlement is claimed server-side after signup.
+  var checkoutReturn = false;
+  try {
+    if (typeof hasWhopCheckoutReturn === "function") {
+      checkoutReturn = !!hasWhopCheckoutReturn();
+    } else if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function") {
+      checkoutReturn = !!window.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
+    } else if (window.location && window.location.href) {
+      checkoutReturn = new URL(window.location.href).searchParams.get("checkout_return") === "1";
+    }
+  } catch (e) { checkoutReturn = false; }
+  if (checkoutReturn) {
+    if (typeof showCheckoutReturnWelcome === "function") {
+      showCheckoutReturnWelcome();
+    } else {
+      if (typeof rememberAppEntryIntent === "function") rememberAppEntryIntent("ai");
+      showScreen("screen-welcome");
+    }
+    return false;
+  }
+  var pricingPath = false;
+  try { pricingPath = typeof isPricingPath === "function" && isPricingPath(); }
+  catch (pricingPathErr) { pricingPath = false; }
+  if (pricingPath) {
+    document.getElementById("tabbar").style.display = "none";
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.showPublicPricing === "function") {
+      window.AthlevoDiagnosticAcquisition.showPublicPricing();
+    } else {
+      showScreen("screen-diagnostic-paywall");
+    }
+    return false;
+  }
+  var aiSignupHandoff = false;
+  var externalContinuation = null;
+  try {
+    var peekedContinuation = window.AthlevoEnv &&
+      typeof window.AthlevoEnv.readContinuation === "function"
+        ? window.AthlevoEnv.readContinuation()
+        : null;
+    if (peekedContinuation && peekedContinuation.sourceSurface === "ai_signup" &&
+        typeof rememberAiSignupHandoff === "function") {
+      rememberAiSignupHandoff();
+    }
+  } catch (e) {}
+  try {
+    aiSignupHandoff = (typeof isSignupPath === "function" && isSignupPath()) ||
+      ((typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff()) &&
+        !(typeof isAiEntryPath === "function" && isAiEntryPath()));
+  } catch (e) { aiSignupHandoff = false; }
+  if (aiSignupHandoff) {
+    try {
+      if (window.AthlevoEnv && typeof window.AthlevoEnv.consumeContinuation === "function") {
+        externalContinuation = window.AthlevoEnv.consumeContinuation();
+      }
+    } catch (e2) {}
+    if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
+    else showScreen("screen-welcome");
+    if (externalContinuation && externalContinuation.intent === "login") {
+      setTimeout(function () {
+        if (typeof openLogin === "function") {
+          openLogin(false, "external_handoff");
+        }
+      }, 0);
+    }
+    return false;
+  }
+  if (authOAuthReturn) {
+    /* Cancelled, failed, or hydration miss after Google. Stay on auth with
+       usable controls — never diagnostic, landing, or a fake login. */
+    if (typeof openAppEntry === "function") openAppEntry();
+    else showScreen("screen-welcome");
+    return false;
+  }
   if (window.__athlevoStaleSessionCleared) {
     // A deleted user was just signed out — always show the sign-in screen
     // with an explanation, never the marketing landing.
     showScreen("screen-welcome");
     if (typeof toast === "function") toast("Your session expired. Please sign in again.");
+  } else if (typeof hasReturningAthlevoAccountMarker === "function"
+      ? hasReturningAthlevoAccountMarker()
+      : false) {
+    /* A leftover Athlevo auth token or bound acquisition userId means this
+       browser already had an account. Never restart /ai acquisition. */
+    if (typeof showReturningUserWelcome === "function") showReturningUserWelcome();
+    else showScreen("screen-welcome");
+    return false;
   } else {
-    var externalContinuation =
+    externalContinuation =
       window.AthlevoEnv &&
       typeof window.AthlevoEnv.consumeContinuation === "function"
         ? window.AthlevoEnv.consumeContinuation()
@@ -9436,9 +10530,57 @@ async function restoreSession(opts) {
           }
         }, 0);
       }
-    } else if (appEntryIntentReason() === 'ai' &&
-               window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start) {
-      // /ai route: logged-out visitors see the diagnostic intro, not auth.
+    } else if (sessionRestoreTimedOut) {
+      /* Timeout is not proof of logout. A paid token may still be in
+         storage. Do not start the /ai diagnostic (would flash acquisition)
+         and do not grant app access. Welcome is recoverable. */
+      var storedAuth = false;
+      try {
+        for (var si = 0; si < localStorage.length; si++) {
+          var sk = localStorage.key(si);
+          if (sk && sk.indexOf('sb-') === 0 && sk.indexOf('auth-token') >= 0) {
+            var sv = localStorage.getItem(sk);
+            if (sv && sv.indexOf('access_token') >= 0) {
+              storedAuth = true;
+              break;
+            }
+          }
+        }
+      } catch (storedErr) {}
+      var signupAcquisition = false;
+      var aiDiagnosticEntry = false;
+      try {
+        signupAcquisition = typeof isSignupPath === "function" && isSignupPath();
+        aiDiagnosticEntry = typeof isAiEntryPath === "function" && isAiEntryPath();
+      } catch (aiPathErr) { signupAcquisition = false; aiDiagnosticEntry = false; }
+      if (storedAuth) {
+        console.warn("Session restore timed out with a stored token — not starting diagnostic.");
+        showScreen("screen-welcome");
+      } else if (signupAcquisition && typeof openAiSignup === "function") {
+        openAiSignup({ fromRestore: true });
+      } else if (aiDiagnosticEntry && window.AthlevoDiagnosticUI &&
+                 window.AthlevoDiagnosticUI.start && !athlevoSessionUserId) {
+        window.AthlevoDiagnosticUI.start();
+      } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
+                 window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
+                 window.AthlevoDiagnosticUI.start && !athlevoSessionUserId) {
+        window.AthlevoDiagnosticUI.start();
+      } else if (isStandaloneMode() || hasAppEntryIntent()) {
+        showScreen("screen-welcome");
+      } else {
+        showScreen("screen-landing");
+        updateOpenAppUI(false);
+      }
+    } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
+               window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
+               window.AthlevoDiagnosticUI.start && !athlevoSessionUserId &&
+               !(typeof isSignupPath === "function" && isSignupPath())) {
+      window.AthlevoDiagnosticUI.start();
+    } else if ((appEntryIntentReason() === "ai" ||
+                (typeof isAiEntryPath === "function" && isAiEntryPath())) &&
+               window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start &&
+               !athlevoSessionUserId) {
+      // /ai route: logged-out visitors see the diagnostic, not auth or pricing.
       window.AthlevoDiagnosticUI.start();
     } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
                 window.AthlevoCoachInvites.hasPendingInvite()) ||
@@ -9467,7 +10609,20 @@ function endBootGate() {
   const anyVisible = document.querySelector('.screen.active');
   if (!anyVisible) {
     document.getElementById('tabbar').style.display = 'none';
-    showScreen(isStandaloneMode() ? "screen-welcome" : "screen-landing");
+    var pendingAiRestore = false;
+    try {
+      pendingAiRestore = !window.__athlevoSessionRestoreSettled && (
+        String((window.location && window.location.pathname) || "").replace(/\/+$/, "") === "/ai" ||
+        !!window.__athlevoAuthRestoring ||
+        !!window.__athlevoAuthOAuthReturn
+      );
+    } catch (e) { pendingAiRestore = false; }
+    /* /ai must not fall back to landing/welcome while restoreSession is
+       still deciding diagnostic vs routeAfterAuth. Leave the device blank;
+       routing will paint the real surface. */
+    if (!pendingAiRestore) {
+      showScreen(isStandaloneMode() ? "screen-welcome" : "screen-landing");
+    }
   }
   if (window.AthlevoAppMotion &&
       typeof window.AthlevoAppMotion.syncIndicator === "function") {
@@ -9493,6 +10648,13 @@ setTimeout(function () {
     endBootGate();
   }
 }, 6000);
+setTimeout(function () {
+  if (document.body.classList.contains('booting')) {
+    console.warn("Boot gate released on hard timeout.");
+    window.__athlevoSessionRestoreSettled = true;
+    endBootGate();
+  }
+}, 14000);
 </script>
 <!-- Auth modals -->
 <div id="authModal" style="display:none;">
@@ -9692,17 +10854,48 @@ setTimeout(function () {
     <div id="pwaModalBody"></div>
   </div>
 </div>
+<style>
+/* ── Synchronized Graph Stack (adg-*) ───────────────────────── */
+.adg-stack{position:relative;margin:0 0 4px;width:100%}
+.adg-chart{border-top:1px solid color-mix(in srgb,var(--line) 60%,transparent);padding:0}
+.adg-chart--first{border-top:none}
+.adg-chart-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:6px 0 2px;min-height:1.4em}
+.adg-chart-label{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.adg-chart-avg{font-size:11px;font-weight:600;color:var(--ink3);font-variant-numeric:tabular-nums;margin-left:auto}
+.adg-chart-readout{font-size:11px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;min-width:60px;text-align:right}
+.adg-chart-body{position:relative;display:flex;align-items:stretch;gap:0}
+.adg-ylabels{position:absolute;left:0;top:0;bottom:0;width:36px;z-index:2;pointer-events:none;display:flex;flex-direction:column;justify-content:center}
+.adg-ylabel{position:absolute;left:0;font-size:9px;font-weight:600;color:var(--ink3);font-variant-numeric:tabular-nums;transform:translateY(-50%);line-height:1;padding-right:4px;text-align:right;width:34px}
+.adg-plot{position:relative;flex:1;min-width:0;height:90px;touch-action:none;cursor:crosshair;overflow:hidden;margin-left:36px}
+.adg-svg{display:block;width:100%;height:100%;overflow:hidden}
+.adg-vgrid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;opacity:.5}
+.adg-hgrid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke;opacity:.35;stroke-dasharray:3 3}
+.adg-crosshair{position:absolute;top:0;bottom:0;width:1px;background:var(--ink);opacity:0;pointer-events:none;z-index:3;transition:opacity .08s}
+.adg-crosshair.active{opacity:.5}
+.adg-crosshair-tooltip{position:absolute;top:-2px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:10px;font-weight:600;padding:4px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:10;opacity:0;transition:opacity .12s;font-variant-numeric:tabular-nums;display:flex;gap:8px;flex-wrap:wrap;max-width:90%}
+.adg-crosshair-tooltip.active{opacity:.92}
+.adg-xh-time{font-weight:700;color:rgba(255,255,255,.75)}
+.adg-xh-val{white-space:nowrap}
+.adg-time-axis{display:flex;justify-content:space-between;padding:2px 0 0;margin-left:36px;position:relative;height:16px}
+.adg-time-label{font-size:9px;font-weight:600;color:var(--ink3);position:absolute;transform:translateX(-50%);font-variant-numeric:tabular-nums}
+.adg-time-label:first-child{transform:translateX(0)}
+.adg-time-label:last-child{transform:translateX(-100%)}
+.ad-chart-empty{font-size:var(--fs-caption);color:var(--ink3);padding:10px 0;font-style:italic;text-align:center}
+@media(min-width:480px){
+  .adg-plot{height:94px}
+}
+</style>
 </body>
 <!-- Entry hardening for shared links / in-app browsers (Messenger, IG, …):
      window.AthlevoEnv (embedded-browser + storage detection + notice),
      window.AthlevoAuthErrors (Supabase → user-facing mapping),
      window.AthlevoSession (bounded wait-for-session). No product features. -->
-<script src="js/landingContent.js?v=78"></script>
-<script src="js/authSupport.js?v=74"></script>
+<script src="js/landingContent.js?v=79"></script>
+<script src="js/authSupport.js?v=76"></script>
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
 <script src="js/loadingContinuity.js?v=81"></script>
-<script src="js/brain.js?v=81"></script>
+<script src="js/brain.js?v=82"></script>
 <script src="js/weather.js?v=78"></script>
 <script src="js/syncStatus.js?v=67"></script>
 <script src="js/performance.js?v=67"></script>
@@ -9723,10 +10916,10 @@ setTimeout(function () {
 <script src="js/workoutClassifier.js?v=67"></script>
 <script src="js/trends.js?v=67"></script>
 <script src="js/trendsAnalytics.js?v=81"></script>
-<script src="js/socialAuth.js?v=72"></script>
-<script src="js/analyticsRegistry.js?v=73"></script>
-<script src="js/metaPixel.js?v=68"></script>
-<script src="js/analytics.js?v=73"></script>
+<script src="js/socialAuth.js?v=75"></script>
+<script src="js/analyticsRegistry.js?v=74"></script>
+<script src="js/metaPixel.js?v=69"></script>
+<script src="js/analytics.js?v=75"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=68"></script>
 <script src="js/onboardingConnect.js?v=69"></script>
@@ -9747,10 +10940,11 @@ setTimeout(function () {
 <script src="js/renderCoachResponse.js?v=68"></script>
 <script src="js/coach.js?v=79"></script>
 <script src="js/features.js?v=69"></script>
-<script src="js/train.js?v=81"></script>
+<script src="js/train.js?v=82"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
-<script src="js/trainCalendar.js?v=80"></script>
+<script src="js/activityStreams.js?v=3"></script>
+<script src="js/trainCalendar.js?v=98"></script>
 <script src="js/coachInvites.js?v=1"></script>
 <script src="js/athleteMode.js?v=82"></script>
 <script src="js/authRouteGuard.js?v=1"></script>
@@ -9762,9 +10956,14 @@ setTimeout(function () {
 <script src="js/feedback.js?v=79"></script>
 <script src="js/readiness.js?v=79"></script>
 <script src="js/morningCheckIn.js?v=71"></script>
-<script src="js/workoutAnalysis.js?v=67"></script>
+<script src="js/workoutAnalysis.js?v=68"></script>
 <script src="js/legal.js?v=68"></script>
 <script src="js/onboarding.js?v=71"></script>
+<script src="js/diagnostic.js?v=8"></script>
+<script src="js/diagnosticSalesEngine.js?v=8"></script>
+<script src="js/diagnosticUI.js?v=8"></script>
+<script src="js/diagnosticHandoff.js?v=8"></script>
+<script src="js/diagnosticAcquisition.js?v=8"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's
@@ -10463,12 +11662,16 @@ setTimeout(function () {
   async function initializeAthlevoApp() {
     const url = new URL(window.location.href);
 
-    // Direct /ai route: treat as an app-entry intent so unauthenticated
-    // visitors see the auth/welcome screen instead of the marketing landing.
-    // Authenticated visitors are routed into the app by restoreSession as usual.
+    // Direct /ai: logged-out visitors enter the free diagnostic.
+    // Authenticated visitors are routed by restoreSession (paid → app;
+    // unpaid → /pricing). /signup is canonical; /ai-signup stays compatible.
     var aiPath = url.pathname.replace(/\/+$/, "");
-    if (aiPath === "/ai") {
+    if (aiPath === "/ai" || aiPath === "/signup" || aiPath === "/ai-signup") {
       rememberAppEntryIntent("ai");
+    }
+    if ((aiPath === "/signup" || aiPath === "/ai-signup") &&
+        typeof rememberAiSignupHandoff === "function") {
+      rememberAiSignupHandoff();
     }
 
     if (typeof window.openPublicLegalRoute === "function" &&
@@ -10492,9 +11695,14 @@ setTimeout(function () {
      * unexpected throw, the athlete ends up on a real screen.
      */
     let enteredApp = false;
+    window.__athlevoSessionRestoreSettled = false;
     try {
       enteredApp = await restoreSession({ returningFromStrava: !!stravaResult });
     } finally {
+      window.__athlevoAuthRestoring = false;
+      window.__athlevoSessionRestoreSettled = true;
+      try { delete window.__athlevoAuthOAuthReturn; } catch (e) {}
+      try { sessionStorage.removeItem("athlevo_auth_oauth_return"); } catch (e) {}
       endBootGate();
       // Surface any OAuth failure now that a real screen is showing.
       reportAuthProblem();
@@ -10533,6 +11741,34 @@ setTimeout(function () {
     supabaseClient.auth.onAuthStateChange(function (event, session) {
       if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
       var nextUserId = session && session.user && session.user.id || null;
+      if (event === "SIGNED_IN" && nextUserId) {
+        if (window.__athlevoRecoveryIntent) return;
+        if (!window.__athlevoSessionRestoreSettled || window.__athlevoAuthRestoring) return;
+        try {
+          if (window.__athlevoRoutingFor === nextUserId) return;
+        } catch (e) {}
+        var currentRoute = window.AthlevoAuthRoute && window.AthlevoAuthRoute.current();
+        if (currentRoute && currentRoute.userId && currentRoute.userId !== nextUserId) {
+          window.AthlevoAuthRoute.invalidate();
+          if (window.AthlevoCoachMode && window.AthlevoCoachMode.clearWorkspaceOnLogout) {
+            try { window.AthlevoCoachMode.clearWorkspaceOnLogout(); } catch (e) {}
+          }
+          if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.clearOnLogout) {
+            try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
+          }
+        }
+        try { window.__athlevoRoutingFor = nextUserId; } catch (e) {}
+        athlevoSessionUserId = nextUserId;
+        try { window.athlevoSessionUserId = nextUserId; } catch (e2) {}
+        if (window.AthlevoDiagnosticAcquisition &&
+            typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
+          try { window.AthlevoDiagnosticAcquisition.clearPaywallExit(); } catch (e3) {}
+        }
+        if (typeof routeAfterAuth === "function") {
+          Promise.resolve(routeAfterAuth(nextUserId)).catch(function () {});
+        }
+        return;
+      }
       var currentRoute = window.AthlevoAuthRoute && window.AthlevoAuthRoute.current();
       if (!currentRoute || !currentRoute.userId || currentRoute.userId === nextUserId) return;
 
@@ -10551,6 +11787,10 @@ setTimeout(function () {
     try {
       await restoreSession({ nativeCallback: true });
     } finally {
+      window.__athlevoAuthRestoring = false;
+      window.__athlevoSessionRestoreSettled = true;
+      try { delete window.__athlevoAuthOAuthReturn; } catch (e) {}
+      try { sessionStorage.removeItem("athlevo_auth_oauth_return"); } catch (e) {}
       endBootGate();
     }
   });

@@ -1254,20 +1254,51 @@
   let _openModalToken = 0;
   async function loadActivityCharts(act, token) {
     const root = document.getElementById("ad-charts-root");
-    if (!root || !window.AthlevoActivityStreams) return;
-    const AS = window.AthlevoActivityStreams;
-    const sport = canonSport(act);
-    const stored = AS.streamsFromActivity(act);
-    if (AS.hasUsableStreams(stored)) {
-      AS.renderInto(root, stored, sport);
-      tryDeferredRoute(act, stored);
+    if (!root) return;
+    if (!window.AthlevoActivityStreams) {
+      console.warn("[Athlevo] AthlevoActivityStreams not loaded");
+      root.innerHTML = "";
       return;
     }
-    root.innerHTML = `<p class="ad-chart-loading">Loading graphs…</p>`;
+    const AS = window.AthlevoActivityStreams;
+    const sport = canonSport(act);
+
+    /* 1. Try streams already on the activity object (cached from prior fetch) */
+    const stored = AS.streamsFromActivity(act);
+    if (AS.hasUsableStreams(stored)) {
+      const ds = AS.downsampleStreams(stored);
+      AS.renderInto(root, ds, sport);
+      tryDeferredRoute(act, ds);
+      return;
+    }
+
+    /* 2. Try memory cache (reopen without re-fetch) */
+    const id = act && act.id != null ? String(act.id) : null;
+    if (id) {
+      const cached = AS.cacheGet(id);
+      if (cached && AS.hasUsableStreams(cached)) {
+        AS.renderInto(root, cached, sport);
+        tryDeferredRoute(act, cached);
+        return;
+      }
+    }
+
+    /* 3. Fetch from provider */
+    root.innerHTML = '<p class="ad-chart-loading">Loading activity data\u2026</p>';
     let streams = null;
-    try { streams = await AS.loadStreams(act); } catch (e) { streams = null; }
+    try {
+      streams = await AS.loadStreams(act);
+    } catch (e) {
+      console.warn("[Athlevo] stream load failed:", e);
+      streams = null;
+    }
     if (token !== _openModalToken) return;
-    if (!AS.renderInto(root, streams, sport)) root.innerHTML = "";
+
+    if (AS.hasUsableStreams(streams)) {
+      AS.renderInto(root, streams, sport);
+    } else {
+      root.innerHTML = '<p class="ad-chart-empty">Detailed stream data not available for this activity.</p>';
+    }
     tryDeferredRoute(act, streams);
   }
 
