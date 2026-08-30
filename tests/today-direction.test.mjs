@@ -725,6 +725,10 @@ const positions = [
 ];
 test("Today follows greeting → state boundary → training → status → coaching explanation",
   positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
+test("Today greeting hides the phase and week subtitle",
+  /id="todayContextLine" hidden/.test(today) &&
+  /#todayContextLine\{display:none\}/.test(html) &&
+  !/Loading your current training week/.test(today));
 test("loading, no-plan, error, and active-plan states have distinct mounts",
   /id="todayPlanLoadingState"[\s\S]*?aria-label="Loading today’s training"/.test(today) &&
   /id="todayNoPlanState" hidden/.test(today) &&
