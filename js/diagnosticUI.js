@@ -760,17 +760,55 @@ async function renderConversationOpening() {
 
   var first10k = currentAcquisitionIntent() === "first10k";
   if (first10k) {
-    await showTypingThenMessage(thread, "Let’s get you ready for your first 10K.");
-    await delay(MSG_DELAY);
-    await showTypingThenMessage(thread, "I’ll ask a few things about your current running and schedule para we know exactly where to start.");
-  } else {
-    await showTypingThenMessage(thread, "Hi! I’m Athlevo, your endurance coach.");
-  }
-  await delay(MSG_DELAY);
+    // Sequential reveal: messages appear one at a time with subtle entrance
+    var msgs = [
+      "Let's get you ready for your first 10K.",
+      "I'll ask a few things about your current running and schedule para we know exactly where to start."
+    ];
+    var q = engine.nextQuestion();
+    var steps = q ? splitIntoSubSteps(q) : [];
+    var questionPrompt = q ? getSubStepPrompt(q, steps[0], 0, steps.length) : null;
+    if (questionPrompt) msgs.push(questionPrompt);
 
-  var q = engine.nextQuestion();
-  if (q) {
-    await presentQuestion(q, { showPrompt: true });
+    if (reducedMotion()) {
+      // Reduced motion: render all immediately, no stagger
+      for (var ri = 0; ri < msgs.length; ri++) {
+        appendAthlevoMsg(thread, msgs[ri], true);
+      }
+      scrollToBottom();
+      if (q) {
+        currentQuestion = q;
+        currentFieldData = {};
+        currentSubStep = 0;
+        subStepFields = steps;
+        activeSubField = null;
+        presentSubStepInput(subStepFields[0]);
+      }
+    } else {
+      // Animated stagger: subtle delays between messages
+      for (var si = 0; si < msgs.length; si++) {
+        if (si > 0) await delay(si === 1 ? 300 : 350);
+        appendAthlevoMsg(thread, msgs[si]);
+        scrollToBottom();
+      }
+      // Small pause before revealing replies
+      await delay(250);
+      if (q) {
+        currentQuestion = q;
+        currentFieldData = {};
+        currentSubStep = 0;
+        subStepFields = steps;
+        activeSubField = null;
+        presentSubStepInput(subStepFields[0]);
+      }
+    }
+  } else {
+    await showTypingThenMessage(thread, "Hi! I'm Athlevo, your endurance coach.");
+    await delay(MSG_DELAY);
+    var q = engine.nextQuestion();
+    if (q) {
+      await presentQuestion(q, { showPrompt: true });
+    }
   }
 
   updateProgress();
@@ -822,6 +860,29 @@ async function presentQuestion(q, opts) {
  * Present a single sub-step: show its prompt (unless skipPrompt),
  * then quick replies and/or composer.
  */
+function presentSubStepInput(fieldGroup) {
+  if (!fieldGroup || !fieldGroup.length) return;
+  var f = fieldGroup[0];
+
+  if (f.type === "chips" || f.type === "multichips") {
+    showQuickReplies(f.options, function (opt) {
+      handleChipSelect(f, opt, fieldGroup);
+    });
+    // Keep composer visible for opening question but show as non-interactive hint
+    showComposer("Or type your answer…");
+    setComposerMode("text");
+  } else if (f.type === "number") {
+    hideQuickReplies();
+    showComposer(f.placeholder || ("e.g. " + (f.min || "0")));
+    setComposerMode("number");
+  } else if (f.type === "text") {
+    hideQuickReplies();
+    showComposer(f.placeholder || "Type here…");
+    setComposerMode("text");
+  }
+  scrollToBottom();
+}
+
 async function presentSubStep(index, showPrompt) {
   if (index >= subStepFields.length) {
     // All sub-steps done — submit the compound answer
@@ -863,12 +924,8 @@ async function presentSubStep(index, showPrompt) {
     showQuickReplies(f.options, function (opt) {
       handleChipSelect(f, opt, fieldGroup);
     });
-    if (currentQuestion && currentQuestion.key === "current_running_frequency") {
-      hideComposer();
-    } else {
-      showComposer("Or type your answer…");
-      setComposerMode("text");
-    }
+    showComposer("Or type your answer…");
+    setComposerMode("text");
   } else if (f.type === "number") {
     hideQuickReplies();
     showComposer(f.placeholder || ("e.g. " + (f.min || "0")));
@@ -1855,12 +1912,8 @@ function restoreCurrentFieldInput() {
     showQuickReplies(f.options, function (opt) {
       handleChipSelect(f, opt, fieldGroup);
     });
-    if (currentQuestion && currentQuestion.key === "current_running_frequency") {
-      hideComposer();
-    } else {
-      showComposer("Or type your answer…");
-      setComposerMode("text");
-    }
+    showComposer("Or type your answer…");
+    setComposerMode("text");
   } else if (f.type === "number") {
     hideQuickReplies();
     showComposer(f.placeholder || ("e.g. " + (f.min || "0")));
@@ -3584,6 +3637,7 @@ var DiagnosticUI = {
     setDiagnosticBusy: setDiagnosticBusy,
     isBusy: function () { return busy; },
     presentQuestion: presentQuestion,
+    presentSubStepInput: presentSubStepInput,
     getSkipCannedInterpretations: function () { return skipCannedInterpretations; },
     markDiagnosticStarted: markDiagnosticStarted,
     hasRecordedDiagnosticAnswers: hasRecordedDiagnosticAnswers,

@@ -48,6 +48,8 @@ function makeNode(tag, registry) {
       }
     },
     getAttribute(k) { return node.attributes[k]; },
+    setAttribute(k, v) { node.attributes[k] = v; },
+    removeAttribute(k) { delete node.attributes[k]; },
     appendChild(child) {
       node.children.push(child);
       child.parentNode = node;

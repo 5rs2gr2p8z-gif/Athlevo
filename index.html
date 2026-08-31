@@ -1446,7 +1446,7 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 .chat-header-name{font-family:var(--serif);font-size:var(--fs-h3);font-weight:600;color:var(--text);letter-spacing:-.01em}
 .chat-header-role{font-size:var(--fs-caption);font-weight:600;color:var(--ink3);letter-spacing:.02em}
 
-.chat-thread{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 22px 24px;display:flex;flex-direction:column;gap:6px}
+.chat-thread{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 22px 24px;display:flex;flex-direction:column;gap:6px;justify-content:flex-end}
 
 /* ── Messages ── */
 .chat-msg{display:flex;max-width:84%}
@@ -1470,7 +1470,7 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 
 /* ── Quick replies ── */
 .chat-quick-replies{flex-shrink:0;display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;gap:8px;padding:8px 22px;border-top:1px solid var(--line);background:var(--paper)}
-.chat-quick-replies.is-opening{flex-wrap:wrap;overflow-x:hidden}
+.chat-quick-replies.is-opening{flex-direction:column;align-items:center;overflow-x:hidden;gap:10px;padding:12px 22px;border-top:none}
 .chat-quick-replies::-webkit-scrollbar{height:4px}
 .chat-quick-replies::-webkit-scrollbar-thumb{background:var(--line);border-radius:100px}
 .chat-quick-replies:empty,.chat-quick-replies[style*="display: none"]{border-top:none;padding:0}
@@ -1484,6 +1484,7 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 .chat-qr-pay{border-color:var(--red);color:var(--red);background:var(--red-soft);font-weight:700}
 .chat-qr-pay-primary{border-color:var(--red);color:#fff;background:var(--red)}
 .chat-qr-pay-primary:active{background:var(--athlevo-red-dark)}
+.chat-quick-replies.is-opening .chat-qr-chip{width:100%;max-width:280px;justify-content:center;white-space:normal;text-align:center;border-radius:12px;padding:13px 20px;font-size:var(--fs-body);font-weight:500}
 
 /* ── Composer ── */
 .chat-composer{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--paper)}

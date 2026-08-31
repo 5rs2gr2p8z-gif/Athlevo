@@ -206,8 +206,8 @@ const common = {
 
 /* ── Opening copy + UI source contracts ────────────────────────────── */
 
-assert.match(uiSrc, /Let’s get you ready for your first 10K\./);
-assert.match(uiSrc, /I’ll ask a few things about your current running and schedule para we know exactly where to start\./);
+assert.match(uiSrc, /Let's get you ready for your first 10K\./);
+assert.match(uiSrc, /I'll ask a few things about your current running and schedule para we know exactly where to start\./);
 assert.match(engineSrc, /How often are you running right now\?/);
 assert.match(engineSrc, /Just starting/);
 assert.match(engineSrc, /1–2x a week/);
@@ -220,8 +220,9 @@ assert.match(uiSrc, /applyAcquisitionIntent/);
 assert.doesNotMatch(uiSrc, /Free assessment|2-minute assessment|Personalized diagnosis/);
 assert.match(uiSrc, /data-locked/);
 assert.match(uiSrc, /chat-qr-sel/);
-assert.match(uiSrc, /key === "current_running_frequency"\) \{\s*hideComposer\(\)/);
-assert.match(indexSrc, /chat-quick-replies\.is-opening\{flex-wrap:wrap/);
+// Composer remains visible for current_running_frequency (no hideComposer)
+assert.doesNotMatch(uiSrc.slice(uiSrc.indexOf("function presentSubStep("), uiSrc.indexOf("function handleChipSelect")), /current_running_frequency[\s\S]{0,30}hideComposer/);
+assert.match(indexSrc, /chat-quick-replies\.is-opening\{flex-direction:column/);
 assert.match(indexSrc, /flex-shrink:0;display:flex/);
 assert.doesNotMatch(
   uiSrc.slice(uiSrc.indexOf("function startDiagnostic"), uiSrc.indexOf("function showScreen")),
@@ -608,7 +609,7 @@ function loadWorld(opts = {}) {
     indexSrc.indexOf("/* ── Composer ── */")
   );
   assert.match(chatCss, /flex-shrink:0/);
-  assert.match(chatCss, /is-opening\{flex-wrap:wrap/);
+  assert.match(chatCss, /is-opening\{flex-direction:column/);
   assert.doesNotMatch(uiSrc, /chat-thread[\s\S]{0,80}chat-quick-replies/);
 }
 
