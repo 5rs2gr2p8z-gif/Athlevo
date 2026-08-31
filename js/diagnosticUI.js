@@ -8,7 +8,8 @@
  *  Quick-reply chips + a persistent text composer at the bottom.
  *  Compound questions are split into sequential sub-steps.
  *
- *  REUSES: diagnostic engine (diagnostic.js) unchanged.
+ *  REUSES: diagnostic engine (diagnostic.js). Acquisition intent only
+ *  changes the opening conversation; it does not grant access.
  *  DOES NOT TOUCH: Authentication, Supabase, subscriptions, onboarding,
  *  existing navigation, payment config, or entitlement logic.
  */
@@ -118,6 +119,7 @@ var awaitingSalesFollowup = false;
 var skipCannedInterpretations = false;
 var diagnosticStartedFired = false;
 var diagnosticCompletedFired = false;
+var diagnosticAcquisitionActive = false;
 
 function resetSkipCannedInterpretations() {
   skipCannedInterpretations = false;
@@ -137,6 +139,80 @@ function primeDiagnosticStartedFromEngine(eng) {
   diagnosticStartedFired = hasRecordedDiagnosticAnswers(eng || engine);
 }
 
+function currentAcquisitionIntent() {
+  try {
+    if (engine && engine.acquisitionIntent) {
+      return root.AthlevoDiagnostic && AthlevoDiagnostic.resolveAcquisitionIntent
+        ? AthlevoDiagnostic.resolveAcquisitionIntent(engine.acquisitionIntent)
+        : String(engine.acquisitionIntent);
+    }
+  } catch (e) {}
+  try {
+    if (root.AthlevoDiagnostic && typeof AthlevoDiagnostic.readAcquisitionIntentFromLocation === "function") {
+      return AthlevoDiagnostic.readAcquisitionIntentFromLocation(root.location);
+    }
+  } catch (e2) {}
+  return "general";
+}
+
+function acquisitionAnalyticsProps(extra) {
+  var props = extra && typeof extra === "object" ? extra : {};
+  var intent = currentAcquisitionIntent();
+  if (intent) props.acquisition_intent = intent;
+  return props;
+}
+
+function trackDiagnosticStep(question, opts) {
+  opts = opts || {};
+  if (!question || !question.key) return;
+  var answerType = opts.answerType === "text" || opts.answerType === "skip" ||
+    opts.answerType === "autofill" ? opts.answerType : "chip";
+  var stage = "capacity";
+  if (question.key === "goal" || question.key === "race_details") stage = "goal";
+  else if (question.key === "injury_status") stage = "safety";
+  else if (question.key === "training_days" || question.key === "training_structure" ||
+      question.key === "schedule" || question.key === "other_training" ||
+      question.key === "current_running_frequency") stage = "training";
+  else if (question.key === "perceived_limiter") stage = "limiter";
+  var props = acquisitionAnalyticsProps({
+    step: engine && Array.isArray(engine.history) ? engine.history.length : 0,
+    question_id: String(question.key).slice(0, 80),
+    answer_type: answerType,
+    diagnostic_stage: stage
+  });
+  var answerId = opts.answerId;
+  if (typeof answerId === "string" && /^[a-z0-9_]{1,40}$/.test(answerId)) {
+    props.answer_id = answerId;
+  }
+  trackEvent("diagnostic_step_completed", props);
+}
+
+function inferDiagnosticAnswerType(q, data) {
+  if (!q || !q.fields || !data) return "chip";
+  var hasChip = false;
+  var hasText = false;
+  for (var i = 0; i < q.fields.length; i++) {
+    var f = q.fields[i];
+    if (!Object.prototype.hasOwnProperty.call(data, f.id)) continue;
+    if (f.type === "chips" || f.type === "multichips") hasChip = true;
+    else hasText = true;
+  }
+  if (hasChip && !hasText) return "chip";
+  if (hasText && !hasChip) return "text";
+  return hasChip ? "chip" : "text";
+}
+
+function normalizedChipAnswerId(q, data) {
+  if (!q || !q.fields || !data) return undefined;
+  for (var i = 0; i < q.fields.length; i++) {
+    var f = q.fields[i];
+    if (f.type !== "chips" && f.type !== "multichips") continue;
+    var v = data[f.id];
+    if (typeof v === "string" && /^[a-z0-9_]{1,40}$/.test(v)) return v;
+  }
+  return undefined;
+}
+
 function markDiagnosticStarted(inputType) {
   if (diagnosticStartedFired) return;
   diagnosticStartedFired = true;
@@ -146,17 +222,17 @@ function markDiagnosticStarted(inputType) {
       utm = root.AthlevoProductAnalytics.attributionProps() || {};
     }
   } catch (e) { utm = {}; }
-  trackEvent("diagnostic_started", {
+  trackEvent("diagnostic_started", acquisitionAnalyticsProps({
     first_input_type: inputType === "chip" ? "chip" : "text",
     acquisition_source: utm.utm_source || undefined
-  });
+  }));
 }
 
 function trackAiLandingViewed() {
   var path = "/ai";
   try { path = String(root.location && root.location.pathname || "/ai").replace(/\/+$/, "") || "/ai"; }
   catch (e) { path = "/ai"; }
-  var props = { path: path, page_path: path };
+  var props = acquisitionAnalyticsProps({ path: path, page_path: path });
   try {
     if (root.AthlevoProductAnalytics && typeof root.AthlevoProductAnalytics.landingProps === "function") {
       var landing = root.AthlevoProductAnalytics.landingProps() || {};
@@ -226,6 +302,7 @@ function startDiagnostic() {
      Paid → existing app routing. Unpaid → existing entitlement, not paid access.
      A stored pending diagnostic must not override a live session. */
   if (root.athlevoSessionUserId) {
+    diagnosticAcquisitionActive = false;
     if (typeof root.routeAfterAuth === "function") {
       return root.routeAfterAuth(root.athlevoSessionUserId);
     }
@@ -234,6 +311,7 @@ function startDiagnostic() {
 
   if (typeof root.hasReturningAthlevoAccountMarker === "function" &&
       root.hasReturningAthlevoAccountMarker()) {
+    diagnosticAcquisitionActive = false;
     if (typeof root.showReturningUserWelcome === "function") {
       root.showReturningUserWelcome();
     } else if (typeof root.openAppEntry === "function") {
@@ -248,6 +326,7 @@ function startDiagnostic() {
     typeof root.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
     root.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
   if (checkoutReturn) {
+    diagnosticAcquisitionActive = false;
     if (typeof root.showCheckoutReturnWelcome === "function") {
       root.showCheckoutReturnWelcome();
     } else if (typeof root.openAppEntry === "function") {
@@ -256,6 +335,18 @@ function startDiagnostic() {
       showScreen("screen-welcome");
     }
     return;
+  }
+
+  /* restoreSession may call start() again after an early anonymous /ai
+     start. If the acquisition chat is already showing, do not rebuild
+     the shell or re-fire view events. If we already left this surface,
+     allow a later anonymous start (e.g. after logout). */
+  if (diagnosticAcquisitionActive) {
+    var shown = document.getElementById("screen-diagnostic");
+    if (!shown || (shown.classList && shown.classList.contains("active"))) {
+      return;
+    }
+    diagnosticAcquisitionActive = false;
   }
 
   var pending = root.AthlevoDiagnostic && root.AthlevoDiagnostic.load();
@@ -271,11 +362,22 @@ function startDiagnostic() {
     primeDiagnosticStartedFromEngine(engine);
     diagnosticCompletedFired = true;
     trackEvent("diagnostic_resumed", { state: "completed" });
+    diagnosticAcquisitionActive = true;
     return;
   } else {
     engine = root.AthlevoDiagnostic.create();
     resultSequenceStarted = false;
   }
+
+  try {
+    if (engine && typeof engine.applyAcquisitionIntent === "function") {
+      var liveIntent = root.AthlevoDiagnostic &&
+        typeof AthlevoDiagnostic.readAcquisitionIntentFromLocation === "function"
+        ? AthlevoDiagnostic.readAcquisitionIntentFromLocation(root.location)
+        : "general";
+      engine.applyAcquisitionIntent(liveIntent);
+    }
+  } catch (intentErr) {}
 
   restoreFactStoreFromEngine();
 
@@ -291,7 +393,7 @@ function startDiagnostic() {
     engine.begin();
     diagnosticStartedFired = false;
     diagnosticCompletedFired = false;
-    trackEvent("diagnostic_viewed", { path: "/ai", page_path: "/ai" });
+    trackEvent("diagnostic_viewed", acquisitionAnalyticsProps({ path: "/ai", page_path: "/ai" }));
     renderConversationOpening();
   } else {
     primeDiagnosticStartedFromEngine(engine);
@@ -299,6 +401,7 @@ function startDiagnostic() {
     commitFullyKnownPendingQuestions();
     rebuildConversation(engine.nextQuestion());
   }
+  diagnosticAcquisitionActive = true;
 }
 
 function showScreen(id) {
@@ -474,6 +577,10 @@ function showQuickReplies(options, onSelect) {
   var container = getQuickReplies();
   if (!container) return;
   container.innerHTML = "";
+  container.removeAttribute("data-locked");
+  var openingChips = !!(currentQuestion && currentQuestion.key === "current_running_frequency");
+  if (openingChips) container.classList.add("is-opening");
+  else container.classList.remove("is-opening");
 
   for (var i = 0; i < options.length; i++) {
     (function (opt) {
@@ -482,6 +589,11 @@ function showQuickReplies(options, onSelect) {
         '<button class="' + chipClass + '" type="button">' + esc(opt.label) + '</button>'
       );
       btn.addEventListener("click", function () {
+        if (busy || container.getAttribute("data-locked") === "1") return;
+        container.setAttribute("data-locked", "1");
+        btn.classList.add("chat-qr-sel");
+        var buttons = container.querySelectorAll("button");
+        for (var b = 0; b < buttons.length; b++) buttons[b].disabled = true;
         onSelect(opt);
       });
       container.appendChild(btn);
@@ -503,6 +615,7 @@ function hideQuickReplies() {
   if (container) {
     container.innerHTML = "";
     container.style.display = "none";
+    if (container.classList && container.classList.remove) container.classList.remove("is-opening");
   }
 }
 
@@ -565,6 +678,24 @@ function splitIntoSubSteps(q) {
     steps.push(group);
   }
 
+  if (currentAcquisitionIntent() === "first10k") {
+    if (q.key === "current_capacity" && steps.length > 1) {
+      steps.sort(function (a, b) {
+        var ai = a[0] && a[0].id === "recent_longest_run_km" ? 0 : 1;
+        var bi = b[0] && b[0].id === "recent_longest_run_km" ? 0 : 1;
+        return ai - bi;
+      });
+    }
+    if (q.key === "race_details" && steps.length > 1) {
+      steps.sort(function (a, b) {
+        var order = { goal_race_date: 0, goal_race: 1, goal_time: 2 };
+        var ai = a[0] && order[a[0].id] != null ? order[a[0].id] : 9;
+        var bi = b[0] && order[b[0].id] != null ? order[b[0].id] : 9;
+        return ai - bi;
+      });
+    }
+  }
+
   return steps;
 }
 
@@ -578,7 +709,10 @@ function getSubStepPrompt(q, fieldGroup, stepIndex, totalSteps) {
   // Custom prompts for known compound questions
   if (q.key === "race_details") {
     if (f.id === "goal_race") return "Do you already have a race booked?";
-    if (f.id === "goal_race_date") return "And when is it?";
+    if (f.id === "goal_race_date") {
+      if (currentAcquisitionIntent() === "first10k") return "Do you already have a target date for your 10K?";
+      return "And when is it?";
+    }
     if (f.id === "goal_time") return "Any specific finish time you’re aiming for?";
   }
   if (q.key === "weekly_volume") {
@@ -587,7 +721,10 @@ function getSubStepPrompt(q, fieldGroup, stepIndex, totalSteps) {
   }
   if (q.key === "current_capacity") {
     if (f.id === "recent_consistency") return "How consistent has your running been over the last 6–8 weeks?";
-    if (f.id === "recent_longest_run_km") return "What’s the longest run you’ve done recently?";
+    if (f.id === "recent_longest_run_km") {
+      if (currentAcquisitionIntent() === "first10k") return "What’s your longest run so far?";
+      return "What’s the longest run you’ve done recently?";
+    }
   }
   if (q.key === "recent_performance") {
     if (f.id === "recent_race_dist") return "Do you have a recent race result I can use as a benchmark?";
@@ -621,8 +758,14 @@ async function renderConversationOpening() {
   var thread = getThread();
   if (!thread) return;
 
-  // Greeting once, then the first question once from the question bank.
-  await showTypingThenMessage(thread, "Hi! I’m Athlevo, your endurance coach.");
+  var first10k = currentAcquisitionIntent() === "first10k";
+  if (first10k) {
+    await showTypingThenMessage(thread, "Let’s get you ready for your first 10K.");
+    await delay(MSG_DELAY);
+    await showTypingThenMessage(thread, "I’ll ask a few things about your current running and schedule para we know exactly where to start.");
+  } else {
+    await showTypingThenMessage(thread, "Hi! I’m Athlevo, your endurance coach.");
+  }
   await delay(MSG_DELAY);
 
   var q = engine.nextQuestion();
@@ -720,9 +863,12 @@ async function presentSubStep(index, showPrompt) {
     showQuickReplies(f.options, function (opt) {
       handleChipSelect(f, opt, fieldGroup);
     });
-    // Also show composer for free-text
-    showComposer("Or type your answer…");
-    setComposerMode("text");
+    if (currentQuestion && currentQuestion.key === "current_running_frequency") {
+      hideComposer();
+    } else {
+      showComposer("Or type your answer…");
+      setComposerMode("text");
+    }
   } else if (f.type === "number") {
     hideQuickReplies();
     showComposer(f.placeholder || ("e.g. " + (f.min || "0")));
@@ -797,6 +943,10 @@ function nextActiveDependent(fieldGroup, answeredFieldId, data) {
 
 function handleChipSelect(field, opt, fieldGroup) {
   if (busy) return;
+  if (field.type !== "multichips" &&
+      Object.prototype.hasOwnProperty.call(currentFieldData, field.id)) {
+    return;
+  }
   setDiagnosticBusy(true);
 
   var thread = getThread();
@@ -1705,8 +1855,12 @@ function restoreCurrentFieldInput() {
     showQuickReplies(f.options, function (opt) {
       handleChipSelect(f, opt, fieldGroup);
     });
-    showComposer("Or type your answer…");
-    setComposerMode("text");
+    if (currentQuestion && currentQuestion.key === "current_running_frequency") {
+      hideComposer();
+    } else {
+      showComposer("Or type your answer…");
+      setComposerMode("text");
+    }
   } else if (f.type === "number") {
     hideQuickReplies();
     showComposer(f.placeholder || ("e.g. " + (f.min || "0")));
@@ -2830,6 +2984,10 @@ function submitCurrentQuestion() {
     question_key: q.key,
     questions_completed: engine.history.length
   });
+  trackDiagnosticStep(q, {
+    answerType: inferDiagnosticAnswerType(q, currentFieldData),
+    answerId: normalizedChipAnswerId(q, currentFieldData)
+  });
 
   updateProgress();
 
@@ -2885,6 +3043,7 @@ async function advanceFlow(thread) {
         questions_completed: engine.history.length,
         autofilled: true
       });
+      trackDiagnosticStep(next, { answerType: "autofill" });
       updateProgress();
       continue; // silent skip — do not dump canned interpretations
     }
@@ -3140,7 +3299,7 @@ function completeDiagnostic() {
   if (!diagnosticCompletedFired) {
     diagnosticCompletedFired = true;
     var profile = result.profile || {};
-    trackEvent("diagnostic_completed", {
+    trackEvent("diagnostic_completed", acquisitionAnalyticsProps({
       questions_answered: engine.history.length,
       primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
       feasibility_rating: result.feasibility ? result.feasibility.rating : null,
@@ -3150,7 +3309,7 @@ function completeDiagnostic() {
       weekly_mileage: typeof profile.weeklyMileage === "number" ? profile.weeklyMileage : null,
       has_race: !!(profile.goalRace || profile.goalDate),
       diagnostic_version: result.version != null ? String(result.version) : "1"
-    });
+    }));
   }
   showBuildAnimation(result);
 }
@@ -3431,6 +3590,11 @@ var DiagnosticUI = {
     primeDiagnosticStartedFromEngine: primeDiagnosticStartedFromEngine,
     trackDiagnosticAiFallback: trackDiagnosticAiFallback,
     trackAiLandingViewed: trackAiLandingViewed,
+    showQuickReplies: showQuickReplies,
+    hideQuickReplies: hideQuickReplies,
+    currentAcquisitionIntent: currentAcquisitionIntent,
+    trackDiagnosticStep: trackDiagnosticStep,
+    getSubStepPrompt: getSubStepPrompt,
     completeDiagnostic: completeDiagnostic,
     renderResult: renderResult,
     showBuildAnimation: showBuildAnimation,
@@ -3439,6 +3603,7 @@ var DiagnosticUI = {
     applyAcknowledgementResult: applyAcknowledgementResult,
     restoreCurrentFieldInput: restoreCurrentFieldInput,
     bindEngine: function (e) {
+      diagnosticAcquisitionActive = false;
       engine = e;
       currentFieldData = {};
       currentQuestion = null;
@@ -3450,6 +3615,8 @@ var DiagnosticUI = {
       setDiagnosticBusy(false);
       diagnosticCompletedFired = false;
     },
+    isDiagnosticAcquisitionActive: function () { return diagnosticAcquisitionActive; },
+    resetDiagnosticAcquisitionActive: function () { diagnosticAcquisitionActive = false; },
     prepareQuestion: function (q) {
       currentQuestion = q;
       currentFieldData = {};

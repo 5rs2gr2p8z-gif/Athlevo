@@ -1222,6 +1222,14 @@ input,textarea,select{color:var(--text)}
 .w-signup-link a:hover{text-decoration:underline}
 .w-skip{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body-sm);color:var(--ink3);padding:10px;cursor:pointer}
 
+/* Post-auth transition: auth succeeded, destination not yet known. */
+#screen-auth-setup{justify-content:center;align-items:center;padding:48px 30px;text-align:center}
+.auth-setup-lockup{display:flex;flex-direction:column;align-items:center;gap:var(--s-6)}
+.auth-setup-copy{margin:22px 0 0;font-size:var(--fs-body);color:var(--ink2);line-height:var(--lh-body)}
+.auth-setup-loader{width:22px;height:22px;margin-top:18px;border:2px solid var(--line);border-top-color:var(--red);border-radius:50%;animation:authSetupSpin .8s linear infinite}
+@keyframes authSetupSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.auth-setup-loader{animation:none;border-top-color:var(--line)}}
+
 /* ---------- onboarding interview ---------- */
 .ob-progress{height:3px;background:var(--line);flex-shrink:0}
 .ob-progress i{display:block;height:100%;background:var(--red);width:5%;transition:width .5s var(--ease-standard)}
@@ -1462,6 +1470,7 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 
 /* ── Quick replies ── */
 .chat-quick-replies{flex-shrink:0;display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;gap:8px;padding:8px 22px;border-top:1px solid var(--line);background:var(--paper)}
+.chat-quick-replies.is-opening{flex-wrap:wrap;overflow-x:hidden}
 .chat-quick-replies::-webkit-scrollbar{height:4px}
 .chat-quick-replies::-webkit-scrollbar-thumb{background:var(--line);border-radius:100px}
 .chat-quick-replies:empty,.chat-quick-replies[style*="display: none"]{border-top:none;padding:0}
@@ -4365,6 +4374,15 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   </div>
 </section>
 
+<section class="screen" id="screen-auth-setup" aria-live="polite" aria-busy="true">
+  <div class="auth-setup-lockup">
+    <img class="w-icon" src="assets/athlevo-icon-transparent.png" alt="" width="72" height="72">
+    <div class="w-mark">Athlevo<i>.</i></div>
+  </div>
+  <p class="auth-setup-copy">Setting up your account…</p>
+  <div class="auth-setup-loader" aria-hidden="true"></div>
+</section>
+
 <!-- ══════════════ ONBOARDING INTERVIEW ══════════════ -->
 <section class="screen" id="screen-onboard">
 
@@ -6430,6 +6448,7 @@ function interceptInAppAuthHandoff(intent, sourceSurface) {
   }
 }
 function openSignup(userChoseSignup) {
+  if (window.__athlevoAuthEntryLocked) return;
   if (
     userChoseSignup === true &&
     !athlevoSessionUserId &&
@@ -6446,6 +6465,7 @@ function openSignup(userChoseSignup) {
   pushAuthState();
 }
 function openLogin(userChoseLogin, entrySource) {
+  if (window.__athlevoAuthEntryLocked) return;
   if (
     userChoseLogin === true &&
     !athlevoSessionUserId &&
@@ -6467,6 +6487,7 @@ function closeAuth() {
   document.getElementById('authModal').style.display = 'none';
 }
 function showSignupForm(userChoseSignup) {
+  if (window.__athlevoAuthEntryLocked) return;
   if (
     userChoseSignup === true &&
     !athlevoSessionUserId &&
@@ -6485,6 +6506,7 @@ function showSignupForm(userChoseSignup) {
   if (typeof validateSignupPassword === 'function') validateSignupPassword();
 }
 function showLoginForm(userChoseLogin, entrySource) {
+  if (window.__athlevoAuthEntryLocked) return;
   document.getElementById('signupForm').style.display = 'none';
   document.getElementById('loginForm').style.display = 'block';
   var fp = document.getElementById('forgotForm'); if (fp) fp.style.display = 'none';
@@ -7005,6 +7027,183 @@ function showReturningUserWelcome() {
 window.hasReturningAthlevoAccountMarker = hasReturningAthlevoAccountMarker;
 window.showReturningUserWelcome = showReturningUserWelcome;
 
+/*
+ * Anonymous /ai may paint the deterministic diagnostic before restoreSession
+ * resolves. These helpers reuse existing returning-account, OAuth, checkout,
+ * and continuation markers — they do not invent a second auth model.
+ * Ambiguous or returning-user states must NOT early-start.
+ */
+function hasLiveAthlevoOAuthReturn() {
+  try {
+    if (window.__athlevoAuthOAuthReturn) return true;
+  } catch (e) {}
+  try {
+    if (window.__athlevoAuthRestoring) return true;
+  } catch (e2) {}
+  try {
+    var savedOAuth = JSON.parse(sessionStorage.getItem("athlevo_auth_oauth_return") || "null");
+    if (savedOAuth && savedOAuth.at && (Date.now() - savedOAuth.at) < 120000) return true;
+  } catch (e3) {}
+  try {
+    if (window.AthlevoSocialAuth && AthlevoSocialAuth.isOAuthReturn &&
+        AthlevoSocialAuth.isOAuthReturn()) {
+      return true;
+    }
+  } catch (e4) {}
+  try {
+    var search = String((window.location && window.location.search) || "");
+    var hash = String((window.location && window.location.hash) || "");
+    if (/[?&](code|error)=/.test(search) || /access_token=|[#&]error=/.test(hash)) return true;
+  } catch (e5) {}
+  return false;
+}
+
+function canEarlyStartAnonymousAiDiagnostic() {
+  try {
+    if (typeof isAiEntryPath === "function" ? !isAiEntryPath() : true) return false;
+    if (window.athlevoSessionUserId) return false;
+    if (typeof hasReturningAthlevoAccountMarker === "function" &&
+        hasReturningAthlevoAccountMarker()) {
+      return false;
+    }
+    if (typeof hasWhopCheckoutReturn === "function" && hasWhopCheckoutReturn()) {
+      return false;
+    }
+    if (window.AthlevoDiagnosticAcquisition &&
+        typeof window.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
+        window.AthlevoDiagnosticAcquisition.hasCheckoutReturn()) {
+      return false;
+    }
+    try {
+      if (new URL(window.location.href).searchParams.get("checkout_return") === "1") {
+        return false;
+      }
+    } catch (e6) {}
+    if (typeof hasLiveAthlevoOAuthReturn === "function" && hasLiveAthlevoOAuthReturn()) {
+      return false;
+    }
+    if (window.__athlevoRecoveryIntent) return false;
+    if (window.__athlevoNativeProviderReturn) return false;
+    try {
+      if (/[?&]strava=/.test(String((window.location && window.location.href) || ""))) {
+        return false;
+      }
+    } catch (e7) {}
+    try {
+      var continuation = window.AthlevoEnv &&
+        typeof window.AthlevoEnv.readContinuation === "function" &&
+        window.AthlevoEnv.readContinuation();
+      if (continuation) return false;
+    } catch (e8) {}
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function earlyStartAnonymousAiDiagnosticIfEligible() {
+  try {
+    if (typeof canEarlyStartAnonymousAiDiagnostic !== "function" ||
+        !canEarlyStartAnonymousAiDiagnostic()) {
+      return false;
+    }
+    if (!window.AthlevoDiagnosticUI ||
+        typeof window.AthlevoDiagnosticUI.start !== "function") {
+      return false;
+    }
+    window.AthlevoDiagnosticUI.start();
+    if (typeof endBootGate === "function") endBootGate();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+window.hasLiveAthlevoOAuthReturn = hasLiveAthlevoOAuthReturn;
+window.canEarlyStartAnonymousAiDiagnostic = canEarlyStartAnonymousAiDiagnostic;
+window.earlyStartAnonymousAiDiagnosticIfEligible = earlyStartAnonymousAiDiagnosticIfEligible;
+
+/*
+ * Confirmed authentication must leave signup/login immediately. This surface
+ * grants nothing — it only acknowledges that a session exists while
+ * routeAfterAuth resolves the destination.
+ */
+function lockAuthEntryControls(locked) {
+  window.__athlevoAuthEntryLocked = !!locked;
+  var ids = ["authBtnGoogle", "authBtnApple", "authBtnEmail", "suBtn", "liBtn"];
+  for (var i = 0; i < ids.length; i++) {
+    var el = document.getElementById(ids[i]);
+    if (el) el.disabled = !!locked;
+  }
+  var signupLink = document.getElementById("wSignupLink");
+  if (signupLink) {
+    signupLink.style.pointerEvents = locked ? "none" : "";
+    signupLink.setAttribute("aria-disabled", locked ? "true" : "false");
+  }
+}
+
+function clearOAuthHydrationFailOpen() {
+  try {
+    if (window.__athlevoOAuthHydrationTimer) {
+      clearTimeout(window.__athlevoOAuthHydrationTimer);
+      window.__athlevoOAuthHydrationTimer = null;
+    }
+  } catch (e) {}
+}
+
+function scheduleOAuthHydrationFailOpen() {
+  if (window.__athlevoOAuthHydrationTimer) return;
+  var waitMs = 8000;
+  try {
+    if (typeof window.__athlevoOAuthHydrationFailMs === "number") {
+      waitMs = window.__athlevoOAuthHydrationFailMs;
+    }
+  } catch (e) {}
+  window.__athlevoOAuthHydrationTimer = setTimeout(function () {
+    window.__athlevoOAuthHydrationTimer = null;
+    if (window.athlevoSessionUserId) return;
+    lockAuthEntryControls(false);
+    if (typeof isSignupPath === "function" && isSignupPath() &&
+        typeof openAiSignup === "function") {
+      openAiSignup({ fromRestore: true });
+    } else if (typeof openAppEntry === "function") {
+      openAppEntry();
+    } else {
+      showScreen("screen-welcome");
+    }
+  }, Math.max(0, waitMs));
+}
+
+function showPostAuthTransition() {
+  try { if (typeof closeAuth === "function") closeAuth(); } catch (e) {}
+  lockAuthEntryControls(true);
+  var tb = document.getElementById("tabbar");
+  if (tb) tb.style.display = "none";
+  showScreen("screen-auth-setup");
+  if (typeof endBootGate === "function") endBootGate();
+}
+
+function claimPostAuthRoute(userId) {
+  if (!userId) return false;
+  try {
+    if (window.__athlevoRoutingFor === userId) return false;
+    window.__athlevoRoutingFor = userId;
+    return true;
+  } catch (e) {
+    return true;
+  }
+}
+
+function beginAuthenticatedRouting(userId) {
+  clearOAuthHydrationFailOpen();
+  showPostAuthTransition();
+  return claimPostAuthRoute(userId);
+}
+window.lockAuthEntryControls = lockAuthEntryControls;
+window.showPostAuthTransition = showPostAuthTransition;
+window.claimPostAuthRoute = claimPostAuthRoute;
+window.beginAuthenticatedRouting = beginAuthenticatedRouting;
+window.scheduleOAuthHydrationFailOpen = scheduleOAuthHydrationFailOpen;
+
 // Landing CTAs. Logged in → straight into the app (never asked to create a
 // second account). Logged out → the app entry screen.
 function rememberLandingAuthEntry(entrySource) {
@@ -7388,17 +7587,21 @@ async function doSignup(bypassEmbeddedWarning) {
       msg.style.color = 'var(--good)';
       msg.textContent = 'Account created!';
       try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
-      closeAuth();
       try {
         if (window.AthlevoDiagnosticAcquisition &&
             typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
           window.AthlevoDiagnosticAcquisition.clearPaywallExit();
         }
       } catch (e) {}
-      try {
-        if (window.__athlevoRoutingFor === user.id) return;
-        window.__athlevoRoutingFor = user.id;
-      } catch (e) {}
+      if (typeof beginAuthenticatedRouting === "function") {
+        if (!beginAuthenticatedRouting(user.id)) return;
+      } else {
+        closeAuth();
+        try {
+          if (window.__athlevoRoutingFor === user.id) return;
+          window.__athlevoRoutingFor = user.id;
+        } catch (e2) {}
+      }
       await routeAfterAuth(user.id);
       return;
     }
@@ -7419,17 +7622,21 @@ async function doSignup(bypassEmbeddedWarning) {
         msg.style.color = 'var(--good)';
         msg.textContent = 'Account created!';
         try { if (window.AthlevoAnalytics) AthlevoAnalytics.identifySafe(user.id); } catch(e){}
-        closeAuth();
         try {
           if (window.AthlevoDiagnosticAcquisition &&
               typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
             window.AthlevoDiagnosticAcquisition.clearPaywallExit();
           }
         } catch (e) {}
-        try {
-          if (window.__athlevoRoutingFor === user.id) return;
-          window.__athlevoRoutingFor = user.id;
-        } catch (e) {}
+        if (typeof beginAuthenticatedRouting === "function") {
+          if (!beginAuthenticatedRouting(user.id)) return;
+        } else {
+          closeAuth();
+          try {
+            if (window.__athlevoRoutingFor === user.id) return;
+            window.__athlevoRoutingFor = user.id;
+          } catch (e2) {}
+        }
         await routeAfterAuth(user.id);
         return;
       }
@@ -7539,13 +7746,14 @@ async function doLogin(bypassEmbeddedWarning) {
     msg.style.color = 'var(--red)';
     msg.textContent = friendlyAuthError(e, 'login');
   } finally {
-    loginInFlight = false;
-    if (btn) { btn.disabled = false; btn.textContent = 'Log In'; }
+    if (!authenticatedUser) {
+      loginInFlight = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Log In'; }
+    }
   }
 
   if (!authenticatedUser) return;
   msg.textContent = '';
-  closeAuth();
 
   // Authentication is complete before app hydration begins. A later screen
   // or API failure must not be presented as a rejected password.
@@ -7558,14 +7766,21 @@ async function doLogin(bypassEmbeddedWarning) {
         window.AthlevoDiagnosticAcquisition.clearPaywallExit();
       }
     } catch (e) {}
-    try {
-      if (window.__athlevoRoutingFor === user.id) return;
-      window.__athlevoRoutingFor = user.id;
-    } catch (e) {}
+    if (typeof beginAuthenticatedRouting === "function") {
+      if (!beginAuthenticatedRouting(user.id)) return;
+    } else {
+      closeAuth();
+      try {
+        if (window.__athlevoRoutingFor === user.id) return;
+        window.__athlevoRoutingFor = user.id;
+      } catch (e2) {}
+    }
     await routeAfterAuth(user.id);
   } catch (e) {
     console.error('Post-login initialization failed:', e);
     toast('Signed in. Some data is temporarily unavailable.');
+  } finally {
+    loginInFlight = false;
   }
 }
 async function doLogout() {
@@ -7590,6 +7805,7 @@ async function doLogout() {
   athlevoSessionUserId = null;
   try { window.athlevoSessionUserId = null; } catch (e) {}
   try { window.__athlevoRoutingFor = null; } catch (e) {}
+  if (typeof lockAuthEntryControls === "function") lockAuthEntryControls(false);
 
   // Clear profile photo state so the next user starts fresh
   window._athlevoProfilePhotoUrl = null;
@@ -10188,7 +10404,9 @@ window.openAthlevoApp = openAthlevoApp;
 
 /*
  * ══════════════════════════════════════════════════════════════════════
- *  The router. Nothing paints until this resolves.
+ *  The router. Authenticated and returning-user surfaces still wait
+ *  for this to resolve. Eligible anonymous /ai may already have painted
+ *  the deterministic diagnostic in parallel.
  * ══════════════════════════════════════════════════════════════════════
  *
  * Returns true when the athlete was routed INTO the authenticated app (so
@@ -10421,6 +10639,7 @@ async function restoreSession(opts) {
     }
     try {
       if (window.__athlevoRoutingFor === session.user.id) {
+        if (typeof showPostAuthTransition === "function") showPostAuthTransition();
         return true;
       }
       window.__athlevoRoutingFor = session.user.id;
@@ -10440,6 +10659,7 @@ async function restoreSession(opts) {
         }
       }
       if (paidAfterExit && paidAfterExit.paid) {
+        if (typeof showPostAuthTransition === "function") showPostAuthTransition();
         await routeAfterAuth(session.user.id);
         return true;
       }
@@ -10465,6 +10685,7 @@ async function restoreSession(opts) {
       else showScreen("screen-welcome");
       return false;
     }
+    if (typeof showPostAuthTransition === "function") showPostAuthTransition();
     await routeAfterAuth(session.user.id);
     return true;
   }
@@ -10524,7 +10745,7 @@ async function restoreSession(opts) {
       ((typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff()) &&
         !(typeof isAiEntryPath === "function" && isAiEntryPath()));
   } catch (e) { aiSignupHandoff = false; }
-  if (aiSignupHandoff) {
+  if (aiSignupHandoff && !oauthPending) {
     try {
       if (window.AthlevoEnv && typeof window.AthlevoEnv.consumeContinuation === "function") {
         externalContinuation = window.AthlevoEnv.consumeContinuation();
@@ -10538,6 +10759,13 @@ async function restoreSession(opts) {
           openLogin(false, "external_handoff");
         }
       }, 0);
+    }
+    return false;
+  }
+  if (oauthPending) {
+    if (typeof showPostAuthTransition === "function") showPostAuthTransition();
+    if (typeof scheduleOAuthHydrationFailOpen === "function") {
+      scheduleOAuthHydrationFailOpen();
     }
     return false;
   }
@@ -11011,11 +11239,11 @@ setTimeout(function () {
 <script src="js/workoutAnalysis.js?v=68"></script>
 <script src="js/legal.js?v=68"></script>
 <script src="js/onboarding.js?v=71"></script>
-<script src="js/diagnostic.js?v=8"></script>
-<script src="js/diagnosticSalesEngine.js?v=8"></script>
-<script src="js/diagnosticUI.js?v=8"></script>
-<script src="js/diagnosticHandoff.js?v=8"></script>
-<script src="js/diagnosticAcquisition.js?v=8"></script>
+<script src="js/diagnostic.js?v=9"></script>
+<script src="js/diagnosticSalesEngine.js?v=9"></script>
+<script src="js/diagnosticUI.js?v=9"></script>
+<script src="js/diagnosticHandoff.js?v=9"></script>
+<script src="js/diagnosticAcquisition.js?v=9"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's
@@ -11268,6 +11496,7 @@ setTimeout(function () {
    * They now start a real Supabase OAuth flow.
    */
   async function continueWithGoogle() {
+    if (window.__athlevoAuthEntryLocked) return;
     const btn = document.getElementById("authBtnGoogle");
     if (btn) { btn.disabled = true; btn.textContent = "Opening Google…"; }
     const result = await AthlevoSocialAuth.signInWithGoogle();
@@ -11715,6 +11944,7 @@ setTimeout(function () {
     const url = new URL(window.location.href);
 
     // Direct /ai: logged-out visitors enter the free diagnostic.
+    // Eligible anonymous visitors start before restoreSession resolves.
     // Authenticated visitors are routed by restoreSession (paid → app;
     // unpaid → /pricing). /signup is canonical; /ai-signup stays compatible.
     var aiPath = url.pathname.replace(/\/+$/, "");
@@ -11749,6 +11979,10 @@ setTimeout(function () {
     let enteredApp = false;
     window.__athlevoSessionRestoreSettled = false;
     try {
+      if (!stravaResult &&
+          typeof earlyStartAnonymousAiDiagnosticIfEligible === "function") {
+        earlyStartAnonymousAiDiagnosticIfEligible();
+      }
       enteredApp = await restoreSession({ returningFromStrava: !!stravaResult });
     } finally {
       window.__athlevoAuthRestoring = false;
@@ -11797,7 +12031,10 @@ setTimeout(function () {
         if (window.__athlevoRecoveryIntent) return;
         if (!window.__athlevoSessionRestoreSettled || window.__athlevoAuthRestoring) return;
         try {
-          if (window.__athlevoRoutingFor === nextUserId) return;
+          if (window.__athlevoRoutingFor === nextUserId) {
+            if (typeof showPostAuthTransition === "function") showPostAuthTransition();
+            return;
+          }
         } catch (e) {}
         var currentRoute = window.AthlevoAuthRoute && window.AthlevoAuthRoute.current();
         if (currentRoute && currentRoute.userId && currentRoute.userId !== nextUserId) {
@@ -11809,12 +12046,16 @@ setTimeout(function () {
             try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
           }
         }
-        try { window.__athlevoRoutingFor = nextUserId; } catch (e) {}
         athlevoSessionUserId = nextUserId;
         try { window.athlevoSessionUserId = nextUserId; } catch (e2) {}
         if (window.AthlevoDiagnosticAcquisition &&
             typeof window.AthlevoDiagnosticAcquisition.clearPaywallExit === "function") {
           try { window.AthlevoDiagnosticAcquisition.clearPaywallExit(); } catch (e3) {}
+        }
+        if (typeof beginAuthenticatedRouting === "function") {
+          if (!beginAuthenticatedRouting(nextUserId)) return;
+        } else {
+          try { window.__athlevoRoutingFor = nextUserId; } catch (e4) {}
         }
         if (typeof routeAfterAuth === "function") {
           Promise.resolve(routeAfterAuth(nextUserId)).catch(function () {});

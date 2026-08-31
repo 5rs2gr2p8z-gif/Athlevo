@@ -23,7 +23,7 @@
   // event → { kind, props }.  kind: "milestone" (once/athlete) | "behavioural".
   var EVENTS = {
     landing_viewed:               { kind: "behavioural", props: ["page_url", "page_path", "referrer", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
-    ai_landing_viewed:            { kind: "behavioural", props: ["source", "path", "page_path", "referrer", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
+    ai_landing_viewed:            { kind: "behavioural", props: ["source", "path", "page_path", "referrer", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer", "acquisition_intent"] },
     ai_signup_viewed:             { kind: "behavioural", props: ["from", "diagnostic_completed", "path", "page_path", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     payment_screen_viewed:        { kind: "behavioural", props: ["source", "price_php", "plan", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     payment_completed:            { kind: "milestone",   props: ["provider", "plan_id", "price_php", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
@@ -126,12 +126,13 @@
     primary_tab_viewed:            { kind: "behavioural", props: ["screen_name"] },
     // Pre-signup diagnostic events (categorical only — never injury
     // free text, pain descriptions, or medical details)
-    diagnostic_viewed:             { kind: "behavioural", props: ["path", "page_path"] },
-    diagnostic_started:            { kind: "milestone",   props: ["first_input_type", "acquisition_source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
+    diagnostic_viewed:             { kind: "behavioural", props: ["path", "page_path", "acquisition_intent"] },
+    diagnostic_started:            { kind: "milestone",   props: ["first_input_type", "acquisition_source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer", "acquisition_intent"] },
     diagnostic_resumed:            { kind: "behavioural", props: ["state"] },
     diagnostic_question_answered:  { kind: "behavioural", props: ["question_key", "questions_completed"] },
+    diagnostic_step_completed:     { kind: "behavioural", props: ["step", "question_id", "answer_type", "answer_id", "diagnostic_stage", "acquisition_intent"] },
     diagnostic_insight_shown:      { kind: "behavioural", props: ["question_key"] },
-    diagnostic_completed:          { kind: "milestone",   props: ["questions_answered", "primary_limiter", "recommended_product", "feasibility_rating", "injury_reported", "goal_distance", "training_status", "weekly_mileage", "has_race", "diagnostic_version"] },
+    diagnostic_completed:          { kind: "milestone",   props: ["questions_answered", "primary_limiter", "recommended_product", "feasibility_rating", "injury_reported", "goal_distance", "training_status", "weekly_mileage", "has_race", "diagnostic_version", "acquisition_intent"] },
     diagnostic_result_viewed:      { kind: "behavioural", props: ["primary_limiter", "recommended_product", "feasibility_rating", "injury_reported"] },
     product_recommended:           { kind: "behavioural", props: ["recommended_product", "feasibility_rating"] },
     alternative_products_viewed:  { kind: "behavioural", props: ["recommended_product"] },
@@ -181,6 +182,9 @@
       diagnostic: true, diagnostic_paywall: true, ai_signup: true
     },
     first_input_type: { chip: true, text: true },
+    acquisition_intent: { first10k: true, general: true, sub2hm: true, marathon: true },
+    answer_type: { chip: true, text: true, skip: true, autofill: true },
+    diagnostic_stage: { goal: true, capacity: true, training: true, limiter: true, safety: true },
     from: { ai_diagnostic: true },
     method: { email: true, google: true, card: true, local: true },
     access_tier: {

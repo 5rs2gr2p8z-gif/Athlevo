@@ -33,6 +33,7 @@ console.log("Athlevo Diagnostic v1 loaded");
 var STORAGE_KEY = "athlevo_pending_diagnostic_v1";
 var SCHEMA_VERSION = 1;
 var ENGINE_VERSION = "diagnostic-engine-v4";
+var ACQUISITION_INTENTS = { first10k: true, general: true };
 var STORAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 var MAX_HISTORY_LENGTH = 20;
 var MODEL_REASONING_LIMITERS = [
@@ -336,6 +337,67 @@ var QUESTIONS = [
     }
   },
 
+  /* ── Acquisition opening: current running frequency (first-10K ads) ── */
+  {
+    key: "current_running_frequency",
+    eyebrow: "Right now",
+    title: "How often are you running right now?",
+    sub: "Your current week — not an ideal week.",
+    provides: ["training_days", "training_status"],
+    eligible: function (state) {
+      if (!state || state.acquisitionIntent !== "first10k") return false;
+      if (!state.known || !state.known.goal) return false;
+      return !state.known.training_days;
+    },
+    fields: [{
+      id: "current_running_frequency", bare: true, type: "chips",
+      label: "Current running frequency", required: true,
+      options: [
+        { label: "Just starting", value: "just_starting" },
+        { label: "1–2x a week", value: "freq_1_2" },
+        { label: "3x a week", value: "freq_3" },
+        { label: "4x+ a week", value: "freq_4_plus" }
+      ]
+    }],
+    autoAdvance: true,
+    extract: function (answers) {
+      var v = answers.current_running_frequency;
+      if (v === "just_starting") {
+        return {
+          current_running_frequency: v,
+          training_status: "starting",
+          training_days: 1
+        };
+      }
+      if (v === "freq_1_2") {
+        return { current_running_frequency: v, training_days: 2 };
+      }
+      if (v === "freq_3") {
+        return { current_running_frequency: v, training_days: 3 };
+      }
+      if (v === "freq_4_plus") {
+        return { current_running_frequency: v, training_days: 4 };
+      }
+      return {};
+    },
+    interpret: function (answers) {
+      var v = answers.current_running_frequency;
+      if (v === "just_starting") {
+        return "Got it po. Since you’re just starting, I wouldn’t worry about speed yet. First priority natin is building a repeatable running habit you can actually keep.";
+      }
+      if (v === "freq_1_2") {
+        return "Got it po. Since you’re currently running 1–2x a week, I wouldn’t worry about speed yet. First priority natin is building enough consistency and endurance to handle more running comfortably.";
+      }
+      if (v === "freq_3") {
+        return "Got it po. Three days a week is a solid starting rhythm. I wouldn’t add more intensity yet — first I want to understand how far those runs currently go.";
+      }
+      if (v === "freq_4_plus") {
+        return "Got it po. You’re already running often enough that frequency usually isn’t the limiter. Next I want to understand your current endurance, not just how many days you train.";
+      }
+      return null;
+    }
+  },
+
   /* ── 2. Race details (conditional) ──────────────────────────────── */
   {
     key: "race_details",
@@ -509,6 +571,7 @@ var QUESTIONS = [
     provides: ["recent_consistency", "recent_longest_run_km"],
     eligible: function (state) {
       if (!state.known.goal) return false;
+      if (state.acquisitionIntent === "first10k") return true;
       return state.answers.training_status === "starting" ||
         !!state.known.weekly_mileage ||
         !!state.known.training_status ||
@@ -546,6 +609,12 @@ var QUESTIONS = [
       }
       if (goal === "General fitness") {
         return "That gives me enough of a current baseline for a fitness goal — consistency and a sustainable weekly rhythm matter more than race-specific numbers here.";
+      }
+      if (goal === "10K" && longest > 0 && longest < 10) {
+        if (longest >= 4 && longest <= 6) {
+          return "That gives us something to work with. Since nakaka-5K ka na, we don’t need to start from zero. We can gradually build your endurance from there instead of rushing straight to 10K.";
+        }
+        return "That gives us something to work with. We don’t need to start from zero — we can gradually build your endurance from there instead of rushing straight to 10K.";
       }
       return "Your recent consistency and longest run give me a current-capacity baseline that is more useful than a lifetime best.";
     }
@@ -1084,6 +1153,9 @@ function DiagnosticEngine() {
   // Validated model coaching judgment. Deterministic answers still win.
   // Cleared when the relevant fact signature changes.
   this.modelReasoning = null;
+
+  // Ad acquisition context. Does not grant access or change entitlement.
+  this.acquisitionIntent = "general";
 }
 
 DiagnosticEngine.prototype._goalDistance = function () {
@@ -1162,6 +1234,10 @@ DiagnosticEngine.prototype.hasDiagnosticSufficiency = function () {
 };
 
 DiagnosticEngine.prototype._longestRunHighValue = function () {
+  if (!this._hasFact("recent_longest_run_km") &&
+      this.acquisitionIntent === "first10k" && this._goalDistance() === "10K") {
+    return true;
+  }
   return isEnduranceDistance(this._goalDistance()) && !this._hasFact("recent_longest_run_km");
 };
 
@@ -1194,7 +1270,10 @@ DiagnosticEngine.prototype._provideStillNeeded = function (key) {
     return false;
   }
   if (key === "goal_time" && this._hasTimelineCategory()) return false;
-  if (key === "goal_race_date" && this._hasTimelineCategory()) return false;
+  if (key === "goal_race_date" && this._hasTimelineCategory()) {
+    if (this.acquisitionIntent === "first10k" && this._goalDistance() === "10K") return true;
+    return false;
+  }
   return true;
 };
 
@@ -1225,9 +1304,15 @@ DiagnosticEngine.prototype._questionDiagnosticValue = function (q) {
     case "goal":
       value = goalGap ? 100 : 0;
       break;
+    case "current_running_frequency":
+      if (this.acquisitionIntent === "first10k" && !this._hasFact("training_days")) value = 96;
+      else value = 0;
+      break;
     case "race_details":
       if (timelineGap) value = 90;
       else if (isLongEnduranceDistance(d) && !this._hasFact("goal_race_date")) value = 40;
+      else if (this.acquisitionIntent === "first10k" && d === "10K" &&
+          !this._hasFact("goal_race_date") && this._hasFact("recent_longest_run_km")) value = 91;
       else value = 0;
       break;
     case "experience":
@@ -1246,7 +1331,8 @@ DiagnosticEngine.prototype._questionDiagnosticValue = function (q) {
       else value = 10;
       break;
     case "current_capacity":
-      if (isLongEnduranceDistance(d) && !this._hasFact("recent_longest_run_km")) value = 88;
+      if (this.acquisitionIntent === "first10k" && !this._hasFact("recent_longest_run_km")) value = 94;
+      else if (isLongEnduranceDistance(d) && !this._hasFact("recent_longest_run_km")) value = 88;
       else if (isEnduranceDistance(d) && !this._hasFact("recent_longest_run_km") && capacityGap) value = 75;
       else if (capacityGap && !this._hasRecentResult()) value = 60;
       else if (contextGap && !this._hasFact("recent_consistency") &&
@@ -1485,7 +1571,8 @@ DiagnosticEngine.prototype._stateView = function () {
     known: this.known,
     history: this.history,
     hypotheses: this.hypotheses,
-    safetyFlags: this.safetyFlags
+    safetyFlags: this.safetyFlags,
+    acquisitionIntent: this.acquisitionIntent || "general"
   };
 };
 
@@ -2259,7 +2346,8 @@ DiagnosticEngine.prototype._save = function () {
       completed: this.completed,
       result: this.result,
       pendingFacts: sanitizePendingFacts(this.pendingFacts),
-      modelReasoning: sanitizeStoredModelReasoning(this.modelReasoning)
+      modelReasoning: sanitizeStoredModelReasoning(this.modelReasoning),
+      acquisitionIntent: this.acquisitionIntent === "first10k" ? "first10k" : "general"
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (e) {
@@ -2289,6 +2377,7 @@ DiagnosticEngine.load = function () {
     engine.result = payload.result || null;
     engine.pendingFacts = sanitizePendingFacts(payload.pendingFacts);
     engine.modelReasoning = sanitizeStoredModelReasoning(payload.modelReasoning);
+    engine.acquisitionIntent = DiagnosticEngine.resolveAcquisitionIntent(payload.acquisitionIntent);
     engine._rebuildDerivedState();
 
     return engine;
@@ -2349,6 +2438,50 @@ DiagnosticEngine.create = function () {
   var engine = new DiagnosticEngine();
   engine._save();
   return engine;
+};
+
+DiagnosticEngine.resolveAcquisitionIntent = function (raw) {
+  var value = String(raw == null ? "" : raw).trim().toLowerCase();
+  if (value === "first10k") return "first10k";
+  return "general";
+};
+
+DiagnosticEngine.readAcquisitionIntentFromLocation = function (loc) {
+  try {
+    var target = loc || (root.location || null);
+    var search = target && target.search != null ? String(target.search) : "";
+    var params = new URLSearchParams(search);
+    return DiagnosticEngine.resolveAcquisitionIntent(params.get("intent"));
+  } catch (e) {
+    return "general";
+  }
+};
+
+/* Seed ad context into the engine. Never touches auth, paywall, or entitlement.
+ * In-progress diagnostics keep their persisted intent so a later URL cannot
+ * rewrite an already-started conversation. A persisted first10k is also kept
+ * when the URL has no recognized intent (plain /ai refresh). */
+DiagnosticEngine.prototype.applyAcquisitionIntent = function (raw) {
+  var resolved = DiagnosticEngine.resolveAcquisitionIntent(raw);
+  if (this.history && this.history.length > 0) {
+    return this.acquisitionIntent === "first10k" ? "first10k" : "general";
+  }
+  if (resolved === "general" && this.acquisitionIntent === "first10k") {
+    return "first10k";
+  }
+  this.acquisitionIntent = resolved;
+  if (resolved === "first10k" && !this._hasGoalCategory()) {
+    var nextFacts = {};
+    var existing = sanitizePendingFacts(this.pendingFacts);
+    for (var key in existing) {
+      if (Object.prototype.hasOwnProperty.call(existing, key)) nextFacts[key] = existing[key];
+    }
+    nextFacts.goal_distance = "10K";
+    this.pendingFacts = sanitizePendingFacts(nextFacts);
+    this._rebuildDerivedState();
+  }
+  this._save();
+  return resolved;
 };
 
 /* ═══════════════════════════ PROFILE ATTACHMENT ══════════════════════
@@ -2526,7 +2659,12 @@ root.AthlevoDiagnostic = DiagnosticEngine;
 
 // Node.js / test compat
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { DiagnosticEngine: DiagnosticEngine, QUESTIONS: QUESTIONS, LIMITER_RULES: LIMITER_RULES };
+  module.exports = {
+    DiagnosticEngine: DiagnosticEngine,
+    QUESTIONS: QUESTIONS,
+    LIMITER_RULES: LIMITER_RULES,
+    ACQUISITION_INTENTS: ACQUISITION_INTENTS
+  };
 }
 
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

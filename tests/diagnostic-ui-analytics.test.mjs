@@ -46,7 +46,7 @@ assert.match(index, /__athlevoSessionRestoreSettled/);
 
 const expectedEvents = [
   "diagnostic_viewed", "diagnostic_started", "diagnostic_resumed",
-  "diagnostic_question_answered", "diagnostic_insight_shown",
+  "diagnostic_question_answered", "diagnostic_step_completed", "diagnostic_insight_shown",
   "diagnostic_completed", "diagnostic_result_viewed", "product_recommended",
   "alternative_products_viewed", "product_selected", "diagnostic_signup_tapped",
   "diagnostic_import_started", "diagnostic_import_completed", "diagnostic_import_failed",

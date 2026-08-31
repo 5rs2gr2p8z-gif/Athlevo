@@ -56,7 +56,8 @@
     "plan_start_date",
     "browser", "intent", "source_surface", "access_tier",
     "failure_category", "stage", "value_type",
-    "path", "from", "first_input_type", "acquisition_source",
+    "path", "from", "first_input_type", "acquisition_source", "acquisition_intent",
+    "step", "question_id", "answer_type", "answer_id", "diagnostic_stage",
     "training_status", "weekly_mileage", "has_race", "diagnostic_version",
     "method", "price_php", "plan", "plan_id", "initial_referrer",
     "diagnostic_completed",
@@ -97,6 +98,9 @@
       diagnostic: true, diagnostic_paywall: true, ai_signup: true
     },
     first_input_type: { chip: true, text: true },
+    acquisition_intent: { first10k: true, general: true, sub2hm: true, marathon: true },
+    answer_type: { chip: true, text: true, skip: true, autofill: true },
+    diagnostic_stage: { goal: true, capacity: true, training: true, limiter: true, safety: true },
     from: { ai_diagnostic: true },
     method: { email: true, google: true, card: true, local: true },
     from_workspace: {

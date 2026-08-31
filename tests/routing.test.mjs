@@ -73,6 +73,15 @@ const SOURCE = [
   extract("hasStoredAthlevoAuthToken"),
   extract("hasReturningAthlevoAccountMarker"),
   extract("showReturningUserWelcome"),
+  extract("hasLiveAthlevoOAuthReturn"),
+  extract("canEarlyStartAnonymousAiDiagnostic"),
+  extract("earlyStartAnonymousAiDiagnosticIfEligible"),
+  extract("lockAuthEntryControls"),
+  extract("clearOAuthHydrationFailOpen"),
+  extract("scheduleOAuthHydrationFailOpen"),
+  extract("showPostAuthTransition"),
+  extract("claimPostAuthRoute"),
+  extract("beginAuthenticatedRouting"),
   extract("openAppEntry"),
   extract("hasWhopCheckoutReturn"),
   extract("showCheckoutReturnWelcome"),
@@ -101,7 +110,8 @@ function makeWorld({
   oauthReturn = false,
   oauthCancelled = false,
   oauthWaitMs = null,
-  sessionDelayCalls = 0
+  sessionDelayCalls = 0,
+  holdGetSession = false
 }) {
   const state = {
     screens: {
@@ -109,7 +119,8 @@ function makeWorld({
       "screen-welcome": { active: false },
       "screen-today": { active: false },
       "screen-diagnostic": { active: false },
-      "screen-diagnostic-paywall": { active: false }
+      "screen-diagnostic-paywall": { active: false },
+      "screen-auth-setup": { active: false }
     },
     bodyClasses: new Set(["booting"]),
     tabbarDisplay: "none",
@@ -117,8 +128,17 @@ function makeWorld({
     onboardingStarted: false,
     signedOut: false,
     diagnosticStarted: false,
-    log: []
+    diagnosticStartCalls: 0,
+    sessionCalls: 0,
+    getSessionResolved: false,
+    log: [],
+    disabled: {},
+    locked: false
   };
+  let releaseGetSession = () => {};
+  const getSessionHeld = holdGetSession
+    ? new Promise(resolve => { releaseGetSession = () => resolve(); })
+    : Promise.resolve();
   const store = new Map();
   state.store = store;
   if (paywallExit) store.set("athlevo_paywall_exit", "1");
@@ -153,6 +173,8 @@ function makeWorld({
         return {
           hidden: true,
           innerHTML: "",
+          style: {},
+          setAttribute() {},
           classList: {
             add: (c) => { state.checkoutNoteVisible = c === "is-visible"; },
             remove() {},
@@ -160,8 +182,14 @@ function makeWorld({
           }
         };
       }
-      if (id === "authBtnEmail") {
-        return { setAttribute() {}, getAttribute() { return ""; } };
+      if (id === "authBtnEmail" || id === "authBtnGoogle" || id === "authBtnApple" ||
+          id === "suBtn" || id === "liBtn") {
+        return {
+          setAttribute() {},
+          getAttribute() { return ""; },
+          get disabled() { return state.disabled[id] === true; },
+          set disabled(v) { state.disabled[id] = !!v; }
+        };
       }
       if (id === "screen-welcome") {
         const node = el(id);
@@ -234,8 +262,12 @@ function makeWorld({
           state.screens["screen-diagnostic-paywall"].active = true;
         }
       },
+      AthlevoSocialAuth: {
+        isOAuthReturn: () => !!oauthReturn
+      },
       AthlevoDiagnosticUI: {
         start() {
+          state.diagnosticStartCalls += 1;
           state.diagnosticStarted = true;
           state.screens["screen-diagnostic"].active = true;
         }
@@ -271,6 +303,8 @@ function makeWorld({
     supabaseClient: { auth: {
       getSession: async () => {
         state.sessionCalls = (state.sessionCalls || 0) + 1;
+        if (holdGetSession) await getSessionHeld;
+        state.getSessionResolved = true;
         if (timedOut) return { data: { session: null }, timedOut: true, error: null };
         if (sessionDelayCalls && state.sessionCalls <= sessionDelayCalls) {
           return { data: { session: null }, error: null };
@@ -293,7 +327,11 @@ function makeWorld({
     },
     updateOpenAppUI: () => {},
     toast: () => {},
+    closeAuth: () => { state.authClosed = true; },
     AthlevoBrain: { resetAthleteUI: () => {}, invalidateActivityCache: () => {} },
+    AthlevoSocialAuth: {
+      isOAuthReturn: () => !!oauthReturn
+    },
     history: { pushState() {}, replaceState(value) { state.historyState = value; } },
     isAiSignupPath: () => {
       const p = String(pathname || "").replace(/\/+$/, "");
@@ -326,10 +364,21 @@ function makeWorld({
     `${SOURCE}
      return {
        restoreSession, endBootGate, showScreen, doLogout, renderNavState,
+       canEarlyStartAnonymousAiDiagnostic,
+       earlyStartAnonymousAiDiagnosticIfEligible,
+       beginAuthenticatedRouting,
+       claimPostAuthRoute,
+       showPostAuthTransition,
+       lockAuthEntryControls,
        getUid: () => athlevoSessionUserId,
        getAuthPushed: () => athlevoAuthPushed
      };`);
-  return { api: fn(...Object.values(sandbox)), state, window: sandbox.window };
+  return {
+    api: fn(...Object.values(sandbox)),
+    state,
+    window: sandbox.window,
+    releaseGetSession
+  };
 }
 
 // Boot exactly as index.html does: restore, then always lift the gate.
@@ -591,8 +640,8 @@ section("Failure modes");
   const r = await boot({ session: SESSION, standalone: false, routeThrows: true });
   t("boot gate lifts even when routing throws (no blank-screen hang)",
     !r.state.bodyClasses.has("booting"));
-  t("...and falls back to a usable signed-out surface",
-    r.visible === "screen-landing" || r.visible === "screen-welcome", r.visible);
+  t("...and keeps the authenticated setup surface instead of a signed-out signup flash",
+    r.visible === "screen-auth-setup", r.visible);
 }
 {
   // getSession that never settles → the 8s race must still resolve.
@@ -905,8 +954,41 @@ section("/ai acquisition routing");
     oauthWaitMs: 60
   });
   await api.restoreSession({}); api.endBootGate();
-  t("failed OAuth hydration on /ai-signup returns to auth, not the app",
-    state.routed === null && state.screens["screen-welcome"].active === true &&
+  t("E. delayed OAuth hydration does not flash /ai-signup",
+    state.routed === null &&
+    state.aiSignupShown !== true &&
+    state.screens["screen-welcome"].active !== true &&
+    state.screens["screen-auth-setup"].active === true &&
+    Date.now() - started < 1500);
+}
+{
+  const { api, state, window: win } = makeWorld({
+    session: null,
+    standalone: false,
+    pathname: "/ai-signup",
+    oauthReturn: true,
+    oauthWaitMs: 20
+  });
+  win.__athlevoOAuthHydrationFailMs = 30;
+  await api.restoreSession({}); api.endBootGate();
+  await new Promise(resolve => setTimeout(resolve, 80));
+  t("F. OAuth terminal no-session fail-open returns to signup, not an infinite spinner",
+    state.routed === null &&
+    state.aiSignupShown === true &&
+    state.screens["screen-welcome"].active === true);
+}
+{
+  const started = Date.now();
+  const { api, state } = makeWorld({
+    session: null,
+    standalone: false,
+    pathname: "/ai-signup",
+    oauthReturn: true,
+    oauthWaitMs: 60
+  });
+  await api.restoreSession({}); api.endBootGate();
+  t("failed OAuth hydration on /ai-signup stays off the app during pending callback",
+    state.routed === null && state.screens["screen-today"].active === false &&
     Date.now() - started < 1500);
 }
 {
@@ -922,6 +1004,8 @@ section("/ai acquisition routing");
     state.routed === null && state.screens["screen-welcome"].active === true &&
     state.diagnosticStarted !== true &&
     state.screens["screen-landing"].active !== true);
+  t("F. cancelled Google OAuth does not leave the post-auth transition spinning",
+    state.screens["screen-auth-setup"].active !== true);
 }
 {
   const src = extract("restoreSession");
@@ -947,6 +1031,222 @@ section("/ai acquisition routing");
   t("startDiagnostic never paints acquisition when a returning-account marker exists",
     /hasReturningAthlevoAccountMarker/.test(ui) &&
     ui.indexOf("hasReturningAthlevoAccountMarker") < ui.indexOf("showScreen(\"screen-diagnostic\")"));
+}
+
+section("Anonymous /ai early-start (before restoreSession)");
+{
+  const initStart = html.indexOf("async function initializeAthlevoApp()");
+  const initEnd = html.indexOf("initializeAthlevoApp();", initStart);
+  const initSource = html.slice(initStart, initEnd);
+  t("initializeAthlevoApp early-starts /ai before await restoreSession",
+    initSource.indexOf("earlyStartAnonymousAiDiagnosticIfEligible()") >= 0 &&
+    initSource.indexOf("earlyStartAnonymousAiDiagnosticIfEligible()") <
+      initSource.indexOf("await restoreSession("));
+  t("legal public routes still run before restoreSession",
+    initSource.indexOf("await window.openPublicLegalRoute(url.pathname)") <
+      initSource.indexOf("earlyStartAnonymousAiDiagnosticIfEligible()"));
+  t("Strava provider return skips early diagnostic start",
+    /if \(!stravaResult &&[\s\S]{0,120}earlyStartAnonymousAiDiagnosticIfEligible/.test(initSource));
+  t("boot gate still lifts in restoreSession finally",
+    /\} finally \{[\s\S]{0,400}endBootGate\(\);/.test(initSource));
+}
+{
+  const { api, state, releaseGetSession } = makeWorld({
+    session: null, standalone: false, pathname: "/ai", holdGetSession: true
+  });
+  const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
+  t("A. fresh anonymous /ai starts diagnostic before getSession resolves",
+    early === true &&
+    state.diagnosticStarted === true &&
+    state.diagnosticStartCalls === 1 &&
+    state.getSessionResolved !== true &&
+    state.sessionCalls === 0);
+  t("B. fresh anonymous /ai lifts boot gate before getSession resolves",
+    !state.bodyClasses.has("booting") &&
+    state.screens["screen-diagnostic"].active === true &&
+    state.getSessionResolved !== true);
+
+  const restoreP = api.restoreSession({});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  t("C. slow getSession still allows diagnostic interaction",
+    state.diagnosticStarted === true &&
+    !state.bodyClasses.has("booting") &&
+    state.getSessionResolved !== true &&
+    state.screens["screen-diagnostic"].active === true);
+
+  releaseGetSession();
+  await restoreP;
+  api.endBootGate();
+  t("D. restore with no session leaves the diagnostic in place",
+    state.screens["screen-diagnostic"].active === true &&
+    state.routed === null &&
+    state.screens["screen-today"].active === false);
+  t("J. restoreSession /ai start branch does not create a second stub shell",
+    state.diagnosticStartCalls === 2 &&
+    state.screens["screen-diagnostic"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/ai"
+  });
+  const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
+  await api.restoreSession({});
+  api.endBootGate();
+  t("E. later authenticated unpaid session uses existing routeAfterAuth",
+    early === true &&
+    state.routed === "u1" &&
+    state.screens["screen-today"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/ai"
+  });
+  api.earlyStartAnonymousAiDiagnosticIfEligible();
+  await api.restoreSession({});
+  api.endBootGate();
+  t("F. later paid session still uses routeAfterAuth, not a checkout restart",
+    state.routed === "u1" &&
+    state.pricingShown !== true &&
+    state.screens["screen-diagnostic-paywall"].active === false);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/ai", storedAuthToken: true
+  });
+  const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
+  await api.restoreSession({});
+  api.endBootGate();
+  t("G. known returning-account marker does not early-start diagnostic",
+    early === false &&
+    state.diagnosticStarted !== true &&
+    state.screens["screen-welcome"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/ai", oauthReturn: true, oauthWaitMs: 40
+  });
+  const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
+  await api.restoreSession({});
+  api.endBootGate();
+  t("H. OAuth callback does not early-start diagnostic",
+    early === false &&
+    state.diagnosticStarted !== true &&
+    state.screens["screen-welcome"].active !== true &&
+    state.screens["screen-auth-setup"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: null,
+    standalone: false,
+    pathname: "/ai",
+    href: "https://athlevo.org/ai?checkout_return=1"
+  });
+  const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
+  await api.restoreSession({});
+  api.endBootGate();
+  t("I. checkout_return=1 does not early-start diagnostic",
+    early === false &&
+    state.diagnosticStarted !== true &&
+    state.screens["screen-welcome"].active === true &&
+    state.screens["screen-today"].active === false);
+}
+{
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/" });
+  const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
+  await api.restoreSession({});
+  api.endBootGate();
+  t("M. generic non-/ai routes are unchanged (landing, no diagnostic)",
+    early === false &&
+    state.diagnosticStarted !== true &&
+    state.screens["screen-landing"].active === true);
+}
+{
+  const src = extract("canEarlyStartAnonymousAiDiagnostic");
+  t("early-start eligibility requires /ai and existing returning/OAuth/checkout guards",
+    /isAiEntryPath/.test(src) &&
+    /hasReturningAthlevoAccountMarker/.test(src) &&
+    /hasLiveAthlevoOAuthReturn/.test(src) &&
+    /checkout_return/.test(src));
+  t("early-start does not grant paid_active or invent entitlement",
+    !/paid_active/.test(src) && !/ensure_free_trial/.test(src));
+}
+
+section("Post-auth transition");
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/signup"
+  });
+  await api.restoreSession({});
+  api.endBootGate();
+  t("B. paid session on /signup routes to the app without leaving welcome active",
+    state.routed === "u1" &&
+    state.screens["screen-today"].active === true &&
+    state.screens["screen-welcome"].active === false &&
+    state.screens["screen-diagnostic-paywall"].active === false);
+  t("O. paid_active restore does not open checkout because of the transition",
+    state.pricingShown !== true);
+}
+{
+  const { api, state, window: win } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/ai-signup"
+  });
+  const first = api.beginAuthenticatedRouting("u1");
+  const second = api.beginAuthenticatedRouting("u1");
+  t("L. second beginAuthenticatedRouting does not start a competing route",
+    first === true && second === false &&
+    state.screens["screen-auth-setup"].active === true &&
+    state.screens["screen-welcome"].active === false);
+  t("J. confirmed auth disables signup CTAs immediately",
+    state.disabled.authBtnGoogle === true &&
+    state.disabled.authBtnEmail === true &&
+    state.disabled.suBtn === true &&
+    win.__athlevoAuthEntryLocked === true);
+  await api.restoreSession({});
+  api.endBootGate();
+  t("L. already-claimed restore does not launch a second routeAfterAuth",
+    state.routed === null);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/ai-signup", oauthReturn: true, oauthWaitMs: 40
+  });
+  await api.restoreSession({});
+  api.endBootGate();
+  t("D. OAuth-ready session restore does not paint signup",
+    state.routed === "u1" &&
+    state.aiSignupShown !== true &&
+    state.screens["screen-welcome"].active === false);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/ai"
+  });
+  const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
+  t("M. /ai fail-open still starts diagnostic, not the auth transition",
+    early === true &&
+    state.diagnosticStarted === true &&
+    state.screens["screen-auth-setup"].active === false);
+}
+{
+  t("transition helper exists and does not mention paid_active",
+    /function showPostAuthTransition/.test(html) &&
+    /Setting up your account/.test(html) &&
+    !/paid_active/.test(extract("showPostAuthTransition")) &&
+    !/paid_active/.test(extract("beginAuthenticatedRouting")));
+  t("J. confirmed auth locks signup/login controls",
+    /__athlevoAuthEntryLocked/.test(extract("lockAuthEntryControls")) &&
+    /__athlevoAuthEntryLocked/.test(extract("openSignup")) &&
+    /__athlevoAuthEntryLocked/.test(extract("openLogin")));
+  t("doLogin does not re-enable Log In after confirmed auth",
+    /if \(!authenticatedUser\) \{[\s\S]{0,180}btn\.textContent = 'Log In'/.test(
+      html.slice(html.indexOf("async function doLogin"), html.indexOf("async function doLogout"))
+    ));
+  t("H. payment_screen_viewed is not fired from the transition helper",
+    !/payment_screen_viewed/.test(extract("showPostAuthTransition")) &&
+    !/payment_screen_viewed/.test(extract("beginAuthenticatedRouting")));
+  t("pending OAuth skips openAiSignup until a terminal no-session fail-open",
+    /aiSignupHandoff && !oauthPending/.test(extract("restoreSession")) &&
+    /scheduleOAuthHydrationFailOpen/.test(extract("restoreSession")));
 }
 
 section("Service worker");
