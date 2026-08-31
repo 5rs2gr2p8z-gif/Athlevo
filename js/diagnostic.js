@@ -2441,9 +2441,15 @@ DiagnosticEngine.create = function () {
 };
 
 DiagnosticEngine.resolveAcquisitionIntent = function (raw) {
+  // Campaign default: plain /ai resolves to first10k while ads target 10K runners.
+  // Explicit recognized intents still win; unknown non-empty intents fail safe to general.
   var value = String(raw == null ? "" : raw).trim().toLowerCase();
   if (value === "first10k") return "first10k";
-  return "general";
+  if (value === "general") return "general";
+  // Non-empty but unrecognized intent — fail safe to general
+  if (value !== "") return "general";
+  // No intent param at all — campaign default
+  return "first10k";
 };
 
 DiagnosticEngine.readAcquisitionIntentFromLocation = function (loc) {

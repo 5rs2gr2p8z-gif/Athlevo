@@ -70,9 +70,9 @@ const indexSrc = readFileSync("./index.html", "utf8");
   // CSS: .is-opening uses flex-direction:column
   assert.match(indexSrc, /\.chat-quick-replies\.is-opening\{[^}]*flex-direction:\s*column/,
     "Opening replies use vertical column layout");
-  assert.match(indexSrc, /\.chat-quick-replies\.is-opening\{[^}]*align-items:\s*center/,
-    "Opening replies are centered");
-  console.log("PASS — 5. Vertical centered stack for opening replies");
+  assert.match(indexSrc, /\.chat-quick-replies\.is-opening\{[^}]*align-items:\s*stretch/,
+    "Opening replies stretch to fill available width");
+  console.log("PASS — 5. Vertical full-width stack for opening replies");
 }
 
 /* ── 6. Reply buttons contain text only — no added icons/emojis ───── */
@@ -91,13 +91,14 @@ const indexSrc = readFileSync("./index.html", "utf8");
 /* ── 7. All four replies fit on representative mobile viewports ───── */
 {
   // Opening chips have max-width constraint and comfortable padding
-  assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*max-width:\s*320px/,
-    "Opening chips have max-width for desktop constraint (320px)");
+  // Cards fill the available chat content width (no max-width constraint)
+  assert.doesNotMatch(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*max-width:\s*320px/,
+    "Opening chips no longer have 320px max-width constraint");
   assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*width:\s*100%/,
-    "Opening chips use full width on mobile");
+    "Opening chips use full width");
   assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*padding:\s*15px 24px/,
     "Opening chips have comfortable touch target padding");
-  console.log("PASS — 7. Reply sizing suitable for mobile viewports");
+  console.log("PASS — 7. Reply cards fill available chat content width");
 }
 
 /* ── 8. Composer remains present during the opening frequency question ── */
@@ -273,7 +274,7 @@ console.log("\n✓ All 17 chat opening UX tests passed");
   const rule = openingChipRule[1];
   assert.ok(rule.includes("border-radius:14px"), "Rounded rectangle corners (14px)");
   assert.ok(rule.includes("box-shadow"), "Subtle depth via box-shadow");
-  assert.ok(rule.includes("max-width:320px"), "Wider max-width (320px)");
+  assert.ok(!rule.includes("max-width:320px"), "No max-width constraint — cards fill available width");
   assert.ok(rule.includes("padding:15px 24px"), "Generous vertical padding");
   assert.ok(rule.includes("position:relative"), "Position relative for pseudo-element");
   console.log("PASS — 23. Opening cards are tactile rounded rectangles");

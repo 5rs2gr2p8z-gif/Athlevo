@@ -66,12 +66,16 @@ const common = {
   const { Engine } = loadEngine();
   assert.equal(Engine.resolveAcquisitionIntent("first10k"), "first10k");
   assert.equal(Engine.resolveAcquisitionIntent("FIRST10K"), "first10k");
-  assert.equal(Engine.resolveAcquisitionIntent(null), "general");
-  assert.equal(Engine.resolveAcquisitionIntent(""), "general");
+  // Campaign default: no intent param → first10k
+  assert.equal(Engine.resolveAcquisitionIntent(null), "first10k");
+  assert.equal(Engine.resolveAcquisitionIntent(""), "first10k");
+  // Unknown non-empty intents fail safe to general
   assert.equal(Engine.resolveAcquisitionIntent("unknown"), "general");
   assert.equal(Engine.resolveAcquisitionIntent("marathon"), "general");
   assert.equal(Engine.resolveAcquisitionIntent("sub2hm"), "general");
   assert.equal(Engine.resolveAcquisitionIntent("signup"), "general");
+  // Explicit general still returns general
+  assert.equal(Engine.resolveAcquisitionIntent("general"), "general");
 }
 
 {
@@ -83,9 +87,13 @@ const common = {
 
 {
   const { Engine } = loadEngine();
-  assert.equal(Engine.readAcquisitionIntentFromLocation({ search: "" }), "general");
-  assert.equal(Engine.readAcquisitionIntentFromLocation({ search: "?utm_source=meta" }), "general");
+  // No intent param → campaign default first10k
+  assert.equal(Engine.readAcquisitionIntentFromLocation({ search: "" }), "first10k");
+  assert.equal(Engine.readAcquisitionIntentFromLocation({ search: "?utm_source=meta" }), "first10k");
+  // Unknown non-empty intent fails safe to general
   assert.equal(Engine.readAcquisitionIntentFromLocation({ search: "?intent=nope" }), "general");
+  // Explicit general param still works
+  assert.equal(Engine.readAcquisitionIntentFromLocation({ search: "?intent=general" }), "general");
 }
 
 {
@@ -116,7 +124,8 @@ const common = {
   const engine = Engine.create();
   engine.begin();
   engine.applyAcquisitionIntent("half-marathon-please");
-  assert.equal(engine.acquisitionIntent, "general");
+  assert.equal(engine.acquisitionIntent, "general", "unknown non-empty intent fails safe to general");
+  assert.notEqual(engine.answers.goal_distance, "10K");
   assert.equal(engine.nextQuestion().key, "goal");
 }
 
@@ -479,20 +488,21 @@ function loadWorld(opts = {}) {
 }
 
 {
+  // Plain /ai now resolves to campaign default first10k
   const world = loadWorld({ search: "" });
   const engine = world.Engine.create();
   engine.begin();
   engine.applyAcquisitionIntent(world.Engine.readAcquisitionIntentFromLocation({ search: "" }));
   world.helpers.bindEngine(engine);
   world.helpers.trackAiLandingViewed();
-  assert.equal(world.captured.find(e => e.name === "ai_landing_viewed").props.acquisition_intent, "general");
-  assert.equal(engine.nextQuestion().key, "goal");
-  const goal = world.Engine.getQuestion("goal");
-  world.helpers.prepareQuestion(goal);
-  world.helpers.handleChipSelect(goal.fields[0], goal.fields[0].options[0], goal.fields);
+  assert.equal(world.captured.find(e => e.name === "ai_landing_viewed").props.acquisition_intent, "first10k");
+  assert.equal(engine.nextQuestion().key, "current_running_frequency");
+  const freq = world.Engine.getQuestion("current_running_frequency");
+  world.helpers.prepareQuestion(freq);
+  world.helpers.handleChipSelect(freq.fields[0], freq.fields[0].options[1], freq.fields);
   const started = world.captured.filter(e => e.name === "diagnostic_started");
   assert.equal(started.length, 1);
-  assert.equal(started[0].props.acquisition_intent, "general");
+  assert.equal(started[0].props.acquisition_intent, "first10k");
 }
 
 {
@@ -611,6 +621,96 @@ function loadWorld(opts = {}) {
   assert.match(chatCss, /flex-shrink:0/);
   assert.match(chatCss, /is-opening\{flex-direction:column/);
   assert.doesNotMatch(uiSrc, /chat-thread[\s\S]{0,80}chat-quick-replies/);
+}
+
+
+/* ── Plain /ai with UTM and fbclid coexists with campaign default ── */
+{
+  const world = loadWorld({ search: "?utm_source=facebook&utm_campaign=10k&fbclid=xyz789" });
+  const engine = world.Engine.create();
+  engine.begin();
+  engine.applyAcquisitionIntent(world.Engine.readAcquisitionIntentFromLocation({
+    search: "?utm_source=facebook&utm_campaign=10k&fbclid=xyz789"
+  }));
+  world.helpers.bindEngine(engine);
+  world.helpers.trackAiLandingViewed();
+  const landing = world.captured.find(e => e.name === "ai_landing_viewed");
+  assert.equal(landing.props.acquisition_intent, "first10k", "plain /ai with UTMs resolves to first10k");
+  assert.equal(engine.nextQuestion().key, "current_running_frequency", "first10k opening question on plain /ai with UTMs");
+  const utm = world.api.attributionProps();
+  assert.equal(utm.utm_source, "facebook", "UTM source preserved");
+  assert.equal(utm.utm_campaign, "10k", "UTM campaign preserved");
+  assert.equal(utm.fbclid, "xyz789", "fbclid preserved");
+  console.log("PASS — plain /ai with UTM/fbclid resolves to first10k and preserves attribution");
+}
+
+/* ── Explicit ?intent=first10k still works identically ────────────── */
+{
+  const { Engine } = loadEngine("?intent=first10k");
+  assert.equal(Engine.readAcquisitionIntentFromLocation({ search: "?intent=first10k" }), "first10k");
+  const engine = Engine.create();
+  engine.begin();
+  engine.applyAcquisitionIntent("first10k");
+  assert.equal(engine.acquisitionIntent, "first10k");
+  assert.equal(engine.answers.goal_distance, "10K");
+  assert.equal(engine.nextQuestion().key, "current_running_frequency");
+  console.log("PASS — explicit ?intent=first10k continues working");
+}
+
+/* ── Explicit ?intent=general overrides the campaign default ─────── */
+{
+  const { Engine } = loadEngine("?intent=general");
+  assert.equal(Engine.readAcquisitionIntentFromLocation({ search: "?intent=general" }), "general");
+  const engine = Engine.create();
+  engine.begin();
+  engine.applyAcquisitionIntent("general");
+  assert.equal(engine.acquisitionIntent, "general");
+  assert.notEqual(engine.answers.goal_distance, "10K");
+  assert.equal(engine.nextQuestion().key, "goal");
+  console.log("PASS — explicit ?intent=general overrides campaign default");
+}
+
+/* ── First-10K opening copy appears on plain /ai ─────────────────── */
+{
+  assert.match(uiSrc, /currentAcquisitionIntent\(\) === "first10k"/, "UI branches on first10k intent");
+  assert.match(uiSrc, /Let's get you ready for your first 10K\./, "10K opening copy present");
+  console.log("PASS — first-10K opening copy available for plain /ai");
+}
+
+/* ── Reply cards use available chat content width (CSS) ───────────── */
+{
+  const chatCss = indexSrc.slice(
+    indexSrc.indexOf("/* ── Quick replies ── */"),
+    indexSrc.indexOf("/* ── Composer ── */")
+  );
+  // Parent uses align-items:stretch so cards fill width
+  assert.match(chatCss, /is-opening\{[^}]*align-items:\s*stretch/, "Opening container stretches cards");
+  // No max-width:320px on cards
+  const chipRule = chatCss.match(/\.is-opening \.chat-qr-chip\{([^}]+)\}/);
+  assert.ok(chipRule, "Opening chip rule found");
+  assert.ok(!chipRule[1].includes("max-width:320px"), "No 320px max-width constraint");
+  assert.ok(chipRule[1].includes("width:100%"), "Cards use width:100%");
+  console.log("PASS — reply cards use full available chat content width");
+}
+
+/* ── First-card animated perimeter still works ───────────────────── */
+{
+  assert.match(indexSrc, /\.chat-qr-first::before\{/, "Animated border pseudo-element present");
+  assert.match(indexSrc, /qr-border-travel/, "Animation keyframe present");
+  console.log("PASS — first-card animated perimeter still works");
+}
+
+/* ── All four reply cards remain vertically stacked ───────────────── */
+{
+  assert.match(indexSrc, /\.chat-quick-replies\.is-opening\{[^}]*flex-direction:\s*column/, "Opening uses column layout");
+  console.log("PASS — all four reply cards remain vertically stacked");
+}
+
+/* ── Composer positioning is unchanged ───────────────────────────── */
+{
+  assert.match(uiSrc, /function showComposer/, "showComposer preserved");
+  assert.match(uiSrc, /function hideComposer/, "hideComposer preserved");
+  console.log("PASS — composer positioning is unchanged");
 }
 
 console.log("PASS — diagnostic acquisition intent (first10k opening, mapping, analytics, chips)");
