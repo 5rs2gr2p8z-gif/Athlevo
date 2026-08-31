@@ -6856,6 +6856,9 @@ function currentPathname() {
 function isAiEntryPath() {
   return currentPathname() === "/ai";
 }
+function isLandingPath() {
+  return currentPathname() === "/landing";
+}
 function isSignupPath() {
   var path = currentPathname();
   return path === "/signup" || path === "/ai-signup";
@@ -6951,6 +6954,7 @@ function openAiSignup(opts) {
 window.isAiSignupPath = isAiSignupPath;
 window.isSignupPath = isSignupPath;
 window.isAiEntryPath = isAiEntryPath;
+window.isLandingPath = isLandingPath;
 window.isPricingPath = isPricingPath;
 window.rememberAiSignupHandoff = rememberAiSignupHandoff;
 window.hasAiSignupHandoff = hasAiSignupHandoff;
@@ -10843,7 +10847,8 @@ async function restoreSession(opts) {
       } else if (aiDiagnosticEntry && window.AthlevoDiagnosticUI &&
                  window.AthlevoDiagnosticUI.start && !athlevoSessionUserId) {
         window.AthlevoDiagnosticUI.start();
-      } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
+      } else if (!(typeof isLandingPath === "function" && isLandingPath()) &&
+                 window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
                  window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
                  window.AthlevoDiagnosticUI.start && !athlevoSessionUserId) {
         window.AthlevoDiagnosticUI.start();
@@ -10853,7 +10858,8 @@ async function restoreSession(opts) {
         showScreen("screen-landing");
         updateOpenAppUI(false);
       }
-    } else if (window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
+    } else if (!(typeof isLandingPath === "function" && isLandingPath()) &&
+               window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
                window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
                window.AthlevoDiagnosticUI.start && !athlevoSessionUserId &&
                !(typeof isSignupPath === "function" && isSignupPath())) {

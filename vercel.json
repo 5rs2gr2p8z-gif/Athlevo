@@ -5,6 +5,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/landing",
+      "destination": "/index.html"
+    },
+    {
       "source": "/ai-signup",
       "destination": "/index.html"
     },

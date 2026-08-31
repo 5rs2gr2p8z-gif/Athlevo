@@ -342,6 +342,7 @@ function makeWorld({
       return p === "/ai-signup" || p === "/signup";
     },
     isAiEntryPath: () => String(pathname || "").replace(/\/+$/, "") === "/ai",
+    isLandingPath: () => String(pathname || "").replace(/\/+$/, "") === "/landing",
     isPricingPath: () => String(pathname || "").replace(/\/+$/, "") === "/pricing",
     hasAiSignupHandoff: () => store.get("athlevo_ai_signup_handoff") === "1",
     rememberAiSignupHandoff: () => store.set("athlevo_ai_signup_handoff", "1"),
@@ -1159,6 +1160,38 @@ section("Anonymous /ai early-start (before restoreSession)");
     early === false &&
     state.diagnosticStarted !== true &&
     state.screens["screen-landing"].active === true);
+}
+{
+  const { api, state } = makeWorld({
+    session: null, standalone: false, pathname: "/landing", pendingDiagnostic: true
+  });
+  await api.restoreSession({});
+  api.endBootGate();
+  t("M2. direct /landing shows the existing marketing view even with a saved diagnostic",
+    state.screens["screen-landing"].active === true &&
+    state.diagnosticStarted !== true &&
+    state.screens["screen-diagnostic"].active === false);
+}
+{
+  const { api, state } = makeWorld({
+    session: SESSION, standalone: false, pathname: "/landing"
+  });
+  await api.restoreSession({});
+  api.endBootGate();
+  t("M3. authenticated /landing preserves the existing authenticated route",
+    state.routed === "u1" && state.screens["screen-today"].active === true);
+}
+{
+  const vercel = JSON.parse(readFileSync("./vercel.json", "utf8"));
+  t("M4. Vercel refresh on /landing serves the existing SPA shell",
+    vercel.rewrites.some(route =>
+      route.source === "/landing" && route.destination === "/index.html"
+    ));
+  t("M5. /landing uses a path guard, not a redirect to /ai",
+    /function isLandingPath\(\)[\s\S]{0,100}currentPathname\(\) === "\/landing"/.test(html) &&
+    !/source"\s*:\s*"\/landing"[\s\S]{0,100}destination"\s*:\s*"\/ai"/.test(
+      readFileSync("./vercel.json", "utf8")
+    ));
 }
 {
   const src = extract("canEarlyStartAnonymousAiDiagnostic");
