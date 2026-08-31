@@ -583,8 +583,9 @@ function showQuickReplies(options, onSelect) {
   else container.classList.remove("is-opening");
 
   for (var i = 0; i < options.length; i++) {
-    (function (opt) {
+    (function (opt, idx) {
       var chipClass = opt.chipClass ? "chat-qr-chip " + opt.chipClass : "chat-qr-chip";
+      if (openingChips && idx === 0) chipClass += " chat-qr-first";
       var btn = createEl(
         '<button class="' + chipClass + '" type="button">' + esc(opt.label) + '</button>'
       );
@@ -597,7 +598,7 @@ function showQuickReplies(options, onSelect) {
         onSelect(opt);
       });
       container.appendChild(btn);
-    })(options[i]);
+    })(options[i], i);
   }
 
   container.style.display = "";

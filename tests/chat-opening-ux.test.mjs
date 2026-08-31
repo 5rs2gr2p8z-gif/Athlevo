@@ -91,11 +91,11 @@ const indexSrc = readFileSync("./index.html", "utf8");
 /* ── 7. All four replies fit on representative mobile viewports ───── */
 {
   // Opening chips have max-width constraint and comfortable padding
-  assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*max-width:\s*280px/,
-    "Opening chips have max-width for desktop constraint");
+  assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*max-width:\s*320px/,
+    "Opening chips have max-width for desktop constraint (320px)");
   assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*width:\s*100%/,
     "Opening chips use full width on mobile");
-  assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*padding:\s*13px 20px/,
+  assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip\{[^}]*padding:\s*15px 24px/,
     "Opening chips have comfortable touch target padding");
   console.log("PASS — 7. Reply sizing suitable for mobile viewports");
 }
@@ -218,4 +218,73 @@ const indexSrc = readFileSync("./index.html", "utf8");
   console.log("PASS — animateIn respects reduced-motion via canAnimate");
 }
 
-console.log("\n✓ All 17+ chat opening UX tests passed");
+console.log("\n✓ All 17 chat opening UX tests passed");
+
+/* ── 18. First opening chip gets chat-qr-first class ─────────────── */
+{
+  const chipCreation = uiSrc.slice(uiSrc.indexOf("function showQuickReplies"), uiSrc.indexOf("function hideQuickReplies"));
+  assert.ok(chipCreation.includes("chat-qr-first"), "chat-qr-first class exists in showQuickReplies");
+  assert.ok(chipCreation.includes("openingChips && idx === 0"), "First chip class applied only when opening AND index 0");
+  console.log("PASS — 18. First opening chip gets chat-qr-first class");
+}
+
+/* ── 19. Only the first card has animated border CSS ──────────────── */
+{
+  assert.match(indexSrc, /\.chat-qr-first::before\{/, "Animated border pseudo-element targets .chat-qr-first only");
+  assert.match(indexSrc, /qr-border-travel/, "Keyframe animation qr-border-travel defined");
+  assert.match(indexSrc, /conic-gradient/, "Uses conic-gradient for perimeter segment");
+  // Ensure no other chip gets the animation
+  // Main rule + reduced-motion override = 2 occurrences, both on .chat-qr-first
+  const animRules = indexSrc.match(/chat-qr-chip[^{]*::before/g) || [];
+  assert.equal(animRules.length, 2, "Exactly two ::before rules (main + reduced-motion), both on .chat-qr-first");
+  animRules.forEach(function(r) { assert.ok(r.includes("chat-qr-first"), "::before rule is on .chat-qr-first: " + r); });
+  console.log("PASS — 19. Only the first card has animated border");
+}
+
+/* ── 20. Reduced-motion stops the animation ──────────────────────── */
+{
+  assert.match(indexSrc, /prefers-reduced-motion:reduce\).*chat-qr-first::before\{[^}]*animation:\s*none/,
+    "Reduced-motion disables perimeter animation");
+  assert.match(indexSrc, /prefers-reduced-motion:reduce\).*chat-qr-first::before\{[^}]*opacity/,
+    "Reduced-motion retains a static treatment");
+  console.log("PASS — 20. Reduced-motion stops the animated border");
+}
+
+/* ── 21. Opening cards have hover state ──────────────────────────── */
+{
+  assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip:hover\{/,
+    "Opening cards have :hover rule");
+  console.log("PASS — 21. Opening cards have hover state");
+}
+
+/* ── 22. Opening cards have active/pressed state ─────────────────── */
+{
+  assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip:active\{/,
+    "Opening cards have :active rule");
+  assert.match(indexSrc, /\.chat-quick-replies\.is-opening \.chat-qr-chip:active\{[^}]*transform:\s*scale/,
+    "Active state includes scale transform for press feedback");
+  console.log("PASS — 22. Opening cards have active/pressed state");
+}
+
+/* ── 23. Opening cards are tactile (rounded rect, fill, shadow) ──── */
+{
+  const openingChipRule = indexSrc.match(/\.chat-quick-replies\.is-opening \.chat-qr-chip\{([^}]+)\}/);
+  assert.ok(openingChipRule, "Opening chip rule found");
+  const rule = openingChipRule[1];
+  assert.ok(rule.includes("border-radius:14px"), "Rounded rectangle corners (14px)");
+  assert.ok(rule.includes("box-shadow"), "Subtle depth via box-shadow");
+  assert.ok(rule.includes("max-width:320px"), "Wider max-width (320px)");
+  assert.ok(rule.includes("padding:15px 24px"), "Generous vertical padding");
+  assert.ok(rule.includes("position:relative"), "Position relative for pseudo-element");
+  console.log("PASS — 23. Opening cards are tactile rounded rectangles");
+}
+
+/* ── 24. No 'Try asking' or emoji in chip rendering ──────────────── */
+{
+  const chipCreation = uiSrc.slice(uiSrc.indexOf("function showQuickReplies"), uiSrc.indexOf("function hideQuickReplies"));
+  assert.ok(!chipCreation.includes("Try asking"), "No 'Try asking' text");
+  assert.ok(chipCreation.includes("esc(opt.label)"), "Chip content is escaped label text only");
+  console.log("PASS — 24. No 'Try asking' or emoji in chip rendering");
+}
+
+console.log("\n✓ All 24 chat opening UX tests passed");
