@@ -5506,12 +5506,12 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .tw-modal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center}
   .tw-modal.show{display:flex}
   .tw-modal-ov{position:absolute;inset:0;background:var(--backdrop);backdrop-filter:blur(2px)}
-  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:96vh;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
+  .tw-modal-box{position:relative;width:100%;max-width:430px;max-height:96vh;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--surface-base);color:var(--text);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;padding:calc(20px + var(--athlevo-safe-top,env(safe-area-inset-top,0px))) 18px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}
   @media(min-width:480px){.tw-modal{align-items:center}.tw-modal-box{border-radius:var(--r-lg);max-height:92vh;max-width:520px}}
-  .tw-modal-close{position:absolute;top:8px;right:10px;display:grid;place-items:center;min-width:44px;min-height:44px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer;z-index:1}
+  .tw-modal-close{position:absolute;top:calc(16px + var(--athlevo-safe-top,env(safe-area-inset-top,0px)));right:10px;display:grid;place-items:center;min-width:44px;min-height:44px;background:none;border:none;font-size:var(--fs-h1);line-height:1;color:var(--ink3);cursor:pointer;z-index:1}
 
   /* ── activity detail: header ─────────────────────────────────── */
-  .ad-back{-webkit-appearance:none;appearance:none;border:none;background:none;padding:0 0 10px;margin:0;font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--ink2);cursor:pointer;min-height:44px}
+  .ad-back{-webkit-appearance:none;appearance:none;border:none;background:none;padding:0 2px;margin:0 0 10px;display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;font-family:var(--sans);font-size:var(--fs-caption);font-weight:700;color:var(--ink2);cursor:pointer}
   .ad-back:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
   .ad-header{margin-bottom:10px}
   .ad-header-top{display:flex;align-items:flex-start;gap:12px}

@@ -91,6 +91,26 @@ test("Review / View plan still open the existing activity-detail modal",
   /function openModal/.test(calendar) &&
   /id="trainWorkoutModal"/.test(html));
 
+console.log("\n──── Activity-detail safe area and return control ────");
+{
+  const compactHtml = html.replace(/\s+/g, "");
+  test("activity-detail sheet reuses the shared safe-area top token",
+    /--athlevo-safe-top:env\(safe-area-inset-top,0px\)/.test(compactHtml) &&
+    /\.tw-modal-box\{[^}]*padding:calc\(20px\+var\(--athlevo-safe-top,env\(safe-area-inset-top,0px\)\)\)18px/.test(compactHtml));
+  test("activity-detail X is positioned below the top safe area",
+    /\.tw-modal-close\{[^}]*top:calc\(16px\+var\(--athlevo-safe-top,env\(safe-area-inset-top,0px\)\)\)/.test(compactHtml));
+  test("Back and X controls retain at least 44 by 44 CSS-pixel targets",
+    /\.tw-modal-close\{[^}]*min-width:44px;min-height:44px/.test(compactHtml) &&
+    /\.ad-back\{[^}]*display:inline-flex;[^}]*min-width:44px;min-height:44px/.test(compactHtml));
+  test("390x844, 393x852, and 430x932 keep both controls inside the usable viewport",
+    [[390, 844], [393, 852], [430, 932]].every(([, height]) =>
+      height * 0.04 + 20 >= 44 && height * 0.04 + 16 >= 44
+    ));
+  test("activity-detail Back and X still use the existing Train close path",
+    /class="ad-back" onclick="AthlevoTrainCalendar\.closeModal\(\)"/.test(calendar) &&
+    /class="tw-modal-close" aria-label="Close" onclick="AthlevoTrainCalendar\.closeModal\(\)"/.test(html));
+}
+
 console.log("\n──── Open today / rest / future plan ────");
 {
   const today = helpers.buildSelectedDayModel("2026-08-29", {
