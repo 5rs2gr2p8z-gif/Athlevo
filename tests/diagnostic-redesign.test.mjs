@@ -290,6 +290,92 @@ test("6. Social proof fires diagnostic_social_proof_viewed event", function () {
   assert.ok(src.includes('diagnostic_social_proof_viewed'), "Missing analytics event");
 });
 
+test("6b. Social proof bridge is contextual for first10k and general goals", function () {
+  const first = loadDiagnosticUI();
+  const firstEngine = first.Engine.create();
+  firstEngine.begin();
+  firstEngine.applyAcquisitionIntent("first10k");
+  firstEngine.recordAnswer("current_running_frequency", { current_running_frequency: "freq_3" });
+  firstEngine.recordAnswer("current_capacity", {
+    recent_consistency: "mostly_consistent",
+    recent_longest_run_km: "5"
+  });
+  first.UI._internal.bindEngine(firstEngine);
+  assert.match(first.UI._internal.socialProofBridgeCopy(), /current-capacity baseline for your first 10K/);
+
+  const general = loadDiagnosticUI();
+  const generalEngine = general.Engine.create();
+  generalEngine.begin();
+  generalEngine.applyAcquisitionIntent("general");
+  generalEngine.recordAnswer("goal", { goal_distance: "Half marathon" });
+  generalEngine.recordAnswer("race_details", {
+    goal_race: "City Half",
+    goal_race_date: "2027-03-01",
+    goal_time: ""
+  });
+  general.UI._internal.bindEngine(generalEngine);
+  assert.match(general.UI._internal.socialProofBridgeCopy(), /context around your Half marathon goal/);
+});
+
+test("6c. Desktop pointer drag scrolls only the proof rail", function () {
+  const loaded = loadDiagnosticUI();
+  const listeners = {};
+  const classes = new Set();
+  let prevented = false;
+  const rail = {
+    scrollLeft: 80,
+    addEventListener(name, fn) { listeners[name] = fn; },
+    setPointerCapture() {},
+    releasePointerCapture() {},
+    classList: {
+      add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); }
+    }
+  };
+  loaded.UI._internal.wireSocialProofCarousel({
+    querySelector(selector) { return selector === ".chat-social-proof-scroll" ? rail : null; }
+  });
+  listeners.pointerdown({ pointerType: "mouse", button: 0, pointerId: 1, clientX: 120 });
+  listeners.pointermove({ pointerId: 1, clientX: 70, preventDefault() { prevented = true; } });
+  assert.equal(rail.scrollLeft, 130, "Mouse drag updates horizontal scroll position");
+  assert.equal(prevented, true, "Active desktop drag suppresses text/image drag");
+  assert.equal(classes.has("is-dragging"), true, "Rail exposes grabbing state while dragging");
+  listeners.pointerup({ pointerId: 1 });
+  assert.equal(classes.has("is-dragging"), false, "Grabbing state clears on release");
+
+  const beforeTouch = rail.scrollLeft;
+  listeners.pointerdown({ pointerType: "touch", button: 0, pointerId: 2, clientX: 100 });
+  listeners.pointermove({ pointerId: 2, clientX: 40, preventDefault() { throw new Error("touch must remain native"); } });
+  assert.equal(rail.scrollLeft, beforeTouch, "Touch gestures remain native for momentum and vertical arbitration");
+});
+
+test("6d. Restored diagnostics keep context, proof once/session, and normal continuation", function () {
+  const localStorage = makeLocalStorage();
+  const sessionStorage = makeSessionStorage();
+  const loaded = loadDiagnosticUI({ localStorage, sessionStorage });
+  const engine = loaded.Engine.create();
+  engine.begin();
+  engine.applyAcquisitionIntent("general");
+  engine.recordAnswer("goal", { goal_distance: "Marathon" });
+  engine.recordAnswer("race_details", {
+    goal_race: "City Marathon",
+    goal_race_date: "2027-04-01",
+    goal_time: ""
+  });
+  const restored = loaded.Engine.load();
+  loaded.UI._internal.bindEngine(restored);
+  assert.match(loaded.UI._internal.socialProofBridgeCopy(), /context around your Marathon goal/);
+  assert.equal(loaded.UI._internal.isSocialProofShownThisSession(), false);
+  loaded.UI._internal.markSocialProofShown();
+  assert.equal(loaded.UI._internal.isSocialProofShownThisSession(), true,
+    "Proof cannot repeat after a restore or back-navigation rerender");
+
+  const src = readFileSync("./js/diagnosticUI.js", "utf8");
+  const advance = src.slice(src.indexOf("async function advanceFlow"), src.indexOf("function recoverContinuationQuestion"));
+  assert.ok(advance.indexOf("showSocialProofMoment") < advance.indexOf("presentQuestion(next)"),
+    "Diagnostic continues to the existing next question after proof");
+});
+
 console.log("\n=== Result Flow Tests ===\n");
 
 // Test 7: Result uses conversational sequence (not monolithic card)
@@ -466,6 +552,11 @@ test("21. Social proof CSS includes scroll-snap and overflow-x", function () {
   assert.ok(css.includes(".chat-social-proof-scroll"), "Missing scroll container CSS");
   assert.ok(css.includes("scroll-snap-type:x mandatory"), "Missing scroll-snap");
   assert.ok(css.includes("overflow-x:auto"), "Missing overflow-x:auto");
+  assert.ok(css.includes("touch-action:pan-x pan-y"), "Mobile swipe must preserve horizontal and vertical panning");
+  assert.ok(css.includes("-webkit-overflow-scrolling:touch"), "Mobile carousel keeps momentum scrolling");
+  assert.ok(css.includes("cursor:grab"), "Desktop carousel advertises drag interaction");
+  assert.match(css, /\.chat-social-proof-item\{[^}]*width:140px/, "Approved card width remains 140px");
+  assert.match(css, /\.chat-social-proof-img\{[^}]*aspect-ratio:3\/4/, "Approved image crop remains 3:4");
 });
 
 // Test 22: Diagnosis card CSS exists

@@ -1545,11 +1545,14 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 .chat-cta-annual{font-size:var(--fs-caption);color:var(--ink3);margin:10px 0 0;text-align:center;pointer-events:none}
 
 /* ── Social proof carousel ── */
-.chat-social-proof{padding:4px 0 2px;width:100%;box-sizing:border-box}
-.chat-social-proof-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:0 2px 8px;scrollbar-width:none}
+.chat-msg-social-proof{width:84%}
+.chat-msg-social-proof>.chat-bubble{width:100%;min-width:0;box-sizing:border-box}
+.chat-social-proof{padding:4px 0 2px;width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.chat-social-proof-scroll{display:flex;gap:10px;width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;touch-action:pan-x pan-y;padding:0 2px 8px;box-sizing:border-box;scrollbar-width:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.chat-social-proof-scroll.is-dragging{cursor:grabbing;scroll-snap-type:none}
 .chat-social-proof-scroll::-webkit-scrollbar{display:none}
 .chat-social-proof-item{flex:0 0 auto;width:140px;scroll-snap-align:start;border-radius:10px;overflow:hidden;background:var(--card);border:1px solid var(--line)}
-.chat-social-proof-img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
+.chat-social-proof-img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
 
 /* ── Conversational result components ── */
 .chat-diagnosis-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 16px 14px;box-sizing:border-box}

@@ -609,20 +609,79 @@ function buildSocialProofHTML() {
   return html;
 }
 
+function socialProofBridgeCopy() {
+  var history = engine && Array.isArray(engine.history) ? engine.history : [];
+  var lastQuestion = history.length ? history[history.length - 1] : "";
+  var goal = engine && engine.answers ? engine.answers.goal_distance : null;
+  var first10k = currentAcquisitionIntent() === "first10k" || goal === "10K";
+  var context;
+
+  if (first10k) {
+    context = lastQuestion === "current_capacity"
+      ? "That gives me a useful current-capacity baseline for your first 10K."
+      : "That gives me a useful starting point for your first 10K.";
+  } else if (goal) {
+    context = lastQuestion === "race_details"
+      ? "That gives me useful context around your " + goal + " goal."
+      : "That gives me a clearer baseline for your " + goal + " goal.";
+  } else {
+    context = "That gives me a clearer picture of where you’re starting.";
+  }
+
+  return context + " I’ve worked with runners starting from very different places too.";
+}
+
+function wireSocialProofCarousel(proofEl) {
+  var rail = proofEl && proofEl.querySelector
+    ? proofEl.querySelector(".chat-social-proof-scroll")
+    : null;
+  if (!rail) return;
+
+  var drag = null;
+  function finishDrag(event) {
+    if (!drag) return;
+    try {
+      if (rail.releasePointerCapture && event && event.pointerId != null) {
+        rail.releasePointerCapture(event.pointerId);
+      }
+    } catch (e) {}
+    drag = null;
+    if (rail.classList) rail.classList.remove("is-dragging");
+  }
+
+  rail.addEventListener("pointerdown", function (event) {
+    if (!event || event.pointerType === "touch" || (event.button != null && event.button !== 0)) return;
+    drag = { x: event.clientX, scrollLeft: rail.scrollLeft };
+    if (rail.classList) rail.classList.add("is-dragging");
+    try {
+      if (rail.setPointerCapture && event.pointerId != null) rail.setPointerCapture(event.pointerId);
+    } catch (e) {}
+  });
+  rail.addEventListener("pointermove", function (event) {
+    if (!drag || !event) return;
+    var delta = event.clientX - drag.x;
+    if (Math.abs(delta) < 3) return;
+    rail.scrollLeft = drag.scrollLeft - delta;
+    if (event.preventDefault) event.preventDefault();
+  });
+  rail.addEventListener("pointerup", finishDrag);
+  rail.addEventListener("pointercancel", finishDrag);
+  rail.addEventListener("lostpointercapture", finishDrag);
+}
+
 async function showSocialProofMoment(thread) {
   if (isSocialProofShownThisSession()) return;
 
   await delay(MSG_DELAY);
-  await showTypingThenMessage(thread,
-    "You're in good company — here's some of the runners I work with."
-  );
+  await showTypingThenMessage(thread, socialProofBridgeCopy());
   await delay(MSG_DELAY);
   var proofEl = createEl(
-    '<div class="chat-msg chat-msg-athlevo">' +
+    '<div class="chat-msg chat-msg-athlevo chat-msg-social-proof">' +
       '<div class="chat-bubble chat-bubble-athlevo">' + buildSocialProofHTML() + '</div>' +
     '</div>'
   );
   thread.appendChild(proofEl);
+  wireSocialProofCarousel(proofEl);
   markSocialProofShown();
   animateIn(proofEl);
   scrollToBottom();
@@ -3182,7 +3241,6 @@ async function advanceFlow(thread) {
     /* ── Social proof: show once per session after meaningful interaction ── */
     if (thread && engine.history.length >= 2 && !isSocialProofShownThisSession()) {
       await showSocialProofMoment(thread);
-      await delay(MSG_DELAY);
     }
 
     await delay(MSG_DELAY);
@@ -3779,6 +3837,10 @@ var DiagnosticUI = {
     showQuickReplies: showQuickReplies,
     hideQuickReplies: hideQuickReplies,
     currentAcquisitionIntent: currentAcquisitionIntent,
+    isSocialProofShownThisSession: isSocialProofShownThisSession,
+    markSocialProofShown: markSocialProofShown,
+    socialProofBridgeCopy: socialProofBridgeCopy,
+    wireSocialProofCarousel: wireSocialProofCarousel,
     trackDiagnosticStep: trackDiagnosticStep,
     getSubStepPrompt: getSubStepPrompt,
     completeDiagnostic: completeDiagnostic,
