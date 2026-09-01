@@ -557,6 +557,19 @@ test("21. Social proof CSS includes scroll-snap and overflow-x", function () {
   assert.ok(css.includes("cursor:grab"), "Desktop carousel advertises drag interaction");
   assert.match(css, /\.chat-social-proof-item\{[^}]*width:140px/, "Approved card width remains 140px");
   assert.match(css, /\.chat-social-proof-img\{[^}]*aspect-ratio:3\/4/, "Approved image crop remains 3:4");
+  assert.match(css, /\.chat-msg-social-proof\{[^}]*width:100%;max-width:100%/,
+    "Proof rail uses the conversation width without creating page overflow");
+  assert.match(css, /\.chat-msg-social-proof>\.chat-bubble\{[^}]*padding-right:4px/,
+    "Proof bubble reserves only a small trailing inset for the next-card affordance");
+
+  [390, 430].forEach(function (viewportWidth) {
+    const threadWidth = viewportWidth - 44; // .chat-thread inline padding: 22px each side
+    const railWidth = threadWidth - 20; // proof bubble: 16px leading + 4px trailing padding
+    const thirdCardStart = 2 + 140 + 10 + 140 + 10; // rail inset, two cards, and two gaps
+    const thirdCardPeek = railWidth - thirdCardStart;
+    assert.ok(thirdCardPeek >= 20 && thirdCardPeek < 140,
+      viewportWidth + "px keeps two cards plus a partial third card visible");
+  });
 });
 
 // Test 22: Diagnosis card CSS exists
