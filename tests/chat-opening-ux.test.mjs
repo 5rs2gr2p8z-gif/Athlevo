@@ -289,3 +289,33 @@ console.log("\n✓ All 17 chat opening UX tests passed");
 }
 
 console.log("\n✓ All 24 chat opening UX tests passed");
+
+/* ── 25. Mobile diagnostic header is compact and safe-area aware ─── */
+{
+  assert.match(indexSrc, /\.screen\s*\{[^}]*padding-top:\s*var\(--athlevo-safe-top,\s*env\(safe-area-inset-top,\s*0px\)\)/,
+    "Diagnostic inherits the shared safe-area top inset");
+  assert.match(indexSrc, /@media\(max-width:600px\)\{[\s\S]*?#screen-diagnostic \.ob2-top\{[^}]*padding:\s*0 22px/,
+    "Mobile diagnostic progress row removes surplus vertical padding");
+  assert.match(indexSrc, /#screen-diagnostic \.ob2-back\{[^}]*width:\s*var\(--tap-target\)[^}]*height:\s*var\(--tap-target\)[^}]*min-width:\s*var\(--tap-target\)[^}]*min-height:\s*var\(--tap-target\)/,
+    "Diagnostic Back control retains the shared 44px touch target");
+  assert.match(indexSrc, /--tap-target:\s*44px/,
+    "Shared touch target token remains 44px");
+  assert.doesNotMatch(indexSrc, /#screen-diagnostic[^{}]*\{[^}]*margin-(?:top|bottom):\s*-/,
+    "Diagnostic compaction does not use unsafe negative margins");
+  console.log("PASS — 25. Mobile diagnostic header is compact and safe-area aware");
+}
+
+/* ── 26. Reduced-height browser header keeps readable branding ───── */
+{
+  assert.match(indexSrc, /#screen-diagnostic \.chat-header\{gap:\s*9px;padding:\s*0 22px\}/,
+    "Mobile identity row uses compact, non-negative padding");
+  assert.match(indexSrc, /#screen-diagnostic \.chat-avatar\{width:\s*28px;height:\s*28px\}/,
+    "Mobile Athlevo logo remains clearly visible");
+  assert.match(indexSrc, /@media\(max-width:600px\) and \(max-height:780px\)\{[\s\S]*?#screen-diagnostic \.chat-thread\{padding-top:\s*2px\}/,
+    "Reduced-height in-app browsers receive the tightest header-to-thread gap");
+  assert.match(indexSrc, /#screen-diagnostic \.chat-thread\{padding-top:\s*4px\}/,
+    "Conversation begins closer to the compact identity row");
+  console.log("PASS — 26. Reduced-height browser header keeps readable branding");
+}
+
+console.log("\n✓ All 26 chat opening UX tests passed");

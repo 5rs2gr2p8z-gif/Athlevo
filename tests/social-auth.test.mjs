@@ -176,7 +176,7 @@ section("Apple is disabled, not broken");
   t("...and never reaches Supabase", calls.oauth.length === 0);
 
   api.applyProviderVisibility();
-  t("Apple button is hidden", elements.authBtnApple.style.display === "none");
+  t("Apple coming-soon button stays visible", elements.authBtnApple.style.display === "");
   t("Google button stays visible", elements.authBtnGoogle.style.display === "");
   t("boot hides unconfigured providers", /applyProviderVisibility\(\)/.test(html));
 }

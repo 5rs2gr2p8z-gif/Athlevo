@@ -147,7 +147,10 @@
     diagnostic_start_recommended:  { kind: "behavioural", props: ["buyer_intent"] },
     diagnostic_value_demonstrated: { kind: "behavioural", props: ["buyer_intent"] },
     diagnostic_payment_options_shown: { kind: "behavioural", props: ["surface"] },
-    diagnostic_checkout_method_selected: { kind: "behavioural", props: ["surface", "checkout_method"] }
+    diagnostic_checkout_method_selected: { kind: "behavioural", props: ["surface", "checkout_method"] },
+    diagnostic_social_proof_viewed: { kind: "behavioural", props: [] },
+    signup_started:                { kind: "behavioural", props: ["source_surface"] },
+    auth_method_attempted:         { kind: "behavioural", props: ["method", "source_surface", "acquisition_intent"] }
   };
 
   // Legacy names still emitted by older call sites → the canonical event they
@@ -186,7 +189,7 @@
     answer_type: { chip: true, text: true, skip: true, autofill: true },
     diagnostic_stage: { goal: true, capacity: true, training: true, limiter: true, safety: true },
     from: { ai_diagnostic: true },
-    method: { email: true, google: true, card: true, local: true },
+    method: { email: true, google: true, apple: true, card: true, local: true },
     access_tier: {
       free: true,
       paid_active: true,

@@ -1,5 +1,5 @@
 /*
- * Compact diagnostic result card + grounded limiter/feasibility copy.
+ * Conversational diagnostic result + grounded limiter/feasibility copy.
  * Run: node tests/diagnostic-result.test.mjs
  */
 import assert from "node:assert/strict";
@@ -85,12 +85,13 @@ const LONG_RUN_TOO_SHORT = /long runs aren't long enough|aren't long enough|inad
 
 {
   const render = uiSrc.slice(
-    uiSrc.indexOf("function renderResult"),
+    uiSrc.indexOf("function bindCTAHandler"),
     uiSrc.indexOf("function updateProgress")
   );
-  assert.match(render, /chat-result-card/);
-  assert.equal((render.match(/chat-result-card/g) || []).length, 1);
-  assert.match(render, /if \(thread\.querySelector\("\.chat-msg-result"\)\) return;/);
+  assert.match(render, /renderConversationalResult/);
+  assert.match(render, /chat-diagnosis-card/);
+  assert.match(render, /chat-compact-cta/);
+  assert.match(render, /resultConversationStarted \|\| thread\.querySelector\("\.chat-msg-result"\)/);
   assert.doesNotMatch(render, /Your running profile/);
   assert.doesNotMatch(render, /What’s holding you back/);
   assert.doesNotMatch(render, /How Athlevo would coach you/);
@@ -99,16 +100,14 @@ const LONG_RUN_TOO_SHORT = /long runs aren't long enough|aren't long enough|inad
   assert.doesNotMatch(render, /chat-result-cap/);
   assert.doesNotMatch(render, /chat-result-caps/);
   assert.doesNotMatch(render, /chat-msg-cta/);
-  assert.match(render, /What I’d change/);
+  assert.match(render, /Here's what I'd change/);
   assert.match(render, /Your diagnosis/i);
-  assert.match(render, /Train with Athlevo AI/);
   assert.match(render, /id="diagCTA"/);
   assert.match(render, /Start my training — ₱597\/month/);
   assert.match(render, /openAiSignup\(\)/);
   assert.doesNotMatch(render, /\.checkout\(/);
-  assert.match(render, /chat-cta-annual/);
-  assert.doesNotMatch(render, /<a[^>]*chat-cta-annual/);
-  assert.doesNotMatch(render, /<button[^>]*chat-cta-annual/);
+  assert.doesNotMatch(render, /₱5,498\/year/);
+  assert.doesNotMatch(render, /chat-cta-annual/);
   assert.doesNotMatch(render, /Your diagnostic is saved/);
   assert.doesNotMatch(render, /modelReasoning/);
 }
@@ -458,7 +457,7 @@ function parseHtml(html, registry) {
     console: { log() {}, warn() {}, error() {} },
     Date, Math, Uint8Array, Promise,
     crypto: globalThis.crypto,
-    setTimeout, clearTimeout,
+    setTimeout: (fn, _ms) => setTimeout(fn, 0), clearTimeout,
     matchMedia: () => ({ matches: true }),
     localStorage: {
       getItem: key => storage.get(key) ?? null,
@@ -485,6 +484,7 @@ function parseHtml(html, registry) {
   UI._internal.bindEngine(engine);
   UI._internal.renderResult();
   UI._internal.renderResult({ restored: true });
+  await new Promise(resolve => setTimeout(resolve, 50));
   const cards = thread.children.filter(child =>
     (child.className || "").split(/\s+/).includes("chat-msg-result")
   );
@@ -494,8 +494,8 @@ function parseHtml(html, registry) {
   );
   assert.equal(cards.length, 1, "restore/refresh must not duplicate the result card");
   assert.equal(verdicts.length, 0, "result must not include a transition bubble");
-  assert.match(cards[0].textContent, /Train with Athlevo AI/);
-  assert.match(cards[0].textContent, /₱5,498\/year/);
+  assert.match(cards[0].textContent, /Start my training — ₱597\/month/);
+  assert.doesNotMatch(cards[0].textContent, /₱5,498\/year/);
   assert.doesNotMatch(cards[0].textContent, /Your running profile|Primary limiter|How Athlevo would coach you/);
 }
 

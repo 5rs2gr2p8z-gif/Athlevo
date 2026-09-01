@@ -51,7 +51,7 @@ section("1 — anonymous /ai is diagnostic, not auth or pricing");
 
 section("2 — completed diagnostic CTA routes to /ai-signup, not Whop");
 {
-  const cta = ui.slice(ui.indexOf("id=\"diagCTA\""), ui.indexOf("id=\"diagCTA\"") + 2200);
+  const cta = ui.slice(ui.indexOf("function bindCTAHandler"), ui.indexOf("function trackResultViewed"));
   t("result CTA calls openAiSignup", /openAiSignup\(\)/.test(cta));
   t("result CTA no longer opens Whop checkout",
     !/\.checkout\(["']card["']\)/.test(cta));
@@ -991,10 +991,11 @@ section("Anonymous /ai conversion never shows payment");
     (ui.match(/opt\.value === "__start"/g) || []).length >= 2 &&
     (ui.match(/presentConversionHandoff\(ready\)/g) || []).length >= 2);
   t("anonymous result CTA still goes to /ai-signup, not checkout",
-    /id="diagCTA"[\s\S]{0,2200}openAiSignup\(\)/.test(ui) &&
-    !/id="diagCTA"[\s\S]{0,2200}\.checkout\(/.test(ui) &&
-    !/id="diagCTA"[\s\S]{0,2200}showPublicPricing/.test(ui) &&
-    !/id="diagCTA"[\s\S]{0,2200}showPaywall/.test(ui));
+    /function bindCTAHandler[\s\S]{0,2200}openAiSignup\(\)/.test(ui) &&
+    /id="diagCTA"[\s\S]{0,500}bindCTAHandler/.test(ui) &&
+    !/function bindCTAHandler[\s\S]{0,2200}\.checkout\(/.test(ui) &&
+    !/function bindCTAHandler[\s\S]{0,2200}showPublicPricing/.test(ui) &&
+    !/function bindCTAHandler[\s\S]{0,2200}showPaywall/.test(ui));
 
   context.athlevoSessionUserId = "user-unpaid";
   const authChips = helpers.conversionHandoffOptions();

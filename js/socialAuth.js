@@ -111,6 +111,21 @@
       root.AthlevoProductAnalytics.beginSignupIntent("google");
     }
 
+    // Canonical auth-method tracking — fires for every provider attempt,
+    // immediately before the redirect (Google) or guard (Apple).
+    if (loggedOut) {
+      try {
+        if (root.AthlevoAnalytics) {
+          var authProps = { method: providerKey, source_surface: "auth" };
+          try {
+            var intent = root.sessionStorage && root.sessionStorage.getItem("athlevo_acquisition_intent");
+            if (intent) authProps.acquisition_intent = intent;
+          } catch (e) {}
+          root.AthlevoAnalytics.track("auth_method_attempted", authProps);
+        }
+      } catch (e) {}
+    }
+
     if (!client) {
       try { if (root.AthlevoProductAnalytics) root.AthlevoProductAnalytics.clearSignupIntent(); } catch (e) {}
       if (loggedOut) trackSignupFailure("unavailable");

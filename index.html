@@ -1448,6 +1448,23 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 
 .chat-thread{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 22px 24px;display:flex;flex-direction:column;gap:6px;justify-content:flex-end}
 
+/* The acquisition diagnostic often opens inside a reduced-height in-app
+   browser. Compact only its header while preserving the screen's safe-area
+   inset and the Back control's full touch target. */
+@media(max-width:600px){
+  #screen-diagnostic .ob2-top{gap:10px;padding:0 22px}
+  #screen-diagnostic .ob2-back{width:var(--tap-target);height:var(--tap-target);min-width:var(--tap-target);min-height:var(--tap-target)}
+  #screen-diagnostic .chat-header{gap:9px;padding:0 22px}
+  #screen-diagnostic .chat-avatar{width:28px;height:28px}
+  #screen-diagnostic .chat-header-text{gap:0}
+  #screen-diagnostic .chat-header-name{font-size:calc(var(--fs-h3) - 1px);line-height:1}
+  #screen-diagnostic .chat-header-role{line-height:1}
+  #screen-diagnostic .chat-thread{padding-top:4px}
+}
+@media(max-width:600px) and (max-height:780px){
+  #screen-diagnostic .chat-thread{padding-top:2px}
+}
+
 /* ── Messages ── */
 .chat-msg{display:flex;max-width:84%}
 .chat-msg-athlevo{align-self:flex-start}
@@ -1527,12 +1544,35 @@ html[data-theme="dark"] .diag-rec-card{background:var(--card)}
 .chat-cta-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .chat-cta-annual{font-size:var(--fs-caption);color:var(--ink3);margin:10px 0 0;text-align:center;pointer-events:none}
 
+/* ── Social proof carousel ── */
+.chat-social-proof{padding:4px 0 2px;width:100%;box-sizing:border-box}
+.chat-social-proof-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:0 2px 8px;scrollbar-width:none}
+.chat-social-proof-scroll::-webkit-scrollbar{display:none}
+.chat-social-proof-item{flex:0 0 auto;width:140px;scroll-snap-align:start;border-radius:10px;overflow:hidden;background:var(--card);border:1px solid var(--line)}
+.chat-social-proof-img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
+
+/* ── Conversational result components ── */
+.chat-diagnosis-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 16px 14px;box-sizing:border-box}
+.chat-diagnosis-eyebrow{font-family:var(--sans);font-size:var(--fs-caption);text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:0 0 6px;font-weight:500}
+.chat-diagnosis-title{font-family:var(--serif);font-size:var(--fs-h2);font-weight:500;color:var(--text);letter-spacing:-.02em;margin:0 0 6px}
+.chat-diagnosis-text{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0}
+.chat-compact-cta{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;box-sizing:border-box;text-align:center}
+.chat-compact-cta .chat-cta-btn{margin-top:0}
+.chat-compact-cta-lead{font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--text);margin:0 0 12px}
+.chat-safety-note{font-size:var(--fs-caption);line-height:1.45;color:var(--ink3);padding:8px 12px;border-left:2px solid var(--ink3);margin:0}
+
 /* ── Dark-mode overrides for chat ── */
 html[data-theme="dark"] .chat-result-card{background:var(--card);border-color:var(--line)}
 html[data-theme="dark"] .chat-bubble-athlevo{background:var(--card)}
+html[data-theme="dark"] .chat-diagnosis-card{background:var(--card);border-color:var(--line)}
+html[data-theme="dark"] .chat-compact-cta{background:var(--card);border-color:var(--line)}
+html[data-theme="dark"] .chat-social-proof-item{background:var(--card);border-color:var(--line)}
 @media(prefers-color-scheme:dark){
   html[data-theme="system"] .chat-result-card{background:var(--card);border-color:var(--line)}
   html[data-theme="system"] .chat-bubble-athlevo{background:var(--card)}
+  html[data-theme="system"] .chat-diagnosis-card{background:var(--card);border-color:var(--line)}
+  html[data-theme="system"] .chat-compact-cta{background:var(--card);border-color:var(--line)}
+  html[data-theme="system"] .chat-social-proof-item{background:var(--card);border-color:var(--line)}
 }
 #screen-diagnostic-paywall{padding-bottom:0}
 #screen-diagnostic-paywall.active{flex-direction:column;align-items:center;justify-content:flex-start}
@@ -6444,6 +6484,17 @@ function beginEmailSignupIntent() {
     }
   } catch (e) {}
 }
+function trackAuthMethodAttempted(method) {
+  try {
+    if (!window.AthlevoAnalytics) return;
+    var authProps = { method: method, source_surface: "auth" };
+    try {
+      var intent = window.sessionStorage && window.sessionStorage.getItem("athlevo_acquisition_intent");
+      if (intent) authProps.acquisition_intent = intent;
+    } catch (e) {}
+    window.AthlevoAnalytics.track("auth_method_attempted", authProps);
+  } catch (e) {}
+}
 function interceptInAppAuthHandoff(intent, sourceSurface) {
   try {
     return Boolean(
@@ -6457,15 +6508,16 @@ function interceptInAppAuthHandoff(intent, sourceSurface) {
 }
 function openSignup(userChoseSignup) {
   if (window.__athlevoAuthEntryLocked) return;
+  var choseEmail = userChoseSignup === true && !athlevoSessionUserId;
+  if (choseEmail) trackAuthMethodAttempted("email");
   if (
-    userChoseSignup === true &&
-    !athlevoSessionUserId &&
+    choseEmail &&
     interceptInAppAuthHandoff("signup", "auth")
   ) {
     return;
   }
   document.getElementById('authModal').style.display = 'flex';
-  if (userChoseSignup === true && !athlevoSessionUserId) {
+  if (choseEmail) {
     trackAuthChoice("email_signup_clicked");
     beginEmailSignupIntent();
   }
@@ -6474,9 +6526,10 @@ function openSignup(userChoseSignup) {
 }
 function openLogin(userChoseLogin, entrySource) {
   if (window.__athlevoAuthEntryLocked) return;
+  var choseEmail = userChoseLogin === true && !athlevoSessionUserId;
+  if (choseEmail) trackAuthMethodAttempted("email");
   if (
-    userChoseLogin === true &&
-    !athlevoSessionUserId &&
+    choseEmail &&
     interceptInAppAuthHandoff(
       "login",
       entrySource === "landing" ? "landing" : "auth"
@@ -11523,6 +11576,16 @@ setTimeout(function () {
   }
 
   async function continueWithApple() {
+    try {
+      if (window.AthlevoAnalytics) {
+        var authProps = { method: "apple", source_surface: "auth" };
+        try {
+          var intent = window.sessionStorage && window.sessionStorage.getItem("athlevo_acquisition_intent");
+          if (intent) authProps.acquisition_intent = intent;
+        } catch (e) {}
+        window.AthlevoAnalytics.track("auth_method_attempted", authProps);
+      }
+    } catch (e) {}
     if (typeof toast === "function") toast("Apple sign-in is coming soon. Please use Google or email for now.");
   }
 

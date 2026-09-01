@@ -102,6 +102,7 @@ var activeSubField = null;    // the exact field within the current sub-step gro
 var interpretationCache = {};
 var resultTrackedFor = null;
 var resultSequenceStarted = false;
+var resultConversationStarted = false;
 
 /* Facts confidently extracted from free-text messages but not yet
  * committed to the engine (they belong to a field/question not currently
@@ -120,6 +121,46 @@ var skipCannedInterpretations = false;
 var diagnosticStartedFired = false;
 var diagnosticCompletedFired = false;
 var diagnosticAcquisitionActive = false;
+var socialProofShown = false;
+
+/* Social proof image manifest — verified selection from
+ * athlevo-assets/diagnostic proof/. Instagram-sourced runner photos.
+ * Relative to site root. 8 images: 6 portrait (3:4) + 2 square (1:1)
+ * chosen for visual variety and consistent carousel rendering.
+ *
+ * Selection criteria:
+ * - Only verified filenames from the actual repository
+ * - Predominantly 3:4 portraits for consistent item height
+ * - Two 1:1 squares interspersed for visual rhythm
+ * - Range of file sizes (77KB–287KB) for balanced load
+ * - Landscape images excluded (would crop poorly at 3:4 aspect-ratio)
+ * - No race-achievement inference from filenames or content
+ */
+var SOCIAL_PROOF_IMAGES = [
+  "athlevo-assets/diagnostic proof/511850103_122141044448831907_8133414822287266413_n.jpg",       // 1536x2048 portrait (3:4) 362KB
+  "athlevo-assets/diagnostic proof/536540576_17856297852489492_514208214959231549_n.webp.jpeg",   // 1440x1440 square   (1:1) 125KB
+  "athlevo-assets/diagnostic proof/621796013_17873789109489492_3184437848233294226_n.jpg",        // 1126x1501 portrait (3:4)  77KB
+  "athlevo-assets/diagnostic proof/572709086_17864161629489492_8704211146762737058_n.webp.jpeg",  // 1440x1920 portrait (3:4) 267KB
+  "athlevo-assets/diagnostic proof/575309559_17865391182489492_8796627283930823404_n.webp.jpeg",  // 1440x1440 square   (1:1)  89KB
+  "athlevo-assets/diagnostic proof/628182172_17875351788489492_3823864591442103537_n.jpg",        // 1440x1920 portrait (3:4) 287KB
+  "athlevo-assets/diagnostic proof/565085709_17862714333489492_5618817854924730014_n.webp.jpeg",  // 1440x1919 portrait (3:4) 148KB
+  "athlevo-assets/diagnostic proof/641749426_17877177045489492_4823496183798299753_n.jpg"         // 1440x1920 portrait (3:4) 146KB
+];
+var SOCIAL_PROOF_SESSION_KEY = "athlevo_diagnostic_social_proof_shown";
+
+function isSocialProofShownThisSession() {
+  if (socialProofShown) return true;
+  try {
+    return sessionStorage.getItem(SOCIAL_PROOF_SESSION_KEY) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
+function markSocialProofShown() {
+  socialProofShown = true;
+  try { sessionStorage.setItem(SOCIAL_PROOF_SESSION_KEY, "1"); } catch (e) {}
+}
 
 function resetSkipCannedInterpretations() {
   skipCannedInterpretations = false;
@@ -551,6 +592,42 @@ function appendTypingIndicator(thread) {
 function removeTypingIndicator() {
   var el = document.getElementById("chatTyping");
   if (el) el.remove();
+}
+
+/* ═══════════════════════════ SOCIAL PROOF ═══════════════════════════ */
+
+function buildSocialProofHTML() {
+  var html = '<div class="chat-social-proof">';
+  html += '<div class="chat-social-proof-scroll" role="region" aria-label="Runner community photos" tabindex="0">';
+  for (var i = 0; i < SOCIAL_PROOF_IMAGES.length; i++) {
+    html += '<div class="chat-social-proof-item">';
+    html += '<img class="chat-social-proof-img" src="' + esc(SOCIAL_PROOF_IMAGES[i]) + '" alt="Athlevo runner" loading="lazy">';
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+async function showSocialProofMoment(thread) {
+  if (isSocialProofShownThisSession()) return;
+
+  await delay(MSG_DELAY);
+  await showTypingThenMessage(thread,
+    "You're in good company — here's some of the runners I work with."
+  );
+  await delay(MSG_DELAY);
+  var proofEl = createEl(
+    '<div class="chat-msg chat-msg-athlevo">' +
+      '<div class="chat-bubble chat-bubble-athlevo">' + buildSocialProofHTML() + '</div>' +
+    '</div>'
+  );
+  thread.appendChild(proofEl);
+  markSocialProofShown();
+  animateIn(proofEl);
+  scrollToBottom();
+
+  trackEvent("diagnostic_social_proof_viewed", {});
 }
 
 function animateIn(el) {
@@ -3102,6 +3179,12 @@ async function advanceFlow(thread) {
       continue; // silent skip — do not dump canned interpretations
     }
 
+    /* ── Social proof: show once per session after meaningful interaction ── */
+    if (thread && engine.history.length >= 2 && !isSocialProofShownThisSession()) {
+      await showSocialProofMoment(thread);
+      await delay(MSG_DELAY);
+    }
+
     await delay(MSG_DELAY);
     var subSteps = splitIntoSubSteps(next);
     var prompt = subSteps.length === 1 ? next.title : getSubStepPrompt(next, subSteps[0], 0, subSteps.length);
@@ -3394,6 +3477,155 @@ async function showBuildAnimation(result) {
 
 /* ═══════════════════════════ RESULT RENDERING ══════════════════════ */
 
+/**
+ * Bind the CTA click handler. Extracted so both the monolithic fallback
+ * and the conversational sequence share identical routing logic.
+ */
+function bindCTAHandler(ctaEl, result) {
+  if (!ctaEl) return;
+  ctaEl.addEventListener("click", function () {
+    trackEvent("diagnostic_signup_tapped", {
+      primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
+      feasibility_rating: result.feasibility ? result.feasibility.rating : null
+    });
+    trackEvent("signup_started", { source_surface: "diagnostic" });
+    if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
+      root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
+    }
+    var returnedFromCheckout = root.AthlevoDiagnosticAcquisition &&
+      typeof root.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
+      root.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
+    if (returnedFromCheckout) {
+      if (typeof root.showCheckoutReturnWelcome === "function") {
+        root.showCheckoutReturnWelcome();
+      } else if (typeof root.openAiSignup === "function") {
+        root.openAiSignup();
+      } else if (typeof root.openAppEntry === "function") {
+        root.openAppEntry();
+      } else {
+        showScreen("screen-welcome");
+      }
+      return;
+    }
+    if (typeof root.openAiSignup === "function") {
+      root.openAiSignup();
+    } else if (root.openAppEntry) {
+      root.openAppEntry();
+    } else {
+      showScreen("screen-welcome");
+    }
+  });
+}
+
+function trackResultViewed(result) {
+  var resultKey = engine.importKey ? engine.importKey() : "result";
+  if (resultTrackedFor !== resultKey) {
+    resultTrackedFor = resultKey;
+    trackEvent("diagnostic_result_viewed", {
+      primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
+      feasibility_rating: result.feasibility ? result.feasibility.rating : null,
+      injury_reported: !!(result.safetyFlags && result.safetyFlags.injuryReported)
+    });
+    var rec = result.athlevoRecommendation;
+    if (rec && !rec.safetyOverride) {
+      trackEvent("athlevo_recommendation_viewed", {
+        primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
+        feasibility_rating: result.feasibility ? result.feasibility.rating : null
+      });
+    }
+  }
+}
+
+/**
+ * Conversational result sequence — replaces the monolithic result card
+ * with a series of chat messages that feel like a coaching debrief.
+ */
+async function renderConversationalResult(thread, result) {
+  var rec = result.athlevoRecommendation;
+  var limiter = result.primaryLimiter;
+
+  /* 1. Intro message */
+  await showTypingThenMessage(thread,
+    "Based on everything you've told me, here's what I see.");
+  await delay(MSG_DELAY);
+
+  /* 2. Diagnosis card (compact) */
+  var diagHTML = '<div class="chat-diagnosis-card">';
+  diagHTML += '<span class="chat-diagnosis-eyebrow">Your diagnosis</span>';
+  if (limiter) {
+    diagHTML += '<h3 class="chat-diagnosis-title">' + esc(limiter.label) + '</h3>';
+    diagHTML += '<p class="chat-diagnosis-text">' + esc(limiter.explanation) + '</p>';
+  } else {
+    diagHTML += '<h3 class="chat-diagnosis-title">Specificity gap</h3>';
+    diagHTML += '<p class="chat-diagnosis-text">The highest-leverage change is making the work you already do more specific to the goal—not adding generic structure.</p>';
+  }
+  diagHTML += '</div>';
+  appendAthlevoMsgHTML(thread, diagHTML);
+  scrollToBottom();
+  trackResultViewed(result);
+  await delay(MSG_DELAY);
+
+  /* 3. Recommendations as conversational messages */
+  var changes = result.whatWedChange;
+  if (changes && changes.length > 0) {
+    await showTypingThenMessage(thread, "Here's what I'd change first:");
+    await delay(MSG_DELAY / 2);
+    var changeText = "";
+    for (var c = 0; c < Math.min(changes.length, 3); c++) {
+      changeText += (c + 1) + ". " + changes[c];
+      if (c < Math.min(changes.length, 3) - 1) changeText += "\n";
+    }
+    appendAthlevoMsg(thread, changeText);
+    scrollToBottom();
+    await delay(MSG_DELAY);
+  }
+
+  /* 4. Feasibility — preserves all dynamic states */
+  if (result.feasibility) {
+    var feasMsg = result.feasibility.label + " — " + result.feasibility.explanation;
+    await showTypingThenMessage(thread, feasMsg);
+    await delay(MSG_DELAY);
+  }
+
+  /* 5. Safety note (conditional) */
+  if (result.safetyFlags && result.safetyFlags.requiresMedicalClearance) {
+    var safetyHTML = '<p class="chat-safety-note">Athlevo is not a medical provider. Based on what you’ve shared, please consult a qualified health professional before beginning or modifying any training program.</p>';
+    appendAthlevoMsgHTML(thread, safetyHTML);
+    scrollToBottom();
+    await delay(MSG_DELAY);
+  }
+
+  /* 6. Continuation bridge */
+  await showTypingThenMessage(thread,
+    "I've built your starting diagnosis. The real value comes when I can track your training and adapt week to week.");
+  await delay(MSG_DELAY);
+
+  /* 7. Compact CTA */
+  if (!rec || !rec.safetyOverride) {
+    var ctaHTML = '<div class="chat-compact-cta">';
+    ctaHTML += '<p class="chat-compact-cta-lead">Your plan doesn’t stay fixed. It evolves with you.</p>';
+    ctaHTML += '<button class="chat-cta-btn" id="diagCTA" type="button">Start my training — ₱597/month</button>';
+    ctaHTML += '</div>';
+    var ctaEl = createEl(
+      '<div class="chat-msg chat-msg-athlevo chat-msg-result">' +
+        '<div class="chat-bubble chat-bubble-athlevo">' + ctaHTML + '</div>' +
+      '</div>'
+    );
+    thread.appendChild(ctaEl);
+    animateIn(ctaEl);
+    scrollToBottom();
+
+    bindCTAHandler(document.getElementById("diagCTA"), result);
+  }
+
+}
+
+/**
+ * renderResult — entry point called by showBuildAnimation and on
+ * resume. Delegates to the conversational sequence when possible;
+ * falls back to a compact single-card for idempotent re-renders
+ * (e.g. page restore where the result node already exists).
+ */
 function renderResult(opts) {
   mode = "result";
   hideQuickReplies();
@@ -3412,116 +3644,15 @@ function renderResult(opts) {
   var fill = document.querySelector("#diagProgress .ob2-fill");
   if (fill) fill.style.transform = "scaleX(1)";
 
-  if (thread.querySelector(".chat-msg-result")) return;
+  /* Guard both a completed result and the async sequence leading to it. */
+  if (resultConversationStarted || thread.querySelector(".chat-msg-result")) return;
+  resultConversationStarted = true;
 
-  var rec = result.athlevoRecommendation;
-  var limiter = result.primaryLimiter;
-  var html = '<div class="chat-result-card">';
-
-  html += '<span class="chat-result-eyebrow">Your diagnosis</span>';
-  if (limiter) {
-    html += '<h3 class="chat-result-limiter-title">' + esc(limiter.label) + '</h3>';
-    html += '<p class="chat-result-text">' + esc(limiter.explanation) + '</p>';
-  } else {
-    html += '<h3 class="chat-result-limiter-title">Specificity gap</h3>';
-    html += '<p class="chat-result-text">The highest-leverage change is making the work you already do more specific to the goal—not adding generic structure.</p>';
-  }
-
-  var changes = result.whatWedChange;
-  if (changes && changes.length > 0) {
-    html += '<div class="chat-result-block">';
-    html += '<h4 class="chat-result-subhead">What I’d change</h4>';
-    html += '<ul class="chat-result-changes">';
-    for (var c = 0; c < Math.min(changes.length, 3); c++) {
-      html += '<li>' + esc(changes[c]) + '</li>';
-    }
-    html += '</ul></div>';
-  }
-
-  if (result.feasibility) {
-    html += '<div class="chat-result-block">';
-    html += '<h4 class="chat-result-subhead">Your goal</h4>';
-    html += '<p class="chat-result-status">' + esc(result.feasibility.label) + '</p>';
-    html += '<p class="chat-result-text">' + esc(result.feasibility.explanation) + '</p>';
-    html += '</div>';
-  }
-
-  if (result.safetyFlags && result.safetyFlags.requiresMedicalClearance) {
-    html += '<p class="chat-result-safety-note">Athlevo is not a medical provider. Based on what you’ve shared, please consult a qualified health professional before beginning or modifying any training program.</p>';
-  }
-
-  if (!rec || !rec.safetyOverride) {
-    html += '<div class="chat-result-offer">';
-    html += '<h4 class="chat-result-offer-title">Train with Athlevo AI</h4>';
-    html += '<p class="chat-result-offer-lead">Your plan doesn’t stay fixed. It evolves with you.</p>';
-    html += '<p class="chat-result-offer-features">Personalized training · Adaptive coaching · AI running coach · Readiness &amp; recovery · Progress tracking</p>';
-    html += '<button class="chat-cta-btn" id="diagCTA" type="button">Start my training — ₱597/month</button>';
-    html += '<p class="chat-cta-annual">or ₱5,498/year — save ₱1,666</p>';
-    html += '</div>';
-  }
-
-  html += '</div>';
-
-  var resultEl = createEl(
-    '<div class="chat-msg chat-msg-athlevo chat-msg-result">' + html + '</div>'
-  );
-  thread.appendChild(resultEl);
-  animateIn(resultEl);
-  scrollToBottom();
-
-  if (!rec || !rec.safetyOverride) {
-    var cta = document.getElementById("diagCTA");
-    if (cta) {
-      cta.addEventListener("click", function () {
-        trackEvent("diagnostic_signup_tapped", {
-          primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-          feasibility_rating: result.feasibility ? result.feasibility.rating : null
-        });
-        trackEvent("signup_started", { source_surface: "diagnostic" });
-        if (root.AthlevoDiagnosticAcquisition && root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted) {
-          root.AthlevoDiagnosticAcquisition.markDiagnosticCompleted(engine);
-        }
-        var returnedFromCheckout = root.AthlevoDiagnosticAcquisition &&
-          typeof root.AthlevoDiagnosticAcquisition.hasCheckoutReturn === "function" &&
-          root.AthlevoDiagnosticAcquisition.hasCheckoutReturn();
-        if (returnedFromCheckout) {
-          if (typeof root.showCheckoutReturnWelcome === "function") {
-            root.showCheckoutReturnWelcome();
-          } else if (typeof root.openAiSignup === "function") {
-            root.openAiSignup();
-          } else if (typeof root.openAppEntry === "function") {
-            root.openAppEntry();
-          } else {
-            showScreen("screen-welcome");
-          }
-          return;
-        }
-        if (typeof root.openAiSignup === "function") {
-          root.openAiSignup();
-        } else if (root.openAppEntry) {
-          root.openAppEntry();
-        } else {
-          showScreen("screen-welcome");
-        }
-      });
-    }
-  }
-
-  var resultKey = engine.importKey ? engine.importKey() : "result";
-  if (resultTrackedFor !== resultKey) {
-    resultTrackedFor = resultKey;
-    trackEvent("diagnostic_result_viewed", {
-      primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-      feasibility_rating: result.feasibility ? result.feasibility.rating : null,
-      injury_reported: !!(result.safetyFlags && result.safetyFlags.injuryReported)
-    });
-    if (rec && !rec.safetyOverride) {
-      trackEvent("athlevo_recommendation_viewed", {
-        primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
-        feasibility_rating: result.feasibility ? result.feasibility.rating : null
-      });
-    }
-  }
+  /* Kick off the conversational sequence. */
+  Promise.resolve(renderConversationalResult(thread, result)).catch(function (error) {
+    resultConversationStarted = false;
+    try { console.warn("Diagnostic result rendering failed:", error && error.message); } catch (e) {}
+  });
 }
 
 /* ═══════════════════════════ PROGRESS ══════════════════════════════ */
@@ -3666,6 +3797,7 @@ var DiagnosticUI = {
       activeSubField = null;
       subStepFields = [];
       resultSequenceStarted = false;
+      resultConversationStarted = false;
       resetSkipCannedInterpretations();
       setDiagnosticBusy(false);
       diagnosticCompletedFired = false;
