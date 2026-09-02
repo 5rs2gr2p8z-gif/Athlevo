@@ -100,6 +100,7 @@ var activeSubField = null;    // the exact field within the current sub-step gro
                                // showWhen-dependent field, not fieldGroup[0]) --
                                // see nextActiveDependent().
 var interpretationCache = {};
+var commentaryConsecutiveCount = 0; /* rhythm tracker for commentary density */
 var resultTrackedFor = null;
 var resultSequenceStarted = false;
 var resultConversationStarted = false;
@@ -424,6 +425,7 @@ function startDiagnostic() {
 
   showScreen("screen-diagnostic");
   interpretationCache = {};
+  commentaryConsecutiveCount = 0;
   recentTurns = [];
   salesState = getSales() ? getSales().emptySalesState() : null;
   awaitingSalesFollowup = false;
@@ -605,30 +607,13 @@ function buildSocialProofHTML() {
     html += '</div>';
   }
   html += '</div>';
+  html += '<div class="chat-social-proof-stat" style="font-size:0.78em;color:rgba(128,128,128,0.85);text-align:center;margin-top:6px;">54+ personal bests with Athlevo coaching</div>';
   html += '</div>';
   return html;
 }
 
 function socialProofBridgeCopy() {
-  var history = engine && Array.isArray(engine.history) ? engine.history : [];
-  var lastQuestion = history.length ? history[history.length - 1] : "";
-  var goal = engine && engine.answers ? engine.answers.goal_distance : null;
-  var first10k = currentAcquisitionIntent() === "first10k" || goal === "10K";
-  var context;
-
-  if (first10k) {
-    context = lastQuestion === "current_capacity"
-      ? "That gives me a useful current-capacity baseline for your first 10K."
-      : "That gives me a useful starting point for your first 10K.";
-  } else if (goal) {
-    context = lastQuestion === "race_details"
-      ? "That gives me useful context around your " + goal + " goal."
-      : "That gives me a clearer baseline for your " + goal + " goal.";
-  } else {
-    context = "That gives me a clearer picture of where you’re starting.";
-  }
-
-  return context + " I’ve worked with runners starting from very different places too.";
+  return "You’re in familiar territory. We’ve coached 153+ runners across different starting points and goals.";
 }
 
 function wireSocialProofCarousel(proofEl) {
@@ -3181,14 +3166,32 @@ function submitCurrentQuestion() {
 
   updateProgress();
 
-  // Show interpretation inline, then advance — silently auto-answering
-  // any upcoming question the runner already told us about instead of
-  // re-asking it.
+  // Show interpretation inline with commentary rhythm control —
+  // silently auto-answering any upcoming question the runner already
+  // told us about instead of re-asking it.
   (async function () {
     var thread = getThread();
     if (interpretation && thread) {
-      await delay(MSG_DELAY);
-      await showTypingThenMessage(thread, interpretation);
+      var Diag = root.AthlevoDiagnostic;
+      var category = "ack";
+      if (Diag && typeof Diag.classifyCommentary === "function") {
+        category = Diag.classifyCommentary(q.key, currentFieldData, engine._stateView());
+      }
+      /* Rhythm rule: after 2 consecutive shown commentaries, suppress "ack" */
+      if (category === "show") {
+        commentaryConsecutiveCount = 0; /* reset — meaningful insight earns attention */
+        await delay(MSG_DELAY);
+        await showTypingThenMessage(thread, interpretation);
+      } else if (category === "ack") {
+        if (commentaryConsecutiveCount < 2) {
+          commentaryConsecutiveCount++;
+          await delay(MSG_DELAY);
+          await showTypingThenMessage(thread, interpretation);
+        } else {
+          commentaryConsecutiveCount = 0; /* suppressed — reset for next window */
+        }
+      }
+      /* "skip" — no commentary shown, counter unchanged */
     }
     await advanceFlow(thread);
   })();
@@ -3246,6 +3249,19 @@ async function advanceFlow(thread) {
     await delay(MSG_DELAY);
     var subSteps = splitIntoSubSteps(next);
     var prompt = subSteps.length === 1 ? next.title : getSubStepPrompt(next, subSteps[0], 0, subSteps.length);
+
+    /* High-capacity bridge: show curiosity message + alternate title */
+    if (next.key === "recent_performance" && next.highCapacityTitle &&
+        engine && typeof engine._isHighCapacityProfile === "function" &&
+        engine._isHighCapacityProfile()) {
+      if (thread) {
+        await showTypingThenMessage(thread,
+          "You’ve already built a lot of training capacity. One more thing will help me place it properly.");
+        await delay(MSG_DELAY);
+      }
+      prompt = next.highCapacityTitle;
+    }
+
     if (thread) await showTypingThenMessage(thread, prompt);
     setDiagnosticBusy(false);
     presentQuestion(next);
@@ -3628,12 +3644,12 @@ async function renderConversationalResult(thread, result) {
   if (changes && changes.length > 0) {
     await showTypingThenMessage(thread, "Here's what I'd change first:");
     await delay(MSG_DELAY / 2);
-    var changeText = "";
+    var changeHTML = '<div class="chat-recommendations">';
     for (var c = 0; c < Math.min(changes.length, 3); c++) {
-      changeText += (c + 1) + ". " + changes[c];
-      if (c < Math.min(changes.length, 3) - 1) changeText += "\n";
+      changeHTML += '<div class="chat-recommendation-item">→ ' + esc(changes[c]) + '</div>';
     }
-    appendAthlevoMsg(thread, changeText);
+    changeHTML += '</div>';
+    appendAthlevoMsgHTML(thread, changeHTML);
     scrollToBottom();
     await delay(MSG_DELAY);
   }

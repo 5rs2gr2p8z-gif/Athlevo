@@ -626,6 +626,8 @@ var QUESTIONS = [
     eyebrow: "Recent performance",
     title: "Do you have a recent race result?",
     sub: "This helps put a time goal in context. Choose none if you do not have a useful recent result.",
+    highCapacityTitle: "What's your best recent 5K or hard 20–30 minute effort?",
+    highCapacitySub: "Your training volume is well above typical for this goal. A recent result helps me see what's actually limiting you.",
     provides: ["recent_race_dist", "recent_race_time"],
     eligible: function (state) {
       if (!state.known.goal || state.answers.goal === "fitness") return false;
@@ -635,6 +637,8 @@ var QUESTIONS = [
         !!state.known.recent_consistency ||
         !!state.known.weekly_mileage;
     },
+    /* High-capacity profiles must answer this before completion */
+    requiredForHighCapacity: true,
     fields: [
       {
         id: "recent_race_dist", type: "chips", label: "Recent race distance", required: true,
@@ -658,7 +662,7 @@ var QUESTIONS = [
         recent_race_time: answers.recent_race_dist === "none" ? null : (answers.recent_race_time || null)
       };
     },
-    interpret: function (answers) {
+    interpret: function (answers, state) {
       if (answers.recent_race_dist === "none") {
         return "No recent result means the first training block should establish a fresh baseline before locking onto a precise pace target.";
       }
@@ -1341,6 +1345,7 @@ DiagnosticEngine.prototype._questionDiagnosticValue = function (q) {
       break;
     case "recent_performance":
       if (this._hasRecentResult()) value = 0;
+      else if (this._isHighCapacityProfile() && !this._hasRecentResult()) value = 92;
       else if (timeGoal && capacityGap) value = 86;
       else if ((d === "5K" || d === "10K") && capacityGap) value = 80;
       else if (timeGoal && !isLongEnduranceDistance(d)) value = 45;
@@ -1447,7 +1452,13 @@ DiagnosticEngine.prototype.recoverContinuationQuestion = function () {
 /* Enough information for a useful diagnosis, including the injury gate. */
 DiagnosticEngine.prototype.canComplete = function () {
   if (!this.begun || this.completed) return !!this.completed;
-  return this.hasDiagnosticSufficiency() && this._injurySafetySatisfied();
+  if (!this.hasDiagnosticSufficiency() || !this._injurySafetySatisfied()) return false;
+  /* High-capacity profiles must supply a performance marker before diagnosis */
+  if (this._isHighCapacityProfile() && !this._hasRecentResult() &&
+      this.history.indexOf("recent_performance") < 0) {
+    return false;
+  }
+  return true;
 };
 
 DiagnosticEngine.prototype._requiredQuestionKeys = function () {
@@ -2644,6 +2655,92 @@ DiagnosticEngine.prototype.missingRequiredKeys = function () {
 };
 
 /* ═══════════════════════════ QUESTION HELPERS ════════════════════════ */
+
+
+
+/* ═══════════════════ HIGH-CAPACITY PROFILE DETECTION ═══════════════
+ * Detects profiles where standard beginner logic is unreliable and
+ * a performance marker is needed before confident limiter diagnosis.
+ * Returns true when the profile is anomalously strong for its stated goal.
+ */
+DiagnosticEngine.prototype._isHighCapacityProfile = function () {
+  var a = this.answers;
+  var km = asKm(a.weekly_mileage);
+  var longest = asKm(a.recent_longest_run_km);
+  var days = asDays(a.training_days);
+  var goal = a.goal_distance;
+  var consistency = a.recent_consistency;
+
+  /* Only trigger for shorter-distance goals where high volume is anomalous */
+  if (goal !== "5K" && goal !== "10K") return false;
+
+  /* High weekly mileage for goal: 10K at 60+ km/week, 5K at 50+ km/week */
+  var volumeThreshold = goal === "10K" ? 60 : 50;
+  var highVolume = km != null && km >= volumeThreshold;
+
+  /* Very long long run relative to race distance */
+  var raceKm = goal === "10K" ? 10 : 5;
+  var longRunHigh = longest != null && longest >= raceKm * 2;
+
+  /* High frequency */
+  var highFreq = days != null && days >= 4;
+
+  /* Consistent training */
+  var isConsistent = consistency === "mostly_consistent" || consistency === "consistent";
+
+  /* Trigger: 3 signals fire regardless; 2 signals require consistency */
+  var capacitySignals = (highVolume ? 1 : 0) + (longRunHigh ? 1 : 0) + (highFreq ? 1 : 0);
+  return capacitySignals >= 3 || (capacitySignals >= 2 && isConsistent);
+};
+
+/* ═══════════════════ COMMENTARY CLASSIFICATION ═════════════════════
+ * Rates whether a question's interpretation deserves display.
+ * Returns "show" (meaningful coaching insight or anomaly — always display),
+ *         "ack"  (useful transition — display only if rhythm allows),
+ *         "skip" (routine — suppress to keep conversational density).
+ *
+ * The UI tracks consecutive displayed commentaries. After 2 consecutive
+ * "ack" or "show" messages, the next "ack" is downgraded to "skip".
+ * "show" always displays and resets the counter.
+ */
+DiagnosticEngine.classifyCommentary = function (questionKey, fieldAnswers, state) {
+  if (!questionKey) return "skip";
+  var a = fieldAnswers || {};
+  var answers = (state || {}).answers || {};
+  switch (questionKey) {
+    case "perceived_limiter": return "show";
+    case "injury_status": return (a.injury_has && a.injury_has !== "none") ? "show" : "ack";
+    case "goal": return "ack";
+    case "experience": return (a.experience === "new" || a.experience === "5_plus") ? "ack" : "skip";
+    case "training_status": return (a.training_status === "returning" || a.training_status === "starting") ? "ack" : "skip";
+    case "current_running_frequency": return a.current_running_frequency === "freq_4_plus" ? "ack" : "skip";
+    case "recent_performance": return "ack";
+    case "schedule": return "skip";
+    case "race_details": return (a.goal_race_date && a.goal_time) ? "ack" : "skip";
+    case "training_structure": return (a.training_structure === "random" || a.training_structure === "race_only") ? "show" : "skip";
+    case "weekly_volume": {
+      var km = Number(a.weekly_mileage) || 0;
+      var target = ({ "5K": 5, "10K": 10, "Half marathon": 21.1, "Marathon": 42.2, "Ultra": 50 })[answers.goal_distance] || 0;
+      if (target > 0 && (km < target * 0.8 || km >= target * 2.5)) return "show";
+      return km > 60 ? "ack" : "skip";
+    }
+    case "current_capacity": {
+      var g = answers.goal_distance;
+      return (g === "Marathon" || g === "Half marathon" || g === "Ultra") && (Number(a.recent_longest_run_km) || 0) < 10 ? "show" : "skip";
+    }
+    case "training_days": {
+      var days = Number(a.training_days) || 0;
+      var dg = answers.goal_distance;
+      if (days <= 3 && (dg === "Marathon" || dg === "Ultra")) return "show";
+      return days >= 6 ? "ack" : "skip";
+    }
+    case "other_training": {
+      var other = a.other_training || [];
+      return (other.indexOf("none") >= 0 && answers.perceived_limiter === "muscular") ? "show" : "skip";
+    }
+    default: return "skip";
+  }
+};
 
 /* Get question definition by key. */
 DiagnosticEngine.getQuestion = function (key) {
