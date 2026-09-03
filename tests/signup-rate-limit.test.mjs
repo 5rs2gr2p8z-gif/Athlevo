@@ -84,6 +84,8 @@ assert.equal((signupMarkup.match(/onclick="doSignup\(\)"/g) || []).length, 1);
 
 let resolveSignup;
 let signupCalls = 0;
+let routeClaims = 0;
+let routes = 0;
 const elements = {
   suMsg: { style: {}, textContent: "" },
   suBtn: {
@@ -108,7 +110,7 @@ const doSignupSource = html.slice(
 const runtime = new Function(
   "document", "window", "supabaseClient", "setTimeout", "clearTimeout",
   "trackEmailSignupFailure", "friendlyAuthError", "showLoginForm",
-  "closeAuth", "startOnboarding",
+  "closeAuth", "startOnboarding", "beginAuthenticatedRouting", "routeAfterAuth",
   `
     let signupInFlight = false;
     let signupCompletedEmail = "";
@@ -133,7 +135,9 @@ const runtime = new Function(
   () => "Signup failed",
   () => {},
   () => {},
-  () => {}
+  () => {},
+  () => { routeClaims += 1; return true; },
+  async () => { routes += 1; }
 );
 
 const firstSubmit = runtime.doSignup();
@@ -151,6 +155,9 @@ await Promise.all([firstSubmit, duplicateSubmit]);
 assert.equal(elements.suBtn.disabled, true);
 assert.equal(elements.suBtn.textContent, "Check your email");
 assert.equal(elements.suBtn.attributes["aria-busy"], "false");
+assert.equal(elements.suMsg.textContent, "Check your email to confirm your account, then log in.");
+assert.equal(routeClaims, 0);
+assert.equal(routes, 0);
 
 await runtime.doSignup();
 assert.equal(signupCalls, 1);

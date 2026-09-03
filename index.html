@@ -7248,7 +7248,29 @@ function showPostAuthTransition() {
   if (tb) tb.style.display = "none";
   showScreen("screen-auth-setup");
   if (typeof endBootGate === "function") endBootGate();
+
+  // Safety valve: if screen-auth-setup is STILL the active screen after 15s,
+  // something in routeAfterAuth hung or threw without navigating away.
+  // Dismiss the loading screen so the user is never stuck indefinitely.
+  clearTimeout(window.__authSetupSafetyTimer);
+  window.__authSetupSafetyTimer = setTimeout(function () {
+    var setup = document.getElementById("screen-auth-setup");
+    if (setup && setup.classList.contains("active")) {
+      console.error("Auth setup safety timeout — dismissing stuck loading screen.");
+      lockAuthEntryControls(false);
+      if (typeof openAppEntry === "function") openAppEntry();
+      else showScreen("screen-welcome");
+      if (typeof toast === "function") toast("Something went wrong. Please try again.");
+    }
+  }, 15000);
 }
+
+// Clear the auth-setup safety timer when any screen replaces it.
+var _origShowScreen = showScreen;
+showScreen = function showScreenWithSafety(id) {
+  if (id !== "screen-auth-setup") clearTimeout(window.__authSetupSafetyTimer);
+  return _origShowScreen(id);
+};
 
 function claimPostAuthRoute(userId) {
   if (!userId) return false;
@@ -7262,9 +7284,10 @@ function claimPostAuthRoute(userId) {
 }
 
 function beginAuthenticatedRouting(userId) {
+  if (!claimPostAuthRoute(userId)) return false;
   clearOAuthHydrationFailOpen();
   showPostAuthTransition();
-  return claimPostAuthRoute(userId);
+  return true;
 }
 window.lockAuthEntryControls = lockAuthEntryControls;
 window.showPostAuthTransition = showPostAuthTransition;
@@ -7718,6 +7741,12 @@ async function doSignup(bypassEmbeddedWarning) {
     // e may be a timeout/network error — map it, never log the password.
     msg.style.color = 'var(--red)';
     msg.textContent = friendlyAuthError(e, 'signup');
+    // Ensure the user is never stranded on the "Setting up" screen.
+    var setupScreen = document.getElementById("screen-auth-setup");
+    if (setupScreen && setupScreen.classList.contains("active")) {
+      if (typeof openAppEntry === "function") openAppEntry();
+      else showScreen("screen-welcome");
+    }
     // Promise.race cannot cancel Supabase's underlying fetch. Prevent an
     // immediate retry from overlapping a request whose outcome is unknown.
     if (e && e.__timeout) {
@@ -7846,6 +7875,12 @@ async function doLogin(bypassEmbeddedWarning) {
     await routeAfterAuth(user.id);
   } catch (e) {
     console.error('Post-login initialization failed:', e);
+    // Ensure the user is never stranded on the "Setting up" screen.
+    var setupScreen = document.getElementById("screen-auth-setup");
+    if (setupScreen && setupScreen.classList.contains("active")) {
+      if (typeof openAppEntry === "function") openAppEntry();
+      else showScreen("screen-welcome");
+    }
     toast('Signed in. Some data is temporarily unavailable.');
   } finally {
     loginInFlight = false;
@@ -10707,7 +10742,6 @@ async function restoreSession(opts) {
     }
     try {
       if (window.__athlevoRoutingFor === session.user.id) {
-        if (typeof showPostAuthTransition === "function") showPostAuthTransition();
         return true;
       }
       window.__athlevoRoutingFor = session.user.id;
@@ -10728,7 +10762,14 @@ async function restoreSession(opts) {
       }
       if (paidAfterExit && paidAfterExit.paid) {
         if (typeof showPostAuthTransition === "function") showPostAuthTransition();
-        await routeAfterAuth(session.user.id);
+        try {
+          await routeAfterAuth(session.user.id);
+        } catch (routeErr) {
+          console.error("Post-auth routing failed (paid exit):", routeErr);
+          if (typeof openAppEntry === "function") openAppEntry();
+          else showScreen("screen-welcome");
+          if (typeof toast === "function") toast("Signed in. Some data is temporarily unavailable.");
+        }
         return true;
       }
       var pricingAfterExit = false;
@@ -10754,7 +10795,14 @@ async function restoreSession(opts) {
       return false;
     }
     if (typeof showPostAuthTransition === "function") showPostAuthTransition();
-    await routeAfterAuth(session.user.id);
+    try {
+      await routeAfterAuth(session.user.id);
+    } catch (routeErr) {
+      console.error("Post-auth routing failed (session restore):", routeErr);
+      if (typeof openAppEntry === "function") openAppEntry();
+      else showScreen("screen-welcome");
+      if (typeof toast === "function") toast("Signed in. Some data is temporarily unavailable.");
+    }
     return true;
   }
 
@@ -12112,7 +12160,6 @@ setTimeout(function () {
         if (!window.__athlevoSessionRestoreSettled || window.__athlevoAuthRestoring) return;
         try {
           if (window.__athlevoRoutingFor === nextUserId) {
-            if (typeof showPostAuthTransition === "function") showPostAuthTransition();
             return;
           }
         } catch (e) {}
@@ -12138,7 +12185,15 @@ setTimeout(function () {
           try { window.__athlevoRoutingFor = nextUserId; } catch (e4) {}
         }
         if (typeof routeAfterAuth === "function") {
-          Promise.resolve(routeAfterAuth(nextUserId)).catch(function () {});
+          Promise.resolve(routeAfterAuth(nextUserId)).catch(function (routeErr) {
+            console.error("Post-auth routing failed (onAuthStateChange):", routeErr);
+            var setupScreen = document.getElementById("screen-auth-setup");
+            if (setupScreen && setupScreen.classList.contains("active")) {
+              if (typeof openAppEntry === "function") openAppEntry();
+              else showScreen("screen-welcome");
+              if (typeof toast === "function") toast("Signed in. Some data is temporarily unavailable.");
+            }
+          });
         }
         return;
       }

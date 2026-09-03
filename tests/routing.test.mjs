@@ -641,8 +641,8 @@ section("Failure modes");
   const r = await boot({ session: SESSION, standalone: false, routeThrows: true });
   t("boot gate lifts even when routing throws (no blank-screen hang)",
     !r.state.bodyClasses.has("booting"));
-  t("...and keeps the authenticated setup surface instead of a signed-out signup flash",
-    r.visible === "screen-auth-setup", r.visible);
+  t("...and escapes the stuck auth-setup screen instead of leaving an infinite spinner",
+    r.visible !== "screen-auth-setup", r.visible);
 }
 {
   // getSession that never settles → the 8s race must still resolve.
@@ -1223,10 +1223,10 @@ section("Post-auth transition");
   const { api, state, window: win } = makeWorld({
     session: SESSION, standalone: false, pathname: "/ai-signup"
   });
-  const first = api.beginAuthenticatedRouting("u1");
-  const second = api.beginAuthenticatedRouting("u1");
-  t("L. second beginAuthenticatedRouting does not start a competing route",
-    first === true && second === false &&
+  const authStateOwner = api.beginAuthenticatedRouting("u1");
+  const interactiveContinuation = api.beginAuthenticatedRouting("u1");
+  t("L. SIGNED_IN owns routing and overlapping doLogin continuation is a no-op",
+    authStateOwner === true && interactiveContinuation === false &&
     state.screens["screen-auth-setup"].active === true &&
     state.screens["screen-welcome"].active === false);
   t("J. confirmed auth disables signup CTAs immediately",
@@ -1234,6 +1234,12 @@ section("Post-auth transition");
     state.disabled.authBtnEmail === true &&
     state.disabled.suBtn === true &&
     win.__athlevoAuthEntryLocked === true);
+  api.showScreen("screen-today");
+  const duplicateAfterDestination = api.beginAuthenticatedRouting("u1");
+  t("L. duplicate auth after destination cannot repaint the setup screen",
+    duplicateAfterDestination === false &&
+    state.screens["screen-today"].active === true &&
+    state.screens["screen-auth-setup"].active === false);
   await api.restoreSession({});
   api.endBootGate();
   t("L. already-claimed restore does not launch a second routeAfterAuth",

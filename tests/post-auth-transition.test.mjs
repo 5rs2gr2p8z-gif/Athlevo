@@ -95,13 +95,21 @@ section("Google OAuth");
 
 section("Duplicate routing");
 {
+  const begin = sliceFn("beginAuthenticatedRouting", "rememberLandingAuthEntry");
   t("L. claimPostAuthRoute is single-flight per user id",
     /if \(window\.__athlevoRoutingFor === userId\) return false/.test(
       sliceFn("claimPostAuthRoute", "beginAuthenticatedRouting")));
+  t("L. transition is painted only after a route claim succeeds",
+    begin.indexOf("claimPostAuthRoute(userId)") >= 0 &&
+    begin.indexOf("claimPostAuthRoute(userId)") < begin.indexOf("showPostAuthTransition()"));
   t("L. SIGNED_IN reuses beginAuthenticatedRouting instead of a second generation",
     /beginAuthenticatedRouting\(nextUserId\)/.test(signedIn));
   t("L. SIGNED_IN no-ops when routing is already claimed",
     /__athlevoRoutingFor === nextUserId[\s\S]{0,180}return/.test(signedIn));
+  t("L. duplicate SIGNED_IN does not repaint the setup transition",
+    !/__athlevoRoutingFor === nextUserId[\s\S]{0,180}showPostAuthTransition/.test(signedIn));
+  t("L. already-claimed restore does not repaint the setup transition",
+    !/__athlevoRoutingFor === session\.user\.id[\s\S]{0,180}showPostAuthTransition/.test(restore));
 }
 
 section("Analytics / Meta");
