@@ -1394,6 +1394,26 @@ context.currentWeekExecution =
 // coach must receive alongside the objective training data.
 context.todayReadiness = await loadTodayReadinessForCoach();
 
+// ── Training State: compact trend metrics for AI Coach ──────────
+// Cached (5-min TTL) — subsequent messages reuse the same object.
+// Non-fatal: if trainingState cannot be built, Coach continues without it.
+try {
+  if (typeof AthlevoTrainingState !== "undefined" &&
+      typeof AthlevoTrainingState.getTrainingState === "function") {
+    const trainingState = await AthlevoTrainingState.getTrainingState({
+      activities: activities,
+      executions: [],
+      races: [],
+      profile: profile
+    });
+    if (trainingState) {
+      context.trainingState = trainingState;
+    }
+  }
+} catch (tsErr) {
+  console.warn("[coach] trainingState enrichment failed:", tsErr);
+}
+
 // A short recent-conversation window for continuity (not the full
 // history). Drop the just-sent question so it isn't duplicated.
 context.recentConversation = (await loadRecentConversationForCoach())
