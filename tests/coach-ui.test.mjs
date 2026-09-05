@@ -98,7 +98,7 @@ test("structured response typography keeps conclusion-first hierarchy",
   /coach-response-headline/.test(renderer) &&
   /appendCoachProse\([\s\S]*?"coach-response-lead"/.test(renderer) &&
   /coach-response-section/.test(renderer) &&
-  /\.coach-rich-response\s*\{[^}]*gap:\s*var\(--s-3\)[^}]*max-width:\s*640px/.test(html) &&
+  /\.coach-rich-response\s*\{[^}]*gap:\s*16px[^}]*max-width:\s*640px/.test(html) &&
   /\.coach-response-lead\s*\{[^}]*font-size:\s*var\(--fs-h3\)[^}]*font-weight:\s*650[^}]*line-height:\s*var\(--lh-caption\)/.test(html) &&
   /\.coach-response-direct\s*\{[^}]*font-size:\s*calc\(var\(--fs-body\) \+ 1px\)[^}]*line-height:\s*calc\(var\(--lh-body\) \+ \.1\)/.test(html) &&
   /\.coach-response-headline\s*\{[^}]*font-family:\s*var\(--sans\)[^}]*font-size:\s*var\(--fs-body\)/.test(html) &&

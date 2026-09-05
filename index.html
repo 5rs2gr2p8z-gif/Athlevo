@@ -2025,7 +2025,7 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 .coach-rich-response {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: 16px;
   width: 100%;
   max-width: 640px;
   animation: coachReveal var(--dur-slow) var(--ease-standard) both;
@@ -2053,7 +2053,7 @@ html.athlevo-native-android .asc-radar-area{filter:none}
   margin: 0;
   font-size: calc(var(--fs-body) + 1px);
   line-height: calc(var(--lh-body) + .1);
-  color: var(--ink2);
+  color: var(--text);
 }
 
 .coach-response-section {
@@ -2092,6 +2092,14 @@ html.athlevo-native-android .asc-radar-area{filter:none}
   color: var(--ink2);
 }
 .coach-response-list li strong{color:var(--text)}
+
+/* Bold phrases inside body paragraphs act as subtle semantic anchors —
+   restrained emphasis that helps athletes scan longer replies. */
+.coach-response-direct strong{
+  color: var(--text);
+  font-weight: 650;
+  letter-spacing: var(--ls-tight);
+}
 
 .coach-callout {
   margin-top: 12px;
