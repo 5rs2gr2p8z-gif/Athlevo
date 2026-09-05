@@ -1878,7 +1878,15 @@ async function reanalyzeActivities(opts) {
     const r = await providerRequest("reanalyze", opts || {});
     // Fresh recognition changed the data; drop the activity cache so the UI
     // re-reads it.
-    if (r && r.analyzed > 0) invalidateActivityCache();
+    if (r && r.analyzed > 0) {
+      invalidateActivityCache();
+      // Reanalysis changed activity classifications — training metrics
+      // (ACWR, load, balance) derived from those activities are now stale.
+      if (typeof window.AthlevoTrainingState !== "undefined" &&
+          typeof window.AthlevoTrainingState.invalidateCache === "function") {
+        window.AthlevoTrainingState.invalidateCache();
+      }
+    }
     return r;
   } catch (e) { return { scanned: 0, analyzed: 0, skipped: 0, failed: 0, error: e.message }; }
 }
@@ -1931,6 +1939,12 @@ async function syncIntervals() {
     // New activities mean the cached set is stale — drop it so the canonical
     // classifier re-runs and every screen picks the new training up.
     invalidateActivityCache();
+    // New/changed activities also change the computed training metrics
+    // (ACWR, weekly load, fitness/fatigue via provider recalculation).
+    if (typeof window.AthlevoTrainingState !== "undefined" &&
+        typeof window.AthlevoTrainingState.invalidateCache === "function") {
+      window.AthlevoTrainingState.invalidateCache();
+    }
     const note = result.imported
       ? `Imported ${result.imported} activit${result.imported === 1 ? "y" : "ies"}`
       : "Already up to date";
@@ -2249,6 +2263,12 @@ async function backfillStravaLaps(options) {
 
   // Fresh classification over the newly enriched rows.
   invalidateActivityCache();
+  // Lap enrichment can change activity structure used by AthleteEngine
+  // metrics — invalidate so the next Coach message rebuilds.
+  if (typeof window.AthlevoTrainingState !== "undefined" &&
+      typeof window.AthlevoTrainingState.invalidateCache === "function") {
+    window.AthlevoTrainingState.invalidateCache();
+  }
   console.log(
     `[lap backfill] finished — ${totals.processed} activities checked, ` +
     `${totals.withLaps} now have lap structure.`

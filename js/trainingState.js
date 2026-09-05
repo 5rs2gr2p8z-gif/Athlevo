@@ -15,6 +15,9 @@
  *
  *  Caching:
  *    · 5-minute in-memory TTL on the assembled trainingState
+ *    · User-scoped — Athlete A's cache is never returned for Athlete B
+ *    · Generation-safe — invalidateCache() prevents stale inflight results
+ *      from repopulating the cache
  *    · Concurrent calls share one in-flight Promise (no duplicate fetches)
  *    · Errors are never cached — next call retries from canonical sources
  *    · Page navigation / session end clears the cache naturally
@@ -31,8 +34,40 @@
   var _cache = {
     state: null,   // the cached trainingState object
     at: 0,         // Date.now() when cached
-    inflight: null // Promise if a refresh is in progress
+    inflight: null, // Promise if a refresh is in progress
+    userKey: null  // authenticated user id that owns this cached state
   };
+
+  // Monotonic generation counter. Incremented on every invalidateCache() call.
+  // A resolving inflight Promise only populates _cache when its captured
+  // generation still matches — this prevents a stale fetch from silently
+  // repopulating the cache after invalidation.
+  var _generation = 0;
+
+  /* ── User identity helper ────────────────────────────────────────── */
+
+  /**
+   * Resolve the current authenticated user id. Uses the same global
+   * supabaseClient that brain.js and coach.js rely on.
+   *
+   * Returns the user id string, or null when unauthenticated / unavailable.
+   * This is synchronous-safe: supabaseClient.auth.getUser() caches the
+   * session locally, so the await is cheap in the common case.
+   */
+  async function _resolveUserId() {
+    try {
+      if (typeof root.supabaseClient !== "undefined" &&
+          root.supabaseClient &&
+          root.supabaseClient.auth &&
+          typeof root.supabaseClient.auth.getUser === "function") {
+        var result = await root.supabaseClient.auth.getUser();
+        return (result && result.data && result.data.user && result.data.user.id) || null;
+      }
+    } catch (e) {
+      // Auth unavailable — treat as anonymous
+    }
+    return null;
+  }
 
   /**
    * Get a cached-or-fresh trainingState. This is the primary entry point
@@ -46,41 +81,77 @@
    * @returns {Promise<Object|null>}  trainingState (11 fields) or null on error
    */
   function getTrainingState(opts) {
-    // Return cached value if still fresh
-    if (_cache.state && (Date.now() - _cache.at < CACHE_TTL_MS)) {
-      return Promise.resolve(_cache.state);
-    }
+    // Wrap in an async flow so we can resolve the current user id
+    // before checking the cache.
+    return _resolveUserId().then(function (userId) {
+      var userKey = userId || "__anonymous__";
 
-    // If a refresh is already in flight, piggyback on it
-    if (_cache.inflight) {
+      // Return cached value if still fresh AND owned by this user
+      if (_cache.state &&
+          _cache.userKey === userKey &&
+          (Date.now() - _cache.at < CACHE_TTL_MS)) {
+        return _cache.state;
+      }
+
+      // If a refresh is already in flight for this same user, piggyback on it
+      if (_cache.inflight && _cache.userKey === userKey) {
+        return _cache.inflight;
+      }
+
+      // Different user or expired — clear any prior state before starting
+      // a new fetch. This ensures Athlete A's inflight never serves Athlete B.
+      if (_cache.userKey !== userKey) {
+        _cache.state = null;
+        _cache.at = 0;
+        _cache.inflight = null;
+        _cache.userKey = userKey;
+      }
+
+      // Capture the current generation so the .then handler can verify
+      // nothing was invalidated while the fetch was in progress.
+      var fetchGeneration = _generation;
+      var fetchUserKey = userKey;
+
+      // Start a new refresh
+      _cache.inflight = _refreshTrainingState(opts)
+        .then(function (state) {
+          // Only populate cache if generation and user haven't changed.
+          // If they have, this fetch's result is stale — return it to the
+          // original caller but do NOT write it into the current cache.
+          if (_generation === fetchGeneration && _cache.userKey === fetchUserKey) {
+            _cache.state = state;
+            _cache.at = Date.now();
+            _cache.inflight = null;
+          }
+          return state;
+        })
+        .catch(function (err) {
+          // Do NOT cache errors — next call retries.
+          // Only clear inflight if generation and user still match.
+          if (_generation === fetchGeneration && _cache.userKey === fetchUserKey) {
+            _cache.inflight = null;
+          }
+          console.warn("[trainingState] refresh failed:", err);
+          return null;
+        });
+
       return _cache.inflight;
-    }
-
-    // Start a new refresh
-    _cache.inflight = _refreshTrainingState(opts)
-      .then(function (state) {
-        _cache.state = state;
-        _cache.at = Date.now();
-        _cache.inflight = null;
-        return state;
-      })
-      .catch(function (err) {
-        // Do NOT cache errors — next call retries
-        _cache.inflight = null;
-        console.warn("[trainingState] refresh failed:", err);
-        return null;
-      });
-
-    return _cache.inflight;
+    });
   }
 
   /**
    * Invalidate the cache so the next getTrainingState() rebuilds.
-   * Does NOT cancel an in-flight refresh.
+   * Increments the generation counter so any in-flight refresh from a
+   * prior generation will NOT repopulate the cache when it resolves.
    */
   function invalidateCache() {
+    _generation++;
     _cache.state = null;
     _cache.at = 0;
+    _cache.inflight = null;
+    // _cache.userKey is intentionally preserved — the identity hasn't
+    // changed, only the data has. A subsequent getTrainingState() for
+    // the same user will start a fresh fetch.
   }
 
   /* ── Internal refresh ─────────────────────────────────────────────── */
