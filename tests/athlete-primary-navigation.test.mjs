@@ -63,9 +63,14 @@ test("Today and You screens remain in the DOM",
   /<section[^>]+id="screen-you"/.test(html));
 test("tabbar has tabbar--capsule class in markup",
   /class="tabbar tabbar--capsule"/.test(html));
+test("all three athlete tabs retain their go() click handler",
+  (staticNav.match(/onclick="go\(this\)"/g) || []).length === 3);
 
 console.log("\n──── Floating capsule CSS ────");
 const capsuleCss = between(html, ".tabbar {", "/* ----------");
+const genericTabbarRules = html.match(/(?:^|\n)\.tabbar\s*\{/g) || [];
+test("athlete capsule geometry has a single generic CSS owner",
+  genericTabbarRules.length === 1, `${genericTabbarRules.length} generic .tabbar rules`);
 test("capsule is centered and detached from edges",
   /left:\s*50%/.test(capsuleCss) &&
   /transform:\s*translateX\(-50%\)/.test(capsuleCss));
@@ -125,6 +130,17 @@ console.log("\n──── Athlete home routing ────");
 const routeAfterAuth = between(html, "async function routeAfterAuth", "function isStandaloneMode");
 test("completed authenticated users enter Coach",
   /showScreen\("screen-coachai"\)/.test(routeAfterAuth));
+test("Coach-first routing reveals the athlete capsule before Coach workspace resolution",
+  routeAfterAuth.indexOf('tabbar").style.display = "flex"') >= 0 &&
+  routeAfterAuth.indexOf('tabbar").style.display = "flex"') <
+    routeAfterAuth.indexOf("window.AthlevoCoachMode.init(routeContext)"));
+test("Coach-first routing reveals the athlete capsule before entering Coach",
+  routeAfterAuth.indexOf('tabbar").style.display = "flex"') <
+    routeAfterAuth.indexOf('showScreen("screen-coachai")') &&
+  routeAfterAuth.indexOf('tabbar").style.display = "flex"') <
+    routeAfterAuth.indexOf("window.AthlevoAthleteMode.init()") &&
+  routeAfterAuth.indexOf('tabbar").style.display = "flex"') <
+    routeAfterAuth.indexOf("await enterCoachScreen()"));
 test("onboarding completion enters Train",
   /showScreen\("screen-train"\)/.test(onboarding) &&
   !/showScreen\("screen-today"\)/.test(onboarding));
@@ -169,6 +185,36 @@ test("tab transition direction follows Train → Coach → Trends",
   directionApi.appScreenDirection("screen-train", "screen-coachai") === 1 &&
   directionApi.appScreenDirection("screen-coachai", "screen-trends") === 1 &&
   directionApi.appScreenDirection("screen-trends", "screen-train") === -1);
+const goSource = between(html, "async function go(btn)", "/*\n * Canonical Coach-screen entry");
+const clickedScreens = [];
+const selectedScreens = [];
+let trainLoads = 0;
+let coachEntries = 0;
+const goApi = new Function(
+  "window", "selectAppTab", "transitionTopLevelScreen", "enterCoachScreen",
+  "refreshTodayAfterPlanChange", "refreshTodayProCard", "animateRing",
+  `${goSource}; return go;`
+)(
+  {
+    AthlevoAccessGuard: {
+      guardTab: async () => false,
+      refreshPremiumViews: () => {}
+    },
+    loadWeeklyPlan: async () => { trainLoads += 1; }
+  },
+  btn => { selectedScreens.push(btn.dataset.screen); },
+  screen => { clickedScreens.push(screen); return Promise.resolve(); },
+  async () => { coachEntries += 1; },
+  async () => {}, () => {}, () => {}
+);
+await goApi({ dataset: { screen: "screen-train" } });
+await goApi({ dataset: { screen: "screen-coachai" } });
+await goApi({ dataset: { screen: "screen-trends" } });
+test("Train, Coach, and Trends clicks select and navigate to their own screen",
+  selectedScreens.join(" / ") === "screen-train / screen-coachai / screen-trends" &&
+  clickedScreens.join(" / ") === "screen-train / screen-coachai / screen-trends");
+test("Train and Coach clicks retain their screen-specific initialization",
+  trainLoads === 1 && coachEntries === 1);
 test("morning readiness accepts Train while retaining Today compatibility",
   /activeScreen\("screen-train"\) \|\| activeScreen\("screen-today"\)/.test(morning));
 test("access guard leaves all three athlete primary tabs accessible",

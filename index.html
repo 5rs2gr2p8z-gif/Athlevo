@@ -2432,19 +2432,6 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 }
 @media (prefers-reduced-motion:reduce){.am-coach-resolving-mark,.am-human-thread-loading i{animation:none}}
 
-/* Tab bar owns the reserved bottom area. Use min-height (not a fixed height)
-   so the safe-area padding EXTENDS the bar in standalone instead of squishing
-   the tabs — this is what made the installed PWA differ from the browser. */
-.tabbar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  min-height: var(--athlevo-tabbar-height);
-  height: auto;
-  z-index: 50;
-}
-
 .plan-header{
 
     background:var(--paper);
@@ -10455,6 +10442,12 @@ async function routeAfterAuth(userId) {
   }
   if (!routeIsCurrent()) return;
 
+  // Reveal the athlete capsule before Coach authorization performs async
+  // work. Coach Workspace replaces it below when it owns navigation.
+  document.getElementById("tabbar").style.display = "flex";
+  var _profileAvBtn = document.getElementById("profileAvatarBtn");
+  if (_profileAvBtn) _profileAvBtn.style.display = "";
+
   /*
    * Resolve Coach authorization for this exact user and route generation.
    * Authorized users still start in Athlete Workspace; only an explicit
@@ -10472,10 +10465,6 @@ async function routeAfterAuth(userId) {
     // the You screen after athlete data loads.
   }
 
-  document.getElementById("tabbar").style.display = "flex";
-  // Show profile avatar alongside tab bar
-  var _profileAvBtn = document.getElementById("profileAvatarBtn");
-  if (_profileAvBtn) _profileAvBtn.style.display = "";
   showScreen("screen-coachai");
   if (window.AthlevoDiagnosticAcquisition) {
     window.AthlevoDiagnosticAcquisition.markAppEntered();

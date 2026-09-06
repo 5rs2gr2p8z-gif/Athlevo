@@ -119,6 +119,7 @@ function makeWorld({
       "screen-welcome": { active: false },
       "screen-today": { active: false },
       "screen-train": { active: false },
+      "screen-coachai": { active: false },
       "screen-diagnostic": { active: false },
       "screen-diagnostic-paywall": { active: false },
       "screen-auth-setup": { active: false }
@@ -323,7 +324,7 @@ function makeWorld({
     routeAfterAuth: async (uid) => {
       if (routeThrows) throw new Error("routing blew up");
       state.routed = uid;
-      state.screens["screen-train"].active = true;
+      state.screens["screen-coachai"].active = true;
       state.tabbarDisplay = "flex";
     },
     updateOpenAppUI: () => {},
@@ -483,24 +484,25 @@ section("Routing scenarios");
 }
 {
   const r = await boot({ session: SESSION, standalone: false });
-  t("2. signed-in browser user refreshes → Train, never landing",
-    r.visible === "screen-train" && r.entered && r.state.routed === "u1");
+  t("2. signed-in browser user refreshes → Coach with athlete tabs, never landing",
+    r.visible === "screen-coachai" && r.entered && r.state.routed === "u1" &&
+    r.state.tabbarDisplay === "flex");
   t("2b. landing never became active during boot", r.state.screens["screen-landing"].active === false);
   t("2c. tab bar shown", r.state.tabbarDisplay === "flex");
 }
 {
   const r = await boot({ session: SESSION, standalone: false });
-  t("3. signed-in user closes and reopens tab → Train", r.visible === "screen-train");
+  t("3. signed-in user closes and reopens tab → Coach", r.visible === "screen-coachai");
 }
 {
   const r = await boot({ session: SESSION, standalone: true });
-  t("4. installed PWA, signed-in launch → Train", r.visible === "screen-train" && r.entered);
+  t("4. installed PWA, signed-in launch → Coach", r.visible === "screen-coachai" && r.entered);
   t("4b. landing never rendered in the PWA, not even once",
     r.state.screens["screen-landing"].active === false);
 }
 {
   const r = await boot({ session: SESSION, standalone: true });
-  t("5. PWA cold launch (same path, no warm state) → Train", r.visible === "screen-train");
+  t("5. PWA cold launch (same path, no warm state) → Coach", r.visible === "screen-coachai");
 }
 {
   const r = await boot({ session: null, standalone: true });
@@ -603,7 +605,7 @@ section("Onboarding");
   // through it rather than jumping to Train directly.
   const src = extract("restoreSession");
   t("12. first-time user: restore routes via routeAfterAuth (onboarding-aware)",
-    /routeAfterAuth\(session\.user\.id\)/.test(src) && !/showScreen\("screen-train"\)/.test(src));
+    /routeAfterAuth\(session\.user\.id\)/.test(src) && !/showScreen\("screen-coachai"\)/.test(src));
   t("12b. routeAfterAuth still starts onboarding when incomplete",
     /if \(!completed\) \{\s*startOnboarding\(\);/.test(html));
   t("12c. unpaid athletes are gated before Train/tab bar", (() => {
@@ -634,7 +636,7 @@ section("Onboarding");
       finish.indexOf("obOfferIfUnpaid") < finish.indexOf('showScreen("screen-train")');
   })());
   const r = await boot({ session: SESSION, standalone: false });
-  t("13. returning onboarded user → Train", r.visible === "screen-train");
+  t("13. returning onboarded user → Coach", r.visible === "screen-coachai");
 }
 
 section("Failure modes");
@@ -753,7 +755,7 @@ section("/ai acquisition routing");
   await api.restoreSession({}); api.endBootGate();
   t("authenticated /ai user is routed into the app, not diagnostic",
     state.routed === "u1" && state.diagnosticStarted === false &&
-    state.screens["screen-train"].active === true);
+    state.screens["screen-coachai"].active === true);
 }
 {
   const { api, state } = makeWorld({
@@ -1097,7 +1099,7 @@ section("Anonymous /ai early-start (before restoreSession)");
   t("E. later authenticated unpaid session uses existing routeAfterAuth",
     early === true &&
     state.routed === "u1" &&
-    state.screens["screen-train"].active === true);
+    state.screens["screen-coachai"].active === true);
 }
 {
   const { api, state } = makeWorld({
@@ -1180,7 +1182,7 @@ section("Anonymous /ai early-start (before restoreSession)");
   await api.restoreSession({});
   api.endBootGate();
   t("M3. authenticated /landing preserves the existing authenticated route",
-    state.routed === "u1" && state.screens["screen-train"].active === true);
+    state.routed === "u1" && state.screens["screen-coachai"].active === true);
 }
 {
   const vercel = JSON.parse(readFileSync("./vercel.json", "utf8"));
@@ -1214,7 +1216,7 @@ section("Post-auth transition");
   api.endBootGate();
   t("B. paid session on /signup routes to the app without leaving welcome active",
     state.routed === "u1" &&
-    state.screens["screen-train"].active === true &&
+    state.screens["screen-coachai"].active === true &&
     state.screens["screen-welcome"].active === false &&
     state.screens["screen-diagnostic-paywall"].active === false);
   t("O. paid_active restore does not open checkout because of the transition",
@@ -1235,11 +1237,11 @@ section("Post-auth transition");
     state.disabled.authBtnEmail === true &&
     state.disabled.suBtn === true &&
     win.__athlevoAuthEntryLocked === true);
-  api.showScreen("screen-train");
+  api.showScreen("screen-coachai");
   const duplicateAfterDestination = api.beginAuthenticatedRouting("u1");
   t("L. duplicate auth after destination cannot repaint the setup screen",
     duplicateAfterDestination === false &&
-    state.screens["screen-train"].active === true &&
+    state.screens["screen-coachai"].active === true &&
     state.screens["screen-auth-setup"].active === false);
   await api.restoreSession({});
   api.endBootGate();
