@@ -104,8 +104,8 @@ section("Feature allocation");
 
 section("Atomic repeatable limits and persisted first-plan allowance");
 {
-  test("Coach limit is exactly 2 lifetime messages",
-    FREE_LIMITS.coach_message.limit === 2 &&
+  test("Coach limit is exactly 10 lifetime messages",
+    FREE_LIMITS.coach_message.limit === 10 &&
     FREE_LIMITS.coach_message.period === "lifetime");
   test("initial plan is not consumed through a pre-AI counter",
     !Object.prototype.hasOwnProperty.call(FREE_LIMITS, "initial_plan"));
@@ -135,13 +135,13 @@ section("Atomic repeatable limits and persisted first-plan allowance");
     access.ok && access.accessState === ACCESS_STATES.FREE);
 
   const coach = [];
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < 11; i += 1) {
     coach.push(await consumeFreeUsage("free-user", "coach_message"));
   }
-  test("first two lifetime Coach messages succeed",
-    coach.slice(0, 2).every(result => result.allowed));
-  test("third lifetime Coach message is blocked",
-    coach[2].allowed === false && coach[2].limit === 2);
+  test("first ten lifetime Coach messages succeed",
+    coach.slice(0, 10).every(result => result.allowed));
+  test("eleventh lifetime Coach message is blocked",
+    coach[10].allowed === false && coach[10].limit === 10);
 
   subscription = {
     provider: "whop",

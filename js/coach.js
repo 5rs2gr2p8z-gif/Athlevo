@@ -1303,7 +1303,7 @@ function classifyCoachFailure(code, status) {
   var map = {
     COACH_LIMIT_REACHED: {
       category: "coach_limit", upgrade: true,
-      message: "You’ve used your 2 free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
+      message: "You’ve used your 10 free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
     },
     COACH_WEEKLY_LIMIT_REACHED: {
       category: "coach_limit", upgrade: true,

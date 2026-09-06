@@ -293,7 +293,7 @@ export default async function handler(req, res) {
     return rateLimitResponse(res, limit);
   }
 
-  // Free athletes receive two Coach messages total (lifetime).
+  // Free athletes receive ten Coach messages total (lifetime).
   // Paid athletes bypass this free counter.
   const freeUsage = await consumeFreeUsage(
     authenticatedUser.id,
@@ -307,7 +307,7 @@ export default async function handler(req, res) {
       ...freeUsage,
       code: "COACH_LIMIT_REACHED",
       title: "Keep coaching with Athlevo",
-      error: "You’ve used your 2 free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
+      error: "You’ve used your 10 free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
     }, authenticatedUser.id);
   }
 
