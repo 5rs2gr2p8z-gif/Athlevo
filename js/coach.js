@@ -54,7 +54,7 @@ function renderCoachStarterPrompts() {
   buildCoachStarterPrompts().slice(0, 3).forEach((prompt, index) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = index === 0 ? "coach-starter coach-starter--recommended" : "coach-starter";
+    button.className = index === 0 ? "coach-suggestion coach-suggestion--recommended" : "coach-suggestion";
     button.dataset.prompt = prompt;
     button.textContent = prompt;
     container.appendChild(button);
@@ -88,7 +88,7 @@ function bindCoachStarters() {
   if (!container || container.dataset.bound === "true") return;
   container.dataset.bound = "true";
   container.addEventListener("click", function (e) {
-    var btn = e.target.closest(".coach-starter");
+    var btn = e.target.closest(".coach-suggestion");
     if (!btn) return;
     var prompt = btn.dataset.prompt;
     if (prompt) askCoach(prompt);
@@ -1234,7 +1234,7 @@ function renderFollowUpActions(answer) {
   actions.forEach(function (action) {
     var btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "chip";
+    btn.className = "coach-suggestion";
     btn.textContent = action.label;
     btn.dataset.followupType = action.type;
     btn.addEventListener("click", function () {

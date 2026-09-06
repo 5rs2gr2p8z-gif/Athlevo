@@ -617,7 +617,7 @@ html[data-theme="dark"]{
 /* Eliminate the ~300ms mobile-tap delay on every interactive surface so
    presses acknowledge in the same frame the finger lifts. Scoped to
    controls only — leaves scrollable regions with their default gesture set. */
-button,[role="button"],.tab,.chip,.send,input,select,textarea,summary,a{touch-action:manipulation}
+button,[role="button"],.tab,.coach-suggestion,.send,input,select,textarea,summary,a{touch-action:manipulation}
 /* One keyboard-focus treatment for every interactive element. :focus-visible
    means mouse clicks stay clean while keyboard/AT users get a clear ring in
    both themes (--focus-ring is defined per theme). */
@@ -941,20 +941,20 @@ body.coach-workspace-active #tabbar .nav-active-indicator{display:block}
   letter-spacing:var(--ls-tight);color:var(--text);margin:0 0 var(--s-3)}
 .coach-empty-sub{font-size:var(--fs-body);color:var(--ink2);margin:0;max-width:330px;
   line-height:var(--lh-body)}
-.coach-starters{display:grid;grid-template-columns:1fr;gap:var(--s-2);
+.coach-starters,.coach-followups{display:grid;grid-template-columns:1fr;gap:var(--s-2);
   width:100%;margin-bottom:var(--s-2)}
-.coach-starter{position:relative;background:transparent;border:1px solid var(--line);border-radius:var(--r-md);
+.coach-suggestion{position:relative;background:transparent;border:1px solid var(--line);border-radius:var(--r-md);
   width:100%;min-height:44px;box-sizing:border-box;padding:10px 12px;font-family:var(--sans);font-size:var(--fs-body-sm);line-height:var(--lh-compact);
   font-weight:550;color:var(--ink2);cursor:pointer;text-align:left;overflow:hidden;
   transition:border-color var(--dur-base) var(--ease-standard),
   background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
-.coach-starter:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.coach-starter--recommended{border-color:color-mix(in srgb,var(--red) 35%,var(--line))}
-.coach-starter--recommended::after{content:"";position:absolute;left:0;top:0;width:3px;height:26%;
+.coach-suggestion:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.coach-suggestion--recommended{border-color:color-mix(in srgb,var(--red) 35%,var(--line))}
+.coach-suggestion--recommended::after{content:"";position:absolute;left:0;top:0;width:3px;height:26%;
   background:var(--red);opacity:.9;border-radius:2px;
   animation:coachStarterAccentMove 2.6s ease-in-out infinite}
 @keyframes coachStarterAccentMove{0%,100%{top:0}50%{top:74%}}
-@media (prefers-reduced-motion:reduce){.coach-starter--recommended::after{animation:none;top:0}}
+@media (prefers-reduced-motion:reduce){.coach-suggestion--recommended::after{animation:none;top:0}}
 
 /* ── Coach thinking indicator (replaces bouncing dots) ────────────── */
 .coach-thinking{display:flex;align-items:center;gap:10px;padding:4px 0}
@@ -1014,12 +1014,6 @@ body.coach-workspace-active #tabbar .nav-active-indicator{display:block}
 .typing i{width:6px;height:6px;border-radius:50%;background:var(--ink3);animation:blink 1.2s infinite}
 .typing i:nth-child(2){animation-delay:var(--dur-base)}.typing i:nth-child(3){animation-delay:var(--dur-slow)}
 @keyframes blink{0%,70%,100%{opacity:.3}35%{opacity:1}}
-.chips{display:flex;gap:var(--s-2);overflow-x:auto;padding:0;scrollbar-width:none;flex-shrink:0}
-.chips::-webkit-scrollbar{display:none}
-.chip{flex-shrink:0;background:transparent;border:1px solid var(--line);border-radius:var(--r-pill);
-  padding:7px 13px;font-family:var(--sans);font-size:var(--fs-caption);font-weight:600;color:var(--ink2);
-  cursor:pointer;transition:border-color var(--dur-base) var(--ease-standard),
-  background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
 /* ── Composer (textarea replaces input for multi-line) ────────────── */
 .composer{--focus-ring:color-mix(in srgb,var(--text) 50%,transparent);
   display:flex;align-items:flex-end;gap:var(--s-2);min-width:0;padding:6px 6px 6px 16px;
@@ -1055,8 +1049,6 @@ input,textarea,select{color:var(--text)}
 #screen-coachai .composer .send:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 #screen-coachai .composer .send:active:not(:disabled):not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.is-loading):not(.is-sending){
   opacity:1;transform:scale(.96)}
-#screen-coachai .coach-composer .chip:active:not(:disabled):not([disabled]):not([aria-disabled="true"]):not(.is-disabled):not(.is-loading){
-  opacity:1;transform:scale(.98)}
 .send.is-sending svg.send-arrow{display:none}
 .send.is-sending svg.send-stop{display:block!important}
 .send svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -1066,7 +1058,7 @@ input,textarea,select{color:var(--text)}
 }
 @media (prefers-reduced-motion:reduce){
   #screen-coachai .composer,#screen-coachai .composer:focus-within,
-  #screen-coachai .composer .send,#screen-coachai .coach-composer .chip{transition:none;transform:none}
+  #screen-coachai .composer .send,#screen-coachai .coach-composer .coach-suggestion{transition:none;transform:none}
 }
 /* ---------- train ---------- */
 .weekstrip{display:flex;gap:var(--s-2);padding:16px 22px 6px;overflow-x:auto;scrollbar-width:none}
@@ -2438,17 +2430,7 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 }
 #screen-coachai.coach-is-active .coach-starters{display:none}
 #screen-coachai.coach-is-empty #chips{display:none!important}
-#screen-coachai .coach-composer .chips{
-  display:flex;flex-direction:column;overflow:visible;gap:var(--s-2);margin:0 0 var(--s-2);
-  padding:0;scrollbar-width:none
-}
-#screen-coachai .coach-composer .chips::-webkit-scrollbar{display:none}
-#screen-coachai .coach-composer .chip{
-  flex:0 0 auto;width:100%;min-height:42px;max-width:100%;white-space:normal;text-align:left;
-  line-height:var(--lh-caption);padding:10px 14px;border-radius:var(--r-md);
-  display:flex;align-items:center;
-  background:var(--card2)
-}
+#screen-coachai .coach-composer .coach-followups{margin:0 0 var(--s-2)}
 .am-coach-mode-mount{flex:1 1 auto;min-height:0}
 .am-ai-surface-hidden{display:none!important}
 .am-coach-resolving{
@@ -4136,10 +4118,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .rd-secondary:hover{color:var(--text);background:var(--card)}
   .sync-now:hover{background:rgba(255,255,255,.22)}
   .why-toggle:hover{background:rgba(255,255,255,.16)}
-  .coach-starter:hover{border-color:var(--ink3);background:var(--card2)}
-  .coach-error-retry:hover,.coach-jump-latest:hover,.chip:hover{border-color:var(--ink3)}
+  .coach-suggestion:hover{border-color:var(--ink3);background:var(--card2)}
+  .coach-error-retry:hover,.coach-jump-latest:hover{border-color:var(--ink3)}
   #screen-coachai .composer .send:not(:disabled):hover{background:color-mix(in srgb,var(--ink) 88%,var(--paper));box-shadow:var(--elev-1)}
-  #screen-coachai .coach-composer .chip:hover{background:color-mix(in srgb,var(--card2) 76%,var(--paper))}
   .wsv__segment:hover{filter:brightness(1.05)}
   .wsv__more:hover{color:var(--text)}
   .ob-chip:hover,.sc-act:hover,.sc-act-edit-btn:hover,.rdc-opt:hover{border-color:var(--text)}
@@ -5375,9 +5356,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
     <div class="coach-head-side coach-head-side--end" id="coachHeaderAuthAction" data-auth-state="pending" aria-live="polite">
       <div class="coach-header-authenticated" id="coachHeaderSignedIn" hidden>
-        <button class="coach-header-control coach-header-chats" id="coachHeaderChats" type="button"
-                onclick="openCoachMenu()" aria-label="Open Coach chats" aria-haspopup="dialog">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H6l-3 2v-6.5A8 8 0 0 1 11 4h2a8 8 0 0 1 8 8z"/><path d="M8 10h8M8 14h5"/></svg>
+        <button class="coach-header-control coach-header-settings" id="coachHeaderSettings" type="button"
+                onclick="openSettings()" aria-label="Open Settings" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
         </button>
         <button class="coach-header-control coach-header-new-chat" id="coachHeaderNewChat" type="button"
                 onclick="openCoachNewChatPrompt()" aria-label="Start a new Coach chat" aria-haspopup="dialog">
@@ -5410,12 +5391,12 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       </svg>
     </button>
     <div class="coach-active-tools">
-      <div class="chips" id="chips" data-has-suggestions="false"></div>
+      <div class="coach-followups" id="chips" data-has-suggestions="false"></div>
     </div>
     <div class="coach-starters" id="coachStarters">
-      <button type="button" class="coach-starter coach-starter--recommended" data-prompt="What should I focus on today?">What should I focus on today?</button>
-      <button type="button" class="coach-starter" data-prompt="Am I recovering well?">Am I recovering well?</button>
-      <button type="button" class="coach-starter" data-prompt="How is my recent training load?">How is my recent training load?</button>
+      <button type="button" class="coach-suggestion coach-suggestion--recommended" data-prompt="What should I focus on today?">What should I focus on today?</button>
+      <button type="button" class="coach-suggestion" data-prompt="Am I recovering well?">Am I recovering well?</button>
+      <button type="button" class="coach-suggestion" data-prompt="How is my recent training load?">How is my recent training load?</button>
     </div>
     <div class="composer">
       <textarea
@@ -6538,11 +6519,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
       <div class="coach-side-panel-section" data-coach-auth="signed-in" hidden>
         <p class="coach-side-panel-label">Account</p>
-        <button class="coach-menu-action" type="button" onclick="runCoachMenuAction('profile')">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-          <span>Profile</span>
-        </button>
-        <button class="coach-menu-action" type="button" onclick="runCoachMenuAction('settings')">
+<button class="coach-menu-action" type="button" onclick="runCoachMenuAction('settings')">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
           <span>Settings</span>
         </button>
@@ -8249,6 +8226,11 @@ window.syncProfileAvatar = syncProfileAvatar;
 // ── Settings navigation ──
 var _youScrollY = 0;
 function openSettings() {
+  // Settings is now reachable from more than one place (the You screen's
+  // "Profile Settings" row, and the Coach header's gear icon). Remember
+  // where we came from so Back returns there instead of always to You.
+  var _settingsSourceScreen = document.querySelector('.screen.active');
+  window._settingsReturnScreen = _settingsSourceScreen ? _settingsSourceScreen.id : 'screen-you';
   _youScrollY = document.getElementById('screen-you') ? document.getElementById('screen-you').scrollTop : 0;
   // Update settings version display
   var sv = document.getElementById('settingsVersionDisplay');
@@ -8585,6 +8567,17 @@ async function removeProfilePhoto() {
 window.removeProfilePhoto = removeProfilePhoto;
 
 function closeSettings() {
+  // Return to wherever Settings was opened from. Opening from a tabbed
+  // screen (e.g. Coach) re-enters it through the canonical go() so the
+  // tab bar stays in sync; opening from You (not a tab) just restores it.
+  var returnScreen = window._settingsReturnScreen || 'screen-you';
+  if (returnScreen !== 'screen-you') {
+    var tabBtn = document.querySelector('#tabbar .tab[data-screen="' + returnScreen + '"]');
+    if (tabBtn && typeof go === 'function') {
+      go(tabBtn);
+      return;
+    }
+  }
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   var you = document.getElementById('screen-you');
   if (you) { you.classList.add('active'); you.scrollTop = _youScrollY; }

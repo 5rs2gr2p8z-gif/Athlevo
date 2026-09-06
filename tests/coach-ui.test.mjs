@@ -97,10 +97,10 @@ test("athlete Coach header has no opaque full-width bar or divider",
 test("left menu floats independently and the center logo has no disk",
   /\.coach-header-control\{[^}]*min-width:44px;min-height:44px[^}]*color-mix\(in srgb,var\(--paper\) 66%,transparent\)/.test(html) &&
   /\.coach-logo-bubble\{[^}]*background:transparent;border:0;box-shadow:none/.test(html));
-test("signed-in right bubble contains labelled Chats and New Chat icons only",
-  /id="coachHeaderSignedIn"[\s\S]*?id="coachHeaderChats"[\s\S]*?aria-label="Open Coach chats"/.test(coachHeader) &&
+test("signed-in right bubble contains labelled Settings and New Chat icons only",
+  /id="coachHeaderSignedIn"[\s\S]*?id="coachHeaderSettings"[\s\S]*?aria-label="Open Settings"/.test(coachHeader) &&
   /id="coachHeaderSignedIn"[\s\S]*?id="coachHeaderNewChat"[\s\S]*?aria-label="Start a new Coach chat"/.test(coachHeader) &&
-  !/id="coachHeaderSettings"|notification/i.test(coachHeader));
+  !/id="coachHeaderChats"|notification/i.test(coachHeader));
 
 const headerAuthElements = {
   coachHeaderAuthAction: { dataset: {} },
@@ -193,10 +193,11 @@ test("side panel has backdrop, X, Escape, focus containment, and focus restorati
 test("signed-in and signed-out menu rows are separated by canonical auth state",
   /data-coach-auth="signed-in"[\s\S]*?>New chat</.test(coachMenu) &&
   /data-coach-auth="signed-in"[\s\S]*?>Chats</.test(coachMenu) &&
-  /data-coach-auth="signed-in"[\s\S]*?>Profile</.test(coachMenu) &&
   /data-coach-auth="signed-in"[\s\S]*?>Settings</.test(coachMenu) &&
   /data-coach-auth="signed-out"[\s\S]*?>Sign in</.test(coachMenu) &&
   /data-coach-auth="signed-in"[\s\S]*?>Sign out</.test(coachMenu));
+test("Profile row removed from Coach side panel (account config lives in Settings; athlete identity lives in You)",
+  !/>Profile</.test(coachMenu));
 test("menu actions reuse the same canonical chat and account flows as the header controls",
   /action === "new-chat"[\s\S]*?startNewCoachConversation\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "profile"[\s\S]*?openProfileScreen\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
@@ -204,9 +205,10 @@ test("menu actions reuse the same canonical chat and account flows as the header
   /action === "sign-in"[\s\S]*?openLogin\(true, "coach_header"\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "sign-out"[\s\S]*?doLogout\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   !/action === "chats"/.test(extractFunction(html, "runCoachMenuAction")));
-test("top-right Chats icon and the hamburger menu open the exact same canonical side panel",
-  /id="coachHeaderChats"[^>]*onclick="openCoachMenu\(\)"/.test(html) &&
-  /id="coachMenuButton"[^>]*onclick="openCoachMenu\(\)"/.test(html));
+test("top-right Settings icon calls canonical openSettings; hamburger menu still opens the side panel",
+  /id="coachHeaderSettings"[^>]*onclick="openSettings\(\)"/.test(html) &&
+  /id="coachMenuButton"[^>]*onclick="openCoachMenu\(\)"/.test(html) &&
+  !/id="coachHeaderChats"/.test(html));
 test("the side panel renders the canonical thread list inline (one row per conversation), not a separate sheet",
   /coach-side-panel-label">Chats</.test(coachMenu) &&
   /id="coachSidePanelChatList"/.test(coachMenu) &&
@@ -242,13 +244,16 @@ test("the focal composer follows the prompt, and starter suggestions sit directl
   coachScreen.indexOf("coachEmptyGreeting") < coachScreen.indexOf('class="coach-composer"') &&
   coachScreen.indexOf('id="coachStarters"') < coachScreen.indexOf('class="composer"'));
 test("empty suggestions are exactly three, one vertical column",
-  (coachScreen.match(/class="coach-starter( coach-starter--recommended)?"/g) || []).length === 3 &&
-  /\.coach-starters\{[^}]*grid-template-columns:1fr/.test(coachCss));
+  (coachScreen.match(/class="coach-suggestion( coach-suggestion--recommended)?"/g) || []).length === 3 &&
+  /\.coach-starters,\.coach-followups\{[^}]*grid-template-columns:1fr/.test(coachCss));
 test("top suggestion carries a reduced-motion-safe recommended accent, with no gradient/glow decoration",
-  /class="coach-starter coach-starter--recommended"/.test(coachScreen) &&
-  /\.coach-starter--recommended/.test(coachCss) &&
-  /prefers-reduced-motion:reduce\)\{\.coach-starter--recommended::after\{animation:none/.test(html) &&
-  !/\.coach-starter--recommended[\s\S]*?gradient\(/.test(coachCss));
+  /class="coach-suggestion coach-suggestion--recommended"/.test(coachScreen) &&
+  /\.coach-suggestion--recommended/.test(coachCss) &&
+  /prefers-reduced-motion:reduce\)\{\.coach-suggestion--recommended::after\{animation:none/.test(html) &&
+  !/\.coach-suggestion--recommended[\s\S]*?gradient\(/.test(coachCss));
+test("starter and follow-up suggestions share one canonical renderer/class system (no parallel chip CSS)",
+  !/class="chip"/.test(html) && !html.includes('class="chips"') &&
+  /renderCoachStarterPrompts/.test(coach) && /renderFollowUpActions/.test(coach));
 
 const starterFactory = new Function(
   "document",
@@ -289,15 +294,15 @@ const followUpFactory = new Function(
   `${extractFunction(coach, "buildFollowUpActions")}
    return buildFollowUpActions;`
 )();
-test("active conversations expose up to three suggested-reply follow-ups",
+test("active conversations expose exactly two suggested-reply follow-ups, never more",
   followUpFactory({ response_type: "plan_change", actions: [{}] }).length === 2 &&
-  /replies\.slice\(0, 3\)/.test(renderer));
+  /replies\.slice\(0, 2\)/.test(renderer));
 test("large starter suggestions disappear after conversation starts",
   /coach-is-active \.coach-starters\s*\{display:none\}/.test(html) &&
   /hideCoachEmptyState\(\)/.test(extractFunction(coach, "addChatMessage")));
-test("follow-up suggestions are mounted above the composer input",
+test("follow-up suggestions are mounted above the composer input, in the same vertical component as starters",
   coachScreen.indexOf('id="chips"') < coachScreen.indexOf('<div class="composer">') &&
-  /coach-composer \.chips\{[^}]*flex-direction:column[^}]*margin:0 0 var\(--s-2\)/.test(html));
+  /coach-composer \.coach-followups\{margin:0 0 var\(--s-2\)/.test(html));
 
 console.log("\n──── Latest-message controls ────");
 test("old text pill is replaced by a labelled circular arrow",

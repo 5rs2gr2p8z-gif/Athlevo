@@ -145,9 +145,11 @@ test("closeProfileScreen returns to active tab's screen, defaulting to screen-tr
   /querySelector\('#tabbar \.tab\.on'\)/.test(closeProfile) &&
   /dataset\.screen/.test(closeProfile) &&
   /'screen-train'/.test(closeProfile));
-test("closeSettings returns to screen-you without looking for a removed You tab",
-  /getElementById\('screen-you'\)/.test(closeSettings) &&
-  !/querySelector.*\.tab/.test(closeSettings));
+test("closeSettings returns to screen-you by default (no source recorded)",
+  /getElementById\('screen-you'\)/.test(closeSettings));
+test("Settings is now also reachable from the Coach header, so closeSettings returns to whichever screen it was opened from",
+  /_settingsReturnScreen/.test(closeSettings) &&
+  /tabbar \.tab\[data-screen=/.test(closeSettings));
 test("hardware back handles both Settings and Profile back navigation",
   /_handleAndroidBackForProfileSettings/.test(html) &&
   /closeSettings\(\)/.test(html) &&

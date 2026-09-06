@@ -173,13 +173,14 @@ describe("index.html UI changes", () => {
     expect(html).toContain("#screen-trends.active ~ #profileAvatarBtn{display:none!important}");
   });
 
-  it("27. Coach header is unchanged (still has chats + new-chat buttons)", () => {
-    expect(html).toContain('id="coachHeaderChats"');
+  it("27. Coach header top-right is Settings + New Chat (Chats icon removed; Chats stays inline in the side panel)", () => {
+    expect(html).not.toContain('id="coachHeaderChats"');
+    expect(html).toContain('id="coachHeaderSettings"');
     expect(html).toContain('id="coachHeaderNewChat"');
   });
 
-  it("28. Profile still accessible through Coach side panel", () => {
-    expect(html).toContain("runCoachMenuAction('profile')");
+  it("28. Profile row removed from Coach side panel, but legacy profile screen/function is left intact", () => {
+    expect(html).not.toContain("runCoachMenuAction('profile')");
     expect(html).toContain("openProfileScreen");
   });
 

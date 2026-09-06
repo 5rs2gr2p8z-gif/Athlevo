@@ -528,7 +528,9 @@ function renderSuggestedReplies(replies) {
     return;
   }
 
-  replies.slice(0, 3).forEach(reply => {
+  // Follow-up suggestions on an ongoing conversation are capped at 2,
+  // matching the starter-suggestion component's "mode=followup" limit.
+  replies.slice(0, 2).forEach(reply => {
     if (
       typeof reply !== "string" ||
       !reply.trim()
@@ -540,7 +542,7 @@ function renderSuggestedReplies(replies) {
       document.createElement("button");
 
     button.type = "button";
-    button.className = "chip";
+    button.className = "coach-suggestion";
     button.textContent = reply.trim();
 
     button.addEventListener("click", () => {
