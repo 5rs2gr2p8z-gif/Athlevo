@@ -612,7 +612,7 @@ section("Onboarding");
       html.indexOf("async function restoreSession")
     );
     return /gateUnpaidAthlete/.test(route) &&
-      route.indexOf("gateUnpaidAthlete") < route.indexOf('showScreen("screen-train")') &&
+      route.indexOf("gateUnpaidAthlete") < route.indexOf('showScreen("screen-coachai")') &&
       route.indexOf("gateUnpaidAthlete") < route.indexOf('tabbar").style.display = "flex"');
   })());
   t("12d. incomplete onboarding starts before the unpaid gate", (() => {

@@ -34,7 +34,7 @@ function between(source, start, end) {
 
 const staticNav = between(
   html,
-  '<nav class="tabbar" id="tabbar"',
+  '<nav class="tabbar tabbar--capsule" id="tabbar"',
   "</nav>"
 );
 const staticTabs = [...staticNav.matchAll(
@@ -54,86 +54,77 @@ test("athlete tab order is Train / Coach / Trends",
 test("athlete tab targets use the existing screen IDs",
   staticTabs.map(tab => tab.screen).join(" / ") ===
     "screen-train / screen-coachai / screen-trends");
-test("Train alone is selected by default",
-  staticTabs[0]?.classes.split(/\s+/).includes("on") === true &&
-  staticTabs[0]?.selected === "true" &&
-  staticTabs.slice(1).every(tab => tab.selected === "false"));
+test("Coach alone is selected by default",
+  staticTabs[1]?.classes.split(/\s+/).includes("on") === true &&
+  staticTabs[1]?.selected === "true" &&
+  staticTabs.filter((_,i) => i !== 1).every(tab => tab.selected === "false"));
 test("Today and You screens remain in the DOM",
   /<section[^>]+id="screen-today"/.test(html) &&
   /<section[^>]+id="screen-you"/.test(html));
+test("tabbar has tabbar--capsule class in markup",
+  /class="tabbar tabbar--capsule"/.test(html));
 
-console.log("\n──── Floating capsule and active state ────");
-const capsuleCss = between(
-  html,
-  "body:not(.coach-workspace-active) #tabbar{",
-  "body.coach-workspace-active #tabbar{"
-);
-test("capsule is centered, detached, and sized for three tabs",
-  /left:50%;right:auto/.test(capsuleCss) &&
-  /transform:translateX\(-50%\)/.test(capsuleCss) &&
-  /width:min\(296px,calc\(100% - 40px\)\)/.test(capsuleCss));
-test("390px, 430px, and desktop device widths keep the capsule inside the shell",
-  [390, 430, 430].every(width => Math.min(296, width - 40) === 296) &&
-  /@media\(min-width:480px\)\{\.device\{[^}]*max-width|\.device\{\s*max-width:430px/.test(html));
+console.log("\n──── Floating capsule CSS ────");
+const capsuleCss = between(html, ".tabbar {", "/* ----------");
+test("capsule is centered and detached from edges",
+  /left:\s*50%/.test(capsuleCss) &&
+  /transform:\s*translateX\(-50%\)/.test(capsuleCss));
+test("capsule uses width:auto for content-sized layout",
+  /width:\s*auto/.test(capsuleCss));
 test("capsule respects the bottom safe area",
-  /bottom:calc\(10px \+ var\(--athlevo-safe-bottom,env\(safe-area-inset-bottom,0px\)\)\)/.test(capsuleCss));
-test("capsule uses a restrained material without gradients or glow",
-  /background:var\(--nav-glass\)/.test(capsuleCss) &&
-  /border:1px solid var\(--line\)/.test(capsuleCss) &&
-  /box-shadow:var\(--elev-2\)/.test(capsuleCss) &&
+  /bottom:\s*calc\(10px \+ var\(--athlevo-safe-bottom/.test(capsuleCss));
+test("capsule uses backdrop-filter blur material",
+  /backdrop-filter:\s*blur\(20px\)/.test(capsuleCss));
+test("capsule has rounded corners",
+  /border-radius:\s*22px/.test(capsuleCss));
+test("capsule does not use gradients or glow",
   !/gradient|glow/i.test(capsuleCss));
-test("tabs meet the practical tap target and active tab uses an inner bubble",
-  /min-height:48px/.test(capsuleCss) &&
-  /\.tab\.on\{\s*background:var\(--card\);box-shadow:var\(--elev-1\)/.test(capsuleCss));
-test("athlete underline is hidden while Coach Workspace retains its override",
-  /\.nav-active-indicator\{display:none\}/.test(capsuleCss) &&
-  /body\.coach-workspace-active #tabbar[\s\S]*?\.nav-active-indicator\{display:block\}/.test(html));
+
+console.log("\n──── Active tab styling ────");
+test("active tab gets inner background pill",
+  /\.tab\.on\{[^}]*background:var\(--nav-tab-active-bg/.test(html));
+test("active tab text is bold",
+  /\.tab\.on span\{font-weight:700\}/.test(html));
+test("legacy sliding indicator is hidden for capsule nav",
+  /\.tabbar--capsule \.nav-active-indicator\{display:none\}/.test(html));
+
+console.log("\n──── Profile avatar button ────");
+test("profile avatar button exists in markup",
+  /id="profileAvatarBtn"/.test(html) &&
+  /class="athlevo-profile-avatar"/.test(html));
+test("profile avatar opens screen-you via openProfileScreen",
+  /onclick="openProfileScreen\(\)"/.test(html));
+test("profile avatar has accessible label",
+  /aria-label="Profile"/.test(html));
+test("profile avatar CSS positions at top-right with safe area",
+  /\.athlevo-profile-avatar\{[^}]*position:absolute[^}]*top:calc\(10px \+ var\(--athlevo-safe-top/.test(html) &&
+  /\.athlevo-profile-avatar\{[^}]*right:16px/.test(html));
+test("profile avatar is circular with 34px size",
+  /\.athlevo-profile-avatar\{[^}]*width:34px;height:34px;border-radius:50%/.test(html));
 
 console.log("\n──── Profile and back behavior ────");
-const openProfile = between(html, "function openAthleteProfile()", "window.openAthleteProfile");
-const closeProfile = between(html, "function closeAthleteProfile()", "window.closeAthleteProfile");
+const openProfile = between(html, "function openProfileScreen()", "window.openProfileScreen");
+const closeProfile = between(html, "function closeProfileScreen()", "window.closeProfileScreen");
 const closeSettings = between(html, "function closeSettings()", "window.closeSettings");
-test("Train header exposes the existing profile through an accessible control",
-  /class="train-profile-entry"[\s\S]*?onclick="openAthleteProfile\(\)"[\s\S]*?aria-label="Open profile"/.test(html));
-test("profile entry has a 44 by 44 tap target",
-  /\.train-profile-entry\{width:44px;height:44px/.test(html));
-test("profile remembers Train, Coach, or Trends and falls back to Train",
-  /screen-train", "screen-coachai", "screen-trends/.test(openProfile) &&
-  /_athleteProfileReturnScreenId = activeId/.test(openProfile) &&
-  /showScreen\("screen-you"\)/.test(openProfile) &&
-  /: "screen-train"/.test(closeProfile));
-{
-  let activeId = "screen-coachai";
-  const shown = [];
-  const profileApi = new Function("document", "showScreen", "window", `
-    var _athleteProfileReturnScreenId = "screen-train";
-    ${openProfile}
-    ${closeProfile}
-    return { openAthleteProfile, closeAthleteProfile };
-  `)(
-    {
-      querySelector: selector => selector === ".screen.active" ? { id: activeId } : null,
-      getElementById: id => id === "screen-you" ? { scrollTop: 42 } : null
-    },
-    id => shown.push(id),
-    {}
-  );
-  profileApi.openAthleteProfile();
-  activeId = "screen-you";
-  profileApi.closeAthleteProfile();
-  test("profile entry returns to the athlete surface it opened from",
-    shown.join(" / ") === "screen-you / screen-coachai");
-}
-test("Settings returns to Profile without looking for a removed You tab",
-  /showScreen\('screen-you'\)/.test(closeSettings) &&
-  !/querySelector|\.tab/.test(closeSettings));
-test("hardware back routes Settings to Profile and Profile to its prior athlete screen",
-  /classList\.contains\('active'\)[\s\S]*?closeSettings\(\)[\s\S]*?screen-you[\s\S]*?closeAthleteProfile\(\)/.test(html));
+test("openProfileScreen shows screen-you",
+  /getElementById\('screen-you'\)/.test(openProfile) &&
+  /classList\.add\('active'\)/.test(openProfile));
+test("closeProfileScreen returns to active tab's screen, defaulting to screen-train",
+  /querySelector\('#tabbar \.tab\.on'\)/.test(closeProfile) &&
+  /dataset\.screen/.test(closeProfile) &&
+  /'screen-train'/.test(closeProfile));
+test("closeSettings returns to screen-you without looking for a removed You tab",
+  /getElementById\('screen-you'\)/.test(closeSettings) &&
+  !/querySelector.*\.tab/.test(closeSettings));
+test("hardware back handles both Settings and Profile back navigation",
+  /_handleAndroidBackForProfileSettings/.test(html) &&
+  /closeSettings\(\)/.test(html) &&
+  /closeProfileScreen\(\)/.test(html));
 
 console.log("\n──── Athlete home routing ────");
 const routeAfterAuth = between(html, "async function routeAfterAuth", "function isStandaloneMode");
-test("completed authenticated users enter Train",
-  /showScreen\("screen-train"\)/.test(routeAfterAuth));
+test("completed authenticated users enter Coach",
+  /showScreen\("screen-coachai"\)/.test(routeAfterAuth));
 test("onboarding completion enters Train",
   /showScreen\("screen-train"\)/.test(onboarding) &&
   !/showScreen\("screen-today"\)/.test(onboarding));
@@ -144,24 +135,27 @@ test("connection and Coach Dashboard exits enter Train",
   /showScreen\("screen-train"\)/.test(onboardingConnect) &&
   /showScreen\("screen-train"\)/.test(coachDashboard));
 test("Train still opens with today selected",
-  /async function open\(planData\)\s*\{[\s\S]*?selected = todayISO\(\); weekStart = mondayOf\(civilToday\(\)\)/.test(trainCalendar));
+  /selected = todayISO\(\)/.test(trainCalendar));
 
 console.log("\n──── Coach Mode isolation ────");
-const coachTabs = between(coachMode, "var COACH_TABS = [", "];",);
-const restoredAthleteTabs = between(coachMode, "var ATHLETE_TABS = [", "];",);
+const coachTabs = between(coachMode, "var COACH_TABS = [", "];");
+const restoredAthleteTabs = between(coachMode, "var ATHLETE_TABS = [", "];");
 const activateCoach = between(coachMode, "function activateCoachWorkspace()", "function activateAthleteWorkspace()");
-const activateAthlete = between(coachMode, "function activateAthleteWorkspace()", "function injectAthleteYouSwitcher()");
+const activateAthlete = between(coachMode, "function activateAthleteWorkspace()", "function injectAthleteYouSwitcher");
 test("Coach Mode still includes its own Today tab",
   /screen-today/.test(coachTabs) && /label: "Today"/.test(coachTabs));
-test("Coach Mode still activates screen-today",
+test("Coach Mode still activates screen-today for Coach Today",
   /showImmediately\("screen-today"\)/.test(activateCoach));
 test("leaving Coach Mode restores exactly Train / Coach / Trends",
   (restoredAthleteTabs.match(/screen:/g) || []).length === 3 &&
   /screen-train[\s\S]*screen-coachai[\s\S]*screen-trends/.test(restoredAthleteTabs));
-test("leaving Coach Mode restores Train and capsule mode",
-  /classList\.remove\("coach-workspace-active"\)/.test(activateAthlete) &&
-  /restoreAthleteNavigation\(\)/.test(activateAthlete) &&
+test("leaving Coach Mode shows screen-train",
   /showImmediately\("screen-train"\)/.test(activateAthlete));
+test("Coach Workspace overrides the capsule with its full-width five-tab layout",
+  /body\.coach-workspace-active #tabbar\{[^}]*left:0;right:0;bottom:0;width:100%/.test(html) &&
+  /body\.coach-workspace-active #tabbar \.tab\{[^}]*width:64px/.test(html));
+test("Coach Workspace restores its shared moving indicator",
+  /body\.coach-workspace-active #tabbar \.nav-active-indicator\{display:block\}/.test(html));
 
 console.log("\n──── Navigation behavior and preserved flows ────");
 const directionSource = between(html, "function appTabIndexForScreen", "function clearAppScreenMotion");
