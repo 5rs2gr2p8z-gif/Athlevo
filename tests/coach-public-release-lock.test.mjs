@@ -55,8 +55,8 @@ const activate = between(coachMode, "function activateCoachWorkspace()", "functi
 test("direct workspace entry checks authorization before coach UI can paint",
   activate.indexOf("if (!canAccessCoachWorkspace())") >= 0 &&
   activate.indexOf("if (!canAccessCoachWorkspace())") < activate.indexOf('classList.add("coach-workspace-active")'));
-test("unauthorized entry resolves cleanly to athlete Today",
-  activate.includes("enforceAthleteWorkspaceFallback()") && activate.includes('window.showScreen("screen-today")'));
+test("unauthorized entry resolves cleanly to athlete Train",
+  activate.includes("enforceAthleteWorkspaceFallback()") && activate.includes('window.showScreen("screen-train")'));
 const fallback = between(coachMode, "function enforceAthleteWorkspaceFallback()", "function resolveWorkspace()");
 test("fallback clears stale coach preference and hides coach-only screens",
   fallback.includes("clearLegacyWorkspacePref()") && fallback.includes('el.style.display = "none"'));

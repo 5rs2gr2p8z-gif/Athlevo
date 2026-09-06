@@ -118,6 +118,7 @@ function makeWorld({
       "screen-landing": { active: false },
       "screen-welcome": { active: false },
       "screen-today": { active: false },
+      "screen-train": { active: false },
       "screen-diagnostic": { active: false },
       "screen-diagnostic-paywall": { active: false },
       "screen-auth-setup": { active: false }
@@ -322,7 +323,7 @@ function makeWorld({
     routeAfterAuth: async (uid) => {
       if (routeThrows) throw new Error("routing blew up");
       state.routed = uid;
-      state.screens["screen-today"].active = true;
+      state.screens["screen-train"].active = true;
       state.tabbarDisplay = "flex";
     },
     updateOpenAppUI: () => {},
@@ -482,24 +483,24 @@ section("Routing scenarios");
 }
 {
   const r = await boot({ session: SESSION, standalone: false });
-  t("2. signed-in browser user refreshes → Today, never landing",
-    r.visible === "screen-today" && r.entered && r.state.routed === "u1");
+  t("2. signed-in browser user refreshes → Train, never landing",
+    r.visible === "screen-train" && r.entered && r.state.routed === "u1");
   t("2b. landing never became active during boot", r.state.screens["screen-landing"].active === false);
   t("2c. tab bar shown", r.state.tabbarDisplay === "flex");
 }
 {
   const r = await boot({ session: SESSION, standalone: false });
-  t("3. signed-in user closes and reopens tab → Today", r.visible === "screen-today");
+  t("3. signed-in user closes and reopens tab → Train", r.visible === "screen-train");
 }
 {
   const r = await boot({ session: SESSION, standalone: true });
-  t("4. installed PWA, signed-in launch → Today", r.visible === "screen-today" && r.entered);
+  t("4. installed PWA, signed-in launch → Train", r.visible === "screen-train" && r.entered);
   t("4b. landing never rendered in the PWA, not even once",
     r.state.screens["screen-landing"].active === false);
 }
 {
   const r = await boot({ session: SESSION, standalone: true });
-  t("5. PWA cold launch (same path, no warm state) → Today", r.visible === "screen-today");
+  t("5. PWA cold launch (same path, no warm state) → Train", r.visible === "screen-train");
 }
 {
   const r = await boot({ session: null, standalone: true });
@@ -599,19 +600,19 @@ section("Landing CTAs (source-level)");
 section("Onboarding");
 {
   // routeAfterAuth is the single onboarding gate; restoreSession must go
-  // through it rather than jumping to Today directly.
+  // through it rather than jumping to Train directly.
   const src = extract("restoreSession");
   t("12. first-time user: restore routes via routeAfterAuth (onboarding-aware)",
-    /routeAfterAuth\(session\.user\.id\)/.test(src) && !/showScreen\("screen-today"\)/.test(src));
+    /routeAfterAuth\(session\.user\.id\)/.test(src) && !/showScreen\("screen-train"\)/.test(src));
   t("12b. routeAfterAuth still starts onboarding when incomplete",
     /if \(!completed\) \{\s*startOnboarding\(\);/.test(html));
-  t("12c. unpaid athletes are gated before Today/tab bar", (() => {
+  t("12c. unpaid athletes are gated before Train/tab bar", (() => {
     const route = html.slice(
       html.indexOf("async function routeAfterAuth"),
       html.indexOf("async function restoreSession")
     );
     return /gateUnpaidAthlete/.test(route) &&
-      route.indexOf("gateUnpaidAthlete") < route.indexOf('showScreen("screen-today")') &&
+      route.indexOf("gateUnpaidAthlete") < route.indexOf('showScreen("screen-train")') &&
       route.indexOf("gateUnpaidAthlete") < route.indexOf('tabbar").style.display = "flex"');
   })());
   t("12d. incomplete onboarding starts before the unpaid gate", (() => {
@@ -622,7 +623,7 @@ section("Onboarding");
     return route.indexOf("if (!completed)") < route.indexOf("gateUnpaidAthlete") &&
       route.indexOf("startOnboarding()") < route.indexOf("gateUnpaidAthlete");
   })());
-  t("12e. obFinish sends unpaid athletes to the offer before Today/tabs", (() => {
+  t("12e. obFinish sends unpaid athletes to the offer before Train/tabs", (() => {
     const onboarding = readFileSync("./js/onboarding.js", "utf8");
     const finish = onboarding.slice(
       onboarding.indexOf("async function obFinish"),
@@ -630,10 +631,10 @@ section("Onboarding");
     );
     return /obOfferIfUnpaid/.test(finish) &&
       finish.indexOf("obOfferIfUnpaid") < finish.indexOf('tabbar.style.display = "flex"') &&
-      finish.indexOf("obOfferIfUnpaid") < finish.indexOf('showScreen("screen-today")');
+      finish.indexOf("obOfferIfUnpaid") < finish.indexOf('showScreen("screen-train")');
   })());
   const r = await boot({ session: SESSION, standalone: false });
-  t("13. returning onboarded user → Today", r.visible === "screen-today");
+  t("13. returning onboarded user → Train", r.visible === "screen-train");
 }
 
 section("Failure modes");
@@ -752,7 +753,7 @@ section("/ai acquisition routing");
   await api.restoreSession({}); api.endBootGate();
   t("authenticated /ai user is routed into the app, not diagnostic",
     state.routed === "u1" && state.diagnosticStarted === false &&
-    state.screens["screen-today"].active === true);
+    state.screens["screen-train"].active === true);
 }
 {
   const { api, state } = makeWorld({
@@ -1096,7 +1097,7 @@ section("Anonymous /ai early-start (before restoreSession)");
   t("E. later authenticated unpaid session uses existing routeAfterAuth",
     early === true &&
     state.routed === "u1" &&
-    state.screens["screen-today"].active === true);
+    state.screens["screen-train"].active === true);
 }
 {
   const { api, state } = makeWorld({
@@ -1179,7 +1180,7 @@ section("Anonymous /ai early-start (before restoreSession)");
   await api.restoreSession({});
   api.endBootGate();
   t("M3. authenticated /landing preserves the existing authenticated route",
-    state.routed === "u1" && state.screens["screen-today"].active === true);
+    state.routed === "u1" && state.screens["screen-train"].active === true);
 }
 {
   const vercel = JSON.parse(readFileSync("./vercel.json", "utf8"));
@@ -1213,7 +1214,7 @@ section("Post-auth transition");
   api.endBootGate();
   t("B. paid session on /signup routes to the app without leaving welcome active",
     state.routed === "u1" &&
-    state.screens["screen-today"].active === true &&
+    state.screens["screen-train"].active === true &&
     state.screens["screen-welcome"].active === false &&
     state.screens["screen-diagnostic-paywall"].active === false);
   t("O. paid_active restore does not open checkout because of the transition",
@@ -1234,11 +1235,11 @@ section("Post-auth transition");
     state.disabled.authBtnEmail === true &&
     state.disabled.suBtn === true &&
     win.__athlevoAuthEntryLocked === true);
-  api.showScreen("screen-today");
+  api.showScreen("screen-train");
   const duplicateAfterDestination = api.beginAuthenticatedRouting("u1");
   t("L. duplicate auth after destination cannot repaint the setup screen",
     duplicateAfterDestination === false &&
-    state.screens["screen-today"].active === true &&
+    state.screens["screen-train"].active === true &&
     state.screens["screen-auth-setup"].active === false);
   await api.restoreSession({});
   api.endBootGate();

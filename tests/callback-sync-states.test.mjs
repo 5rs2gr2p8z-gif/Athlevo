@@ -275,7 +275,7 @@ section("Continue without data works");
   await api.skipConnection();
   await wait(100);
   t("shows 'No problem' skip confirmation", /No problem/.test(visible(dom.html)));
-  t("finishes to the dashboard eventually", dom.screen === "screen-today" || dom.tabbar === "flex");
+  t("finishes to Train eventually", dom.screen === "screen-train" || dom.tabbar === "flex");
 }
 
 section("Unknown activity type does not block valid activities");

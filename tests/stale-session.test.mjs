@@ -53,7 +53,8 @@ function makeBootWorld({ session, userExists, getUserThrows = false, standalone 
     screens: {
       "screen-landing": { active: false },
       "screen-welcome": { active: false },
-      "screen-today": { active: false }
+      "screen-today": { active: false },
+      "screen-train": { active: false }
     },
     bodyClasses: new Set(["booting"]),
     tabbarDisplay: "none",
@@ -146,7 +147,7 @@ function makeBootWorld({ session, userExists, getUserThrows = false, standalone 
     isStandaloneMode: () => standalone,
     routeAfterAuth: async (uid) => {
       state.routed = uid;
-      state.screens["screen-today"].active = true;
+      state.screens["screen-train"].active = true;
       state.tabbarDisplay = "flex";
     },
     updateOpenAppUI: () => {},
@@ -184,8 +185,8 @@ section("Valid user remains signed in");
 
 {
   const r = await boot({ session: SESSION, userExists: true });
-  t("valid user → routed to Today",
-    r.visible === "screen-today" && r.state.routed === "u1");
+  t("valid user → routed to Train",
+    r.visible === "screen-train" && r.state.routed === "u1");
   t("valid user → athlevoSessionUserId set",
     r.api.getUid() === "u1");
   t("valid user → NOT signed out",
@@ -204,8 +205,8 @@ section("Deleted / nonexistent user is signed out");
 
 {
   const r = await boot({ session: SESSION, userExists: false });
-  t("deleted user → NOT routed to Today",
-    r.visible !== "screen-today" && r.state.routed === null);
+  t("deleted user → NOT routed to Train",
+    r.visible !== "screen-train" && r.state.routed === null);
   t("deleted user → shown welcome (sign-in) screen",
     r.visible === "screen-welcome");
   t("deleted user → signOut() called",
@@ -235,8 +236,8 @@ section("Network error during user validation — graceful fallthrough");
 
 {
   const r = await boot({ session: SESSION, userExists: true, getUserThrows: true });
-  t("network error → user proceeds to Today (not locked out)",
-    r.visible === "screen-today" && r.state.routed === "u1");
+  t("network error → user proceeds to Train (not locked out)",
+    r.visible === "screen-train" && r.state.routed === "u1");
   t("network error → NOT signed out",
     r.state.signedOut === false);
 }

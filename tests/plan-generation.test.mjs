@@ -565,7 +565,7 @@ section("14. Client surfaces the server's real message");
   t("actions cover sign-in, profile and retry",
     /signIn:/.test(c) && /completeProfile:/.test(c) && /retry:/.test(c));
   t("messages are escaped before rendering", /escapeText\(message\)/.test(c));
-  t("there is always a way back to the dashboard", /Back to Today/.test(c));
+  t("there is always a way back to Train", /Back to Train/.test(c));
   t("used free-plan state has the exact title and body",
     /Your free training plan is already active\./.test(c) &&
     /Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis\./.test(c));

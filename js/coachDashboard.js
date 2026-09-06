@@ -353,13 +353,13 @@
   function closeDashboard() {
     closeDrawer();
     if (location.hash === "#coach") { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { location.hash = ""; } }
-    if (typeof window.showScreen === "function") window.showScreen("screen-today");
+    if (typeof window.showScreen === "function") window.showScreen("screen-train");
   }
 
   function safeRedirect() {
     // Unauthorized users are never shown coach data.
     if (location.hash === "#coach") { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
-    if (typeof window.showScreen === "function") window.showScreen("screen-today");
+    if (typeof window.showScreen === "function") window.showScreen("screen-train");
   }
 
   function clearOnLogout() {

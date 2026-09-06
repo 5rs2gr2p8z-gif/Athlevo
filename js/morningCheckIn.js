@@ -179,7 +179,8 @@
   }
 
   function appReady(options) {
-    if (!athleteWorkspaceActive() || !activeScreen("screen-today")) {
+    const athleteHomeActive = activeScreen("screen-train") || activeScreen("screen-today");
+    if (!athleteWorkspaceActive() || !athleteHomeActive) {
       return false;
     }
     if (

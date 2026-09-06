@@ -47,9 +47,9 @@ section("Surface");
     /auth-setup-loader/.test(html));
   t("setup screen is not active in static markup",
     !/<section class="screen[^"]*\bactive\b[^"]*" id="screen-auth-setup"/.test(html));
-  t("transition grants no Today, paywall, or paid_active",
+  t("transition grants no athlete home, paywall, or paid_active",
     !/paid_active/.test(sliceFn("showPostAuthTransition", "claimPostAuthRoute")) &&
-    !/screen-today/.test(sliceFn("showPostAuthTransition", "claimPostAuthRoute")) &&
+    !/screen-(today|train)/.test(sliceFn("showPostAuthTransition", "claimPostAuthRoute")) &&
     !/showPaywall/.test(sliceFn("showPostAuthTransition", "claimPostAuthRoute")));
 }
 

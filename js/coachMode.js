@@ -489,11 +489,15 @@
     var tabbar = document.getElementById("tabbar");
     if (!tabbar) return;
     tabbar.innerHTML = "";
+    tabbar.setAttribute("role", "tablist");
+    tabbar.setAttribute("aria-label", "Coach navigation");
     COACH_TABS.forEach(function (tab, i) {
       var btn = document.createElement("button");
       btn.className = "tab" + (i === 0 ? " on" : "");
       btn.setAttribute("data-screen", tab.screen);
       btn.setAttribute("onclick", "AthlevoCoachMode.go(this)");
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", i === 0 ? "true" : "false");
       btn.innerHTML = tab.icon + "<span>" + tab.label + "</span>" + '<div class="dotmark"></div>';
       tabbar.appendChild(btn);
     });
@@ -512,18 +516,20 @@
     var tabbar = document.getElementById("tabbar");
     if (!tabbar) return;
     var ATHLETE_TABS = [
-      { screen: "screen-today",    label: "Today",  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>' },
-      { screen: "screen-coachai",  label: "Coach",  icon: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>' },
       { screen: "screen-train",    label: "Train",  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' },
-      { screen: "screen-trends",   label: "Trends", icon: '<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>' },
-      { screen: "screen-you",      label: "You",    icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>' }
+      { screen: "screen-coachai",  label: "Coach",  icon: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>' },
+      { screen: "screen-trends",   label: "Trends", icon: '<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>' }
     ];
     tabbar.innerHTML = "";
+    tabbar.setAttribute("role", "tablist");
+    tabbar.setAttribute("aria-label", "Primary navigation");
     ATHLETE_TABS.forEach(function (tab, i) {
       var btn = document.createElement("button");
       btn.className = "tab" + (i === 0 ? " on" : "");
       btn.setAttribute("data-screen", tab.screen);
       btn.setAttribute("onclick", "go(this)");
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", i === 0 ? "true" : "false");
       btn.innerHTML = tab.icon + "<span>" + tab.label + "</span>" + '<div class="dotmark"></div>';
       tabbar.appendChild(btn);
     });
@@ -638,7 +644,7 @@
   function activateCoachWorkspace() {
     if (!canAccessCoachWorkspace()) {
       enforceAthleteWorkspaceFallback();
-      if (typeof window.showScreen === "function") window.showScreen("screen-today");
+      if (typeof window.showScreen === "function") window.showScreen("screen-train");
       return false;
     }
     document.body.classList.add("coach-workspace-active");
@@ -712,14 +718,14 @@
     restoreAthleteToday();
     restoreAthleteNavigation();
 
-    // Show athlete Today
+    // Show athlete Train home
     var hasImmediateMotion = window.AthlevoAppMotion && typeof window.AthlevoAppMotion.showImmediately === "function";
-    var todayEl = hasImmediateMotion
-      ? window.AthlevoAppMotion.showImmediately("screen-today")
-      : document.getElementById("screen-today");
+    var trainEl = hasImmediateMotion
+      ? window.AthlevoAppMotion.showImmediately("screen-train")
+      : document.getElementById("screen-train");
     if (!hasImmediateMotion) {
       document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
-      if (todayEl) todayEl.classList.add("active");
+      if (trainEl) trainEl.classList.add("active");
     }
 
     // Initialize athlete UI data if not already done
@@ -810,8 +816,12 @@
       window.AthlevoAppMotion.selectTab(btn, true);
       window.AthlevoAppMotion.transitionTo(screenId);
     } else {
-      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("on"); });
+      document.querySelectorAll(".tab").forEach(function (t) {
+        t.classList.remove("on");
+        t.setAttribute("aria-selected", "false");
+      });
       btn.classList.add("on");
+      btn.setAttribute("aria-selected", "true");
       document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
       if (screenEl) screenEl.classList.add("active");
     }

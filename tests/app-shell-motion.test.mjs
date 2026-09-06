@@ -107,6 +107,9 @@ console.log("\n──── Shared moving tab indicator ────");
   };
   const makeTab = left => ({
     classList: makeClassList(),
+    attributes: new Map(),
+    setAttribute(name, value) { this.attributes.set(name, value); },
+    getAttribute(name) { return this.attributes.get(name) || null; },
     getBoundingClientRect: () => ({ left, width: 64 })
   });
   const first = makeTab(12);
@@ -145,6 +148,8 @@ console.log("\n──── Shared moving tab indicator ────");
     indicator.style.width === "27px");
   test("selection remains legible without depending only on red",
     second.classList.contains("on") && !first.classList.contains("on") &&
+    second.getAttribute("aria-selected") === "true" &&
+    first.getAttribute("aria-selected") === "false" &&
     /\.tab\.on\{color:var\(--text\);opacity:1\}/.test(html));
   test("legacy per-tab dots are visually retired",
     /\.dotmark\{display:none\}/.test(html));

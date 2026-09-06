@@ -718,7 +718,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
         try { await root.AthlevoPlan.autoBuildFirstPlan(); return; }
         catch (e) { console.warn("Plan handoff failed:", e); }
       }
-      if (typeof showScreen === "function") showScreen("screen-today");
+      if (typeof showScreen === "function") showScreen("screen-train");
     },
 
     isActive: wasActive,

@@ -156,7 +156,7 @@ section("STEP 4–5 — waiting, then success in the athlete's own numbers");
     /This week/.test(seen) && /Longest run/.test(seen) && /Most recent/.test(seen) && !/\{|NaN|undefined/.test(dom.html));
 
   await api.finish();
-  t("Continue reaches Today, tab bar restored", dom.screen === "screen-today" && dom.tabbar === "flex");
+  t("Continue reaches Train, tab bar restored", dom.screen === "screen-train" && dom.tabbar === "flex");
 
   const f = funnel(g);
   t("funnel order is correct",

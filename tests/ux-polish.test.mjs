@@ -102,8 +102,8 @@ section("P1. Automatic generation is BUILT but OFF");
   const connectCodeOnly = connect.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   t("onboarding CODE does not branch on the mode",
     !/AUTO_FIRST_PLAN/.test(connectCodeOnly));
-  t("with the flag off, the athlete lands on the dashboard",
-    /if \(!AUTO_FIRST_PLAN\)[\s\S]{0,200}showScreen\("screen-today"\)/.test(planSetup));
+  t("with the flag off, the athlete lands on Train",
+    /if \(!AUTO_FIRST_PLAN\)[\s\S]{0,200}showScreen\("screen-train"\)/.test(planSetup));
   t("...with the plan CTA refreshed and visible",
     /if \(!AUTO_FIRST_PLAN\)[\s\S]{0,240}refreshTodayCta\(\)/.test(planSetup));
   t("no generation is triggered while off",
@@ -266,7 +266,7 @@ section("P5. Empty states answer what/why/next");
     /action: "retry"/.test(activation) && /action: "reconnect"/.test(activation));
   // Plan failure.
   t("a failed plan build offers a route onward",
-    /Back to Today/.test(planSetup) && /ACTIONS\[outcome\.action\]/.test(planSetup));
+    /Back to Train/.test(planSetup) && /ACTIONS\[outcome\.action\]/.test(planSetup));
 }
 
 

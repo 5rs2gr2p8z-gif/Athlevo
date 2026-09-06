@@ -287,8 +287,8 @@ section("CASE 15 / 16 — onboarding missing-field behavior preserved");
     /function obNextIncompleteStep/.test(ob) && /obPrefillFromProfile/.test(ob));
   t("paid incomplete still enters onboarding",
     /route === "onboarding"/.test(html) && /startOnboarding\(\)/.test(html));
-  t("paid complete still enters the app",
-    /onboarding_complete === true/.test(html) && /showScreen\("screen-today"\)/.test(html));
+  t("paid complete still enters the app through Train",
+    /onboarding_complete === true/.test(html) && /showScreen\("screen-train"\)/.test(html));
 }
 
 section("Security + schema");

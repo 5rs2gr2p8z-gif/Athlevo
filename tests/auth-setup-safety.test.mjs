@@ -142,10 +142,10 @@ section("No screen-auth-setup path ends without navigation");
 {
   // The routeAfterAuth function itself: every early return after
   // the profile lookup should either call showScreen, startOnboarding,
-  // showPaywall, or fall through to showScreen("screen-today")
+  // showPaywall, or fall through to showScreen("screen-train")
   const routeAfterAuth = sliceFn("routeAfterAuth", "isStandaloneMode");
-  t("routeAfterAuth eventually shows screen-today for paid completed users",
-    /showScreen\("screen-today"\)/.test(routeAfterAuth));
+  t("routeAfterAuth eventually shows screen-train for paid completed users",
+    /showScreen\("screen-train"\)/.test(routeAfterAuth));
 
   t("routeAfterAuth calls startOnboarding for incomplete profiles",
     /startOnboarding\(\)/.test(routeAfterAuth));

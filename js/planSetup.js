@@ -293,11 +293,11 @@
       message: "We couldn't find a finished plan yet. You can try building it again." });
   }
 
-  // Let the athlete step back to Today, but keep the persistent CTA so they're
+  // Let the athlete step back to Train, but keep the persistent CTA so they're
   // guided, never trapped.
   function notNow() {
     dismissedThisSession = true;
-    if (typeof showScreen === "function") showScreen("screen-today");
+    if (typeof showScreen === "function") showScreen("screen-train");
     refreshTodayCta();
   }
 
@@ -614,7 +614,7 @@
     const primary = ACTIONS[outcome.action] || ACTIONS.retry;
     const secondary = freePlanActive
       ? ACTIONS.viewPlan
-      : { label: "Back to Today", onclick: "AthlevoPlan.notNow()" };
+      : { label: "Back to Train", onclick: "AthlevoPlan.notNow()" };
 
     mount.innerHTML = `
       <div class="pg-wrap">
@@ -747,13 +747,13 @@
   /* ───────────── auto-detection + Today CTA (discovery) ───────────────── */
 
   // Called by onboarding when it finishes. New athlete + no plan → guide them
-  // straight into setup. Anything else → Today.
+  // straight into setup. Anything else → Train.
   async function maybeLaunchAfterOnboarding() {
     const has = await hasPlan();
     if (has === false) {
       await start(); return true;
     }
-    if (typeof showScreen === "function") showScreen("screen-today");
+    if (typeof showScreen === "function") showScreen("screen-train");
     return false;
   }
 
@@ -813,7 +813,7 @@
   async function autoBuildFirstPlan() {
     if (!AUTO_FIRST_PLAN) {
       // Manual for now. Show the dashboard with the plan CTA visible.
-      if (typeof showScreen === "function") showScreen("screen-today");
+      if (typeof showScreen === "function") showScreen("screen-train");
       refreshTodayCta();
       return { skipped: "auto_disabled" };
     }
@@ -827,7 +827,7 @@
         access = await AthlevoAccessGuard.accessState();
       }
       if (access !== "paid_active") {
-        if (typeof showScreen === "function") showScreen("screen-today");
+        if (typeof showScreen === "function") showScreen("screen-train");
         refreshTodayCta();
         return { skipped: "free_user" };
       }
@@ -843,7 +843,7 @@
     }
     if (existing === null) {
       // Couldn't tell (offline, auth hiccup). Do NOT gamble on generating.
-      if (typeof showScreen === "function") showScreen("screen-today");
+      if (typeof showScreen === "function") showScreen("screen-train");
       refreshTodayCta();
       return { skipped: "unknown" };
     }

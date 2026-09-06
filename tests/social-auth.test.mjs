@@ -294,8 +294,8 @@ section("Routing — derived from the real index.html + onboarding.js");
   t("...then training-data connection, never a payment funnel",
     /AthlevoConnect\.start/.test(finish) &&
     !/AthlevoPaywall|maybeLaunchAfterOnboarding|checkout/.test(finish));
-  t("EXISTING Google user with a complete profile → dashboard",
-    /showScreen\("screen-today"\)/.test(route));
+  t("EXISTING Google user with a complete profile → Train",
+    /showScreen\("screen-train"\)/.test(route));
   t("routing is defined once (routeAfterAuth), not per-provider",
     (html.match(/async function routeAfterAuth/g) || []).length === 1);
   t("email signup uses the same post-auth router as Google/login",

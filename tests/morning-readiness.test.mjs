@@ -46,7 +46,8 @@ function classList(active) {
 function makeMorningWorld(options = {}) {
   const storage = options.storage || memoryStorage();
   const screens = {
-    "screen-today": { classList: classList(options.todayActive !== false) },
+    "screen-today": { classList: classList(options.todayActive === true) },
+    "screen-train": { classList: classList(options.trainActive !== false) },
     "screen-onboard": { classList: classList(options.onboarding === true) },
     "screen-connect": { classList: classList(options.connecting === true) },
     "todayAthleteName": {
@@ -163,6 +164,12 @@ section("First authenticated open and no-flash behavior");
   test("prompt opens only once in the active session",
     (await world.api.evaluate()).reason === "already_opened_this_session" &&
     world.opened.length === 1);
+}
+{
+  const world = makeMorningWorld({ trainActive: false, todayActive: true });
+  const result = await world.api.evaluate();
+  test("legacy Today compatibility still permits the readiness prompt",
+    result.shown === true && world.opened.length === 1);
 }
 {
   const world = makeMorningWorld({
