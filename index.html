@@ -754,29 +754,31 @@ body{
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(10px + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)));
-  width: auto;
+  width: min(328px, calc(100% - 28px));
+  min-height: 70px;
+  box-sizing: border-box;
 
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 6px;
+  padding: 6px;
 
   background: var(--nav-capsule-bg, color-mix(in srgb, var(--paper) 82%, transparent));
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
 
   border: 1px solid var(--nav-capsule-border, color-mix(in srgb, var(--ink3) 10%, transparent));
-  border-radius: 22px;
+  border-radius: 26px;
   box-shadow: 0 2px 12px color-mix(in srgb, var(--ink) 6%, transparent),
               0 0 0 0.5px color-mix(in srgb, var(--ink3) 5%, transparent);
   isolation: isolate;
 }
-.tab{position:relative;z-index:1;min-height:40px;background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink3);padding:4px 18px;opacity:.55;transition:color .22s var(--ease-standard),opacity .22s var(--ease-standard),background .25s var(--ease-standard);border-radius:17px}
-.tab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.tab span{font-size:10px;font-weight:600;letter-spacing:.03em}
+.tab{position:relative;z-index:1;flex:1 1 0;min-width:0;min-height:56px;background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink3);padding:5px 10px;opacity:.58;transition:color .22s var(--ease-standard),opacity .22s var(--ease-standard),background .25s var(--ease-standard);border-radius:20px}
+.tab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:11px;font-weight:650;letter-spacing:.025em}
 .tab.on{color:var(--text);opacity:1}
 .tabbar--capsule .tab.on{color:var(--text);opacity:1;background:var(--nav-tab-active-bg, color-mix(in srgb, var(--ink3) 9%, transparent))}
-.tab.on span{font-weight:700}
+.tab.on span{font-weight:750}
 .dotmark{display:none}
 /* Legacy sliding indicator — hidden for capsule nav; kept for Coach Mode compat */
 .nav-active-indicator{position:absolute;z-index:0;left:0;
@@ -788,11 +790,12 @@ body{
 .nav-active-indicator[data-ready="false"]{opacity:0;transition:none}
 /* Hide indicator when capsule nav is active (athlete mode) */
 .tabbar--capsule .nav-active-indicator{display:none}
-.tab:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:17px}
+.tab:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:20px}
 
 /* Coach Workspace owns a separate five-tab navigation layout. Its existing
    body class is the mode boundary, so switching workspaces does not depend on
    mutating the athlete capsule class or carrying inline layout styles. */
+body.coach-workspace-active{--athlevo-tabbar-height:64px}
 body.coach-workspace-active #tabbar{
   left:0;right:0;bottom:0;width:100%;min-height:var(--athlevo-tabbar-height);
   transform:none;padding:10px 8px max(10px,var(--athlevo-safe-bottom,env(safe-area-inset-bottom,0px)));
@@ -801,8 +804,12 @@ body.coach-workspace-active #tabbar{
 }
 body.coach-workspace-active #tabbar .tab{
   flex:0 1 64px;width:64px;min-width:0;min-height:var(--tap-target);
-  padding:2px 0;border-radius:8px;background:transparent
+  padding:2px 0;border-radius:8px;background:transparent;gap:2px;opacity:.55
 }
+body.coach-workspace-active #tabbar .tab.on{opacity:1}
+body.coach-workspace-active #tabbar .tab svg{width:20px;height:20px;stroke-width:1.7}
+body.coach-workspace-active #tabbar .tab span{font-size:10px;font-weight:600;letter-spacing:.03em}
+body.coach-workspace-active #tabbar .tab.on span{font-weight:700}
 body.coach-workspace-active #tabbar .nav-active-indicator{display:block}
 
 /* ---------- profile avatar (global header control) ---------- */
@@ -2291,7 +2298,7 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 
 /* ===== COACH WORKSPACE LAYOUT ===== */
 :root{
-  --athlevo-tabbar-height:64px;
+  --athlevo-tabbar-height:80px;
   --athlevo-safe-top:env(safe-area-inset-top,0px);
   --athlevo-safe-bottom:env(safe-area-inset-bottom,0px);
 }
@@ -2303,17 +2310,52 @@ html.athlevo-native-android .asc-radar-area{filter:none}
 }
 #screen-coachai.active{display:flex}
 #screen-coachai .coach-head{
-  flex:0 0 auto;position:relative;z-index:3;padding:14px 22px 12px;gap:var(--s-2);
+  flex:0 0 auto;position:relative;z-index:3;display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;
+  min-height:64px;padding:9px 16px 10px;gap:var(--s-2);box-sizing:border-box;
   background:var(--paper);border-bottom:1px solid var(--line)
 }
-#screen-coachai .coach-head b{
-  font-size:var(--fs-body-sm);font-weight:700;letter-spacing:var(--ls-normal)
+.coach-head-side{min-width:0;display:flex;align-items:center}
+.coach-head-side--start{justify-self:start;justify-content:flex-start}
+.coach-head-side--end{justify-self:end;justify-content:flex-end}
+.coach-header-control{
+  -webkit-appearance:none;appearance:none;min-width:44px;min-height:44px;border:1px solid var(--line);
+  border-radius:15px;background:color-mix(in srgb,var(--paper) 88%,transparent);color:var(--text);
+  display:inline-flex;align-items:center;justify-content:center;padding:0 12px;font-family:var(--font-ui);
+  font-size:var(--fs-caption);font-weight:700;line-height:1;cursor:pointer;
+  transition:background var(--dur-fast) var(--ease-standard),border-color var(--dur-fast) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)
 }
-.coach-logo{
-  width:32px;height:32px;border-radius:var(--r-sm);overflow:hidden;display:flex;
-  align-items:center;justify-content:center
+.coach-header-control svg{display:block;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.coach-header-control:active{transform:scale(.97)}
+.coach-header-control:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.coach-header-signin{min-width:auto;border-radius:var(--r-pill);padding-inline:15px}
+.coach-menu-lines{display:grid;gap:5px;width:18px}
+.coach-menu-lines i{display:block;width:18px;height:1.5px;border-radius:var(--r-pill);background:currentColor}
+.coach-logo-bubble{
+  justify-self:center;width:42px;height:42px;border-radius:50%;overflow:hidden;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--paper) 70%,transparent);border:1px solid color-mix(in srgb,var(--line) 78%,transparent);
+  box-shadow:0 1px 4px color-mix(in srgb,var(--ink) 5%,transparent)
 }
-.coach-logo img{display:block;width:130%;height:130%;object-fit:cover;object-position:center}
+.coach-logo-bubble img{display:block;width:128%;height:128%;object-fit:cover;object-position:center}
+.coach-menu-back{position:absolute}
+.coach-menu-sheet{
+  width:100%;max-width:430px;max-height:min(72dvh,520px);overflow-y:auto;box-sizing:border-box;
+  margin:0 auto;background:var(--paper);border-radius:26px 26px 0 0;
+  padding:10px 18px calc(18px + var(--athlevo-safe-bottom,env(safe-area-inset-bottom,0px)));
+  box-shadow:0 -10px 34px color-mix(in srgb,var(--ink) 12%,transparent)
+}
+.coach-menu-sheet-head{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;margin-bottom:8px}
+.coach-menu-sheet-head h2{grid-column:2;margin:0;text-align:center;font-family:var(--serif);font-size:var(--fs-h3);font-weight:550}
+.coach-menu-close{grid-column:3;width:44px;height:44px;border:0;border-radius:14px;background:transparent;color:var(--text);font-size:24px;line-height:1;cursor:pointer}
+.coach-menu-actions{display:grid;border-top:1px solid var(--line)}
+.coach-menu-action{width:100%;min-height:52px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);padding:0 4px;text-align:left;font-family:var(--font-ui);font-size:var(--fs-body-sm);font-weight:650;cursor:pointer}
+.coach-menu-action:last-child{border-bottom:0}
+.coach-menu-pending{min-height:52px;display:flex;align-items:center;color:var(--ink3);font-size:var(--fs-body-sm)}
+.coach-menu-action:focus-visible,.coach-menu-close:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{display:none!important}
+@media(hover:hover) and (pointer:fine){
+  .coach-header-control:hover,.coach-menu-action:hover,.coach-menu-close:hover{background:var(--card2)}
+}
 
 #screen-coachai #chatlog{
   flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
@@ -5254,12 +5296,25 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
 <!-- ══════════════ COACH AI ══════════════ -->
 <section class="screen coach-is-empty" id="screen-coachai">
-  <div class="chat-head coach-head">
-    <div class="avatar coach-logo">
+  <header class="chat-head coach-head" aria-label="Coach navigation">
+    <div class="coach-head-side coach-head-side--start">
+      <button class="coach-header-control coach-menu-button" id="coachMenuButton" type="button"
+              onclick="openCoachMenu()" aria-label="Open Coach menu" aria-haspopup="dialog">
+        <span class="coach-menu-lines" aria-hidden="true"><i></i><i></i></span>
+      </button>
+    </div>
+    <div class="coach-logo-bubble" aria-label="Athlevo">
       <img src="assets/athlevo-logo.png" alt="Athlevo" />
     </div>
-    <div><b>Athlevo Coach</b></div>
-  </div>
+    <div class="coach-head-side coach-head-side--end" id="coachHeaderAuthAction" data-auth-state="pending" aria-live="polite">
+      <button class="coach-header-control coach-header-signin" id="coachHeaderSignIn" type="button"
+              onclick="openLogin(true, 'coach_header')" hidden>Sign in</button>
+      <button class="coach-header-control coach-header-settings" id="coachHeaderSettings" type="button"
+              onclick="openSettings()" aria-label="Open settings" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.09A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.09A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.14.37.36.7.66.96.3.26.68.4 1.08.4H21v4h-.09A1.7 1.7 0 0 0 19.4 15z"></path></svg>
+      </button>
+    </div>
+  </header>
 
   <div class="chatlog" id="chatlog">
     <!-- Empty state: shown when no conversation history exists -->
@@ -6378,6 +6433,23 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <p>Once your account is deleted, this action cannot be undone. You will need to create a new account if you wish to use Athlevo again. Any active subscriptions will be cancelled as part of the deletion process.</p>
   </div></div>
 </section>
+
+<!-- Athlete Coach menu — interaction/focus/scroll are owned by AthlevoSheet. -->
+<div class="modal-back coach-menu-back" id="coachMenuSheet" aria-hidden="true">
+  <section class="coach-menu-sheet" role="dialog" aria-modal="true" aria-labelledby="coachMenuTitle">
+    <div class="coach-menu-sheet-head">
+      <h2 id="coachMenuTitle">Menu</h2>
+      <button class="coach-menu-close" type="button" onclick="closeCoachMenu()" aria-label="Close menu">×</button>
+    </div>
+    <div class="coach-menu-actions">
+      <button class="coach-menu-action" type="button" data-coach-auth="signed-in" onclick="runCoachMenuAction('new-chat')" hidden>New chat</button>
+      <button class="coach-menu-action" type="button" data-coach-auth="signed-in" onclick="runCoachMenuAction('profile')" hidden>Profile</button>
+      <button class="coach-menu-action" type="button" data-coach-auth="signed-in" onclick="runCoachMenuAction('settings')" hidden>Settings</button>
+      <button class="coach-menu-action" type="button" data-coach-auth="signed-out" onclick="runCoachMenuAction('sign-in')" hidden>Sign in</button>
+      <div class="coach-menu-pending" id="coachMenuPending" role="status">Checking account…</div>
+    </div>
+  </section>
+</div>
 
 <!-- ══════════════ PROFILE AVATAR (global header control) ══════════════ -->
 <button class="athlevo-profile-avatar" id="profileAvatarBtn"
@@ -7909,6 +7981,7 @@ async function doLogout() {
 
   athlevoSessionUserId = null;
   try { window.athlevoSessionUserId = null; } catch (e) {}
+  if (typeof renderCoachHeaderAuthState === "function") renderCoachHeaderAuthState(null);
   try { window.__athlevoRoutingFor = null; } catch (e) {}
   if (typeof lockAuthEntryControls === "function") lockAuthEntryControls(false);
 
@@ -8060,6 +8133,79 @@ function openSettings() {
   if (settings) { settings.classList.add('active'); settings.scrollTop = 0; }
 }
 window.openSettings = openSettings;
+
+/* ── Athlete Coach header ────────────────────────────────────────
+ * The right-side action is driven only by a Supabase session passed from
+ * restoreSession/onAuthStateChange. It stays neutral while that state is
+ * unresolved, so cached DOM never guesses whether an athlete is signed in. */
+var coachHeaderAuthState = "pending";
+
+function renderCoachHeaderAuthState(session, resolved) {
+  coachHeaderAuthState = resolved === false
+    ? "pending"
+    : (session && session.user ? "signed-in" : "signed-out");
+  var region = document.getElementById("coachHeaderAuthAction");
+  var signIn = document.getElementById("coachHeaderSignIn");
+  var settings = document.getElementById("coachHeaderSettings");
+  var pending = document.getElementById("coachMenuPending");
+  if (region) region.dataset.authState = coachHeaderAuthState;
+  if (signIn) signIn.hidden = coachHeaderAuthState !== "signed-out";
+  if (settings) settings.hidden = coachHeaderAuthState !== "signed-in";
+  if (pending) pending.hidden = coachHeaderAuthState !== "pending";
+  document.querySelectorAll("[data-coach-auth]").forEach(function (item) {
+    item.hidden = item.getAttribute("data-coach-auth") !== coachHeaderAuthState;
+  });
+}
+window.renderCoachHeaderAuthState = renderCoachHeaderAuthState;
+
+function openCoachMenu() {
+  var root = document.getElementById("coachMenuSheet");
+  if (!root) return;
+  if (window.AthlevoSheet) {
+    window.AthlevoSheet.open({
+      root: root,
+      sheet: ".coach-menu-sheet",
+      draggable: true,
+      returnFocus: "#coachMenuButton",
+      initialFocus: ".coach-menu-action:not([hidden])",
+      closeOnEscape: true,
+      closeOnBackdrop: true
+    });
+  } else {
+    root.classList.add("show");
+    root.setAttribute("aria-hidden", "false");
+  }
+}
+window.openCoachMenu = openCoachMenu;
+
+function closeCoachMenu(options) {
+  var root = document.getElementById("coachMenuSheet");
+  if (!root) return;
+  if (window.AthlevoSheet && window.AthlevoSheet.isOpen(root)) {
+    window.AthlevoSheet.close(root, options || {});
+  } else {
+    root.classList.remove("show");
+    root.setAttribute("aria-hidden", "true");
+    if (options && typeof options.onAfterClose === "function") options.onAfterClose();
+  }
+}
+window.closeCoachMenu = closeCoachMenu;
+
+function runCoachMenuAction(action) {
+  var perform = function () {
+    if (action === "new-chat" && typeof window.startNewCoachConversation === "function") {
+      window.startNewCoachConversation();
+    } else if (action === "profile") {
+      openProfileScreen();
+    } else if (action === "settings") {
+      openSettings();
+    } else if (action === "sign-in") {
+      openLogin(true, "coach_header");
+    }
+  };
+  closeCoachMenu({ restoreFocus: false, onAfterClose: perform });
+}
+window.runCoachMenuAction = runCoachMenuAction;
 
 /* ══════════════ PROFILE PHOTO ══════════════ */
 /*
@@ -8313,6 +8459,7 @@ async function confirmDeleteAccount() {
       AthlevoBrain.invalidateActivityCache();
     }
     athlevoSessionUserId = null;
+    if (typeof renderCoachHeaderAuthState === "function") renderCoachHeaderAuthState(null);
     try { window.__athlevoRoutingFor = null; } catch (e) {}
     try {
       sessionStorage.clear();
@@ -10777,6 +10924,9 @@ async function restoreSession(opts) {
 
   athlevoSessionUserId = session ? session.user.id : null;
   try { window.athlevoSessionUserId = athlevoSessionUserId; } catch (e) {}
+  if (typeof renderCoachHeaderAuthState === "function") {
+    renderCoachHeaderAuthState(session, !sessionRestoreTimedOut);
+  }
 
   // ── Password recovery intercept ──
   // When the user arrives via a recovery link, Supabase creates a valid
@@ -11433,7 +11583,7 @@ setTimeout(function () {
 <script src="js/memory.js?v=67"></script>
 <script src="js/dailyBrief.js?v=77"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
-<script src="js/coach.js?v=79"></script>
+<script src="js/coach.js?v=80"></script>
 <script src="js/features.js?v=69"></script>
 <script src="js/train.js?v=82"></script>
 <script src="js/coachTimeline.js?v=67"></script>
@@ -12250,6 +12400,9 @@ setTimeout(function () {
   // and remove every coach projection; the new user is resolved from scratch.
   if (supabaseClient.auth && typeof supabaseClient.auth.onAuthStateChange === "function") {
     supabaseClient.auth.onAuthStateChange(function (event, session) {
+      if (typeof renderCoachHeaderAuthState === "function") {
+        renderCoachHeaderAuthState(session);
+      }
       if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
       var nextUserId = session && session.user && session.user.id || null;
       if (event === "SIGNED_IN" && nextUserId) {

@@ -74,24 +74,39 @@ test("athlete capsule geometry has a single generic CSS owner",
 test("capsule is centered and detached from edges",
   /left:\s*50%/.test(capsuleCss) &&
   /transform:\s*translateX\(-50%\)/.test(capsuleCss));
-test("capsule uses width:auto for content-sized layout",
-  /width:\s*auto/.test(capsuleCss));
+test("capsule uses the enlarged responsive 328px width",
+  /width:\s*min\(328px,\s*calc\(100% - 28px\)\)/.test(capsuleCss));
+test("capsule height is enlarged while retaining responsive side margins",
+  /min-height:\s*70px/.test(capsuleCss) &&
+  /box-sizing:\s*border-box/.test(capsuleCss));
+const responsiveCapsuleWidth = viewport => Math.min(328, viewport - 28);
+test("390px, 430px, and narrow shells keep visible symmetric capsule margins",
+  responsiveCapsuleWidth(390) === 328 && (390 - responsiveCapsuleWidth(390)) / 2 === 31 &&
+  responsiveCapsuleWidth(430) === 328 && (430 - responsiveCapsuleWidth(430)) / 2 === 51 &&
+  responsiveCapsuleWidth(320) === 292 && (320 - responsiveCapsuleWidth(320)) / 2 === 14);
 test("capsule respects the bottom safe area",
   /bottom:\s*calc\(10px \+ var\(--athlevo-safe-bottom/.test(capsuleCss));
 test("capsule uses backdrop-filter blur material",
   /backdrop-filter:\s*blur\(20px\)/.test(capsuleCss));
 test("capsule has rounded corners",
-  /border-radius:\s*22px/.test(capsuleCss));
+  /border-radius:\s*26px/.test(capsuleCss));
 test("capsule does not use gradients or glow",
   !/gradient|glow/i.test(capsuleCss));
 
 console.log("\n──── Active tab styling ────");
 test("active tab gets inner background pill",
   /\.tab\.on\{[^}]*background:var\(--nav-tab-active-bg/.test(html));
-test("active tab text is bold",
-  /\.tab\.on span\{font-weight:700\}/.test(html));
+test("larger tab controls preserve a comfortable tap target",
+  /\.tab\{[^}]*min-height:56px/.test(html) &&
+  /\.tab svg\{width:23px;height:23px/.test(html));
+test("larger labels strengthen the selected state",
+  /\.tab span\{font-size:11px;font-weight:650/.test(html) &&
+  /\.tab\.on span\{font-weight:750\}/.test(html));
 test("legacy sliding indicator is hidden for capsule nav",
   /\.tabbar--capsule \.nav-active-indicator\{display:none\}/.test(html));
+test("athlete reserve grows with the capsule while Coach Workspace stays at 64px",
+  /--athlevo-tabbar-height:80px/.test(html) &&
+  /body\.coach-workspace-active\{--athlevo-tabbar-height:64px\}/.test(html));
 
 console.log("\n──── Profile avatar button ────");
 test("profile avatar button exists in markup",

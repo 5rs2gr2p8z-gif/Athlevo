@@ -59,6 +59,95 @@ const coachCss = html.slice(
   html.indexOf("/* ---------- chat ---------- */"),
   html.indexOf("/* ---------- train ---------- */")
 );
+const coachHeader = html.slice(
+  html.indexOf('<header class="chat-head coach-head"'),
+  html.indexOf("</header>", html.indexOf('<header class="chat-head coach-head"')) +
+    "</header>".length
+);
+const coachMenu = html.slice(
+  html.indexOf('<div class="modal-back coach-menu-back" id="coachMenuSheet"'),
+  html.indexOf("<!-- ══════════════ PROFILE AVATAR", html.indexOf('id="coachMenuSheet"'))
+);
+
+console.log("\n──── Athlete Coach header ────");
+test("old athlete Coach title is removed from the header",
+  coachHeader.length > 0 && !/>\s*Athlevo Coach\s*</.test(coachHeader));
+test("header has a labelled menu button with exactly two horizontal lines",
+  /id="coachMenuButton"[\s\S]*?aria-label="Open Coach menu"/.test(coachHeader) &&
+  (coachHeader.match(/<i><\/i>/g) || []).length === 2);
+test("Athlevo logo is the only centered identity inside a circular bubble",
+  /class="coach-logo-bubble"[\s\S]*?<img[^>]+athlevo-logo\.png/.test(coachHeader) &&
+  /\.coach-logo-bubble\{[^}]*width:42px;height:42px;border-radius:50%/.test(html));
+test("header uses a true centered three-column grid",
+  /#screen-coachai \.coach-head\{[^}]*display:grid[^}]*grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/.test(html) &&
+  /#screen-coachai \.coach-head\{[^}]*min-height:64px[^}]*box-sizing:border-box/.test(html) &&
+  /\.coach-head-side--start\{justify-self:start/.test(html) &&
+  /\.coach-head-side--end\{justify-self:end/.test(html));
+test("right header actions start hidden while canonical auth resolves",
+  /id="coachHeaderAuthAction"[^>]*data-auth-state="pending"/.test(coachHeader) &&
+  /id="coachHeaderSignIn"[^>]*hidden/.test(coachHeader) &&
+  /id="coachHeaderSettings"[^>]*hidden/.test(coachHeader));
+
+const headerAuthElements = {
+  coachHeaderAuthAction: { dataset: {} },
+  coachHeaderSignIn: { hidden: true },
+  coachHeaderSettings: { hidden: true },
+  coachMenuPending: { hidden: false }
+};
+const headerMenuItems = ["signed-in", "signed-in", "signed-in", "signed-out"].map(auth => ({
+  hidden: true,
+  getAttribute(name) { return name === "data-coach-auth" ? auth : null; }
+}));
+const headerAuthFactory = new Function(
+  "document",
+  `var coachHeaderAuthState = "pending";
+   ${extractFunction(html, "renderCoachHeaderAuthState")}
+   return renderCoachHeaderAuthState;`
+)({
+  getElementById(id) { return headerAuthElements[id] || null; },
+  querySelectorAll(selector) { return selector === "[data-coach-auth]" ? headerMenuItems : []; }
+});
+headerAuthFactory(null, false);
+test("unresolved Supabase state keeps both right-side actions neutral",
+  headerAuthElements.coachHeaderSignIn.hidden === true &&
+  headerAuthElements.coachHeaderSettings.hidden === true &&
+  headerAuthElements.coachMenuPending.hidden === false &&
+  headerMenuItems.every(item => item.hidden));
+headerAuthFactory(null);
+test("signed-out Supabase state renders Sign in and signed-out menu actions",
+  headerAuthElements.coachHeaderSignIn.hidden === false &&
+  headerAuthElements.coachHeaderSettings.hidden === true &&
+  headerMenuItems[3].hidden === false && headerMenuItems.slice(0, 3).every(item => item.hidden));
+headerAuthFactory({ user: { id: "athlete-1" } });
+test("signed-in Supabase state renders settings and signed-in menu actions",
+  headerAuthElements.coachHeaderSignIn.hidden === true &&
+  headerAuthElements.coachHeaderSettings.hidden === false &&
+  headerMenuItems.slice(0, 3).every(item => item.hidden === false) && headerMenuItems[3].hidden);
+test("auth state comes from restoreSession and the canonical Supabase listener",
+  /athlevoSessionUserId = session \? session\.user\.id : null;[\s\S]{0,260}renderCoachHeaderAuthState\(session, !sessionRestoreTimedOut\)/.test(html) &&
+  /onAuthStateChange\(function \(event, session\) \{[\s\S]{0,160}renderCoachHeaderAuthState\(session\)/.test(html));
+test("Coach menu uses AthlevoSheet and exposes only appropriate actions",
+  /AthlevoSheet\.open\(\{[\s\S]*?root: root[\s\S]*?sheet: "\.coach-menu-sheet"/.test(
+    extractFunction(html, "openCoachMenu")
+  ) &&
+  /data-coach-auth="signed-in"[^>]*>New chat</.test(coachMenu) &&
+  /data-coach-auth="signed-in"[^>]*>Profile</.test(coachMenu) &&
+  /data-coach-auth="signed-in"[^>]*>Settings</.test(coachMenu) &&
+  /data-coach-auth="signed-out"[^>]*>Sign in</.test(coachMenu));
+test("menu profile/settings/sign-in actions reuse existing flows",
+  /action === "profile"[\s\S]*?openProfileScreen\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
+  /action === "settings"[\s\S]*?openSettings\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
+  /action === "sign-in"[\s\S]*?openLogin\(true, "coach_header"\)/.test(extractFunction(html, "runCoachMenuAction")));
+test("New chat clears persisted history only inside the authenticated athlete boundary",
+  /function startNewCoachConversation/.test(coach) &&
+  /\.from\("coach_conversations"\)[\s\S]*?\.delete\(\)[\s\S]*?\.eq\("user_id", user\.id\)/.test(
+    extractFunction(coach, "startNewCoachConversation")
+  ) &&
+  /if \(error\)[\s\S]*?return false;[\s\S]*?querySelectorAll\("\.msg, \.coach-error"\)/.test(
+    extractFunction(coach, "startNewCoachConversation")
+  ));
+test("global profile avatar is hidden only for active athlete Coach",
+  /body:not\(\.coach-workspace-active\) #screen-coachai\.active ~ #profileAvatarBtn\{display:none!important\}/.test(html));
 
 console.log("\n──── Empty workspace ────");
 test("empty state uses the exact centered workspace prompt",
@@ -212,7 +301,7 @@ test("composer is multiline, labelled, and uses the required placeholder",
   /<textarea[\s\S]*?rows="1"[\s\S]*?placeholder="Ask your coach anything…"[\s\S]*?aria-label="Message your coach"/.test(coachScreen) &&
   /id="coachSendBtn"[\s\S]*?aria-label="Send message"/.test(coachScreen));
 test("composer stays keyboard- and safe-area-aware above navigation",
-  /inset:0 0 calc\(var\(--athlevo-tabbar-height\) \+ env\(safe-area-inset-bottom\)\)/.test(html) &&
+  /inset:0 0 calc\(var\(--athlevo-tabbar-height\) \+ var\(--athlevo-safe-bottom\)\)/.test(html) &&
   /padding:var\(--s-2\) 22px var\(--s-3\)/.test(html) &&
   /max-height:120px/.test(coachCss) &&
   /scroll-padding-bottom:var\(--s-6\)/.test(html));

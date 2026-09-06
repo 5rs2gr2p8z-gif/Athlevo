@@ -524,6 +524,67 @@ if (latestAssistantMessage) {
   // must show Applied (and lose their buttons) so nothing re-applies.
   markAppliedProposals();
 }
+
+/* Start a genuinely fresh Coach conversation. The current schema stores one
+ * flat history per athlete (there is no thread id or archived-chat surface),
+ * so clearing only the DOM would silently reconnect the old context on the
+ * next request. Delete only the authenticated athlete's own conversation
+ * rows; RLS enforces the same user_id boundary server-side. */
+async function startNewCoachConversation() {
+  if (coachRequestInFlight) {
+    if (typeof toast === "function") toast("Wait for Coach to finish responding.");
+    return false;
+  }
+
+  try {
+  const {
+    data: { user },
+    error: userError
+  } = await supabaseClient.auth.getUser();
+
+  if (userError || !user) {
+    if (typeof toast === "function") toast("Please sign in again.");
+    return false;
+  }
+
+  const { error } = await supabaseClient
+    .from("coach_conversations")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Could not start a new Coach conversation:", error.message);
+    if (typeof toast === "function") toast("Could not start a new chat. Please try again.");
+    return false;
+  }
+
+  _pendingActivityContext = null;
+  _coachLastQuestion = null;
+  window.__coachProposals = {};
+  stopThinkingLabelRotation();
+
+  const chatlog = document.getElementById("chatlog");
+  if (chatlog) {
+    chatlog.querySelectorAll(".msg, .coach-error").forEach(node => node.remove());
+    chatlog.scrollTop = 0;
+  }
+  const input = document.getElementById("chatInput");
+  if (input) {
+    input.value = "";
+    input.style.height = "auto";
+  }
+  renderSuggestedReplies([]);
+  showCoachEmptyState();
+  personalizeCoachGreeting();
+  syncCoachScrollUi();
+  if (typeof toast === "function") toast("New chat started");
+  return true;
+  } catch (error) {
+    console.error("Could not start a new Coach conversation.");
+    if (typeof toast === "function") toast("Could not start a new chat. Please try again.");
+    return false;
+  }
+}
 async function extractAthleteMemoryFromMessage(message) {
   try {
     const {
@@ -1914,6 +1975,7 @@ window.sendMsg = sendMsg;
 window.loadConversationHistory = loadConversationHistory;
 window.saveConversationMessage = saveConversationMessage;
 window.renderConversationHistory = renderConversationHistory;
+window.startNewCoachConversation = startNewCoachConversation;
 window.applyCoachAction = applyCoachAction;
 window.cancelCoachAction = cancelCoachAction;
 window.personalizeCoachGreeting = personalizeCoachGreeting;
