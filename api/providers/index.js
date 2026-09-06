@@ -3767,6 +3767,7 @@ async function actionDeleteAccount(request, response) {
     "coach_action_proposals",
     "coach_applications",
     "coach_conversations",
+    "coach_threads",
     "daily_coach_briefings",
     "daily_readiness",
     "pending_provider_connections",

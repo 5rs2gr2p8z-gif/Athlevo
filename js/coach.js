@@ -395,6 +395,55 @@ function addChatMessage(role, text) {
   }
   return message;
 }
+/* ══════════════ Thread state ════════════════════════════════════ */
+
+var _activeThreadId = null;
+
+function getActiveThreadId() { return _activeThreadId; }
+function setActiveThreadId(id) { _activeThreadId = id; }
+
+async function ensureActiveThread() {
+  if (_activeThreadId) return _activeThreadId;
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return null;
+
+  // Try to restore latest thread.
+  const { data: latest } = await supabaseClient
+    .from("coach_threads")
+    .select("id")
+    .eq("user_id", user.id)
+    .order("last_message_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (latest) {
+    _activeThreadId = latest.id;
+    return _activeThreadId;
+  }
+
+  // No threads exist — will be created on first message.
+  return null;
+}
+
+async function createThread(title) {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabaseClient
+    .from("coach_threads")
+    .insert([{ user_id: user.id, title: title || null }])
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Could not create thread:", error.message);
+    return null;
+  }
+  _activeThreadId = data.id;
+  return data.id;
+}
+
 async function saveConversationMessage(role, message) {
   const {
     data: { user },
@@ -406,6 +455,16 @@ async function saveConversationMessage(role, message) {
     return;
   }
 
+  // Ensure we have an active thread; create one on-demand if needed.
+  if (!_activeThreadId) {
+    const title = role === "user" ? deriveThreadTitle(message) : null;
+    const threadId = await createThread(title);
+    if (!threadId) {
+      console.error("Cannot save message: failed to create thread.");
+      return;
+    }
+  }
+
   // Do not log message content (private data).
   const { error } = await supabaseClient
     .from("coach_conversations")
@@ -413,13 +472,49 @@ async function saveConversationMessage(role, message) {
       {
         user_id: user.id,
         role,
-        message
+        message,
+        thread_id: _activeThreadId
       }
     ]);
 
   if (error) {
     console.error("Could not save conversation message:", error.message);
+    return;
   }
+
+  // Update thread timestamps.
+  await supabaseClient
+    .from("coach_threads")
+    .update({ last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", _activeThreadId);
+
+  // Set thread title from first user message if not yet set.
+  if (role === "user") {
+    const { data: thread } = await supabaseClient
+      .from("coach_threads")
+      .select("title")
+      .eq("id", _activeThreadId)
+      .single();
+    if (thread && !thread.title) {
+      const title = deriveThreadTitle(message);
+      if (title) {
+        await supabaseClient
+          .from("coach_threads")
+          .update({ title })
+          .eq("id", _activeThreadId);
+      }
+    }
+  }
+}
+
+function deriveThreadTitle(message) {
+  if (!message || typeof message !== "string") return null;
+  const text = message.replace(/\s+/g, " ").trim();
+  if (text.length <= 3) return null;
+  // Skip trivial greetings.
+  const lower = text.toLowerCase();
+  if (/^(hi|hey|hello|yo|sup|thanks|ok|okay)[\s!.?]*$/i.test(lower)) return null;
+  return text.length > 55 ? text.slice(0, 52) + "…" : text;
 }
 
 async function loadConversationHistory() {
@@ -433,10 +528,19 @@ async function loadConversationHistory() {
     return [];
   }
 
+  // Ensure we have a thread selected.
+  await ensureActiveThread();
+
+  if (!_activeThreadId) {
+    // No threads at all — new user.
+    return [];
+  }
+
   const { data, error } = await supabaseClient
     .from("coach_conversations")
     .select("role, message, created_at")
     .eq("user_id", user.id)
+    .eq("thread_id", _activeThreadId)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -538,47 +642,82 @@ function coachHistoryPreviewText(item) {
   return text.replace(/\s+/g, " ").trim().slice(0, 120) || "Message";
 }
 
+function formatThreadDate(dateStr) {
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 86400000 && d.getDate() === now.getDate()) return "Today";
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth()) return "Yesterday";
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  } catch (e) { return ""; }
+}
+
+async function loadThreadList() {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabaseClient
+    .from("coach_threads")
+    .select("id, title, last_message_at, created_at")
+    .eq("user_id", user.id)
+    .order("last_message_at", { ascending: false });
+
+  if (error) {
+    console.error("Could not load threads:", error);
+    return [];
+  }
+  return data || [];
+}
+
 async function renderCoachHistoryList() {
   const list = document.getElementById("coachHistoryList");
   if (!list) return [];
 
-  const history = await loadConversationHistory();
+  const threads = await loadThreadList();
   list.replaceChildren();
 
-  if (!history.length) {
+  if (!threads.length) {
     const empty = document.createElement("p");
     empty.className = "coach-history-empty";
-    empty.textContent = "No Coach messages yet.";
+    empty.textContent = "No conversations yet.";
     list.appendChild(empty);
     return [];
   }
 
-  history.forEach((item, index) => {
+  threads.forEach((thread) => {
     const button = document.createElement("button");
-    const role = item.role === "assistant" ? "Athlevo Coach" : "You";
     button.type = "button";
     button.className = "coach-history-item";
-    button.setAttribute("aria-label", `Open ${role} message ${index + 1}`);
+    const isActive = thread.id === _activeThreadId;
+    if (isActive) button.classList.add("coach-history-item--active");
+    button.setAttribute("aria-label", `Open conversation: ${thread.title || "Untitled"}`);
+    button.dataset.threadId = thread.id;
 
     const label = document.createElement("strong");
-    label.textContent = role;
-    const preview = document.createElement("span");
-    preview.textContent = coachHistoryPreviewText(item);
-    button.append(label, preview);
-    button.addEventListener("click", () => selectCoachHistoryMessage(index));
+    label.textContent = thread.title || "Untitled conversation";
+    const dateSpan = document.createElement("span");
+    dateSpan.textContent = formatThreadDate(thread.last_message_at || thread.created_at);
+    button.append(label, dateSpan);
+    button.addEventListener("click", () => selectThread(thread.id));
     list.appendChild(button);
   });
 
-  return history;
+  return threads;
 }
 
-function selectCoachHistoryMessage(index) {
+async function selectThread(threadId) {
+  _activeThreadId = threadId;
+
   const reveal = async () => {
     await renderConversationHistory();
-    const messages = document.querySelectorAll("#chatlog .msg");
-    const target = messages[Number(index)];
-    if (target) target.scrollIntoView({ block: "center", behavior: coachScrollBehavior() });
+    // Scroll to latest.
+    const cl = document.getElementById("chatlog");
+    if (cl) cl.scrollTo({ top: cl.scrollHeight, behavior: coachScrollBehavior() });
   };
+
   if (typeof window.closeCoachHistory === "function") {
     window.closeCoachHistory({ restoreFocus: false, onAfterClose: reveal });
   } else {
@@ -586,11 +725,13 @@ function selectCoachHistoryMessage(index) {
   }
 }
 
-/* Start a genuinely fresh Coach conversation. The current schema stores one
- * flat history per athlete (there is no thread id or archived-chat surface),
- * so clearing only the DOM would silently reconnect the old context on the
- * next request. Delete only the authenticated athlete's own conversation
- * rows; RLS enforces the same user_id boundary server-side. */
+// Legacy compat — kept for any external callers.
+function selectCoachHistoryMessage(index) {
+  selectThread(_activeThreadId);
+}
+
+/* Start a new Coach conversation thread. Previous threads and messages are
+ * preserved — the user can return to them through the Chats panel. */
 async function startNewCoachConversation() {
   if (coachRequestInFlight) {
     if (typeof toast === "function") toast("Wait for Coach to finish responding.");
@@ -598,27 +739,8 @@ async function startNewCoachConversation() {
   }
 
   try {
-  const {
-    data: { user },
-    error: userError
-  } = await supabaseClient.auth.getUser();
-
-  if (userError || !user) {
-    if (typeof toast === "function") toast("Please sign in again.");
-    return false;
-  }
-
-  const { error } = await supabaseClient
-    .from("coach_conversations")
-    .delete()
-    .eq("user_id", user.id);
-
-  if (error) {
-    console.error("Could not start a new Coach conversation:", error.message);
-    if (typeof toast === "function") toast("Could not start a new chat. Please try again.");
-    return false;
-  }
-
+  // Clear active thread so a fresh one is created on the first message.
+  _activeThreadId = null;
   _pendingActivityContext = null;
   _coachLastQuestion = null;
   window.__coachProposals = {};
@@ -839,10 +961,18 @@ async function loadRecentConversationForCoach(limit = 8) {
 
     if (!user) return [];
 
-    const { data, error } = await supabaseClient
+    // Scope to the active thread so only current-conversation context
+    // reaches the model. Cross-thread knowledge lives in athlete memory.
+    let query = supabaseClient
       .from("coach_conversations")
       .select("role, message, created_at")
-      .eq("user_id", user.id)
+      .eq("user_id", user.id);
+
+    if (_activeThreadId) {
+      query = query.eq("thread_id", _activeThreadId);
+    }
+
+    const { data, error } = await query
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -2038,7 +2168,12 @@ window.saveConversationMessage = saveConversationMessage;
 window.renderConversationHistory = renderConversationHistory;
 window.renderCoachHistoryList = renderCoachHistoryList;
 window.selectCoachHistoryMessage = selectCoachHistoryMessage;
+window.selectThread = selectThread;
+window.loadThreadList = loadThreadList;
 window.startNewCoachConversation = startNewCoachConversation;
+window.ensureActiveThread = ensureActiveThread;
+window.getActiveThreadId = getActiveThreadId;
+window.createThread = createThread;
 window.applyCoachAction = applyCoachAction;
 window.cancelCoachAction = cancelCoachAction;
 window.personalizeCoachGreeting = personalizeCoachGreeting;

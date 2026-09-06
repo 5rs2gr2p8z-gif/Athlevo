@@ -970,14 +970,15 @@ body.coach-workspace-active #tabbar .nav-active-indicator{display:block}
 .coach-error-retry:disabled{opacity:.5;pointer-events:none}
 .coach-error-retry:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 
-/* The latest-message control lives in normal composer flow so it cannot
-   overlap replies or suggestions. Its icon-only treatment stays secondary. */
-.coach-jump-latest{width:38px;height:38px;margin:0 auto var(--s-2);display:grid;place-items:center;
+/* Floating scroll-to-bottom button — positioned absolutely so it does NOT
+   consume layout space or push content. Sits above the composer. */
+.coach-jump-latest{width:38px;height:38px;display:grid;place-items:center;
+  position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:8px;
   background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:50%;
-  cursor:pointer;box-shadow:var(--elev-1);
+  cursor:pointer;box-shadow:var(--elev-1);z-index:5;
   animation:coachReveal var(--dur-base) var(--ease-standard) both;
   transition:border-color var(--dur-fast) var(--ease-standard),
-  transform var(--dur-fast) var(--ease-standard)}
+  opacity var(--dur-fast) var(--ease-standard)}
 .coach-jump-latest[hidden]{display:none}
 .coach-jump-latest svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round}
@@ -2406,6 +2407,9 @@ body.coach-side-panel-open #screen-coachai{overflow:hidden}
 .coach-new-chat-action--confirm{border-color:var(--red);background:var(--red);color:#fff}
 .coach-menu-action:focus-visible,.coach-side-panel-close:focus-visible,.coach-menu-close:focus-visible,.coach-history-item:focus-visible,.coach-new-chat-action:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{display:none!important}
+#screen-train.active ~ #profileAvatarBtn{display:none!important}
+#screen-trends.active ~ #profileAvatarBtn{display:none!important}
+.coach-history-item--active{border-color:var(--ink2);background:var(--card2)}
 @media(hover:hover) and (pointer:fine){
   .coach-header-control:hover,.coach-menu-action:hover,.coach-side-panel-close:hover,.coach-menu-close:hover,.coach-history-item:hover,.coach-new-chat-action:not(.coach-new-chat-action--confirm):hover{background:var(--card2)}
 }
@@ -2428,13 +2432,14 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 #screen-coachai.coach-is-active .coach-starters{display:none}
 #screen-coachai.coach-is-empty #chips{display:none!important}
 #screen-coachai .coach-composer .chips{
-  display:flex;flex-wrap:wrap;overflow:visible;gap:var(--s-2);margin:0 0 var(--s-2);
+  display:flex;flex-direction:column;overflow:visible;gap:var(--s-2);margin:0 0 var(--s-2);
   padding:0;scrollbar-width:none
 }
 #screen-coachai .coach-composer .chips::-webkit-scrollbar{display:none}
 #screen-coachai .coach-composer .chip{
-  flex:0 1 auto;max-width:100%;white-space:normal;text-align:left;line-height:var(--lh-caption);
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+  flex:0 0 auto;width:100%;min-height:42px;max-width:100%;white-space:normal;text-align:left;
+  line-height:var(--lh-caption);padding:10px 14px;border-radius:var(--r-md);
+  display:flex;align-items:center;
   background:var(--card2)
 }
 .am-coach-mode-mount{flex:1 1 auto;min-height:0}
@@ -5387,18 +5392,18 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   </div>
 
   <div class="coach-composer">
+    <button
+      type="button"
+      class="coach-jump-latest"
+      id="coachJumpLatest"
+      aria-label="Jump to latest message"
+      hidden
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 9l6 6 6-6"></path>
+      </svg>
+    </button>
     <div class="coach-active-tools">
-      <button
-        type="button"
-        class="coach-jump-latest"
-        id="coachJumpLatest"
-        aria-label="Jump to latest message"
-        hidden
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 9l6 6 6-6"></path>
-        </svg>
-      </button>
       <div class="chips" id="chips" data-has-suggestions="false"></div>
     </div>
     <div class="composer">
@@ -6566,18 +6571,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   </section>
 </div>
 
-<!-- The current schema is a single flat transcript, so clearing it is explicit. -->
-<div class="modal-back coach-new-chat-back" id="coachNewChatSheet" aria-hidden="true">
-  <section class="coach-new-chat-sheet" role="dialog" aria-modal="true" aria-labelledby="coachNewChatTitle">
-    <div class="coach-new-chat-sheet-head">
-      <h2 id="coachNewChatTitle">New chat</h2>
-      <button class="coach-menu-close" type="button" onclick="closeCoachNewChatPrompt()" aria-label="Cancel new chat">×</button>
-    </div>
-    <p class="coach-new-chat-copy">Starting over clears your current Coach conversation. This cannot be undone.</p>
-    <div class="coach-new-chat-actions">
-      <button class="coach-new-chat-action" type="button" onclick="closeCoachNewChatPrompt()">Keep chat</button>
-      <button class="coach-new-chat-action coach-new-chat-action--confirm" type="button" onclick="confirmCoachNewChat()">Start new chat</button>
-    </div>
+<!-- New chat now just creates a new thread — no data is deleted. -->
+<div class="modal-back coach-new-chat-back" id="coachNewChatSheet" aria-hidden="true" style="display:none">
   </section>
 </div>
 
@@ -8441,54 +8436,27 @@ function closeCoachHistory(options) {
 }
 window.closeCoachHistory = closeCoachHistory;
 
+/* New Chat no longer requires a destructive confirmation dialog.
+ * It simply creates a new thread and shows the empty state. */
 function openCoachNewChatPrompt() {
   if (coachHeaderAuthState !== "signed-in") return;
-  var root = document.getElementById("coachNewChatSheet");
-  if (!root) return;
-  if (window.AthlevoSheet) {
-    window.AthlevoSheet.open({
-      root: root,
-      sheet: ".coach-new-chat-sheet",
-      draggable: true,
-      returnFocus: "#coachHeaderNewChat",
-      initialFocus: ".coach-new-chat-action",
-      closeOnEscape: true,
-      closeOnBackdrop: true
-    });
-  } else {
-    root.classList.add("show");
-    root.setAttribute("aria-hidden", "false");
-  }
+  if (typeof window.startNewCoachConversation === "function") window.startNewCoachConversation();
 }
 window.openCoachNewChatPrompt = openCoachNewChatPrompt;
 
-function closeCoachNewChatPrompt(options) {
-  var root = document.getElementById("coachNewChatSheet");
-  if (!root) return;
-  if (window.AthlevoSheet && window.AthlevoSheet.isOpen(root)) {
-    window.AthlevoSheet.close(root, options || {});
-  } else {
-    root.classList.remove("show");
-    root.setAttribute("aria-hidden", "true");
-    if (options && typeof options.onAfterClose === "function") options.onAfterClose();
-  }
-}
+function closeCoachNewChatPrompt() { /* no-op — dialog removed */ }
 window.closeCoachNewChatPrompt = closeCoachNewChatPrompt;
 
 function confirmCoachNewChat() {
-  closeCoachNewChatPrompt({
-    restoreFocus: false,
-    onAfterClose: function () {
-      if (typeof window.startNewCoachConversation === "function") window.startNewCoachConversation();
-    }
-  });
+  if (typeof window.startNewCoachConversation === "function") window.startNewCoachConversation();
 }
 window.confirmCoachNewChat = confirmCoachNewChat;
 
 function runCoachMenuAction(action) {
   var perform = function () {
     if (action === "new-chat") {
-      openCoachNewChatPrompt();
+      closeCoachMenu();
+      if (typeof window.startNewCoachConversation === "function") window.startNewCoachConversation();
     } else if (action === "chats") {
       openCoachHistory();
     } else if (action === "profile") {
