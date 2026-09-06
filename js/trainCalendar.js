@@ -28,6 +28,7 @@
 
   let weekStart = null;    // Monday 00:00 local of the shown week
   let selected = null;     // "YYYY-MM-DD"
+  const _viewedActivityKeys = new Set();
   let byDate = {};         // date → { session, execution, activities:[] }
   let actById = {};        // activity id → activity (for modal lookup)
   let hasAnyPlan = false;
@@ -917,6 +918,7 @@
         ${strip}
         ${metricValues ? `<div class="af-card-metrics-row">${metricValues}</div>` : ""}
         ${planNote}
+        ${opts && opts.isToday ? `<div class="af-card-analyze" onclick="event.stopPropagation(); AthlevoTrainCalendar.askCoach('${esc(id)}')" role="link" tabindex="0">Analyze my ${esc((CANON_SPORT_SHORT[canonSport(a)] || "workout").toLowerCase())}</div>` : ""}
       </div>
     </button>`;
   }
@@ -959,8 +961,21 @@
         html += activityCardHtml(a, dISO, {
           done,
           session: done ? model.session : null,
-          execution: done ? model.execution : null
+          execution: done ? model.execution : null,
+          isToday
         });
+        // Analytics: matched completed activity viewed on Today (deduped)
+        if (done && isToday && window.AthlevoProductAnalytics) {
+          const _vk = String(a.id) + ":" + dISO;
+          if (!_viewedActivityKeys.has(_vk)) {
+            _viewedActivityKeys.add(_vk);
+            AthlevoProductAnalytics.trackAthlevoEvent("today_completed_activity_viewed", {
+              source_surface: "today",
+              canonical_sport: canonSport(a),
+              has_matched_plan: true
+            });
+          }
+        }
       });
     }
     html += `</div>`;
@@ -1662,13 +1677,97 @@
     return [];
   }
 
-  /* ── Ask Coach (placeholder → routes to Coach tab) ─────────────── */
+  /* ── Ask Coach (activity-aware → builds compact context) ────────── */
   function askCoach(activityId) {
-    // Navigate to Coach tab with activity context
-    if (window.AthlevoCoachChat && typeof AthlevoCoachChat.openWithContext === "function") {
-      AthlevoCoachChat.openWithContext({ activityId });
+    const act = actById[activityId] || null;
+    if (!act) {
+      const coachTab = document.querySelector('.tab[data-screen="screen-coachai"]');
+      if (coachTab && typeof go === "function") go(coachTab);
+      closeModal();
+      return;
+    }
+
+    const sport = canonSport(act);
+    const sportName = (CANON_SPORT_SHORT[sport] || "workout").toLowerCase();
+
+    // Compact activity — no raw_data, no streams, no GPS arrays
+    const compactActivity = {
+      id: act.id,
+      sport_type: act.sport_type || act.activity_type,
+      canonical_sport: sport,
+      start_date: act.start_date,
+      distance_meters: act.distance_meters || null,
+      moving_time_seconds: act.moving_time_seconds || null,
+      elapsed_time_seconds: act.elapsed_time_seconds || null,
+      average_heartrate: act.average_heartrate || null,
+      max_heartrate: act.max_heartrate || null,
+      average_speed: act.average_speed || null,
+      max_speed: act.max_speed || null,
+      total_elevation_gain: act.total_elevation_gain || null,
+      calories: act.calories || null,
+      average_cadence: act.average_cadence || null,
+      average_watts: act.average_watts || null,
+      suffer_score: act.suffer_score || null,
+      perceived_exertion: act.perceived_exertion || null,
+      source: act.source || null,
+      device_name: act.device_name || null
+    };
+
+    // Determine match status and day context
+    const todayEntry = byDate[selected];
+    const session = todayEntry && todayEntry.session || null;
+    const execution = todayEntry && todayEntry.execution || null;
+    const matchedId = execution && execution.imported_activity_id != null
+      ? String(execution.imported_activity_id) : null;
+    const isMatched = !!(matchedId && act.id != null && String(act.id) === matchedId);
+    const REST_SET = new Set(["rest", "rest_day", "restday", "off", "day_off"]);
+    const sType = String(session && session.session_type || "").toLowerCase().replace(/[\s-]+/g, "_");
+    const isRestDay = !!(session && REST_SET.has(sType));
+
+    // Compact session — only when this activity matched the plan
+    let compactSession = null;
+    if (isMatched && session) {
+      compactSession = {
+        id: session.id,
+        title: session.title || null,
+        session_type: session.session_type || null,
+        intensity: session.intensity || null,
+        duration_minutes: session.duration_minutes || null,
+        distance_km: session.distance_km || null,
+        target_rpe: session.target_rpe || null,
+        pace_guidance: session.pace_guidance || null,
+        description: session.description || null
+      };
+    }
+
+    // Context-specific analysis question
+    let question;
+    if (isMatched) {
+      question = "Assess this " + sportName + ". Did it achieve what today\u2019s planned session intended, and what should I do next?";
+    } else if (isRestDay) {
+      question = "Assess this " + sportName + " in the context of today\u2019s planned rest day. Was it appropriate, and should anything change?";
     } else {
-      // Fallback: switch to Coach tab
+      question = "Analyze this " + sportName + " and tell me how it fits into my current training and what I should do next.";
+    }
+
+    // Analytics
+    if (window.AthlevoProductAnalytics) {
+      AthlevoProductAnalytics.trackAthlevoEvent("today_activity_analyze_tapped", {
+        source_surface: "today",
+        canonical_sport: sport,
+        has_matched_plan: isMatched
+      });
+    }
+
+    if (window.AthlevoCoachChat && typeof AthlevoCoachChat.openWithContext === "function") {
+      AthlevoCoachChat.openWithContext({
+        activity: compactActivity,
+        session: compactSession,
+        question: question,
+        analysisIntent: isMatched ? "matched_session_analysis" : "activity_analysis",
+        sourceSurface: "today"
+      });
+    } else {
       const coachTab = document.querySelector('.tab[data-screen="screen-coachai"]');
       if (coachTab && typeof go === "function") go(coachTab);
     }
@@ -1962,6 +2061,25 @@
       elem.addEventListener("pointercancel", cancel);
     });
   }
+
+  /* ── Reactive refresh on tab/app return ─────────────────────────── */
+  let _lastVisRefresh = 0;
+  let _loadWeekInFlight = false;
+  function onVisibilityReturn() {
+    if (document.visibilityState !== "visible") return;
+    const now = Date.now();
+    if (now - _lastVisRefresh < 30000) return; // debounce 30s
+    if (_loadWeekInFlight) return;              // prevent concurrent fetches
+    _lastVisRefresh = now;
+    if (!weekStart) return;
+    const savedSelected = selected;             // preserve selected day
+    _loadWeekInFlight = true;
+    loadWeek(weekStart)
+      .then(() => { selected = savedSelected; render(); })
+      .catch(() => {})
+      .finally(() => { _loadWeekInFlight = false; });
+  }
+  try { document.addEventListener("visibilitychange", onVisibilityReturn); } catch (e) {}
 
   async function open(planData) {
     hasAnyPlan = !!(planData && planData.hasPlan);

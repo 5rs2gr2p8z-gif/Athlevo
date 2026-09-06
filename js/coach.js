@@ -1,5 +1,7 @@
 console.log("Athlevo Coach Loaded");
 
+var _pendingActivityContext = null;
+
 /* ══════════════ Empty state + contextual starters ══════════════ */
 
 function setCoachConversationState(isEmpty) {
@@ -1421,6 +1423,23 @@ context.recentConversation = (await loadRecentConversationForCoach())
     (m, i, arr) =>
       !(i === arr.length - 1 && m.role === "athlete" && m.text === cleanQuestion)
   );
+    // ── Target activity context (from Today card "Analyze" CTA) ──────
+    if (_pendingActivityContext) {
+      if (_pendingActivityContext.activity) {
+        context.targetActivity = _pendingActivityContext.activity;
+      }
+      if (_pendingActivityContext.session) {
+        context.targetSession = _pendingActivityContext.session;
+      }
+      if (_pendingActivityContext.analysisIntent) {
+        context.analysisIntent = _pendingActivityContext.analysisIntent;
+      }
+      if (_pendingActivityContext.sourceSurface) {
+        context.sourceSurface = _pendingActivityContext.sourceSurface;
+      }
+      _pendingActivityContext = null;
+    }
+
     // The coach endpoint now requires a valid Athlevo session (it spends AI
     // budget), so send the Supabase access token like every other endpoint.
     if (!coachSession) {
@@ -1867,6 +1886,28 @@ function cancelCoachAction(proposalId, cardEl) {
   if (message) message.textContent = "No changes were made.";
 }
 
+/* ══ AthlevoCoachChat: activity-aware Coach entry point ══════════════ */
+function openWithContext(opts) {
+  if (!opts) return;
+  _pendingActivityContext = {
+    activity: opts.activity || null,
+    session: opts.session || null,
+    analysisIntent: opts.analysisIntent || "activity_analysis",
+    sourceSurface: opts.sourceSurface || "today"
+  };
+
+  // Navigate to Coach tab
+  var coachTab = document.querySelector('.tab[data-screen="screen-coachai"]');
+  if (coachTab && typeof go === "function") go(coachTab);
+
+  // Auto-send the analysis question after tab transition
+  var question = opts.question || "";
+  if (question) {
+    setTimeout(function () { askCoach(question); }, 150);
+  }
+}
+
+window.AthlevoCoachChat = { openWithContext: openWithContext };
 window.askCoach = askCoach;
 window.ask = ask;
 window.sendMsg = sendMsg;

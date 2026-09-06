@@ -150,7 +150,11 @@
     diagnostic_checkout_method_selected: { kind: "behavioural", props: ["surface", "checkout_method"] },
     diagnostic_social_proof_viewed: { kind: "behavioural", props: [] },
     signup_started:                { kind: "behavioural", props: ["source_surface"] },
-    auth_method_attempted:         { kind: "behavioural", props: ["method", "source_surface", "acquisition_intent"] }
+    auth_method_attempted:         { kind: "behavioural", props: ["method", "source_surface", "acquisition_intent"] },
+    // Today card — completed activity viewed and analyse CTA tapped.
+    // Categorical only — never activity title, distance, HR, or athlete id.
+    today_completed_activity_viewed: { kind: "behavioural", props: ["source_surface", "canonical_sport", "has_matched_plan"] },
+    today_activity_analyze_tapped:   { kind: "behavioural", props: ["source_surface", "canonical_sport", "has_matched_plan"] }
   };
 
   // Legacy names still emitted by older call sites → the canonical event they
