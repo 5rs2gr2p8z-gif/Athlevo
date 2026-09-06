@@ -197,34 +197,39 @@ test("signed-in and signed-out menu rows are separated by canonical auth state",
   /data-coach-auth="signed-in"[\s\S]*?>Settings</.test(coachMenu) &&
   /data-coach-auth="signed-out"[\s\S]*?>Sign in</.test(coachMenu) &&
   /data-coach-auth="signed-in"[\s\S]*?>Sign out</.test(coachMenu));
-test("menu actions reuse existing chat and account flows",
-  /action === "new-chat"[\s\S]*?openCoachNewChatPrompt\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
+test("menu actions reuse the same canonical chat and account flows as the header controls",
+  /action === "new-chat"[\s\S]*?startNewCoachConversation\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "chats"[\s\S]*?openCoachHistory\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "profile"[\s\S]*?openProfileScreen\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "settings"[\s\S]*?openSettings\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "sign-in"[\s\S]*?openLogin\(true, "coach_header"\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "sign-out"[\s\S]*?doLogout\(\)/.test(extractFunction(html, "runCoachMenuAction")));
-test("Chats uses AthlevoSheet and the canonical user-scoped conversation loader",
+test("top-right Chats icon and side-panel Chats action call the exact same canonical function",
+  /id="coachHeaderChats"[^>]*onclick="openCoachHistory\(\)"/.test(html) &&
+  /action === "chats"[\s\S]{0,40}openCoachHistory\(\)/.test(extractFunction(html, "runCoachMenuAction")));
+test("Chats uses AthlevoSheet and the canonical thread-list loader (one row per conversation)",
   /sheet: "\.coach-history-sheet"/.test(extractFunction(html, "openCoachHistory")) &&
   /id="coachHistoryList"/.test(coachHistory) &&
-  /const history = await loadConversationHistory\(\)/.test(extractFunction(coach, "renderCoachHistoryList")) &&
-  /\.eq\("user_id", user\.id\)/.test(extractFunction(coach, "loadConversationHistory")));
-test("history previews are rendered as text and selecting one never deletes messages",
-  /preview\.textContent = coachHistoryPreviewText\(item\)/.test(extractFunction(coach, "renderCoachHistoryList")) &&
-  /renderConversationHistory\(\)/.test(extractFunction(coach, "selectCoachHistoryMessage")) &&
-  !/\.delete\(/.test(extractFunction(coach, "selectCoachHistoryMessage")));
-test("New Chat is gated by an explicit irreversible-history confirmation",
-  /Starting over clears your current Coach conversation\. This cannot be undone\./.test(html) &&
+  /const threads = await loadThreadList\(\)/.test(extractFunction(coach, "renderCoachHistoryList")) &&
+  /\.from\("coach_threads"\)/.test(extractFunction(coach, "loadThreadList")) &&
+  /\.eq\("user_id", user\.id\)/.test(extractFunction(coach, "loadThreadList")));
+test("no flat-message history UI remains on the active Chats path",
+  !/coachHistoryPreviewText/.test(coach) &&
+  !extractFunction(coach, "renderCoachHistoryList").includes("loadConversationHistory") &&
+  /formatThreadDate/.test(extractFunction(coach, "renderCoachHistoryList")));
+test("thread rows render as text and selecting one never deletes messages",
+  /label\.textContent = thread\.title \|\| "Untitled conversation"/.test(extractFunction(coach, "renderCoachHistoryList")) &&
+  /renderConversationHistory\(\)/.test(extractFunction(coach, "selectThread")) &&
+  !/\.delete\(/.test(extractFunction(coach, "selectThread")));
+test("New Chat starts a fresh thread directly, with no destructive confirmation dialog",
+  !/Starting over clears your current Coach conversation\. This cannot be undone\./.test(html) &&
   /openCoachNewChatPrompt/.test(coachHeader) &&
-  /startNewCoachConversation\(\)/.test(extractFunction(html, "confirmCoachNewChat")));
-test("New chat clears persisted history only inside the authenticated athlete boundary",
+  /startNewCoachConversation\(\)/.test(extractFunction(html, "openCoachNewChatPrompt")));
+test("New chat preserves history — it clears the active thread pointer, not coach_conversations rows",
   /function startNewCoachConversation/.test(coach) &&
-  /\.from\("coach_conversations"\)[\s\S]*?\.delete\(\)[\s\S]*?\.eq\("user_id", user\.id\)/.test(
-    extractFunction(coach, "startNewCoachConversation")
-  ) &&
-  /if \(error\)[\s\S]*?return false;[\s\S]*?querySelectorAll\("\.msg, \.coach-error"\)/.test(
-    extractFunction(coach, "startNewCoachConversation")
-  ));
+  !/\.from\("coach_conversations"\)[\s\S]*?\.delete\(/.test(extractFunction(coach, "startNewCoachConversation")) &&
+  /_activeThreadId = null/.test(extractFunction(coach, "startNewCoachConversation")) &&
+  /querySelectorAll\("\.msg, \.coach-error"\)/.test(extractFunction(coach, "startNewCoachConversation")));
 test("global profile avatar is hidden only for active athlete Coach",
   /body:not\(\.coach-workspace-active\) #screen-coachai\.active ~ #profileAvatarBtn\{display:none!important\}/.test(html));
 
@@ -279,15 +284,15 @@ const followUpFactory = new Function(
   `${extractFunction(coach, "buildFollowUpActions")}
    return buildFollowUpActions;`
 )();
-test("active conversations expose no more than two follow-ups",
+test("active conversations expose up to three suggested-reply follow-ups",
   followUpFactory({ response_type: "plan_change", actions: [{}] }).length === 2 &&
-  /replies\.slice\(0, 2\)/.test(renderer));
+  /replies\.slice\(0, 3\)/.test(renderer));
 test("large starter suggestions disappear after conversation starts",
   /coach-is-active \.coach-starters\s*\{display:none\}/.test(html) &&
   /hideCoachEmptyState\(\)/.test(extractFunction(coach, "addChatMessage")));
 test("follow-up suggestions are mounted above the composer input",
   coachScreen.indexOf('id="chips"') < coachScreen.indexOf('<div class="composer">') &&
-  /coach-composer \.chips\{[^}]*flex-wrap:wrap[^}]*margin:0 0 var\(--s-2\)/.test(html));
+  /coach-composer \.chips\{[^}]*flex-direction:column[^}]*margin:0 0 var\(--s-2\)/.test(html));
 
 console.log("\n──── Latest-message controls ────");
 test("old text pill is replaced by a labelled circular arrow",

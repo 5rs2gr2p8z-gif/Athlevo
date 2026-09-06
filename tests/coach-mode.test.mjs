@@ -633,7 +633,7 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(!prepare.includes("rewriteNavigation()"));
     assert.ok(!prepare.includes('classList.add("coach-loading")'));
     assert.ok(source.includes('btn.className = "tab" + (i === 0 ? " on" : "")'));
-    assert.ok(source.includes('{ screen: "screen-today",            label: "Today"'));
+    assert.ok(source.includes('{ screen: "screen-train",    label: "Calendar"'));
   });
 
   it("does not retain a loading-only tabbar or coach visibility override", () => {

@@ -1,5 +1,6 @@
 /*
- * Focused contract for the athlete Train / Coach / Trends shell.
+ * Focused contract for the athlete Calendar / Coach / You shell
+ * (screen IDs remain screen-train / screen-coachai / screen-trends).
  * Run: node tests/athlete-primary-navigation.test.mjs
  */
 import { readFileSync } from "node:fs";
@@ -49,8 +50,8 @@ const staticTabs = [...staticNav.matchAll(
 console.log("\n──── Athlete navigation DOM ────");
 test("athlete navigation has exactly three tabs", staticTabs.length === 3,
   staticTabs.map(tab => tab.screen).join(", "));
-test("athlete tab order is Train / Coach / Trends",
-  staticTabs.map(tab => tab.label).join(" / ") === "Train / Coach / Trends");
+test("athlete tab order is Calendar / Coach / You",
+  staticTabs.map(tab => tab.label).join(" / ") === "Calendar / Coach / You");
 test("athlete tab targets use the existing screen IDs",
   staticTabs.map(tab => tab.screen).join(" / ") ===
     "screen-train / screen-coachai / screen-trends");
@@ -58,6 +59,17 @@ test("Coach alone is selected by default",
   staticTabs[1]?.classes.split(/\s+/).includes("on") === true &&
   staticTabs[1]?.selected === "true" &&
   staticTabs.filter((_,i) => i !== 1).every(tab => tab.selected === "false"));
+
+const tabBlocks = staticNav.split(/(?=<button)/).filter(block => block.trim().startsWith("<button"));
+const calendarTabBlock = tabBlocks.find(block => block.includes('data-screen="screen-train"')) || "";
+const youTabBlock = tabBlocks.find(block => block.includes('data-screen="screen-trends"')) || "";
+test("Calendar tab carries a descriptive aria-label",
+  /aria-label="Calendar"/.test(calendarTabBlock));
+test("You tab carries a descriptive aria-label",
+  /aria-label="You"/.test(youTabBlock));
+test("You tab uses a person/profile icon rather than the old trend-chart icon",
+  /<circle cx="12" cy="8" r="4"\/><path d="M4 21a8 8 0 0 1 16 0"\/>/.test(youTabBlock) &&
+  !/M3 17l6-6 4 4 8-8/.test(youTabBlock));
 test("Today and You screens remain in the DOM",
   /<section[^>]+id="screen-today"/.test(html) &&
   /<section[^>]+id="screen-you"/.test(html));
@@ -177,7 +189,7 @@ test("Coach Mode still includes its own Today tab",
   /screen-today/.test(coachTabs) && /label: "Today"/.test(coachTabs));
 test("Coach Mode still activates screen-today for Coach Today",
   /showImmediately\("screen-today"\)/.test(activateCoach));
-test("leaving Coach Mode restores exactly Train / Coach / Trends",
+test("leaving Coach Mode restores exactly Calendar / Coach / You (screen-train / screen-coachai / screen-trends)",
   (restoredAthleteTabs.match(/screen:/g) || []).length === 3 &&
   /screen-train[\s\S]*screen-coachai[\s\S]*screen-trends/.test(restoredAthleteTabs));
 test("leaving Coach Mode shows screen-train",

@@ -489,19 +489,22 @@
     var tabbar = document.getElementById("tabbar");
     if (!tabbar) return;
     tabbar.innerHTML = "";
-    tabbar.setAttribute("role", "tablist");
-    tabbar.setAttribute("aria-label", "Coach navigation");
+    // Coach workspace uses its own rectangular 5-tab layout
+    tabbar.classList.remove("tabbar--capsule");
+    // Coach Mode applies full-width edge-to-edge styling
+    tabbar.style.cssText = "display:flex;position:absolute;left:0;right:0;bottom:0;width:100%;border-radius:0;transform:none;padding:10px 8px calc(14px + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)));background:var(--nav-glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--line);box-shadow:none";
     COACH_TABS.forEach(function (tab, i) {
       var btn = document.createElement("button");
       btn.className = "tab" + (i === 0 ? " on" : "");
       btn.setAttribute("data-screen", tab.screen);
       btn.setAttribute("onclick", "AthlevoCoachMode.go(this)");
-      btn.setAttribute("role", "tab");
-      btn.setAttribute("aria-selected", i === 0 ? "true" : "false");
       btn.innerHTML = tab.icon + "<span>" + tab.label + "</span>" + '<div class="dotmark"></div>';
       tabbar.appendChild(btn);
     });
     tabbar.style.display = "flex";
+    // Hide athlete profile avatar in coach workspace
+    var avatarBtn = document.getElementById("profileAvatarBtn");
+    if (avatarBtn) avatarBtn.style.display = "none";
   }
 
   /* Restore the original athlete Today markup saved before coach render */
@@ -515,14 +518,16 @@
   function restoreAthleteNavigation() {
     var tabbar = document.getElementById("tabbar");
     if (!tabbar) return;
+    // Athlete navigation: 3-tab floating capsule (Calendar / Coach / You)
     var ATHLETE_TABS = [
-      { screen: "screen-train",    label: "Train",  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' },
+      { screen: "screen-train",    label: "Calendar",  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' },
       { screen: "screen-coachai",  label: "Coach",  icon: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>' },
-      { screen: "screen-trends",   label: "Trends", icon: '<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>' }
+      { screen: "screen-trends",   label: "You", icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>' }
     ];
     tabbar.innerHTML = "";
-    tabbar.setAttribute("role", "tablist");
-    tabbar.setAttribute("aria-label", "Primary navigation");
+    tabbar.classList.add("tabbar--capsule");
+    // Clear Coach Mode's inline rectangular styles so capsule CSS takes over
+    tabbar.style.cssText = "";
     ATHLETE_TABS.forEach(function (tab, i) {
       var btn = document.createElement("button");
       btn.className = "tab" + (i === 0 ? " on" : "");
@@ -530,9 +535,13 @@
       btn.setAttribute("onclick", "go(this)");
       btn.setAttribute("role", "tab");
       btn.setAttribute("aria-selected", i === 0 ? "true" : "false");
-      btn.innerHTML = tab.icon + "<span>" + tab.label + "</span>" + '<div class="dotmark"></div>';
+      btn.setAttribute("aria-label", tab.label);
+      btn.innerHTML = tab.icon + "<span>" + tab.label + "</span>";
       tabbar.appendChild(btn);
     });
+    // Re-show profile avatar
+    var avatarBtn = document.getElementById("profileAvatarBtn");
+    if (avatarBtn) avatarBtn.style.display = "";
   }
 
   /* ═══════════════════════ WORKSPACE SWITCHER ═══════════════════════ */
@@ -644,7 +653,7 @@
   function activateCoachWorkspace() {
     if (!canAccessCoachWorkspace()) {
       enforceAthleteWorkspaceFallback();
-      if (typeof window.showScreen === "function") window.showScreen("screen-train");
+      if (typeof window.showScreen === "function") window.showScreen("screen-today");
       return false;
     }
     document.body.classList.add("coach-workspace-active");
@@ -718,7 +727,7 @@
     restoreAthleteToday();
     restoreAthleteNavigation();
 
-    // Show athlete Train home
+    // Show athlete Train (default athlete home)
     var hasImmediateMotion = window.AthlevoAppMotion && typeof window.AthlevoAppMotion.showImmediately === "function";
     var trainEl = hasImmediateMotion
       ? window.AthlevoAppMotion.showImmediately("screen-train")
@@ -816,12 +825,8 @@
       window.AthlevoAppMotion.selectTab(btn, true);
       window.AthlevoAppMotion.transitionTo(screenId);
     } else {
-      document.querySelectorAll(".tab").forEach(function (t) {
-        t.classList.remove("on");
-        t.setAttribute("aria-selected", "false");
-      });
+      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("on"); });
       btn.classList.add("on");
-      btn.setAttribute("aria-selected", "true");
       document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
       if (screenEl) screenEl.classList.add("active");
     }

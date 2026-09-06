@@ -629,19 +629,6 @@ if (latestAssistantMessage) {
   markAppliedProposals();
 }
 
-function coachHistoryPreviewText(item) {
-  let text = String(item && item.message || "");
-  if (item && item.role === "assistant") {
-    try {
-      const parsed = JSON.parse(text);
-      text = parsed.direct_answer || parsed.headline || text;
-    } catch (error) {
-      /* Legacy assistant messages are already plain text. */
-    }
-  }
-  return text.replace(/\s+/g, " ").trim().slice(0, 120) || "Message";
-}
-
 function formatThreadDate(dateStr) {
   try {
     const d = new Date(dateStr);
