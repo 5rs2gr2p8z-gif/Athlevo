@@ -69,8 +69,8 @@ const coachMenu = html.slice(
   html.indexOf("<!-- Coach history reflects", html.indexOf('id="coachSidePanelOverlay"'))
 );
 const coachHistory = html.slice(
-  html.indexOf('<div class="modal-back coach-history-back" id="coachHistorySheet"'),
-  html.indexOf('<div class="modal-back coach-new-chat-back"', html.indexOf('id="coachHistorySheet"'))
+  html.indexOf('coach-side-panel-chats'),
+  html.indexOf("</div>", html.indexOf('id="coachSidePanelChatList"'))
 );
 
 console.log("\n──── Athlete Coach header ────");
@@ -199,17 +199,18 @@ test("signed-in and signed-out menu rows are separated by canonical auth state",
   /data-coach-auth="signed-in"[\s\S]*?>Sign out</.test(coachMenu));
 test("menu actions reuse the same canonical chat and account flows as the header controls",
   /action === "new-chat"[\s\S]*?startNewCoachConversation\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
-  /action === "chats"[\s\S]*?openCoachHistory\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "profile"[\s\S]*?openProfileScreen\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "settings"[\s\S]*?openSettings\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "sign-in"[\s\S]*?openLogin\(true, "coach_header"\)/.test(extractFunction(html, "runCoachMenuAction")) &&
-  /action === "sign-out"[\s\S]*?doLogout\(\)/.test(extractFunction(html, "runCoachMenuAction")));
-test("top-right Chats icon and side-panel Chats action call the exact same canonical function",
-  /id="coachHeaderChats"[^>]*onclick="openCoachHistory\(\)"/.test(html) &&
-  /action === "chats"[\s\S]{0,40}openCoachHistory\(\)/.test(extractFunction(html, "runCoachMenuAction")));
-test("Chats uses AthlevoSheet and the canonical thread-list loader (one row per conversation)",
-  /sheet: "\.coach-history-sheet"/.test(extractFunction(html, "openCoachHistory")) &&
-  /id="coachHistoryList"/.test(coachHistory) &&
+  /action === "sign-out"[\s\S]*?doLogout\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
+  !/action === "chats"/.test(extractFunction(html, "runCoachMenuAction")));
+test("top-right Chats icon and the hamburger menu open the exact same canonical side panel",
+  /id="coachHeaderChats"[^>]*onclick="openCoachMenu\(\)"/.test(html) &&
+  /id="coachMenuButton"[^>]*onclick="openCoachMenu\(\)"/.test(html));
+test("the side panel renders the canonical thread list inline (one row per conversation), not a separate sheet",
+  /coach-side-panel-label">Chats</.test(coachMenu) &&
+  /id="coachSidePanelChatList"/.test(coachMenu) &&
+  !/id="coachHistorySheet"|openCoachHistory\(\)/.test(html) &&
   /const threads = await loadThreadList\(\)/.test(extractFunction(coach, "renderCoachHistoryList")) &&
   /\.from\("coach_threads"\)/.test(extractFunction(coach, "loadThreadList")) &&
   /\.eq\("user_id", user\.id\)/.test(extractFunction(coach, "loadThreadList")));
@@ -237,13 +238,17 @@ console.log("\n──── Empty workspace ────");
 test("empty state uses the exact centered workspace prompt",
   /id="coachEmptyGreeting">What should we work on\?<\/h2>/.test(coachScreen) &&
   /Ask about today’s training, recovery, pacing, or your plan\./.test(coachScreen));
-test("the focal composer follows the prompt and starters follow the composer",
+test("the focal composer follows the prompt, and starter suggestions sit directly above the composer",
   coachScreen.indexOf("coachEmptyGreeting") < coachScreen.indexOf('class="coach-composer"') &&
-  coachScreen.indexOf('class="composer"') < coachScreen.indexOf('id="coachStarters"'));
-test("empty suggestions are compact and limited to three or four",
-  (coachScreen.match(/class="coach-starter"/g) || []).length >= 3 &&
-  (coachScreen.match(/class="coach-starter"/g) || []).length <= 4 &&
-  /\.coach-starters\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/.test(coachCss));
+  coachScreen.indexOf('id="coachStarters"') < coachScreen.indexOf('class="composer"'));
+test("empty suggestions are exactly three, one vertical column",
+  (coachScreen.match(/class="coach-starter( coach-starter--recommended)?"/g) || []).length === 3 &&
+  /\.coach-starters\{[^}]*grid-template-columns:1fr/.test(coachCss));
+test("top suggestion carries a reduced-motion-safe recommended accent, with no gradient/glow decoration",
+  /class="coach-starter coach-starter--recommended"/.test(coachScreen) &&
+  /\.coach-starter--recommended/.test(coachCss) &&
+  /prefers-reduced-motion:reduce\)\{\.coach-starter--recommended::after\{animation:none/.test(html) &&
+  !/\.coach-starter--recommended[\s\S]*?gradient\(/.test(coachCss));
 
 const starterFactory = new Function(
   "document",
@@ -254,7 +259,7 @@ const starterPrompts = planState => starterFactory({
   getElementById: id => id === "dailyBriefCard" ? { dataset: { planState } } : null
 })();
 test("saved workout context produces relevant session prompts",
-  starterPrompts("workout").length === 4 &&
+  starterPrompts("workout").length === 3 &&
   starterPrompts("workout")[0] === "Should I complete today’s workout?" &&
   starterPrompts("workout")[1] === "How should I pace this session?");
 test("no-plan context does not suggest completing a nonexistent workout",

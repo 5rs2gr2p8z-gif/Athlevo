@@ -19,8 +19,7 @@ function buildCoachStarterPrompts() {
     return [
       "Should I complete today’s workout?",
       "How should I pace this session?",
-      "Am I recovering well?",
-      "Adjust this week around my schedule"
+      "Am I recovering well?"
     ];
   }
 
@@ -28,8 +27,7 @@ function buildCoachStarterPrompts() {
     return [
       "What should I focus on today?",
       "Am I recovering well?",
-      "How is my week progressing?",
-      "Adjust this week around my schedule"
+      "How is my week progressing?"
     ];
   }
 
@@ -53,10 +51,10 @@ function renderCoachStarterPrompts() {
   if (!container) return;
   container.innerHTML = "";
 
-  buildCoachStarterPrompts().slice(0, 4).forEach(prompt => {
+  buildCoachStarterPrompts().slice(0, 3).forEach((prompt, index) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "coach-starter";
+    button.className = index === 0 ? "coach-starter coach-starter--recommended" : "coach-starter";
     button.dataset.prompt = prompt;
     button.textContent = prompt;
     container.appendChild(button);
@@ -116,7 +114,7 @@ function createCoachThinkingEl() {
   wrap.setAttribute("role", "status");
   wrap.setAttribute("aria-label", "Coach is thinking");
   wrap.innerHTML =
-    '<div class="coach-thinking-mark"><img src="assets/athlevo-logo.png" alt="" /></div>' +
+    '<div class="coach-thinking-mark"><img src="assets/athlevo-icon-transparent.png" alt="" /></div>' +
     '<span class="coach-thinking-label">' + COACH_THINKING_LABELS[0] + '</span>';
   return wrap;
 }
@@ -660,7 +658,7 @@ async function loadThreadList() {
 }
 
 async function renderCoachHistoryList() {
-  const list = document.getElementById("coachHistoryList");
+  const list = document.getElementById("coachSidePanelChatList");
   if (!list) return [];
 
   const threads = await loadThreadList();
@@ -705,8 +703,8 @@ async function selectThread(threadId) {
     if (cl) cl.scrollTo({ top: cl.scrollHeight, behavior: coachScrollBehavior() });
   };
 
-  if (typeof window.closeCoachHistory === "function") {
-    window.closeCoachHistory({ restoreFocus: false, onAfterClose: reveal });
+  if (typeof window.closeCoachMenu === "function") {
+    window.closeCoachMenu({ restoreFocus: false, onAfterClose: reveal });
   } else {
     reveal();
   }
