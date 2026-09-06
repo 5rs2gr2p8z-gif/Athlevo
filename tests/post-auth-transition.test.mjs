@@ -30,6 +30,8 @@ function sliceFn(name, next) {
 const doSignup = sliceFn("doSignup", "doLogin");
 const doLogin = sliceFn("doLogin", "doLogout");
 const restore = sliceFn("restoreSession", "endBootGate");
+const pendingSession = sliceFn("showPendingSessionState", "scheduleOAuthHydrationFailOpen");
+const endBoot = sliceFn("endBootGate");
 const signedIn = html.slice(
   html.indexOf('event === "SIGNED_IN"'),
   html.indexOf("athlevo:native-auth-complete")
@@ -51,6 +53,20 @@ section("Surface");
     !/paid_active/.test(sliceFn("showPostAuthTransition", "claimPostAuthRoute")) &&
     !/screen-(today|train)/.test(sliceFn("showPostAuthTransition", "claimPostAuthRoute")) &&
     !/showPaywall/.test(sliceFn("showPostAuthTransition", "claimPostAuthRoute")));
+}
+
+section("Unresolved session");
+{
+  t("unknown auth uses the neutral setup shell without locking auth as confirmed",
+    /showScreen\("screen-auth-setup"\)/.test(pendingSession) &&
+    /renderCoachHeaderAuthState\(null, false\)/.test(pendingSession) &&
+    !/lockAuthEntryControls\(true\)/.test(pendingSession));
+  t("boot fail-open cannot paint signup while session restoration is unresolved",
+    /pendingSessionRestore = !window\.__athlevoSessionRestoreSettled/.test(endBoot) &&
+    /if \(pendingSessionRestore\) \{[\s\S]*?showPendingSessionState\(\)/.test(endBoot));
+  t("the auth timeout keeps awaiting the original Supabase session request",
+    /pendingSession: pendingSession/.test(restore) &&
+    /result = await result\.pendingSession/.test(restore));
 }
 
 section("Email signup / login");

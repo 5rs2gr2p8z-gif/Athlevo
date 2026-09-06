@@ -78,6 +78,7 @@ const SOURCE = [
   extract("earlyStartAnonymousAiDiagnosticIfEligible"),
   extract("lockAuthEntryControls"),
   extract("clearOAuthHydrationFailOpen"),
+  extract("showPendingSessionState"),
   extract("scheduleOAuthHydrationFailOpen"),
   extract("showPostAuthTransition"),
   extract("claimPostAuthRoute"),
@@ -683,30 +684,42 @@ section("/ai acquisition routing");
     /routeAfterAuth\(session\.user\.id\)/.test(src) && !/paid_active/.test(src));
   t("session timeout is tracked separately from a true logged-out session",
     /sessionRestoreTimedOut/.test(src));
-  t("stored auth token on timeout does not start diagnostic",
-    /stored token — not starting diagnostic/.test(src));
+  t("a session timeout stays neutral instead of being treated as signed out",
+    /A timeout is unresolved, not signed out/.test(src) &&
+    /showPendingSessionState\(\)/.test(src));
   t("boot gate on /ai uses the same 6s fail-open as other public routes",
     !/Boot gate held on \/ai until session restore settles/.test(html) &&
     /Boot gate released on timeout/.test(html) &&
     /__athlevoSessionRestoreSettled/.test(html));
-  t("endBootGate does not paint landing under an unresolved /ai restore",
-    /pendingAiRestore/.test(extract("endBootGate")) &&
+  t("endBootGate renders a neutral shell under every unresolved restore",
+    /pendingSessionRestore/.test(extract("endBootGate")) &&
+    /showPendingSessionState\(\)/.test(extract("endBootGate")) &&
     /showScreen\(isStandaloneMode\(\) \? "screen-welcome" : "screen-landing"\)/.test(extract("endBootGate")));
   t("PERMANENT: restoreSession anonymous /ai starts diagnostic, not openAiSignup",
     /\/ai route: logged-out visitors see the diagnostic, not auth or pricing/.test(src) &&
-    /aiDiagnosticEntry && window\.AthlevoDiagnosticUI/.test(src) &&
+    /isAiEntryPath[\s\S]*?window\.AthlevoDiagnosticUI/.test(src) &&
     !/aiAcquisition && typeof openAiSignup/.test(src));
 }
 {
   const { api, state, window: win } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
   win.__athlevoSessionRestoreSettled = false;
   api.endBootGate();
-  t("6s fail-open on /ai does not flash landing before restore paints",
+  t("6s fail-open on /ai shows only the neutral setup shell before restore paints",
     state.screens["screen-landing"].active === false &&
     state.screens["screen-welcome"].active === false &&
     state.screens["screen-today"].active === false &&
+    state.screens["screen-auth-setup"].active === true &&
     state.diagnosticStarted !== true &&
     !state.bodyClasses.has("booting"));
+}
+{
+  const { api, state, window: win } = makeWorld({ session: null, standalone: true, pathname: "/" });
+  win.__athlevoSessionRestoreSettled = false;
+  api.endBootGate();
+  t("unresolved installed-app boot cannot flash signup/login",
+    state.screens["screen-auth-setup"].active === true &&
+    state.screens["screen-welcome"].active === false &&
+    state.screens["screen-landing"].active === false);
 }
 {
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
@@ -773,9 +786,10 @@ section("/ai acquisition routing");
   });
   state.store.set("athlevo_app_entry_intent", "ai");
   await api.restoreSession({}); api.endBootGate();
-  t("timeout with stored token does not start diagnostic or grant app access",
+  t("timeout with stored token stays neutral and grants no app access",
     state.diagnosticStarted === false && state.routed === null &&
-    state.screens["screen-welcome"].active === true);
+    state.screens["screen-auth-setup"].active === true &&
+    state.screens["screen-welcome"].active === false);
 }
 {
   const { api, state } = makeWorld({
@@ -783,10 +797,11 @@ section("/ai acquisition routing");
   });
   state.store.set("athlevo_app_entry_intent", "ai");
   await api.restoreSession({}); api.endBootGate();
-  t("timeout without a stored token still starts the /ai diagnostic",
-    state.diagnosticStarted === true && state.routed === null &&
+  t("timeout without a stored token is still unresolved and stays neutral",
+    state.diagnosticStarted === false && state.routed === null &&
     state.aiSignupShown !== true &&
-    state.pricingShown !== true);
+    state.pricingShown !== true &&
+    state.screens["screen-auth-setup"].active === true);
 }
 {
   const { api, state } = makeWorld({

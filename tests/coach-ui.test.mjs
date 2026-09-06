@@ -65,8 +65,8 @@ const coachHeader = html.slice(
     "</header>".length
 );
 const coachMenu = html.slice(
-  html.indexOf('<div class="modal-back coach-menu-back" id="coachMenuSheet"'),
-  html.indexOf("<!-- ══════════════ PROFILE AVATAR", html.indexOf('id="coachMenuSheet"'))
+  html.indexOf('<div class="coach-side-panel-overlay" id="coachSidePanelOverlay"'),
+  html.indexOf("<!-- Coach history reflects", html.indexOf('id="coachSidePanelOverlay"'))
 );
 const coachHistory = html.slice(
   html.indexOf('<div class="modal-back coach-history-back" id="coachHistorySheet"'),
@@ -93,11 +93,10 @@ test("right header actions start hidden while canonical auth resolves",
   /id="coachHeaderSignedIn"[^>]*hidden/.test(coachHeader) &&
   /\.coach-header-control\[hidden\],\.coach-header-authenticated\[hidden\],\.coach-menu-pending\[hidden\],\.coach-menu-action\[hidden\]\{display:none\}/.test(html));
 test("athlete Coach header has no opaque full-width bar or divider",
-  /#screen-coachai \.coach-head\{[^}]*background:transparent;border-bottom:0/.test(html));
-test("left menu and center logo are subtle independent bubbles",
+  /#screen-coachai \.coach-head\{[^}]*background:transparent;border:0;box-shadow:none[^}]*backdrop-filter:none/.test(html));
+test("left menu floats independently and the center logo has no disk",
   /\.coach-header-control\{[^}]*min-width:44px;min-height:44px[^}]*color-mix\(in srgb,var\(--paper\) 66%,transparent\)/.test(html) &&
-  /\.coach-logo-bubble\{[^}]*color-mix\(in srgb,var\(--paper\) 16%,transparent\)/.test(html) &&
-  !/\.coach-logo-bubble\{[^}]*box-shadow/.test(html));
+  /\.coach-logo-bubble\{[^}]*background:transparent;border:0;box-shadow:none/.test(html));
 test("signed-in right bubble contains labelled Chats and New Chat icons only",
   /id="coachHeaderSignedIn"[\s\S]*?id="coachHeaderChats"[\s\S]*?aria-label="Open Coach chats"/.test(coachHeader) &&
   /id="coachHeaderSignedIn"[\s\S]*?id="coachHeaderNewChat"[\s\S]*?aria-label="Start a new Coach chat"/.test(coachHeader) &&
@@ -109,7 +108,7 @@ const headerAuthElements = {
   coachHeaderSignedIn: { hidden: true },
   coachMenuPending: { hidden: false }
 };
-const headerMenuItems = ["signed-in", "signed-in", "signed-out"].map(auth => ({
+const headerMenuItems = ["signed-in", "signed-in", "signed-out", "signed-in"].map(auth => ({
   hidden: true,
   getAttribute(name) { return name === "data-coach-auth" ? auth : null; }
 }));
@@ -132,12 +131,14 @@ headerAuthFactory(null);
 test("signed-out state renders Sign in without Chats, New Chat, settings, or notifications",
   headerAuthElements.coachHeaderSignIn.hidden === false &&
   headerAuthElements.coachHeaderSignedIn.hidden === true &&
-  headerMenuItems[2].hidden === false && headerMenuItems.slice(0, 2).every(item => item.hidden));
+  headerMenuItems.filter(item => item.getAttribute("data-coach-auth") === "signed-out").every(item => item.hidden === false) &&
+  headerMenuItems.filter(item => item.getAttribute("data-coach-auth") === "signed-in").every(item => item.hidden));
 headerAuthFactory({ user: { id: "athlete-1" } });
 test("signed-in state never renders Sign in and reveals Chats plus New Chat",
   headerAuthElements.coachHeaderSignIn.hidden === true &&
   headerAuthElements.coachHeaderSignedIn.hidden === false &&
-  headerMenuItems.slice(0, 2).every(item => item.hidden === false) && headerMenuItems[2].hidden);
+  headerMenuItems.filter(item => item.getAttribute("data-coach-auth") === "signed-in").every(item => item.hidden === false) &&
+  headerMenuItems.filter(item => item.getAttribute("data-coach-auth") === "signed-out").every(item => item.hidden));
 test("auth state comes from restoreSession and the canonical Supabase listener",
   /athlevoSessionUserId = session \? session\.user\.id : null;[\s\S]{0,260}renderCoachHeaderAuthState\(session, !sessionRestoreTimedOut\)/.test(html) &&
   /onAuthStateChange\(function \(event, session\) \{[\s\S]{0,160}syncCoachHeaderFromAuthEvent\(event, session\)/.test(html));
@@ -176,17 +177,33 @@ test("a late null INITIAL_SESSION cannot downgrade a resolved signed-in header",
 authEventFactory.sync("SIGNED_OUT", null);
 test("an explicit SIGNED_OUT event resolves the header to Sign in",
   authEventFactory.state() === "signed-out" && headerAuthElements.coachHeaderSignIn.hidden === false);
-test("Coach menu uses AthlevoSheet and exposes only appropriate actions",
-  /AthlevoSheet\.open\(\{[\s\S]*?root: root[\s\S]*?sheet: "\.coach-menu-sheet"/.test(
-    extractFunction(html, "openCoachMenu")
-  ) &&
-  /data-coach-auth="signed-in"[^>]*>Profile</.test(coachMenu) &&
-  /data-coach-auth="signed-in"[^>]*>Settings</.test(coachMenu) &&
-  /data-coach-auth="signed-out"[^>]*>Sign in</.test(coachMenu));
-test("menu profile/settings/sign-in actions reuse existing flows",
+test("Coach menu is a left side panel rather than an AthlevoSheet bottom sheet",
+  /id="coachSidePanelOverlay"[^>]*aria-hidden="true"/.test(coachMenu) &&
+  /id="coachSidePanel"[^>]*role="dialog"[^>]*aria-modal="true"/.test(coachMenu) &&
+  /\.coach-side-panel\{[^}]*inset:0 auto 0 0[^}]*width:min\(82%,340px\)[^}]*transform:translate3d\(-100%,0,0\)/.test(html) &&
+  /\.coach-side-panel-overlay\.is-open \.coach-side-panel\{transform:translate3d\(0,0,0\)/.test(html) &&
+  !/coach-menu-sheet|AthlevoSheet/.test(coachMenu + extractFunction(html, "openCoachMenu")));
+test("side panel has backdrop, X, Escape, focus containment, and focus restoration",
+  /onclick="handleCoachMenuBackdrop\(event\)"/.test(coachMenu) &&
+  /class="coach-side-panel-close"[^>]*onclick="closeCoachMenu\(\)"/.test(coachMenu) &&
+  /event\.key === "Escape"[\s\S]*?closeCoachMenu\(\)/.test(extractFunction(html, "handleCoachMenuKeydown")) &&
+  /event\.key !== "Tab"/.test(extractFunction(html, "handleCoachMenuKeydown")) &&
+  /coachMenuInertTargets[\s\S]*?item\.inert = true/.test(extractFunction(html, "openCoachMenu")) &&
+  /coachMenuReturnFocus\.focus\(\)/.test(extractFunction(html, "closeCoachMenu")));
+test("signed-in and signed-out menu rows are separated by canonical auth state",
+  /data-coach-auth="signed-in"[\s\S]*?>New chat</.test(coachMenu) &&
+  /data-coach-auth="signed-in"[\s\S]*?>Chats</.test(coachMenu) &&
+  /data-coach-auth="signed-in"[\s\S]*?>Profile</.test(coachMenu) &&
+  /data-coach-auth="signed-in"[\s\S]*?>Settings</.test(coachMenu) &&
+  /data-coach-auth="signed-out"[\s\S]*?>Sign in</.test(coachMenu) &&
+  /data-coach-auth="signed-in"[\s\S]*?>Sign out</.test(coachMenu));
+test("menu actions reuse existing chat and account flows",
+  /action === "new-chat"[\s\S]*?openCoachNewChatPrompt\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
+  /action === "chats"[\s\S]*?openCoachHistory\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "profile"[\s\S]*?openProfileScreen\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "settings"[\s\S]*?openSettings\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
-  /action === "sign-in"[\s\S]*?openLogin\(true, "coach_header"\)/.test(extractFunction(html, "runCoachMenuAction")));
+  /action === "sign-in"[\s\S]*?openLogin\(true, "coach_header"\)/.test(extractFunction(html, "runCoachMenuAction")) &&
+  /action === "sign-out"[\s\S]*?doLogout\(\)/.test(extractFunction(html, "runCoachMenuAction")));
 test("Chats uses AthlevoSheet and the canonical user-scoped conversation loader",
   /sheet: "\.coach-history-sheet"/.test(extractFunction(html, "openCoachHistory")) &&
   /id="coachHistoryList"/.test(coachHistory) &&
@@ -406,11 +423,11 @@ test("server-enforced free Coach limits remain before AI",
     coachApi.indexOf('"https://api.openai.com/v1/responses"') &&
   /COACH_WEEKLY_LIMIT_REACHED/.test(coach) &&
   /showCoachLimitUpgrade\(coachAccessTier\)/.test(coach));
-test("dark mode remains token-driven and Coach contains no glass surface",
+test("dark mode remains token-driven and the full-width Coach header stays clear",
   /background:var\(--paper\)/.test(html) &&
   /color:var\(--text\)/.test(coachCss) &&
-  !/#screen-coachai[^{]*\{[^}]*(?:nav-glass|backdrop-filter)/.test(html) &&
-  !/#screen-coachai \.coach-(?:head|composer)[^{]*\{[^}]*(?:nav-glass|backdrop-filter)/.test(html));
+  /\.coach-side-panel\{[^}]*background:var\(--paper\);color:var\(--text\)/.test(html) &&
+  /#screen-coachai \.coach-head\{[^}]*background:transparent[^}]*backdrop-filter:none/.test(html));
 test("reduced-motion coverage remains for Coach transitions",
   /prefers-reduced-motion:reduce[\s\S]*?coach-thinking-mark\{animation:none/.test(coachCss) &&
   /prefers-reduced-motion: reduce[\s\S]*?\.msg\{animation:none\}/.test(html) &&
