@@ -525,6 +525,67 @@ if (latestAssistantMessage) {
   markAppliedProposals();
 }
 
+function coachHistoryPreviewText(item) {
+  let text = String(item && item.message || "");
+  if (item && item.role === "assistant") {
+    try {
+      const parsed = JSON.parse(text);
+      text = parsed.direct_answer || parsed.headline || text;
+    } catch (error) {
+      /* Legacy assistant messages are already plain text. */
+    }
+  }
+  return text.replace(/\s+/g, " ").trim().slice(0, 120) || "Message";
+}
+
+async function renderCoachHistoryList() {
+  const list = document.getElementById("coachHistoryList");
+  if (!list) return [];
+
+  const history = await loadConversationHistory();
+  list.replaceChildren();
+
+  if (!history.length) {
+    const empty = document.createElement("p");
+    empty.className = "coach-history-empty";
+    empty.textContent = "No Coach messages yet.";
+    list.appendChild(empty);
+    return [];
+  }
+
+  history.forEach((item, index) => {
+    const button = document.createElement("button");
+    const role = item.role === "assistant" ? "Athlevo Coach" : "You";
+    button.type = "button";
+    button.className = "coach-history-item";
+    button.setAttribute("aria-label", `Open ${role} message ${index + 1}`);
+
+    const label = document.createElement("strong");
+    label.textContent = role;
+    const preview = document.createElement("span");
+    preview.textContent = coachHistoryPreviewText(item);
+    button.append(label, preview);
+    button.addEventListener("click", () => selectCoachHistoryMessage(index));
+    list.appendChild(button);
+  });
+
+  return history;
+}
+
+function selectCoachHistoryMessage(index) {
+  const reveal = async () => {
+    await renderConversationHistory();
+    const messages = document.querySelectorAll("#chatlog .msg");
+    const target = messages[Number(index)];
+    if (target) target.scrollIntoView({ block: "center", behavior: coachScrollBehavior() });
+  };
+  if (typeof window.closeCoachHistory === "function") {
+    window.closeCoachHistory({ restoreFocus: false, onAfterClose: reveal });
+  } else {
+    reveal();
+  }
+}
+
 /* Start a genuinely fresh Coach conversation. The current schema stores one
  * flat history per athlete (there is no thread id or archived-chat surface),
  * so clearing only the DOM would silently reconnect the old context on the
@@ -1975,6 +2036,8 @@ window.sendMsg = sendMsg;
 window.loadConversationHistory = loadConversationHistory;
 window.saveConversationMessage = saveConversationMessage;
 window.renderConversationHistory = renderConversationHistory;
+window.renderCoachHistoryList = renderCoachHistoryList;
+window.selectCoachHistoryMessage = selectCoachHistoryMessage;
 window.startNewCoachConversation = startNewCoachConversation;
 window.applyCoachAction = applyCoachAction;
 window.cancelCoachAction = cancelCoachAction;

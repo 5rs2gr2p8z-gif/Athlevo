@@ -68,6 +68,10 @@ const coachMenu = html.slice(
   html.indexOf('<div class="modal-back coach-menu-back" id="coachMenuSheet"'),
   html.indexOf("<!-- ══════════════ PROFILE AVATAR", html.indexOf('id="coachMenuSheet"'))
 );
+const coachHistory = html.slice(
+  html.indexOf('<div class="modal-back coach-history-back" id="coachHistorySheet"'),
+  html.indexOf('<div class="modal-back coach-new-chat-back"', html.indexOf('id="coachHistorySheet"'))
+);
 
 console.log("\n──── Athlete Coach header ────");
 test("old athlete Coach title is removed from the header",
@@ -75,8 +79,8 @@ test("old athlete Coach title is removed from the header",
 test("header has a labelled menu button with exactly two horizontal lines",
   /id="coachMenuButton"[\s\S]*?aria-label="Open Coach menu"/.test(coachHeader) &&
   (coachHeader.match(/<i><\/i>/g) || []).length === 2);
-test("Athlevo logo is the only centered identity inside a circular bubble",
-  /class="coach-logo-bubble"[\s\S]*?<img[^>]+athlevo-logo\.png/.test(coachHeader) &&
+test("the centered identity uses the existing transparent Athlevo AI icon",
+  /class="coach-logo-bubble"[\s\S]*?<img[^>]+athlevo-icon-transparent\.png[^>]+alt="Athlevo AI"/.test(coachHeader) &&
   /\.coach-logo-bubble\{[^}]*width:42px;height:42px;border-radius:50%/.test(html));
 test("header uses a true centered three-column grid",
   /#screen-coachai \.coach-head\{[^}]*display:grid[^}]*grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/.test(html) &&
@@ -86,15 +90,26 @@ test("header uses a true centered three-column grid",
 test("right header actions start hidden while canonical auth resolves",
   /id="coachHeaderAuthAction"[^>]*data-auth-state="pending"/.test(coachHeader) &&
   /id="coachHeaderSignIn"[^>]*hidden/.test(coachHeader) &&
-  /id="coachHeaderSettings"[^>]*hidden/.test(coachHeader));
+  /id="coachHeaderSignedIn"[^>]*hidden/.test(coachHeader) &&
+  /\.coach-header-control\[hidden\],\.coach-header-authenticated\[hidden\],\.coach-menu-pending\[hidden\],\.coach-menu-action\[hidden\]\{display:none\}/.test(html));
+test("athlete Coach header has no opaque full-width bar or divider",
+  /#screen-coachai \.coach-head\{[^}]*background:transparent;border-bottom:0/.test(html));
+test("left menu and center logo are subtle independent bubbles",
+  /\.coach-header-control\{[^}]*min-width:44px;min-height:44px[^}]*color-mix\(in srgb,var\(--paper\) 66%,transparent\)/.test(html) &&
+  /\.coach-logo-bubble\{[^}]*color-mix\(in srgb,var\(--paper\) 16%,transparent\)/.test(html) &&
+  !/\.coach-logo-bubble\{[^}]*box-shadow/.test(html));
+test("signed-in right bubble contains labelled Chats and New Chat icons only",
+  /id="coachHeaderSignedIn"[\s\S]*?id="coachHeaderChats"[\s\S]*?aria-label="Open Coach chats"/.test(coachHeader) &&
+  /id="coachHeaderSignedIn"[\s\S]*?id="coachHeaderNewChat"[\s\S]*?aria-label="Start a new Coach chat"/.test(coachHeader) &&
+  !/id="coachHeaderSettings"|notification/i.test(coachHeader));
 
 const headerAuthElements = {
   coachHeaderAuthAction: { dataset: {} },
   coachHeaderSignIn: { hidden: true },
-  coachHeaderSettings: { hidden: true },
+  coachHeaderSignedIn: { hidden: true },
   coachMenuPending: { hidden: false }
 };
-const headerMenuItems = ["signed-in", "signed-in", "signed-in", "signed-out"].map(auth => ({
+const headerMenuItems = ["signed-in", "signed-in", "signed-out"].map(auth => ({
   hidden: true,
   getAttribute(name) { return name === "data-coach-auth" ? auth : null; }
 }));
@@ -110,27 +125,61 @@ const headerAuthFactory = new Function(
 headerAuthFactory(null, false);
 test("unresolved Supabase state keeps both right-side actions neutral",
   headerAuthElements.coachHeaderSignIn.hidden === true &&
-  headerAuthElements.coachHeaderSettings.hidden === true &&
+  headerAuthElements.coachHeaderSignedIn.hidden === true &&
   headerAuthElements.coachMenuPending.hidden === false &&
   headerMenuItems.every(item => item.hidden));
 headerAuthFactory(null);
-test("signed-out Supabase state renders Sign in and signed-out menu actions",
+test("signed-out state renders Sign in without Chats, New Chat, settings, or notifications",
   headerAuthElements.coachHeaderSignIn.hidden === false &&
-  headerAuthElements.coachHeaderSettings.hidden === true &&
-  headerMenuItems[3].hidden === false && headerMenuItems.slice(0, 3).every(item => item.hidden));
+  headerAuthElements.coachHeaderSignedIn.hidden === true &&
+  headerMenuItems[2].hidden === false && headerMenuItems.slice(0, 2).every(item => item.hidden));
 headerAuthFactory({ user: { id: "athlete-1" } });
-test("signed-in Supabase state renders settings and signed-in menu actions",
+test("signed-in state never renders Sign in and reveals Chats plus New Chat",
   headerAuthElements.coachHeaderSignIn.hidden === true &&
-  headerAuthElements.coachHeaderSettings.hidden === false &&
-  headerMenuItems.slice(0, 3).every(item => item.hidden === false) && headerMenuItems[3].hidden);
+  headerAuthElements.coachHeaderSignedIn.hidden === false &&
+  headerMenuItems.slice(0, 2).every(item => item.hidden === false) && headerMenuItems[2].hidden);
 test("auth state comes from restoreSession and the canonical Supabase listener",
   /athlevoSessionUserId = session \? session\.user\.id : null;[\s\S]{0,260}renderCoachHeaderAuthState\(session, !sessionRestoreTimedOut\)/.test(html) &&
-  /onAuthStateChange\(function \(event, session\) \{[\s\S]{0,160}renderCoachHeaderAuthState\(session\)/.test(html));
+  /onAuthStateChange\(function \(event, session\) \{[\s\S]{0,160}syncCoachHeaderFromAuthEvent\(event, session\)/.test(html));
+test("auth events keep initial null state pending and update signed-in/out explicitly",
+  /event === "SIGNED_OUT"[\s\S]*?renderCoachHeaderAuthState\(null\)/.test(extractFunction(html, "syncCoachHeaderFromAuthEvent")) &&
+  /session && session\.user[\s\S]*?renderCoachHeaderAuthState\(session\)/.test(extractFunction(html, "syncCoachHeaderFromAuthEvent")) &&
+  /event === "INITIAL_SESSION" && !window\.__athlevoSessionRestoreSettled[\s\S]*?renderCoachHeaderAuthState\(null, false\)/.test(
+    extractFunction(html, "syncCoachHeaderFromAuthEvent")
+  ));
+const authEventWindow = { __athlevoSessionRestoreSettled: false };
+const authEventFactory = new Function(
+  "document",
+  "window",
+  `var coachHeaderAuthState = "pending";
+   var athlevoSessionUserId = null;
+   ${extractFunction(html, "renderCoachHeaderAuthState")}
+   ${extractFunction(html, "syncCoachHeaderFromAuthEvent")}
+   return {
+     sync: syncCoachHeaderFromAuthEvent,
+     state: function () { return coachHeaderAuthState; },
+     setUserId: function (id) { athlevoSessionUserId = id; }
+   };`
+)({
+  getElementById(id) { return headerAuthElements[id] || null; },
+  querySelectorAll(selector) { return selector === "[data-coach-auth]" ? headerMenuItems : []; }
+}, authEventWindow);
+authEventFactory.sync("INITIAL_SESSION", null);
+test("a null INITIAL_SESSION cannot flash Sign in while restore is pending",
+  authEventFactory.state() === "pending" && headerAuthElements.coachHeaderSignIn.hidden === true);
+authEventFactory.setUserId("athlete-1");
+authEventWindow.__athlevoSessionRestoreSettled = true;
+authEventFactory.sync("SIGNED_IN", { user: { id: "athlete-1" } });
+authEventFactory.sync("INITIAL_SESSION", null);
+test("a late null INITIAL_SESSION cannot downgrade a resolved signed-in header",
+  authEventFactory.state() === "signed-in" && headerAuthElements.coachHeaderSignIn.hidden === true);
+authEventFactory.sync("SIGNED_OUT", null);
+test("an explicit SIGNED_OUT event resolves the header to Sign in",
+  authEventFactory.state() === "signed-out" && headerAuthElements.coachHeaderSignIn.hidden === false);
 test("Coach menu uses AthlevoSheet and exposes only appropriate actions",
   /AthlevoSheet\.open\(\{[\s\S]*?root: root[\s\S]*?sheet: "\.coach-menu-sheet"/.test(
     extractFunction(html, "openCoachMenu")
   ) &&
-  /data-coach-auth="signed-in"[^>]*>New chat</.test(coachMenu) &&
   /data-coach-auth="signed-in"[^>]*>Profile</.test(coachMenu) &&
   /data-coach-auth="signed-in"[^>]*>Settings</.test(coachMenu) &&
   /data-coach-auth="signed-out"[^>]*>Sign in</.test(coachMenu));
@@ -138,6 +187,19 @@ test("menu profile/settings/sign-in actions reuse existing flows",
   /action === "profile"[\s\S]*?openProfileScreen\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "settings"[\s\S]*?openSettings\(\)/.test(extractFunction(html, "runCoachMenuAction")) &&
   /action === "sign-in"[\s\S]*?openLogin\(true, "coach_header"\)/.test(extractFunction(html, "runCoachMenuAction")));
+test("Chats uses AthlevoSheet and the canonical user-scoped conversation loader",
+  /sheet: "\.coach-history-sheet"/.test(extractFunction(html, "openCoachHistory")) &&
+  /id="coachHistoryList"/.test(coachHistory) &&
+  /const history = await loadConversationHistory\(\)/.test(extractFunction(coach, "renderCoachHistoryList")) &&
+  /\.eq\("user_id", user\.id\)/.test(extractFunction(coach, "loadConversationHistory")));
+test("history previews are rendered as text and selecting one never deletes messages",
+  /preview\.textContent = coachHistoryPreviewText\(item\)/.test(extractFunction(coach, "renderCoachHistoryList")) &&
+  /renderConversationHistory\(\)/.test(extractFunction(coach, "selectCoachHistoryMessage")) &&
+  !/\.delete\(/.test(extractFunction(coach, "selectCoachHistoryMessage")));
+test("New Chat is gated by an explicit irreversible-history confirmation",
+  /Starting over clears your current Coach conversation\. This cannot be undone\./.test(html) &&
+  /openCoachNewChatPrompt/.test(coachHeader) &&
+  /startNewCoachConversation\(\)/.test(extractFunction(html, "confirmCoachNewChat")));
 test("New chat clears persisted history only inside the authenticated athlete boundary",
   /function startNewCoachConversation/.test(coach) &&
   /\.from\("coach_conversations"\)[\s\S]*?\.delete\(\)[\s\S]*?\.eq\("user_id", user\.id\)/.test(
