@@ -2238,6 +2238,49 @@ html.athlevo-native-android .asc-radar-area{filter:none}
   letter-spacing: var(--ls-tight);
 }
 
+/* ===== ANONYMOUS COACH — DISCOVERY-STAGE RESPONSE (restrained) =====
+ * Deliberately its own, lighter block — never coach-response-lead's
+ * fs-h3/650-weight treatment. An anonymous visitor gets a conversational
+ * insight + explanation + question, not a confident coaching verdict.
+ * Athletes with an account never see these classes; see
+ * js/renderCoachResponse.js renderAnonymousCoachResponse() and
+ * js/anonymousCoach.js. */
+.coach-anon-response {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 640px;
+  animation: coachReveal var(--dur-slow) var(--ease-standard) both;
+}
+
+.coach-anon-insight {
+  margin: 0;
+  font-size: calc(var(--fs-body) + 1px);
+  line-height: calc(var(--lh-body) + .1);
+  font-weight: 650;
+  color: var(--text);
+}
+
+.coach-anon-body {
+  margin: 0;
+  font-size: calc(var(--fs-body) + 1px);
+  line-height: calc(var(--lh-body) + .1);
+  font-weight: 400;
+  color: var(--text);
+}
+
+/* A little extra breathing room before the question, and a touch of
+   emphasis — never the oversized lead typography. */
+.coach-anon-question {
+  margin: 0;
+  margin-top: 6px;
+  font-size: calc(var(--fs-body) + 1px);
+  line-height: calc(var(--lh-body) + .1);
+  font-weight: 600;
+  color: var(--text);
+}
+
 .coach-callout {
   margin-top: 12px;
   padding: 13px 14px;

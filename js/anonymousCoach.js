@@ -196,10 +196,26 @@
         try { engine.recordAnswer(question_obj.key, extracted); } catch (e) {}
       }
 
+      // Visual confidence tracks informational confidence: reuse the SAME
+      // sufficiency signal the diagnostic engine already exposes (and that
+      // already gates the signup CTA below) rather than inventing a
+      // second "am I confident yet" system, or using turn count alone.
+      var sufficientContext = !!(
+        engine &&
+        typeof engine.canComplete === "function" &&
+        engine.canComplete()
+      );
+
       if (typeof root.stopThinkingLabelRotation === "function") root.stopThinkingLabelRotation();
 
-      if (changeEl && typeof root.renderCoachResponse === "function") {
+      if (changeEl && sufficientContext && typeof root.renderCoachResponse === "function") {
+        // Enough context to diagnose: use the shared, unmodified Coach
+        // renderer for its stronger hierarchy (headline/lead weight).
         root.renderCoachResponse(changeEl, { direct_answer: reply });
+      } else if (changeEl && typeof root.renderAnonymousCoachResponse === "function") {
+        // Still in discovery: restrained, conversational rendering only —
+        // never the full-bold "coaching verdict" treatment.
+        root.renderAnonymousCoachResponse(changeEl, reply);
       } else if (changeEl) {
         changeEl.textContent = reply;
       }
@@ -208,8 +224,7 @@
       _turnCount += 1;
       track("coach_anonymous_message_completed", { turn: _turnCount });
 
-      var readyToComplete = engine && typeof engine.canComplete === "function" && engine.canComplete();
-      if (engine && readyToComplete && !engine.completed) {
+      if (engine && sufficientContext && !engine.completed) {
         try { engine.complete(); } catch (e) {}
       }
       var shouldOfferSignup = _turnCount >= MIN_TURNS_BEFORE_CTA ||

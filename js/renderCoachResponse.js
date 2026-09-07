@@ -576,11 +576,119 @@ function renderSuggestedReplies(replies) {
   }
 }
 
+/*
+ * Anonymous discovery-stage rendering.
+ *
+ * Restrained on purpose: an anonymous visitor has given Athlevo, at most,
+ * a couple of sentences of context, so this path never reaches for the
+ * authenticated Coach's confident hierarchy above (coach-response-lead /
+ * coach-mission / sections) — that would visually claim a diagnosis
+ * Athlevo hasn't earned yet. It renders at most:
+ *   1. one short, optionally-bold "insight" sentence
+ *   2. a plain-body explanation
+ *   3. a visually separated follow-up question
+ * js/anonymousCoach.js calls this while the diagnostic engine still
+ * reports insufficient context, and falls back to renderCoachResponse()
+ * (the shared, unmodified renderer above) once the engine says context is
+ * sufficient — see askAnonymousCoach() for that switch. Nothing here is
+ * used by, or changes behaviour for, the authenticated Coach flow.
+ */
+function renderAnonymousCoachResponse(target, rawText) {
+  const container =
+    typeof target === "string"
+      ? document.querySelector(target)
+      : target;
+
+  if (!container) {
+    console.error(
+      "Coach response container was not found."
+    );
+
+    return;
+  }
+
+  const text = cleanCoachText(
+    String(rawText == null ? "" : rawText)
+  );
+
+  container.innerHTML = "";
+  container.classList.add("coach-anon-response");
+
+  if (!text) {
+    container.textContent =
+      "Athlevo could not display this response.";
+
+    return;
+  }
+
+  // Split into sentences so a trailing question can be pulled out and
+  // given its own visual weight, and so a short leading sentence can
+  // optionally read as the "insight" line. Deliberately simple (no NLP) —
+  // this only has to separate "…?" from the rest.
+  const sentences =
+    text.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [text];
+  const trimmed = sentences
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
+
+  let question = null;
+  let bodySentences = trimmed;
+  const last = trimmed[trimmed.length - 1];
+
+  if (last && /\?\s*$/.test(last)) {
+    question = last;
+    bodySentences = trimmed.slice(0, -1);
+  }
+
+  let insight = null;
+
+  // Only pull out an "insight" line when there is more text left over to
+  // form an explanation — a single short sentence stays a normal
+  // explanation, never a lone bold fragment.
+  if (bodySentences.length > 1 && bodySentences[0].length <= 90) {
+    insight = bodySentences[0];
+    bodySentences = bodySentences.slice(1);
+  }
+
+  if (insight) {
+    container.appendChild(
+      createCoachElement(
+        "p",
+        "coach-anon-insight",
+        insight
+      )
+    );
+  }
+
+  if (bodySentences.length > 0) {
+    container.appendChild(
+      createCoachElement(
+        "p",
+        "coach-anon-body",
+        bodySentences.join(" ")
+      )
+    );
+  }
+
+  if (question) {
+    container.appendChild(
+      createCoachElement(
+        "p",
+        "coach-anon-question",
+        question
+      )
+    );
+  }
+}
+
 window.renderCoachResponse =
   renderCoachResponse;
 
 window.parseCoachResponse =
   parseCoachResponse;
+
+window.renderAnonymousCoachResponse =
+  renderAnonymousCoachResponse;
 
   window.renderSuggestedReplies =
   renderSuggestedReplies;
