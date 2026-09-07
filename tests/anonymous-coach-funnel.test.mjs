@@ -28,12 +28,14 @@ function askCoachBody() {
   return coachSrc.slice(start, end);
 }
 
-section("1 — Header Sign up already routes to the canonical signup flow");
+section("1 — Header Sign up routes to the dedicated full-page signup screen, not the modal");
 {
-  t("header Sign up button calls openSignup(true) (the canonical auth entrypoint)",
-    /id="coachHeaderSignIn"[\s\S]{0,200}onclick="openSignup\(true\)"/.test(indexSrc));
-  t("openSignup opens the single #authModal used by every other signup path",
-    /function openSignup\(userChoseSignup\) \{[\s\S]{0,400}authModal/.test(indexSrc));
+  t("header Sign up button calls openAiSignup() (the full-page acquisition entrypoint)",
+    /id="coachHeaderSignIn"[\s\S]{0,200}onclick="openAiSignup\(\)"/.test(indexSrc));
+  t("header Sign up button no longer opens the centered #authModal directly",
+    !/id="coachHeaderSignIn"[\s\S]{0,200}onclick="openSignup\(true\)"/.test(indexSrc));
+  t("openAiSignup shows the dedicated full-page screen-welcome (is-ai-signup), not a modal overlay on top of Coach",
+    /function openAiSignup\(opts\) \{[\s\S]{0,600}showScreen\("screen-welcome"\)/.test(indexSrc));
   t("no second/legacy signup modal implementation was added for anonymous Coach",
     !/coachHeaderSignIn[\s\S]{0,200}(legacyCreateAccount|openLegacySignup)/.test(indexSrc));
 }
@@ -73,8 +75,10 @@ section("6 — Conversion CTA, not a first-message interrupt");
     /MIN_TURNS_BEFORE_CTA/.test(anonSrc) && /_turnCount >= MIN_TURNS_BEFORE_CTA/.test(anonSrc));
   t("CTA button text matches the requested continuation copy",
     /Continue with Athlevo/.test(anonSrc));
-  t("CTA routes to the same canonical openSignup(true) entrypoint",
-    /root\.openSignup\(true\)/.test(anonSrc));
+  t("CTA routes to the same canonical openAiSignup() full-page entrypoint used by the header",
+    /root\.openAiSignup\(\)/.test(anonSrc));
+  t("CTA no longer opens the centered #authModal directly as its primary path",
+    !/track\("coach_anonymous_cta_clicked", \{\}\);\s*\n\s*if \(typeof root\.openSignup === "function"\) root\.openSignup\(true\);/.test(anonSrc));
   t("CTA is only ever shown once per session (not re-injected every turn)",
     /_ctaShown/.test(anonSrc));
 }

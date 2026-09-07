@@ -135,7 +135,8 @@
     btn.textContent = "Continue with Athlevo";
     btn.addEventListener("click", function () {
       track("coach_anonymous_cta_clicked", {});
-      if (typeof root.openSignup === "function") root.openSignup(true);
+      if (typeof root.openAiSignup === "function") root.openAiSignup();
+      else if (typeof root.openSignup === "function") root.openSignup(true);
     });
     wrap.appendChild(btn);
     container.appendChild(wrap);
