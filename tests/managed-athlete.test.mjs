@@ -522,10 +522,18 @@ await (async () => {
   t("500 resolves unknown", r.mode === "unknown" && r.confirmed === false && r.lastError === "server_error");
 })();
 
-// 5. No token available → unknown
+// 5. No token available → a distinct "anonymous" state, NOT "unknown".
+// This is the production-bug regression: a signed-out visitor was being
+// classified identically to a signed-in athlete whose verification failed,
+// which made the client render the "couldn't verify your coaching setup"
+// error card for every anonymous /  and /ai visit.
 await (async () => {
   const r = await fetchAndCheck({ noToken: true });
-  t("no token resolves unknown", r.mode === "unknown" && r.confirmed === false && r.lastError === "no_token");
+  t("no token resolves to 'anonymous', not 'unknown'",
+    r.mode === "anonymous" && r.confirmed === false);
+  t("anonymous mode carries no lastError (it is not a failure)", r.lastError === null);
+  t("anonymous mode is NOT reported as unknown (isUnknown() === false)", r.unknown === false);
+  t("anonymous mode is NOT reported as managed (isManaged() === false)", r.managed === false);
 })();
 
 // 6. Unrecognized mode value from server → unknown
@@ -680,6 +688,175 @@ await (async () => {
   const src = readFileSync(join(root, "js/athleteMode.js"), "utf8");
   t("client source: _mode initial value is 'unknown'",
     src.includes('var _mode = "unknown"'));
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════
+ *  ANONYMOUS COACH PREVIEW — signed-out "/" and "/ai" entry
+ *
+ *  Production bug: a signed-out visitor hit the exact same code path as a
+ *  signed-in athlete whose coaching-setup verification failed, and got the
+ *  "Coach is temporarily unavailable / couldn't verify your coaching
+ *  setup" error card instead of the real Coach preview. These tests
+ *  execute the real athleteMode.js module (no mock fallback) the same way
+ *  a signed-out load of "/" or "/ai" does: fetchMode() -> onCoachTabEnter()
+ *  -> renderCoachTab() with no auth token available.
+ * ═══════════════════════════════════════════════════════════════════════ */
+section("ANONYMOUS COACH PREVIEW — signed-out \"/\" and \"/ai\"");
+
+// Minimal fake DOM element sufficient for athleteMode.js's coachScreen()
+// handling (children iteration, classList, appendChild, querySelectorAll).
+function fakeCoachScreenEl() {
+  const kids = [];
+  const el = {
+    id: "screen-coachai",
+    children: kids,
+    classList: {
+      _set: new Set(),
+      add(c) { this._set.add(c); },
+      remove(c) { this._set.delete(c); },
+      contains(c) { return this._set.has(c); },
+      toggle(c, on) { if (on) this._set.add(c); else this._set.delete(c); }
+    },
+    appendChild(child) { kids.push(child); return child; },
+    querySelectorAll() { return []; },
+    querySelector() { return null; },
+    setAttribute() {},
+    removeAttribute() {}
+  };
+  return el;
+}
+
+function fakeMountEl() {
+  const kids = [];
+  return {
+    className: "",
+    _innerHTML: "",
+    style: {},
+    set innerHTML(v) { this._innerHTML = v; },
+    get innerHTML() { return this._innerHTML; },
+    classList: { add() {}, remove() {}, contains: () => false, toggle() {} },
+    setAttribute() {},
+    appendChild(child) { kids.push(child); return child; },
+    addEventListener() {},
+    querySelector(sel) {
+      // The error-notice retry button lookup used by renderUnknownCoachTab.
+      if (sel === "[data-am-coach-retry]" && this._innerHTML.indexOf("data-am-coach-retry") !== -1) {
+        return { addEventListener() {} };
+      }
+      return null;
+    }
+  };
+}
+
+/*
+ * Loads athleteMode.js exactly like loadAthleteModeWith(), but with a real
+ * screen-coachai element wired up so renderCoachTab()'s DOM output can be
+ * inspected directly instead of being swallowed by a null-returning
+ * getElementById mock.
+ */
+function loadAthleteModeWithScreen(fetchBehavior) {
+  const screen = fakeCoachScreenEl();
+  const originalCreateElement = () => fakeMountEl();
+  const tracked = [];
+  const code = readFileSync(join(root, "js/athleteMode.js"), "utf8");
+  const hasToken = !fetchBehavior.noToken;
+  let fetchCalls = 0;
+  const mockFetch = function () {
+    fetchCalls += 1;
+    if (fetchBehavior.throw) throw new Error("NetworkError: failed to fetch");
+    return Promise.resolve({
+      ok: fetchBehavior.status >= 200 && fetchBehavior.status < 300,
+      status: fetchBehavior.status || 500,
+      json: () => Promise.resolve(fetchBehavior.body || { error: "simulated" })
+    });
+  };
+  const mockSb = hasToken ? {
+    auth: { getSession: () => Promise.resolve({ data: { session: { access_token: "test-token-xyz" } } }) }
+  } : {
+    auth: { getSession: () => Promise.resolve({ data: { session: null } }) }
+  };
+  const elementsById = { "screen-coachai": screen, "am-unknown-notice": null };
+  const sandbox = {
+    window: {},
+    document: {
+      getElementById: (id) => (Object.prototype.hasOwnProperty.call(elementsById, id) ? elementsById[id] : null),
+      querySelectorAll: () => [],
+      createElement: originalCreateElement,
+      body: { appendChild: () => {} },
+      documentElement: { appendChild: () => {} }
+    },
+    location: { hash: "" }, history: {}, console,
+    fetch: mockFetch,
+    supabaseClient: mockSb,
+    toast: () => {},
+    globalThis: {},
+    Date, Promise, Error, JSON, String, Number, Array, Object, Boolean,
+    parseInt, parseFloat, encodeURIComponent, decodeURIComponent,
+    setTimeout: (fn) => fn(), clearTimeout: () => {},
+    requestAnimationFrame: (fn) => fn(), cancelAnimationFrame: () => {}
+  };
+  sandbox.window.AthlevoAnalytics = { track: (e, p) => tracked.push({ event: e, props: p }) };
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox);
+  return { AM: sandbox.window.AthlevoAthleteMode, tracked, screen, getFetchCalls: () => fetchCalls };
+}
+
+// 24. Anonymous visitor: onCoachTabEnter() resolves "anonymous" and makes
+// ZERO network calls (there is no token to send, so no authenticated
+// bootstrap request is ever issued — the anonymous preview must consume
+// zero quota and touch no signed-in-only endpoint).
+await (async () => {
+  const { AM, getFetchCalls } = loadAthleteModeWithScreen({ noToken: true });
+  const resolved = await AM.onCoachTabEnter();
+  t("anonymous onCoachTabEnter() resolves 'anonymous'", resolved === "anonymous");
+  t("anonymous onCoachTabEnter() makes zero fetch calls (no private bootstrap)", getFetchCalls() === 0);
+})();
+
+// 25. Anonymous visitor: renderCoachTab() never renders the
+// "couldn't verify your coaching setup" error notice or its Retry button.
+await (async () => {
+  const { AM, screen } = loadAthleteModeWithScreen({ noToken: true });
+  await AM.onCoachTabEnter();
+  const mounts = screen.children.filter((c) => c.className && c.className.indexOf("am-coach-mode-mount") !== -1);
+  const errorMounts = mounts.filter((c) => (c.innerHTML || "").indexOf("am-coach-resolution-error") !== -1);
+  t("anonymous preview renders no 'Coach is temporarily unavailable' error mount", errorMounts.length === 0);
+  const anyUnavailableText = mounts.some((c) => (c.innerHTML || "").indexOf("temporarily unavailable") !== -1);
+  t("anonymous preview HTML never contains 'temporarily unavailable'", anyUnavailableText === false);
+})();
+
+// 26. Same as #24/#25, but for a genuinely signed-in athlete whose
+// verification failed (server 500): the error notice MUST still render.
+// Proves the fix separated the two states instead of just hiding the
+// error everywhere.
+await (async () => {
+  const { AM, screen } = loadAthleteModeWithScreen({ status: 500, body: { error: "internal" } });
+  const resolved = await AM.onCoachTabEnter();
+  t("authenticated verification failure still resolves 'unknown'", resolved === "unknown");
+  const mounts = screen.children.filter((c) => c.className && c.className.indexOf("am-coach-mode-mount") !== -1);
+  const errorMounts = mounts.filter((c) => (c.innerHTML || "").indexOf("am-coach-resolution-error") !== -1);
+  t("authenticated verification failure still renders the error notice (unchanged)", errorMounts.length === 1);
+})();
+
+// 27. Fresh direct load of "/" or "/ai" (first Coach-tab entry, cold
+// module state) as a signed-out visitor: the very first onCoachTabEnter()
+// call — the one that mirrors a brand new tab — resolves anonymous, not
+// unknown, and stays that way on a second entry (e.g. resizing desktop <->
+// mobile re-triggers layout but must not re-flip to the error state).
+await (async () => {
+  const { AM } = loadAthleteModeWithScreen({ noToken: true });
+  const first = await AM.onCoachTabEnter();
+  const second = await AM.onCoachTabEnter();
+  t("fresh anonymous entry resolves 'anonymous'", first === "anonymous");
+  t("re-entering Coach (e.g. resize/back-forward) stays 'anonymous', not 'unknown'", second === "anonymous");
+})();
+
+// 28. Restoring from an expired/no session behaves identically to a
+// first-time anonymous visitor — no error card, no auth_failed state.
+await (async () => {
+  const { AM } = loadAthleteModeWithScreen({ noToken: true });
+  await AM.fetchMode(true); // force re-check, as revalidateMode() does
+  t("expired/no session resolves 'anonymous' (not an auth failure)", AM.mode() === "anonymous");
+  t("expired/no session carries no lastError", AM.lastError() === null);
 })();
 
 /* ═══════════════════════════ SUMMARY ══════════════════════════════════ */

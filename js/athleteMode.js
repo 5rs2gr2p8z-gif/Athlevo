@@ -94,10 +94,17 @@
         var t = await token();
         if (requestGeneration !== _requestGeneration) return _mode;
         if (!t) {
-          // No token: cannot verify. Stay unknown.
-          _mode = "unknown";
+          // No token at all: this is an anonymous visitor (or an expired/
+          // cleared session), not a verification failure. Anonymous is a
+          // distinct, error-free state — it must never render the
+          // "couldn't verify your coaching setup" notice, and it must
+          // never trigger the authenticated verification branch below.
+          _mode = "anonymous";
+          _coach = null;
+          _transition = null;
           _confirmed = false;
-          _lastError = "no_token";
+          _lastError = null;
+          _cacheKey = Date.now();
           return _mode;
         }
         var resp = await fetch("/api/providers?action=athlete_coaching_mode", {
@@ -156,6 +163,7 @@
   function mode()        { return _mode; }
   function isManaged()   { return _mode === "human_coached"; }
   function isUnknown()   { return _mode === "unknown"; }
+  function isAnonymous() { return _mode === "anonymous"; }
   function isConfirmed() { return _confirmed; }
   function coach()       { return _mode === "human_coached" ? _coach : null; }
   function transition()  { return _mode === "human_coached" ? _transition : null; }
@@ -522,6 +530,13 @@
   }
 
   function renderCoachTab() {
+    if (_mode === "anonymous") {
+      // Signed-out preview: show the real Coach empty state / starters /
+      // composer, exactly like self_guided. No authenticated verification
+      // branch runs to get here.
+      restoreSelfGuidedCoachTab();
+      return;
+    }
     if (_mode === "unknown") {
       renderUnknownCoachTab();
       return;
@@ -677,6 +692,15 @@
   function applyModeUi() {
     renderAssignedCoach();
     renderCoachTab();
+    if (_mode === "anonymous") {
+      // Anonymous preview: never touch signed-in-only surfaces (weather,
+      // managed advice, authored labels, train permissions). Just make
+      // sure nothing left over from a prior session is still suppressed.
+      hideUnknownNotice();
+      restoreSuppressedControls();
+      setManagedAdviceHidden(true);
+      return;
+    }
     if (window.AthlevoWeather && typeof window.AthlevoWeather.render === "function") {
       window.AthlevoWeather.render();
     }
@@ -794,6 +818,7 @@
     mode: mode,
     isManaged: isManaged,
     isUnknown: isUnknown,
+    isAnonymous: isAnonymous,
     isConfirmed: isConfirmed,
     coach: coach,
     transition: transition,
