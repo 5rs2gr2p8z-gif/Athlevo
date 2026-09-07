@@ -6094,73 +6094,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <div class="spacer-md"></div>
 
   <!-- ══ Settings ══ -->
-  <div class="you-section-title">Settings</div>
-
-  <!-- Profile Settings -->
   <button class="rowlink" type="button" onclick="openSettings()">
-    <div><b>Profile Settings</b><small>Photo, name, and account details.</small></div><span class="arr">→</span>
+    <div><b>Settings</b><small>Appearance, notifications, connections, support, and account.</small></div><span class="arr">→</span>
   </button>
-  <div class="settings-spacer"></div>
-
-  <!-- Appearance (compact) -->
-  <div class="appearance appearance-row">
-    <span class="appearance-label">Appearance</span>
-    <div class="seg" id="themeSeg" role="group" aria-label="Theme">
-      <button type="button" class="seg-btn" data-theme-choice="system" onclick="setAthlevoTheme('system')">System</button>
-      <button type="button" class="seg-btn" data-theme-choice="light" onclick="setAthlevoTheme('light')">Light</button>
-      <button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme('dark')">Dark</button>
-    </div>
-  </div>
-  <div class="settings-spacer"></div>
-
-  <!-- Notifications -->
-  <button class="rowlink" type="button" onclick="toast('Notification settings coming soon')">
-    <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
-  </button>
-  <div class="settings-spacer"></div>
-
-  <!-- Install Athlevo — hidden on native by runtimeEnvironment.js -->
-  <button class="rowlink" id="youInstallRow" type="button" onclick="athlevoInstall()">
-    <div><b>Install Athlevo</b><small id="youInstallSub">Add Athlevo to your home screen</small></div>
-    <span class="arr">→</span>
-  </button>
-
-  <div class="spacer-md"></div>
-
-  <!-- ══ Support & Legal ══ -->
-  <div class="you-section-title">Support &amp; Legal</div>
-
-  <button class="rowlink" type="button" onclick="openBetaFeedback()">
-    <div><b>Support</b><small>Report a bug, share an idea, or get help.</small></div><span class="arr">→</span>
-  </button>
-  <div class="settings-spacer"></div>
-  <button class="rowlink" type="button" onclick="openLegal('privacy')">
-    <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
-  </button>
-  <div class="settings-spacer"></div>
-  <button class="rowlink" type="button" onclick="openLegal('terms')">
-    <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
-  </button>
-
-  <div class="spacer-lg"></div>
-
-  <!-- ══ Danger Zone ══ -->
-  <div class="you-danger-zone">
-    <div class="you-danger-divider"></div>
-    <div class="you-danger-title">Danger zone</div>
-    <p class="you-danger-caption">Permanently delete your account and all associated data. This action cannot be undone.</p>
-    <button class="you-danger-btn" type="button" onclick="openDeleteAccount()">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-      Delete account
-    </button>
-  </div>
-
-  <div class="spacer-lg"></div>
-
-  <!-- ══ Log Out ══ -->
-  <div class="you-logout-row">
-    <button type="button" onclick="doLogout()">Log Out</button>
-  </div>
 
 <div class="app-version">
   <div>Athlevo</div>
@@ -6170,12 +6106,12 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 <div class="spacer-md"></div>
 </section>
 
-<!-- ══════════════ SETTINGS (Profile Settings) ══════════════ -->
+<!-- ══════════════ SETTINGS (full settings surface) ══════════════ -->
 <section class="screen" id="screen-settings">
   <button class="settings-back" type="button" onclick="closeSettings()" aria-label="Back">
     <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
   </button>
-  <h1 class="serif" style="margin:0 22px 16px;font-size:var(--fs-h1)">Profile Settings</h1>
+  <h1 class="serif" style="margin:0 22px 16px;font-size:var(--fs-h1)">Settings</h1>
 
   <!-- Profile photo -->
   <div class="profile-settings-photo">
@@ -6194,6 +6130,78 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <button class="rowlink" type="button" onclick="toast('Account settings coming soon')">
     <div><b id="settingsAccountName">Athlete</b><small id="settingsAccountEmail">—</small></div><span class="arr">→</span>
   </button>
+  <div class="settings-spacer"></div>
+
+  <!-- Connections / Training Data -->
+  <div class="pad"><div class="section-title">Connections</div></div>
+  <button class="rowlink" type="button" onclick="openTrainingDataFromSettings()">
+    <div><b>Training Data</b><small>Manage your Strava, Intervals.icu, or other connected provider.</small></div><span class="arr">→</span>
+  </button>
+
+  <div class="spacer-md"></div>
+
+  <!-- Appearance -->
+  <div class="pad"><div class="section-title">Appearance</div></div>
+  <div class="appearance appearance-row">
+    <span class="appearance-label">Theme</span>
+    <div class="seg" id="themeSeg" role="group" aria-label="Theme">
+      <button type="button" class="seg-btn" data-theme-choice="system" onclick="setAthlevoTheme('system')">System</button>
+      <button type="button" class="seg-btn" data-theme-choice="light" onclick="setAthlevoTheme('light')">Light</button>
+      <button type="button" class="seg-btn" data-theme-choice="dark" onclick="setAthlevoTheme('dark')">Dark</button>
+    </div>
+  </div>
+
+  <div class="spacer-md"></div>
+
+  <!-- Notifications -->
+  <div class="pad"><div class="section-title">Notifications</div></div>
+  <button class="rowlink" type="button" onclick="toast('Notification settings coming soon')">
+    <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
+  </button>
+
+  <div class="spacer-md"></div>
+
+  <!-- App -->
+  <div class="pad"><div class="section-title">App</div></div>
+  <button class="rowlink" id="youInstallRow" type="button" onclick="athlevoInstall()">
+    <div><b>Install Athlevo</b><small id="youInstallSub">Add Athlevo to your home screen</small></div>
+    <span class="arr">→</span>
+  </button>
+
+  <div class="spacer-md"></div>
+
+  <!-- Support & Legal -->
+  <div class="pad"><div class="section-title">Support &amp; Legal</div></div>
+  <button class="rowlink" type="button" onclick="openBetaFeedback()">
+    <div><b>Support</b><small>Report a bug, share an idea, or get help.</small></div><span class="arr">→</span>
+  </button>
+  <div class="settings-spacer"></div>
+  <button class="rowlink" type="button" onclick="openLegal('privacy')">
+    <div><b>Privacy Policy</b><small>How Athlevo collects, uses, and protects your data.</small></div><span class="arr">→</span>
+  </button>
+  <div class="settings-spacer"></div>
+  <button class="rowlink" type="button" onclick="openLegal('terms')">
+    <div><b>Terms of Service</b><small>The terms that govern your use of Athlevo.</small></div><span class="arr">→</span>
+  </button>
+
+  <div class="spacer-lg"></div>
+
+  <!-- Account actions -->
+  <div class="you-danger-zone">
+    <div class="you-danger-divider"></div>
+    <div class="you-danger-title">Danger zone</div>
+    <p class="you-danger-caption">Permanently delete your account and all associated data. This action cannot be undone.</p>
+    <button class="you-danger-btn" type="button" onclick="openDeleteAccount()">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      Delete account
+    </button>
+  </div>
+
+  <div class="spacer-lg"></div>
+
+  <div class="you-logout-row">
+    <button type="button" onclick="doLogout()">Log Out</button>
+  </div>
 
   <div class="app-version">
     <div>Athlevo</div>
@@ -8248,6 +8256,24 @@ function openSettings() {
   if (settings) { settings.classList.add('active'); settings.scrollTop = 0; }
 }
 window.openSettings = openSettings;
+
+// Settings → Connections row: jump to the existing training-data card on
+// the You screen rather than re-implementing provider connection UI here.
+function openTrainingDataFromSettings() {
+  // The connection card only exists once, on the You screen — always land
+  // there regardless of which screen Settings was opened from.
+  document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+  var you = document.getElementById('screen-you');
+  if (you) { you.classList.add('active'); you.scrollTop = 0; }
+  requestAnimationFrame(function () {
+    var target = document.getElementById('syncStatusCard') ||
+                 document.getElementById('trainingDataRow');
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+}
+window.openTrainingDataFromSettings = openTrainingDataFromSettings;
 
 /* ── Athlete Coach header ────────────────────────────────────────
  * The right-side action is driven only by a Supabase session passed from

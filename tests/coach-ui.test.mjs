@@ -368,7 +368,7 @@ const scrollControlsFactory = new Function(
 );
 
 test("at latest, suggestions show and the arrow is hidden",
-  chips.style.display === "flex" && jumpButton.hidden === true);
+  chips.style.display === "grid" && jumpButton.hidden === true);
 chatlog.scrollTop = 100;
 chatlog.listeners.scroll();
 test("away from latest, only the circular arrow shows",
@@ -376,7 +376,7 @@ test("away from latest, only the circular arrow shows",
 jumpButton.listeners.click();
 test("clicking the arrow reaches latest and restores suggestions",
   chatlog.scrollTop === chatlog.scrollHeight &&
-  chips.style.display === "flex" &&
+  chips.style.display === "grid" &&
   jumpButton.hidden === true);
 test("arrow and suggestions can never be visible together",
   /if \(coachIsNearBottom\(\)\)[\s\S]*?hideJumpToLatest\(\);[\s\S]*?setCoachFollowUpsVisible\(!coachRequestInFlight\)/.test(

@@ -572,7 +572,7 @@ function renderSuggestedReplies(replies) {
     window.syncCoachScrollUi();
   } else {
     chipsContainer.style.display =
-      chipsContainer.dataset.hasSuggestions === "true" ? "flex" : "none";
+      chipsContainer.dataset.hasSuggestions === "true" ? "grid" : "none";
   }
 }
 

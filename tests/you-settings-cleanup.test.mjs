@@ -39,66 +39,68 @@ section("You screen — removed items");
     !youHTML.includes('class="you-gear"'));
 }
 
-section("You screen — Settings section (inline)");
+section("You screen — Settings entry point");
 {
-  t("Settings section title present",
-    youHTML.includes(">Settings<"));
-  t("Profile Settings row present",
-    youHTML.includes(">Profile Settings<"));
-  t("Appearance control remains",
-    youHTML.includes('id="themeSeg"'));
-  t("Appearance has System/Light/Dark",
-    youHTML.includes("System") && youHTML.includes("Light") && youHTML.includes("Dark"));
-  t("Notification Settings present",
-    youHTML.includes(">Notification Settings<"));
-  t("Install Athlevo row present",
-    youHTML.includes('id="youInstallRow"'));
+  t("Settings row present (opens full Settings surface)",
+    youHTML.includes(">Settings<") && youHTML.includes('onclick="openSettings()"'));
 }
 
-section("You screen — Support & Legal section (inline)");
+section("Settings screen — Appearance / Notifications / App (consolidated)");
+{
+  t("Appearance control remains",
+    settingsHTML.includes('id="themeSeg"'));
+  t("Appearance has System/Light/Dark",
+    settingsHTML.includes("System") && settingsHTML.includes("Light") && settingsHTML.includes("Dark"));
+  t("Notification Settings present",
+    settingsHTML.includes(">Notification Settings<"));
+  t("Install Athlevo row present",
+    settingsHTML.includes('id="youInstallRow"'));
+}
+
+section("Settings screen — Support & Legal section");
 {
   t("Support & Legal section title present",
-    youHTML.includes("Support &amp; Legal") || youHTML.includes("Support & Legal"));
+    settingsHTML.includes("Support &amp; Legal") || settingsHTML.includes("Support & Legal"));
   t("Support row present",
-    youHTML.includes(">Support<"));
+    settingsHTML.includes(">Support<"));
   t("Privacy Policy row present",
-    youHTML.includes(">Privacy Policy<"));
+    settingsHTML.includes(">Privacy Policy<"));
   t("Terms of Service row present",
-    youHTML.includes(">Terms of Service<"));
+    settingsHTML.includes(">Terms of Service<"));
 }
 
-section("You screen — Danger zone");
+section("Settings screen — Danger zone");
 {
   t("Danger zone section present",
-    youHTML.includes("you-danger-zone"));
+    settingsHTML.includes("you-danger-zone"));
   t("Danger zone title present",
-    youHTML.includes("Danger zone"));
+    settingsHTML.includes("Danger zone"));
   t("Danger zone explanatory copy present",
-    youHTML.includes("Permanently delete your account"));
+    settingsHTML.includes("Permanently delete your account"));
   t("Danger zone divider present",
-    youHTML.includes("you-danger-divider"));
+    settingsHTML.includes("you-danger-divider"));
   t("Delete button uses you-danger-btn class",
-    youHTML.includes("you-danger-btn"));
+    settingsHTML.includes("you-danger-btn"));
   t("Delete button has trash icon (svg)",
-    youHTML.includes("you-danger-btn") && youHTML.match(/you-danger-btn[\s\S]{0,200}<svg/));
+    settingsHTML.includes("you-danger-btn") && settingsHTML.match(/you-danger-btn[\s\S]{0,200}<svg/));
   t("Delete button text is 'Delete account'",
-    youHTML.includes("Delete account"));
+    settingsHTML.includes("Delete account"));
   t("Delete button calls openDeleteAccount",
-    youHTML.includes("openDeleteAccount()"));
+    settingsHTML.includes("openDeleteAccount()"));
   t("Delete Account NOT in a rowlink-danger card",
-    !youHTML.includes('rowlink-danger-subtle'));
+    !settingsHTML.includes('rowlink-danger-subtle'));
 }
 
-section("You screen — Log Out (bottom, neutral)");
+section("Settings screen — Log Out (bottom, neutral)");
 {
   t("Log Out present",
-    youHTML.includes("Log Out"));
+    settingsHTML.includes("Log Out"));
   t("Log Out uses you-logout-row (neutral style)",
-    youHTML.includes("you-logout-row"));
+    settingsHTML.includes("you-logout-row"));
   t("Log Out calls doLogout",
-    youHTML.includes("doLogout()"));
+    settingsHTML.includes("doLogout()"));
   t("Log Out appears after Danger zone",
-    youHTML.indexOf("you-logout-row") > youHTML.indexOf("you-danger-zone"));
+    settingsHTML.indexOf("you-logout-row") > settingsHTML.indexOf("you-danger-zone"));
 }
 
 section("You screen — kept items");
@@ -156,20 +158,20 @@ section("You screen — Danger zone CSS");
     html.match(/\.you-danger-title\{[^}]*color:var\(--danger\)/));
 }
 
-section("You screen — Install Athlevo on native");
+section("Settings screen — Install Athlevo on native");
 {
   t("youInstallRow still exists in markup for web/PWA",
-    youHTML.includes('id="youInstallRow"'));
+    settingsHTML.includes('id="youInstallRow"'));
   t("runtimeEnvironment.js hides youInstallRow on native",
     runtimeEnv.includes("youInstallRow") && runtimeEnv.includes("display:none"));
 }
 
 /* ══════════════ SETTINGS (Profile Settings) SCREEN ═════════════════ */
 
-section("Settings screen — Profile Settings");
+section("Settings screen — full surface");
 {
-  t("has 'Profile Settings' title",
-    settingsHTML.includes(">Profile Settings<"));
+  t("has 'Settings' title",
+    settingsHTML.includes(">Settings<"));
   t("has back button with aria-label='Back'",
     settingsHTML.includes('aria-label="Back"'));
   t("back calls closeSettings()",

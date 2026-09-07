@@ -1092,7 +1092,7 @@ function setCoachFollowUpsVisible(visible) {
   if (!chips) return;
   var hasSuggestions =
     chips.dataset.hasSuggestions === "true" && chips.children.length > 0;
-  chips.style.display = visible && hasSuggestions ? "flex" : "none";
+  chips.style.display = visible && hasSuggestions ? "grid" : "none";
 }
 
 function syncCoachScrollUi() {
