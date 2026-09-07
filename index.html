@@ -210,7 +210,7 @@
 <script>
 (function(){
   try{
-    var pref = localStorage.getItem('athlevo_theme') || 'light';
+    var pref = localStorage.getItem('athlevo_theme') || 'dark';
     var root = document.documentElement;
     root.setAttribute('data-theme', pref);
     function isDark(p){
@@ -232,7 +232,7 @@
       if (typeof window.syncThemeControl === 'function') window.syncThemeControl(p);
     };
     window.getAthlevoTheme = function(){
-      try { return localStorage.getItem('athlevo_theme') || 'light'; } catch(e){ return 'light'; }
+      try { return localStorage.getItem('athlevo_theme') || 'dark'; } catch(e){ return 'dark'; }
     };
     // Keep theme-color in sync when the OS theme changes in "System" mode.
     if (window.matchMedia){
@@ -642,6 +642,27 @@ html[data-theme="dark"]{
     --trend-zone-risk:rgba(239,90,96,.14);
     --trend-zone-detraining:rgba(201,138,30,.16);
     color-scheme:dark;
+  }
+}
+/* ── Dark-mode Athlevo brand mark ─────────────────────────────────────
+   The primary mark ships as a black+red PNG (assets/athlevo-icon*.png)
+   whose black portions vanish against dark surfaces. Rather than
+   duplicating <img> markup per call site, a single canonical CSS rule
+   swaps every occurrence of the primary mark's image for a pre-rendered
+   white+red variant (assets/athlevo-icon-transparent-dark.png) whenever
+   dark is active — explicit dark, or system while the OS resolves dark.
+   The red accent is byte-identical between the two PNGs (no filter/
+   hue-rotate is used, so there is no hue shift). Partner/provider logos
+   (Google, Apple, Garmin, etc.) are untouched — this only targets the
+   Athlevo mark's own image filenames. */
+html[data-theme="dark"] img[src$="athlevo-icon-transparent.png"],
+html[data-theme="dark"] img[src$="athlevo-icon.png"]{
+  content:url(assets/athlevo-icon-transparent-dark.png);
+}
+@media (prefers-color-scheme: dark){
+  html[data-theme="system"] img[src$="athlevo-icon-transparent.png"],
+  html[data-theme="system"] img[src$="athlevo-icon.png"]{
+    content:url(assets/athlevo-icon-transparent-dark.png);
   }
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
