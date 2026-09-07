@@ -701,6 +701,91 @@ body{
 }
 @media(min-width:480px){.device{margin:28px auto;height:calc(100dvh - 56px);border-radius:44px}}
 
+/* ============================================================
+   RESPONSIVE APP SHELL (desktop >=1100px, tablet 768-1099px).
+   Mobile (<768px) phone-card presentation is untouched below.
+   Reuses the existing Coach side panel (#coachSidePanel) as a
+   persistent nav rail instead of a slide-in overlay; reuses the
+   real thread system (loadThreadList/renderCoachHistoryList/
+   selectThread) — no second thread model. Added for the
+   responsive desktop workspace task. */
+@media(min-width:768px){
+  :root{--athlevo-rail-w:248px}
+  body.layout-tablet .device,
+  body.layout-desktop .device{
+    max-width:none;width:100%;margin:0;height:100vh;height:100dvh;
+    border-radius:0;box-shadow:none;padding-left:var(--athlevo-rail-w);
+    box-sizing:border-box;
+  }
+  body.layout-tablet #tabbar,
+  body.layout-desktop #tabbar{display:none!important}
+
+  /* Promote the Coach side panel from a slide-in overlay to a fixed rail. */
+  body.layout-tablet .coach-side-panel-overlay,
+  body.layout-desktop .coach-side-panel-overlay{
+    position:fixed!important;inset:0!important;visibility:visible!important;
+    opacity:1!important;pointer-events:none!important;background:transparent!important;
+    -webkit-backdrop-filter:none!important;backdrop-filter:none!important;transition:none!important;
+  }
+  body.layout-tablet .coach-side-panel,
+  body.layout-desktop .coach-side-panel{
+    position:fixed!important;inset:0 auto 0 0!important;transform:none!important;
+    pointer-events:auto!important;width:var(--athlevo-rail-w);max-width:var(--athlevo-rail-w);
+    box-shadow:none;border-right:1px solid var(--line);transition:none!important;
+    padding:20px 12px calc(16px + var(--athlevo-safe-bottom));z-index:40;
+  }
+  body.layout-tablet .coach-side-panel-close,
+  body.layout-desktop .coach-side-panel-close{display:none}
+  body.layout-tablet #screen-coachai,
+  body.layout-desktop #screen-coachai{overflow-y:auto!important}
+
+  /* Primary nav rail rows (Calendar/Coach/You), added inside the panel. */
+  .coach-rail-nav{display:none;gap:2px;margin:2px 0 var(--s-7)}
+  body.layout-tablet .coach-rail-nav,
+  body.layout-desktop .coach-rail-nav{display:grid}
+  .coach-rail-nav .coach-menu-action.on{background:var(--card2);font-weight:750}
+  /* Avoid a duplicate Settings row once the always-visible rail one exists. */
+  body.layout-tablet [data-coach-auth="signed-in"] [onclick="runCoachMenuAction('settings')"],
+  body.layout-desktop [data-coach-auth="signed-in"] [onclick="runCoachMenuAction('settings')"]{display:none}
+
+  /* Readable centered Coach conversation column. */
+  body.layout-tablet #screen-coachai #chatlog,
+  body.layout-desktop #screen-coachai #chatlog,
+  body.layout-tablet #screen-coachai .coach-composer,
+  body.layout-desktop #screen-coachai .coach-composer,
+  body.layout-tablet #screen-coachai .coach-empty-state,
+  body.layout-desktop #screen-coachai .coach-empty-state,
+  body.layout-tablet .am-human-coach-thread,
+  body.layout-desktop .am-human-coach-thread,
+  body.layout-tablet .am-human-coach-composer,
+  body.layout-desktop .am-human-coach-composer{
+    max-width:760px;margin-left:auto!important;margin-right:auto!important;width:100%;
+  }
+}
+@media(min-width:1100px){
+  :root{--athlevo-rail-w:272px}
+  body.layout-desktop #screen-coachai #chatlog,
+  body.layout-desktop #screen-coachai .coach-composer,
+  body.layout-desktop #screen-coachai .coach-empty-state,
+  body.layout-desktop .am-human-coach-thread,
+  body.layout-desktop .am-human-coach-composer{max-width:860px}
+}
+/* Calendar / You (Trends): more breathing room on tablet+desktop, no
+   redesign — just widen the readable column past the mobile card width. */
+@media(min-width:768px){
+  body.layout-tablet #screen-train,
+  body.layout-desktop #screen-train,
+  body.layout-tablet #screen-trends,
+  body.layout-desktop #screen-trends,
+  body.layout-tablet #screen-settings,
+  body.layout-desktop #screen-settings{
+    padding-left:max(var(--s-6),calc((100% - 900px)/2));
+    padding-right:max(var(--s-6),calc((100% - 900px)/2));
+    box-sizing:border-box;
+  }
+}
+
+
 /* ---------- typography ---------- */
 .serif{font-family:var(--serif)}
 .eyebrow{font-size:var(--fs-micro);font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
@@ -6555,6 +6640,28 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
 
     <nav class="coach-side-panel-nav" aria-label="Coach menu">
+      <!-- Desktop/tablet primary nav rail: always visible (auth-agnostic),
+           reuses the canonical go(btn) tab-navigation function so Calendar/
+           Coach/You behave identically to the mobile tabbar. -->
+      <div class="coach-side-panel-section coach-rail-nav" aria-label="Primary navigation">
+        <button class="coach-menu-action" type="button" data-screen="screen-train" onclick="go(this)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <span>Calendar</span>
+        </button>
+        <button class="coach-menu-action on" type="button" data-screen="screen-coachai" onclick="go(this)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>
+          <span>Coach</span>
+        </button>
+        <button class="coach-menu-action" type="button" data-screen="screen-trends" onclick="go(this)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <span>You</span>
+        </button>
+        <button class="coach-menu-action" type="button" onclick="openSettings()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+          <span>Settings</span>
+        </button>
+      </div>
+
       <div class="coach-side-panel-section" data-coach-auth="signed-in" hidden>
         <p class="coach-side-panel-label">Coach</p>
         <button class="coach-menu-action" type="button" onclick="runCoachMenuAction('new-chat')">
@@ -8352,6 +8459,16 @@ function renderCoachHeaderAuthState(session, resolved) {
   document.querySelectorAll("[data-coach-auth]").forEach(function (item) {
     item.hidden = item.getAttribute("data-coach-auth") !== coachHeaderAuthState;
   });
+  // Tablet/desktop keep the Coach side panel permanently visible as a nav
+  // rail (see responsive shell CSS), so it never receives the hamburger
+  // click that normally triggers renderCoachHistoryList() — fetch through
+  // the same canonical loader here instead. Anonymous users never reach
+  // this branch, so private thread history is still never fetched for them.
+  if (coachHeaderAuthState === "signed-in" &&
+      document.body && !document.body.classList.contains("layout-mobile") &&
+      typeof window.renderCoachHistoryList === "function") {
+    window.renderCoachHistoryList();
+  }
 }
 window.renderCoachHeaderAuthState = renderCoachHeaderAuthState;
 
@@ -8440,8 +8557,9 @@ function closeCoachMenu(options) {
   options = options || {};
   var root = document.getElementById("coachSidePanelOverlay");
   if (!root) return;
+  var isFixedRail = !document.body.classList.contains("layout-mobile");
   root.classList.remove("is-open");
-  root.setAttribute("aria-hidden", "true");
+  root.setAttribute("aria-hidden", isFixedRail ? "false" : "true");
   document.body.classList.remove("coach-side-panel-open");
   document.removeEventListener("keydown", handleCoachMenuKeydown);
   coachMenuInertTargets.forEach(function (item) { item.inert = false; });
@@ -8987,6 +9105,14 @@ function selectAppTab(tab, animate){
   tab.classList.add("on");
   tab.setAttribute("aria-selected", "true");
   positionNavActiveIndicator(tab, animate);
+  // Desktop/tablet nav rail lives in the Coach side panel, not #tabbar —
+  // keep its active state in sync with whichever control triggered go().
+  var screenId = tab.dataset ? tab.dataset.screen : null;
+  if (screenId) {
+    document.querySelectorAll(".coach-rail-nav .coach-menu-action[data-screen]").forEach(function(item){
+      item.classList.toggle("on", item.getAttribute("data-screen") === screenId);
+    });
+  }
 }
 
 function syncAppTabForScreen(screenId, animate){
@@ -11831,6 +11957,38 @@ setTimeout(function () {
   .adg-plot{height:104px}
 }
 </style>
+<script>
+/* ══════════════ RESPONSIVE APP-SHELL LAYOUT STATE ══════════════
+ * Sets one of layout-mobile / layout-tablet / layout-desktop on <body>.
+ * Pure presentation switch — screens, auth state, thread state and nav
+ * functions (go/selectAppTab/openCoachMenu/selectThread/openSettings) are
+ * all reused unchanged; this only decides which chrome (bottom tabbar vs.
+ * fixed Coach side panel acting as a nav rail) is visible. Breakpoints:
+ * <768 mobile, 768-1099 tablet, >=1100 desktop. */
+(function () {
+  function classify() {
+    var w = window.innerWidth;
+    return w >= 1100 ? "layout-desktop" : (w >= 768 ? "layout-tablet" : "layout-mobile");
+  }
+  function apply() {
+    var next = classify();
+    if (document.body.classList.contains(next)) return;
+    document.body.classList.remove("layout-mobile", "layout-tablet", "layout-desktop");
+    document.body.classList.add(next);
+    if (next !== "layout-mobile") {
+      var overlay = document.getElementById("coachSidePanelOverlay");
+      if (overlay) overlay.setAttribute("aria-hidden", "false");
+      if (typeof coachHeaderAuthState !== "undefined" && coachHeaderAuthState === "signed-in" &&
+          typeof window.renderCoachHistoryList === "function") {
+        window.renderCoachHistoryList();
+      }
+    }
+  }
+  apply();
+  window.addEventListener("resize", apply, { passive: true });
+  document.addEventListener("DOMContentLoaded", apply);
+})();
+</script>
 </body>
 <!-- Entry hardening for shared links / in-app browsers (Messenger, IG, …):
      window.AthlevoEnv (embedded-browser + storage detection + notice),
