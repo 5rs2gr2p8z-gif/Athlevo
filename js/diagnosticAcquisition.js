@@ -278,8 +278,20 @@ function hideAppTabbar() {
  * chosen. Free is a real, permanent entitlement: features.js/freemium.js
  * still enforce Free's limits server-side once inside the app.
  */
-async function hasCompletedFreeTierEntry(supabase, userId) {
+async function hasCompletedFreeTierEntry(supabase, userId, profile) {
+  if (profile && profile.free_tier_started_at) return true;
   if (!supabase || !userId) return false;
+  try {
+    var profileRow = await supabase
+      .from("profiles")
+      .select("free_tier_started_at")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileRow.data && profileRow.data.free_tier_started_at) return true;
+  } catch (e) { /* fall through to legacy check below */ }
+  // Legacy signal: athletes who chose Free before free_tier_started_at
+  // existed have it recorded only as a completed diagnostic-acquisition
+  // row. Kept so those athletes are not newly paywalled by this fix.
   try {
     var result = await supabase
       .from("athlete_diagnostics")
@@ -313,7 +325,7 @@ async function gateUnpaidAthlete(userId, supabase, profile) {
     clearPaywallExit();
     return { allowed: true, paid: true };
   }
-  if (await hasCompletedFreeTierEntry(supabase || acquisitionSupabase, userId)) {
+  if (await hasCompletedFreeTierEntry(supabase || acquisitionSupabase, userId, profile)) {
     clearPaywallExit();
     return { allowed: true, paid: false, freeTier: true };
   }
@@ -420,7 +432,7 @@ function applyOfferCta(annual) {
   if (typeof start.setAttribute === "function") {
     start.setAttribute("aria-disabled", locked ? "true" : "false");
   }
-  start.textContent = locked ? "No slots available" : "Start Athlevo AI";
+  start.textContent = locked ? "No slots available" : "Start 3-Day Free Trial";
 }
 
 function selectOfferPlan(plan) {
@@ -491,10 +503,23 @@ function showPaymentMethods() {
 }
 
 /*
- * "Start Free" -- Free is a real entitlement, never a checkout. Marks the
- * diagnostic acquisition row "completed" with no paid subscription (see
- * hasCompletedFreeTierEntry) and routes straight into the app the same
- * way a completed paid checkout would.
+ * "Start Free" -- Free is a real, permanent entitlement, never a checkout.
+ * No Whop, no PayMongo, no fake payment state.
+ *
+ * The canonical, server-verified marker is profiles.free_tier_started_at
+ * (see migrations/2026-09-07_profiles_free_tier.sql). Every authenticated
+ * athlete has a profiles row, unlike athlete_diagnostics (which only
+ * exists for athletes who completed the pre-signup AI diagnostic funnel)
+ * -- writing there instead of to athlete_diagnostics is what makes this
+ * work for every athlete who reaches pricing, not only the diagnostic
+ * funnel. The write is verified (.select().single()) before routing: if
+ * it does not durably persist, the athlete is told and kept on the
+ * paywall rather than being routed into the app on an entitlement that
+ * only exists in memory.
+ *
+ * The diagnostic-acquisition row (when one exists) is still advanced to
+ * "completed" for continuity with isDiagnosticAcquisition()/analytics,
+ * but that write is best-effort and never gates entry.
  */
 async function chooseFreeTier() {
   if (checkoutInFlight) return false;
@@ -507,9 +532,46 @@ async function chooseFreeTier() {
   setPaywallBusy(true);
   setPaywallStatus("Setting up your free Athlevo account…");
   try {
-    var state = currentForUser(userId) || { events: {} };
-    state.userId = userId;
-    await setStage(state, "completed", acquisitionSupabase);
+    var supabase = acquisitionSupabase;
+    if (!supabase) {
+      setPaywallStatus("Something went wrong starting your free account. Please try again.");
+      return false;
+    }
+    var activated = await supabase
+      .from("profiles")
+      .update({ free_tier_started_at: nowIso() })
+      .eq("id", userId)
+      .is("free_tier_started_at", null)
+      .select("id, free_tier_started_at")
+      .maybeSingle();
+    if (activated.error) {
+      setPaywallStatus("Something went wrong starting your free account. Please try again.");
+      return false;
+    }
+    // A null row here with no error means free_tier_started_at was already
+    // set (the .is(...,null) guard excluded the row) -- already Free, not
+    // a failure. Otherwise activated.data confirms the write persisted.
+    if (!activated.data) {
+      var already = await supabase
+        .from("profiles")
+        .select("free_tier_started_at")
+        .eq("id", userId)
+        .maybeSingle();
+      if (already.error || !already.data || !already.data.free_tier_started_at) {
+        setPaywallStatus("Something went wrong starting your free account. Please try again.");
+        return false;
+      }
+    }
+    track("free_tier_activated", { source_surface: "diagnostic_paywall" });
+
+    // Best-effort continuity with the diagnostic-acquisition funnel; never
+    // blocks or fails free-tier entry.
+    try {
+      var state = currentForUser(userId) || { events: {} };
+      state.userId = userId;
+      if (state.importKey) await setStage(state, "completed", supabase);
+    } catch (e) {}
+
     clearPaywallExit();
     clearCheckoutReturn();
     if (typeof root.routeAfterAuth === "function") {
@@ -858,6 +920,20 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
       return { handled: false, route: "app", acquisition: true, paid: true };
     }
     return { handled: true, route: "onboarding", acquisition: true, paid: true };
+  }
+
+  // Canonical Free-tier marker (see chooseFreeTier / migrations/
+  // 2026-09-07_profiles_free_tier.sql). Checked before any
+  // athlete_diagnostics lookup so an athlete who chose Free without ever
+  // going through the AI diagnostic funnel (and so has no
+  // athlete_diagnostics row) is routed into the app/onboarding instead of
+  // bouncing back to the paywall below.
+  if (profile && profile.free_tier_started_at) {
+    clearPaywallExit();
+    if (profile.onboarding_complete === true) {
+      return { handled: false, route: "app", acquisition: true, paid: false, freeTier: true };
+    }
+    return { handled: true, route: "onboarding", acquisition: true, paid: false, freeTier: true };
   }
 
   var gated = isAcquisitionGated(userId, attachOutcome, profile, fromAiSignup);

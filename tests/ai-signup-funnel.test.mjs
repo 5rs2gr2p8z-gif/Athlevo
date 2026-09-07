@@ -809,8 +809,10 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
     !/id="offerPlanAnnual"/.test(paywall) && !/id="offerPlanMonthly"/.test(paywall));
   t("Athlevo Pro is the visually emphasized/default tier with a restrained badge",
     /pricing-tier-pro/.test(paywall) && /Best for most runners/.test(paywall));
-  t("Choose Pro is the Pro tier CTA and wires the existing canonical checkout",
-    /beginOfferCheckout\(\)/.test(paywall) && /Choose Pro</.test(paywall));
+  t("Start 3-Day Free Trial is the Pro tier CTA and wires the existing canonical checkout",
+    /beginOfferCheckout\(\)/.test(paywall) && /Start 3-Day Free Trial</.test(paywall));
+  t("Pro card discloses the real post-trial price near the CTA",
+    /3 days free, then ₱597\/month/.test(paywall));
   t("Start Free does not invoke checkout",
     /chooseFreeTier\(\)/.test(paywall) && /Start Free/.test(paywall) &&
     paywall.indexOf("chooseFreeTier") < paywall.indexOf("beginOfferCheckout"));
@@ -819,8 +821,7 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
     /function choosePlusTier/.test(acq) &&
     !/whop\.com\/checkout\/[^"']*elite/i.test(acq));
   t("payment methods are not the first offer choices",
-    paywall.indexOf("Start Athlevo AI") < paywall.indexOf("checkout('card')") &&
-    paywall.indexOf("data-offer-plan=\"monthly\"") < paywall.indexOf("checkout('card')"));
+    paywall.indexOf("Start 3-Day Free Trial") < paywall.indexOf("checkout('card')"));
   t("Choose how you’d like to pay. appears after the plan CTA",
     /Choose how you’d like to pay/.test(paywall));
   t("card payment option is white / non-danger visual treatment",

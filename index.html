@@ -4857,8 +4857,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
           <li>Workout analysis &amp; race preparation</li>
         </ul>
         <button type="button" class="pricing-tier-cta pricing-tier-cta-primary" id="offerStartCta"
-          onclick="AthlevoDiagnosticAcquisition.beginOfferCheckout()">Choose Pro</button>
-        <p class="pricing-tier-trust">Cancel anytime · Secure payment</p>
+          onclick="AthlevoDiagnosticAcquisition.beginOfferCheckout()">Start 3-Day Free Trial</button>
+        <p class="pricing-tier-trust">3 days free, then ₱597/month · Cancel anytime</p>
       </div>
 
       <div class="pricing-tier" data-tier="pro_plus">
@@ -11045,7 +11045,7 @@ async function routeAfterAuth(userId) {
   if (typeof clearAiSignupHandoff === "function") clearAiSignupHandoff();
   const { data: profile, error } = await supabaseClient
     .from("profiles")
-    .select("onboarding_complete, goal, device, role")
+    .select("onboarding_complete, goal, device, role, free_tier_started_at")
     .eq("id", userId)
     .maybeSingle();
 
