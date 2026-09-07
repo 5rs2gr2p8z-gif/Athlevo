@@ -737,8 +737,26 @@
         <strong class="asc-radar-score" id="ascRingNum">${valid ? o.score : "—"}</strong>
         <span class="asc-radar-trend">${arrow}${esc(compactTrend)}</span>
       </button>`;
+
+    // You-screen only: surface the same five component values already
+    // computed above (result.components / RADAR_AXES) plus the same peak
+    // used by the detail modal's "Best" badge — no new score maths, no new
+    // data source, just labels for numbers the modal already shows.
+    const peak = computePeakScore(result);
+    const youDetailHTML = `
+      <div class="you-score-detail">
+        <p class="you-score-detail-line">${valid ? esc(compactTrend) : "Building baseline"}${peak != null ? ` · Best ${peak}` : ""}</p>
+        <div class="you-score-dims">
+          ${RADAR_AXES.map(axis => {
+            const c = components[axis.key] || {};
+            const val = c.status === "valid" && Number.isFinite(Number(c.score)) ? c.score : "—";
+            return `<div class="you-score-dim"><span>${esc(axis.label)}</span><strong>${val}</strong></div>`;
+          }).join("")}
+        </div>
+      </div>`;
+
     mounts.forEach((mount, i) => {
-      mount.innerHTML = cardHTML;
+      mount.innerHTML = mount.id === "youScoreCard" ? cardHTML + youDetailHTML : cardHTML;
       // Only the primary (first-in-DOM) mount keeps a stable id for the
       // celebration counter query below; duplicates still render correctly,
       // they simply don't re-run the count-up animation twice.
@@ -784,13 +802,26 @@
       </div>`;
   }
 
+  // Single source of truth for "best score ever seen" — used by both the
+  // detail-modal peak badge and the compact You-screen summary line, so the
+  // two can never disagree.
+  function computePeakScore(result) {
+    const overall = result && result.overall;
+    if (!overall || overall.status !== "valid") return null;
+    const current = Number(overall.score);
+    const prior = (scoreHistory || [])
+      .filter(row => Number.isFinite(Number(row.overall_score)))
+      .map(row => Number(row.overall_score));
+    return Math.max(current, ...prior);
+  }
+
   function scorePeakBadge(result, delta) {
     const overall = result && result.overall;
     if (!overall || overall.status !== "valid") return "";
     const current = Number(overall.score);
+    const peak = computePeakScore(result);
     const rows = (scoreHistory || []).filter(row => Number.isFinite(Number(row.overall_score)));
     const prior = rows.map(row => Number(row.overall_score));
-    const peak = Math.max(current, ...prior);
     const cutoff = Date.now() - (30 * 86400000);
     const recent = rows
       .filter(row => Number.isFinite(Date.parse(row.score_date)) && Date.parse(row.score_date) >= cutoff)

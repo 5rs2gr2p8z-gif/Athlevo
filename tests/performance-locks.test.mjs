@@ -60,9 +60,14 @@ section("Today free and paid presentation");
     html.indexOf('<section class="screen" id="screen-today">'),
     html.indexOf('<section class="screen"', html.indexOf('<section class="screen" id="screen-today">') + 1)
   );
-  const status = today.slice(
-    today.indexOf('<section class="today-status-card"'),
-    today.indexOf('<details class="direction-why"')
+  // Athlete Status now lives on the You screen (single canonical mount for
+  // #todayAthleteStatusCard — same element/renderer/data pipeline, moved out
+  // of the Today screen's own markup), so it's located in the full document
+  // rather than within the `today` slice.
+  const status = html.slice(
+    html.indexOf('<div class="today-status-card"'),
+    html.indexOf("Unlock insights</button>", html.indexOf('<div class="today-status-card"')) +
+      "Unlock insights</button>".length
   );
   test("Readiness remains a normal visible signal",
     /id="todayReadinessSignal"/.test(status) &&

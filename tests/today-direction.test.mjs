@@ -695,8 +695,9 @@ const trainingMarkup = today.slice(
   today.indexOf("</article>", today.indexOf('<article class="today-training-card"')) + "</article>".length
 );
 const statusMarkup = today.slice(
-  today.indexOf('<section class="today-status-card"'),
-  today.indexOf("</section>", today.indexOf('<section class="today-status-card"')) + "</section>".length
+  today.indexOf('<div class="today-status-card"'),
+  today.indexOf("Unlock insights</button>", today.indexOf('<div class="today-status-card"')) +
+    "Unlock insights</button>".length
 );
 const directionCss = html.slice(
   html.indexOf(".today-status-card{"),
@@ -719,11 +720,15 @@ const positions = [
   today.indexOf("todayActivePlanState"),
   today.indexOf("todayWorkoutTitle"),
   today.indexOf("todayDirectionAction"),
-  today.indexOf('class="direction-signals"'),
   today.indexOf("todayPassiveStatusBlock"),
   today.indexOf("todayDirectionWhy")
 ];
-test("Today follows greeting → state boundary → training → status → coaching explanation",
+// Athlete Status (Readiness/Training Load/Recovery) moved to the You screen
+// as its single canonical mount (#todayAthleteStatusCard element, renderer
+// and data pipeline unchanged) — it's no longer an inline step between
+// Today's training card and its "why" disclosure, so it's not part of this
+// in-page ordering check any more.
+test("Today follows greeting → state boundary → training → coaching explanation",
   positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
 test("Today greeting hides the phase and week subtitle",
   /id="todayContextLine" hidden/.test(today) &&
@@ -889,8 +894,8 @@ test("CTA dispatch keeps existing plan build and Train navigation",
 test("there is no duplicate legacy workout or plan CTA",
   !/class="today-workout-card"|id="todayRecommendationHeadline"|id="todayWorkoutCta"/.test(today) &&
   !/id="todayPlanCta"|#todayPlanCta \.tpc-cta/.test(html));
-test("Why this today is a native disclosure after status",
-  today.indexOf('<details class="direction-why"') > today.indexOf('<section class="today-status-card"') &&
+test("Why this today is a native disclosure after the training card",
+  today.indexOf('<details class="direction-why"') > today.indexOf('id="todayDirectionAction"') &&
   /<details class="direction-why" id="todayWhyToday" hidden>\s*<summary>Why this today\?<\/summary>/.test(today));
 test("workout summary uses only saved session metadata",
   /Number\(session\.duration_minutes\)/.test(html) &&

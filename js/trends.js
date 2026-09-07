@@ -1008,7 +1008,6 @@
       const targetKm = profile && Number(profile.weekly_distance) > 0
         ? Number(profile.weekly_distance) : null;
       renderTrends(trends, targetKm);
-      renderYouWeeklyMileage(trends);
       return trends;
     } catch (error) {
       console.error("Trends refresh failed:", error);
@@ -1016,54 +1015,7 @@
     }
   }
 
-  /*
-   * You screen — Section B "Current athlete data" weekly-mileage metric.
-   * Reuses the SAME `trends` object buildTrends()/refresh() already
-   * computed (no second fetch, no second calculation) and the canonical
-   * diff() helper for the percentage-change math, so the number shown here
-   * can never drift from the Trends card below it.
-   *
-   * Comparison: current Monday–Sunday week vs the immediately previous
-   * Monday–Sunday week (trends.prevFullWeek), per spec — distinct from
-   * trends.diffs.runDistanceKm, which compares against the same partial
-   * period last week for the Trends narrative.
-   */
-  function renderYouWeeklyMileage(trends) {
-    const valueEl = document.getElementById("youMileageValue");
-    const deltaEl = document.getElementById("youMileageDelta");
-    if (!valueEl || !deltaEl) return;
 
-    const cur = trends && trends.thisWeek ? Number(trends.thisWeek.runDistanceKm) : NaN;
-    const prev = trends && trends.prevFullWeek ? Number(trends.prevFullWeek.runDistanceKm) : NaN;
-
-    if (!Number.isFinite(cur)) {
-      valueEl.textContent = "—";
-      deltaEl.textContent = "Not enough data yet";
-      deltaEl.className = "you-metric-delta";
-      return;
-    }
-
-    valueEl.textContent = `${cur.toFixed(1)} km`;
-
-    if (!Number.isFinite(prev) || prev <= 0) {
-      // previous = 0 / null / missing — never invent a percentage.
-      deltaEl.textContent = "No prior week to compare yet";
-      deltaEl.className = "you-metric-delta";
-      return;
-    }
-
-    const d = diff(cur, prev, "km", { decimals: 1 });
-    if (!d.comparable || d.percent === null) {
-      deltaEl.textContent = "No prior week to compare yet";
-      deltaEl.className = "you-metric-delta";
-      return;
-    }
-
-    const arrow = d.absolute > 0 ? "\u2191" : d.absolute < 0 ? "\u2193" : "\u2192";
-    const cls = d.absolute > 0 ? "up" : d.absolute < 0 ? "down" : "stable";
-    deltaEl.textContent = `${arrow} ${Math.abs(d.percent)}%`;
-    deltaEl.className = "you-metric-delta " + cls;
-  }
 
   window.AthlevoTrends = {
     // pure engine (exported for tests)
@@ -1082,8 +1034,7 @@
     diagnoseClassification,
     // glue
     refresh,
-    renderTrends,
-    renderYouWeeklyMileage
+    renderTrends
   };
   window.refreshTrends = refresh;
 })();
