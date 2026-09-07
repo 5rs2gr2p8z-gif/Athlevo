@@ -5377,7 +5377,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </button>
       </div>
       <button class="coach-header-control coach-header-signin" id="coachHeaderSignIn" type="button"
-              onclick="openLogin(true, 'coach_header')" hidden>Sign in</button>
+              onclick="openSignup(true)" hidden>Sign up</button>
     </div>
   </header>
 
@@ -9189,9 +9189,36 @@ async function enterCoachScreen() {
       var chatlog = document.getElementById("chatlog");
       if (chatlog) chatlog.scrollTop = chatlog.scrollHeight;
     });
+    // A question typed anonymously before signup, recovered now that the
+    // athlete is authenticated and Coach has fully resolved.
+    if (typeof recoverPendingCoachMessageIfAny === "function") {
+      recoverPendingCoachMessageIfAny();
+    }
   }
 }
 window.enterCoachScreen = enterCoachScreen;
+
+/*
+ * Anonymous /ai entry. Shows the real Coach shell (top bar, empty state,
+ * starters, composer) to a signed-out visitor instead of the full-page
+ * signup landing. No conversation history, no athlete data, no Calendar/
+ * You data is loaded — enterCoachScreen() no-ops for a signed-out visitor
+ * because AthlevoAthleteMode.onCoachTabEnter() will not resolve to
+ * "self_guided" without a session. Signup is required only when the
+ * visitor tries to send a message (see askCoach()).
+ */
+function showAnonymousCoachPreview() {
+  var tb = document.getElementById('tabbar');
+  if (tb) tb.style.display = 'none';
+  showScreen('screen-coachai');
+  if (typeof renderCoachHeaderAuthState === "function") {
+    renderCoachHeaderAuthState(null);
+  }
+  if (typeof enterCoachScreen === "function") {
+    enterCoachScreen().catch(function () {});
+  }
+}
+window.showAnonymousCoachPreview = showAnonymousCoachPreview;
 
 initAthlevoAppMotion();
 function enterCoachMode(){
@@ -11486,10 +11513,14 @@ async function restoreSession(opts) {
     } else if ((appEntryIntentReason() === "ai" ||
                 (typeof isAiEntryPath === "function" && isAiEntryPath())) &&
                !athlevoSessionUserId) {
-      // /ai is Coach-direct: logged-out visitors land on the same
-      // Coach-oriented signed-out entry shell as any other app entry, never
-      // the diagnostic.
-      showScreen("screen-welcome");
+      // /ai is Coach-direct: logged-out visitors see the actual Coach shell
+      // (empty state, starters, composer) immediately, not the full-page
+      // signup landing. Signup is only required when they try to send.
+      if (typeof showAnonymousCoachPreview === "function") {
+        showAnonymousCoachPreview();
+      } else {
+        showScreen("screen-welcome");
+      }
     } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
                 window.AthlevoCoachInvites.hasPendingInvite()) ||
                isStandaloneMode() || hasAppEntryIntent() ||

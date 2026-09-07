@@ -2,6 +2,75 @@ console.log("Athlevo Coach Loaded");
 
 var _pendingActivityContext = null;
 
+/* ══════════════ Anonymous → signup pending-message handoff ══════════
+ * When a signed-out visitor types (or taps a starter) and tries to send,
+ * we must not call the model or consume quota. We stash the exact
+ * question, send them to canonical signup/auth, and recover it once they
+ * are authenticated and land back in Coach. session-safe, self-expiring,
+ * single-use (cleared as soon as it is read) so it never re-sends on a
+ * refresh or duplicates a request. */
+var COACH_PENDING_MESSAGE_KEY = "athlevo_coach_pending_message";
+var COACH_PENDING_MESSAGE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function savePendingCoachMessage(question) {
+  try {
+    sessionStorage.setItem(COACH_PENDING_MESSAGE_KEY, JSON.stringify({
+      question: String(question || "").slice(0, 4000),
+      at: Date.now()
+    }));
+  } catch (e) {}
+}
+
+/* Reads and immediately clears the pending message (single-use). Returns
+   null when there is none, or it has expired. */
+function consumePendingCoachMessage() {
+  try {
+    var raw = sessionStorage.getItem(COACH_PENDING_MESSAGE_KEY);
+    sessionStorage.removeItem(COACH_PENDING_MESSAGE_KEY);
+    if (!raw) return null;
+    var parsed = JSON.parse(raw);
+    if (!parsed || !parsed.question) return null;
+    if (typeof parsed.at === "number" && (Date.now() - parsed.at) > COACH_PENDING_MESSAGE_TTL_MS) {
+      return null;
+    }
+    return parsed.question;
+  } catch (e) {
+    return null;
+  }
+}
+
+function hasPendingCoachMessage() {
+  try {
+    var raw = sessionStorage.getItem(COACH_PENDING_MESSAGE_KEY);
+    if (!raw) return false;
+    var parsed = JSON.parse(raw);
+    return !!(parsed && parsed.question &&
+      (typeof parsed.at !== "number" || (Date.now() - parsed.at) <= COACH_PENDING_MESSAGE_TTL_MS));
+  } catch (e) {
+    return false;
+  }
+}
+window.savePendingCoachMessage = savePendingCoachMessage;
+window.consumePendingCoachMessage = consumePendingCoachMessage;
+window.hasPendingCoachMessage = hasPendingCoachMessage;
+
+/* Auto-sent at most once per page life, guarding against double-recovery
+   (e.g. enterCoachScreen firing twice during post-auth routing). */
+var _coachPendingMessageRecovered = false;
+function recoverPendingCoachMessageIfAny() {
+  if (_coachPendingMessageRecovered) return;
+  if (!window.athlevoSessionUserId) return; // only once truly signed in
+  if (typeof hasPendingCoachMessage === "function" && !hasPendingCoachMessage()) return;
+  _coachPendingMessageRecovered = true;
+  var question = typeof consumePendingCoachMessage === "function"
+    ? consumePendingCoachMessage()
+    : null;
+  if (question && typeof askCoach === "function") {
+    askCoach(question);
+  }
+}
+window.recoverPendingCoachMessageIfAny = recoverPendingCoachMessageIfAny;
+
 /* ══════════════ Empty state + contextual starters ══════════════ */
 
 function setCoachConversationState(isEmpty) {
@@ -113,8 +182,9 @@ function createCoachThinkingEl() {
   wrap.className = "coach-thinking";
   wrap.setAttribute("role", "status");
   wrap.setAttribute("aria-label", "Coach is thinking");
+  // No Athlevo mark / AE icon / avatar next to transient loading text —
+  // brand mark stays only in the top header.
   wrap.innerHTML =
-    '<div class="coach-thinking-mark"><img src="assets/athlevo-icon-transparent.png" alt="" /></div>' +
     '<span class="coach-thinking-label">' + COACH_THINKING_LABELS[0] + '</span>';
   return wrap;
 }
@@ -1459,6 +1529,27 @@ async function askCoach(question) {
   const cleanQuestion = question?.trim();
 
   if (!cleanQuestion) return;
+
+  // Signed-out visitor: never call the model or touch quota. Preserve the
+  // exact question, clear the composer, and hand off to canonical signup.
+  // Reused everywhere askCoach is invoked (typed Send AND starter taps),
+  // so there is exactly one gate to keep in sync.
+  if (!window.athlevoSessionUserId) {
+    if (typeof savePendingCoachMessage === "function") {
+      savePendingCoachMessage(cleanQuestion);
+    }
+    var anonComposer = document.getElementById("chatInput");
+    if (anonComposer && anonComposer.value.trim() === cleanQuestion) {
+      anonComposer.value = "";
+      if (anonComposer.tagName === "TEXTAREA") anonComposer.style.height = "auto";
+    }
+    if (typeof trackCoachEvent === "function") {
+      trackCoachEvent("coach_signup_required", "anonymous");
+    }
+    if (typeof openSignup === "function") openSignup(true);
+    else if (typeof openLogin === "function") openLogin(true, "coach_preview");
+    return;
+  }
 
   // Prevent duplicate submissions (double-tap / repeated Enter) from
   // creating duplicate stored messages.
