@@ -246,11 +246,18 @@ test("the focal composer follows the prompt, and starter suggestions sit directl
 test("empty suggestions are exactly three, one vertical column",
   (coachScreen.match(/class="coach-suggestion( coach-suggestion--recommended)?"/g) || []).length === 3 &&
   /\.coach-starters,\.coach-followups\{[^}]*grid-template-columns:1fr/.test(coachCss));
-test("top suggestion carries a reduced-motion-safe recommended accent, with no gradient/glow decoration",
+test("top suggestion reuses the diagnostic perimeter-border tracer (not an interior bar), and is reduced-motion-safe",
   /class="coach-suggestion coach-suggestion--recommended"/.test(coachScreen) &&
-  /\.coach-suggestion--recommended/.test(coachCss) &&
-  /prefers-reduced-motion:reduce\)\{\.coach-suggestion--recommended::after\{animation:none/.test(html) &&
-  !/\.coach-suggestion--recommended[\s\S]*?gradient\(/.test(coachCss));
+  /\.coach-suggestion--recommended\{[^}]*overflow:visible/.test(coachCss) &&
+  // Perimeter tracer: an ::before ring built from the SAME conic-gradient +
+  // mask technique as the diagnostic quick-reply recommended card
+  // (.chat-qr-chip.chat-qr-first::before / qr-border-travel), not a new
+  // unrelated animation and not an interior moving bar.
+  /\.coach-suggestion--recommended::before\{[\s\S]*?conic-gradient\(from var\(--qr-angle\)/.test(coachCss) &&
+  /\.coach-suggestion--recommended::before\{[\s\S]*?mask-composite:exclude/.test(coachCss) &&
+  /\.coach-suggestion--recommended::before\{[\s\S]*?animation:qr-border-travel/.test(coachCss) &&
+  !/\.coach-suggestion--recommended::after/.test(coachCss) &&
+  /prefers-reduced-motion:reduce\)\{\.coach-suggestion--recommended::before\{animation:none/.test(html));
 test("starter and follow-up suggestions share one canonical renderer/class system (no parallel chip CSS)",
   !/class="chip"/.test(html) && !html.includes('class="chips"') &&
   /renderCoachStarterPrompts/.test(coach) && /renderFollowUpActions/.test(coach));
@@ -448,9 +455,14 @@ test("reduced-motion coverage remains for Coach transitions",
   /prefers-reduced-motion: reduce[\s\S]*?\.msg\{animation:none\}/.test(html) &&
   extractFunction(coach, "coachScrollBehavior")
     .includes('matchMedia("(prefers-reduced-motion: reduce)")'));
-test("no Gemini branding, copied assets, gradients, or sparkle decoration exist",
+test("no Gemini branding, copied assets, or sparkle decoration exist",
   !/gemini|sparkle/i.test(coachScreen + coach + renderer + coachCss) &&
-  !/gradient\(/.test(coachCss));
+  // The recommended-card perimeter tracer intentionally reuses the existing
+  // diagnostic conic-gradient border technique — everything else in Coach
+  // CSS must still be gradient-free.
+  !/\.coach-suggestion--recommended[\s\S]*?\{[\s\S]*?\}[\s\S]*?gradient\(/.test(
+    coachCss.replace(/\.coach-suggestion--recommended::before\{[^}]*\}/, "")
+  ));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

@@ -662,34 +662,47 @@
       : "Your development is holding steady.";
   }
 
+  // Athlevo Score mounts across the app (Today header + the You screen's
+  // consolidated state section). Same rendering logic, multiple targets —
+  // avoids a second score/radar implementation.
+  function scoreMounts() {
+    // getElementById (not querySelectorAll) so this keeps working against
+    // the minimal `document` test doubles used by existing score tests.
+    return ["athlevoScoreCard", "youScoreCard"]
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+  }
+
   function renderLockedScoreCard() {
-    const mount = document.getElementById("athlevoScoreCard");
-    if (!mount) return;
+    const mounts = scoreMounts();
+    if (!mounts.length) return;
     // Never place a personalized score, component, history value or hidden
     // accessibility value in the free preview.
-    mount.innerHTML = `
-      <button class="asc-radar-summary asc-radar-summary--locked" type="button"
-        aria-label="Unlock Athlevo Score with Athlevo Pro"
-        onclick="AthlevoAccessGuard.openPaywall('athlete-status')">
-        <span class="asc-radar-graphic">${buildRadarPreview({}, false)}</span>
-        <strong class="asc-radar-score" aria-hidden="true">••</strong>
-        <span class="asc-radar-trend">Performance</span>
-      </button>`;
-    try {
-      if (window.AthlevoAccessGuard) {
-        const lockedTarget = typeof mount.querySelector === "function"
-          ? mount.querySelector(".asc-radar-summary--locked")
-          : mount;
-        window.AthlevoAccessGuard.trackPremiumView(
-          "athlevo_score", "today", lockedTarget || mount
-        );
-      }
-    } catch (e) {}
+    mounts.forEach(mount => {
+      mount.innerHTML = `
+        <button class="asc-radar-summary asc-radar-summary--locked" type="button"
+          aria-label="Unlock Athlevo Score with Athlevo Pro"
+          onclick="AthlevoAccessGuard.openPaywall('athlete-status')">
+          <span class="asc-radar-graphic">${buildRadarPreview({}, false)}</span>
+          <strong class="asc-radar-score" aria-hidden="true">••</strong>
+          <span class="asc-radar-trend">Performance</span>
+        </button>`;
+      try {
+        if (window.AthlevoAccessGuard) {
+          const lockedTarget = typeof mount.querySelector === "function"
+            ? mount.querySelector(".asc-radar-summary--locked")
+            : mount;
+          window.AthlevoAccessGuard.trackPremiumView(
+            "athlevo_score", "today", lockedTarget || mount
+          );
+        }
+      } catch (e) {}
+    });
   }
 
   function renderScoreCard(result) {
-    const mount = document.getElementById("athlevoScoreCard");
-    if (!mount) return;
+    const mounts = scoreMounts();
+    if (!mounts.length) return;
     lastResult = result;
     const o = result.overall;
 
@@ -715,7 +728,7 @@
     const arrow = deltaClass === "up" ? "▲ " : deltaClass === "down" ? "▼ " : "";
     const compactTrend = delta.text === "Building baseline" ? "Building" : delta.text;
 
-    mount.innerHTML = `
+    const cardHTML = `
       <button class="asc-radar-summary" type="button" aria-haspopup="dialog"
         aria-controls="scoreDetailModal"
         aria-label="Open Athlevo Score details. ${valid ? `Score ${o.score}` : "Score building baseline"}, ${esc(delta.text)}."
@@ -724,12 +737,22 @@
         <strong class="asc-radar-score" id="ascRingNum">${valid ? o.score : "—"}</strong>
         <span class="asc-radar-trend">${arrow}${esc(compactTrend)}</span>
       </button>`;
+    mounts.forEach((mount, i) => {
+      mount.innerHTML = cardHTML;
+      // Only the primary (first-in-DOM) mount keeps a stable id for the
+      // celebration counter query below; duplicates still render correctly,
+      // they simply don't re-run the count-up animation twice.
+      if (i > 0) {
+        const dup = mount.querySelector("#ascRingNum");
+        if (dup) dup.removeAttribute("id");
+      }
+    });
 
     if (valid) {
       try { window.localStorage.setItem("athlevo_score_last", String(o.score)); } catch (e) {}
     }
 
-    if (animate) runScoreCelebration(mount, lastShown, o.score);
+    if (animate && mounts[0]) runScoreCelebration(mounts[0], lastShown, o.score);
   }
 
   // Count the score number up (the radar polygon animates in via CSS).
@@ -937,8 +960,8 @@
   let scoreHistory = [];
 
   async function refresh(activities, profile) {
-    const mount = document.getElementById("athlevoScoreCard");
-    if (!mount) return null;
+    const mounts = scoreMounts();
+    if (!mounts.length) return null;
     try {
       const access = window.AthlevoAccessGuard &&
         typeof window.AthlevoAccessGuard.accessState === "function"

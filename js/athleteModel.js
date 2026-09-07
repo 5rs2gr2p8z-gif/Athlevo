@@ -435,8 +435,12 @@
   }
 
   async function renderTrainingPacesCard() {
-    const mount = document.getElementById("trainingPacesCard");
-    if (!mount || !window.AthlevoPaceService) return;
+    // Canonical mount is now the You screen; Today keeps its existing mount
+    // too (multi-mount, single renderer/data-source — no duplicated logic).
+    const mounts = ["trainingPacesCard", "youPacesCard"]
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+    if (!mounts.length || !window.AthlevoPaceService) return;
     try {
       const fitness = await getFitness();
 
@@ -517,7 +521,7 @@
         ? escapeHtml(paces.aerobicReason)
         : escapeHtml(paces.updatedLine || paces.supporting);
 
-      mount.innerHTML = `
+      const cardHTML = `
         <div class="tpc">
           <div class="tpc-head">
             <div>
@@ -529,9 +533,10 @@
           ${focusLine}
           ${zonesHtml}
         </div>`;
+      mounts.forEach(mount => { mount.innerHTML = cardHTML; });
     } catch (error) {
       console.warn("Training paces card failed:", error && error.message);
-      mount.innerHTML = "";
+      mounts.forEach(mount => { mount.innerHTML = ""; });
     }
   }
 

@@ -949,12 +949,13 @@ body.coach-workspace-active #tabbar .nav-active-indicator{display:block}
   transition:border-color var(--dur-base) var(--ease-standard),
   background var(--dur-base) var(--ease-standard),transform var(--dur-fast) var(--ease-standard)}
 .coach-suggestion:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-.coach-suggestion--recommended{border-color:color-mix(in srgb,var(--red) 35%,var(--line))}
-.coach-suggestion--recommended::after{content:"";position:absolute;left:0;top:0;width:3px;height:26%;
-  background:var(--red);opacity:.9;border-radius:2px;
-  animation:coachStarterAccentMove 2.6s ease-in-out infinite}
-@keyframes coachStarterAccentMove{0%,100%{top:0}50%{top:74%}}
-@media (prefers-reduced-motion:reduce){.coach-suggestion--recommended::after{animation:none;top:0}}
+.coach-suggestion--recommended{border-color:color-mix(in srgb,var(--red) 35%,var(--line));overflow:visible}
+.coach-suggestion--recommended::before{content:"";position:absolute;inset:-2px;border-radius:calc(var(--r-md) + 2px);padding:2px;
+  background:conic-gradient(from var(--qr-angle),transparent 0%,transparent 70%,var(--red) 85%,transparent 100%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;
+  animation:qr-border-travel 3s linear infinite;pointer-events:none;opacity:.55}
+@media (prefers-reduced-motion:reduce){.coach-suggestion--recommended::before{animation:none;background:var(--red);opacity:.18}}
 
 /* ── Coach thinking indicator (replaces bouncing dots) ────────────── */
 .coach-thinking{display:flex;align-items:center;gap:10px;padding:4px 0}
@@ -2994,6 +2995,16 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 .trend-metric{min-width:0}
 .trend-metric span{display:block;font-size:var(--fs-micro);font-weight:650;letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink3)}
 .trend-metric strong{display:block;margin-top:2px;font-size:var(--fs-h3);font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
+/* ── You screen: Sections A/B/C (state → current data → paces), above Trends ── */
+.you-score-section{display:flex;justify-content:center;padding:var(--s-5) 0 var(--s-2)}
+.you-score-mount{width:110px;height:110px}
+.you-score-mount .asc-radar-graphic{width:100px;height:100px}
+.you-data-section{padding:0 22px}
+.you-data-strip{border-bottom:none;padding:4px 0 var(--s-4)}
+.you-metric-delta{display:block;margin-top:3px;font-size:var(--fs-micro);font-weight:650;color:var(--ink3)}
+.you-metric-delta.up{color:var(--good)}
+.you-metric-delta.down{color:var(--bad)}
+.you-paces-section{padding:0 0 var(--s-3)}
 .trend-graph{padding:var(--s-6) 0;border-bottom:1px solid var(--line);min-width:0}
 .trend-graph:first-of-type{padding-top:var(--s-5)}
 .trend-graph-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--s-3);margin-bottom:var(--s-3)}
@@ -5875,6 +5886,42 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div class="asl-card" data-skeleton-region="status"><div class="skel asl-line is-medium"></div><div class="skel asl-line is-wide"></div><div class="skel asl-line is-medium"></div></div>
   </div>
 
+  <!-- ══ SECTION A — Athlevo Score (reuses #athlevoScoreCard's canonical
+       renderer/data source; AthlevoScore now renders into every mount) ══ -->
+  <div class="you-score-section" aria-label="Athlevo Score">
+    <div class="today-score-mount you-score-mount" id="youScoreCard" aria-live="polite">
+      <span class="skel today-score-skeleton" aria-hidden="true"></span>
+    </div>
+  </div>
+
+  <!-- ══ SECTION B — Current athlete data (compact; no new data sources) ══ -->
+  <div class="you-data-section" aria-label="Current athlete data">
+    <div class="trend-metric-strip you-data-strip" id="youDataStrip">
+      <div class="trend-metric you-metric">
+        <span>Resting HR</span>
+        <strong id="youRestingHRValue">—</strong>
+        <small class="you-metric-delta" id="youRestingHRDelta">Not available yet</small>
+      </div>
+      <div class="trend-metric you-metric">
+        <span>HRV</span>
+        <strong id="youHrvValue">—</strong>
+        <small class="you-metric-delta" id="youHrvDelta">Not available yet</small>
+      </div>
+      <div class="trend-metric you-metric">
+        <span>Weekly mileage</span>
+        <strong id="youMileageValue">—</strong>
+        <small class="you-metric-delta" id="youMileageDelta">—</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECTION C — Training Paces (reuses #trainingPacesCard's canonical
+       renderer/data source; AthleteModel now renders into every mount) ══ -->
+  <div class="you-paces-section" aria-label="Your current training paces">
+    <div id="youPacesCard"></div>
+  </div>
+
+  <!-- ══ SECTION D — Trends (existing content, now the lower portion of You) ══ -->
   <div class="greet">
     <div class="trends-head-row">
       <h1 class="serif">Trends</h1>
