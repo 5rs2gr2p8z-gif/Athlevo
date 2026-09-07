@@ -29,6 +29,7 @@ import { handleCors } from "../../lib/server/cors.js";
 import crypto from "node:crypto";
 import paymongoCheckoutHandler from "../../lib/server/paymongoCheckoutEndpoint.js";
 import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
+import coachAnonymousHandler from "../../lib/server/coachAnonymousEndpoint.js";
 import whopClaimHandler from "../../lib/server/whopClaimEndpoint.js";
 // Beta analytics aggregation (admin_analytics action). Folded into this
 // gateway so the founder dashboard does not consume a separate Vercel
@@ -3851,6 +3852,10 @@ export default async function handler(request, response) {
 
     if (action === "diagnostic_chat") {
       return diagnosticChatHandler(request, response);
+    }
+
+    if (action === "coach_anonymous") {
+      return coachAnonymousHandler(request, response);
     }
 
     if (action === "claim_pending_purchase") {

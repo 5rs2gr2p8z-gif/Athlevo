@@ -37,6 +37,10 @@
       "destination": "/api/providers?action=diagnostic_chat"
     },
     {
+      "source": "/api/coach-anonymous",
+      "destination": "/api/providers?action=coach_anonymous"
+    },
+    {
       "source": "/api/paymongo/webhook",
       "destination": "/api/whop/webhook?provider=paymongo"
     },

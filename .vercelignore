@@ -26,6 +26,11 @@ api/paymongo/
 # The thin api/diagnostic-chat.js wrapper remains for local/CORS tests.
 api/diagnostic-chat.js
 
+# Anonymous Coach preview chat is likewise rewritten to the provider gateway
+# (?action=coach_anonymous) rather than deployed as its own function. The
+# thin api/coach-anonymous.js wrapper remains for local/CORS tests.
+api/coach-anonymous.js
+
 # Not part of the deployed app.
 migrations/
 tests/

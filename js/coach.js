@@ -1530,21 +1530,31 @@ async function askCoach(question) {
 
   if (!cleanQuestion) return;
 
-  // Signed-out visitor: never call the model or touch quota. Preserve the
-  // exact question, clear the composer, and hand off to canonical signup.
+  // Signed-out visitor: never call the authenticated model, never touch
+  // the free-message quota, never save into coach_threads. Instead hand
+  // off to the anonymous Coach preview conversation (js/anonymousCoach.js)
+  // so the visitor can actually experience Athlevo before signing up. The
+  // permanent header "Sign up" button remains the fast path for anyone
+  // ready to convert immediately.
   // Reused everywhere askCoach is invoked (typed Send AND starter taps),
   // so there is exactly one gate to keep in sync.
   if (!window.athlevoSessionUserId) {
-    if (typeof savePendingCoachMessage === "function") {
-      savePendingCoachMessage(cleanQuestion);
-    }
     var anonComposer = document.getElementById("chatInput");
     if (anonComposer && anonComposer.value.trim() === cleanQuestion) {
       anonComposer.value = "";
       if (anonComposer.tagName === "TEXTAREA") anonComposer.style.height = "auto";
     }
     if (typeof trackCoachEvent === "function") {
-      trackCoachEvent("coach_signup_required", "anonymous");
+      trackCoachEvent("coach_anonymous_message_submitted", "anonymous");
+    }
+    if (window.AthlevoAnonymousCoach && typeof window.AthlevoAnonymousCoach.ask === "function") {
+      window.AthlevoAnonymousCoach.ask(cleanQuestion);
+      return;
+    }
+    // Anonymous chat module failed to load — fall back to the previous
+    // signup-first behaviour rather than silently dropping the message.
+    if (typeof savePendingCoachMessage === "function") {
+      savePendingCoachMessage(cleanQuestion);
     }
     if (typeof openSignup === "function") openSignup(true);
     else if (typeof openLogin === "function") openLogin(true, "coach_preview");
