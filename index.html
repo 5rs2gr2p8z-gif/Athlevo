@@ -711,8 +711,8 @@ body{
    responsive desktop workspace task. */
 @media(min-width:768px){
   :root{--athlevo-rail-w:248px}
-  body.layout-tablet .device,
-  body.layout-desktop .device{
+  body.layout-tablet:not(.landing-active) .device,
+  body.layout-desktop:not(.landing-active) .device{
     max-width:none;width:100%;margin:0;height:100vh;height:100dvh;
     border-radius:0;box-shadow:none;padding-left:var(--athlevo-rail-w);
     box-sizing:border-box;
@@ -721,14 +721,14 @@ body{
   body.layout-desktop #tabbar{display:none!important}
 
   /* Promote the Coach side panel from a slide-in overlay to a fixed rail. */
-  body.layout-tablet .coach-side-panel-overlay,
-  body.layout-desktop .coach-side-panel-overlay{
+  body.layout-tablet:not(.landing-active) .coach-side-panel-overlay,
+  body.layout-desktop:not(.landing-active) .coach-side-panel-overlay{
     position:fixed!important;inset:0!important;visibility:visible!important;
     opacity:1!important;pointer-events:none!important;background:transparent!important;
     -webkit-backdrop-filter:none!important;backdrop-filter:none!important;transition:none!important;
   }
-  body.layout-tablet .coach-side-panel,
-  body.layout-desktop .coach-side-panel{
+  body.layout-tablet:not(.landing-active) .coach-side-panel,
+  body.layout-desktop:not(.landing-active) .coach-side-panel{
     position:fixed!important;inset:0 auto 0 0!important;transform:none!important;
     pointer-events:auto!important;width:var(--athlevo-rail-w);max-width:var(--athlevo-rail-w);
     box-shadow:none;border-right:1px solid var(--line);transition:none!important;
@@ -773,8 +773,8 @@ body{
   }
   .coach-rail-toggle:hover{background:var(--card2)}
   .coach-rail-toggle:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-  body.layout-tablet .coach-rail-toggle,
-  body.layout-desktop .coach-rail-toggle{display:flex}
+  body.layout-tablet:not(.landing-active) .coach-rail-toggle,
+  body.layout-desktop:not(.landing-active) .coach-rail-toggle{display:flex}
 
   /* Primary nav rail rows (Calendar/Coach/You), added inside the panel. */
   .coach-rail-nav{display:none;gap:2px;margin:2px 0 var(--s-7)}
@@ -7785,13 +7785,13 @@ function renderNavState(state) {
       if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
       return;
     }
-    if (path === "/ai" && !athlevoSessionUserId) {
-      // /ai is Coach-direct now: back/forward navigation to it must show
-      // the SAME single anonymous entry surface restoreSession() uses on
-      // initial boot (the real Coach shell), never the full-page sign-in
-      // card. showAnonymousCoachPreview() is the one authoritative
-      // anonymous /ai renderer; renderNavState must not duplicate or
-      // diverge from it.
+    if ((path === "/ai" || path === "") && !athlevoSessionUserId) {
+      // /ai (and now root "/") are Coach-direct: back/forward navigation
+      // to either must show the SAME single anonymous entry surface
+      // restoreSession() uses on initial boot (the real Coach shell),
+      // never the full-page sign-in card or the marketing landing page.
+      // showAnonymousCoachPreview() is the one authoritative anonymous
+      // renderer; renderNavState must not duplicate or diverge from it.
       if (typeof showAnonymousCoachPreview === "function") {
         showAnonymousCoachPreview();
       } else {
@@ -12874,7 +12874,11 @@ setTimeout(function () {
     // Authenticated visitors are routed by restoreSession (paid → app;
     // unpaid → /pricing). /signup is canonical; /ai-signup stays compatible.
     var aiPath = url.pathname.replace(/\/+$/, "");
-    if (aiPath === "/ai" || aiPath === "/signup" || aiPath === "/ai-signup") {
+    // Root domain ("/") now converges on the same anonymous Coach preview
+    // as /ai — the marketing landing page no longer owns the default
+    // public entry. /landing remains an explicit internal route (see
+    // isLandingPath()) and is intentionally excluded here.
+    if (aiPath === "/ai" || aiPath === "" || aiPath === "/signup" || aiPath === "/ai-signup") {
       rememberAppEntryIntent("ai");
     }
     if ((aiPath === "/signup" || aiPath === "/ai-signup") &&

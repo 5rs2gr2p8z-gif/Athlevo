@@ -42,10 +42,15 @@ test("mobile hamburger side panel markup (slide-in overlay) still exists",
 
 /* ---------- tablet/desktop shell ---------- */
 test("tablet (>=768px) and desktop (>=1100px) breakpoints both drop the fixed phone-card max-width",
-  /@media\(min-width:768px\)\{[\s\S]*?body\.layout-tablet \.device,\s*body\.layout-desktop \.device\{\s*max-width:none;width:100%/.test(html) &&
+  /@media\(min-width:768px\)\{[\s\S]*?body\.layout-tablet:not\(\.landing-active\) \.device,\s*body\.layout-desktop:not\(\.landing-active\) \.device\{\s*max-width:none;width:100%/.test(html) &&
   /@media\(min-width:1100px\)\{/.test(html));
 test("the existing Coach side panel is promoted to a fixed nav rail on tablet/desktop, reusing the same DOM node (no clone)",
-  /body\.layout-tablet \.coach-side-panel,\s*body\.layout-desktop \.coach-side-panel\{\s*position:fixed!important/.test(html));
+  /body\.layout-tablet:not\(\.landing-active\) \.coach-side-panel,\s*body\.layout-desktop:not\(\.landing-active\) \.coach-side-panel\{\s*position:fixed!important/.test(html));
+test("the rail (and its device padding-left/toggle) is scoped OFF whenever the retained marketing landing page is shown, even at tablet/desktop widths — .device, .coach-side-panel[-overlay], and .coach-rail-toggle all key off body:not(.landing-active)",
+  /body\.layout-tablet:not\(\.landing-active\) \.device/.test(html) &&
+  /body\.layout-desktop:not\(\.landing-active\) \.device/.test(html) &&
+  /body\.layout-tablet:not\(\.landing-active\) \.coach-side-panel-overlay/.test(html) &&
+  /body\.layout-tablet:not\(\.landing-active\) \.coach-rail-toggle/.test(html));
 test("desktop/tablet rail nav (Calendar/Coach/You/Settings) reuses the canonical go(btn) and openSettings() functions",
   /coach-rail-nav"[\s\S]*?data-screen="screen-train" onclick="go\(this\)"/.test(html) &&
   /data-screen="screen-coachai" onclick="go\(this\)"/.test(html) &&
@@ -87,10 +92,10 @@ test("Calendar (screen-train), You (screen-trends), and Settings (screen-setting
   /body\.layout-tablet #screen-train,\s*body\.layout-desktop #screen-train,\s*body\.layout-tablet #screen-trends,\s*body\.layout-desktop #screen-trends,\s*body\.layout-tablet #screen-settings,\s*body\.layout-desktop #screen-settings\{/.test(html));
 
 /* ---------- rail collapse/reopen toggle ---------- */
-test("a persistent rail toggle button exists for tablet/desktop, hidden by default (shown only via layout-tablet/layout-desktop body classes)",
+test("a persistent rail toggle button exists for tablet/desktop, hidden by default (shown only via layout-tablet/layout-desktop body classes, and never on the retained landing page)",
   /class="coach-rail-toggle" id="coachRailToggle"/.test(html) &&
   /\.coach-rail-toggle\{[\s\S]*?display:none;/.test(html) &&
-  /body\.layout-tablet \.coach-rail-toggle,\s*body\.layout-desktop \.coach-rail-toggle\{display:flex\}/.test(html));
+  /body\.layout-tablet:not\(\.landing-active\) \.coach-rail-toggle,\s*body\.layout-desktop:not\(\.landing-active\) \.coach-rail-toggle\{display:flex\}/.test(html));
 test("the toggle's fixed position tracks the rail width via the same CSS variable, not a hardcoded offset",
   /\.coach-rail-toggle\{[\s\S]*?left:calc\(var\(--athlevo-rail-w\) \+ 16px\)/.test(html));
 test("toggling sets a coach-rail-collapsed body class which collapses --athlevo-rail-w to 0 (workspace/rail both key off one variable)",

@@ -90,7 +90,8 @@ const SOURCE = [
   extract("endBootGate"),
   extract("showScreen"),
   extract("doLogout"),
-  extract("renderNavState")
+  extract("renderNavState"),
+  extract("showAnonymousCoachPreview")
 ].join("\n\n");
 
 /* ── minimal DOM + app doubles ──────────────────────────────────────── */
@@ -361,6 +362,15 @@ function makeWorld({
       state.screens["screen-welcome"].active = true;
     },
     clearAiSignupHandoff: () => store.delete("athlevo_ai_signup_handoff"),
+    // showAnonymousCoachPreview() is the REAL extracted function (see SOURCE
+    // above) — these are only the leaf calls it makes into other modules,
+    // so the test exercises the actual anonymous-preview renderer rather
+    // than a fallback route standing in for it.
+    renderCoachHeaderAuthState: (session) => {
+      state.coachHeaderAuthRendered = true;
+      state.coachHeaderAuthSession = session;
+    },
+    enterCoachScreen: async () => { state.enterCoachScreenCalled = true; },
     state
   };
 
@@ -374,6 +384,7 @@ function makeWorld({
        claimPostAuthRoute,
        showPostAuthTransition,
        lockAuthEntryControls,
+       showAnonymousCoachPreview,
        getUid: () => athlevoSessionUserId,
        getAuthPushed: () => athlevoAuthPushed
      };`);
@@ -403,9 +414,42 @@ const SESSION = { user: { id: "u1", email: "a@b.c" } };
 section("Routing scenarios");
 
 {
-  const r = await boot({ session: null, standalone: false });
-  t("1. new visitor opens athlevo.org → landing", r.visible === "screen-landing" && !r.entered);
-  t("1b. boot gate is lifted", !r.state.bodyClasses.has("booting"));
+  // The marketing landing page no longer owns the default public entry —
+  // root ("/") now converges on the same anonymous Coach preview as /ai.
+  // In production this is driven by the boot IIFE (outside restoreSession
+  // itself) calling rememberAppEntryIntent("ai") for the root path before
+  // restoreSession runs — mirrored here the same way the existing /ai
+  // scenarios below seed athlevo_app_entry_intent, and independently
+  // verified at the source level right after this block. The landing
+  // implementation itself is untouched and still reachable at /landing
+  // (see the /landing scenario below).
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/" });
+  state.store.set("athlevo_app_entry_intent", "ai");
+  let entered = false;
+  try { entered = await api.restoreSession({}); } finally { api.endBootGate(); }
+  t("1. new visitor opens athlevo.org (root) → anonymous Coach preview, not landing",
+    state.screens["screen-coachai"].active === true &&
+    state.screens["screen-landing"].active === false && !entered);
+  t("1a. root anonymous entry actually invoked showAnonymousCoachPreview() (not a fallback)",
+    state.coachHeaderAuthRendered === true && state.enterCoachScreenCalled === true);
+  t("1b. boot gate is lifted", !state.bodyClasses.has("booting"));
+}
+{
+  // Source-level: the boot IIFE itself must set the "ai" entry intent for
+  // root ("") the same way it already does for /ai, /signup, /ai-signup —
+  // this is the actual fix, not just the test double above.
+  const bootSrc = html.slice(
+    html.indexOf("async function initializeAthlevoApp()"),
+    html.indexOf("initializeAthlevoApp();")
+  );
+  t("boot IIFE remembers app-entry intent \"ai\" for root \"\" as well as /ai",
+    /aiPath === "\/ai" \|\| aiPath === "" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"/.test(bootSrc));
+}
+{
+  // /landing remains the internal route for the retained marketing page.
+  const r = await boot({ session: null, standalone: false, pathname: "/landing" });
+  t("1-landing. explicit /landing still renders the retained marketing landing page",
+    r.visible === "screen-landing" && !r.entered);
 }
 {
   const r = await boot({
@@ -670,11 +714,16 @@ section("Back-navigation floor");
   t("Back never drops a signed-in athlete onto marketing", visible !== "screen-landing", visible);
 }
 {
+  // Root now converges on the same anonymous Coach preview as /ai (see the
+  // "Root domain" section below) — that satisfies the invariant here too:
+  // an installed PWA on root must never show marketing, whether it lands
+  // on the Coach preview or the sign-in screen.
   const { api, state } = makeWorld({ session: null, standalone: true });
   await api.restoreSession({}); api.endBootGate();
   api.renderNavState({ athlevoNav: "landing" });
   const visible = Object.keys(state.screens).find(k => state.screens[k].active);
-  t("Back never shows marketing inside the PWA", visible === "screen-welcome", visible);
+  t("Back never shows marketing inside the PWA",
+    visible === "screen-welcome" || visible === "screen-coachai", visible);
 }
 
 section("/ai acquisition routing");
@@ -724,11 +773,12 @@ section("/ai acquisition routing");
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
   state.store.set("athlevo_app_entry_intent", "ai");
   await api.restoreSession({}); api.endBootGate();
-  t("PERMANENT: anonymous /ai is Coach-direct (screen-welcome), not the diagnostic",
+  t("PERMANENT: anonymous /ai is Coach-direct (real Coach shell), not the diagnostic",
     state.diagnosticStarted !== true &&
     state.screens["screen-diagnostic"].active === false &&
     state.aiSignupShown !== true &&
-    state.screens["screen-welcome"].active === true);
+    state.screens["screen-coachai"].active === true &&
+    state.screens["screen-welcome"].active === false);
   t("logged-out /ai does not enter the authenticated app",
     state.routed === null && state.screens["screen-today"].active === false);
   t("logged-out /ai does not show pricing before signup",
@@ -743,14 +793,14 @@ section("/ai acquisition routing");
     state.diagnosticStarted !== true &&
     state.aiSignupShown !== true &&
     state.pricingShown !== true &&
-    state.screens["screen-welcome"].active === true);
+    state.screens["screen-coachai"].active === true);
 }
 {
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
   api.renderNavState({ athlevoNav: "landing" });
-  t("popstate on anonymous /ai goes Coach-direct (screen-welcome), not the diagnostic",
+  t("popstate on anonymous /ai goes Coach-direct (real Coach shell), not the diagnostic",
     state.diagnosticStarted !== true && state.aiSignupShown !== true &&
-    state.screens["screen-welcome"].active === true);
+    state.screens["screen-coachai"].active === true);
 }
 {
   const { api, state } = makeWorld({
@@ -1053,6 +1103,53 @@ section("/ai acquisition routing");
     ui.indexOf("hasReturningAthlevoAccountMarker") < ui.indexOf("showScreen(\"screen-diagnostic\")"));
 }
 
+section("Root domain \"/\" converges on Coach preview (same as /ai)");
+{
+  // Mirrors the boot IIFE's rememberAppEntryIntent("ai") call for root,
+  // which lives outside restoreSession itself (see the source-level check
+  // above in "Routing scenarios").
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/" });
+  state.store.set("athlevo_app_entry_intent", "ai");
+  await api.restoreSession({}); api.endBootGate();
+  t("logged-out root \"/\" shows the real Coach shell, not the marketing landing",
+    state.screens["screen-coachai"].active === true &&
+    state.screens["screen-landing"].active === false);
+  t("logged-out root \"/\" does not show the full-page signup landing (screen-welcome)",
+    state.screens["screen-welcome"].active === false);
+  t("logged-out root \"/\" does not start the diagnostic acquisition flow",
+    state.diagnosticStarted === false);
+  t("logged-out root \"/\" does not enter the authenticated app",
+    state.routed === null);
+  t("logged-out root \"/\" invoked the REAL showAnonymousCoachPreview() renderer",
+    state.coachHeaderAuthRendered === true && state.coachHeaderAuthSession === null &&
+    state.enterCoachScreenCalled === true);
+}
+{
+  // Back/forward to root must converge on the same renderer as a fresh load.
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/" });
+  api.renderNavState({ athlevoNav: "landing" });
+  t("popstate to root \"/\" (signed out) goes Coach-direct, not landing",
+    state.screens["screen-coachai"].active === true &&
+    state.screens["screen-landing"].active === false);
+}
+{
+  // A signed-in athlete hitting root never sees the marketing landing —
+  // routeAfterAuth (mocked here, exercised for real in post-auth-transition
+  // tests) owns the destination regardless of path.
+  const { api, state } = makeWorld({ session: SESSION, standalone: false, pathname: "/" });
+  await api.restoreSession({}); api.endBootGate();
+  t("logged-in root \"/\" routes into the authenticated app (Coach), not landing",
+    state.routed === "u1" && state.screens["screen-landing"].active === false);
+}
+{
+  // The retained /landing internal route is unaffected — still renders the
+  // real landing markup for a signed-out visitor who explicitly opens it.
+  const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/landing" });
+  await api.restoreSession({}); api.endBootGate();
+  t("/landing (signed out) still renders the retained marketing landing page",
+    state.screens["screen-landing"].active === true);
+}
+
 section("Anonymous /ai early-start (before restoreSession)");
 {
   const initStart = html.indexOf("async function initializeAthlevoApp()");
@@ -1095,7 +1192,7 @@ section("Anonymous /ai early-start (before restoreSession)");
   api.endBootGate();
   t("D. restore with no session lands on the Coach-oriented signed-out shell, not the diagnostic",
     state.screens["screen-diagnostic"].active !== true &&
-    state.screens["screen-welcome"].active === true &&
+    state.screens["screen-coachai"].active === true &&
     state.routed === null &&
     state.screens["screen-today"].active === false);
   t("J. restoreSession /ai start branch does not start the diagnostic at all",
