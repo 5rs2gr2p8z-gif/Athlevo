@@ -558,16 +558,16 @@
    asserts it — so the palette can never diverge again. Only theme-varying
    tokens live here; spacing/radius/motion are theme-invariant in :root. */
 html[data-theme="dark"]{
-  --bg:#0c0d0f;
-  --paper:#17181c;
-  --card:#202228;
-  --card2:#26282e;
-  --ink:#2a2b31;
-  --text:#f2f3f5;
-  --ink2:#adb1b8;
-  --ink3:#787c84;
-  --line:#2c2e34;
-  --field:#202228;
+  --bg:#080808;
+  --paper:#0d0d0f;
+  --card:#141416;
+  --card2:#1a1b1e;
+  --ink:#202124;
+  --text:#f2f2f2;
+  --ink2:#b9bdc3;
+  --ink3:#8f939a;
+  --line:#242428;
+  --field:#141416;
   --red:#ef5a60;
   --red-soft:rgba(239,90,96,.14);
   --good:#3ecf8e;
@@ -577,7 +577,7 @@ html[data-theme="dark"]{
   --bad:#ef5a60;
   --info:#78a6ff;
   --info-soft:rgba(120,166,255,.16);
-  --nav-glass:rgba(18,19,22,.86);
+  --nav-glass:rgba(10,10,11,.86);
   --elev-1:0 1px 2px rgba(0,0,0,.40);
   --elev-2:0 4px 16px -4px rgba(0,0,0,.50);
   --elev-3:0 20px 48px -12px rgba(0,0,0,.62), 0 4px 12px rgba(0,0,0,.40);
@@ -604,16 +604,16 @@ html[data-theme="dark"]{
 }
 @media (prefers-color-scheme: dark){
   html[data-theme="system"]{
-    --bg:#0c0d0f;
-    --paper:#17181c;
-    --card:#202228;
-    --card2:#26282e;
-    --ink:#2a2b31;
-    --text:#f2f3f5;
-    --ink2:#adb1b8;
-    --ink3:#787c84;
-    --line:#2c2e34;
-    --field:#202228;
+    --bg:#080808;
+    --paper:#0d0d0f;
+    --card:#141416;
+    --card2:#1a1b1e;
+    --ink:#202124;
+    --text:#f2f2f2;
+    --ink2:#b9bdc3;
+    --ink3:#8f939a;
+    --line:#242428;
+    --field:#141416;
     --red:#ef5a60;
     --red-soft:rgba(239,90,96,.14);
     --good:#3ecf8e;
@@ -623,7 +623,7 @@ html[data-theme="dark"]{
     --bad:#ef5a60;
     --info:#78a6ff;
     --info-soft:rgba(120,166,255,.16);
-    --nav-glass:rgba(18,19,22,.86);
+    --nav-glass:rgba(10,10,11,.86);
     --elev-1:0 1px 2px rgba(0,0,0,.40);
     --elev-2:0 4px 16px -4px rgba(0,0,0,.50);
     --elev-3:0 20px 48px -12px rgba(0,0,0,.62), 0 4px 12px rgba(0,0,0,.40);
@@ -2526,6 +2526,41 @@ html.athlevo-native-android .asc-radar-area{filter:none}
   position:absolute;inset:0 0 calc(var(--athlevo-tabbar-height) + var(--athlevo-safe-bottom));
   height:auto;min-height:0;padding:var(--athlevo-safe-top) 0 0;overflow:hidden;display:none;flex-direction:column;
   background:var(--paper)
+}
+/* Coach-only dark atmosphere: a very subtle Athlevo-red glow rising from
+   below the viewport, black -> faint burgundy -> black. Coach exclusively —
+   every other screen stays a plain tonal --paper background in dark mode.
+   Kept faint on purpose: readability, card colour and overall near-black
+   feel are unaffected; this is atmosphere, not a red UI. */
+html[data-theme="dark"] #screen-coachai{
+  background:
+    radial-gradient(ellipse 85% 45% at 50% 110%, rgba(207,34,40,.12), rgba(95,12,17,.06) 35%, transparent 72%),
+    var(--paper);
+}
+@media(prefers-color-scheme:dark){
+  html[data-theme="system"] #screen-coachai{
+    background:
+      radial-gradient(ellipse 85% 45% at 50% 110%, rgba(207,34,40,.12), rgba(95,12,17,.06) 35%, transparent 72%),
+      var(--paper);
+  }
+}
+/* Let the atmosphere show through under the composer instead of a flat
+   card blocking it; the input pill itself steps up one tonal elevation
+   so it still reads as a distinct control. Colour only — no structural,
+   sizing or layout change. */
+html[data-theme="dark"] #screen-coachai .coach-composer{
+  background:transparent;
+}
+html[data-theme="dark"] #screen-coachai .composer{
+  background:var(--card);
+}
+@media(prefers-color-scheme:dark){
+  html[data-theme="system"] #screen-coachai .coach-composer{
+    background:transparent;
+  }
+  html[data-theme="system"] #screen-coachai .composer{
+    background:var(--card);
+  }
 }
 #screen-coachai.active{display:flex}
 #screen-coachai .coach-head{

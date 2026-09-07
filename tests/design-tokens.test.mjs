@@ -102,5 +102,43 @@ section("The two dark blocks are token-for-token identical");
   t("both define dark elevation", "--elev-1" in A && "--elev-3" in B);
 }
 
+/* ══════ Part 6 — dark mode is a deliberate near-black environment ═══ */
+
+section("Dark base is near-black, elevation steps up tonally, Coach carries a scoped red atmosphere");
+{
+  const explicitBlock = (html.match(/html\[data-theme="dark"\]\{[\s\S]*?\}/) || [""])[0];
+  t("dark --bg is near-black (#050505-#0f0f10 range)", /--bg:#0[0-9a-f]{5};/.test(explicitBlock));
+  t("dark --paper (app canvas) sits close to --bg, not mid-grey", /--paper:#0[0-9a-f]{5};/.test(explicitBlock));
+  t("dark --card is a lighter step than --paper (tonal elevation)", (() => {
+    const paper = (explicitBlock.match(/--paper:#([0-9a-f]{6});/) || [])[1];
+    const card = (explicitBlock.match(/--card:#([0-9a-f]{6});/) || [])[1];
+    if (!paper || !card) return false;
+    const lum = h => parseInt(h.slice(0,2),16)+parseInt(h.slice(2,4),16)+parseInt(h.slice(4,6),16);
+    return lum(card) > lum(paper);
+  })());
+  t("dark primary text is soft off-white, not pure #fff", /--text:#f2f2f2;/.test(explicitBlock));
+  t("dark borders remain visible (non-zero --line)", /--line:#[0-9a-f]{6};/.test(explicitBlock));
+
+  t("Coach dark background carries the subtle red atmosphere",
+    /html\[data-theme="dark"\] #screen-coachai\{[\s\S]{0,200}radial-gradient\(ellipse 85% 45%[\s\S]{0,60}rgba\(207,34,40/.test(html) &&
+    /html\[data-theme="system"\] #screen-coachai\{[\s\S]{0,200}radial-gradient\(ellipse 85% 45%[\s\S]{0,60}rgba\(207,34,40/.test(html));
+
+  const nonCoachScreens = ["#screen-train", "#screen-trends", "#screen-settings", "#screen-connect"];
+  t("the red atmosphere is scoped to Coach only, not applied to other screens",
+    nonCoachScreens.every(sel => {
+      const re = new RegExp("html\\[data-theme=\"dark\"\\] " + sel.replace("#","\\#") + "\\{[^}]*radial-gradient\\(ellipse 85% 45%");
+      return !re.test(html);
+    }));
+
+  t("system-theme dark palette stays identical to explicit dark (no divergence introduced)",
+    (() => {
+      const system = (html.match(/html\[data-theme="system"\]\{([\s\S]*?)\}/) || [])[1] || "";
+      const explicit = (html.match(/html\[data-theme="dark"\]\{([\s\S]*?)\}/) || [])[1] || "";
+      return system.includes("--bg:#080808") === explicit.includes("--bg:#080808");
+    })());
+
+  t("light-mode :root palette is untouched by the dark-mode pass", root.includes("--bg:#eeeeec") && root.includes("--paper:#ffffff"));
+}
+
 console.log(`\n${p} passed, ${f} failed`);
 process.exit(f ? 1 : 0);
