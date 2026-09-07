@@ -35,6 +35,13 @@
     in_app_browser_signup_blocked:{ kind: "behavioural", props: ["browser", "intent", "source_surface"] },
     external_signup_link_copied:  { kind: "behavioural", props: ["browser", "intent", "source_surface"] },
     external_signup_continuation_viewed:{ kind: "behavioural", props: ["browser", "intent", "source_surface"] },
+    // Cross-browser anonymous-diagnostic continuation handoff. Reuses the
+    // existing browser/intent/source_surface taxonomy above — no new
+    // enums invented. Never carries diagnostic answers or message text.
+    external_handoff_created:  { kind: "behavioural", props: ["browser", "intent", "source_surface"] },
+    external_handoff_restored: { kind: "behavioural", props: ["browser", "intent", "source_surface"] },
+    external_handoff_failed:   { kind: "behavioural", props: ["browser", "intent", "source_surface", "failure_category"] },
+    external_handoff_expired:  { kind: "behavioural", props: ["browser", "intent", "source_surface"] },
     registration_completed:      { kind: "milestone",   props: ["signup_method", "method", "source", "user_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     onboarding_started:          { kind: "milestone",   props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     data_connection_started:     { kind: "behavioural", props: ["provider", "source_surface", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },

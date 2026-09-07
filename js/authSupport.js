@@ -184,6 +184,12 @@
     const surface = aiAcquisition ? "ai_signup" : safeSurface(opts.sourceSurface);
     if (browser) url.searchParams.set("handoff_browser", browser);
     url.searchParams.set("source_surface", surface);
+    // Opaque, single-purpose continuation token (see js/anonymousHandoff.js).
+    // Never anything but a short random-looking string — no diagnostic
+    // answers, email, or auth data ever go into this URL.
+    if (opts.handoffToken && typeof opts.handoffToken === "string" && opts.handoffToken.length <= 200) {
+      url.searchParams.set("handoff", opts.handoffToken);
+    }
     const attribution = attributionForHandoff();
     ATTRIBUTION_KEYS.forEach(key => {
       if (attribution[key]) url.searchParams.set(key, attribution[key]);
@@ -196,14 +202,34 @@
       const params = new URLSearchParams(window.location.search || "");
       const intent = safeIntent(params.get("continue"));
       if (!intent) return null;
+      const rawToken = params.get("handoff");
+      const handoffToken = (typeof rawToken === "string" && rawToken.length > 0 && rawToken.length <= 200)
+        ? rawToken
+        : null;
       return {
         intent,
         browser: safeHandoffBrowser(params.get("handoff_browser")),
-        sourceSurface: safeSurface(params.get("source_surface"))
+        sourceSurface: safeSurface(params.get("source_surface")),
+        handoffToken
       };
     } catch (error) {
       return null;
     }
+  }
+
+  // Removes the opaque continuation token from the visible URL once it has
+  // been consumed (or a consumption attempt has finished either way), so it
+  // can never be re-shared or replayed via browser history/bookmarks. The
+  // other continuation params (continue/handoff_browser/source_surface) are
+  // left alone — they are already non-sensitive categorical values used by
+  // the existing routing/analytics, per the pre-existing continuation design.
+  function stripHandoffToken() {
+    try {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has("handoff")) return;
+      url.searchParams.delete("handoff");
+      window.history.replaceState(window.history.state, "", url.pathname + (url.search || "") + (url.hash || ""));
+    } catch (error) {}
   }
 
   function trackHandoffEvent(name, context) {
@@ -318,10 +344,27 @@
       ? "ai_signup"
       : safeSurface(opts.sourceSurface);
     const browser = safeHandoffBrowser(opts.browser || handoffBrowser());
-    const continuationUrl = buildContinuationUrl(intent, {
+    let continuationUrl = buildContinuationUrl(intent, {
       browser,
       sourceSurface
     });
+
+    // Only genuinely browser-incompatible actions (Google OAuth, wearable
+    // connection, explicit "continue in Safari/Chrome") reach showNotice()
+    // at all — see guard()/guardSignupHandoff() below — so this is exactly
+    // the "only when an external browser is actually required" moment the
+    // handoff should be created. Email/password signup never calls
+    // showNotice() and so never creates a handoff. Fire-and-forget: if this
+    // fails or is slow, the notice still works with the plain continuation
+    // link, just without restorable context.
+    try {
+      if (window.AthlevoAnonymousHandoff && typeof window.AthlevoAnonymousHandoff.create === "function") {
+        window.AthlevoAnonymousHandoff.create({ browser, intent, sourceSurface }).then(token => {
+          if (!token) return;
+          continuationUrl = buildContinuationUrl(intent, { browser, sourceSurface, handoffToken: token });
+        }).catch(() => {});
+      }
+    } catch (error) {}
 
     let overlay = document.getElementById("athlevoEnvNotice");
     if (overlay) closeNotice(overlay);
@@ -452,6 +495,7 @@
     buildContinuationUrl,
     readContinuation,
     consumeContinuation,
+    stripHandoffToken,
     isAiAcquisitionContext,
     handoffBrowser,
     canonicalUrl: () => CANONICAL_URL

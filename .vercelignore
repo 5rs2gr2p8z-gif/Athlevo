@@ -31,6 +31,12 @@ api/diagnostic-chat.js
 # thin api/coach-anonymous.js wrapper remains for local/CORS tests.
 api/coach-anonymous.js
 
+# Anonymous cross-browser continuation handoff (create/consume) is likewise
+# rewritten to the provider gateway (?action=anonymous_handoff) rather than
+# deployed as its own function. The thin api/anonymous-handoff.js wrapper
+# remains for local/CORS tests.
+api/anonymous-handoff.js
+
 # Not part of the deployed app.
 migrations/
 tests/

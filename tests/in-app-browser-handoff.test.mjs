@@ -486,9 +486,11 @@ console.log("\n──── AI acquisition IAB continuation ────");
     continuation.intent === "signup" &&
     continuation.browser === "instagram" &&
     continuation.sourceSurface === "ai_signup");
-  test("AI continuation restore returns only categorical routing fields",
+  test("AI continuation restore returns only categorical routing fields (plus an opaque handoff token slot)",
     JSON.stringify(Object.keys(continuation).sort()) ===
-      JSON.stringify(["browser", "intent", "sourceSurface"]));
+      JSON.stringify(["browser", "handoffToken", "intent", "sourceSurface"]));
+  test("with no ?handoff= param present, handoffToken is null (never a diagnostic/PII fallback)",
+    continuation.handoffToken === null);
 
   const safariOAuth = environment({
     userAgent: SAFARI_IOS,

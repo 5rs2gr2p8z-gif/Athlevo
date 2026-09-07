@@ -41,6 +41,10 @@
       "destination": "/api/providers?action=coach_anonymous"
     },
     {
+      "source": "/api/anonymous-handoff",
+      "destination": "/api/providers?action=anonymous_handoff"
+    },
+    {
       "source": "/api/paymongo/webhook",
       "destination": "/api/whop/webhook?provider=paymongo"
     },

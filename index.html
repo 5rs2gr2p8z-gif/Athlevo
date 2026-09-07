@@ -11436,6 +11436,21 @@ window.openAthlevoApp = openAthlevoApp;
 async function restoreSession(opts) {
   opts = opts || {};
 
+  // Cross-browser continuation: if this load carries an opaque handoff
+  // token (see js/authSupport.js buildContinuationUrl / js/anonymousHandoff.js),
+  // try to restore the anonymous DiagnosticEngine state it points to. This
+  // is intentionally fire-and-forget and fully independent of every branch
+  // below: it only ever populates localStorage in the background (which the
+  // existing js/diagnosticHandoff.js post-auth flow already knows how to
+  // read), and it never blocks, delays, or alters this function's routing.
+  // Failure of any kind (expired/consumed/invalid token, network error) is
+  // silent by design — see lib/server/anonymousHandoffEndpoint.js.
+  try {
+    if (window.AthlevoAnonymousHandoff && typeof window.AthlevoAnonymousHandoff.consume === "function") {
+      window.AthlevoAnonymousHandoff.consume().catch(function () {});
+    }
+  } catch (e) {}
+
   /*
    * getSession() reads the persisted session from localStorage and, when the
    * access token has expired, refreshes it over the network. The refresh is
@@ -12285,6 +12300,7 @@ setTimeout(function () {
 <script src="js/diagnostic.js?v=9"></script>
 <script src="js/diagnosticSalesEngine.js?v=9"></script>
 <script src="js/diagnosticUI.js?v=9"></script>
+<script src="js/anonymousHandoff.js?v=1"></script>
 <script src="js/diagnosticHandoff.js?v=9"></script>
 <script src="js/diagnosticAcquisition.js?v=9"></script>
 <script>

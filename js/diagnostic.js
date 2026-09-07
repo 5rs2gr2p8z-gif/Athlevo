@@ -2339,27 +2339,31 @@ DiagnosticEngine.prototype._buildAthlevoRecommendation = function () {
  * inactivity so sensitive diagnostic answers are not retained indefinitely.
  */
 
+DiagnosticEngine.prototype.toStoredPayload = function () {
+  var savedAt = new Date().toISOString();
+  return {
+    v: SCHEMA_VERSION,
+    engineVersion: ENGINE_VERSION,
+    savedAt: savedAt,
+    expiresAt: new Date(Date.now() + STORAGE_TTL_MS).toISOString(),
+    importKey: this.importKeyValue,
+    begun: this.begun,
+    startedAt: this.startedAt,
+    completedAt: this.completedAt,
+    questionAnswers: this.questionAnswers,
+    history: this.history,
+    currentIndex: this.currentIndex,
+    completed: this.completed,
+    result: this.result,
+    pendingFacts: sanitizePendingFacts(this.pendingFacts),
+    modelReasoning: sanitizeStoredModelReasoning(this.modelReasoning),
+    acquisitionIntent: this.acquisitionIntent === "first10k" ? "first10k" : "general"
+  };
+};
+
 DiagnosticEngine.prototype._save = function () {
   try {
-    var savedAt = new Date().toISOString();
-    var payload = {
-      v: SCHEMA_VERSION,
-      engineVersion: ENGINE_VERSION,
-      savedAt: savedAt,
-      expiresAt: new Date(Date.now() + STORAGE_TTL_MS).toISOString(),
-      importKey: this.importKeyValue,
-      begun: this.begun,
-      startedAt: this.startedAt,
-      completedAt: this.completedAt,
-      questionAnswers: this.questionAnswers,
-      history: this.history,
-      currentIndex: this.currentIndex,
-      completed: this.completed,
-      result: this.result,
-      pendingFacts: sanitizePendingFacts(this.pendingFacts),
-      modelReasoning: sanitizeStoredModelReasoning(this.modelReasoning),
-      acquisitionIntent: this.acquisitionIntent === "first10k" ? "first10k" : "general"
-    };
+    var payload = this.toStoredPayload();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch (e) {
     console.warn("Diagnostic: could not save to localStorage:", e);
@@ -2442,6 +2446,26 @@ DiagnosticEngine.hasPending = function () {
 
 DiagnosticEngine.clearPending = function () {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+};
+
+/*
+ * Cross-browser continuation restore. Accepts the SAME payload shape this
+ * engine already persists to localStorage (toStoredPayload/_save) — this is
+ * not a second diagnostic schema, it is the existing one arriving from a
+ * temporary server-side handoff instead of this browser's own localStorage.
+ * Re-validated with the exact same strict validator used for the local
+ * path, so a tampered/expired/malformed payload is simply rejected
+ * (returns null) rather than trusted.
+ */
+DiagnosticEngine.restoreFromServer = function (payload) {
+  try {
+    if (!isValidStoredPayload(payload)) return null;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    return DiagnosticEngine.load();
+  } catch (e) {
+    console.warn("Diagnostic: could not restore from server payload:", e);
+    return null;
+  }
 };
 
 /* Create a fresh diagnostic. */
