@@ -582,6 +582,24 @@ html[data-theme="dark"]{
   --elev-2:0 4px 16px -4px rgba(0,0,0,.50);
   --elev-3:0 20px 48px -12px rgba(0,0,0,.62), 0 4px 12px rgba(0,0,0,.40);
   --focus-ring:#7aa7f0;
+  /* Trends line/zone colours re-lit for dark surfaces — same hues and zone
+     identity as light mode, lifted just enough to clear ~3.6:1 against
+     --card2 (they were previously theme-invariant and fell to ~2.5–3.5:1
+     on dark, e.g. --trend-risk light-red on charcoal). Risk reuses the
+     dark --red already established elsewhere in this palette. */
+  --trend-fitness:#3482cc;
+  --trend-fatigue:#8d71c3;
+  --trend-form:#7a7f86;
+  --trend-fresh:#3a82c1;
+  --trend-maintaining:#797e85;
+  --trend-gaining:#2a9262;
+  --trend-risk:#ef5a60;
+  --trend-detraining:#c98a1e;
+  --trend-zone-fresh:rgba(58,130,193,.16);
+  --trend-zone-maintaining:rgba(121,126,133,.14);
+  --trend-zone-gaining:rgba(42,146,98,.16);
+  --trend-zone-risk:rgba(239,90,96,.14);
+  --trend-zone-detraining:rgba(201,138,30,.16);
   color-scheme:dark;
 }
 @media (prefers-color-scheme: dark){
@@ -610,6 +628,19 @@ html[data-theme="dark"]{
     --elev-2:0 4px 16px -4px rgba(0,0,0,.50);
     --elev-3:0 20px 48px -12px rgba(0,0,0,.62), 0 4px 12px rgba(0,0,0,.40);
     --focus-ring:#7aa7f0;
+    --trend-fitness:#3482cc;
+    --trend-fatigue:#8d71c3;
+    --trend-form:#7a7f86;
+    --trend-fresh:#3a82c1;
+    --trend-maintaining:#797e85;
+    --trend-gaining:#2a9262;
+    --trend-risk:#ef5a60;
+    --trend-detraining:#c98a1e;
+    --trend-zone-fresh:rgba(58,130,193,.16);
+    --trend-zone-maintaining:rgba(121,126,133,.14);
+    --trend-zone-gaining:rgba(42,146,98,.16);
+    --trend-zone-risk:rgba(239,90,96,.14);
+    --trend-zone-detraining:rgba(201,138,30,.16);
     color-scheme:dark;
   }
 }
