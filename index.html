@@ -739,6 +739,43 @@ body{
   body.layout-tablet #screen-coachai,
   body.layout-desktop #screen-coachai{overflow-y:auto!important}
 
+  /* Coach header's hamburger is redundant once the rail is a persistent
+     part of the desktop/tablet chrome — the floating #coachRailToggle
+     (fixed at the workspace edge) is the single control for opening and
+     collapsing the rail there. Mobile keeps #coachMenuButton untouched. */
+  body.layout-tablet #coachMenuButton,
+  body.layout-desktop #coachMenuButton{display:none}
+
+  /* Collapsible rail: collapsing sets --athlevo-rail-w to 0, which the
+     .device padding-left and .coach-side-panel width above both already
+     key off of, so the workspace reflows to full width with no extra
+     rules or hardcoded offsets. Navigation state (thread list, active
+     tab) is untouched — only width/visibility change. */
+  body.layout-tablet.coach-rail-collapsed,
+  body.layout-desktop.coach-rail-collapsed{--athlevo-rail-w:0px}
+  body.layout-tablet.coach-rail-collapsed .coach-side-panel,
+  body.layout-desktop.coach-rail-collapsed .coach-side-panel{
+    border-right:0;box-shadow:none;padding:0;overflow:hidden;
+    pointer-events:none;visibility:hidden;
+  }
+
+  /* Persistent rail toggle: fixed to the boundary between rail and
+     workspace, so it tracks open/closed state via the same CSS variable
+     instead of a second layout system. */
+  .coach-rail-toggle{
+    display:none;position:fixed;top:16px;
+    left:calc(var(--athlevo-rail-w) + 16px);z-index:50;
+    width:40px;height:40px;border-radius:12px;
+    align-items:center;justify-content:center;
+    border:1px solid var(--line);background:var(--paper);color:var(--text);
+    cursor:pointer;box-shadow:0 2px 10px color-mix(in srgb,var(--ink) 12%,transparent);
+    transition:left 180ms var(--ease-standard);
+  }
+  .coach-rail-toggle:hover{background:var(--card2)}
+  .coach-rail-toggle:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+  body.layout-tablet .coach-rail-toggle,
+  body.layout-desktop .coach-rail-toggle{display:flex}
+
   /* Primary nav rail rows (Calendar/Coach/You), added inside the panel. */
   .coach-rail-nav{display:none;gap:2px;margin:2px 0 var(--s-7)}
   body.layout-tablet .coach-rail-nav,
@@ -4283,6 +4320,16 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 </div>
 
 <div class="device">
+
+<!-- Desktop/tablet persistent rail collapse/reopen toggle. Fixed at the
+     workspace edge (left = rail width, so it tracks the rail with no
+     hardcoded offsets) and hidden entirely on mobile via CSS. Replaces
+     the in-header hamburger for tablet/desktop so there is exactly one
+     control for the rail at any time (see #coachMenuButton CSS). -->
+<button type="button" class="coach-rail-toggle" id="coachRailToggle"
+        onclick="toggleCoachRail()" aria-expanded="true" aria-label="Hide navigation" aria-controls="coachSidePanel">
+  <span class="coach-menu-lines" aria-hidden="true"><i></i><i></i></span>
+</button>
 
 <!-- ══════════════ GUIDED TRAINING-DATA SETUP (onboarding 3–6) ══════════════
      Body is rendered by js/onboardingConnect.js. Athlevo guides the athlete
@@ -8580,6 +8627,44 @@ function handleCoachMenuBackdrop(event) {
 }
 window.handleCoachMenuBackdrop = handleCoachMenuBackdrop;
 
+/* ── Desktop/tablet persistent rail collapse/reopen ──────────────────
+ * Independent of the mobile drawer (openCoachMenu/closeCoachMenu): the
+ * rail stays mounted and its nav/thread state is never torn down, only
+ * its width/visibility toggles via the coach-rail-collapsed body class
+ * (see responsive shell CSS). State is remembered per browser session
+ * via sessionStorage and only ever read/applied at tablet/desktop
+ * breakpoints, so it can never leak into the mobile drawer's logic. */
+var ATHLEVO_RAIL_COLLAPSE_KEY = "athlevo_rail_collapsed";
+
+function isCoachRailCollapsedStored() {
+  try { return sessionStorage.getItem(ATHLEVO_RAIL_COLLAPSE_KEY) === "1"; }
+  catch (e) { return false; }
+}
+
+function setCoachRailCollapsed(collapsed) {
+  document.body.classList.toggle("coach-rail-collapsed", !!collapsed);
+  var btn = document.getElementById("coachRailToggle");
+  if (btn) {
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    btn.setAttribute("aria-label", collapsed ? "Show navigation" : "Hide navigation");
+  }
+  try { sessionStorage.setItem(ATHLEVO_RAIL_COLLAPSE_KEY, collapsed ? "1" : "0"); }
+  catch (e) {}
+}
+window.setCoachRailCollapsed = setCoachRailCollapsed;
+
+function toggleCoachRail() {
+  if (document.body.classList.contains("layout-mobile")) return;
+  setCoachRailCollapsed(!document.body.classList.contains("coach-rail-collapsed"));
+}
+window.toggleCoachRail = toggleCoachRail;
+
+function applyCoachRailCollapsedFromSession() {
+  if (document.body.classList.contains("layout-mobile")) return;
+  setCoachRailCollapsed(isCoachRailCollapsedStored());
+}
+window.applyCoachRailCollapsedFromSession = applyCoachRailCollapsedFromSession;
+
 /* New Chat no longer requires a destructive confirmation dialog.
  * It simply creates a new thread and shows the empty state. */
 function openCoachNewChatPrompt() {
@@ -11978,10 +12063,16 @@ setTimeout(function () {
     if (next !== "layout-mobile") {
       var overlay = document.getElementById("coachSidePanelOverlay");
       if (overlay) overlay.setAttribute("aria-hidden", "false");
+      if (typeof window.applyCoachRailCollapsedFromSession === "function") {
+        window.applyCoachRailCollapsedFromSession();
+      }
       if (typeof coachHeaderAuthState !== "undefined" && coachHeaderAuthState === "signed-in" &&
           typeof window.renderCoachHistoryList === "function") {
         window.renderCoachHistoryList();
       }
+    } else {
+      // Mobile never carries the desktop collapsed/open rail state.
+      document.body.classList.remove("coach-rail-collapsed");
     }
   }
   apply();

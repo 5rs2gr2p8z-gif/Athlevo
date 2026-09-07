@@ -86,5 +86,35 @@ test("the always-visible rail nav itself carries no data-coach-auth gate (Calend
 test("Calendar (screen-train), You (screen-trends), and Settings (screen-settings) get wider centered padding on tablet/desktop, without touching their internal markup/logic",
   /body\.layout-tablet #screen-train,\s*body\.layout-desktop #screen-train,\s*body\.layout-tablet #screen-trends,\s*body\.layout-desktop #screen-trends,\s*body\.layout-tablet #screen-settings,\s*body\.layout-desktop #screen-settings\{/.test(html));
 
+/* ---------- rail collapse/reopen toggle ---------- */
+test("a persistent rail toggle button exists for tablet/desktop, hidden by default (shown only via layout-tablet/layout-desktop body classes)",
+  /class="coach-rail-toggle" id="coachRailToggle"/.test(html) &&
+  /\.coach-rail-toggle\{[\s\S]*?display:none;/.test(html) &&
+  /body\.layout-tablet \.coach-rail-toggle,\s*body\.layout-desktop \.coach-rail-toggle\{display:flex\}/.test(html));
+test("the toggle's fixed position tracks the rail width via the same CSS variable, not a hardcoded offset",
+  /\.coach-rail-toggle\{[\s\S]*?left:calc\(var\(--athlevo-rail-w\) \+ 16px\)/.test(html));
+test("toggling sets a coach-rail-collapsed body class which collapses --athlevo-rail-w to 0 (workspace/rail both key off one variable)",
+  /body\.layout-tablet\.coach-rail-collapsed,\s*body\.layout-desktop\.coach-rail-collapsed\{--athlevo-rail-w:0px\}/.test(html));
+test("collapsing hides the rail panel visually without removing it (visibility/pointer-events only, no destructive markup change)",
+  /body\.layout-tablet\.coach-rail-collapsed \.coach-side-panel,\s*body\.layout-desktop\.coach-rail-collapsed \.coach-side-panel\{[\s\S]*?pointer-events:none;visibility:hidden;/.test(html));
+test("toggleCoachRail flips the collapsed body class and is a no-op on mobile (never leaks into the mobile drawer)",
+  /function toggleCoachRail\(\)\s*\{\s*if \(document\.body\.classList\.contains\("layout-mobile"\)\) return;/.test(html));
+test("collapsed/open rail state is persisted per browser session via sessionStorage, not any longer-lived storage",
+  /ATHLEVO_RAIL_COLLAPSE_KEY = "athlevo_rail_collapsed"/.test(html) &&
+  /sessionStorage\.setItem\(ATHLEVO_RAIL_COLLAPSE_KEY/.test(html) &&
+  /sessionStorage\.getItem\(ATHLEVO_RAIL_COLLAPSE_KEY\)/.test(html) &&
+  !/localStorage[\s\S]{0,60}athlevo_rail_collapsed/.test(html));
+test("the stored rail state is only ever applied at tablet/desktop breakpoints, and mobile explicitly clears the collapsed class on entry",
+  /function applyCoachRailCollapsedFromSession\(\)\s*\{\s*if \(document\.body\.classList\.contains\("layout-mobile"\)\) return;/.test(html) &&
+  /\} else \{\s*\/\/ Mobile never carries the desktop collapsed\/open rail state\.\s*document\.body\.classList\.remove\("coach-rail-collapsed"\);/.test(html));
+test("the layout-state controller applies the stored collapse state whenever it enters tablet/desktop",
+  /if \(typeof window\.applyCoachRailCollapsedFromSession === "function"\) \{\s*window\.applyCoachRailCollapsedFromSession\(\);\s*\}/.test(html));
+
+/* ---------- no duplicate hamburger once the rail is persistent ---------- */
+test("the in-header Coach hamburger (#coachMenuButton) is hidden on tablet/desktop, leaving exactly one rail control (#coachRailToggle)",
+  /body\.layout-tablet #coachMenuButton,\s*body\.layout-desktop #coachMenuButton\{display:none\}/.test(html));
+test("mobile's #coachMenuButton markup and its openCoachMenu() handler are unchanged",
+  /id="coachMenuButton" type="button"\s*onclick="openCoachMenu\(\)"/.test(html));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
