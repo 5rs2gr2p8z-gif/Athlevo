@@ -7632,10 +7632,17 @@ function renderNavState(state) {
       return;
     }
     if (path === "/ai" && !athlevoSessionUserId) {
-      // /ai is Coach-direct now: back-navigation to it shows the same
-      // Coach-oriented signed-out entry shell restoreSession() uses, not
-      // the diagnostic.
-      showScreen("screen-welcome");
+      // /ai is Coach-direct now: back/forward navigation to it must show
+      // the SAME single anonymous entry surface restoreSession() uses on
+      // initial boot (the real Coach shell), never the full-page sign-in
+      // card. showAnonymousCoachPreview() is the one authoritative
+      // anonymous /ai renderer; renderNavState must not duplicate or
+      // diverge from it.
+      if (typeof showAnonymousCoachPreview === "function") {
+        showAnonymousCoachPreview();
+      } else {
+        showScreen("screen-welcome");
+      }
       return;
     }
   } catch (pathErr) {}
