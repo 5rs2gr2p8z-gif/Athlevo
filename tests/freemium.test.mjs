@@ -104,9 +104,9 @@ section("Feature allocation");
 
 section("Atomic repeatable limits and persisted first-plan allowance");
 {
-  test("Coach limit is exactly 10 lifetime messages",
+  test("Coach limit is exactly 10 messages per calendar month",
     FREE_LIMITS.coach_message.limit === 10 &&
-    FREE_LIMITS.coach_message.period === "lifetime");
+    FREE_LIMITS.coach_message.period === "month");
   test("initial plan is not consumed through a pre-AI counter",
     !Object.prototype.hasOwnProperty.call(FREE_LIMITS, "initial_plan"));
 
@@ -138,21 +138,40 @@ section("Atomic repeatable limits and persisted first-plan allowance");
   for (let i = 0; i < 11; i += 1) {
     coach.push(await consumeFreeUsage("free-user", "coach_message"));
   }
-  test("first ten lifetime Coach messages succeed",
+  test("first ten monthly Coach messages succeed",
     coach.slice(0, 10).every(result => result.allowed));
-  test("eleventh lifetime Coach message is blocked",
+  test("eleventh Coach message this month is blocked",
     coach[10].allowed === false && coach[10].limit === 10);
 
+  // Athlevo Pro (plan_id "performance") is now a real counted 30/month
+  // allowance, not an unconditional bypass.
   subscription = {
     provider: "whop",
     plan_id: "performance",
     status: "active",
     current_period_end: new Date(Date.now() + 86400000).toISOString()
   };
-  const beforePaid = counters.size;
-  const paid = await consumeFreeUsage("paid-user", "coach_message");
-  test("paid user bypasses free usage counters",
-    paid.allowed === true && paid.paid === true && counters.size === beforePaid);
+  const proMessages = [];
+  for (let i = 0; i < 31; i += 1) {
+    proMessages.push(await consumeFreeUsage("pro-user", "coach_message"));
+  }
+  test("first thirty monthly Pro Coach messages succeed",
+    proMessages.slice(0, 30).every(result => result.allowed && result.paid === true));
+  test("thirty-first Pro Coach message this month is blocked",
+    proMessages[30].allowed === false && proMessages[30].limit === 30);
+
+  // Athlevo Pro+ (plan_id "elite") is a genuinely separate, unlimited tier.
+  subscription = {
+    provider: "whop",
+    plan_id: "elite",
+    status: "active",
+    current_period_end: new Date(Date.now() + 86400000).toISOString()
+  };
+  const beforeProPlus = counters.size;
+  const proPlus = await consumeFreeUsage("pro-plus-user", "coach_message");
+  test("Pro+ user bypasses usage counters entirely (unlimited)",
+    proPlus.allowed === true && proPlus.unlimited === true &&
+    counters.size === beforeProPlus);
 }
 
 globalThis.fetch = originalFetch;

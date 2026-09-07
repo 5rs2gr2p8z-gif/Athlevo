@@ -444,7 +444,7 @@ test("server-enforced free Coach limits remain before AI",
   coachApi.search(/consumeFreeUsage\(\s*authenticatedUser\.id,\s*"coach_message"\s*\)/) <
     coachApi.indexOf('"https://api.openai.com/v1/responses"') &&
   /COACH_WEEKLY_LIMIT_REACHED/.test(coach) &&
-  /showCoachLimitUpgrade\(coachAccessTier\)/.test(coach));
+  /showCoachLimitUpgrade\(coachAccessTier, data\)/.test(coach));
 test("dark mode remains token-driven and the full-width Coach header stays clear",
   /background:var\(--paper\)/.test(html) &&
   /color:var\(--text\)/.test(coachCss) &&

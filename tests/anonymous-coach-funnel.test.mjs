@@ -95,8 +95,8 @@ section("8 — Anonymous funnel is compatible with, but does not add, the future
 {
   t("no payment/plan-selection UI was added by this change",
     !/choose.?pro|plan.?selection|payment.?method/i.test(anonSrc));
-  t("authenticated 10-message quota logic (api/coach.js) is untouched by this task",
-    /Free athletes receive ten Coach messages total \(lifetime\)\./.test(apiCoachSrc));
+  t("authenticated Coach quota logic (api/coach.js) applies per-tier monthly allowances",
+    /Free athletes receive 10 Coach messages per calendar month/.test(apiCoachSrc));
 }
 
 section("9 — Starters reuse the single askCoach() gate");

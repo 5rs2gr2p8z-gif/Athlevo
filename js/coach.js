@@ -1371,7 +1371,7 @@ function classifyCoachFailure(code, status) {
   var map = {
     COACH_LIMIT_REACHED: {
       category: "coach_limit", upgrade: true,
-      message: "You’ve used your 10 free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
+      message: "You’ve used your Coach messages for this month. Upgrade to keep going."
     },
     COACH_WEEKLY_LIMIT_REACHED: {
       category: "coach_limit", upgrade: true,
@@ -1438,7 +1438,25 @@ function restoreCoachDraft(question, userMessage, loadingMessage) {
   }
 }
 
-function showCoachLimitUpgrade(accessTier) {
+function showCoachLimitUpgrade(accessTier, serverPayload) {
+  // A Pro athlete hitting the (higher) Pro Coach limit is offered Pro+;
+  // a Free athlete hitting the Free limit is offered Pro. serverPayload
+  // is the 402 JSON body from api/coach.js (lib/server/freemium.js).
+  var isProLimit = !!(serverPayload && serverPayload.paid === true);
+  var upgradeCopy = isProLimit
+    ? {
+        title: "You’ve reached your Pro Coach limit",
+        body: (serverPayload && serverPayload.error) ||
+          "You’ve used your 30 Athlevo Pro Coach messages for this month. Athlevo Pro+ gives you unlimited coaching.",
+        primary: "Upgrade to Athlevo Pro+"
+      }
+    : {
+        title: "Keep coaching with Athlevo",
+        body: (serverPayload && serverPayload.error) ||
+          "You’ve used your free Coach messages for this month. Unlock full AI coaching, personalized training adjustments, and complete performance insights.",
+        primary: "Upgrade to Athlevo Pro"
+      };
+
   if (window.AthlevoAccessGuard &&
       typeof AthlevoAccessGuard.openPaywall === "function") {
     AthlevoAccessGuard.openPaywall("coach-limit");
@@ -1447,9 +1465,9 @@ function showCoachLimitUpgrade(accessTier) {
   if (window.AthlevoAccessGuard &&
       typeof AthlevoAccessGuard.showUpgradeSheet === "function") {
     AthlevoAccessGuard.showUpgradeSheet("coach_message", "coach", {
-      title: "Keep coaching with Athlevo",
-      body: "You’ve used your free Coach messages. Unlock full AI coaching, personalized training adjustments, and complete performance insights.",
-      primary: "Unlock Athlevo Pro",
+      title: upgradeCopy.title,
+      body: upgradeCopy.body,
+      primary: upgradeCopy.primary,
       secondary: "Not now",
       hideBenefits: true
     });
@@ -1814,7 +1832,7 @@ context.recentConversation = (await loadRecentConversationForCoach())
         if (failure.category === "coach_limit") {
           trackCoachEvent("coach_limit_reached", coachAccessTier);
         }
-        showCoachLimitUpgrade(coachAccessTier);
+        showCoachLimitUpgrade(coachAccessTier, data);
         return;
       }
       var responseError = new Error(failure.message);

@@ -293,8 +293,9 @@ export default async function handler(req, res) {
     return rateLimitResponse(res, limit);
   }
 
-  // Free athletes receive ten Coach messages total (lifetime).
-  // Paid athletes bypass this free counter.
+  // Free athletes receive 10 Coach messages per calendar month; Athlevo
+  // Pro receives 30/month; Athlevo Pro+ is unlimited (consumeFreeUsage
+  // resolves the athlete's tier and applies the matching allowance).
   const freeUsage = await consumeFreeUsage(
     authenticatedUser.id,
     "coach_message"
@@ -303,11 +304,14 @@ export default async function handler(req, res) {
     if (freeUsage.serviceUnavailable) {
       return accessResponse(res, freeUsage, authenticatedUser.id);
     }
+    const isProLimit = freeUsage.paid === true;
     return accessResponse(res, {
       ...freeUsage,
       code: "COACH_LIMIT_REACHED",
       title: "Keep coaching with Athlevo",
-      error: "You’ve used your 10 free Coach messages. Upgrade to Athlevo Pro for unlimited coaching."
+      error: isProLimit
+        ? "You’ve used your 30 Athlevo Pro Coach messages for this month. Upgrade to Athlevo Pro+ for unlimited coaching."
+        : "You’ve used your 10 free Coach messages for this month. Upgrade to Athlevo Pro to keep going."
     }, authenticatedUser.id);
   }
 

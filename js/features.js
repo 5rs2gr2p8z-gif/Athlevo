@@ -107,8 +107,13 @@ function resolveEntitlement(subscription, now) {
   const storedPlanId = String(subscription.plan_id || "free").toLowerCase();
   const provider = String(subscription.provider || "").toLowerCase();
   const recognisedPaid = PAID_PROVIDERS.has(provider) && storedPlanId !== "free";
-  // Whop rows always map to "performance"; other providers use the stored plan.
-  const planId = (provider === "whop" && recognisedPaid) ? "performance" : storedPlanId;
+  // Whop rows map to "performance" (Athlevo Pro) unless explicitly stamped
+  // "elite" (Athlevo Pro+, a genuinely separate paid tier). Legacy/unknown
+  // Whop plan_ids keep resolving to "performance" so existing subscribers
+  // are unaffected.
+  const planId = provider === "whop" && recognisedPaid
+    ? (storedPlanId === "elite" ? "elite" : "performance")
+    : storedPlanId;
   const paidTier = tierOf(planId);
   const status = String(subscription.status || "active").toLowerCase();
   const isFounder = subscription.is_founder === true;

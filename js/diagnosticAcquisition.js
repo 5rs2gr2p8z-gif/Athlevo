@@ -236,6 +236,7 @@ function setPaywallMode(mode) {
   if (screen && screen.classList) {
     screen.classList.toggle("is-activating", mode === "activating");
     screen.classList.toggle("is-recheck", mode === "recheck");
+    screen.classList.toggle("is-unavailable", mode === "unavailable");
     if (mode === "activating" || mode === "recheck" || mode === "unavailable") {
       screen.classList.remove("is-choosing-method");
     }
@@ -270,9 +271,33 @@ function hideAppTabbar() {
 }
 
 /*
- * Paid-only athlete gate. Coach/admin roles granted server-side may enter.
- * A valid paid_active entitlement (not a performance trial) may enter.
- * Everyone else is sent to the offer/payment page with no app shell.
+ * Durable (server-checked) signal that this athlete already completed the
+ * pricing screen by choosing Athlevo Free -- not merely a client-side
+ * flag. acquisition_stage "completed" is the same terminal stage a paid
+ * checkout reaches; reaching it with no paid subscription means Free was
+ * chosen. Free is a real, permanent entitlement: features.js/freemium.js
+ * still enforce Free's limits server-side once inside the app.
+ */
+async function hasCompletedFreeTierEntry(supabase, userId) {
+  if (!supabase || !userId) return false;
+  try {
+    var result = await supabase
+      .from("athlete_diagnostics")
+      .select("acquisition_stage")
+      .eq("user_id", userId)
+      .eq("acquisition_stage", "completed")
+      .limit(1)
+      .maybeSingle();
+    return !!(result.data && result.data.acquisition_stage === "completed");
+  } catch (e) { return false; }
+}
+
+/*
+ * Athlete gate. Coach/admin roles granted server-side may enter. A valid
+ * paid_active entitlement (not a performance trial) may enter. An athlete
+ * who explicitly finished the pricing screen with Athlevo Free may also
+ * enter (Free is a real tier, not a locked-out state). Everyone else is
+ * sent to the offer/payment page with no app shell.
  */
 async function gateUnpaidAthlete(userId, supabase, profile) {
   if (profile && (profile.role === "coach" || profile.role === "admin")) {
@@ -287,6 +312,10 @@ async function gateUnpaidAthlete(userId, supabase, profile) {
   if (paid && paid.paid) {
     clearPaywallExit();
     return { allowed: true, paid: true };
+  }
+  if (await hasCompletedFreeTierEntry(supabase || acquisitionSupabase, userId)) {
+    clearPaywallExit();
+    return { allowed: true, paid: false, freeTier: true };
   }
   showPaywall(bindAcquisitionUser(userId), false);
   return { allowed: false, route: "paywall" };
@@ -459,6 +488,55 @@ function showPaymentMethods() {
   var copy = offerPlanCopy(selectedOfferPlan);
   if (methodsPrice) methodsPrice.textContent = copy.methods;
   setPaywallStatus("");
+}
+
+/*
+ * "Start Free" -- Free is a real entitlement, never a checkout. Marks the
+ * diagnostic acquisition row "completed" with no paid subscription (see
+ * hasCompletedFreeTierEntry) and routes straight into the app the same
+ * way a completed paid checkout would.
+ */
+async function chooseFreeTier() {
+  if (checkoutInFlight) return false;
+  var userId = await sessionUserId();
+  if (!userId) {
+    goToAuthEntry();
+    return false;
+  }
+  root.athlevoSessionUserId = userId;
+  setPaywallBusy(true);
+  setPaywallStatus("Setting up your free Athlevo account…");
+  try {
+    var state = currentForUser(userId) || { events: {} };
+    state.userId = userId;
+    await setStage(state, "completed", acquisitionSupabase);
+    clearPaywallExit();
+    clearCheckoutReturn();
+    if (typeof root.routeAfterAuth === "function") {
+      await root.routeAfterAuth(userId);
+    } else {
+      goToAuthEntry();
+    }
+    return true;
+  } catch (e) {
+    setPaywallStatus("Something went wrong starting your free account. Please try again.");
+    return false;
+  } finally {
+    setPaywallBusy(false);
+  }
+}
+
+/*
+ * "Choose Pro+" -- Athlevo Pro+ has no real Whop/PayMongo checkout ID yet
+ * (see WHOP_CHECKOUT_URL in accessGuard.js, which is Pro-only). Rather than
+ * invent a fake checkout link, this surfaces a clear, honest "not yet
+ * available" state and steers the athlete to the working Pro checkout.
+ */
+function choosePlusTier() {
+  track("upgrade_clicked", { feature: "pro_plus", surface: "pricing" });
+  setPaywallStatus(
+    "Athlevo Pro+ checkout is launching soon. Choose Athlevo Pro to start training today."
+  );
 }
 
 async function beginOfferCheckout() {
@@ -811,6 +889,19 @@ async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeO
   state.stage = loaded.data.acquisition_stage;
   writeLocal(state);
 
+  // Athlete durably reached "completed" with no paid subscription: they
+  // chose Athlevo Free at the pricing screen (see chooseFreeTier). Free
+  // is a real, permanent entitlement -- route into the app/onboarding the
+  // same way a paid athlete would, instead of the payment-activation path
+  // below (which is only meaningful for a checkout in flight).
+  if (!paid.paid && !paid.unavailable && state.stage === "completed") {
+    clearPaywallExit();
+    if (profile && profile.onboarding_complete === true) {
+      return { handled: false, route: "app", acquisition: true, paid: false, freeTier: true };
+    }
+    return { handled: true, route: "onboarding", acquisition: true, paid: false, freeTier: true };
+  }
+
   if (!paid.paid && !paid.unavailable && hasCheckoutReturn()) {
     showActivation(state);
     for (var attempt = 0; attempt < 4 && !paid.paid; attempt += 1) {
@@ -924,6 +1015,8 @@ root.AthlevoDiagnosticAcquisition = {
   selectOfferPlan: selectOfferPlan,
   beginOfferCheckout: beginOfferCheckout,
   showOfferStep: showOfferStep,
+  chooseFreeTier: chooseFreeTier,
+  choosePlusTier: choosePlusTier,
   backFromPaywall: backFromPaywall,
   showPublicPricing: showPublicPricing,
   rememberPricingHandoff: rememberPricingHandoff,

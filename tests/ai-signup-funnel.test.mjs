@@ -801,16 +801,23 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
   t("supporting coaching-system copy is visible",
     /Personalized running coaching that adapts as you train\./.test(paywall) &&
     !/complete coaching system built around their actual training/.test(paywall));
-  t("monthly / annual plan toggle exists",
-    /id="offerPlanMonthly"/.test(paywall) && /id="offerPlanAnnual"/.test(paywall) &&
-    /data-offer-plan="monthly"/.test(paywall) && /data-offer-plan="annual"/.test(paywall) &&
-    /function selectOfferPlan/.test(acq));
-  t("annual toggle is not disabled",
-    !/id="offerPlanAnnual"[^>]*\bdisabled\b/.test(paywall));
-  t("annual savings are visible on the toggle",
-    /Save ₱1,666/.test(paywall));
-  t("Start Athlevo AI is the primary offer CTA",
-    /beginOfferCheckout\(\)/.test(paywall) && /Start Athlevo AI/.test(paywall));
+  t("pricing screen renders exactly the three Free / Pro / Pro+ tiers",
+    /data-tier="free"/.test(paywall) && /data-tier="pro"/.test(paywall) &&
+    /data-tier="pro_plus"/.test(paywall) &&
+    (paywall.match(/class="pricing-tier[ "]/g) || []).length === 3);
+  t("no annual toggle is shown on the new 3-tier pricing screen (annual stays disabled)",
+    !/id="offerPlanAnnual"/.test(paywall) && !/id="offerPlanMonthly"/.test(paywall));
+  t("Athlevo Pro is the visually emphasized/default tier with a restrained badge",
+    /pricing-tier-pro/.test(paywall) && /Best for most runners/.test(paywall));
+  t("Choose Pro is the Pro tier CTA and wires the existing canonical checkout",
+    /beginOfferCheckout\(\)/.test(paywall) && /Choose Pro</.test(paywall));
+  t("Start Free does not invoke checkout",
+    /chooseFreeTier\(\)/.test(paywall) && /Start Free/.test(paywall) &&
+    paywall.indexOf("chooseFreeTier") < paywall.indexOf("beginOfferCheckout"));
+  t("Pro+ does not use a fake checkout (no real Pro+ checkout ID exists yet)",
+    /choosePlusTier\(\)/.test(paywall) && /Choose Pro\+</.test(paywall) &&
+    /function choosePlusTier/.test(acq) &&
+    !/whop\.com\/checkout\/[^"']*elite/i.test(acq));
   t("payment methods are not the first offer choices",
     paywall.indexOf("Start Athlevo AI") < paywall.indexOf("checkout('card')") &&
     paywall.indexOf("data-offer-plan=\"monthly\"") < paywall.indexOf("checkout('card')"));
@@ -859,12 +866,12 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
   t("annual price ₱5,498 is represented in offer state",
     /5498/.test(acq) && /₱458\/month billed annually/.test(acq));
   t("Cancel anytime is visible", /Cancel anytime/.test(paywall));
-  t("scannable feature list is present",
-    /Personalized training plan/.test(paywall) &&
-    /Adaptive coaching/.test(paywall) &&
-    /AI running coach/.test(paywall) &&
-    /Progress tracking/.test(paywall) &&
-    (paywall.match(/class="offer-feature"/g) || []).length === 4);
+  t("scannable per-tier feature lists are present",
+    /10 AI Coach messages\/month/.test(paywall) &&
+    /30 AI Coach messages\/month/.test(paywall) &&
+    /Unlimited AI Coach messages/.test(paywall) &&
+    /2 adaptive training adjustments\/month/.test(paywall) &&
+    /Full race preparation/.test(paywall));
   t("old paywall feature labels are gone",
     !/Readiness/.test(paywall) &&
     !/Fitness, fatigue/.test(paywall) &&

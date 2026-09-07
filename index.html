@@ -1852,16 +1852,14 @@ html[data-theme="dark"] .chat-social-proof-item{background:var(--card);border-co
 .diagnostic-paywall-activating,.diagnostic-paywall-recheck{display:none;text-align:center;margin-top:8px}
 .diagnostic-paywall-activating p,.diagnostic-paywall-recheck p{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink2);margin:0 0 16px}
 #screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-hero,
-#screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-toggle,
 #screen-diagnostic-paywall.is-activating .diagnostic-paywall-hero,
-#screen-diagnostic-paywall.is-activating .diagnostic-paywall-toggle,
-#screen-diagnostic-paywall.is-recheck .diagnostic-paywall-hero,
-#screen-diagnostic-paywall.is-recheck .diagnostic-paywall-toggle{display:none}
-#screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-offer{display:none}
+#screen-diagnostic-paywall.is-recheck .diagnostic-paywall-hero{display:none}
+#screen-diagnostic-paywall.is-choosing-method .pricing-tiers,
+#screen-diagnostic-paywall.is-activating .pricing-tiers,
+#screen-diagnostic-paywall.is-recheck .pricing-tiers,
+#screen-diagnostic-paywall.is-unavailable .pricing-tiers{display:none}
 #screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-actions{display:grid}
-.diagnostic-paywall-card.is-activating .diagnostic-paywall-offer,
 .diagnostic-paywall-card.is-activating .diagnostic-paywall-actions,
-.diagnostic-paywall-card.is-recheck .diagnostic-paywall-offer,
 .diagnostic-paywall-card.is-recheck .diagnostic-paywall-actions{display:none}
 .diagnostic-paywall-card.is-activating .diagnostic-paywall-switch,
 .diagnostic-paywall-card.is-recheck .diagnostic-paywall-switch,
@@ -1871,9 +1869,34 @@ html[data-theme="dark"] .chat-social-proof-item{background:var(--card);border-co
 .diagnostic-paywall-recheck-btn,.diagnostic-paywall-return-btn{width:100%;border-radius:12px;font-family:var(--sans);font-size:var(--fs-body);font-weight:700;padding:15px;cursor:pointer;margin-top:8px}
 .diagnostic-paywall-recheck-btn{border:1px solid var(--ink);background:var(--ink);color:#fff}
 .diagnostic-paywall-return-btn{border:1px solid var(--line);background:var(--paper);color:var(--text)}
-.diagnostic-paywall-card.is-unavailable .diagnostic-paywall-offer,
 .diagnostic-paywall-card.is-unavailable .diagnostic-paywall-actions{display:none}
 #screen-diagnostic-paywall.is-choosing-method .diagnostic-paywall-card.is-unavailable .diagnostic-paywall-actions{display:none}
+
+/* ── Pricing tiers (Free / Athlevo Pro / Athlevo Pro+) ── */
+.pricing-tiers{display:grid;grid-template-columns:1fr;gap:14px;width:100%;max-width:100%;margin:0 auto}
+@media(min-width:880px){
+  .diagnostic-paywall-scroll:has(.pricing-tiers){max-width:min(920px,100%)}
+  .pricing-tiers{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:16px}
+}
+.pricing-tier{display:flex;flex-direction:column;background:var(--paper);border:1px solid color-mix(in srgb,var(--line) 72%,var(--text) 6%);border-radius:14px;box-shadow:0 1px 2px rgba(20,20,22,.04);padding:20px 20px 18px;box-sizing:border-box;position:relative}
+.pricing-tier-pro{border-color:color-mix(in srgb,var(--red) 45%,var(--line));box-shadow:0 1px 2px rgba(20,20,22,.04),0 10px 26px -14px color-mix(in srgb,var(--red) 35%,transparent)}
+@media(min-width:880px){.pricing-tier-pro{transform:translateY(-6px)}}
+.pricing-tier-badge{align-self:flex-start;margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border-radius:999px;padding:3px 10px}
+.pricing-tier-name{margin:0;font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:.01em;color:var(--text)}
+.pricing-tier-tagline{margin:2px 0 0;font-size:12.5px;color:var(--ink2);line-height:1.35}
+.pricing-tier-price-row{display:flex;align-items:baseline;gap:6px;margin:12px 0 0}
+.pricing-tier-price{margin:0;font-family:var(--sans);font-size:1.9rem;font-weight:650;letter-spacing:-.02em;color:var(--text);line-height:1}
+.pricing-tier-cadence{margin:0;font-size:13px;font-weight:500;color:var(--ink3)}
+.pricing-tier-features{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px;flex:1}
+.pricing-tier-features li{position:relative;padding-left:18px;font-size:13px;line-height:1.4;color:var(--ink2)}
+.pricing-tier-features li::before{content:"";position:absolute;left:0;top:6px;width:6px;height:6px;border-radius:50%;background:var(--red)}
+.pricing-tier-features li small{display:block;margin-top:2px;font-size:11.5px;color:var(--ink3);line-height:1.35}
+.pricing-tier-cta{display:block;width:100%;margin:16px 0 0;border-radius:10px;font-family:var(--sans);font-size:14px;font-weight:650;letter-spacing:-.01em;padding:11px 14px;cursor:pointer;min-height:44px;line-height:1.2;-webkit-tap-highlight-color:transparent}
+.pricing-tier-cta-primary{border:0;background:var(--red);color:#fff}
+.pricing-tier-cta-secondary{border:1px solid var(--line);background:var(--paper);color:var(--text)}
+.pricing-tier-cta:active{transform:scale(.99)}
+.pricing-tier-trust{margin:8px 0 0;text-align:center;font-size:11.5px;color:var(--ink3)}
+.diagnostic-paywall-methods-subtitle{margin:0 0 2px;font-size:var(--fs-caption);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
 .connect-card p{font-size:var(--fs-caption);color:var(--ink2);margin:4px 0 12px}
 .connect-card button{width:100%;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:var(--s-3);border-radius:var(--r-pill);border:none;background:var(--ink);color:#fff;cursor:pointer}
 .importbar{height:6px;background:var(--line);border-radius:var(--r-pill);overflow:hidden;margin-top:12px}
@@ -4802,49 +4825,67 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <h1 class="diagnostic-paywall-title">Built to Evolve With You</h1>
       <p class="diagnostic-paywall-lead">Personalized running coaching that adapts as you train.</p>
     </div>
-    <div class="diagnostic-paywall-toggle" id="offerPlanToggle" role="group" aria-label="Billing interval">
-      <button type="button" class="diagnostic-paywall-toggle-btn is-active" id="offerPlanMonthly"
-        data-offer-plan="monthly" aria-pressed="true">Monthly</button>
-      <button type="button" class="diagnostic-paywall-toggle-btn" id="offerPlanAnnual"
-        data-offer-plan="annual" aria-pressed="false">
-        Annual <span class="diagnostic-paywall-save-chip">Save ₱1,666</span>
-      </button>
+    <div class="pricing-tiers" id="diagnosticPaywallTiers">
+      <div class="pricing-tier" data-tier="free">
+        <p class="pricing-tier-name">Free</p>
+        <p class="pricing-tier-tagline">Try Athlevo</p>
+        <div class="pricing-tier-price-row">
+          <p class="pricing-tier-price">₱0</p>
+        </div>
+        <ul class="pricing-tier-features">
+          <li>1-week personalized training plan</li>
+          <li>10 AI Coach messages/month</li>
+          <li>Basic workout guidance</li>
+          <li>Race goal &amp; progress overview</li>
+        </ul>
+        <button type="button" class="pricing-tier-cta pricing-tier-cta-secondary"
+          onclick="AthlevoDiagnosticAcquisition.chooseFreeTier()">Start Free</button>
+      </div>
+
+      <div class="pricing-tier pricing-tier-pro" data-tier="pro">
+        <p class="pricing-tier-badge">Best for most runners</p>
+        <p class="pricing-tier-name">Athlevo Pro</p>
+        <p class="pricing-tier-tagline">Train consistently with Athlevo</p>
+        <div class="pricing-tier-price-row">
+          <p class="pricing-tier-price">₱597</p>
+          <p class="pricing-tier-cadence">/ month</p>
+        </div>
+        <ul class="pricing-tier-features">
+          <li>1-month personalized training plan</li>
+          <li>30 AI Coach messages/month</li>
+          <li>2 adaptive training adjustments/month</li>
+          <li>Workout analysis &amp; race preparation</li>
+        </ul>
+        <button type="button" class="pricing-tier-cta pricing-tier-cta-primary" id="offerStartCta"
+          onclick="AthlevoDiagnosticAcquisition.beginOfferCheckout()">Choose Pro</button>
+        <p class="pricing-tier-trust">Cancel anytime · Secure payment</p>
+      </div>
+
+      <div class="pricing-tier" data-tier="pro_plus">
+        <p class="pricing-tier-name">Athlevo Pro+</p>
+        <p class="pricing-tier-tagline">Use Athlevo without limits</p>
+        <div class="pricing-tier-price-row">
+          <p class="pricing-tier-price">₱1,497</p>
+          <p class="pricing-tier-cadence">/ month</p>
+        </div>
+        <ul class="pricing-tier-features">
+          <li>Unlimited personalized training plan access
+            <small>Periodized around your goals, races, and training history.</small>
+          </li>
+          <li>Unlimited AI Coach messages</li>
+          <li>Unlimited training adjustments &amp; analysis</li>
+          <li>Full race preparation &amp; strategy support</li>
+        </ul>
+        <button type="button" class="pricing-tier-cta pricing-tier-cta-secondary"
+          onclick="AthlevoDiagnosticAcquisition.choosePlusTier()">Choose Pro+</button>
+      </div>
     </div>
     <div class="diagnostic-paywall-card" id="diagnosticPaywallCard">
-      <div class="diagnostic-paywall-offer" id="diagnosticPaywallOffer">
-        <p class="diagnostic-paywall-plan-name">Athlevo AI</p>
-        <div class="diagnostic-paywall-price-row">
-          <p class="diagnostic-paywall-price" id="offerPlanPrice">₱597</p>
-          <p class="diagnostic-paywall-cadence" id="offerPlanCadence">/ month</p>
-        </div>
-        <p class="diagnostic-paywall-equiv" id="offerPlanEquiv">Cancel anytime.</p>
-        <p class="diagnostic-paywall-save" id="offerPlanSave">Save ₱1,666</p>
-        <button type="button" class="diagnostic-paywall-start" id="offerStartCta"
-          onclick="AthlevoDiagnosticAcquisition.beginOfferCheckout()">Start Athlevo AI</button>
-        <p class="diagnostic-paywall-trust">Cancel anytime · Secure payment</p>
-        <ul class="offer-features">
-          <li class="offer-feature">
-            <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>Personalized training plan</span>
-          </li>
-          <li class="offer-feature">
-            <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>Adaptive coaching</span>
-          </li>
-          <li class="offer-feature">
-            <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>AI running coach</span>
-          </li>
-          <li class="offer-feature">
-            <span class="offer-feature-check" aria-hidden="true">✓</span>
-            <span>Progress tracking</span>
-          </li>
-        </ul>
-      </div>
       <div class="diagnostic-paywall-actions" id="diagnosticPaywallActions">
         <button type="button" class="diagnostic-paywall-methods-back"
           onclick="AthlevoDiagnosticAcquisition.showOfferStep()">Choose a different plan</button>
         <h2 class="diagnostic-paywall-methods-title">Choose how you’d like to pay</h2>
+        <p class="diagnostic-paywall-methods-subtitle">Athlevo Pro</p>
         <p class="diagnostic-paywall-methods-price" id="offerMethodsPrice">₱597/month</p>
         <p class="diagnostic-paywall-recommended">Recommended</p>
         <button class="diagnostic-paywall-primary" type="button" onclick="AthlevoDiagnosticAcquisition.checkout('card')">
