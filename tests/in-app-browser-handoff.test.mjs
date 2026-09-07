@@ -381,9 +381,23 @@ console.log("\n──── Continuation routing and attribution restore ──�
     /consumeContinuation\(\)[\s\S]*?showScreen\("screen-welcome"\)/.test(restore));
   test("continuation never automatically starts Google OAuth",
     !/signInWithOAuth|signInWithGoogle|continueWithGoogle/.test(restore));
-  test("landing, Create account, and Google all have pre-auth intercepts",
-    /landingStartFree[\s\S]*?interceptInAppAuthHandoff\("signup", "landing"\)/.test(indexSource) &&
-    /function openSignup[\s\S]*?interceptInAppAuthHandoff\("signup", "auth"\)/.test(indexSource) &&
+  function fnBody(name, nextNames) {
+    const start = indexSource.indexOf(name);
+    let end = indexSource.length;
+    for (const next of nextNames) {
+      const idx = indexSource.indexOf(next, start + 1);
+      if (idx > start && idx < end) end = idx;
+    }
+    return indexSource.slice(start, end);
+  }
+  test("landing and email signup/login no longer block before the athlete picks a method (acquisition fix)",
+    !fnBody("function landingStartFree", ["function landingStartBeta"]).includes("interceptInAppAuthHandoff") &&
+    !fnBody("function openSignup", ["function openLogin"]).includes("interceptInAppAuthHandoff") &&
+    !fnBody("function openLogin", ["function closeAuth"]).includes("interceptInAppAuthHandoff") &&
+    !fnBody("function showSignupForm", ["function showLoginForm", "function showForgotForm"]).includes("interceptInAppAuthHandoff") &&
+    !fnBody("async function doSignup", ["// ---- Login ----"]).includes("AthlevoEnv.guard(") &&
+    !fnBody("async function doLogin", ["async function doLogout", "function doLogout"]).includes("AthlevoEnv.guard("));
+  test("Google OAuth still has a pre-auth intercept — the one path that genuinely needs it",
     /guardSignupHandoff\("signup", "auth"\)/.test(socialSource));
 }
 

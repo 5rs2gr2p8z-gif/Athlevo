@@ -529,10 +529,13 @@ test("20. Email auth path fires auth_method_attempted", function () {
     "One signup email decision must emit once");
   assert.equal((loginSection.match(/trackAuthMethodAttempted\("email"\)/g) || []).length, 1,
     "One login email decision must emit once");
-  assert.ok(signupSection.indexOf("trackAuthMethodAttempted") < signupSection.indexOf("interceptInAppAuthHandoff"),
-    "Signup email choice must be recorded before an IAB handoff");
-  assert.ok(loginSection.indexOf("trackAuthMethodAttempted") < loginSection.indexOf("interceptInAppAuthHandoff"),
-    "Login email choice must be recorded before an IAB handoff");
+  // Acquisition fix: email signup/login no longer intercept before an IAB
+  // handoff — email works in-app inside Facebook/Instagram/Messenger, so
+  // there is nothing to sequence trackAuthMethodAttempted() against here.
+  assert.ok(!signupSection.includes("interceptInAppAuthHandoff"),
+    "openSignup must not block email signup with a pre-auth IAB handoff");
+  assert.ok(!loginSection.includes("interceptInAppAuthHandoff"),
+    "openLogin must not block email login with a pre-auth IAB handoff");
   assert.ok(!formSection.includes("trackAuthMethodAttempted"), "Switching login/signup forms must not fire another method event");
 });
 

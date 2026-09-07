@@ -39,13 +39,12 @@ function aiTrigger(overrides = {}) {
   };
 }
 
-function createHandlers(sessionUserId, { intercept = false } = {}) {
+function createHandlers(sessionUserId) {
   const calls = [];
   const factory = new Function(
     "initialSessionUserId",
     "rememberLandingAuthEntry",
     "trackAuthChoice",
-    "interceptInAppAuthHandoff",
     "locationAssign",
     `let athlevoSessionUserId = initialSessionUserId;
      const window = { location: { assign: locationAssign } };
@@ -58,10 +57,6 @@ function createHandlers(sessionUserId, { intercept = false } = {}) {
     (event, properties) => calls.push(
       `analytics:${event}:${properties.cta_location}:${properties.destination}:${properties.cta_text}`
     ),
-    () => {
-      calls.push("intercept");
-      return intercept;
-    },
     url => calls.push(`nav:${url}`)
   );
   return { handlers, calls };
@@ -138,7 +133,7 @@ console.log("\n──── Executable CTA routing ────");
   const proceeded = handlers.landingStartFree(aiTrigger());
   test("anonymous Start Training fires signup_cta_clicked once with destination /ai",
     proceeded === true &&
-    calls.join("|") === "entry:ai_product|analytics:signup_cta_clicked:ai_product:/ai:Start Training|intercept");
+    calls.join("|") === "entry:ai_product|analytics:signup_cta_clicked:ai_product:/ai:Start Training");
 }
 {
   const { handlers, calls } = createHandlers(null);
@@ -158,12 +153,14 @@ console.log("\n──── Executable CTA routing ────");
     proceeded === true && calls.join("|") === "");
 }
 {
-  const { handlers, calls } = createHandlers(null, { intercept: true });
+  // Acquisition fix: Start Training must reach /ai even from a Facebook/
+  // Instagram/Messenger in-app browser — no pre-auth handoff blocks it.
+  const { handlers, calls } = createHandlers(null);
   const proceeded = handlers.landingStartFree(aiTrigger());
-  test("in-app browser intercept still cancels native /ai navigation once",
-    proceeded === false &&
+  test("Meta in-app browser visitors still reach /ai from Start Training (no premature handoff)",
+    proceeded === true &&
     calls.filter(call => call.startsWith("analytics:")).length === 1 &&
-    !calls.includes("nav:/ai"));
+    !calls.includes("intercept"));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

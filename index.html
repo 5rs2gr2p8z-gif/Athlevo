@@ -7052,12 +7052,6 @@ function openSignup(userChoseSignup) {
   if (window.__athlevoAuthEntryLocked) return;
   var choseEmail = userChoseSignup === true && !athlevoSessionUserId;
   if (choseEmail) trackAuthMethodAttempted("email");
-  if (
-    choseEmail &&
-    interceptInAppAuthHandoff("signup", "auth")
-  ) {
-    return;
-  }
   document.getElementById('authModal').style.display = 'flex';
   if (choseEmail) {
     trackAuthChoice("email_signup_clicked");
@@ -7070,15 +7064,6 @@ function openLogin(userChoseLogin, entrySource) {
   if (window.__athlevoAuthEntryLocked) return;
   var choseEmail = userChoseLogin === true && !athlevoSessionUserId;
   if (choseEmail) trackAuthMethodAttempted("email");
-  if (
-    choseEmail &&
-    interceptInAppAuthHandoff(
-      "login",
-      entrySource === "landing" ? "landing" : "auth"
-    )
-  ) {
-    return;
-  }
   document.getElementById('authModal').style.display = 'flex';
   showLoginForm(userChoseLogin === true, entrySource);
   pushAuthState();
@@ -7091,13 +7076,6 @@ function closeAuth() {
 }
 function showSignupForm(userChoseSignup) {
   if (window.__athlevoAuthEntryLocked) return;
-  if (
-    userChoseSignup === true &&
-    !athlevoSessionUserId &&
-    interceptInAppAuthHandoff("signup", "auth")
-  ) {
-    return;
-  }
   document.getElementById('signupForm').style.display = 'block';
   document.getElementById('loginForm').style.display = 'none';
   var fp = document.getElementById('forgotForm'); if (fp) fp.style.display = 'none';
@@ -7884,7 +7862,6 @@ function landingStartFree(trigger)  {
       cta_location: locationName,
       destination: "/ai"
     });
-    if (interceptInAppAuthHandoff("signup", "landing")) return false;
   }
   var href = trigger && typeof trigger.getAttribute === "function"
     ? trigger.getAttribute("href")
@@ -7899,7 +7876,6 @@ function landingSignIn()     {
   else {
     rememberAppEntryIntent();
     rememberLandingAuthEntry("navigation_login");
-    if (interceptInAppAuthHandoff("login", "landing")) return;
     openAppEntry();
     openLogin(true, "landing");
   }
@@ -8108,15 +8084,10 @@ async function doSignup(bypassEmbeddedWarning) {
   const msg = document.getElementById('suMsg');
   const btn = document.getElementById('suBtn');
 
-  // In-app browsers can lose the session. Stop before account creation and
-  // provide the same safe external-browser continuation used by OAuth.
-  if (!bypassEmbeddedWarning && window.AthlevoEnv && window.AthlevoEnv.guard('signup', {
-    intent: "signup",
-    sourceSurface: "auth"
-  })) {
-    return;
-  }
-
+  // Email/password signup is a plain API call (no third-party cookies or
+  // popups), so it works reliably inside Facebook/Instagram/Messenger's
+  // in-app browser. Only OAuth providers (Google) need the external-browser
+  // handoff — see socialAuth.js signInWithProvider().
   const name = document.getElementById('suName').value.trim();
   const email = document.getElementById('suEmail').value.trim();
   const password = document.getElementById('suPassword').value;
@@ -8349,13 +8320,8 @@ async function doLogin(bypassEmbeddedWarning) {
   const msg = document.getElementById('liMsg');
   const btn = document.getElementById('liBtn');
 
-  if (!bypassEmbeddedWarning && window.AthlevoEnv && window.AthlevoEnv.guard('login', {
-    intent: "login",
-    sourceSurface: "auth"
-  })) {
-    return;
-  }
-
+  // Email/password login is a plain API call, safe inside the Meta IAB —
+  // see the matching note in doSignup().
   const email = document.getElementById('liEmail').value.trim();
   const password = document.getElementById('liPassword').value;
 
