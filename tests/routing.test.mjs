@@ -695,9 +695,8 @@ section("/ai acquisition routing");
     /pendingSessionRestore/.test(extract("endBootGate")) &&
     /showPendingSessionState\(\)/.test(extract("endBootGate")) &&
     /showScreen\(isStandaloneMode\(\) \? "screen-welcome" : "screen-landing"\)/.test(extract("endBootGate")));
-  t("PERMANENT: restoreSession anonymous /ai starts diagnostic, not openAiSignup",
-    /\/ai route: logged-out visitors see the diagnostic, not auth or pricing/.test(src) &&
-    /isAiEntryPath[\s\S]*?window\.AthlevoDiagnosticUI/.test(src) &&
+  t("PERMANENT: restoreSession anonymous /ai goes Coach-direct (screen-welcome), not the diagnostic",
+    !/\/ai route: logged-out visitors see the diagnostic, not auth or pricing/.test(src) &&
     !/aiAcquisition && typeof openAiSignup/.test(src));
 }
 {
@@ -725,11 +724,11 @@ section("/ai acquisition routing");
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
   state.store.set("athlevo_app_entry_intent", "ai");
   await api.restoreSession({}); api.endBootGate();
-  t("PERMANENT: anonymous /ai starts diagnostic, not signup",
-    state.diagnosticStarted === true &&
-    state.screens["screen-diagnostic"].active === true &&
+  t("PERMANENT: anonymous /ai is Coach-direct (screen-welcome), not the diagnostic",
+    state.diagnosticStarted !== true &&
+    state.screens["screen-diagnostic"].active === false &&
     state.aiSignupShown !== true &&
-    state.screens["screen-welcome"].active === false);
+    state.screens["screen-welcome"].active === true);
   t("logged-out /ai does not enter the authenticated app",
     state.routed === null && state.screens["screen-today"].active === false);
   t("logged-out /ai does not show pricing before signup",
@@ -740,16 +739,18 @@ section("/ai acquisition routing");
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
   state.store.set("athlevo_ai_signup_handoff", "1");
   await api.restoreSession({}); api.endBootGate();
-  t("leftover signup handoff on anonymous /ai still starts diagnostic",
-    state.diagnosticStarted === true &&
+  t("leftover signup handoff on anonymous /ai still goes Coach-direct, not the diagnostic",
+    state.diagnosticStarted !== true &&
     state.aiSignupShown !== true &&
-    state.pricingShown !== true);
+    state.pricingShown !== true &&
+    state.screens["screen-welcome"].active === true);
 }
 {
   const { api, state } = makeWorld({ session: null, standalone: false, pathname: "/ai" });
   api.renderNavState({ athlevoNav: "landing" });
-  t("popstate on anonymous /ai starts diagnostic, not signup",
-    state.diagnosticStarted === true && state.aiSignupShown !== true);
+  t("popstate on anonymous /ai goes Coach-direct (screen-welcome), not the diagnostic",
+    state.diagnosticStarted !== true && state.aiSignupShown !== true &&
+    state.screens["screen-welcome"].active === true);
 }
 {
   const { api, state } = makeWorld({
@@ -1074,35 +1075,32 @@ section("Anonymous /ai early-start (before restoreSession)");
     session: null, standalone: false, pathname: "/ai", holdGetSession: true
   });
   const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
-  t("A. fresh anonymous /ai starts diagnostic before getSession resolves",
-    early === true &&
-    state.diagnosticStarted === true &&
-    state.diagnosticStartCalls === 1 &&
-    state.getSessionResolved !== true &&
-    state.sessionCalls === 0);
-  t("B. fresh anonymous /ai lifts boot gate before getSession resolves",
-    !state.bodyClasses.has("booting") &&
-    state.screens["screen-diagnostic"].active === true &&
+  t("A. plain anonymous /ai no longer early-starts the diagnostic",
+    early === false &&
+    state.diagnosticStarted !== true &&
+    state.diagnosticStartCalls === 0);
+  t("B. fresh anonymous /ai does not paint the diagnostic before getSession resolves",
+    state.screens["screen-diagnostic"].active !== true &&
     state.getSessionResolved !== true);
 
   const restoreP = api.restoreSession({});
   await new Promise(resolve => setTimeout(resolve, 20));
-  t("C. slow getSession still allows diagnostic interaction",
-    state.diagnosticStarted === true &&
-    !state.bodyClasses.has("booting") &&
+  t("C. slow getSession keeps a neutral shell, not the diagnostic",
+    state.diagnosticStarted !== true &&
     state.getSessionResolved !== true &&
-    state.screens["screen-diagnostic"].active === true);
+    state.screens["screen-diagnostic"].active !== true);
 
   releaseGetSession();
   await restoreP;
   api.endBootGate();
-  t("D. restore with no session leaves the diagnostic in place",
-    state.screens["screen-diagnostic"].active === true &&
+  t("D. restore with no session lands on the Coach-oriented signed-out shell, not the diagnostic",
+    state.screens["screen-diagnostic"].active !== true &&
+    state.screens["screen-welcome"].active === true &&
     state.routed === null &&
     state.screens["screen-today"].active === false);
-  t("J. restoreSession /ai start branch does not create a second stub shell",
-    state.diagnosticStartCalls === 2 &&
-    state.screens["screen-diagnostic"].active === true);
+  t("J. restoreSession /ai start branch does not start the diagnostic at all",
+    state.diagnosticStartCalls === 0 &&
+    state.screens["screen-diagnostic"].active !== true);
 }
 {
   const { api, state } = makeWorld({
@@ -1112,7 +1110,7 @@ section("Anonymous /ai early-start (before restoreSession)");
   await api.restoreSession({});
   api.endBootGate();
   t("E. later authenticated unpaid session uses existing routeAfterAuth",
-    early === true &&
+    early === false &&
     state.routed === "u1" &&
     state.screens["screen-coachai"].active === true);
 }
@@ -1279,9 +1277,9 @@ section("Post-auth transition");
     session: null, standalone: false, pathname: "/ai"
   });
   const early = api.earlyStartAnonymousAiDiagnosticIfEligible();
-  t("M. /ai fail-open still starts diagnostic, not the auth transition",
-    early === true &&
-    state.diagnosticStarted === true &&
+  t("M. /ai fail-open never starts the diagnostic (Coach-direct, no early-start path)",
+    early === false &&
+    state.diagnosticStarted !== true &&
     state.screens["screen-auth-setup"].active === false);
 }
 {

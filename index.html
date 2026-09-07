@@ -6115,31 +6115,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 </div>
   <div class="spacer-md"></div>
 
- <div class="integ">
-  <!--
-    ONE training-data connection.
-
-    Athlevo aggregates through a provider layer, so separate Strava /
-    Intervals.icu / Garmin / COROS rows described our plumbing rather than the
-    athlete’s decision — and three of the four could not actually be connected.
-    The athlete connects "training data" once; which service carries it is an
-    implementation detail, disclosed but not sold.
-  -->
-  <!--
-    Training Data Status (sync confidence). Rendered by js/syncStatus.js —
-    a read-only presentation layer that answers "is my watch connected?" and
-    "did my workout arrive?". All actions delegate to the existing frozen
-    handlers (connect / reconnect / disconnect / open partner). The legacy
-    hidden hooks below keep brain.js’s status writes harmless no-ops.
-  -->
-  <div id="syncStatusCard"></div>
-  <div id="trainingDataRow" data-state="idle" hidden aria-hidden="true">
-    <span id="trainingDataStatus"></span><span id="trainingDataMark"></span>
-  </div>
-</div>
-
-  <div class="spacer-md"></div>
-
   <!-- ══ Settings ══ -->
   <button class="rowlink" type="button" onclick="openSettings()">
     <div><b>Settings</b><small>Appearance, notifications, connections, support, and account.</small></div><span class="arr">→</span>
@@ -6179,11 +6154,34 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   </button>
   <div class="settings-spacer"></div>
 
-  <!-- Connections / Training Data -->
+  <!-- Connections / Training Data
+       Canonical mount for the training-data provider card (moved here from
+       the You screen so Settings > Connections is the one place athletes
+       manage their connection — see js/syncStatus.js for the renderer). -->
   <div class="pad"><div class="section-title">Connections</div></div>
-  <button class="rowlink" type="button" onclick="openTrainingDataFromSettings()">
-    <div><b>Training Data</b><small>Manage your Strava, Intervals.icu, or other connected provider.</small></div><span class="arr">→</span>
-  </button>
+  <div class="integ">
+    <!--
+      ONE training-data connection.
+
+      Athlevo aggregates through a provider layer, so separate Strava /
+      Intervals.icu / Garmin / COROS rows described our plumbing rather than
+      the athlete’s decision — and three of the four could not actually be
+      connected. The athlete connects "training data" once; which service
+      carries it is an implementation detail, disclosed but not sold.
+    -->
+    <!--
+      Training Data Status (sync confidence). Rendered by js/syncStatus.js —
+      a read-only presentation layer that answers "is my watch connected?"
+      and "did my workout arrive?". All actions delegate to the existing
+      frozen handlers (connect / reconnect / disconnect / open partner). The
+      legacy hidden hooks below keep brain.js’s status writes harmless
+      no-ops.
+    -->
+    <div id="syncStatusCard"></div>
+    <div id="trainingDataRow" data-state="idle" hidden aria-hidden="true">
+      <span id="trainingDataStatus"></span><span id="trainingDataMark"></span>
+    </div>
+  </div>
 
   <div class="spacer-md"></div>
 
@@ -7354,6 +7352,11 @@ function hasLiveAthlevoOAuthReturn() {
 }
 
 function canEarlyStartAnonymousAiDiagnostic() {
+  // Plain /ai is now Coach-direct: it must never early-paint the diagnostic.
+  // This early-start path is retired but left in place (rather than deleted)
+  // in case a future explicit diagnostic route needs to reuse the guards
+  // below it.
+  return false;
   try {
     if (typeof isAiEntryPath === "function" ? !isAiEntryPath() : true) return false;
     if (window.athlevoSessionUserId) return false;
@@ -7628,9 +7631,11 @@ function renderNavState(state) {
       if (typeof openAiSignup === "function") openAiSignup({ fromRestore: true });
       return;
     }
-    if (path === "/ai" && !athlevoSessionUserId && window.AthlevoDiagnosticUI &&
-        typeof window.AthlevoDiagnosticUI.start === "function") {
-      window.AthlevoDiagnosticUI.start();
+    if (path === "/ai" && !athlevoSessionUserId) {
+      // /ai is Coach-direct now: back-navigation to it shows the same
+      // Coach-oriented signed-out entry shell restoreSession() uses, not
+      // the diagnostic.
+      showScreen("screen-welcome");
       return;
     }
   } catch (pathErr) {}
@@ -8304,14 +8309,11 @@ function openSettings() {
 }
 window.openSettings = openSettings;
 
-// Settings → Connections row: jump to the existing training-data card on
-// the You screen rather than re-implementing provider connection UI here.
+// Kept for compatibility with any external deep link — the training-data
+// card now renders directly in Settings > Connections (js/syncStatus.js),
+// so this just opens Settings and scrolls it into view.
 function openTrainingDataFromSettings() {
-  // The connection card only exists once, on the You screen — always land
-  // there regardless of which screen Settings was opened from.
-  document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
-  var you = document.getElementById('screen-you');
-  if (you) { you.classList.add('active'); you.scrollTop = 0; }
+  if (typeof openSettings === 'function') openSettings();
   requestAnimationFrame(function () {
     var target = document.getElementById('syncStatusCard') ||
                  document.getElementById('trainingDataRow');
@@ -11483,10 +11485,11 @@ async function restoreSession(opts) {
       window.AthlevoDiagnosticUI.start();
     } else if ((appEntryIntentReason() === "ai" ||
                 (typeof isAiEntryPath === "function" && isAiEntryPath())) &&
-               window.AthlevoDiagnosticUI && window.AthlevoDiagnosticUI.start &&
                !athlevoSessionUserId) {
-      // /ai route: logged-out visitors see the diagnostic, not auth or pricing.
-      window.AthlevoDiagnosticUI.start();
+      // /ai is Coach-direct: logged-out visitors land on the same
+      // Coach-oriented signed-out entry shell as any other app entry, never
+      // the diagnostic.
+      showScreen("screen-welcome");
     } else if ((window.AthlevoCoachInvites && window.AthlevoCoachInvites.hasPendingInvite &&
                 window.AthlevoCoachInvites.hasPendingInvite()) ||
                isStandaloneMode() || hasAppEntryIntent() ||

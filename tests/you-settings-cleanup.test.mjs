@@ -103,10 +103,22 @@ section("Settings screen — Log Out (bottom, neutral)");
     settingsHTML.indexOf("you-logout-row") > settingsHTML.indexOf("you-danger-zone"));
 }
 
+section("Settings — canonical training data card (Connections)");
+{
+  t("Settings renders the real syncStatusCard mount",
+    settingsHTML.includes('id="syncStatusCard"'));
+  t("Settings has no duplicate syncStatusCard id",
+    (html.match(/id="syncStatusCard"/g) || []).length === 1);
+  t("Settings no longer shows a generic 'Training Data' link row",
+    !settingsHTML.includes("openTrainingDataFromSettings()"));
+  t("Connections section title present",
+    settingsHTML.includes("Connections"));
+}
+
 section("You screen — kept items");
 {
-  t("Training Data card remains (syncStatusCard)",
-    youHTML.includes('id="syncStatusCard"'));
+  t("Training Data card moved to Settings (no longer on You)",
+    !youHTML.includes('id="syncStatusCard"'));
   t("Profile header remains (profileName)",
     youHTML.includes('id="profileName"'));
   t("Profile initial remains (profileInitial)",
