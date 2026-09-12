@@ -100,7 +100,11 @@ function renderNoPlan() {
         hasActivities = typeof cached === "number" ? cached > 0 : false;
     } catch (e) {}
 
-    const build = "typeof todayStartPlan==='function' ? todayStartPlan() : (window.AthlevoPlan ? AthlevoPlan.start() : generateWeek())";
+    // Same canonical action Coach uses (js/buildWeekPlan.js) — no
+    // separate Calendar plan generator. Falls back to the pre-existing
+    // onboarding start flow when the athlete has never set up a plan at
+    // all (todayStartPlan/AthlevoPlan.start), preserving that path.
+    const build = "typeof todayStartPlan==='function' ? todayStartPlan() : (window.AthlevoPlan ? AthlevoPlan.start() : AthlevoTrainCalendarBuildPlan())";
     document.getElementById("trainHeader").innerHTML = hasActivities
         ? `
         <div class="train-empty">
@@ -2462,3 +2466,32 @@ window.loadWeeklyPlan =
 
 window.generateWeek =
     generateWeek;
+
+/*
+ * Calendar's empty-state "Build My Plan" entry point. Routes through the
+ * SAME canonical action Coach's chip uses (js/buildWeekPlan.js) so there
+ * is exactly one plan-generation workflow, not a Calendar-specific one.
+ */
+async function AthlevoTrainCalendarBuildPlan() {
+    try {
+        if (window.AthlevoProductAnalytics) {
+            AthlevoProductAnalytics.trackAthlevoEvent("calendar_empty_plan_clicked", {
+                source: "calendar",
+                authenticated: !!window.athlevoSessionUserId,
+                tier: (window.AthlevoAccessGuard && typeof AthlevoAccessGuard.cachedAccessState === "function")
+                    ? AthlevoAccessGuard.cachedAccessState() : "unknown"
+            });
+        }
+    } catch (e) {}
+
+    if (window.AthlevoBuildWeekPlan && typeof window.AthlevoBuildWeekPlan.trigger === "function") {
+        await window.AthlevoBuildWeekPlan.trigger("calendar");
+        return;
+    }
+
+    // Defensive fallback if buildWeekPlan.js failed to load.
+    await generateWeek();
+}
+
+window.AthlevoTrainCalendarBuildPlan =
+    AthlevoTrainCalendarBuildPlan;

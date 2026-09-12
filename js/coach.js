@@ -1335,6 +1335,86 @@ function renderFollowUpActions(answer) {
   syncCoachScrollUi();
 }
 
+
+/* ══════════════ Coach -> weekly plan (canonical action) ══════════ */
+
+function weekStateFromExecution(currentWeekExecution) {
+  if (!currentWeekExecution) return { hasPlan: false, hasMeaningfulPlan: false };
+  var todayKey = new Date().toISOString().slice(0, 10);
+  var sessions = Array.isArray(currentWeekExecution.sessions) ? currentWeekExecution.sessions : [];
+  var hasFuturePlanned = sessions.some(function (s) {
+    return s && s.date && s.date >= todayKey && (!s.status || s.status === "planned");
+  });
+  return { hasPlan: true, hasMeaningfulPlan: hasFuturePlanned };
+}
+
+function maybeRenderBuildPlanAction(answer, question, currentWeekExecution) {
+  try {
+    if (!window.AthlevoPlanIntent || !window.AthlevoBuildWeekPlan) return;
+
+    var weekState = weekStateFromExecution(currentWeekExecution);
+    var decision = window.AthlevoPlanIntent.shouldOfferBuildPlan(question, answer, weekState);
+    if (!decision.offer) return;
+
+    var chipsContainer = document.getElementById("chips");
+    if (!chipsContainer) return;
+
+    var tier = (window.AthlevoAccessGuard && typeof AthlevoAccessGuard.cachedAccessState === "function")
+      ? AthlevoAccessGuard.cachedAccessState() : "unknown";
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "coach-suggestion coach-suggestion--recommended";
+    btn.textContent = "Build this week's plan";
+    btn.dataset.planAction = "build_week_plan";
+
+    btn.addEventListener("click", async function () {
+      if (btn.disabled) return;
+
+      if (btn.dataset.planAction === "view_calendar") {
+        if (typeof showScreen === "function") showScreen("screen-train");
+        var tabBtn = document.querySelector('[data-screen="screen-train"]');
+        if (tabBtn && typeof go === "function") go(tabBtn);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Building your week…";
+      var result = null;
+      try {
+        result = await window.AthlevoBuildWeekPlan.trigger("coach");
+      } catch (e) {
+        result = { ok: false };
+      }
+      if (result && result.ok) {
+        btn.textContent = "View Calendar";
+        btn.dataset.planAction = "view_calendar";
+        btn.disabled = false;
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Build this week's plan";
+      }
+    });
+
+    chipsContainer.insertBefore(btn, chipsContainer.firstChild);
+    chipsContainer.style.display = "";
+    chipsContainer.dataset.hasSuggestions = "true";
+
+    try {
+      if (window.AthlevoProductAnalytics) {
+        AthlevoProductAnalytics.trackAthlevoEvent("plan_action_shown", {
+          source: "coach",
+          authenticated: !!window.athlevoSessionUserId,
+          tier: tier,
+          had_existing_plan: !!weekState.hasMeaningfulPlan
+        });
+      }
+    } catch (e) {}
+  } catch (e) {
+    console.error("Build-plan action failed to render:", e);
+  }
+}
+
 /* ══════════════ Inline error + retry ════════════════════════════ */
 
 function trackCoachEvent(name, accessTier, failureCategory) {
@@ -1913,6 +1993,13 @@ context.recentConversation = (await loadRecentConversationForCoach())
     } else {
       renderFollowUpActions(answer);
     }
+
+    // Canonical "Build this week's plan" action — additive to whichever
+    // chip set rendered above, shown only when contextually warranted
+    // (see js/planActionHeuristics.js). Coach -> plan -> Calendar reuses
+    // the SAME generation path Calendar's empty state uses
+    // (js/buildWeekPlan.js) — no second plan engine.
+    maybeRenderBuildPlanAction(answer, cleanQuestion, context.currentWeekExecution);
 
     // Analytics: successful response.
     try { if (window.AthlevoAnalytics) AthlevoAnalytics.track("first_coach_message_sent"); } catch (e) {}

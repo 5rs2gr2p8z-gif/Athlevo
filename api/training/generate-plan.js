@@ -1597,6 +1597,50 @@ function validateWorkoutSafety(session) {
   return out;
 }
 
+/*
+ * COMPLETED-WORKOUT PROTECTION: on any regenerate of the CURRENT week,
+ * never overwrite a day the athlete has already acted on. A day is
+ * protected when its existing training_sessions row is no longer
+ * "planned" (athlete or sync marked it completed/skipped/modified) or it
+ * has a workout_execution_record (synced activity / logged feedback), or
+ * the date has already passed. Untouched, still-future planned days are
+ * left eligible so "Build this week's plan" can actually update them.
+ */
+async function loadProtectedSessionDates({ userId, weekStartKey, weekEndKey, todayKey }) {
+  const encodedUserId = encodeURIComponent(userId);
+  const currentWeekSessions = await optionalSupabaseRequest(
+    `training_sessions?user_id=eq.${encodedUserId}` +
+      `&session_date=gte.${weekStartKey}&session_date=lte.${weekEndKey}` +
+      "&select=id,session_date,status"
+  );
+  const rows = Array.isArray(currentWeekSessions) ? currentWeekSessions : [];
+
+  const sessionIds = rows.map(row => row?.id).filter(Boolean);
+  let executionRows = [];
+  if (sessionIds.length > 0) {
+    const executed = await optionalSupabaseRequest(
+      "workout_execution_records" +
+        `?user_id=eq.${encodedUserId}` +
+        `&training_session_id=in.(${sessionIds.map(id => encodeURIComponent(id)).join(",")})` +
+        "&select=training_session_id"
+    );
+    executionRows = Array.isArray(executed) ? executed : [];
+  }
+  const executedSessionIds = new Set(
+    executionRows.map(row => row && String(row.training_session_id)).filter(Boolean)
+  );
+
+  const protectedDates = new Set();
+  rows.forEach(row => {
+    if (!row || !row.session_date) return;
+    const isPast = row.session_date < todayKey;
+    const isActedOn = (row.status && row.status !== "planned") ||
+      (row.id != null && executedSessionIds.has(String(row.id)));
+    if (isPast || isActedOn) protectedDates.add(row.session_date);
+  });
+  return protectedDates;
+}
+
 async function saveTrainingSessions({
   userId,
   trainingPlanId,
@@ -2069,6 +2113,22 @@ const weekEnd =
         proposal_pending: true,
         coach_owned_dates: planGuard.coachOwnedDates
       });
+    }
+
+    // Completed-workout protection: strip any day the athlete already
+    // acted on (or that has passed) from what we are about to write, so a
+    // "Build this week's plan" rebuild can update the rest of the week
+    // without ever deleting or overwriting completed work.
+    const protectedDates = await loadProtectedSessionDates({
+      userId: user.id,
+      weekStartKey,
+      weekEndKey,
+      todayKey: formatDateKey(today)
+    });
+    if (protectedDates.size > 0) {
+      generatedPlan.sessions = (generatedPlan.sessions || []).filter(
+        session => !session || !protectedDates.has(session.session_date)
+      );
     }
 
     const savedPlan =

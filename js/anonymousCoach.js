@@ -228,7 +228,16 @@
       if (engine && sufficientContext && !engine.completed) {
         try { engine.complete(); } catch (e) {}
       }
-      var shouldOfferSignup = _turnCount >= MIN_TURNS_BEFORE_CTA ||
+      // Explicit plan-building intent: offer the acquisition CTA
+      // immediately, even before the usual turn threshold — advice
+      // stays free, but a real plan (Calendar persistence) requires an
+      // account. Reuses the SAME canonical plan-intent detector Coach
+      // uses post-signup (js/planActionHeuristics.js) so anonymous and
+      // authenticated paths agree on what counts as "wants a plan".
+      var wantsPlan = !!(window.AthlevoPlanIntent &&
+        window.AthlevoPlanIntent.shouldOfferBuildPlan(cleanQuestion, null, { hasMeaningfulPlan: false }).offer);
+
+      var shouldOfferSignup = wantsPlan || _turnCount >= MIN_TURNS_BEFORE_CTA ||
         (engine && engine.completed);
       if (shouldOfferSignup && changeEl) appendSignupCta(changeEl);
     } catch (error) {

@@ -123,6 +123,13 @@
     coach_message_completed:       { kind: "behavioural", props: ["access_tier", "source_surface"] },
     coach_weekly_limit_reached:    { kind: "behavioural", props: ["access_tier", "source_surface"] },
     coach_request_failed:          { kind: "behavioural", props: ["access_tier", "failure_category", "source_surface"] },
+    // Coach-advice-to-plan loop (STEP: connect coach advice to weekly
+    // plan). "source" is "coach" or "calendar"; never message text or
+    // raw athlete context.
+    plan_action_shown:             { kind: "behavioural", props: ["source", "authenticated", "tier", "had_existing_plan"] },
+    plan_action_clicked:           { kind: "behavioural", props: ["source", "authenticated", "tier", "had_existing_plan"] },
+    plan_generation_completed:     { kind: "behavioural", props: ["source", "authenticated", "tier", "had_existing_plan", "week_offset"] },
+    calendar_empty_plan_clicked:   { kind: "behavioural", props: ["source", "authenticated", "tier"] },
     adaptive_plan_reviewed:        { kind: "behavioural", props: [] },
     adaptive_plan_applied:         { kind: "behavioural", props: ["change_count_bucket"] },
     readiness_prompt_shown:        { kind: "behavioural", props: ["source"] },
