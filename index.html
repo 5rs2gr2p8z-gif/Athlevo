@@ -487,6 +487,15 @@
   --ui-radius-card:var(--r-md);
   --ui-radius-control:var(--r-sm);
   --ui-radius-sheet:26px;
+  /* Concentric edge-surface system: for surfaces that visually hug the
+     device/container edge (the floating tab capsule today; bottom sheets
+     already share --ui-radius-sheet). Outer radius minus the surface's own
+     inset gives the inner control radius, so nested corners read as
+     concentric rather than coincidentally matching. Not for ordinary
+     internal cards — those keep --r-sm/--r-md/--r-lg. */
+  --radius-surface-outer:var(--ui-radius-sheet);
+  --radius-edge-inset:6px;
+  --radius-surface-inner:calc(var(--radius-surface-outer) - var(--radius-edge-inset));
   /* Spacing scale (4px base) — theme-invariant. */
   --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-7:32px; --s-8:40px;
   /* Elevation — restrained, single light source (light theme). */
@@ -942,12 +951,12 @@ body{
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
 
   border: 1px solid var(--nav-capsule-border, color-mix(in srgb, var(--ink3) 10%, transparent));
-  border-radius: 26px;
+  border-radius: var(--radius-surface-outer); /* concentric outer: 26px */
   box-shadow: 0 2px 12px color-mix(in srgb, var(--ink) 6%, transparent),
               0 0 0 0.5px color-mix(in srgb, var(--ink3) 5%, transparent);
   isolation: isolate;
 }
-.tab{position:relative;z-index:1;flex:1 1 0;min-width:0;min-height:56px;background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink3);padding:5px 10px;opacity:.58;transition:color .22s var(--ease-standard),opacity .22s var(--ease-standard),background .25s var(--ease-standard);border-radius:20px}
+.tab{position:relative;z-index:1;flex:1 1 0;min-width:0;min-height:56px;background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink3);padding:5px 10px;opacity:.58;transition:color .22s var(--ease-standard),opacity .22s var(--ease-standard),background .25s var(--ease-standard);border-radius:var(--radius-surface-inner)}
 .tab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tab span{font-size:11px;font-weight:650;letter-spacing:.025em}
 .tab.on{color:var(--text);opacity:1}
@@ -964,7 +973,7 @@ body{
 .nav-active-indicator[data-ready="false"]{opacity:0;transition:none}
 /* Hide indicator when capsule nav is active (athlete mode) */
 .tabbar--capsule .nav-active-indicator{display:none}
-.tab:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:20px}
+.tab:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:var(--radius-surface-inner)}
 
 /* Coach Workspace owns a separate five-tab navigation layout. Its existing
    body class is the mode boundary, so switching workspaces does not depend on
@@ -12275,10 +12284,12 @@ setTimeout(function () {
 <script src="js/memory.js?v=67"></script>
 <script src="js/dailyBrief.js?v=77"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
-<script src="js/coach.js?v=82"></script>
-<script src="js/anonymousCoach.js?v=1"></script>
+<script src="js/planActionHeuristics.js?v=1"></script>
+<script src="js/coach.js?v=83"></script>
+<script src="js/anonymousCoach.js?v=2"></script>
 <script src="js/features.js?v=69"></script>
-<script src="js/train.js?v=82"></script>
+<script src="js/train.js?v=83"></script>
+<script src="js/buildWeekPlan.js?v=1"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=5"></script>
