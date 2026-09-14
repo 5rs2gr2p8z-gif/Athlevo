@@ -15,8 +15,8 @@ function test(name, condition) {
 }
 
 console.log("\n──── Coach surface and authority ────");
-test("bottom navigation remains Today, Coach, Train, Trends, You", [
-  "screen-today", "screen-coachai", "screen-train", "screen-trends", "screen-you"
+test("primary tab bar remains the 3-tab athlete capsule (Calendar/Coach/You)", [
+  "screen-train", "screen-coachai", "screen-trends"
 ].every(id => index.includes(`data-screen="${id}"`)));
 test("managed Coach targets the production #screen-coachai", /getElementById\("screen-coachai"\)/.test(athleteMode));
 test("obsolete #screen-coach target is absent", !/getElementById\("screen-coach"\)/.test(athleteMode));

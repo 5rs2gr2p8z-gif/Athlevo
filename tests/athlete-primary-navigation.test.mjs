@@ -100,8 +100,8 @@ test("capsule respects the bottom safe area",
   /bottom:\s*calc\(10px \+ var\(--athlevo-safe-bottom/.test(capsuleCss));
 test("capsule uses backdrop-filter blur material",
   /backdrop-filter:\s*blur\(20px\)/.test(capsuleCss));
-test("capsule has rounded corners",
-  /border-radius:\s*26px/.test(capsuleCss));
+test("capsule has rounded corners (concentric outer radius token)",
+  /border-radius:\s*var\(--radius-surface-outer\)/.test(capsuleCss));
 test("capsule does not use gradients or glow",
   !/gradient|glow/i.test(capsuleCss));
 
