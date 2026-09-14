@@ -653,7 +653,7 @@
   function activateCoachWorkspace() {
     if (!canAccessCoachWorkspace()) {
       enforceAthleteWorkspaceFallback();
-      if (typeof window.showScreen === "function") window.showScreen("screen-today");
+      if (typeof window.showScreen === "function") window.showScreen("screen-train");
       return false;
     }
     document.body.classList.add("coach-workspace-active");

@@ -39,14 +39,27 @@ function extractFunction(source, name) {
   let depth = 0;
   let quote = null;
   let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
   for (let i = brace; i < source.length; i += 1) {
     const char = source[i];
+    const next = source[i + 1];
+    if (lineComment) {
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (char === "*" && next === "/") { blockComment = false; i += 1; }
+      continue;
+    }
     if (quote) {
       if (escaped) escaped = false;
       else if (char === "\\") escaped = true;
       else if (char === quote) quote = null;
       continue;
     }
+    if (char === "/" && next === "/") { lineComment = true; i += 1; continue; }
+    if (char === "/" && next === "*") { blockComment = true; i += 1; continue; }
     if (char === "'" || char === '"' || char === "`") {
       quote = char;
       continue;

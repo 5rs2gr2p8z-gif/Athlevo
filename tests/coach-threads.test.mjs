@@ -7,9 +7,38 @@
  * suggested replies).
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { readFileSync } from "fs";
 import { join } from "path";
+
+/* Minimal vitest-compatible `expect` shim so this suite runs on the
+ * project's existing node:test runner instead of pulling in a second
+ * test framework for a single file. */
+function expect(actual) {
+  const api = {
+    toBeGreaterThan(expected) {
+      assert.ok(actual > expected, `expected ${actual} to be greater than ${expected}`);
+    },
+    toContain(expected) {
+      assert.ok(actual != null && actual.includes(expected), `expected value to contain ${JSON.stringify(expected)}`);
+    },
+    toMatch(expected) {
+      const re = expected instanceof RegExp ? expected : new RegExp(expected);
+      assert.ok(re.test(actual), `expected value to match ${re}`);
+    }
+  };
+  api.not = {
+    toContain(expected) {
+      assert.ok(actual == null || !actual.includes(expected), `expected value NOT to contain ${JSON.stringify(expected)}`);
+    },
+    toMatch(expected) {
+      const re = expected instanceof RegExp ? expected : new RegExp(expected);
+      assert.ok(!re.test(actual), `expected value NOT to match ${re}`);
+    }
+  };
+  return api;
+}
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -202,15 +231,15 @@ describe("index.html UI changes", () => {
   });
 
   it("32. suggested replies use full-width column layout", () => {
-    expect(html).toMatch(/#screen-coachai .coach-composer .chips\{[^}]*flex-direction:\s*column/);
+    expect(html).toMatch(/\.coach-starters,\.coach-followups\{[^}]*grid-template-columns:\s*1fr/);
   });
 
   it("33. suggested reply chips use width:100%", () => {
-    expect(html).toMatch(/#screen-coachai .coach-composer .chip\{[^}]*width:\s*100%/);
+    expect(html).toMatch(/\.coach-suggestion\{[^}]*width:\s*100%/);
   });
 
   it("34. suggested reply chips have consistent min-height", () => {
-    expect(html).toMatch(/#screen-coachai .coach-composer .chip\{[^}]*min-height:\s*42px/);
+    expect(html).toMatch(/\.coach-suggestion\{[^}]*min-height:\s*44px/);
   });
 
   it("35. destructive new-chat warning removed", () => {
@@ -239,8 +268,8 @@ describe("index.html UI changes", () => {
 describe("renderCoachResponse suggested replies", () => {
   const render = readFile("js/renderCoachResponse.js");
 
-  it("38. allows up to 3 suggested replies", () => {
-    expect(render).toContain("replies.slice(0, 3)");
+  it("38. allows up to 2 suggested replies (matches starter-suggestion followup limit)", () => {
+    expect(render).toContain("replies.slice(0, 2)");
   });
 
   it("39. click behavior submits the expected prompt", () => {

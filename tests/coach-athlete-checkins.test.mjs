@@ -55,7 +55,8 @@ const context = {
 };
 vm.runInNewContext(
   `${functionNames.map(extractFunction).join("\n")}
-   this.renderAthleteCheckIns = renderAthleteCheckIns;`,
+   this.renderAthleteCheckIns = renderAthleteCheckIns;
+   this.manilaDateKey = manilaDateKey;`,
   context
 );
 
@@ -118,20 +119,34 @@ console.log("\n──── Latest, partial, pain, and notes ────");
 
 console.log("\n──── History, signals, ranges, and empty state ────");
 {
+  // Dates are anchored to the athlete-facing "today" (Asia/Manila) at run time
+  // rather than hard-coded, so this suite stays correct on every run instead
+  // of drifting out of the check-ins range window as real time passes.
+  const todayKey = context.manilaDateKey();
+  function keyOffset(daysAgo) {
+    const d = new Date(todayKey + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() - daysAgo);
+    return d.toISOString().slice(0, 10);
+  }
+  function shortLabel(key) {
+    return new Date(key + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  }
   const records = [
-    record({ date: "2026-08-12", sleep_quality: 2, sleep_label: "Poor", mental_stress: 8 }),
-    record({ date: "2026-08-11", sleep_quality: 2, sleep_label: "Poor", mental_stress: 8, notes: "Long work day." }),
-    record({ date: "2026-08-10", sleep_quality: 1, sleep_label: "Very poor", mental_stress: 9 }),
-    record({ date: "2026-08-03", sleep_quality: 5, sleep_label: "Excellent", mental_stress: 2 })
+    record({ date: keyOffset(0), sleep_quality: 2, sleep_label: "Poor", mental_stress: 8 }),
+    record({ date: keyOffset(1), sleep_quality: 2, sleep_label: "Poor", mental_stress: 8, notes: "Long work day." }),
+    record({ date: keyOffset(2), sleep_quality: 1, sleep_label: "Very poor", mental_stress: 9 }),
+    record({ date: keyOffset(9), sleep_quality: 5, sleep_label: "Excellent", mental_stress: 2 })
   ];
+  const withinLabel = shortLabel(keyOffset(2));
+  const outsideLabel = shortLabel(keyOffset(9));
   let html = context.renderAthleteCheckIns({ coach_check_ins: { records } });
-  test("7D history includes only records inside the selected range", /Today/.test(html) && /Aug 10/.test(html) && !/Aug 3/.test(html));
+  test("7D history includes only records inside the selected range", /Today/.test(html) && html.includes(withinLabel) && !html.includes(outsideLabel));
   test("timeline reports changes instead of repeating unchanged fields", /No reported changes|Athlete note added/.test(html));
   test("micro-trends use actual stored numeric values", /Subjective trend/.test(html) && /Sleep reported values over 7 days/.test(html) && /Stress reported values over 7 days/.test(html));
   test("direct repeated low-sleep/high-stress signals are deterministic", /Sleep has been low for 3 consecutive check-ins/.test(html) && /Stress has remained high for 3 consecutive check-ins/.test(html));
   context._athleteCheckInsRange = 14;
   html = context.renderAthleteCheckIns({ coach_check_ins: { records } });
-  test("14D range reveals older history and keeps same athlete context", /Aug 3/.test(html) && /data-checkins-range="14" aria-pressed="true"/.test(html));
+  test("14D range reveals older history and keeps same athlete context", html.includes(outsideLabel) && /data-checkins-range="14" aria-pressed="true"/.test(html));
   context._athleteCheckInsRange = 7;
   const empty = context.renderAthleteCheckIns({ coach_check_ins: { records: [] } });
   test("no check-ins renders the intentional empty state without zero metrics", /No check-ins yet/.test(empty) && /first check-in/.test(empty) && !/>0\/10</.test(empty));
