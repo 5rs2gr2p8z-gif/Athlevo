@@ -60,6 +60,14 @@ var NUMERIC_ALIASES = {
 var engine = null;
 var mode = "question";   // "question" | "result"
 var busy = false;
+
+/* ── Authenticated onboarding (flagged, post-signup) state ──────────────
+ * Set only by startAuthenticated(); the anonymous pre-signup path never
+ * touches these. Kept separate from the anonymous acquisition state above
+ * so the two flows cannot bleed into each other. */
+var authMode = false;
+var authUserId = null;
+var authProfile = null;
 var DEAD_STATE_RETRY_LABEL = "Continue";
 var DEAD_STATE_RETRY_VALUE = "__retry_diagnostic";
 var DEAD_STATE_MESSAGE = "I still need a bit more to continue. Tell me a little more about your running, or tap Continue.";
@@ -3242,7 +3250,7 @@ async function advanceFlow(thread) {
     }
 
     /* ── Social proof: show once per session after meaningful interaction ── */
-    if (thread && engine.history.length >= 2 && !isSocialProofShownThisSession()) {
+    if (!authMode && thread && engine.history.length >= 2 && !isSocialProofShownThisSession()) {
       await showSocialProofMoment(thread);
     }
 
@@ -3669,6 +3677,14 @@ async function renderConversationalResult(thread, result) {
     await delay(MSG_DELAY);
   }
 
+  /* Authenticated onboarding (flagged): synthesize future identity, then
+     hand off to quick facts / pricing instead of the anonymous sales CTA. */
+  if (authMode) {
+    await renderFutureIdentitySection(thread, result);
+    await proceedFromResultAuthenticated(thread);
+    return;
+  }
+
   /* 6. Continuation bridge */
   await showTypingThenMessage(thread,
     "I've built your starting diagnosis. The real value comes when I can track your training and adapt week to week.");
@@ -3770,6 +3786,307 @@ function trackDiagnosticAiFallback(result, questionKey) {
   trackEvent("diagnostic_ai_fallback_used", { question_key: questionKey || null });
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+ *  AUTHENTICATED ONBOARDING (flagged, post-signup)
+ *  ────────────────────────────────────────────────────────────────
+ *  Entry point used by js/authenticatedOnboarding.js instead of the
+ *  anonymous startDiagnostic(). Reuses the SAME engine, chat shell,
+ *  question renderer, and result renderer — only the completion path
+ *  (future identity → quick facts → handoff) differs from the
+ *  pre-signup sales conversation. Never touches AthlevoDiagnosticAcquisition
+ *  or the anonymous pending-diagnostic storage key.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+function startAuthenticated(userId, profile, seedHistory) {
+  if (!userId || !root.AthlevoDiagnostic) return false;
+
+  authMode = true;
+  authUserId = userId;
+  authProfile = profile || {};
+  diagnosticAcquisitionActive = false;
+
+  var existing = root.AthlevoDiagnostic.loadAuthOnboarding(userId);
+  engine = existing || root.AthlevoDiagnostic.createAuthOnboarding(userId, seedHistory || []);
+
+  showScreen("screen-diagnostic");
+  interpretationCache = {};
+  commentaryConsecutiveCount = 0;
+  recentTurns = [];
+  salesState = null;
+  awaitingSalesFollowup = false;
+  resultSequenceStarted = engine.completed === true;
+  resultConversationStarted = false;
+  buildChatShell();
+
+  if (engine.completed && engine.result) {
+    diagnosticCompletedFired = true;
+    renderResult({ restored: true });
+    return true;
+  }
+
+  if (!engine.begun) {
+    engine.begin();
+    diagnosticStartedFired = false;
+    diagnosticCompletedFired = false;
+    renderConversationOpening();
+  } else {
+    primeDiagnosticStartedFromEngine(engine);
+    commitFullyKnownPendingQuestions();
+    rebuildConversation(engine.nextQuestion());
+  }
+  return true;
+}
+
+/*
+ * CURRENT PROFILE / MAIN LIMITER / IMMEDIATE PRIORITY / FUTURE IDENTITY /
+ * HOW ATHLEVO WOULD TRAIN YOU — synthesized entirely from the existing
+ * result object (profile, primaryLimiter, feasibility, whatWedChange,
+ * athlevoRecommendation). No new diagnostic dimensions, no guaranteed
+ * outcomes or race times — feasibility framing stays honest when a target
+ * is ambitious or not advisable.
+ */
+function buildFutureIdentityNarrative(result) {
+  var profile = result.profile || {};
+  var limiter = result.primaryLimiter;
+  var feas = result.feasibility || {};
+  var goal = profile.goal || profile.goalRace || "your current goal";
+  var days = profile.trainingDays || profile.availableDays;
+
+  var currentProfile = "Right now you're " +
+    (profile.trainingStatus ? String(profile.trainingStatus).toLowerCase() + ", " : "") +
+    "working toward " + goal +
+    (days ? (", with about " + days + " days a week available") : "") + ".";
+
+  var mainLimiter = limiter
+    ? (limiter.label + " — " + limiter.explanation)
+    : "Nothing is sharply limiting you yet — the highest-leverage change is making your current training more specific to the goal.";
+
+  var priority = (result.whatWedChange && result.whatWedChange.length)
+    ? result.whatWedChange[0]
+    : "Building consistency in the training you're already doing.";
+
+  var feasibilityNote;
+  if (feas.rating === "not_advisable") {
+    feasibilityNote = "That target needs to be reset before anything else — we'd build toward a safer one first.";
+  } else if (feas.rating === "ambitious" || feas.rating === "aggressive") {
+    feasibilityNote = "That's an ambitious target for your timeline — reachable, but it takes disciplined consistency, not heroics.";
+  } else {
+    feasibilityNote = "That target is realistic for where you are, provided the training stays consistent.";
+  }
+
+  var futureIdentity = "You're not just training for " + goal + ". You're building toward becoming a runner who trains consistently, addresses " +
+    (limiter ? limiter.label.toLowerCase() : "the specific gaps in your current approach") +
+    ", and can sustain the work it takes to get there. " + feasibilityNote;
+
+  var lead = priority.length ? priority.charAt(0).toLowerCase() + priority.slice(1) : priority;
+  var howWeTrain = "Athlevo would start by " + lead +
+    ", then adapt week to week based on how you actually respond — not a fixed plan handed to you once.";
+
+  return {
+    currentProfile: currentProfile,
+    mainLimiter: mainLimiter,
+    priority: priority,
+    futureIdentity: futureIdentity,
+    howWeTrain: howWeTrain
+  };
+}
+
+async function renderFutureIdentitySection(thread, result) {
+  var narrative = buildFutureIdentityNarrative(result);
+  await showTypingThenMessage(thread, "Here's who you are right now — and who we're training you to become.");
+  await delay(MSG_DELAY);
+
+  var html = '<div class="chat-diagnosis-card chat-future-identity">';
+  html += '<span class="chat-diagnosis-eyebrow">Your future identity</span>';
+  html += '<h4 class="chat-future-identity-h">Current profile</h4><p class="chat-diagnosis-text">' + esc(narrative.currentProfile) + '</p>';
+  html += '<h4 class="chat-future-identity-h">Main limiter</h4><p class="chat-diagnosis-text">' + esc(narrative.mainLimiter) + '</p>';
+  html += '<h4 class="chat-future-identity-h">Immediate priority</h4><p class="chat-diagnosis-text">' + esc(narrative.priority) + '</p>';
+  html += '<h4 class="chat-future-identity-h">Future identity</h4><p class="chat-diagnosis-text">' + esc(narrative.futureIdentity) + '</p>';
+  html += '<h4 class="chat-future-identity-h">How Athlevo would train you</h4><p class="chat-diagnosis-text">' + esc(narrative.howWeTrain) + '</p>';
+  html += '</div>';
+  appendAthlevoMsgHTML(thread, html);
+  scrollToBottom();
+  trackEvent("future_identity_viewed", {
+    primary_limiter: result.primaryLimiter ? result.primaryLimiter.key : null,
+    feasibility_rating: result.feasibility ? result.feasibility.rating : null
+  });
+  await delay(MSG_DELAY);
+}
+
+/* ── Quick facts: name / age / sex / height / weight / device ─────────
+ * NOT diagnostic questions — canonical profile fields, asked only when
+ * missing, through the same chat shell (chips + composer), persisted via
+ * AthlevoAuthDiagnosticOnboarding.completeAndPersist (profiles table). */
+var QUICK_FACT_DEFS = {
+  full_name: { label: "What should I call you?", type: "text", placeholder: "Your name",
+    validate: function (v) { return !!(v && v.trim().length > 0); },
+    parse: function (v) { return v.trim(); } },
+  age: { label: "How old are you?", type: "text", placeholder: "e.g. 28",
+    validate: function (v) { var n = Number(v); return Number.isFinite(n) && n >= 13 && n <= 100; },
+    parse: Number },
+  sex: { label: "Sex?", type: "chips",
+    options: [{ label: "Male", value: "Male" }, { label: "Female", value: "Female" }] },
+  height: { label: "Height, in cm?", type: "text", placeholder: "e.g. 175",
+    validate: function (v) { var n = Number(v); return Number.isFinite(n) && n > 0 && n < 260; },
+    parse: Number },
+  weight: { label: "Weight, in kg?", type: "text", placeholder: "e.g. 68",
+    validate: function (v) { var n = Number(v); return Number.isFinite(n) && n > 0 && n < 400; },
+    parse: Number },
+  device: { label: "What do you use to track your runs?", type: "multichips",
+    options: [
+      { label: "Garmin", value: "Garmin" }, { label: "COROS", value: "COROS" },
+      { label: "Apple Watch", value: "Apple Watch" }, { label: "Strava", value: "Strava" },
+      { label: "TrainingPeaks", value: "TrainingPeaks" }, { label: "Other", value: "Other" },
+      { label: "None", value: "None" }
+    ] }
+};
+
+function renderQuickFactMultiChips(thread, options, onDone) {
+  var container = getQuickReplies();
+  if (!container) { onDone([]); return; }
+  container.style.display = "";
+  var selected = {};
+
+  function render() {
+    container.innerHTML = "";
+    for (var i = 0; i < options.length; i++) {
+      (function (opt) {
+        var active = !!selected[opt.value];
+        var btn = createEl('<button class="chat-qr-chip' + (active ? ' chat-qr-sel' : '') + '" type="button">' + esc(opt.label) + '</button>');
+        btn.addEventListener("click", function () {
+          if (opt.value === "None") {
+            selected = { None: true };
+          } else {
+            delete selected.None;
+            if (selected[opt.value]) delete selected[opt.value];
+            else selected[opt.value] = true;
+          }
+          render();
+        });
+        container.appendChild(btn);
+      })(options[i]);
+    }
+    var doneBtn = createEl('<button class="chat-qr-chip chat-qr-cta" type="button">Continue</button>');
+    doneBtn.addEventListener("click", function () {
+      var values = Object.keys(selected);
+      if (!values.length) return;
+      hideQuickReplies();
+      appendUserMsg(thread, values.join(", "));
+      scrollToBottom();
+      onDone(values);
+    });
+    container.appendChild(doneBtn);
+  }
+  render();
+}
+
+function runQuickFactsStage(thread, missingKeys, onDone) {
+  var collected = {};
+  var i = 0;
+
+  function next() {
+    if (i >= missingKeys.length) { onDone(collected); return; }
+    var key = missingKeys[i++];
+    var def = QUICK_FACT_DEFS[key];
+    if (!def) { next(); return; }
+
+    showTypingThenMessage(thread, def.label).then(function () {
+      if (def.type === "chips") {
+        showQuickReplies(def.options, function (opt) {
+          appendUserMsg(thread, opt.label);
+          collected[key] = opt.value;
+          scrollToBottom();
+          hideQuickReplies();
+          setTimeout(next, MSG_DELAY);
+        });
+      } else if (def.type === "multichips") {
+        renderQuickFactMultiChips(thread, def.options, function (values) {
+          collected[key] = values.join(", ");
+          setTimeout(next, MSG_DELAY);
+        });
+      } else {
+        hideQuickReplies();
+        showComposer(def.placeholder);
+        var input = getComposerInput();
+        var send = document.getElementById("chatSend");
+        if (input) { input.value = ""; input.focus(); }
+        var submitted = false;
+        var onKeydown, onClick;
+        function cleanup() {
+          if (input) input.removeEventListener("keydown", onKeydown);
+          if (send) send.removeEventListener("click", onClick);
+        }
+        function submit() {
+          if (submitted || busy) return;
+          var val = input ? input.value.trim() : "";
+          if (!def.validate(val)) { showValidationMsg("Please enter a valid value."); return; }
+          submitted = true;
+          cleanup();
+          appendUserMsg(thread, val);
+          collected[key] = def.parse ? def.parse(val) : val;
+          hideComposer();
+          scrollToBottom();
+          setTimeout(next, MSG_DELAY);
+        }
+        onKeydown = function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } };
+        onClick = function () { submit(); };
+        if (input) input.addEventListener("keydown", onKeydown);
+        if (send) send.addEventListener("click", onClick);
+      }
+    });
+  }
+  next();
+}
+
+async function proceedFromResultAuthenticated(thread) {
+  hideQuickReplies();
+  var orchestrator = root.AthlevoAuthDiagnosticOnboarding;
+  var missing = orchestrator && orchestrator.missingQuickFacts
+    ? orchestrator.missingQuickFacts(authProfile)
+    : [];
+
+  if (!missing.length) {
+    await finishAuthenticatedOnboarding({});
+    return;
+  }
+
+  await showTypingThenMessage(thread, "A few quick facts and I'll build your first plan.");
+  await delay(MSG_DELAY);
+  runQuickFactsStage(thread, missing, function (collected) {
+    finishAuthenticatedOnboarding(collected);
+  });
+}
+
+/*
+ * Deliberate, single, bounded handoff — NOT a recursive completion loop.
+ * Persists quick facts + onboarding_complete through the canonical
+ * profiles path, clears this engine's own per-user storage, then calls
+ * routeAfterAuth exactly once. Because onboarding_complete is now true,
+ * routeAfterAuth takes its normal post-onboarding branch (pricing/
+ * entitlement gate, then wearable, then app) instead of re-entering
+ * onboarding — it does not loop back here.
+ */
+async function finishAuthenticatedOnboarding(quickFacts) {
+  hideComposer();
+  hideQuickReplies();
+  var uid = authUserId;
+  var orchestrator = root.AthlevoAuthDiagnosticOnboarding;
+  try {
+    if (orchestrator && orchestrator.completeAndPersist) {
+      await orchestrator.completeAndPersist(uid, engine, quickFacts || {});
+    }
+  } catch (e) {
+    console.warn("Authenticated onboarding completion failed:", e);
+  }
+  try { root.AthlevoDiagnostic.clearAuthOnboarding(uid); } catch (e) {}
+  authMode = false;
+  authUserId = null;
+  authProfile = null;
+  if (typeof root.routeAfterAuth === "function") {
+    root.routeAfterAuth(uid);
+  }
+}
+
 /* ═══════════════════════════ DOM INIT ══════════════════════════════ */
 
 function initDOM() {
@@ -3796,6 +4113,7 @@ if (document.readyState === "loading") {
 
 var DiagnosticUI = {
   start: startDiagnostic,
+  startAuthenticated: startAuthenticated,
   continue: function () {},  // Legacy — handled by chat interaction
   back: diagBack,
   getEngine: function () { return engine; },

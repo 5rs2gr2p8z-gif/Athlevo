@@ -11262,7 +11262,30 @@ async function routeAfterAuth(userId) {
         profile.device != null));
 
   if (!completed) {
-    startOnboarding();
+    /*
+     * Flagged (diagnostic_onboarding_v2, default OFF — see
+     * js/featureFlags.js). Organic/free signups only: the paid-first
+     * AthlevoDiagnosticAcquisition funnel has already returned above
+     * (its resolveAfterAuth either routed to startOnboarding() and
+     * returned, or handled the route itself), so this branch is only
+     * ever reached for users outside that funnel. Coach/admin accounts
+     * are excluded earlier in this function and defensively inside
+     * AthlevoAuthDiagnosticOnboarding.start() itself.
+     */
+    var tookOverOnboarding = false;
+    if (window.AthlevoAuthDiagnosticOnboarding &&
+        typeof window.AthlevoAuthDiagnosticOnboarding.start === "function") {
+      try {
+        tookOverOnboarding = await window.AthlevoAuthDiagnosticOnboarding.start(userId, supabaseClient);
+      } catch (authOnboardingErr) {
+        console.warn("Authenticated diagnostic onboarding failed to start; falling back to legacy onboarding:", authOnboardingErr);
+        tookOverOnboarding = false;
+      }
+      if (!routeIsCurrent()) return;
+    }
+    if (!tookOverOnboarding) {
+      startOnboarding();
+    }
     return;
   }
 
@@ -12372,6 +12395,8 @@ setTimeout(function () {
 <script src="js/diagnosticUI.js?v=9"></script>
 <script src="js/anonymousHandoff.js?v=1"></script>
 <script src="js/diagnosticHandoff.js?v=9"></script>
+<script src="js/featureFlags.js?v=1"></script>
+<script src="js/authenticatedOnboarding.js?v=1"></script>
 <script src="js/diagnosticAcquisition.js?v=9"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that

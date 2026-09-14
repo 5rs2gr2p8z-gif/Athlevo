@@ -652,7 +652,19 @@ section("Onboarding");
   t("12. first-time user: restore routes via routeAfterAuth (onboarding-aware)",
     /routeAfterAuth\(session\.user\.id\)/.test(src) && !/showScreen\("screen-coachai"\)/.test(src));
   t("12b. routeAfterAuth still starts onboarding when incomplete",
-    /if \(!completed\) \{\s*startOnboarding\(\);/.test(html));
+    (() => {
+      // Legacy form onboarding remains the fallback: flagged authenticated
+      // diagnostic onboarding (diagnostic_onboarding_v2, default OFF) is
+      // tried first and only "takes over" when eligible; otherwise
+      // startOnboarding() still runs, inside the same `if (!completed)`
+      // block, exactly as before.
+      const idx = html.indexOf("if (!completed) {");
+      if (idx < 0) return false;
+      const block = html.slice(idx, html.indexOf("\n  }", idx) + 4 || idx + 2000);
+      return /if \(!completed\) \{/.test(block) &&
+        /startOnboarding\(\);/.test(block) &&
+        /AthlevoAuthDiagnosticOnboarding/.test(block);
+    })());
   t("12c. unpaid athletes are gated before Train/tab bar", (() => {
     const route = html.slice(
       html.indexOf("async function routeAfterAuth"),

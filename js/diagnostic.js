@@ -2361,22 +2361,32 @@ DiagnosticEngine.prototype.toStoredPayload = function () {
   };
 };
 
+DiagnosticEngine.prototype._storageKey = function () {
+  /* Authenticated-onboarding engines (flagged, post-signup, see
+     createAuthOnboarding/loadAuthOnboarding below) persist to a per-user
+     key, NEVER the shared anonymous STORAGE_KEY — a signed-in athlete's
+     in-progress onboarding must not collide with, overwrite, or be
+     mistaken for another visitor's pre-signup pending diagnostic on the
+     same browser. */
+  return this.__authOnboardingKey || STORAGE_KEY;
+};
+
 DiagnosticEngine.prototype._save = function () {
   try {
     var payload = this.toStoredPayload();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(this._storageKey(), JSON.stringify(payload));
   } catch (e) {
     console.warn("Diagnostic: could not save to localStorage:", e);
   }
 };
 
-DiagnosticEngine.load = function () {
+function loadFromKey(key) {
   try {
-    var raw = localStorage.getItem(STORAGE_KEY);
+    var raw = localStorage.getItem(key);
     if (!raw) return null;
     var payload = JSON.parse(raw);
     if (!isValidStoredPayload(payload)) {
-      DiagnosticEngine.clearPending();
+      try { localStorage.removeItem(key); } catch (e2) {}
       return null;
     }
 
@@ -2397,10 +2407,64 @@ DiagnosticEngine.load = function () {
 
     return engine;
   } catch (e) {
-    console.warn("Diagnostic: could not load from localStorage:", e);
-    DiagnosticEngine.clearPending();
+    console.warn("Diagnostic: could not load from storage key:", key, e);
+    try { localStorage.removeItem(key); } catch (e2) {}
     return null;
   }
+}
+
+DiagnosticEngine.load = function () {
+  return loadFromKey(STORAGE_KEY);
+};
+
+/* ── Authenticated onboarding (flagged, post-signup) ──────────────────
+ * A completely separate, per-user storage lane from the anonymous
+ * pending-diagnostic above. Only used behind the diagnostic_onboarding_v2
+ * feature flag (see js/authenticatedOnboarding.js). Never shares a key
+ * with STORAGE_KEY, so it can never collide with or be read as an
+ * anonymous visitor's pre-signup diagnostic on a shared browser. */
+function authOnboardingStorageKey(userId) {
+  return "athlevo_auth_onboarding_diagnostic_v1_" +
+    String(userId || "").replace(/[^a-zA-Z0-9_-]/g, "");
+}
+
+DiagnosticEngine.loadAuthOnboarding = function (userId) {
+  if (!userId) return null;
+  var engine = loadFromKey(authOnboardingStorageKey(userId));
+  if (engine) {
+    engine.__authOnboardingKey = authOnboardingStorageKey(userId);
+    engine.__authOnboardingUserId = userId;
+  }
+  return engine;
+};
+
+DiagnosticEngine.clearAuthOnboarding = function (userId) {
+  if (!userId) return;
+  try { localStorage.removeItem(authOnboardingStorageKey(userId)); } catch (e) {}
+};
+
+/*
+ * Create a fresh engine for the authenticated onboarding path. seedHistory
+ * is an ordered array of { key, fieldAnswers } already known from the
+ * athlete's profile (e.g. via diagnosticHandoff's merged fields) so those
+ * questions are answered through the SAME recordAnswer() normalization
+ * path as a live answer would use, instead of hand-crafting engine state.
+ * DiagnosticEngine's own question/answer schema is not changed by this —
+ * it only pre-answers a subset of the EXISTING questions.
+ */
+DiagnosticEngine.createAuthOnboarding = function (userId, seedHistory) {
+  var engine = new DiagnosticEngine();
+  engine.__authOnboardingKey = authOnboardingStorageKey(userId);
+  engine.__authOnboardingUserId = userId;
+  if (Array.isArray(seedHistory)) {
+    for (var i = 0; i < seedHistory.length; i++) {
+      var item = seedHistory[i];
+      if (!item || !item.key || !DiagnosticEngine.getQuestion(item.key)) continue;
+      try { engine.recordAnswer(item.key, item.fieldAnswers || {}); } catch (e) {}
+    }
+  }
+  engine._save();
+  return engine;
 };
 
 function isValidStoredPayload(payload) {
