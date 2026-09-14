@@ -3677,11 +3677,13 @@ async function renderConversationalResult(thread, result) {
     await delay(MSG_DELAY);
   }
 
-  /* Authenticated onboarding (flagged): synthesize future identity, then
-     hand off to quick facts / pricing instead of the anonymous sales CTA. */
+  /* Authenticated onboarding (flagged): finish learning the athlete FIRST
+     (missing required quick facts, through the same chat shell), THEN
+     synthesize future identity as the final onboarding payoff immediately
+     before pricing — not before quick facts are done. Replaces the
+     anonymous sales CTA entirely for authenticated users. */
   if (authMode) {
-    await renderFutureIdentitySection(thread, result);
-    await proceedFromResultAuthenticated(thread);
+    await proceedToAuthenticatedCompletion(thread, result);
     return;
   }
 
@@ -4038,23 +4040,35 @@ function runQuickFactsStage(thread, missingKeys, onDone) {
   next();
 }
 
-async function proceedFromResultAuthenticated(thread) {
+/*
+ * Ordering is deliberate and tested (tests/diagnostic-onboarding-v2.test.mjs):
+ * quick facts are collected BEFORE the future-identity result renders.
+ * Athlevo finishes learning the athlete first, then synthesizes everything
+ * it now knows into the future-identity payoff as the last onboarding
+ * beat before pricing — not before the athlete's picture is complete.
+ */
+async function proceedToAuthenticatedCompletion(thread, result) {
   hideQuickReplies();
   var orchestrator = root.AthlevoAuthDiagnosticOnboarding;
   var missing = orchestrator && orchestrator.missingQuickFacts
     ? orchestrator.missingQuickFacts(authProfile)
     : [];
 
-  if (!missing.length) {
-    await finishAuthenticatedOnboarding({});
-    return;
+  var quickFacts = {};
+  if (missing.length) {
+    await showTypingThenMessage(thread, "A few quick facts and I'll build your first plan.");
+    await delay(MSG_DELAY);
+    quickFacts = await new Promise(function (resolve) {
+      runQuickFactsStage(thread, missing, resolve);
+    });
+    // Reflect what was just collected so a mid-stage refresh (which
+    // re-derives `missing` from authProfile) doesn't re-ask answered
+    // quick facts before the result/finish handoff.
+    authProfile = Object.assign({}, authProfile, quickFacts);
   }
 
-  await showTypingThenMessage(thread, "A few quick facts and I'll build your first plan.");
-  await delay(MSG_DELAY);
-  runQuickFactsStage(thread, missing, function (collected) {
-    finishAuthenticatedOnboarding(collected);
-  });
+  await renderFutureIdentitySection(thread, result);
+  await finishAuthenticatedOnboarding(quickFacts);
 }
 
 /*

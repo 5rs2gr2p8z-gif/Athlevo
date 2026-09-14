@@ -280,29 +280,22 @@ t("startAuthenticated does not contain the anonymous early-return-to-routeAfterA
     return startAuthSrc.length > 0 && !/routeAfterAuth/.test(startAuthSrc);
   })());
 
-t("the diagnostic-completion path (renderConversationalResult) branches authenticated users into future-identity + quick facts, not the anonymous sales CTA",
+t("the diagnostic-completion path (renderConversationalResult) branches authenticated users into the corrected completion sequence, not the anonymous sales CTA",
   (() => {
     const block = diagnosticUiSrc.slice(
       diagnosticUiSrc.indexOf("async function renderConversationalResult"),
       diagnosticUiSrc.indexOf("function renderResult(opts)")
     );
     return /if \(authMode\) \{/.test(block) &&
-      /renderFutureIdentitySection/.test(block) &&
-      /proceedFromResultAuthenticated/.test(block);
+      /proceedToAuthenticatedCompletion/.test(block);
   })());
 
 t("routeAfterAuth is called only once, from the bounded finishAuthenticatedOnboarding handoff — not from the diagnostic question/result loop",
   (() => {
     const authSectionStart = diagnosticUiSrc.indexOf("function startAuthenticated(");
-    const authSectionEnd = diagnosticUiSrc.indexOf("/* ══════════════════════════ DOM INIT");
+    const authSectionEnd = diagnosticUiSrc.indexOf("/* ═════════════════════════════ DOM INIT");
     const authSection = diagnosticUiSrc.slice(authSectionStart, authSectionEnd);
-    // Strip comments so explanatory prose mentioning routeAfterAuth doesn't
-    // count as a code reference — only actual calls matter here.
     const codeOnly = authSection.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-    // A typeof guard plus the call itself is expected (both inside
-    // finishAuthenticatedOnboarding) — the point is that NO reference to
-    // routeAfterAuth exists anywhere else in the authenticated-onboarding
-    // section (e.g. not inside the question loop or completeDiagnostic).
     const finishIdx = codeOnly.indexOf("async function finishAuthenticatedOnboarding");
     const beforeFinish = codeOnly.slice(0, finishIdx);
     const afterFinish = codeOnly.slice(finishIdx);
@@ -320,22 +313,70 @@ t("future identity narrative makes no guaranteed-outcome or race-time promises",
     return !/guarantee/i.test(fn) && !/will finish in/i.test(fn) && !/sub-\d/.test(fn);
   })());
 
-t("future identity result renders before quick facts / pricing handoff (proceedFromResultAuthenticated runs after renderFutureIdentitySection)",
+/* Corrected sequencing: quick facts BEFORE future identity BEFORE finish */
+
+t("proceedToAuthenticatedCompletion collects quick facts BEFORE rendering future identity (not after)",
   (() => {
-    const block = diagnosticUiSrc.slice(
-      diagnosticUiSrc.indexOf("if (authMode) {", diagnosticUiSrc.indexOf("async function renderConversationalResult")),
-      diagnosticUiSrc.indexOf("return;", diagnosticUiSrc.indexOf("if (authMode) {", diagnosticUiSrc.indexOf("async function renderConversationalResult")))
+    const fn = diagnosticUiSrc.slice(
+      diagnosticUiSrc.indexOf("async function proceedToAuthenticatedCompletion"),
+      diagnosticUiSrc.indexOf("async function finishAuthenticatedOnboarding")
     );
-    return block.indexOf("renderFutureIdentitySection") < block.indexOf("proceedFromResultAuthenticated");
+    const quickFactsIdx = fn.indexOf("runQuickFactsStage");
+    const futureIdentityIdx = fn.indexOf("renderFutureIdentitySection");
+    return quickFactsIdx > 0 && futureIdentityIdx > 0 && quickFactsIdx < futureIdentityIdx;
   })());
 
-t("quick facts stage does not appear between result and pricing when nothing is missing (goes straight to finish)",
-  /if \(!missing\.length\) \{\s*await finishAuthenticatedOnboarding/.test(diagnosticUiSrc));
+t("future identity cannot render until the quick-facts promise resolves (awaited, not parallel)",
+  (() => {
+    const fn = diagnosticUiSrc.slice(
+      diagnosticUiSrc.indexOf("async function proceedToAuthenticatedCompletion"),
+      diagnosticUiSrc.indexOf("async function finishAuthenticatedOnboarding")
+    );
+    return /await new Promise\(function \(resolve\) \{\s*runQuickFactsStage/.test(fn) &&
+      /await renderFutureIdentitySection/.test(fn) &&
+      fn.indexOf("await renderFutureIdentitySection") > fn.indexOf("await new Promise");
+  })());
 
-t("wearable connection is not invoked between the future-identity result and the pricing/finish handoff",
+t("finishAuthenticatedOnboarding (pricing/wearable/app handoff) runs only after renderFutureIdentitySection, not before",
+  (() => {
+    const fn = diagnosticUiSrc.slice(
+      diagnosticUiSrc.indexOf("async function proceedToAuthenticatedCompletion"),
+      diagnosticUiSrc.indexOf("async function finishAuthenticatedOnboarding")
+    );
+    return fn.indexOf("renderFutureIdentitySection") < fn.indexOf("finishAuthenticatedOnboarding");
+  })());
+
+t("when no quick facts are missing, the flow still renders future identity before finishing (does not skip straight from diagnostic to pricing)",
+  (() => {
+    const fn = diagnosticUiSrc.slice(
+      diagnosticUiSrc.indexOf("async function proceedToAuthenticatedCompletion"),
+      diagnosticUiSrc.indexOf("async function finishAuthenticatedOnboarding")
+    );
+    const ifBlockEnd = fn.indexOf("}", fn.indexOf("if (missing.length)"));
+    const afterIfBlock = fn.slice(ifBlockEnd);
+    return /renderFutureIdentitySection/.test(afterIfBlock) && /finishAuthenticatedOnboarding/.test(afterIfBlock);
+  })());
+
+t("future identity is rendered exactly once per completion sequence (single call site, not looped)",
+  (() => {
+    const fn = diagnosticUiSrc.slice(
+      diagnosticUiSrc.indexOf("async function proceedToAuthenticatedCompletion"),
+      diagnosticUiSrc.indexOf("async function finishAuthenticatedOnboarding")
+    );
+    const matches = fn.match(/renderFutureIdentitySection/g) || [];
+    return matches.length === 1;
+  })());
+
+t("a quick fact answered mid-stage updates authProfile so a resumed/re-entrant call does not re-ask it before future identity",
+  /authProfile = Object\.assign\(\{\}, authProfile, quickFacts\);/.test(diagnosticUiSrc));
+
+t("quick facts stage does not appear between result and pricing when nothing is missing (still finishes through the same handoff)",
+  /if \(missing\.length\) \{/.test(diagnosticUiSrc) && /await finishAuthenticatedOnboarding\(quickFacts\);/.test(diagnosticUiSrc));
+
+t("wearable connection is not invoked inside the quick-facts/future-identity completion sequence (still owned by the canonical post-pricing step)",
   (() => {
     const block = diagnosticUiSrc.slice(
-      diagnosticUiSrc.indexOf("async function proceedFromResultAuthenticated"),
+      diagnosticUiSrc.indexOf("async function proceedToAuthenticatedCompletion"),
       diagnosticUiSrc.indexOf("async function finishAuthenticatedOnboarding") +
         diagnosticUiSrc.slice(diagnosticUiSrc.indexOf("async function finishAuthenticatedOnboarding")).indexOf("\n}\n")
     );
