@@ -448,8 +448,16 @@ describe("Analytics registry — onboarding role events", () => {
 describe("index.html routing updates", () => {
 
   it("routeAfterAuth selects role from profiles", () => {
+    // The exact select() column list has since grown (free_tier_started_at
+    // was added) so match the routeAfterAuth profiles select flexibly for
+    // "role" as one of its columns rather than the old exact literal.
+    const selectMatch = indexSource.match(
+      /\.from\("profiles"\)\s*\.select\("([^"]*)"\)/
+    );
+    assert.ok(selectMatch, "routeAfterAuth must select from profiles");
+    const columns = selectMatch[1].split(",").map((c) => c.trim());
     assert.ok(
-      indexSource.includes('"onboarding_complete, goal, device, role"'),
+      columns.includes("role"),
       "routeAfterAuth must select role from profiles"
     );
   });

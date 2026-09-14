@@ -409,7 +409,14 @@ section("Superseded diagnostics removed; safe logging retained");
     /intervals_finalize_success/.test(api) && /intervals_finalize_failure/.test(api));
   t("the log allowlist still gates every field", /const LOG_SAFE = new Set\(/.test(api));
   t("no token field is on the allowlist",
-    !/LOG_SAFE = new Set\(\[[\s\S]*?access_token[\s\S]*?\]\);/.test(api));
+    (() => {
+      // Match only the LOG_SAFE array literal itself (up to its closing
+      // "]);"), not any later unrelated "]);" in the file — a lazy regex
+      // spanning the whole file would find "access_token" used elsewhere
+      // (e.g. token.access_token) and false-positive on a safe allowlist.
+      const m = /LOG_SAFE = new Set\(\[([\s\S]*?)\]\);/.exec(api);
+      return Boolean(m) && !/access_token/.test(m[1]);
+    })());
 }
 
 /* ═══ 13. The client return path, EXECUTED ═════════════════════════ */
@@ -515,8 +522,13 @@ section("13. A pending return issues exactly one finalize, before any diagnose")
   t("the token is stripped only AFTER finalize resolves",
     /await AthlevoBrain\.finalizeIntervals\(completion\);[\s\S]{0,900}stripIntervalsParams\(\);/.test(pending));
   t("finalize is attempted BEFORE any diagnose can run",
+    // The exact "...resumeAfterConnect(); return;" one-liner this used to
+    // match was reformatted (resumeAfterConnect() is now awaited on its own
+    // line inside a try block); the finalize-before-resume ordering it
+    // guards is unchanged, so match the call itself instead of the stale
+    // exact formatting.
     html.indexOf("athlevoFinalizeInFlight") <
-      html.indexOf("window.AthlevoConnect.resumeAfterConnect(); return;"));
+      html.indexOf("window.AthlevoConnect.resumeAfterConnect();"));
   t("a not-ready client is reported as such, not as a write failure",
     /"CLIENT_NOT_READY"/.test(pending));
 

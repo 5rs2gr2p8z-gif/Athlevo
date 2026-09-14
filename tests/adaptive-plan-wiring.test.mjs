@@ -182,6 +182,16 @@ function makeWorld(seed) {
     const table = qi < 0 ? rel : rel.slice(0, qi);
     const qs = qi < 0 ? "" : rel.slice(qi + 1);
     const filters = parseFilters(qs);
+    // The real ensure_free_trial RPC (lib/server/freemium.js checkAccess)
+    // returns the athlete's subscription row (creating/backfilling a trial
+    // if none exists yet). Simulate that by looking up the real
+    // subscriptions table instead of falling through to the generic table
+    // handler below, which would otherwise echo the RPC's own request body
+    // back as a fake "row" and make every athlete look unentitled.
+    if (table === "rpc/ensure_free_trial") {
+      const uid = init.body ? (JSON.parse(init.body).p_user_id || null) : null;
+      return J(200, (db.subscriptions || []).filter(r => r.user_id === uid));
+    }
     db[table] = db[table] || [];
     if (m === "GET") return J(200, db[table].filter(r => matchRow(r, filters)));
     if (m === "POST") {

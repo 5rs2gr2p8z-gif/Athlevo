@@ -37,14 +37,20 @@ function extract(src, name) {
   return at >= 0 ? src.slice(at, at + 3500) : "";
 }
 
-section("1 — anonymous /ai is diagnostic, not auth or pricing");
+section("1 — anonymous /ai is the Coach preview, not auth or pricing");
 {
-  t("logged-out /ai starts the diagnostic, not signup",
-    /logged-out visitors enter the free diagnostic/.test(html) &&
-    /\/ai route: logged-out visitors see the diagnostic/.test(html) &&
+  // /ai's anonymous entry moved from a diagnostic-first landing to the
+  // Coach-first preview (showAnonymousCoachPreview()) — see
+  // routeAfterAuth-adjacent boot routing around "ai is Coach-direct" in
+  // index.html. The diagnostic engine still exists underneath for
+  // resuming a genuinely pending legacy diagnostic (checked separately,
+  // above this branch, via AthlevoDiagnostic.hasPending()); it is no
+  // longer what a fresh logged-out /ai visit shows.
+  t("logged-out /ai shows the anonymous Coach preview, not signup",
+    /appEntryIntentReason\(\) === "ai" \|\|[\s\S]{0,160}!athlevoSessionUserId\)[\s\S]{0,300}showAnonymousCoachPreview\(\)/.test(html) &&
     !/logged-out visitors enter auth\/signup, not diagnostic/.test(html));
   t("PERMANENT: anonymous /ai must never become auth/signup",
-    /\/ai route: logged-out visitors see the diagnostic/.test(html) &&
+    /appEntryIntentReason\(\) === "ai" \|\|[\s\S]{0,160}!athlevoSessionUserId\)[\s\S]{0,300}showAnonymousCoachPreview\(\)/.test(html) &&
     /if \(\(aiPath === "\/signup" \|\| aiPath === "\/ai-signup"\) &&[\s\S]{0,120}rememberAiSignupHandoff/.test(html) &&
     !/if \(\(aiPath === "\/ai" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"\) &&[\s\S]{0,120}rememberAiSignupHandoff/.test(html));
 }
@@ -58,7 +64,14 @@ section("2 — completed diagnostic CTA routes to /ai-signup, not Whop");
   t("anonymous chat checkout also hands off to /ai-signup",
     /function beginCheckoutFromChat[\s\S]{0,1800}openAiSignup/.test(ui));
   t("anonymous diagnosticAcquisition.checkout cannot start Whop",
-    /if \(!root\.athlevoSessionUserId\)[\s\S]{0,180}openAiSignup/.test(acq));
+    // e6a1303 "Fix paywall checkout and exit flow" deliberately replaced the
+    // openAiSignup() redirect here with goToAuthEntry() + openLogin(true) —
+    // checkout() now resolves the session id itself (sessionUserId()) and,
+    // finding none, sends the athlete to the sign-in modal on screen-welcome
+    // instead of the full-page signup handoff. Either way it still never
+    // reaches a Whop checkout without a session.
+    /if \(!userId\)[\s\S]{0,220}goToAuthEntry\(\)/.test(acq) &&
+    !/if \(!userId\)[\s\S]{0,220}(?:checkout\(['"]card['"]\)|whop\.com)/.test(acq));
 }
 
 section("3 — /ai-signup reuses existing Athlevo auth");
@@ -174,7 +187,11 @@ section("9 — payment succeeded, browser closed → later login is paid_active"
 section("10 — paid user opening /ai goes to the app");
 {
   t("authenticated /ai still uses routeAfterAuth, not a sales restart",
-    /if \(session\)[\s\S]{0,1600}await routeAfterAuth\(session\.user\.id\)/.test(html));
+    // Window widened from 1600: two "Fix A / Fix B" resilience blocks
+    // (temporal-JWT recovery, getUser() timeout handling) were added to
+    // this branch since the window was sized, pushing the real, unchanged
+    // routeAfterAuth(session.user.id) call further down the same block.
+    /if \(session\)[\s\S]{0,2200}await routeAfterAuth\(session\.user\.id\)/.test(html));
   t("startDiagnostic still refuses an authenticated session",
     /if \(root\.athlevoSessionUserId\) \{[\s\S]{0,220}routeAfterAuth/.test(ui));
 }

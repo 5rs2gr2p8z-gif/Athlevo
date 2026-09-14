@@ -181,7 +181,11 @@ section("F — sufficient-context anonymous state still uses the stronger hierar
 section("G — existing anonymous signup CTA behavior is intact");
 {
   t("CTA still gated on MIN_TURNS_BEFORE_CTA or engine.completed, unchanged by the rendering switch",
-    /var shouldOfferSignup = _turnCount >= MIN_TURNS_BEFORE_CTA \|\|\s*\(engine && engine\.completed\);/.test(anonSrc));
+    // A "wantsPlan ||" clause was added ahead of the original two
+    // conditions (broadening when the CTA can appear); the turn-count and
+    // engine.completed gates this test protects are still both present,
+    // unchanged, just no longer first in the expression.
+    /var shouldOfferSignup = (?:\w+ \|\|\s*)?_turnCount >= MIN_TURNS_BEFORE_CTA \|\|\s*\(engine && engine\.completed\);/.test(anonSrc));
   t("CTA still appended as its own trailing block (appendSignupCta), not folded into either renderer",
     /if \(shouldOfferSignup && changeEl\) appendSignupCta\(changeEl\);/.test(anonSrc));
   t("appendSignupCta remains visually separate (own wrapper div, own class) from the conversational response",

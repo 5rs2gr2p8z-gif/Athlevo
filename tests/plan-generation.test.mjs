@@ -566,11 +566,14 @@ section("14. Client surfaces the server's real message");
     /signIn:/.test(c) && /completeProfile:/.test(c) && /retry:/.test(c));
   t("messages are escaped before rendering", /escapeText\(message\)/.test(c));
   t("there is always a way back to Train", /Back to Train/.test(c));
+  // "Athlevo Performance" was renamed to "Athlevo Pro" as the display name
+  // (commit 079b5f2); internal entitlement keys (free/performance/elite)
+  // are unaffected and still checked elsewhere (see pricing-tiers.test.mjs).
   t("used free-plan state has the exact title and body",
     /Your free training plan is already active\./.test(c) &&
-    /Upgrade to Athlevo Performance for ongoing plan changes, adaptive coaching, and deeper analysis\./.test(c));
+    /Upgrade to Athlevo Pro for ongoing plan changes, adaptive coaching, and deeper analysis\./.test(c));
   t("used free-plan state offers both required actions",
-    /Upgrade to Athlevo Performance/.test(c) &&
+    /Upgrade to Athlevo Pro/.test(c) &&
     /View My Current Plan/.test(c) &&
     /AthlevoAccessGuard\.checkout\(\)/.test(c) &&
     /AthlevoPlan\.viewCurrentPlan\(\)/.test(c));
