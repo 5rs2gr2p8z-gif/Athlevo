@@ -575,7 +575,10 @@ section("14. Client surfaces the server's real message");
   t("used free-plan state offers both required actions",
     /Upgrade to Athlevo Pro/.test(c) &&
     /View My Current Plan/.test(c) &&
-    /AthlevoAccessGuard\.checkout\(\)/.test(c) &&
+    // Upgrade routes through the canonical contextual paywall (comparison +
+    // checkout), not straight to an external checkout link — see
+    // js/accessGuard.js PAYWALL_CONTEXTS["plan-limit"].
+    /AthlevoAccessGuard\.openPaywall\('plan-limit'\)/.test(c) &&
     /AthlevoPlan\.viewCurrentPlan\(\)/.test(c));
   t("View My Current Plan revalidates before opening Train",
     /async function viewCurrentPlan\(\)[\s\S]*await hasPlan\(\)[\s\S]*stored === true[\s\S]*enterTrain\(\)[\s\S]*await start\(\)/.test(c));

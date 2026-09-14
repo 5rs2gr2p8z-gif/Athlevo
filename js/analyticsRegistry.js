@@ -116,6 +116,10 @@
     first_workout_analysis_viewed: { kind: "milestone",   props: ["workout_type"] },
     plan_generation_started:       { kind: "behavioural", props: ["plan_goal_type"] },
     first_plan_generated:          { kind: "milestone",   props: ["plan_goal_type", "user_id", "goal_distance", "plan_start_date"] },
+    // Free → Pro conversion moment: shown once, immediately after the
+    // free athlete's first plan is generated (never before value). See
+    // js/planSetup.js showSuccess(). Never fires for a paid_active athlete.
+    free_plan_aha_seen:            { kind: "milestone",   props: ["surface"] },
     plan_generation_failed:        { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
     coach_opened:                  { kind: "behavioural", props: ["screen_name"] },
     first_coach_message_sent:      { kind: "milestone",   props: [] },

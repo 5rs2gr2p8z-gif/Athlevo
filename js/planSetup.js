@@ -369,6 +369,48 @@
     list.querySelectorAll("li").forEach(li => { li.classList.remove("active"); li.classList.add("done"); });
   }
 
+  /*
+   * VALUE → NEXT DESIRE → RELEVANT UPGRADE, never OPEN APP → PAYWALL.
+   * Appended below the (already-visible) first-plan activation checklist —
+   * never in place of it, never blocking it. Shown exactly once, only to a
+   * free/inactive athlete (never paid_active, never anonymous — this screen
+   * only renders for a signed-in athlete who just generated a plan).
+   */
+  function renderFirstPlanAhaUpgrade(mount) {
+    let access = "unknown";
+    try {
+      if (window.AthlevoAccessGuard &&
+          typeof AthlevoAccessGuard.cachedAccessState === "function") {
+        access = AthlevoAccessGuard.cachedAccessState();
+      }
+    } catch (e) { /* non-fatal — no prompt beats a broken one */ }
+    if (access !== "free" && access !== "paid_inactive") return;
+
+    const wrap = mount.querySelector(".pg-wrap");
+    if (!wrap) return;
+    const aha = document.createElement("div");
+    aha.className = "pg-aha-upgrade";
+    aha.innerHTML = `
+      <p class="pg-aha-body">With Athlevo Pro, your training can keep adapting as your week changes.</p>
+      <button class="pg-aha-cta" type="button">See what Pro unlocks</button>`;
+    const cta = aha.querySelector(".pg-aha-cta");
+    if (cta) {
+      cta.addEventListener("click", function () {
+        if (window.AthlevoAccessGuard &&
+            typeof AthlevoAccessGuard.openPaywall === "function") {
+          AthlevoAccessGuard.openPaywall("first-plan-aha");
+        }
+      });
+    }
+    wrap.appendChild(aha);
+
+    try {
+      if (window.AthlevoAnalytics && typeof AthlevoAnalytics.track === "function") {
+        AthlevoAnalytics.track("free_plan_aha_seen", { surface: "first_plan" });
+      }
+    } catch (e) { /* analytics must never break the activation moment */ }
+  }
+
   function showSuccess(firstEver) {
     const mount = document.getElementById("planGenBody");
     if (!mount) return;
@@ -398,6 +440,7 @@
           </ul>
           <button class="ps-build" type="button" onclick="AthlevoPlan.enterTrain()">Open My Coach</button>
         </div>`;
+      renderFirstPlanAhaUpgrade(mount);
       return;   // an intentional, un-timed milestone — the athlete taps through
     }
     mount.innerHTML = `
@@ -411,7 +454,12 @@
   }
 
   async function build() {
-    // Double-check: plan generation requires Athlevo Pro.
+    // Free athletes get ONE initial personalized week (server-enforced by
+    // /api/training/generate-plan; js/features.js: initial_plan minPlan
+    // "free"). Only a REGENERATION attempt — a free/inactive athlete who
+    // already has a usable plan — is gated client-side here; the first-ever
+    // plan must reach the server so the free "aha" moment can happen at
+    // all. The server remains the authoritative enforcement either way.
     if (window.AthlevoAccessGuard) {
       let access = typeof AthlevoAccessGuard.cachedAccessState === "function"
         ? AthlevoAccessGuard.cachedAccessState()
@@ -420,8 +468,11 @@
         access = await AthlevoAccessGuard.accessState();
       }
       if (access !== "paid_active") {
-        AthlevoAccessGuard.openPaywall("training-plan");
-        return;
+        const alreadyHasPlan = await hasPlan();
+        if (alreadyHasPlan === true) {
+          AthlevoAccessGuard.openPaywall("training-plan");
+          return;
+        }
       }
     }
     if (buildInFlight) return;
@@ -605,7 +656,7 @@
       checkAgain: { label: "Check for my plan", onclick: "AthlevoPlan.recheckPlan()" },
       signIn: { label: "Sign in", onclick: "AthlevoPlan.notNow()" },
       completeProfile: { label: "Complete my profile", onclick: "AthlevoPlan.start()" },
-      upgrade: { label: "Upgrade to Athlevo Pro", onclick: "AthlevoAccessGuard.checkout()" },
+      upgrade: { label: "Upgrade to Athlevo Pro", onclick: "AthlevoAccessGuard.openPaywall('plan-limit')" },
       viewPlan: { label: "View My Current Plan", onclick: "AthlevoPlan.viewCurrentPlan()" }
     };
     // A timeout may still be completing server-side; offer to look rather than
@@ -818,21 +869,6 @@
       return { skipped: "auto_disabled" };
     }
 
-    // Plan generation requires Athlevo Pro even when auto-triggered.
-    if (window.AthlevoAccessGuard) {
-      let access = typeof AthlevoAccessGuard.cachedAccessState === "function"
-        ? AthlevoAccessGuard.cachedAccessState()
-        : "unknown";
-      if (access === "unknown" && typeof AthlevoAccessGuard.accessState === "function") {
-        access = await AthlevoAccessGuard.accessState();
-      }
-      if (access !== "paid_active") {
-        if (typeof showScreen === "function") showScreen("screen-train");
-        refreshTodayCta();
-        return { skipped: "free_user" };
-      }
-    }
-
     if (buildInFlight) return { skipped: "in_flight" };
 
     const existing = await hasPlan();
@@ -841,6 +877,11 @@
       enterTrain();
       return { skipped: "already_has_plan" };
     }
+
+    // A free/inactive athlete WITHOUT a plan yet still gets their one free
+    // initial week auto-built (js/features.js: initial_plan minPlan "free";
+    // server-enforced in /api/training/generate-plan) — access is no longer
+    // gated client-side here so the free "aha" moment can happen at all.
     if (existing === null) {
       // Couldn't tell (offline, auth hiccup). Do NOT gamble on generating.
       if (typeof showScreen === "function") showScreen("screen-train");

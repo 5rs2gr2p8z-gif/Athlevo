@@ -74,6 +74,20 @@
       feature: "coach_message",
       surface: "coach"
     }),
+    "first-plan-aha": Object.freeze({
+      title: "Your first week is ready.",
+      body: "With Athlevo Pro, your training can keep adapting as your week changes — a full month of personalized training, 30 Coach messages, training adjustments, workout analysis, and race preparation.",
+      hideBenefits: false,
+      feature: "additional_plan_generation",
+      surface: "today"
+    }),
+    "plan-limit": Object.freeze({
+      title: "Your Free plan covers one personalized week.",
+      body: "Pro gives you a full month of personalized training and more adaptive support.",
+      hideBenefits: true,
+      feature: "additional_plan_generation",
+      surface: "today"
+    }),
     "general-upgrade": Object.freeze({
       title: "Unlock Athlevo Pro",
       body: "Your complete AI endurance coach. Get personalized training, performance analytics, recovery insights, and full AI coaching access.",
