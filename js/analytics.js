@@ -482,7 +482,8 @@
       if (premiumCategorical) {
         safe = {
           ...(safe.feature ? { feature: safe.feature } : {}),
-          ...(safe.surface ? { surface: safe.surface } : {})
+          ...(safe.surface ? { surface: safe.surface } : {}),
+          ...(safe.trigger ? { trigger: safe.trigger } : {})
         };
       } else if (handoffCategorical) {
         safe = {
@@ -516,7 +517,8 @@
         safe = {
           ...(safe.feature ? { feature: safe.feature } : {}),
           ...(safe.surface ? { surface: safe.surface } : {}),
-          ...(safe.access_tier ? { access_tier: safe.access_tier } : {})
+          ...(safe.access_tier ? { access_tier: safe.access_tier } : {}),
+          ...(safe.trigger ? { trigger: safe.trigger } : {})
         };
       } else if (checkoutCategorical) {
         safe = {
@@ -525,7 +527,8 @@
           ...(safe.provider ? { provider: safe.provider } : {}),
           ...(safe.method ? { method: safe.method } : {}),
           ...(safe.price_php != null ? { price_php: safe.price_php } : {}),
-          ...(safe.source ? { source: safe.source } : {})
+          ...(safe.source ? { source: safe.source } : {}),
+          ...(safe.trigger ? { trigger: safe.trigger } : {})
         };
         var checkoutUtm = utmProps();
         Object.keys(checkoutUtm).forEach(function (k) {

@@ -45,55 +45,79 @@
 
   /* ─────────────── context-aware paywall copy ───────────────────── */
 
+  // "trigger" is the revenue-funnel reason the upgrade path opened. It is
+  // analytics-only (never UI copy) and reuses the fixed taxonomy in
+  // js/analyticsRegistry.js: first_plan | coach_limit | plan_limit |
+  // settings | pricing_direct. Do not add new values without updating the
+  // registry allowlist.
   const PAYWALL_CONTEXTS = Object.freeze({
     "athlete-status": Object.freeze({
       title: "Unlock your Athlete Status",
       body: "See your readiness, training load, recovery, and performance context so Athlevo can help you decide when to push and when to recover.",
       hideBenefits: true,
       feature: "training_load",
-      surface: "today"
+      surface: "today",
+      trigger: "pricing_direct"
     }),
     "training-plan": Object.freeze({
       title: "Build your personalized training plan",
       body: "Athlevo creates and adapts your training around your fitness, schedule, race goals, and recent training.",
       hideBenefits: true,
       feature: "trends",
-      surface: "today"
+      surface: "today",
+      trigger: "pricing_direct"
     }),
     "trends": Object.freeze({
       title: "Unlock your performance trends",
       body: "See how your fitness, fatigue, form, training load, and performance change over time.",
       hideBenefits: true,
       feature: "trends",
-      surface: "trends"
+      surface: "trends",
+      trigger: "pricing_direct"
     }),
     "coach-limit": Object.freeze({
       title: "Keep coaching with Athlevo",
       body: "You’ve used your free Coach messages. Unlock full AI coaching, personalized training adjustments, and complete performance insights.",
       hideBenefits: true,
       feature: "coach_message",
-      surface: "coach"
+      surface: "coach",
+      trigger: "coach_limit"
     }),
     "first-plan-aha": Object.freeze({
       title: "Your first week is ready.",
       body: "With Athlevo Pro, your training can keep adapting as your week changes — a full month of personalized training, 30 Coach messages, training adjustments, workout analysis, and race preparation.",
       hideBenefits: false,
       feature: "additional_plan_generation",
-      surface: "today"
+      surface: "today",
+      trigger: "first_plan"
     }),
     "plan-limit": Object.freeze({
       title: "Your Free plan covers one personalized week.",
       body: "Pro gives you a full month of personalized training and more adaptive support.",
       hideBenefits: true,
       feature: "additional_plan_generation",
-      surface: "today"
+      surface: "today",
+      trigger: "plan_limit"
     }),
     "general-upgrade": Object.freeze({
       title: "Unlock Athlevo Pro",
       body: "Your complete AI endurance coach. Get personalized training, performance analytics, recovery insights, and full AI coaching access.",
       hideBenefits: false,
       feature: "trends",
-      surface: "today"
+      surface: "today",
+      trigger: "pricing_direct"
+    }),
+    // Settings > plan status "Upgrade to Pro" CTA only. Same copy as
+    // general-upgrade — distinct key purely so PostHog can attribute this
+    // conversion branch to Settings rather than an undifferentiated direct
+    // open (see docs/acquisition-activation-analytics.md, Funnel C/D).
+    "settings-upgrade": Object.freeze({
+      title: "Unlock Athlevo Pro",
+      body: "Your complete AI endurance coach. Get personalized training, performance analytics, recovery insights, and full AI coaching access.",
+      hideBenefits: false,
+      feature: "trends",
+      surface: "today",
+      trigger: "settings"
     })
   });
 
@@ -108,7 +132,7 @@
       body: ctx.body,
       hideBenefits: ctx.hideBenefits,
       secondary: "Not now"
-    });
+    }, ctx.trigger);
   }
 
   /* ─────────────── entitlement helpers ───────────────────────────── */
@@ -327,6 +351,10 @@
     return url;
   }
 
+  const UPGRADE_TRIGGERS = new Set([
+    "first_plan", "coach_limit", "plan_limit", "settings", "pricing_direct"
+  ]);
+
   function categoricalContext(context, surfaceFallback) {
     const input = context && typeof context === "object" ? context : {};
     const feature = PREMIUM_FEATURES.has(input.feature) ? input.feature : null;
@@ -339,7 +367,8 @@
       input.access_tier === "unknown"
       ? input.access_tier
       : null;
-    return { feature, surface, access_tier: tier };
+    const trigger = UPGRADE_TRIGGERS.has(input.trigger) ? input.trigger : null;
+    return { feature, surface, access_tier: tier, trigger };
   }
 
   function trackCategorical(name, context) {
@@ -359,6 +388,9 @@
     }
     if (name !== "checkout_failed" && safe.access_tier) {
       props.access_tier = safe.access_tier;
+    }
+    if (name !== "checkout_failed" && safe.trigger) {
+      props.trigger = safe.trigger;
     }
     if (name === "checkout_started") {
       const checkoutMethod = context && context.checkout_method;
@@ -807,7 +839,7 @@
     if (secondary) secondary.textContent = resolved.secondary;
   }
 
-  function showUpgradeSheet(feature, surface, copy) {
+  function showUpgradeSheet(feature, surface, copy, trigger) {
     const modal = document.getElementById("performanceUpgradeModal");
     if (!modal) return;
     const wasOpen = modal.classList.contains("show") &&
@@ -816,11 +848,13 @@
     const safe = categoricalContext({
       feature,
       surface,
-      access_tier: accessTier
+      access_tier: accessTier,
+      trigger
     }, "today");
     upgradeContext = {
       feature: safe.feature || "trends",
-      surface: "upgrade_sheet"
+      surface: "upgrade_sheet",
+      trigger: safe.trigger || null
     };
     configureUpgradeSheet(copy || DEFAULT_UPGRADE_COPY);
     restoreFocusTo = document.activeElement;
@@ -856,7 +890,8 @@
           trackCategorical("upgrade_sheet_viewed", {
             feature: safe.feature,
             surface: "upgrade_sheet",
-            access_tier: accessTier
+            access_tier: accessTier,
+            trigger: safe.trigger
           });
         }
       }).catch(() => {});
@@ -1139,7 +1174,7 @@
   function trialInfoUpgrade() {
     closeTrialInfo();
     // Open the existing upgrade sheet which handles payment safely
-    showUpgradeSheet("trends", "upgrade_sheet");
+    showUpgradeSheet("trends", "upgrade_sheet", null, "pricing_direct");
   }
 
   /* ─────────────── public API ────────────────────────────────────── */

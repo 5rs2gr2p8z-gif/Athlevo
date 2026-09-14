@@ -104,8 +104,9 @@ section("5. One canonical Settings plan-status surface");
     (settingsHtml.match(/id="settingsPlanCard"/g) || []).length === 1);
   t("You screen does NOT duplicate a second plan-status card",
     !/id="settingsPlanCard"/.test(indexSrc.slice(indexSrc.indexOf('id="screen-you"'), settingsStart)));
-  t("the upgrade CTA routes into the canonical paywall",
-    /id="settingsPlanUpgradeCta"[\s\S]{0,60}onclick="AthlevoAccessGuard\.openPaywall\('general-upgrade'\)"/.test(indexSrc));
+  t("the upgrade CTA routes into the canonical paywall, tagged with the settings trigger " +
+    "(see docs/acquisition-activation-analytics.md — revenue-funnel trigger breakdown)",
+    /id="settingsPlanUpgradeCta"[\s\S]{0,60}onclick="AthlevoAccessGuard\.openPaywall\('settings-upgrade'\)"/.test(indexSrc));
   t("renderSettingsPlanStatus() reads the SAME entitlement source of truth as the paywall",
     /AthlevoPlan\.entitlement\(\)/.test(indexSrc.slice(indexSrc.indexOf("function renderSettingsPlanStatus"))));
   t("a paid athlete's card hides the Upgrade CTA (CSS) rather than showing a misleading one",

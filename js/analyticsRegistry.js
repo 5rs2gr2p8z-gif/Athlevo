@@ -57,9 +57,12 @@
     activation_failed:            { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
     free_limit_reached:           { kind: "behavioural", props: ["feature", "limit_period", "source"] },
     premium_feature_viewed:       { kind: "behavioural", props: ["feature", "surface"] },
-    upgrade_clicked:              { kind: "behavioural", props: ["feature", "surface"] },
-    upgrade_sheet_viewed:         { kind: "behavioural", props: ["feature", "surface", "access_tier"] },
-    checkout_started:             { kind: "behavioural", props: ["feature", "surface", "provider", "method", "price_php", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
+    // "trigger" distinguishes WHY the upgrade path opened, for PostHog
+    // funnel breakdown (see docs/acquisition-activation-analytics.md).
+    // Reuses the existing feature/surface taxonomy — no new UI surfaces.
+    upgrade_clicked:              { kind: "behavioural", props: ["feature", "surface", "trigger"] },
+    upgrade_sheet_viewed:         { kind: "behavioural", props: ["feature", "surface", "access_tier", "trigger"] },
+    checkout_started:             { kind: "behavioural", props: ["feature", "surface", "provider", "method", "price_php", "source", "trigger", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     checkout_return_viewed:        { kind: "behavioural", props: ["outcome", "provider", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     checkout_failed:              { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
     subscription_activated:       { kind: "milestone",   props: ["source", "provider", "plan_id", "price_php"] },
@@ -242,7 +245,12 @@
     request_type: { adjustment: true, unable_to_complete: true, move: true, feedback: true, availability: true },
     selected_role: { athlete: true, coach: true },
     application_status: { pending: true },
-    outcome: { unpaid: true, activating: true, paid: true }
+    outcome: { unpaid: true, activating: true, paid: true },
+    // Free -> Pro conversion trigger taxonomy (revenue-funnel breakdown).
+    trigger: {
+      first_plan: true, coach_limit: true, plan_limit: true,
+      settings: true, pricing_direct: true
+    }
   };
 
   function canonicalName(name) {

@@ -1550,7 +1550,7 @@ function showCoachLimitUpgrade(accessTier, serverPayload) {
       primary: upgradeCopy.primary,
       secondary: "Not now",
       hideBenefits: true
-    });
+    }, "coach_limit");
     return true;
   }
   return false;
