@@ -23,6 +23,26 @@
   ]);
   const ZONE_THRESHOLDS = Object.freeze([25, 5, -5, -20]);
 
+  // Direction semantics for the Fitness/Fatigue metric tiles — maps the
+  // plain-language trend word metricTrendLabel() already produces (no new
+  // thresholds here) to a positive/negative/neutral polarity and an arrow
+  // glyph. Colors for each polarity reuse the existing gaining/risk/
+  // maintaining Training Balance zone tokens — see metricMarkup() below and
+  // the .trend-metric[data-trend] CSS rules, which point at the same
+  // --trend-* custom properties as the Form zone tiles.
+  const METRIC_TREND_SEMANTICS = Object.freeze({
+    Building: Object.freeze({ trend: "positive", arrow: "\u2191" }),
+    Declining: Object.freeze({ trend: "negative", arrow: "\u2193" }),
+    Stable: Object.freeze({ trend: "neutral", arrow: "" }),
+    Rising: Object.freeze({ trend: "negative", arrow: "\u2191" }),
+    Easing: Object.freeze({ trend: "positive", arrow: "\u2193" }),
+    Steady: Object.freeze({ trend: "neutral", arrow: "" })
+  });
+
+  function metricTrendSemantics(meaning) {
+    return METRIC_TREND_SEMANTICS[meaning] || null;
+  }
+
   let selectedRange = "3m";
   const confirmedCache = new Map();
   let bound = false;
@@ -559,11 +579,22 @@
   }
 
   function metricMarkup(label, value, meaning, zoneKey) {
+    // Form (zoneKey set) carries its own canonical zone color via
+    // classifyForm()/FORM_ZONES and intentionally has no defined day-over-day
+    // trend here, so it never gets an arrow (see skill guidance: prefer no
+    // arrow over a misleading one). Fitness/Fatigue (no zoneKey) derive a
+    // positive/negative/neutral semantic + arrow from the same plain-language
+    // word metricTrendLabel() already computed — no new thresholds.
+    const semantics = zoneKey ? null : metricTrendSemantics(meaning);
+    const arrowMarkup = semantics && semantics.arrow
+      ? `<span class="trend-metric-arrow" aria-hidden="true">${semantics.arrow}</span>`
+      : "";
     const meaningMarkup = meaning
       ? `<em class="trend-metric-meaning">${escapeHtml(meaning)}</em>`
       : "";
     const zoneAttr = zoneKey ? ` data-zone="${escapeHtml(zoneKey)}"` : "";
-    return `<div class="trend-metric"${zoneAttr}><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${meaningMarkup}</div>`;
+    const trendAttr = semantics ? ` data-trend="${semantics.trend}"` : "";
+    return `<div class="trend-metric"${zoneAttr}${trendAttr}><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}${arrowMarkup}</strong>${meaningMarkup}</div>`;
   }
 
   function renderData(data, notice) {
@@ -829,6 +860,7 @@
   root.AthlevoTrendsAnalytics = {
     FORM_ZONES,
     classifyForm,
+    metricTrendSemantics,
     expandTrendDays,
     lineSegments,
     formZoneSegments,

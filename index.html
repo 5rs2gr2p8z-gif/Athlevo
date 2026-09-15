@@ -2010,12 +2010,15 @@ body.athlevo-sheet-locked{overflow:hidden}
     backdrop-filter:none;-webkit-backdrop-filter:none}
   .tabbar,#tabbar,.legal-head,.lp-nav,#screen-landing .lp-nav{background:var(--paper);
     backdrop-filter:none;-webkit-backdrop-filter:none}
+  .trend-metric{background:var(--card);border-color:var(--line);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .trend-metric::before{display:none}
 }
 @media(prefers-contrast:more){
   :root{--border-default:color-mix(in srgb,var(--text) 58%,transparent);--focus-ring:#145cff}
   .athlevo-sheet-material{outline:1px solid var(--border-default)}
   .athlevo-sheet-drag-handle::after{background:var(--text-muted)}
   .tabbar,#tabbar{border-top-color:var(--text-muted)}
+  .trend-metric{border-color:var(--text-muted)}
 }
 /* Delete Account */
 .rowlink-danger b{color:var(--danger)}
@@ -3294,7 +3297,10 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 .trend-history-notice span{display:block;margin-top:3px;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
 .trend-status-block{padding-top:2px}
 .trend-metric-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-3);padding:4px 0 var(--s-5)}
-.trend-metric{min-width:0;padding:var(--s-3);background:var(--card);border-radius:var(--r-md)}
+.trend-metric{min-width:0;position:relative;isolation:isolate;overflow:hidden;padding:var(--s-3);border-radius:var(--r-lg);background:linear-gradient(180deg,color-mix(in srgb,var(--ink) 5%,var(--card2) 95%) 0%,color-mix(in srgb,var(--ink) 11%,var(--card) 89%) 100%);border:1px solid color-mix(in srgb,var(--ink3) 24%,transparent);box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 8%,transparent),0 10px 22px -16px color-mix(in srgb,var(--ink) 45%,transparent);-webkit-backdrop-filter:blur(16px) saturate(1.25);backdrop-filter:blur(16px) saturate(1.25)}
+.trend-metric::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(160deg,color-mix(in srgb,#fff 15%,transparent) 0%,transparent 38%);opacity:.55;pointer-events:none}
+.trend-metric[data-trend]::after,.trend-metric[data-zone]::after{content:"";position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;opacity:.4;background:radial-gradient(115% 85% at 12% -6%,var(--tile-glow,transparent),transparent 62%)}
+.trend-metric-arrow{margin-left:5px;font-size:.8em;font-weight:800;vertical-align:middle;color:var(--tile-accent,currentColor)}
 .trend-metric span{display:block;font-size:var(--fs-micro);font-weight:650;letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink3)}
 .trend-metric strong{display:block;margin-top:4px;font-size:var(--fs-h3);font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
 .trend-metric-meaning{display:block;margin-top:2px;font-size:var(--fs-caption);font-style:normal;line-height:var(--lh-caption);color:var(--ink2)}
@@ -3308,6 +3314,19 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 .trend-metric[data-zone="gaining"] .trend-metric-meaning{color:var(--trend-gaining)}
 .trend-metric[data-zone="risk"] .trend-metric-meaning{color:var(--trend-risk)}
 .trend-metric[data-zone="detraining"] .trend-metric-meaning{color:var(--trend-detraining)}
+.trend-metric[data-trend="positive"]{--tile-accent:var(--trend-gaining);--tile-glow:color-mix(in srgb,var(--trend-gaining) 32%,transparent)}
+.trend-metric[data-trend="negative"]{--tile-accent:var(--trend-risk);--tile-glow:color-mix(in srgb,var(--trend-risk) 32%,transparent)}
+.trend-metric[data-trend="neutral"]{--tile-accent:var(--trend-maintaining);--tile-glow:color-mix(in srgb,var(--trend-maintaining) 24%,transparent)}
+.trend-metric[data-zone="fresh"]{--tile-accent:var(--trend-fresh);--tile-glow:color-mix(in srgb,var(--trend-fresh) 30%,transparent)}
+.trend-metric[data-zone="maintaining"]{--tile-accent:var(--trend-maintaining);--tile-glow:color-mix(in srgb,var(--trend-maintaining) 24%,transparent)}
+.trend-metric[data-zone="gaining"]{--tile-accent:var(--trend-gaining);--tile-glow:color-mix(in srgb,var(--trend-gaining) 32%,transparent)}
+.trend-metric[data-zone="risk"]{--tile-accent:var(--trend-risk);--tile-glow:color-mix(in srgb,var(--trend-risk) 32%,transparent)}
+.trend-metric[data-zone="detraining"]{--tile-accent:var(--trend-detraining);--tile-glow:color-mix(in srgb,var(--trend-detraining) 30%,transparent)}
+.trend-metric[data-trend] strong,.trend-metric[data-zone] strong{color:var(--tile-accent)}
+.trend-status-name::before{content:"";display:inline-block;width:7px;height:7px;margin:0 8px 1px 0;border-radius:50%;background:currentColor;opacity:.85;vertical-align:middle}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .trend-metric{background:var(--card)}
+}
 .trend-history-head{margin:var(--s-2) 0 var(--s-4)}
 .trend-section-title{margin:0;font-size:var(--fs-h2);font-weight:500;line-height:var(--lh-heading);color:var(--text)}
 /* ── You screen: Sections A/B/C (score → athlete status → paces), above Trends.

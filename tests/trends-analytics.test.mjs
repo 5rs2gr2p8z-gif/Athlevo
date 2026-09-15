@@ -639,5 +639,97 @@ section("Training Status / Training Balance / Trends reorganization");
     analytics.statusDisplayName(analytics.classifyForm(0)) === "Balanced");
 }
 
+section("Training Status metric tiles: semantic color, direction, and glass material");
+{
+  const trendsId = html.indexOf('id="screen-trends"');
+  const trendsStart = html.lastIndexOf("<section", trendsId);
+  const trendsMarkup = html.slice(
+    trendsStart,
+    html.indexOf("</section>", trendsStart) + "</section>".length
+  );
+
+  test("Fitness Building resolves to a positive semantic + up arrow",
+    analytics.metricTrendSemantics("Building").trend === "positive" &&
+    analytics.metricTrendSemantics("Building").arrow === "\u2191");
+  test("Fitness Declining resolves to a negative semantic + down arrow",
+    analytics.metricTrendSemantics("Declining").trend === "negative" &&
+    analytics.metricTrendSemantics("Declining").arrow === "\u2193");
+  test("Fatigue Easing (less fatigue = favorable) resolves to a positive semantic, even though the value fell",
+    analytics.metricTrendSemantics("Easing").trend === "positive" &&
+    analytics.metricTrendSemantics("Easing").arrow === "\u2193");
+  test("Fatigue Rising (more fatigue = caution) resolves to a negative semantic",
+    analytics.metricTrendSemantics("Rising").trend === "negative" &&
+    analytics.metricTrendSemantics("Rising").arrow === "\u2191");
+  test("Stable/Steady stay neutral with no arrow, not silently defaulting to positive or negative",
+    analytics.metricTrendSemantics("Stable").trend === "neutral" &&
+    analytics.metricTrendSemantics("Stable").arrow === "" &&
+    analytics.metricTrendSemantics("Steady").trend === "neutral" &&
+    analytics.metricTrendSemantics("Steady").arrow === "");
+  test("an unrecognized/absent meaning (e.g. the Form tile's zone label) yields no semantic — metricMarkup only applies it when zoneKey is unset",
+    analytics.metricTrendSemantics("Fresh") === null &&
+    analytics.metricTrendSemantics("High Risk") === null &&
+    analytics.metricTrendSemantics(undefined) === null);
+
+  test("Form derives its tile color from the canonical form zone (data-zone), not from raw sign/direction — metricMarkup skips semantics entirely once zoneKey is passed",
+    /const semantics = zoneKey \? null : metricTrendSemantics\(meaning\);/.test(clientSource) &&
+    /metricMarkup\("Form", latestForm \? fmt\(latestForm\.value, true\) : "—", formMeaning, zone \? zone\.key : null\)/.test(clientSource));
+
+  test("Fitness/Fatigue tiles carry a data-trend attribute driven by the same metricTrendLabel() word, with no new numeric thresholds",
+    /const trendAttr = semantics \? ` data-trend="\$\{semantics\.trend\}"` : "";/.test(clientSource) &&
+    /const ZONE_THRESHOLDS = Object\.freeze\(\[25, 5, -5, -20\]\);/.test(clientSource) &&
+    (clientSource.match(/delta > 1|delta < -1/g) || []).length === 2);
+
+  test("the status headline visually inherits the canonical zone color and gets a restrained indicator dot, not a giant badge",
+    /\.trend-status-lead\[data-zone="fresh"\] \.trend-status-name\{color:var\(--trend-fresh\)\}/.test(html) &&
+    /\.trend-status-name::before\{content:"";display:inline-block;width:7px;height:7px;/.test(html) &&
+    !/\.trend-status-name::before\{[\s\S]{0,200}(width:\d{2,}px|height:\d{2,}px)/.test(html));
+
+  test("semantic meaning is conveyed by the arrow glyph and the plain-language word, not color alone",
+    /class="trend-metric-arrow" aria-hidden="true"/.test(clientSource) &&
+    /<em class="trend-metric-meaning">\$\{escapeHtml\(meaning\)\}<\/em>/.test(clientSource));
+
+  test("glass-inspired material classes/rules are present on the metric tiles (translucent surface, blur, hairline border, top highlight, semantic glow) without opaque solid fills or gradients on the JS side",
+    /\.trend-metric\{min-width:0[\s\S]{0,300}background:linear-gradient/.test(html) &&
+    /-webkit-backdrop-filter:blur\(16px\) saturate\(1\.25\);backdrop-filter:blur\(16px\) saturate\(1\.25\)\}/.test(html) &&
+    /\.trend-metric::before\{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient/.test(html) &&
+    /\.trend-metric\[data-trend\]::after,\.trend-metric\[data-zone\]::after\{/.test(html) &&
+    !/gradient\(/.test(clientSource));
+
+  test("tile accents reuse existing --trend-* tokens exclusively (gaining/risk/maintaining/fresh/detraining) — no disconnected hardcoded hex palette introduced for the tiles",
+    /--tile-accent:var\(--trend-gaining\)/.test(html) &&
+    /--tile-accent:var\(--trend-risk\)/.test(html) &&
+    /--tile-accent:var\(--trend-maintaining\)/.test(html) &&
+    !/--tile-accent:#[0-9a-fA-F]{3,6}/.test(html));
+
+  test("reduced-transparency fallback flattens the glass material instead of leaving unreadable translucent tiles",
+    /prefers-reduced-transparency:reduce\)\{[\s\S]*?\.trend-metric\{background:var\(--card\);border-color:var\(--line\);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none\}/.test(html) &&
+    /\.trend-metric::before\{display:none\}\s*\}/.test(html));
+
+  test("a non-backdrop-filter browser still gets a solid, legible tile background via @supports",
+    /@supports not \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{\s*\.trend-metric\{background:var\(--card\)\}/.test(html));
+
+  test("increased-contrast mode strengthens the tile border instead of relying on the low-opacity hairline",
+    /prefers-contrast:more\)\{[\s\S]*?\.trend-metric\{border-color:var\(--text-muted\)\}/.test(html));
+
+  test("no constant/looping animation was added to the tile rule block itself (the glass tile CSS rule ends at its own closing brace with no animation property, and no new shimmer keyframes were introduced by this change)",
+    !/\.trend-metric\{min-width:0[^}]*animation:/.test(html) &&
+    !/@keyframes[\s\S]{0,60}tile[\s\S]{0,20}shimmer|@keyframes[\s\S]{0,60}glass[\s\S]{0,20}shimmer/i.test(html));
+
+  test("the tile DOM stays flat — no new wrapper elements added inside metricMarkup's returned markup (only the pre-existing span/strong/em plus one inline arrow span)",
+    (clientSource.match(/<div class="trend-metric"/g) || []).length === 1 &&
+    /<div class="trend-metric"\$\{zoneAttr\}\$\{trendAttr\}><span>\$\{escapeHtml\(label\)\}<\/span><strong>\$\{escapeHtml\(value\)\}\$\{arrowMarkup\}<\/strong>\$\{meaningMarkup\}<\/div>/.test(clientSource));
+
+  test("responsive layout is unchanged: 3-tile grid with min-width:0 still present so long labels wrap instead of overflowing on narrow phones",
+    /\.trend-metric-strip\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(html) &&
+    /\.trend-metric\{min-width:0/.test(html) &&
+    /<div class="trend-metric-strip" id="trendMetricStrip"/.test(trendsMarkup));
+
+  test("no training calculation, Fitness/Fatigue/Form numeric formula, or chart-rendering function was touched",
+    /function renderStatusChart\(/.test(clientSource) &&
+    /function renderFitnessChart\(/.test(clientSource) &&
+    /function classifyForm\(value\) \{[\s\S]{0,40}const form = finite\(value\);/.test(clientSource) &&
+    !/function classifyForm[\s\S]{0,300}Math\.round[\s\S]{0,10}\*/.test(clientSource));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
