@@ -237,18 +237,17 @@ section("8 — FAILED CLEANUP PRESERVES AUTH");
     /stage:.*"profile"/.test(fnBody) &&
     /stage:.*"auth"/.test(fnBody));
 
-  // Whop cancellation failure also blocks auth deletion
-  t("Whop cancellation failure returns before auth deletion",
-    /stage:.*"subscription_cancellation"[\s\S]*?retryable.*true/.test(fnBody));
-
-  // subscription_cancellation stage appears before profiles/auth deletion
-  const whopFailPos = fnBody.indexOf('"subscription_cancellation"');
-  const profilesPos = fnBody.indexOf('deleteFrom("profiles"');
-  const authPos = fnBody.indexOf('auth/v1/admin/users');
-  t("subscription_cancellation stage precedes profiles deletion",
-    whopFailPos > 0 && profilesPos > 0 && whopFailPos < profilesPos);
-  t("subscription_cancellation stage precedes auth deletion",
-    whopFailPos > 0 && authPos > 0 && whopFailPos < authPos);
+  // Whop cancellation failure must NOT block auth deletion — billing
+  // cancellation is best-effort (see section 16 below). Deletion of the
+  // account itself never depends on an external billing provider.
+  t("Whop cancellation has no retryable subscription_cancellation failure gate",
+    !/stage:\s*"subscription_cancellation"/.test(fnBody));
+  t("Whop cancellation happens before profiles deletion (order preserved)",
+    (() => {
+      const whopPos = fnBody.indexOf("makeWhopClient()");
+      const profilesPos = fnBody.indexOf('deleteFrom("profiles"');
+      return whopPos > 0 && profilesPos > 0 && whopPos < profilesPos;
+    })());
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -464,21 +463,25 @@ section("16 — WHOP SUBSCRIPTION CANCELLATION");
   t("checks whop.isConfigured() before calling cancel",
     /isConfigured\(\)/.test(fnBody));
 
-  // Failure returns stage = subscription_cancellation
-  t("failure returns stage subscription_cancellation",
-    /stage:.*"subscription_cancellation"/.test(fnBody));
+  // Whop cancellation is BEST-EFFORT: a failure (already-cancelled
+  // membership, transient Whop API error, etc.) must never block the
+  // rest of account deletion — it is caught locally and surfaced as a
+  // billingWarning instead of aborting with a 500.
+  t("Whop cancel call is wrapped in its own try/catch (best-effort)",
+    /catch\s*\(whopErr\)/.test(fnBody));
+  t("Whop cancellation failure does not return an error response",
+    (() => {
+      const m = fnBody.match(/catch\s*\(whopErr\)\s*\{[\s\S]*?\n {8}\}/);
+      return !!m && !/response\.status\(500\)/.test(m[0]);
+    })());
+  t("Whop cancellation failure sets a billingWarning instead of blocking",
+    /billingWarning\s*=/.test(fnBody));
 
-  // No subscription identifier in the response
-  t("no membership or subscription ID in failure response",
-    !/membershipId|provider_subscription_id|subscription_id/.test(
-      fnBody.match(/stage:.*"subscription_cancellation"[\s\S]*?\}/)?.[0] || ""
-    ));
-
-  // Auth deletion never happens after Whop cancellation failure
-  const cancelFailReturn = fnBody.indexOf('"subscription_cancellation"');
-  const authDeleteCall = fnBody.indexOf('auth/v1/admin/users');
-  t("Auth deletion is unreachable after Whop cancellation failure (return before auth)",
-    cancelFailReturn > 0 && authDeleteCall > 0 && cancelFailReturn < authDeleteCall);
+  // Auth deletion is reachable even when Whop cancellation fails — the
+  // cancel call is no longer able to `return` out of the function.
+  const whopCatchBlock = fnBody.match(/catch\s*\(whopErr\)[\s\S]*?\n {8}\}/)?.[0] || "";
+  t("Whop cancellation failure handler contains no early return",
+    !/\breturn\b/.test(whopCatchBlock));
 
   // The cancellation happens BEFORE subscription_events and subscriptions are deleted
   const whopCancelPos = fnBody.indexOf('memberships/');
@@ -486,6 +489,49 @@ section("16 — WHOP SUBSCRIPTION CANCELLATION");
   t("Whop cancellation occurs before subscriptions table deletion",
     whopCancelPos > 0 && subDeletePos > 0 && whopCancelPos < subDeletePos);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+ * 17. Regression coverage for the "Delete account does nothing" bug
+ *
+ * Root cause: a failed (or already-cancelled) Whop membership cancel call
+ * threw inside actionDeleteAccount and was caught by a handler that
+ * returned HTTP 500 with retryable:true — aborting the ENTIRE deletion
+ * before any data was touched. Any account with a past Whop subscription
+ * (including one already cancelled on Whop's side) could never be
+ * deleted. Fixed by making billing cancellation best-effort.
+ * ══════════════════════════════════════════════════════════════════════ */
+section("17 — REGRESSION: BILLING FAILURE MUST NOT BLOCK DELETION");
+
+{
+  const fnMatch = apiSrc.match(/async function actionDeleteAccount\([\s\S]*?^}/m);
+  const fnBody = fnMatch ? fnMatch[0] : "";
+
+  t("subscription status regex is anchored correctly (active|past_due, not active|past_due$)",
+    /\/\^\(active\|past_due\)\$\//.test(fnBody));
+
+  t("success response can carry a billingWarning field",
+    /billingWarning:\s*billingWarning/.test(fnBody));
+
+  t("billingWarning is declared with let (mutated across stage 1c)",
+    /let billingWarning = null/.test(fnBody));
+
+  t("unconfigured Whop client sets a billingWarning rather than skipping silently",
+    /WHOP_API_KEY not configured[\s\S]{0,400}billingWarning =/.test(fnBody) ||
+    /billingWarning =[\s\S]{0,400}cancel it directly in Whop/.test(fnBody));
+}
+
+section("17b — REGRESSION: CLIENT SURFACES BILLING WARNING + BLOCKS DOUBLE SUBMIT");
+
+t("client shows billingWarning text on the success screen",
+  /data\.billingWarning/.test(indexSrc));
+
+t("client guards against duplicate delete submissions",
+  /dataset\.deleting/.test(indexSrc));
+
+t("client tracks account_delete_started/completed/failed analytics",
+  /account_delete_started/.test(indexSrc) &&
+  /account_delete_completed/.test(indexSrc) &&
+  /account_delete_failed/.test(indexSrc));
 
 /* ═══════════════════════════════════════════════════════════════════ */
 

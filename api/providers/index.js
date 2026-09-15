@@ -3672,7 +3672,15 @@ async function actionDeleteAccount(request, response) {
     log("delete_account_provider_revoke_warnings", { count: stage1Errors.length });
   }
 
-  /* ── Stage 1c: Cancel active Whop subscription ───────────────────── */
+  /* ── Stage 1c: Cancel active Whop subscription (best-effort) ─────────
+   * Billing cancellation is NEVER allowed to block account deletion — a
+   * Whop API hiccup, an already-cancelled membership, or a transient
+   * network error must not leave the user stuck with an undeletable
+   * account. Any failure here is logged and surfaced to the client as a
+   * `billingWarning` so the confirmation UI can tell the user their
+   * external subscription may still need to be cancelled separately.
+   */
+  let billingWarning = null;
   try {
     const subRes = await fetch(
       `${url}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}` +
@@ -3686,28 +3694,47 @@ async function actionDeleteAccount(request, response) {
         sub &&
         sub.provider === "whop" &&
         sub.provider_subscription_id &&
-        /^active|past_due$/.test(sub.status || "")
+        /^(active|past_due)$/.test(sub.status || "")
       ) {
         const whop = makeWhopClient();
         if (whop.isConfigured()) {
           const membershipId = sub.provider_subscription_id;
-          const cancelRes = await whop.request(
-            `/api/v5/app/memberships/${encodeURIComponent(membershipId)}/cancel`,
-            { method: "POST" }
-          );
-          log("delete_account_whop_cancelled", { status: "ok" });
+          try {
+            await whop.request(
+              `/api/v5/app/memberships/${encodeURIComponent(membershipId)}/cancel`,
+              { method: "POST" }
+            );
+            log("delete_account_whop_cancelled", { status: "ok" });
+          } catch (whopErr) {
+            // Best-effort: the membership may already be cancelled on Whop's
+            // side, or the API may be briefly unreachable. Deletion proceeds
+            // regardless — we warn the user instead of blocking them.
+            log("delete_account_whop_cancel_failed", {
+              reason: whopErr.message, httpStatus: whopErr.status || null
+            });
+            billingWarning =
+              "Your account was deleted, but we couldn't confirm your Whop " +
+              "subscription was cancelled. Please check your Whop billing " +
+              "to make sure it isn't still active.";
+          }
+        } else {
+          // WHOP_API_KEY not configured in this environment — cannot verify
+          // or cancel. Warn rather than silently claiming cancellation.
+          billingWarning =
+            "Your account was deleted, but your Whop subscription could not " +
+            "be automatically cancelled. Please cancel it directly in Whop.";
         }
-        // If WHOP_API_KEY is not configured, log and continue — manual
-        // GCash subscriptions or unconfigured environments skip this.
       }
     }
   } catch (e) {
-    log("delete_account_whop_cancel_failed", { reason: e.message });
-    return response.status(500).json({
-      error: "Account deletion failed while cancelling your subscription. Your account has NOT been deleted. Please try again.",
-      stage: "subscription_cancellation",
-      retryable: true
-    });
+    // Failure to even READ the subscriptions table is unexpected (not a
+    // billing-provider failure) — treat as best-effort too, since blocking
+    // deletion on a read error would be worse than a missed cancellation.
+    log("delete_account_subscription_lookup_failed", { reason: e.message });
+    billingWarning =
+      "Your account was deleted, but we couldn't verify your subscription " +
+      "status. If you have an active Whop subscription, please cancel it " +
+      "directly in Whop.";
   }
 
   /* ── Stage 2: Delete relationship rows ───────────────────────────── */
@@ -3835,8 +3862,8 @@ async function actionDeleteAccount(request, response) {
     });
   }
 
-  log("delete_account_complete", { status: "ok" });
-  return response.status(200).json({ success: true, deleted: true });
+  log("delete_account_complete", { status: "ok", billingWarning: Boolean(billingWarning) });
+  return response.status(200).json({ success: true, deleted: true, billingWarning: billingWarning || undefined });
 }
 
 export default async function handler(request, response) {

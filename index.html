@@ -8555,6 +8555,7 @@ function openDeleteAccount() {
   document.getElementById('deleteAccountSuccess').style.display = 'none';
   input.value = '';
   btn.disabled = true;
+  delete btn.dataset.deleting;
   modal.classList.add('show');
   input.focus();
 }
@@ -9113,9 +9114,16 @@ async function confirmDeleteAccount() {
   const input = document.getElementById('deleteAccountConfirmInput');
   if (input.value.trim() !== 'DELETE') return;
 
+  // Guard against duplicate submits (e.g. a second tap while the request
+  // is already in flight) from firing the deletion twice.
+  const btnEl = document.getElementById('deleteAccountBtn');
+  if (btnEl && btnEl.dataset.deleting === '1') return;
+  if (btnEl) btnEl.dataset.deleting = '1';
+
   // Show loading state
   document.getElementById('deleteAccountContent').style.display = 'none';
   document.getElementById('deleteAccountLoading').style.display = '';
+  trackFunnel('account_delete_started');
 
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -9139,13 +9147,26 @@ async function confirmDeleteAccount() {
     if (!res.ok || !data.success) {
       document.getElementById('deleteAccountLoading').style.display = 'none';
       document.getElementById('deleteAccountContent').style.display = '';
+      if (btnEl) delete btnEl.dataset.deleting;
+      trackFunnel('account_delete_failed', { stage: data.stage || 'unknown' });
       toast(data.error || 'Account deletion failed. Please try again.');
       return;
     }
 
+    trackFunnel('account_delete_completed');
+
     // Show success state
     document.getElementById('deleteAccountLoading').style.display = 'none';
     document.getElementById('deleteAccountSuccess').style.display = '';
+    if (data.billingWarning) {
+      const successEl = document.getElementById('deleteAccountSuccess');
+      if (successEl) {
+        const warn = document.createElement('p');
+        warn.style.cssText = 'color:var(--danger,#d93025);font-size:var(--fs-body-sm);margin:12px 0 0';
+        warn.textContent = data.billingWarning;
+        successEl.appendChild(warn);
+      }
+    }
 
     // Clean up local state
     if (window.AthlevoAuthRoute) window.AthlevoAuthRoute.invalidate();
@@ -9180,6 +9201,8 @@ async function confirmDeleteAccount() {
   } catch (e) {
     document.getElementById('deleteAccountLoading').style.display = 'none';
     document.getElementById('deleteAccountContent').style.display = '';
+    if (btnEl) delete btnEl.dataset.deleting;
+    trackFunnel('account_delete_failed', { stage: 'client_exception' });
     toast('Something went wrong. Please try again.');
   }
 }
