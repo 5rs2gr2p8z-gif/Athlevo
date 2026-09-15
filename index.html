@@ -7473,7 +7473,14 @@ function isSignupPath() {
   return path === "/signup" || path === "/ai-signup";
 }
 function isAiSignupPath() {
-  return isSignupPath();
+  /* Narrower than isSignupPath(): after the AI/signup route normalization,
+   * /signup is the canonical path for BOTH the paid-first AI funnel and
+   * ordinary organic signups, so isSignupPath() (true for /signup or
+   * /ai-signup) can no longer answer "is this the paid-first funnel". This
+   * checks the legacy /ai-signup path specifically -- its one caller
+   * (routeAfterAuth's fromAiSignup detection) must not force every plain
+   * /signup visitor into the paid-first paywall gate ahead of onboarding. */
+  return currentPathname() === "/ai-signup";
 }
 function signupHistoryPath() {
   try {
@@ -9180,9 +9187,29 @@ async function confirmDeleteAccount() {
     athlevoSessionUserId = null;
     if (typeof renderCoachHeaderAuthState === "function") renderCoachHeaderAuthState(null);
     try { window.__athlevoRoutingFor = null; } catch (e) {}
+    // Clear all account-specific onboarding/diagnostic/acquisition/pricing
+    // state, but deliberately PRESERVE athlevo_ff_* feature-flag overrides
+    // (e.g. athlevo_ff_diagnostic_onboarding_v2) -- these are per-browser
+    // testing overrides set via localStorage/URL (see js/featureFlags.js),
+    // not account data, and a tester needs them to survive a delete +
+    // re-signup loop. A blanket localStorage.clear() previously wiped them
+    // too, which is why the override had to be re-applied by hand after
+    // every deletion.
     try {
       sessionStorage.clear();
+      var __athlevoFlagOverrides = {};
+      for (var __i = 0; __i < localStorage.length; __i++) {
+        var __k = localStorage.key(__i);
+        if (__k && __k.indexOf("athlevo_ff_") === 0) {
+          __athlevoFlagOverrides[__k] = localStorage.getItem(__k);
+        }
+      }
       localStorage.clear();
+      for (var __fk in __athlevoFlagOverrides) {
+        if (Object.prototype.hasOwnProperty.call(__athlevoFlagOverrides, __fk)) {
+          localStorage.setItem(__fk, __athlevoFlagOverrides[__fk]);
+        }
+      }
     } catch (e) { /* private mode */ }
     if (window.AthlevoOnboarding && window.AthlevoOnboarding.clearIntent) {
       try { window.AthlevoOnboarding.clearIntent(); } catch (e) {}
@@ -13142,7 +13169,12 @@ setTimeout(function () {
     if (aiPath === "/ai" || aiPath === "" || aiPath === "/signup" || aiPath === "/ai-signup") {
       rememberAppEntryIntent("ai");
     }
-    if ((aiPath === "/signup" || aiPath === "/ai-signup") &&
+    // Only the dedicated /ai-signup path is the paid-first funnel entry.
+    // /signup is now also the canonical organic-signup path (see route
+    // normalization above), so it must NOT set the ai-signup handoff
+    // marker -- doing so previously forced every plain signup into the
+    // paid-first paywall gate in routeAfterAuth before onboarding ever ran.
+    if (aiPath === "/ai-signup" &&
         typeof rememberAiSignupHandoff === "function") {
       rememberAiSignupHandoff();
     }

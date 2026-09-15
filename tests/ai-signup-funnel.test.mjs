@@ -51,8 +51,22 @@ section("1 — anonymous /ai is the Coach preview, not auth or pricing");
     !/logged-out visitors enter auth\/signup, not diagnostic/.test(html));
   t("PERMANENT: anonymous /ai must never become auth/signup",
     /appEntryIntentReason\(\) === "ai" \|\|[\s\S]{0,160}!athlevoSessionUserId\)[\s\S]{0,300}showAnonymousCoachPreview\(\)/.test(html) &&
-    /if \(\(aiPath === "\/signup" \|\| aiPath === "\/ai-signup"\) &&[\s\S]{0,120}rememberAiSignupHandoff/.test(html) &&
     !/if \(\(aiPath === "\/ai" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"\) &&[\s\S]{0,120}rememberAiSignupHandoff/.test(html));
+
+  // Fixed alongside the above: /signup is now ALSO excluded from setting the
+  // ai-signup handoff marker at boot. It had been bundled in with /ai-signup
+  // by the "Normalize AI and signup routes" refactor, which made every plain
+  // organic /signup visit register as the paid-first funnel (hasAiSignupHandoff()
+  // true) and, combined with isAiSignupPath() also aliasing isSignupPath(),
+  // forced routeAfterAuth's fromAiSignup gate to true for ordinary signups —
+  // sending them straight to the paywall ahead of onboarding. Only the
+  // dedicated /ai-signup path may set this marker now.
+  t("PERMANENT: plain /signup does not set the ai-signup handoff marker at boot (only /ai-signup does)",
+    /if \(aiPath === "\/ai-signup" &&[\s\S]{0,120}rememberAiSignupHandoff/.test(html) &&
+    !/if \(\(aiPath === "\/signup" \|\| aiPath === "\/ai-signup"\) &&[\s\S]{0,120}rememberAiSignupHandoff/.test(html));
+
+  t("PERMANENT: isAiSignupPath() no longer aliases isSignupPath() (would re-admit plain /signup into the paid-first fromAiSignup gate)",
+    !/function isAiSignupPath\(\) \{\s*\n\s*return isSignupPath\(\);/.test(html));
 }
 
 section("2 — completed diagnostic CTA routes to /ai-signup, not Whop");

@@ -207,6 +207,16 @@ section("7 — AUTH DELETED LAST");
   const stage2Pos = fnBody.indexOf("Stage 2");
   t("relationship rows (stage 2) before user data (stage 3)",
     stage2Pos > 0 && stage2Pos < userDataTablesPos);
+
+  // athlete_diagnostics holds this athlete's acquisition_stage / diagnostic
+  // facts (see js/diagnosticHandoff.js, js/diagnosticAcquisition.js) and
+  // must not survive account deletion, even though a recreated account
+  // normally gets a new auth user id.
+  t("athlete_diagnostics rows deleted for this user (via the userDataTables loop)",
+    (() => {
+      const tablesMatch = fnBody.match(/const userDataTables = \[[\s\S]*?\];/);
+      return !!tablesMatch && /"athlete_diagnostics"/.test(tablesMatch[0]);
+    })());
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -284,8 +294,17 @@ t("client calls supabaseClient.auth.signOut after success",
 t("client clears sessionStorage",
   /confirmDeleteAccount[\s\S]*?sessionStorage\.clear\(\)/.test(indexSrc));
 
-t("client clears localStorage",
+t("client clears localStorage (still calls localStorage.clear())",
   /confirmDeleteAccount[\s\S]*?localStorage\.clear\(\)/.test(indexSrc));
+
+t("client preserves athlevo_ff_* feature-flag overrides across localStorage.clear()",
+  (function () {
+    const fnMatch = indexSrc.match(/async function confirmDeleteAccount\([\s\S]*?^}/m);
+    const fnBody = fnMatch ? fnMatch[0] : "";
+    return /athlevo_ff_/.test(fnBody) &&
+      /localStorage\.clear\(\)/.test(fnBody) &&
+      /localStorage\.setItem/.test(fnBody);
+  })());
 
 t("client resets athlete UI",
   /confirmDeleteAccount[\s\S]*?resetAthleteUI/.test(indexSrc));

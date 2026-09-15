@@ -3788,6 +3788,7 @@ async function actionDeleteAccount(request, response) {
   const userDataTables = [
     "activation_events",
     "activities",
+    "athlete_diagnostics",
     "activity_data_overrides",
     "activity_sync_logs",
     "athlete_memory",
