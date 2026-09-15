@@ -3292,10 +3292,24 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 .trend-history-notice{margin:0 0 var(--s-3);padding:var(--s-3);background:var(--card);border-radius:var(--r-md)}
 .trend-history-notice strong{display:block;font-size:var(--fs-body-sm)}
 .trend-history-notice span{display:block;margin-top:3px;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink2)}
-.trend-metric-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-3);padding:4px 0 16px;border-bottom:1px solid var(--line)}
-.trend-metric{min-width:0}
+.trend-status-block{padding-top:2px}
+.trend-metric-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-3);padding:4px 0 var(--s-5)}
+.trend-metric{min-width:0;padding:var(--s-3);background:var(--card);border-radius:var(--r-md)}
 .trend-metric span{display:block;font-size:var(--fs-micro);font-weight:650;letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink3)}
-.trend-metric strong{display:block;margin-top:2px;font-size:var(--fs-h3);font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
+.trend-metric strong{display:block;margin-top:4px;font-size:var(--fs-h3);font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
+.trend-metric-meaning{display:block;margin-top:2px;font-size:var(--fs-caption);font-style:normal;line-height:var(--lh-caption);color:var(--ink2)}
+.trend-status-lead[data-zone="fresh"] .trend-status-name{color:var(--trend-fresh)}
+.trend-status-lead[data-zone="maintaining"] .trend-status-name{color:var(--trend-maintaining)}
+.trend-status-lead[data-zone="gaining"] .trend-status-name{color:var(--trend-gaining)}
+.trend-status-lead[data-zone="risk"] .trend-status-name{color:var(--trend-risk)}
+.trend-status-lead[data-zone="detraining"] .trend-status-name{color:var(--trend-detraining)}
+.trend-metric[data-zone="fresh"] .trend-metric-meaning{color:var(--trend-fresh)}
+.trend-metric[data-zone="maintaining"] .trend-metric-meaning{color:var(--trend-maintaining)}
+.trend-metric[data-zone="gaining"] .trend-metric-meaning{color:var(--trend-gaining)}
+.trend-metric[data-zone="risk"] .trend-metric-meaning{color:var(--trend-risk)}
+.trend-metric[data-zone="detraining"] .trend-metric-meaning{color:var(--trend-detraining)}
+.trend-history-head{margin:var(--s-2) 0 var(--s-4)}
+.trend-section-title{margin:0;font-size:var(--fs-h2);font-weight:500;line-height:var(--lh-heading);color:var(--text)}
 /* ── You screen: Sections A/B/C (score → athlete status → paces), above Trends.
    .today-status-card supplies the Athlete Status card's own spacing/colors
    (shared with Today) — only vertical rhythm around it is added here. ── */
@@ -6246,15 +6260,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <!-- ══ SECTION D — Trends (existing content, now the lower portion of You) ══ -->
   <div class="greet">
-    <div class="trends-head-row">
-      <h1 class="serif">Trends</h1>
-      <div class="trend-range" id="trendRangeControls" aria-label="Trend time range" hidden>
-        <button type="button" data-trend-range="6w" aria-pressed="false">6 weeks</button>
-        <button type="button" class="is-active" data-trend-range="3m" aria-pressed="true">3 months</button>
-        <button type="button" data-trend-range="6m" aria-pressed="false">6 months</button>
-        <button type="button" data-trend-range="1y" aria-pressed="false">1 year</button>
-      </div>
-    </div>
+    <h1 class="serif">Training Status</h1>
     <p class="trends-current" id="trendsHeaderSummary" hidden></p>
   </div>
 
@@ -6319,12 +6325,14 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <span>Athlevo needs more completed training history before longer-term trends become reliable.</span>
     </div>
 
-    <div class="trend-status-lead" id="trendStatusLead">
-      <h2 class="trend-status-name" id="trendStatusName"></h2>
-      <p class="trend-status-copy" id="trendStatusCopy"></p>
-    </div>
+    <div class="trend-status-block" aria-label="Current training status">
+      <div class="trend-status-lead" id="trendStatusLead">
+        <h2 class="trend-status-name" id="trendStatusName"></h2>
+        <p class="trend-status-copy" id="trendStatusCopy"></p>
+      </div>
 
-    <div class="trend-metric-strip" id="trendMetricStrip" aria-label="Current training metrics"></div>
+      <div class="trend-metric-strip" id="trendMetricStrip" aria-label="Current training metrics"></div>
+    </div>
 
     <article class="trend-graph trend-graph-status" data-trend-graph="training-status">
       <div class="trend-graph-head">
@@ -6345,6 +6353,16 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       </details>
       <p class="trend-text-summary trend-visually-hidden" id="trendStatusSummary"></p>
     </article>
+
+    <div class="trends-head-row trend-history-head" id="trendHistoryHead">
+      <h2 class="trend-section-title serif">Trends</h2>
+      <div class="trend-range" id="trendRangeControls" aria-label="Trend time range" hidden>
+        <button type="button" data-trend-range="6w" aria-pressed="false">6 weeks</button>
+        <button type="button" class="is-active" data-trend-range="3m" aria-pressed="true">3 months</button>
+        <button type="button" data-trend-range="6m" aria-pressed="false">6 months</button>
+        <button type="button" data-trend-range="1y" aria-pressed="false">1 year</button>
+      </div>
+    </div>
 
     <article class="trend-graph" data-trend-graph="fitness-fatigue">
       <div class="trend-graph-head">

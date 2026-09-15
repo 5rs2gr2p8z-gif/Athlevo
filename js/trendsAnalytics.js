@@ -544,8 +544,26 @@
     return "Training stimulus has been low recently.";
   }
 
-  function metricMarkup(label, value) {
-    return `<div class="trend-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+  // Direction label for a metric over the trailing 7 days, reusing the same
+  // ±1-point/7-day threshold already established by fitnessInterpretation()
+  // and trainingState.js's computeFitnessTrend() — no new magnitude bands.
+  function metricTrendLabel(days, key, risingWord, fallingWord, steadyWord) {
+    const latest = latestValue(days, key);
+    if (!latest) return "";
+    const prior = valueAtOrBefore(days, key, latest.index - 7);
+    if (prior === null) return "";
+    const delta = latest.value - prior;
+    if (delta > 1) return risingWord;
+    if (delta < -1) return fallingWord;
+    return steadyWord;
+  }
+
+  function metricMarkup(label, value, meaning, zoneKey) {
+    const meaningMarkup = meaning
+      ? `<em class="trend-metric-meaning">${escapeHtml(meaning)}</em>`
+      : "";
+    const zoneAttr = zoneKey ? ` data-zone="${escapeHtml(zoneKey)}"` : "";
+    return `<div class="trend-metric"${zoneAttr}><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${meaningMarkup}</div>`;
   }
 
   function renderData(data, notice) {
@@ -578,12 +596,18 @@
 
     const strip = document.getElementById("trendMetricStrip");
     if (strip) {
+      const fitnessMeaning = metricTrendLabel(days, "fitness", "Building", "Declining", "Stable");
+      const fatigueMeaning = metricTrendLabel(days, "fatigue", "Rising", "Easing", "Steady");
+      const formMeaning = statusDisplayName(zone);
       strip.innerHTML = [
-        metricMarkup("Fitness", latestFitness ? fmt(latestFitness.value) : "—"),
-        metricMarkup("Fatigue", latestFatigue ? fmt(latestFatigue.value) : "—"),
-        metricMarkup("Form", latestForm ? fmt(latestForm.value, true) : "—")
+        metricMarkup("Fitness", latestFitness ? fmt(latestFitness.value) : "—", fitnessMeaning),
+        metricMarkup("Fatigue", latestFatigue ? fmt(latestFatigue.value) : "—", fatigueMeaning),
+        metricMarkup("Form", latestForm ? fmt(latestForm.value, true) : "—", formMeaning, zone ? zone.key : null)
       ].join("");
     }
+
+    const statusLead = document.getElementById("trendStatusLead");
+    if (statusLead) statusLead.setAttribute("data-zone", zone ? zone.key : "");
 
     const statusTitle = document.getElementById("trendStatusTitle");
     if (statusTitle) statusTitle.textContent = "Training Balance";
@@ -818,6 +842,7 @@
     renderFitnessChart,
     renderLoadChart,
     fitnessInterpretation,
+    metricTrendLabel,
     renderPerformancePreview,
     selectRange,
     refresh,

@@ -530,5 +530,114 @@ section("Graph-first UI and accessibility");
     !/gradient\(/.test(clientSource));
 }
 
+section("Training Status / Training Balance / Trends reorganization");
+{
+  const trendsId = html.indexOf('id="screen-trends"');
+  const trendsStart = html.lastIndexOf("<section", trendsId);
+  const trendsMarkup = html.slice(
+    trendsStart,
+    html.indexOf("</section>", trendsStart) + "</section>".length
+  );
+  const idx = {
+    youScore: trendsMarkup.indexOf('class="you-score-section"'),
+    youStatus: trendsMarkup.indexOf('class="you-status-section"'),
+    youPaces: trendsMarkup.indexOf('class="you-paces-section"'),
+    statusBlock: trendsMarkup.indexOf('class="trend-status-block"'),
+    statusName: trendsMarkup.indexOf('id="trendStatusName"'),
+    metricStrip: trendsMarkup.indexOf('id="trendMetricStrip"'),
+    balanceArticle: trendsMarkup.indexOf('data-trend-graph="training-status"'),
+    historyHead: trendsMarkup.indexOf('id="trendHistoryHead"'),
+    rangeControls: trendsMarkup.indexOf('id="trendRangeControls"'),
+    fitnessArticle: trendsMarkup.indexOf('data-trend-graph="fitness-fatigue"'),
+    loadArticle: trendsMarkup.indexOf('data-trend-graph="training-load"')
+  };
+
+  test("existing You sections (Score, Athlete Status, Paces) still render ahead of Training Status",
+    Object.values(idx).every(value => value !== -1) &&
+    idx.youScore < idx.youStatus &&
+    idx.youStatus < idx.youPaces &&
+    idx.youPaces < idx.statusBlock);
+
+  test("Training Status (current state + key metrics) appears before Training Balance",
+    idx.statusBlock < idx.statusName &&
+    idx.statusName < idx.metricStrip &&
+    idx.metricStrip < idx.balanceArticle);
+
+  test("Training Balance appears before the historical Trends section",
+    idx.balanceArticle < idx.historyHead);
+
+  test("the time-range selector belongs to Trends, not Training Status",
+    idx.historyHead < idx.rangeControls &&
+    idx.rangeControls < idx.fitnessArticle &&
+    idx.statusBlock < idx.historyHead);
+
+  test("Trends historical section still holds both Fitness & Fatigue and Training Load",
+    idx.historyHead < idx.fitnessArticle &&
+    idx.fitnessArticle < idx.loadArticle);
+
+  test("Fitness, Fatigue, and Form render as distinct metric tiles carrying a raw value and a meaning line",
+    /function metricMarkup\(label, value, meaning, zoneKey\)/.test(clientSource) &&
+    /class="trend-metric-meaning"/.test(clientSource) &&
+    /<div class="trend-metric-strip" id="trendMetricStrip"/.test(trendsMarkup));
+
+  test("semantic labels reuse canonical training-state classifications instead of inventing new thresholds",
+    /const formMeaning = statusDisplayName\(zone\);/.test(clientSource) &&
+    /function metricTrendLabel\(days, key, risingWord, fallingWord, steadyWord\)/.test(clientSource) &&
+    /metricTrendLabel\(days, "fitness", "Building", "Declining", "Stable"\)/.test(clientSource) &&
+    /metricTrendLabel\(days, "fatigue", "Rising", "Easing", "Steady"\)/.test(clientSource) &&
+    analytics.metricTrendLabel(
+      [
+        { date: "2026-07-22", fitness: 40 },
+        { date: "2026-07-23", fitness: null },
+        { date: "2026-07-24", fitness: null },
+        { date: "2026-07-25", fitness: null },
+        { date: "2026-07-26", fitness: null },
+        { date: "2026-07-27", fitness: null },
+        { date: "2026-07-28", fitness: null },
+        { date: "2026-07-29", fitness: 46 }
+      ],
+      "fitness", "Building", "Declining", "Stable"
+    ) === "Building" &&
+    analytics.metricTrendLabel(
+      [
+        { date: "2026-07-22", fatigue: 50 },
+        { date: "2026-07-23", fatigue: null },
+        { date: "2026-07-24", fatigue: null },
+        { date: "2026-07-25", fatigue: null },
+        { date: "2026-07-26", fatigue: null },
+        { date: "2026-07-27", fatigue: null },
+        { date: "2026-07-28", fatigue: null },
+        { date: "2026-07-29", fatigue: 44 }
+      ],
+      "fatigue", "Rising", "Easing", "Steady"
+    ) === "Easing" &&
+    analytics.metricTrendLabel(
+      [
+        { date: "2026-07-22", fitness: 40 },
+        { date: "2026-07-23", fitness: null },
+        { date: "2026-07-24", fitness: null },
+        { date: "2026-07-25", fitness: null },
+        { date: "2026-07-26", fitness: null },
+        { date: "2026-07-27", fitness: null },
+        { date: "2026-07-28", fitness: null },
+        { date: "2026-07-29", fitness: 40.4 }
+      ],
+      "fitness", "Building", "Declining", "Stable"
+    ) === "Stable");
+
+  test("the Form tile and headline reuse the same zone color tokens the Training Balance chart already uses (no new colors)",
+    /\.trend-status-lead\[data-zone="fresh"\] \.trend-status-name\{color:var\(--trend-fresh\)\}/.test(html) &&
+    /\.trend-metric\[data-zone="risk"\] \.trend-metric-meaning\{color:var\(--trend-risk\)\}/.test(html) &&
+    !/\.trend-metric\[data-zone=[\s\S]{0,40}#[0-9a-fA-F]{3,6}/.test(html));
+
+  test("metric tiles use grid + min-width:0 so long meaning text wraps instead of overflowing on narrow phones",
+    /\.trend-metric-strip\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(html) &&
+    /\.trend-metric\{min-width:0/.test(html));
+
+  test("Training Balance chart and its Form-driven state name/tile stay computed from the same untouched formZone logic",
+    analytics.statusDisplayName(analytics.classifyForm(14)) === "Fresh" &&
+    analytics.statusDisplayName(analytics.classifyForm(0)) === "Balanced");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
