@@ -217,6 +217,16 @@
         if (weekRes.ok) freshWeek = await weekRes.json();
       } catch (e) {}
 
+      // Keep local workout/recovery reminders in sync with the plan that
+      // just changed (Coach action chip and Calendar's empty-state CTA
+      // both land here). No-op on web/unsupported and never blocks this
+      // flow -- see js/notifications.js.
+      try {
+        if (root.AthlevoNotifications && typeof root.AthlevoNotifications.rescheduleFromPlan === "function") {
+          root.AthlevoNotifications.rescheduleFromPlan().catch(function () {});
+        }
+      } catch (e) {}
+
       track("plan_generation_completed", {
         source: src, authenticated: true, tier: tier,
         had_existing_plan: !!weekState.hasMeaningfulPlan, week_offset: 0

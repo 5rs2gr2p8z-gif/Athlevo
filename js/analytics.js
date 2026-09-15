@@ -75,7 +75,9 @@
     "primary_limiter", "recommended_product", "selected_product",
     "feasibility_rating", "injury_reported",
     "buyer_intent", "checkout_method",
-    "outcome"
+    "outcome",
+    // Phase 1 local training reminders (categorical only)
+    "notification_type", "platform", "trigger"
   ];
 
   /*

@@ -124,6 +124,19 @@
     // js/planSetup.js showSuccess(). Never fires for a paid_active athlete.
     free_plan_aha_seen:            { kind: "milestone",   props: ["surface"] },
     plan_generation_failed:        { kind: "behavioural", props: ["stage", "failure_category", "source_surface"] },
+    // Phase 1 local training reminders (categorical only — never workout
+    // text, race details, health metrics, email, device token, or any
+    // user-entered text). "platform" is android|ios|web; "trigger" is the
+    // UI/lifecycle source (e.g. first_plan_generated, settings, plan_change,
+    // logout, account_deletion, account_switch).
+    notification_soft_prompt_viewed:   { kind: "milestone",   props: ["notification_type", "platform", "trigger"] },
+    notification_permission_requested: { kind: "behavioural", props: ["notification_type", "platform", "trigger"] },
+    notification_permission_granted:   { kind: "milestone",   props: ["notification_type", "platform", "trigger"] },
+    notification_permission_denied:    { kind: "milestone",   props: ["notification_type", "platform", "trigger"] },
+    notification_reminder_scheduled:   { kind: "behavioural", props: ["notification_type", "platform", "trigger"] },
+    notification_reminder_cancelled:   { kind: "behavioural", props: ["notification_type", "platform", "trigger"] },
+    notification_opened:               { kind: "behavioural", props: ["notification_type", "platform"] },
+    notification_setting_changed:      { kind: "behavioural", props: ["notification_type", "platform", "trigger"] },
     coach_opened:                  { kind: "behavioural", props: ["screen_name"] },
     first_coach_message_sent:      { kind: "milestone",   props: [] },
     coach_message_submitted:       { kind: "behavioural", props: ["access_tier", "source_surface"] },

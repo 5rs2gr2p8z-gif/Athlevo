@@ -95,6 +95,16 @@
         AthlevoAnalytics.track("first_plan_generated", eventProps);
       }
     } catch (e) {}
+    // First generated plan is the moment Phase 1 notifications considers
+    // showing its one-time soft-ask ("Want Athlevo to remind you about your
+    // workouts?") -- never on web, never twice, never before there is a
+    // plan worth reminding the athlete about. See js/notifications.js.
+    try {
+      if (window.AthlevoNotifications &&
+          typeof window.AthlevoNotifications.maybeShowSoftPrompt === "function") {
+        window.AthlevoNotifications.maybeShowSoftPrompt("first_plan_generated").catch(function () {});
+      }
+    } catch (e) {}
     try {
       if (window.AthlevoProductAnalytics) {
         return AthlevoProductAnalytics.trackUserMilestone(

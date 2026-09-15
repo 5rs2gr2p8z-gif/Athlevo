@@ -2450,6 +2450,13 @@ async function generateWeek(){
 
     await loadWeeklyPlan();
 
+    // Regeneration is a plan change -- keep local reminders in sync.
+    try {
+        if (window.AthlevoNotifications && typeof window.AthlevoNotifications.rescheduleFromPlan === "function") {
+            window.AthlevoNotifications.rescheduleFromPlan().catch(function () {});
+        }
+    } catch (e) {}
+
 }
 
 function capitalize(text){

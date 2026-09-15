@@ -51,8 +51,10 @@ section("Settings screen — Appearance / Notifications / App (consolidated)");
     settingsHTML.includes('id="themeSeg"'));
   t("Appearance has System/Light/Dark",
     settingsHTML.includes("System") && settingsHTML.includes("Light") && settingsHTML.includes("Dark"));
-  t("Notification Settings present",
-    settingsHTML.includes(">Notification Settings<"));
+  t("Notification settings surface present (real controls, not a stub)",
+    settingsHTML.includes('id="notifSettingsControls"') &&
+    settingsHTML.includes('id="notifMasterToggle"') &&
+    !settingsHTML.includes("Notification settings coming soon"));
   t("Install Athlevo row present",
     settingsHTML.includes('id="youInstallRow"'));
 }

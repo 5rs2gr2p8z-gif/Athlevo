@@ -1970,6 +1970,18 @@ html[data-theme="dark"] .chat-social-proof-item{background:var(--card);border-co
    or unreachable. */
 .modal-back{position:absolute;inset:0;background:var(--backdrop);z-index:1200;display:none;align-items:flex-end;backdrop-filter:blur(3px)}
 .modal-back.show{display:flex;animation:fadeIn var(--motion-screen) var(--ease-standard)}
+.notif-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 22px}
+.notif-unsupported{padding:0 22px 4px}
+.notif-unsupported p{font-size:var(--fs-body-sm);color:var(--ink2);margin:0;line-height:1.5}
+.notif-hint{font-size:var(--fs-body-sm);color:var(--ink2);margin:0 22px;line-height:1.5}
+.notif-time-input{border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:var(--fs-body-sm);padding:6px 10px}
+.notif-switch{position:relative;display:inline-block;width:44px;height:26px;flex:none}
+.notif-switch input{opacity:0;width:0;height:0}
+.notif-switch span{position:absolute;inset:0;background:var(--border);border-radius:999px;transition:background .15s ease;cursor:pointer}
+.notif-switch span::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .15s ease}
+.notif-switch input:checked + span{background:var(--ink,#141416)}
+.notif-switch input:checked + span::before{transform:translateX(18px)}
+.notif-switch input:disabled + span{opacity:.5;cursor:not-allowed}
 /* Shared Phase 3A sheet interaction layer. Surface-specific material/layout
    stays local; this layer owns only scrim, motion, focus, and scroll state. */
 body.athlevo-sheet-locked{overflow:hidden}
@@ -6526,11 +6538,34 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <div class="spacer-md"></div>
 
-  <!-- Notifications -->
+  <!-- Notifications (Phase 1: local training reminders only) -->
   <div class="pad"><div class="section-title">Notifications</div></div>
-  <button class="rowlink" type="button" onclick="toast('Notification settings coming soon')">
-    <div><b>Notification Settings</b><small>Manage push and in-app notifications.</small></div><span class="arr">→</span>
-  </button>
+  <div id="notifSettingsUnsupported" class="notif-unsupported" hidden>
+    <p>Workout reminders are available in the Athlevo mobile app.</p>
+  </div>
+  <div id="notifSettingsControls" hidden>
+    <div class="notif-row">
+      <div><b>Notifications</b><small>Reminders for your training days.</small></div>
+      <label class="notif-switch"><input type="checkbox" id="notifMasterToggle" onchange="handleNotifMasterToggle(this)"><span></span></label>
+    </div>
+    <div class="settings-spacer"></div>
+    <div class="notif-row" id="notifWorkoutRow">
+      <div><b>Workout reminders</b><small>Evening before a planned session.</small></div>
+      <label class="notif-switch"><input type="checkbox" id="notifWorkoutToggle" onchange="handleNotifCategoryToggle('workout', this)"><span></span></label>
+    </div>
+    <div class="settings-spacer"></div>
+    <div class="notif-row" id="notifRecoveryRow">
+      <div><b>Recovery reminders</b><small>Evening before a rest day.</small></div>
+      <label class="notif-switch"><input type="checkbox" id="notifRecoveryToggle" onchange="handleNotifCategoryToggle('recovery', this)"><span></span></label>
+    </div>
+    <div class="settings-spacer"></div>
+    <div class="notif-row" id="notifTimeRow">
+      <div><b>Reminder time</b><small>Sent the evening before.</small></div>
+      <input type="time" id="notifReminderTime" class="notif-time-input" onchange="handleNotifTimeChange(this)">
+    </div>
+    <div class="settings-spacer"></div>
+    <p id="notifPermissionHint" class="notif-hint" hidden>Reminders are off at the system level. Enable notifications for Athlevo in your device Settings.</p>
+  </div>
 
   <div class="spacer-md"></div>
 
@@ -6753,6 +6788,19 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
 <!-- ══════════════ ATHLEVO SCORE DETAIL MODAL ══════════════ -->
 <div class="modal-back" id="scoreDetailModal" aria-hidden="true"></div>
+
+<!-- ══════════════ NOTIFICATION SOFT-ASK MODAL (Phase 1) ══════════════ -->
+<div class="modal-back" id="notifSoftPromptModal" onclick="if(event.target===this)dismissNotifSoftPrompt()">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h3 class="serif" style="margin:0 0 8px">Want Athlevo to remind you about your workouts?</h3>
+    <p style="font-size:var(--fs-body-sm);color:var(--ink2);margin:0 0 20px;line-height:1.5">
+      Get a reminder before scheduled training days.
+    </p>
+    <button type="button" class="primary" style="width:100%;margin-bottom:10px" onclick="acceptNotifSoftPrompt()">Enable reminders</button>
+    <button type="button" class="secondary" style="width:100%" onclick="dismissNotifSoftPrompt()">Not now</button>
+  </div>
+</div>
 
 <!-- ══════════════ DELETE ACCOUNT MODAL ══════════════ -->
 <div class="modal-back" id="deleteAccountModal" onclick="if(event.target===this)closeDeleteAccount()">
@@ -8472,6 +8520,9 @@ async function doLogout() {
   AthlevoBrain.resetAthleteUI();
   try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
   try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
+  // Cancel this athlete's scheduled local reminders so they can never fire
+  // for -- or be inherited by -- whoever signs in next on this device.
+  try { if (window.AthlevoNotifications) { window.AthlevoNotifications.onSignOut().catch(function(){}); } } catch(e){}
 
   // Never let a signed-out athlete's cached activities survive into the next
   // session (or another athlete on a shared device).
@@ -8635,10 +8686,108 @@ function openSettings() {
   // Sync the settings profile photo to match the main pfp
   syncSettingsProfilePhoto();
   renderSettingsPlanStatus();
+  try { renderNotifSettings(); } catch (e) {}
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   var settings = document.getElementById('screen-settings');
   if (settings) { settings.classList.add('active'); settings.scrollTop = 0; }
 }
+
+/* ══════════════ Notification Settings (Phase 1: local reminders only) ══════════════
+ * Minimal surface: master toggle, two category toggles, one reminder-time
+ * picker. Never shows a broken/native control on web -- unsupported
+ * platforms get plain copy instead. See js/notifications.js. */
+function renderNotifSettings() {
+  var unsupported = document.getElementById('notifSettingsUnsupported');
+  var controls = document.getElementById('notifSettingsControls');
+  if (!unsupported || !controls) return;
+
+  var supported = !!(window.AthlevoNotifications && window.AthlevoNotifications.isSupported());
+  if (!supported) {
+    unsupported.hidden = false;
+    controls.hidden = true;
+    return;
+  }
+  unsupported.hidden = true;
+  controls.hidden = false;
+
+  var prefs = window.AthlevoNotifications.getPreferences();
+  var master = document.getElementById('notifMasterToggle');
+  var workout = document.getElementById('notifWorkoutToggle');
+  var recovery = document.getElementById('notifRecoveryToggle');
+  var time = document.getElementById('notifReminderTime');
+  var hint = document.getElementById('notifPermissionHint');
+  var workoutRow = document.getElementById('notifWorkoutRow');
+  var recoveryRow = document.getElementById('notifRecoveryRow');
+  var timeRow = document.getElementById('notifTimeRow');
+
+  if (master) master.checked = !!prefs.notifications_enabled;
+  if (workout) { workout.checked = !!prefs.workout_reminders_enabled; workout.disabled = !prefs.notifications_enabled; }
+  if (recovery) { recovery.checked = !!prefs.recovery_reminders_enabled; recovery.disabled = !prefs.notifications_enabled; }
+  if (time) { time.value = prefs.reminder_time_local || '19:00'; time.disabled = !prefs.notifications_enabled; }
+  if (workoutRow) workoutRow.style.opacity = prefs.notifications_enabled ? '1' : '.5';
+  if (recoveryRow) recoveryRow.style.opacity = prefs.notifications_enabled ? '1' : '.5';
+  if (timeRow) timeRow.style.opacity = prefs.notifications_enabled ? '1' : '.5';
+
+  // If the athlete previously enabled reminders but later revoked the OS
+  // permission from device Settings, reflect that plainly instead of
+  // showing a toggle that silently does nothing.
+  if (hint) {
+    hint.hidden = true;
+    try {
+      var LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+      if (LN && typeof LN.checkPermissions === 'function') {
+        LN.checkPermissions().then(function (perm) {
+          if (perm && perm.display === 'denied') hint.hidden = false;
+        }).catch(function () {});
+      }
+    } catch (e) {}
+  }
+}
+
+async function handleNotifMasterToggle(el) {
+  if (!window.AthlevoNotifications) { el.checked = false; return; }
+  var wantOn = !!el.checked;
+  var result = await window.AthlevoNotifications.setMasterEnabled(wantOn);
+  if (wantOn && (!result || !result.granted)) {
+    // OS permission denied -- reflect the real state, explain where to
+    // re-enable, never nag again from here.
+    el.checked = false;
+    toast('Notifications are off. You can enable them later from your device Settings.');
+  }
+  renderNotifSettings();
+}
+
+async function handleNotifCategoryToggle(category, el) {
+  if (!window.AthlevoNotifications) return;
+  await window.AthlevoNotifications.setCategoryEnabled(category, !!el.checked);
+}
+
+async function handleNotifTimeChange(el) {
+  if (!window.AthlevoNotifications || !el.value) return;
+  await window.AthlevoNotifications.setReminderTime(el.value);
+}
+
+/* ── Soft-ask prompt (shown once, after the first plan is generated) ── */
+function showAthlevoNotificationSoftPrompt() {
+  var modal = document.getElementById('notifSoftPromptModal');
+  if (modal) modal.classList.add('show');
+}
+function dismissNotifSoftPrompt() {
+  var modal = document.getElementById('notifSoftPromptModal');
+  if (modal) modal.classList.remove('show');
+}
+window.showAthlevoNotificationSoftPrompt = showAthlevoNotificationSoftPrompt;
+window.dismissNotifSoftPrompt = dismissNotifSoftPrompt;
+
+async function acceptNotifSoftPrompt() {
+  dismissNotifSoftPrompt();
+  if (!window.AthlevoNotifications) return;
+  var result = await window.AthlevoNotifications.requestPermissionAndEnable('soft_prompt');
+  if (!result || !result.granted) {
+    toast('No problem -- you can turn reminders on anytime from Settings.');
+  }
+}
+window.acceptNotifSoftPrompt = acceptNotifSoftPrompt;
 window.openSettings = openSettings;
 
 /*
@@ -9177,6 +9326,9 @@ async function confirmDeleteAccount() {
 
     // Clean up local state
     if (window.AthlevoAuthRoute) window.AthlevoAuthRoute.invalidate();
+    // Cancel every scheduled local reminder and clear the (now-deleted)
+    // account's notification preferences before signing out.
+    try { if (window.AthlevoNotifications) { await window.AthlevoNotifications.onAccountDeleted(); } } catch(e){}
     try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
     AthlevoBrain.resetAthleteUI();
     try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
@@ -10336,6 +10488,14 @@ async function renderTodayRecommendation(forceRefresh){
    routine lifecycle refreshes share the current request. */
 async function refreshTodayAfterPlanChange(reason){
   var planChanged = reason === "plan-change";
+  // Reuses the app's ONE "the plan changed" signal (see js/buildWeekPlan.js
+  // header) to keep local workout/recovery reminders in sync -- covers
+  // initial generation, regeneration, and plan-setup adjustments without a
+  // second notion of "plan changed". Never blocks Today's own refresh.
+  if (planChanged && typeof window !== "undefined" && window.AthlevoNotifications &&
+      typeof window.AthlevoNotifications.rescheduleFromPlan === "function") {
+    window.AthlevoNotifications.rescheduleFromPlan().catch(function () {});
+  }
   if (reason === "manual" && window.AthlevoWeather &&
       typeof window.AthlevoWeather.load === "function"){
     window.AthlevoWeather.load({ force: true }).catch(function(){});
@@ -11165,6 +11325,15 @@ async function routeAfterAuth(userId) {
   // Keep the "Open App" affordance in sync after interactive login/signup.
   athlevoSessionUserId = userId;
   try { window.athlevoSessionUserId = athlevoSessionUserId; } catch (e) {}
+  // Load this athlete's notification preferences and rebuild their local
+  // reminder queue. onSignIn() itself cancels any previous athlete's
+  // pending reminders first when userId differs -- multi-account safety
+  // on a shared device.
+  try {
+    if (window.AthlevoNotifications) {
+      window.AthlevoNotifications.onSignIn(supabaseClient, userId).catch(function () {});
+    }
+  } catch (e) {}
   var fromAiSignup = false;
   try {
     fromAiSignup = (typeof hasAiSignupHandoff === "function" && hasAiSignupHandoff()) ||
@@ -12398,6 +12567,7 @@ setTimeout(function () {
 <script src="js/analyticsRegistry.js?v=74"></script>
 <script src="js/metaPixel.js?v=69"></script>
 <script src="js/analytics.js?v=75"></script>
+<script src="js/notifications.js?v=1"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=68"></script>
 <script src="js/onboardingConnect.js?v=69"></script>
