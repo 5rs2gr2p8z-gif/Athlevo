@@ -703,7 +703,17 @@ section("Training Status metric tiles: semantic color, direction, and glass mate
 
   test("reduced-transparency fallback flattens the glass material instead of leaving unreadable translucent tiles",
     /prefers-reduced-transparency:reduce\)\{[\s\S]*?\.trend-metric\{background:var\(--card\);border-color:var\(--line\);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none\}/.test(html) &&
-    /\.trend-metric::before\{display:none\}\s*\}/.test(html));
+    // The shared Athlevo Material System (added in a later pass) extends this
+    // same reduced-transparency block with its own nav/control/card fallback
+    // rules, so .trend-metric::before{display:none} is no longer necessarily
+    // the last declaration before the block's closing brace — just present
+    // somewhere inside the prefers-reduced-transparency block.
+    (() => {
+      const from = html.indexOf("prefers-reduced-transparency:reduce)");
+      const to = html.indexOf("}", html.indexOf(".trend-metric::before{display:none}", from));
+      return from >= 0 && to > from &&
+        /\.trend-metric::before\{display:none\}/.test(html.slice(from, to + 1));
+    })());
 
   test("a non-backdrop-filter browser still gets a solid, legible tile background via @supports",
     /@supports not \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{\s*\.trend-metric\{background:var\(--card\)\}/.test(html));
