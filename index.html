@@ -6793,11 +6793,13 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 <div class="modal-back" id="notifSoftPromptModal" onclick="if(event.target===this)dismissNotifSoftPrompt()">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <h3 class="serif" style="margin:0 0 8px">Want Athlevo to remind you about your workouts?</h3>
+    <h3 class="serif" style="margin:0 0 8px">Stay on track with Athlevo</h3>
     <p style="font-size:var(--fs-body-sm);color:var(--ink2);margin:0 0 20px;line-height:1.5">
-      Get a reminder before scheduled training days.
+      Get reminders for your planned workouts, recovery days, and important training updates.
+      <br><br>
+      Athlevo only sends notifications that help you follow your plan — no spam.
     </p>
-    <button type="button" class="primary" style="width:100%;margin-bottom:10px" onclick="acceptNotifSoftPrompt()">Enable reminders</button>
+    <button type="button" class="primary" style="width:100%;margin-bottom:10px" onclick="acceptNotifSoftPrompt()">Enable notifications</button>
     <button type="button" class="secondary" style="width:100%" onclick="dismissNotifSoftPrompt()">Not now</button>
   </div>
 </div>
@@ -8768,19 +8770,43 @@ async function handleNotifTimeChange(el) {
 }
 
 /* ── Soft-ask prompt (shown once, after the first plan is generated) ── */
+function trackNotifSoftPromptEvent(name) {
+  var props = {
+    notification_type: "soft_prompt",
+    platform: (window.AthlevoNotifications && typeof AthlevoNotifications.platformName === "function")
+      ? AthlevoNotifications.platformName() : "unknown",
+    trigger: "first_plan_generated"
+  };
+  try { if (window.AthlevoAnalytics) AthlevoAnalytics.track(name, props); } catch (e) {}
+  try {
+    if (window.AthlevoProductAnalytics && typeof AthlevoProductAnalytics.trackAthlevoEvent === "function") {
+      AthlevoProductAnalytics.trackAthlevoEvent(name, props);
+    }
+  } catch (e) {}
+}
+
+// Hides the sheet without emitting a dismissal event -- used internally by
+// the Enable path, which tracks its own (enable_clicked) event instead.
+function closeNotifSoftPromptModal() {
+  var modal = document.getElementById('notifSoftPromptModal');
+  if (modal) modal.classList.remove('show');
+}
 function showAthlevoNotificationSoftPrompt() {
   var modal = document.getElementById('notifSoftPromptModal');
   if (modal) modal.classList.add('show');
 }
+// Bound to "Not now" and to tapping outside the sheet -- both are a real
+// dismissal, so both get the same event.
 function dismissNotifSoftPrompt() {
-  var modal = document.getElementById('notifSoftPromptModal');
-  if (modal) modal.classList.remove('show');
+  trackNotifSoftPromptEvent('notification_soft_prompt_dismissed');
+  closeNotifSoftPromptModal();
 }
 window.showAthlevoNotificationSoftPrompt = showAthlevoNotificationSoftPrompt;
 window.dismissNotifSoftPrompt = dismissNotifSoftPrompt;
 
 async function acceptNotifSoftPrompt() {
-  dismissNotifSoftPrompt();
+  trackNotifSoftPromptEvent('notification_soft_prompt_enable_clicked');
+  closeNotifSoftPromptModal();
   if (!window.AthlevoNotifications) return;
   var result = await window.AthlevoNotifications.requestPermissionAndEnable('soft_prompt');
   if (!result || !result.granted) {

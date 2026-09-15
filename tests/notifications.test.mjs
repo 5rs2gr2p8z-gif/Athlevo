@@ -259,6 +259,78 @@ t("analytics events carry only safe categorical properties", () => {
   Object.values(props).forEach(v => assert.equal(typeof v, "string"));
 });
 
+await at("soft prompt appears only after first plan creation, on native, once, and shows the Athlevo-owned UI", async () => {
+  const { sandbox } = makeSandbox({ native: true, permission: "prompt" });
+  const client = fakeSupabase([]);
+  await sandbox.AthlevoNotifications.onSignIn(client, "user-1");
+  let shown = 0;
+  sandbox.showAthlevoNotificationSoftPrompt = () => { shown += 1; };
+  const first = await sandbox.AthlevoNotifications.maybeShowSoftPrompt("first_plan_generated");
+  assert.equal(first, true);
+  assert.equal(shown, 1);
+});
+
+await at("soft prompt does not repeatedly appear across sessions for the same athlete", async () => {
+  const { sandbox } = makeSandbox({ native: true, permission: "prompt" });
+  const client = fakeSupabase([]);
+  await sandbox.AthlevoNotifications.onSignIn(client, "user-1");
+  let shown = 0;
+  sandbox.showAthlevoNotificationSoftPrompt = () => { shown += 1; };
+  await sandbox.AthlevoNotifications.maybeShowSoftPrompt("first_plan_generated");
+  const second = await sandbox.AthlevoNotifications.maybeShowSoftPrompt("first_plan_generated");
+  assert.equal(second, false);
+  assert.equal(shown, 1, "the soft prompt must never be shown twice to the same athlete");
+});
+
+await at("athletes who already granted OS permission are never shown the soft prompt", async () => {
+  const { sandbox } = makeSandbox({ native: true, permission: "granted" });
+  const client = fakeSupabase([]);
+  await sandbox.AthlevoNotifications.onSignIn(client, "user-1");
+  await sandbox.AthlevoNotifications.setMasterEnabled(true);
+  let shown = 0;
+  sandbox.showAthlevoNotificationSoftPrompt = () => { shown += 1; };
+  const result = await sandbox.AthlevoNotifications.maybeShowSoftPrompt("first_plan_generated");
+  assert.equal(result, false);
+  assert.equal(shown, 0);
+});
+
+await at("the soft prompt is native-only and is never surfaced on web/PWA", async () => {
+  const { sandbox } = makeSandbox({ native: false });
+  const client = fakeSupabase([]);
+  await sandbox.AthlevoNotifications.onSignIn(client, "user-1");
+  let shown = 0;
+  sandbox.showAthlevoNotificationSoftPrompt = () => { shown += 1; };
+  const result = await sandbox.AthlevoNotifications.maybeShowSoftPrompt("first_plan_generated");
+  assert.equal(result, false);
+  assert.equal(shown, 0);
+  assert.equal(sandbox.AthlevoNotifications.isSupported(), false);
+});
+
+await at("an athlete who denied OS permission outside the soft prompt is not re-prompted by Athlevo's own UI", async () => {
+  const { sandbox } = makeSandbox({ native: true, permission: "denied" });
+  const client = fakeSupabase([]);
+  await sandbox.AthlevoNotifications.onSignIn(client, "user-1");
+  let shown = 0;
+  sandbox.showAthlevoNotificationSoftPrompt = () => { shown += 1; };
+  const result = await sandbox.AthlevoNotifications.maybeShowSoftPrompt("first_plan_generated");
+  assert.equal(result, false);
+  assert.equal(shown, 0, "the OS already recorded a decision -- our own soft-ask must not layer on top of it");
+});
+
+await at("Settings reflects real OS permission state instead of a faked-on toggle when permission was revoked", async () => {
+  const { sandbox } = makeSandbox({ native: true, permission: "granted" });
+  const client = fakeSupabase([]);
+  await sandbox.AthlevoNotifications.onSignIn(client, "user-1");
+  await sandbox.AthlevoNotifications.setMasterEnabled(true);
+  assert.equal(sandbox.AthlevoNotifications.getPreferences().notifications_enabled, true);
+
+  // Permission revoked from device Settings, outside the app.
+  sandbox.Capacitor.Plugins.LocalNotifications._permission = "denied";
+  await sandbox.AthlevoNotifications.rescheduleFromPlan();
+  assert.equal(sandbox.AthlevoNotifications.getPreferences().notifications_enabled, false,
+    "a revoked OS permission must flip the stored preference off, never show a toggle that lies");
+});
+
 function tomorrowISO() {
   const d = new Date();
   d.setDate(d.getDate() + 1);

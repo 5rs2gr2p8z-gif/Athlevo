@@ -131,6 +131,8 @@
     // logout, account_deletion, account_switch).
     notification_soft_prompt_viewed:   { kind: "milestone",   props: ["notification_type", "platform", "trigger"] },
     notification_permission_requested: { kind: "behavioural", props: ["notification_type", "platform", "trigger"] },
+    notification_soft_prompt_enable_clicked: { kind: "behavioural", props: ["notification_type", "platform", "trigger"] },
+    notification_soft_prompt_dismissed:      { kind: "behavioural", props: ["notification_type", "platform", "trigger"] },
     notification_permission_granted:   { kind: "milestone",   props: ["notification_type", "platform", "trigger"] },
     notification_permission_denied:    { kind: "milestone",   props: ["notification_type", "platform", "trigger"] },
     notification_reminder_scheduled:   { kind: "behavioural", props: ["notification_type", "platform", "trigger"] },
