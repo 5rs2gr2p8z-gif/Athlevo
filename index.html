@@ -210,7 +210,7 @@
 <script>
 (function(){
   try{
-    var pref = localStorage.getItem('athlevo_theme') || 'dark';
+    var pref = localStorage.getItem('athlevo_theme') || 'system';
     var root = document.documentElement;
     root.setAttribute('data-theme', pref);
     function isDark(p){
@@ -232,7 +232,7 @@
       if (typeof window.syncThemeControl === 'function') window.syncThemeControl(p);
     };
     window.getAthlevoTheme = function(){
-      try { return localStorage.getItem('athlevo_theme') || 'dark'; } catch(e){ return 'dark'; }
+      try { return localStorage.getItem('athlevo_theme') || 'system'; } catch(e){ return 'system'; }
     };
     // Keep theme-color in sync when the OS theme changes in "System" mode.
     if (window.matchMedia){

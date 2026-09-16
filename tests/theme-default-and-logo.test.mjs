@@ -1,15 +1,16 @@
 /*
- * Athlevo — dark-default theme + dark-compatible logo.
+ * Athlevo — system-default theme + dark-compatible logo.
  *
  * Guards two invariants against index.html directly (same static-analysis
  * style as tests/design-tokens.test.mjs — no DOM execution needed since the
  * theme-init script and logo CSS rule are plain, greppable source):
  *
- *   1. With no saved theme preference, the app now boots into Dark
- *      (not Light), in both the pre-render head initializer (no FOWT)
- *      and the runtime getAthlevoTheme() accessor — while explicit
- *      saved 'light' / 'dark' / 'system' values still round-trip
- *      exactly as before.
+ *   1. With no saved theme preference, the app boots into System
+ *      (following the device/browser's prefers-color-scheme), in both
+ *      the pre-render head initializer (no FOWT) and the runtime
+ *      getAthlevoTheme() accessor — while explicit saved 'light' / 'dark'
+ *      / 'system' values still round-trip exactly as before, and existing
+ *      users who explicitly chose Light or Dark are never silently reset.
  *   2. The primary Athlevo brand mark swaps to a white+red variant
  *      under dark (explicit dark, and system while OS resolves dark),
  *      via one canonical CSS rule (no per-call-site markup duplication,
@@ -28,29 +29,34 @@ const section = s => console.log(`\n──── ${s} ────`);
 
 const html = readFileSync("./index.html", "utf8");
 
-/* ══════ Part 1 — dark is the default when nothing is saved ═══════════ */
+/* ══════ Part 1 — system is the default when nothing is saved ═══════════ */
 
-section("No-saved-preference now defaults to Dark, everywhere the default is read");
+section("No-saved-preference now defaults to System, everywhere the default is read");
 {
   // The inline pre-render head initializer — the no-FOWT script that runs
   // before first paint and stamps data-theme on <html>.
-  t("head initializer: no saved pref -> 'dark' (was 'light')",
-    /var pref = localStorage\.getItem\('athlevo_theme'\) \|\| 'dark';/.test(html));
-  t("head initializer no longer falls back to 'light'",
-    !/var pref = localStorage\.getItem\('athlevo_theme'\) \|\| 'light';/.test(html));
+  t("head initializer: no saved pref -> 'system' (was 'dark')",
+    /var pref = localStorage\.getItem\('athlevo_theme'\) \|\| 'system';/.test(html));
+  t("head initializer no longer falls back to 'dark'",
+    !/var pref = localStorage\.getItem\('athlevo_theme'\) \|\| 'dark';/.test(html));
 
   // The public runtime accessor used elsewhere in the app (Settings sync,
   // system-change listener, etc.) — must agree with the head initializer.
-  t("getAthlevoTheme(): no saved pref -> 'dark' (both the localStorage read and the catch path)",
-    /getAthlevoTheme = function\(\)\{\s*try \{ return localStorage\.getItem\('athlevo_theme'\) \|\| 'dark'; \} catch\(e\)\{ return 'dark'; \}/.test(html));
-  t("getAthlevoTheme() no longer falls back to 'light' anywhere",
-    !/localStorage\.getItem\('athlevo_theme'\) \|\| 'light'/.test(html) &&
-    !/catch\(e\)\{ return 'light'; \}/.test(html));
+  t("getAthlevoTheme(): no saved pref -> 'system' (both the localStorage read and the catch path)",
+    /getAthlevoTheme = function\(\)\{\s*try \{ return localStorage\.getItem\('athlevo_theme'\) \|\| 'system'; \} catch\(e\)\{ return 'system'; \}/.test(html));
+  t("getAthlevoTheme() no longer falls back to 'dark' anywhere",
+    !/localStorage\.getItem\('athlevo_theme'\) \|\| 'dark'/.test(html) &&
+    !/catch\(e\)\{ return 'dark'; \}/.test(html));
 
-  // No other literal 'light' default is hiding behind an alternate fallback
+  // No other literal 'dark' default is hiding behind an alternate fallback
   // idiom (?? / ternary) for this same preference key.
-  t("no ?? 'light' / ternary-to-'light' fallback for athlevo_theme",
-    !/athlevo_theme'\)\s*\?\?\s*'light'/.test(html));
+  t("no ?? 'dark' / ternary-to-'dark' fallback for athlevo_theme",
+    !/athlevo_theme'\)\s*\?\?\s*'dark'/.test(html));
+
+  // Never auto-save a resolved 'light'/'dark' just because the device
+  // currently resolves that way — the stored/implied preference stays 'system'.
+  t("no saved preference is never auto-written to localStorage as 'light' or 'dark' from a media-query check",
+    !/matchMedia\([^)]*\)\.matches[\s\S]{0,80}localStorage\.setItem\('athlevo_theme'/.test(html));
 }
 
 section("Explicit saved preferences still round-trip exactly (unaffected by the default change)");
