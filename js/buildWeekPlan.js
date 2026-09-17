@@ -148,6 +148,14 @@
       if (!proceed) return { ok: false, reason: "cancelled" };
     }
 
+    if (root.AthlevoAiConsent && typeof root.AthlevoAiConsent.ensure === "function") {
+      var planConsentGranted = await root.AthlevoAiConsent.ensure({
+        authenticated: true,
+        source: "plan_generation"
+      });
+      if (!planConsentGranted) return { ok: false, reason: "ai_consent_declined" };
+    }
+
     if (typeof root.toast === "function") root.toast("Building your week…");
     track("plan_generation_started", { source: src });
 

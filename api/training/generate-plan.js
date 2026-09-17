@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { handleCors } from "../../lib/server/cors.js";
+import { requireAiConsent, sendAiConsentRequired } from "../../lib/server/aiConsent.js";
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
 import { guardPlanWrite } from "../../lib/server/managedPlan.js";
 import {
@@ -1837,6 +1838,13 @@ export default async function handler(
         action: "signIn"
       });
     }
+    // AI-processing consent gate: must run before rate limit / data loads /
+    // the provider call.
+    const consentGate = await requireAiConsent(user.id, "plan_generation");
+    if (!consentGate.allowed) {
+      return sendAiConsentRequired(response, consentGate);
+    }
+
     // Rate limit: plan generation is the most expensive AI call.
     const limit = await checkAiRateLimit(user.id, "generate-plan");
     if (!limit.allowed) {

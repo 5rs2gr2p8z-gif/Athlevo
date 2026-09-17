@@ -1,5 +1,6 @@
 import { checkAiRateLimit, rateLimitResponse } from "../../lib/server/rateLimit.js";
 import { handleCors } from "../../lib/server/cors.js";
+import { requireAiConsent, sendAiConsentRequired } from "../../lib/server/aiConsent.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 
@@ -641,6 +642,14 @@ export default async function handler(
         error:
           "The authenticated user could not be verified."
       });
+    }
+
+    // AI-processing consent gate: memory extraction runs off the back of a
+    // Coach message, so it must independently refuse to run rather than
+    // trust that the originating message was already gated.
+    const consentGate = await requireAiConsent(user.id, "memory");
+    if (!consentGate.allowed) {
+      return sendAiConsentRequired(res, consentGate);
     }
 
     // Rate limit: memory extraction

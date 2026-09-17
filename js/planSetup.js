@@ -510,6 +510,13 @@
       if (!token) {
         outcome = { ok: false, code: "AUTH_REQUIRED",
           message: "Please sign in again to build your plan.", action: "signIn" };
+      } else if (
+        window.AthlevoAiConsent &&
+        typeof window.AthlevoAiConsent.ensure === "function" &&
+        !(await window.AthlevoAiConsent.ensure({ authenticated: true, source: "plan_generation" }))
+      ) {
+        outcome = { ok: false, code: "AI_CONSENT_REQUIRED",
+          message: "Enable AI-powered features to build your plan.", action: "retry" };
       } else {
         // Weekly AI analysis is paid. The free initial plan does not need it.
         try {

@@ -240,6 +240,32 @@ function renderDailyBriefUpgrade() {
   }
 }
 
+function renderDailyBriefAiDisabled() {
+  setDailyBriefText(
+    "dailyBriefHeadline",
+    "AI-powered Daily Brief is turned off.",
+    ""
+  );
+  setDailyBriefText(
+    "dailyBriefTrainingSummary",
+    "Enable AI-powered features to get a daily coaching summary.",
+    ""
+  );
+  setDailyBriefText("dailyBriefObservation", "", "");
+  setDailyBriefText("dailyBriefRecommendation", "", "");
+  setDailyBriefText("dailyBriefReasoning", "", "");
+  setDailyBriefText("dailyBriefStatus", "AI-powered features disabled", "");
+
+  const limitations = document.getElementById("dailyBriefLimitations");
+  if (limitations) {
+    limitations.innerHTML = `
+      <button class="ag-cta-btn" type="button" onclick="openProfileScreen()">
+        Enable AI-powered features
+      </button>
+    `;
+  }
+}
+
 async function loadDailyBrief({
   force = false
 } = {}) {
@@ -310,6 +336,14 @@ async function loadDailyBrief({
 
     if (response.status === 403 && result?.code === "HUMAN_COACHED") {
       setManagedDailyBrief(true);
+      return null;
+    }
+
+    // Graceful non-AI fallback (see lib/server/aiConsent.js /
+    // api/daily-brief.js): a 200 "skipped" response, not an error — Daily
+    // Brief is usually triggered automatically, so this never throws.
+    if (response.ok && result?.skipped && result?.code === "AI_CONSENT_REQUIRED") {
+      renderDailyBriefAiDisabled();
       return null;
     }
 

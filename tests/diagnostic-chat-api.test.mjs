@@ -117,7 +117,8 @@ const { default: handler } = await import("../api/diagnostic-chat.js?diagnostic-
     body: {
       message: "How can you help me?",
       current_question_key: "experience",
-      known_answers: { goal_distance: "Marathon", weekly_mileage: 30 }
+      known_answers: { goal_distance: "Marathon", weekly_mileage: 30 },
+      ai_consent: true
     }
   }, res);
   assert.equal(res.statusCode, 200);
@@ -134,7 +135,7 @@ const { default: handler } = await import("../api/diagnostic-chat.js?diagnostic-
   await handler({
     method: "POST",
     headers: { origin: "https://athlevo.org" },
-    body: { message: "Pretty consistent except I missed a week." }
+    body: { message: "Pretty consistent except I missed a week.", ai_consent: true }
   }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.answer.next_action, "clarify");
@@ -191,7 +192,7 @@ assert.doesNotMatch(source, /if \(!reply\) return null/);
   await handler({
     method: "POST",
     headers: { origin: "https://athlevo.org", "content-type": "application/json" },
-    body: { message: "I got sick last month and I'm around 35km per week." }
+    body: { message: "I got sick last month and I'm around 35km per week.", ai_consent: true }
   }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.answer.reply, "");
@@ -250,7 +251,7 @@ assert.doesNotMatch(source, /if \(!reply\) return null/);
   await handler({
     method: "POST",
     headers: { origin: "https://athlevo.org", "content-type": "application/json" },
-    body: { message: "I want sub-20 for 5K. I recently ran 25:00, I run around 25km a week, and I usually do two interval sessions." }
+    body: { message: "I want sub-20 for 5K. I recently ran 25:00, I run around 25km a week, and I usually do two interval sessions.", ai_consent: true }
   }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.answer.primary_limiter.key, "excessive_intensity");
@@ -299,7 +300,7 @@ assert.doesNotMatch(source, /if \(!reply\) return null/);
   await handler({
     method: "POST",
     headers: { origin: "https://athlevo.org", "content-type": "application/json" },
-    body: { message: "I fade late." }
+    body: { message: "I fade late.", ai_consent: true }
   }, res);
   assert.equal(res.body.answer.primary_limiter, null);
   assert.equal(res.body.answer.secondary_limiter, null);
@@ -363,7 +364,8 @@ assert.match(source, /ALLOWED_LIMITERS/);
     body: {
       message: "How can you help me?",
       current_question_key: "experience",
-      known_answers: { goal_distance: "Marathon", weekly_mileage: 30 }
+      known_answers: { goal_distance: "Marathon", weekly_mileage: 30 },
+      ai_consent: true
     }
   }, res);
   assert.equal(res.statusCode, 200);

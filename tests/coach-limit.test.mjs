@@ -169,6 +169,13 @@ function createWorld() {
       return jsonResponse(200, row ? [row] : []);
     }
 
+    // AI-processing consent: this suite tests the free/paid usage
+    // allowance, not consent — default every athlete here to granted.
+    // See tests/ai-consent.test.mjs for the dedicated consent-gate tests.
+    if (url.includes("/rest/v1/ai_consent")) {
+      return jsonResponse(200, [{ status: "granted", consent_version: "1" }]);
+    }
+
     if (url.includes("/rest/v1/rpc/increment_rate_limit")) {
       const body = JSON.parse(init.body || "{}");
       if (body.p_endpoint === "coach") {

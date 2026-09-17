@@ -13,6 +13,7 @@ import {
 } from "../lib/server/readiness.js";
 import { resolveCoachingMode } from "../lib/server/coachingMode.js";
 import { handleCors } from "../lib/server/cors.js";
+import { requireAiConsent, sendAiConsentRequired } from "../lib/server/aiConsent.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -894,13 +895,33 @@ export default async function handler(req, res) {
     }
 
     // A managed athlete receives coaching direction from their assigned
-    // human coach. Resolve that server-side before entitlement, rate-limit,
-    // data loading, caching, or any model request can occur.
+    // human coach. Resolve that server-side before AI consent, entitlement,
+    // rate-limit, data loading, caching, or any model request can occur —
+    // "your coach manages this" must never be masked by an AI-consent
+    // response for an athlete who was never going to see AI output anyway.
     const coachingMode = await loadCoachingMode(user.id);
     if (coachingMode.mode === "human_coached") {
       return sendJson(res, 403, {
         code: "HUMAN_COACHED",
         error: "Your coach manages your coaching guidance."
+      });
+    }
+
+    // AI-processing consent gate: must run before entitlement, rate-limit,
+    // caching, or any model request can occur. Daily Brief is normally
+    // triggered automatically (not a direct tap), so an ungranted athlete
+    // gets a graceful skip (200) rather than a hard error — the client
+    // shows the consent prompt only if the athlete deliberately opens the
+    // Daily Brief screen, per the non-AI fallback behavior.
+    const consentGate = await requireAiConsent(user.id, "daily_brief");
+    if (!consentGate.allowed) {
+      if (consentGate.reason === "unavailable") {
+        return sendAiConsentRequired(res, consentGate);
+      }
+      return sendJson(res, 200, {
+        skipped: true,
+        code: "AI_CONSENT_REQUIRED",
+        error: "AI-powered Daily Brief is turned off. Enable AI-powered features to use it."
       });
     }
 

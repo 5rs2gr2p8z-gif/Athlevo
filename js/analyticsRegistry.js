@@ -68,6 +68,15 @@
     subscription_activated:       { kind: "milestone",   props: ["source", "provider", "plan_id", "price_php"] },
     whop_pending_purchase_claimed:{ kind: "milestone",   props: ["source"] },
     whop_pending_purchase_claim_failed:{ kind: "behavioural", props: ["source", "reason"] },
+    // AI-processing consent (App Store P0). "source" identifies which AI
+    // surface triggered the prompt/block — never message text, health, or
+    // workout data. consent_version tracks the disclosure copy version.
+    ai_consent_prompt_shown:      { kind: "behavioural", props: ["source", "consent_version"] },
+    ai_consent_granted:           { kind: "behavioural", props: ["source", "consent_version"] },
+    ai_consent_declined:          { kind: "behavioural", props: ["source", "consent_version"] },
+    ai_consent_withdrawn:         { kind: "behavioural", props: ["source", "consent_version"] },
+    ai_consent_reenabled:         { kind: "behavioural", props: ["source", "consent_version"] },
+    ai_request_blocked_no_consent:{ kind: "behavioural", props: ["source", "consent_version"] },
     account_created:               { kind: "milestone",   props: ["method", "source"] },
     email_verified:                { kind: "milestone",   props: [] },
     athlete_onboarding_started:    { kind: "milestone",   props: [] },

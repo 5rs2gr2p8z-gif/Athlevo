@@ -942,27 +942,48 @@ function callRouter(payload) {
   var fetchFn = (root && root.fetch) ? root.fetch.bind(root) : (typeof fetch !== "undefined" ? fetch : null);
   if (!fetchFn) return Promise.resolve(FALLBACK_RESPONSE);
 
-  var controller = (typeof AbortController !== "undefined") ? new AbortController() : null;
-  var timer = controller ? setTimeout(function () { controller.abort(); }, ROUTER_TIMEOUT_MS) : null;
+  // AI-processing consent gate. This is the pre-signup diagnostic — the
+  // very first AI surface a visitor can reach — so it uses the same
+  // anonymous, session-scoped ensure() as anonymous Coach. Already-granted
+  // resolves synchronously true and adds no latency; declined returns the
+  // same clean fallback used for a network failure (no broken UI, no
+  // fabricated AI result).
+  var isAuthenticated = !!(root && root.athlevoSessionUserId);
+  var consentPromise = (root && root.AthlevoAiConsent && typeof root.AthlevoAiConsent.ensure === "function")
+    ? root.AthlevoAiConsent.ensure({ authenticated: isAuthenticated, source: "diagnostic" })
+    : Promise.resolve(true);
 
-  return fetchFn(ROUTER_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload || {}),
-    signal: controller ? controller.signal : undefined
-  })
-    .then(function (res) {
-      if (timer) clearTimeout(timer);
-      if (!res.ok) return FALLBACK_RESPONSE;
-      return res.json().then(function (body) {
-        var validated = validateRouterResponse(body && body.answer ? body.answer : body);
-        return validated || FALLBACK_RESPONSE;
-      }, function () { return FALLBACK_RESPONSE; });
-    })
-    .catch(function () {
-      if (timer) clearTimeout(timer);
-      return FALLBACK_RESPONSE;
+  return consentPromise.then(function (granted) {
+    if (!granted) return FALLBACK_RESPONSE;
+
+    var controller = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, ROUTER_TIMEOUT_MS) : null;
+
+    var body = Object.assign({}, payload || {}, {
+      ai_consent: !isAuthenticated && root.AthlevoAiConsent
+        ? !!root.AthlevoAiConsent.anonymousAckForRequest()
+        : undefined
     });
+
+    return fetchFn(ROUTER_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller ? controller.signal : undefined
+    })
+      .then(function (res) {
+        if (timer) clearTimeout(timer);
+        if (!res.ok) return FALLBACK_RESPONSE;
+        return res.json().then(function (respBody) {
+          var validated = validateRouterResponse(respBody && respBody.answer ? respBody.answer : respBody);
+          return validated || FALLBACK_RESPONSE;
+        }, function () { return FALLBACK_RESPONSE; });
+      })
+      .catch(function () {
+        if (timer) clearTimeout(timer);
+        return FALLBACK_RESPONSE;
+      });
+  });
 }
 
 /* ═══════════════════════ EXPORT ═════════════════════════════════════════ */

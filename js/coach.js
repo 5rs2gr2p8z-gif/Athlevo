@@ -1628,6 +1628,20 @@ async function askCoach(question) {
 
   if (!cleanQuestion) return;
 
+  // AI-processing consent gate. Runs before ANYTHING else — before the
+  // composer is cleared, before a message bubble is added — so a decline
+  // leaves the athlete's typed message untouched and sends no request.
+  // Covers both the anonymous and authenticated paths below, since both
+  // ultimately hit an AI-backed endpoint. See js/aiConsent.js.
+  if (window.AthlevoAiConsent && typeof window.AthlevoAiConsent.ensure === "function") {
+    const isAuthenticated = !!window.athlevoSessionUserId;
+    const consentGranted = await window.AthlevoAiConsent.ensure({
+      authenticated: isAuthenticated,
+      source: isAuthenticated ? "coach" : "anonymous_coach"
+    });
+    if (!consentGranted) return;
+  }
+
   // Signed-out visitor: never call the authenticated model, never touch
   // the free-message quota, never save into coach_threads. Instead hand
   // off to the anonymous Coach preview conversation (js/anonymousCoach.js)

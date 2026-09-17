@@ -6676,6 +6676,19 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <div class="spacer-md"></div>
 
+  <!-- Privacy & AI -->
+  <div class="pad"><div class="section-title">Privacy &amp; AI</div></div>
+  <div class="notif-row">
+    <div><b>AI-powered features</b><small id="aiConsentStatusLabel">Coach responses, training plans, and personalized insights.</small></div>
+    <label class="notif-switch"><input type="checkbox" id="aiConsentToggle" onchange="handleAiConsentToggle(this)"><span></span></label>
+  </div>
+  <div class="settings-spacer"></div>
+  <button class="rowlink" type="button" onclick="openLegal('privacy')">
+    <div><b>Learn more</b><small>How Athlevo uses AI and third-party services.</small></div><span class="arr">→</span>
+  </button>
+
+  <div class="spacer-md"></div>
+
   <!-- Support & Legal -->
   <div class="pad"><div class="section-title">Support &amp; Legal</div></div>
   <button class="rowlink" type="button" onclick="openBetaFeedback()">
@@ -6936,6 +6949,38 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <p style="font-size:var(--fs-h2);margin:0 0 8px">Account deleted</p>
       <p style="color:var(--ink2);font-size:var(--fs-body-sm);margin:0">Your account and all data have been permanently removed.</p>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════ AI PROCESSING CONSENT ══════════════
+     One canonical modal for the AI-processing disclosure (see
+     js/aiConsent.js — window.AthlevoAiConsent). Shown before the FIRST
+     AI-backed request for an anonymous visitor (session-scoped) or a
+     signed-in athlete without a durable "granted" record. Never shown on
+     page load — only when an AI feature is actually attempted. -->
+<div class="modal-back" id="aiConsentModal">
+  <div class="modal-sheet ai-consent-sheet">
+    <div class="modal-handle"></div>
+    <h3 class="serif" style="margin:0 0 12px">AI-powered features</h3>
+    <p style="font-size:var(--fs-body-sm);color:var(--ink2);margin:0 0 12px;line-height:1.5">
+      Athlevo uses third-party AI services, including OpenAI, to generate coaching
+      responses, training plans, and personalized insights.
+    </p>
+    <p style="font-size:var(--fs-body-sm);color:var(--ink2);margin:0 0 20px;line-height:1.5">
+      Information you choose to share — such as your messages, training history,
+      goals, workout data, and recovery context — may be processed by these
+      services to provide those features.
+    </p>
+    <button type="button" class="primary" id="aiConsentContinueBtn" style="width:100%">
+      Continue
+    </button>
+    <button type="button" class="secondary" id="aiConsentNotNowBtn" style="width:100%;margin-top:8px">
+      Not now
+    </button>
+    <button type="button" class="rowlink" id="aiConsentLearnMoreBtn"
+            style="width:100%;margin-top:12px;justify-content:center;background:none;border:none">
+      <small style="color:var(--ink2)">Learn more</small>
+    </button>
   </div>
 </div>
 
@@ -8730,6 +8775,9 @@ function openProfileScreen() {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   var you = document.getElementById('screen-you');
   if (you) { you.classList.add('active'); you.scrollTop = 0; }
+  if (window.AthlevoAiConsent) {
+    try { window.AthlevoAiConsent.syncSettingsUI(); } catch (e) {}
+  }
 }
 window.openProfileScreen = openProfileScreen;
 
@@ -8791,6 +8839,31 @@ function openSettings() {
   var settings = document.getElementById('screen-settings');
   if (settings) { settings.classList.add('active'); settings.scrollTop = 0; }
 }
+
+/* ══════════════ AI-processing consent (Settings) ══════════════
+ * Reflects the athlete's durable ai_consent record and lets them turn AI
+ * features off/on. See js/aiConsent.js (window.AthlevoAiConsent) for the
+ * canonical read/write and the gate every AI call site awaits. */
+async function handleAiConsentToggle(el) {
+  var wantGranted = !!el.checked;
+  el.disabled = true;
+  try {
+    var ok = window.AthlevoAiConsent &&
+      await window.AthlevoAiConsent.setStatusFromSettings(wantGranted);
+    if (!ok) {
+      el.checked = !wantGranted; // revert — the write did not persist
+      if (typeof toast === 'function') {
+        toast("Couldn't update AI settings. Please try again.");
+      }
+    }
+  } catch (e) {
+    el.checked = !wantGranted;
+  } finally {
+    el.disabled = false;
+    if (window.AthlevoAiConsent) window.AthlevoAiConsent.syncSettingsUI();
+  }
+}
+window.handleAiConsentToggle = handleAiConsentToggle;
 
 /* ══════════════ Notification Settings (Phase 1: local reminders only) ══════════════
  * Minimal surface: master toggle, two category toggles, one reminder-time
@@ -12691,6 +12764,7 @@ setTimeout(function () {
 <script src="js/analyticsRegistry.js?v=74"></script>
 <script src="js/metaPixel.js?v=69"></script>
 <script src="js/analytics.js?v=75"></script>
+<script src="js/aiConsent.js?v=1"></script>
 <script src="js/notifications.js?v=1"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=68"></script>

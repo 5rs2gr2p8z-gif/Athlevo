@@ -180,7 +180,12 @@
           message: cleanQuestion,
           question_key: question_obj ? question_obj.key : null,
           question_fields: serializeFields(question_obj),
-          history: history.slice(0, -1)
+          history: history.slice(0, -1),
+          // Consent was already gated in askCoach() -> AthlevoAiConsent.ensure()
+          // before this function was ever called; this flag is what the
+          // server's anonymous trust boundary checks (no durable identity
+          // exists yet to attach consent to — see lib/server/aiConsent.js).
+          ai_consent: !!(root.AthlevoAiConsent && root.AthlevoAiConsent.anonymousAckForRequest())
         })
       });
 

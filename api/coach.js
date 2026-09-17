@@ -8,6 +8,7 @@ import {
   releaseFreeUsage
 } from "../lib/server/freemium.js";
 import { verifySupabaseAccessToken } from "../lib/server/supabaseServer.js";
+import { requireAiConsent, sendAiConsentRequired } from "../lib/server/aiConsent.js";
 
 export const maxDuration = 60;
 
@@ -259,6 +260,14 @@ export default async function handler(req, res) {
       error: "Please sign in again.",
       code: "AUTH_REQUIRED"
     });
+  }
+
+  // AI-processing consent gate: authoritative, server-read — never trusts
+  // a client-supplied boolean. Must run before any rate limit / usage
+  // consumption / provider call.
+  const consentGate = await requireAiConsent(authenticatedUser.id, "coach");
+  if (!consentGate.allowed) {
+    return sendAiConsentRequired(res, consentGate);
   }
 
   const { question, context } = req.body || {};

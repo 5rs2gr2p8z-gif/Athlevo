@@ -105,6 +105,12 @@ function world({ plan = goodPlan(), openAiStatus = 200, openAiText = null,
       json: async () => b, text: async () => JSON.stringify(b) });
 
     if (u.includes("/auth/v1/user")) return J(200, { id: "u1", email: "a@b.c" });
+    // AI-processing consent: this suite tests plan-generation mechanics,
+    // not consent — default every athlete here to granted. See
+    // tests/ai-consent.test.mjs for the dedicated consent-gate tests.
+    if (u.includes("/rest/v1/ai_consent")) {
+      return J(200, [{ status: "granted", consent_version: "1" }]);
+    }
     if (u.includes("/rest/v1/subscriptions")) {
       return J(200, subscription ? [subscription] : []);
     }

@@ -213,6 +213,13 @@ function createWorld({ streamText = null, failMidStream = false } = {}) {
       return jsonResponse(200, row ? [row] : []);
     }
 
+    // AI-processing consent: every athlete in this suite is testing
+    // streaming/model behavior, not consent, so default to granted.
+    // See tests/ai-consent.test.mjs for the dedicated consent-gate tests.
+    if (url.includes("/rest/v1/ai_consent")) {
+      return jsonResponse(200, [{ status: "granted", consent_version: "1" }]);
+    }
+
     if (url.includes("/rest/v1/rpc/increment_rate_limit")) {
       const body = JSON.parse(init.body || "{}");
       if (body.p_endpoint === "coach") {
