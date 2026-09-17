@@ -55,6 +55,10 @@
     {
       "source": "/reset-password",
       "destination": "/index.html"
+    },
+    {
+      "source": "/landing-preview",
+      "destination": "/landing-preview.html"
     }
   ]
 }
