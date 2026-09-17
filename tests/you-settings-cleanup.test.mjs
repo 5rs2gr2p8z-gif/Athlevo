@@ -59,6 +59,18 @@ section("Settings screen — Appearance / Notifications / App (consolidated)");
     settingsHTML.includes('id="youInstallRow"'));
 }
 
+section("Settings screen — Account row (App Store readiness dead-CTA fix)");
+{
+  t("Account row no longer shows an 'Account settings coming soon' dead-end toast",
+    !settingsHTML.includes("Account settings coming soon"));
+  t("Account name/email is still shown as static info (not a fake destination)",
+    settingsHTML.includes('id="settingsAccountName"') &&
+    settingsHTML.includes('id="settingsAccountEmail"'));
+  t("Account row is no longer a clickable button (no onclick handler)",
+    !/onclick="[^"]*"[^>]*>\s*<div><b id="settingsAccountName"/.test(settingsHTML) &&
+    !/<button[^>]*>\s*<div><b id="settingsAccountName"/.test(settingsHTML));
+}
+
 section("Settings screen — Support & Legal section");
 {
   t("Support & Legal section title present",

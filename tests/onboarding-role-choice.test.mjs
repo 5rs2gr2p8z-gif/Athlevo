@@ -101,16 +101,20 @@ describe("Role-choice screen", () => {
     );
   });
 
-  it("public Coach taps stop before intent or application flow", () => {
-    const start = onboardingSource.indexOf('body.querySelector("#obRoleCoach")');
+  it("locked Coach card is not a tappable dead end (App Store readiness)", () => {
+    // The Coach role card is informational (aria-disabled + "Coming soon"
+    // badge) while access is locked, but must not attach a click handler
+    // that only shows a toast — that is exactly the dead-CTA pattern the
+    // App Store readiness audit flagged for removal.
+    const start = onboardingSource.indexOf("if (!coachLocked) {");
     const end = onboardingSource.indexOf("/* ─── Restore progress", start);
-    const handler = onboardingSource.slice(start, end);
-    const gate = handler.indexOf("if (!obCoachPublicAccessEnabled())");
-    const stop = handler.indexOf("return;", gate);
-    assert.ok(gate >= 0 && stop > gate);
-    assert.ok(handler.indexOf('obWriteIntent("coach")') > stop);
-    assert.ok(handler.indexOf("obStartCoachFlow()") > stop);
-    assert.ok(handler.includes("Coach tools are coming soon."));
+    assert.ok(start >= 0 && end > start, "locked-gated listener attachment must exist");
+    const guarded = onboardingSource.slice(start, end);
+    assert.ok(guarded.includes('body.querySelector("#obRoleCoach").addEventListener("click"'));
+    assert.ok(guarded.indexOf('obWriteIntent("coach")') > 0);
+    assert.ok(guarded.indexOf("obStartCoachFlow()") > 0);
+    // No toast/dead-end messaging inside the gated attachment itself.
+    assert.ok(!guarded.includes("Coach tools are coming soon."));
   });
 });
 

@@ -2199,7 +2199,7 @@ body.athlevo-sheet-locked{overflow:hidden}
     height:100dvh; max-height:100dvh; border-radius:0; box-shadow:none; background:var(--paper); }
   body.public-legal-active #tabbar { display:none!important; }
   body.public-legal-active #screen-privacy,
-  body.public-legal-active #screen-delete-account { padding-bottom:env(safe-area-inset-bottom); }
+  body.public-legal-active #screen-delete-account, body.public-legal-active #screen-support { padding-bottom:env(safe-area-inset-bottom); }
   body.public-legal-active .legal-head { width:100%; max-width:724px; margin:0 auto; box-sizing:border-box; }
   /* subtle app version footer on the You page */
   .app-version { text-align:center; margin:22px 0 0; font-size:var(--fs-caption);
@@ -5043,7 +5043,8 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         <p class="pricing-tier-trust">3 days free, then ₱597/month · Cancel anytime</p>
       </div>
 
-      <div class="pricing-tier" data-tier="pro_plus">
+      <!-- Hidden for iOS V1: Pro+ is not actively purchasable yet (App Store readiness audit, Section L/K). Entitlement architecture stays intact; only presentation is hidden. -->
+      <div class="pricing-tier" data-tier="pro_plus" style="display:none" aria-hidden="true">
         <p class="pricing-tier-name">Athlevo Pro+</p>
         <p class="pricing-tier-tagline">Use Athlevo without limits</p>
         <div class="pricing-tier-price-row">
@@ -6570,9 +6571,12 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <!-- Account details -->
   <div class="pad"><div class="section-title">Account</div></div>
-  <button class="rowlink" type="button" onclick="toast('Account settings coming soon')">
-    <div><b id="settingsAccountName">Athlete</b><small id="settingsAccountEmail">—</small></div><span class="arr">→</span>
-  </button>
+  <!-- No dedicated Account settings destination exists yet; this is a
+       static info row (not a dead tappable CTA) until a real Account
+       surface is built. See App Store readiness audit, Section L. -->
+  <div class="rowlink" style="cursor:default">
+    <div><b id="settingsAccountName">Athlete</b><small id="settingsAccountEmail">—</small></div>
+  </div>
   <div class="settings-spacer"></div>
 
   <!-- Plan / Subscription — the ONE canonical place an athlete checks their
@@ -7059,6 +7063,33 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
     <h2>After deletion</h2>
     <p>Once your account is deleted, this action cannot be undone. You will need to create a new account if you wish to use Athlevo again. Any active subscriptions will be cancelled as part of the deletion process.</p>
+  </div></div>
+</section>
+
+<!-- ══════════════ SUPPORT (public page) ══════════════ -->
+<section class="screen" id="screen-support">
+  <div class="legal-head">
+    <button class="legal-back" type="button" onclick="closeLegal()">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+      Back
+    </button>
+  </div>
+  <div class="legal-wrap"><div class="legal-body" id="supportPublicBody">
+    <h1>Athlevo Support</h1>
+    <p>Need help with your account, training plan, billing, or anything else in Athlevo? Reach us directly at:</p>
+    <p><a href="mailto:support@athlevo.org" style="color:var(--red);text-decoration:underline">support@athlevo.org</a></p>
+    <p>We typically respond within 1-2 business days.</p>
+
+    <h2>Common requests</h2>
+    <ul>
+      <li>Account or billing questions — email us with the address associated with your Athlevo account.</li>
+      <li>Delete your account — see our <a href="/delete-account" style="color:var(--red);text-decoration:underline">Delete Account</a> page.</li>
+      <li>Report a bug or share feedback — sign in to Athlevo and use Settings &rarr; Support to send it directly to us.</li>
+      <li>Privacy or data questions — see our <a href="/privacy" style="color:var(--red);text-decoration:underline">Privacy Policy</a>.</li>
+    </ul>
+
+    <h2>Legal</h2>
+    <p>Read our <a href="/privacy" style="color:var(--red);text-decoration:underline">Privacy Policy</a> and <a href="javascript:void(0)" onclick="openLegal('terms')" style="color:var(--red);text-decoration:underline">Terms of Service</a>.</p>
   </div></div>
 </section>
 

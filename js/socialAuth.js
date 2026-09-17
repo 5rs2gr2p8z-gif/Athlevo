@@ -28,14 +28,16 @@
    * account, an App ID + Services ID, a private key, and a generated client
    * secret that expires every 6 months — none of which exists yet.
    *
-   * visibleWhenDisabled: the welcome screen shows a "Continue with Apple"
-   * button as a coming-soon UI element. The button's click handler never
-   * calls signInWithProvider — it shows a toast instead — so enabled:false
-   * is the safety net, not the primary gate.
+   * visibleWhenDisabled: kept FALSE for Apple. A visible, tappable
+   * "Continue with Apple" button whose handler only shows a "coming soon"
+   * toast is a review-risk dead end (App Store readiness audit, Section
+   * K/L) — so the button stays hidden until Sign in with Apple is really
+   * implemented, rather than shown as an inert coming-soon element.
+   * Flip this back to true only alongside actually wiring the OAuth flow.
    */
   const PROVIDERS = {
     google: { enabled: true,  label: "Google" },
-    apple:  { enabled: false, label: "Apple", visibleWhenDisabled: true }
+    apple:  { enabled: false, label: "Apple", visibleWhenDisabled: false }
   };
 
   function trackSignupFailure(category) {

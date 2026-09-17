@@ -221,6 +221,22 @@ async function openPublicLegalRoute(pathname) {
     return true;
   }
 
+  if (normalizedPath === "/support") {
+    legalPublicRoute = true;
+    legalReturnScreen = "screen-landing";
+    document.body.classList.add("public-legal-active");
+    document.title = "Support — Athlevo";
+
+    if (typeof showScreen === "function") {
+      showScreen("screen-support");
+    }
+
+    const screenEl = document.getElementById("screen-support");
+    if (screenEl) screenEl.scrollTop = 0;
+
+    return true;
+  }
+
   return false;
 }
 

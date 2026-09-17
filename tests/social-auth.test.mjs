@@ -175,8 +175,12 @@ section("Apple is disabled, not broken");
   t("...with an honest message", /isn't available yet/i.test(r.message), r.message);
   t("...and never reaches Supabase", calls.oauth.length === 0);
 
+  t("Apple visibleWhenDisabled is false (no coming-soon dead end shown)",
+    api.PROVIDERS.apple.visibleWhenDisabled === false);
+
   api.applyProviderVisibility();
-  t("Apple coming-soon button stays visible", elements.authBtnApple.style.display === "");
+  t("Apple button is hidden until Sign in with Apple is really implemented",
+    elements.authBtnApple.style.display === "none");
   t("Google button stays visible", elements.authBtnGoogle.style.display === "");
   t("boot hides unconfigured providers", /applyProviderVisibility\(\)/.test(html));
 }

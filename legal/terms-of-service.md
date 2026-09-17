@@ -6,7 +6,7 @@
 
 # Terms of Service
 
-Last updated: July 14, 2026
+Last updated: September 17, 2026
 
 ## 1. Acceptance
 
@@ -105,7 +105,7 @@ Certain features may require payment.
 
 Subscription details, billing frequency, pricing, renewal, and available plans will be displayed before purchase.
 
-Future payment processing may be handled by providers such as PayMongo or another payment processor.
+Payment processing is currently handled through Whop and PayMongo. Athlevo may add or change payment processors in the future.
 
 ## 10. Cancellation
 

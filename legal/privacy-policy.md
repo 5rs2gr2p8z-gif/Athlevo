@@ -6,7 +6,7 @@
 
 # Privacy Policy
 
-Last updated: July 14, 2026
+Last updated: September 17, 2026
 
 ## 1. Introduction
 
@@ -89,6 +89,10 @@ Future integrations may include:
 * Polar
 * other compatible platforms
 
+Apple Health (HealthKit) is not currently integrated with Athlevo. Athlevo does not
+request, read, or store HealthKit data today; this will change only when HealthKit
+support is actually built and this policy is updated to reflect it.
+
 The information received depends on the permissions you grant to each provider.
 
 ### Technical Information
@@ -141,8 +145,9 @@ These may include:
 * Vercel (hosting)
 * OpenAI or another AI provider
 * Strava
+* Whop (payment processing and subscription management)
+* PayMongo (payment processing)
 * Future wearable integrations
-* Future payment processors such as PayMongo
 
 These providers process information only as necessary to provide their services under their own privacy and security practices.
 

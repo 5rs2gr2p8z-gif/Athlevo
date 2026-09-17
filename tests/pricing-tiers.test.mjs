@@ -145,5 +145,15 @@ section("P — annual plan stays disabled (no real annual product exists)");
     !/id="offerPlanAnnual"/.test(paywall));
 }
 
+section("Q — Pro+ is hidden from the pricing screen for iOS V1 (App Store readiness)");
+{
+  test("Pro+ tier tile is hidden (display:none)",
+    /data-tier="pro_plus"[^>]*style="display:none"/.test(paywall));
+  test("Pro+ tier markup and copy still exist (presentation-only hide)",
+    /Athlevo Pro\+/.test(paywall) && /choosePlusTier\(\)/.test(paywall));
+  test("Pro+ internal entitlement tier (elite) is untouched",
+    resolveEntitlement({ provider: "whop", plan_id: "elite", status: "active" }).planId === "elite");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

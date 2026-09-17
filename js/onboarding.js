@@ -1853,19 +1853,21 @@ function obRenderRoleChoice() {
     obStartAthleteFlow();
   });
 
-  body.querySelector("#obRoleCoach").addEventListener("click", () => {
-    if (!obCoachPublicAccessEnabled()) {
-      obClearIntent();
-      if (typeof window.toast === "function") window.toast("Coach tools are coming soon.");
-      else obMessage("Coach tools are coming soon.");
-      return;
-    }
-    obTrackOnboardingEvent("onboarding_role_selected", {
-      selected_role: "coach", source_surface: "onboarding"
+  // App Store readiness: a locked Coach card must not be a tappable dead
+  // end. It is rendered with aria-disabled="true" and a "Coming soon"
+  // badge purely as information; no click handler is attached while
+  // access is locked, so tapping it does nothing instead of surfacing a
+  // "coming soon" toast. The listener (and the real coach-application
+  // flow) is wired only once public coach access is enabled.
+  if (!coachLocked) {
+    body.querySelector("#obRoleCoach").addEventListener("click", () => {
+      obTrackOnboardingEvent("onboarding_role_selected", {
+        selected_role: "coach", source_surface: "onboarding"
+      });
+      obWriteIntent("coach");
+      obStartCoachFlow();
     });
-    obWriteIntent("coach");
-    obStartCoachFlow();
-  });
+  }
 }
 
 /* ─── Restore progress bar + footer after role choice ─── */
