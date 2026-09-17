@@ -198,13 +198,15 @@ section("14. Legal footer links use real existing routes");
 {
   t('footer links to the real existing "/privacy" route', /<a href="\/privacy">Privacy Policy<\/a>/.test(preview));
   t('footer links to the real existing "/support" route', /<a href="\/support">Support/.test(preview));
+  t('footer links to the real existing "/terms" route', /<a href="\/terms">Terms of Service<\/a>/.test(preview));
   t("/privacy is a real rewrite in vercel.json",
     vercel.rewrites.some(r => r.source === "/privacy" && r.destination === "/index.html"));
   t("/support is a real rewrite in vercel.json",
     vercel.rewrites.some(r => r.source === "/support" && r.destination === "/index.html"));
-  t("Terms is left inactive (no standalone public /terms route exists in this codebase today)",
-    /class="inactive">Terms/.test(preview) &&
-    !vercel.rewrites.some(r => r.source === "/terms"));
+  t("/terms is a real rewrite in vercel.json",
+    vercel.rewrites.some(r => r.source === "/terms" && r.destination === "/index.html"));
+  t("no leftover inactive Terms placeholder in the footer",
+    !/class="inactive">Terms/.test(preview));
 }
 
 /* ── 15. No fabricated testimonials / user counts ────────────────────── */

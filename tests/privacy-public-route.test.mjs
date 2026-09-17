@@ -74,7 +74,7 @@ publicRuntime.context.window.closeLegal();
 assert.deepEqual(publicRuntime.assigned, ["/"]);
 
 const unrelatedRuntime = loadLegalRuntime();
-assert.equal(await unrelatedRuntime.context.window.openPublicLegalRoute("/terms"), false);
+assert.equal(await unrelatedRuntime.context.window.openPublicLegalRoute("/some-unknown-path"), false);
 assert.deepEqual(unrelatedRuntime.shown, []);
 assert.deepEqual(unrelatedRuntime.fetched, []);
 

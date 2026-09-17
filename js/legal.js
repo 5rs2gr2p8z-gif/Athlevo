@@ -237,6 +237,23 @@ async function openPublicLegalRoute(pathname) {
     return true;
   }
 
+  if (normalizedPath === "/terms") {
+    legalPublicRoute = true;
+    legalReturnScreen = "screen-landing";
+    document.body.classList.add("public-legal-active");
+    document.title = "Terms of Service — Athlevo";
+
+    if (typeof showScreen === "function") {
+      showScreen(LEGAL_DOCS.terms.screen);
+    }
+
+    const screenEl = document.getElementById(LEGAL_DOCS.terms.screen);
+    if (screenEl) screenEl.scrollTop = 0;
+
+    await loadLegalDoc("terms");
+    return true;
+  }
+
   return false;
 }
 

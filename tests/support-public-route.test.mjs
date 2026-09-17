@@ -82,7 +82,7 @@ assert.deepEqual(rt.assigned, ["/"], "closeLegal should redirect to /");
 const privRt = loadLegalRuntime();
 assert.equal(await privRt.context.window.openPublicLegalRoute("/privacy"), true);
 const otherRt = loadLegalRuntime();
-assert.equal(await otherRt.context.window.openPublicLegalRoute("/terms"), false);
+assert.equal(await otherRt.context.window.openPublicLegalRoute("/some-unknown-path"), false);
 assert.equal(await otherRt.context.window.openPublicLegalRoute("/"), false);
 assert.deepEqual(otherRt.shown, []);
 

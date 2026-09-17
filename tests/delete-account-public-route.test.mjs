@@ -95,7 +95,7 @@ assert.deepEqual(privRt.shown, ["screen-privacy"]);
 
 /* ── 5. Unrelated routes still return false ── */
 const otherRt = loadLegalRuntime();
-assert.equal(await otherRt.context.window.openPublicLegalRoute("/terms"), false);
+assert.equal(await otherRt.context.window.openPublicLegalRoute("/some-unknown-path"), false);
 assert.equal(await otherRt.context.window.openPublicLegalRoute("/"), false);
 assert.deepEqual(otherRt.shown, []);
 
