@@ -4923,7 +4923,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <p class="w-continue-note" id="wWelcomeBack">Welcome back. Sign in to continue.</p>
   </div>
   <div class="w-btns">
-    <button class="w-btn apple" id="authBtnApple" onclick="continueWithApple()">
+    <button class="w-btn apple" id="authBtnApple" onclick="continueWithApple()" style="display:none" aria-hidden="true">
       <span class="w-btn-icon"><svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.94 11.58c-.02-2.17 1.77-3.21 1.85-3.26-1.01-1.47-2.57-1.67-3.13-1.7-1.33-.13-2.6.79-3.27.79-.68 0-1.72-.77-2.83-.75-1.46.02-2.8.85-3.55 2.15-1.52 2.63-.39 6.52 1.09 8.66.72 1.05 1.58 2.22 2.72 2.18 1.09-.04 1.5-.71 2.82-.71 1.31 0 1.68.71 2.83.69 1.17-.02 1.92-1.06 2.63-2.11.83-1.21 1.17-2.39 1.19-2.45-.03-.01-2.28-.87-2.35-3.49zM12.78 4.87c.6-.73 1.01-1.73.9-2.74-.87.04-1.92.58-2.54 1.3-.56.64-1.05 1.68-.92 2.66.97.08 1.96-.49 2.56-1.22z" fill="#fff"/></svg></span>
       Continue with Apple
     </button>
@@ -13549,8 +13549,12 @@ setTimeout(function () {
   }
 
   // Only offer a provider that is actually configured. A button that fails
-  // the instant it is pressed is worse than no button at all. Apple is
-  // visibleWhenDisabled (coming-soon UI) — see PROVIDERS in socialAuth.js.
+  // the instant it is pressed is worse than no button at all. Apple stays
+  // hidden statically (style="display:none" on #authBtnApple, App Store
+  // readiness audit Section K/L) AND via PROVIDERS.apple in socialAuth.js —
+  // belt-and-suspenders so a JS load hiccup can never leave a tappable
+  // "coming soon" Apple button on screen. Flip both only once Sign in with
+  // Apple is actually implemented.
   if (window.AthlevoSocialAuth) AthlevoSocialAuth.applyProviderVisibility();
 
   async function initializeAthlevoApp() {
