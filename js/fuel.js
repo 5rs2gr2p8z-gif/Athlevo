@@ -134,7 +134,9 @@
 
   /*
    * Activity energy from RECORDED ACTIVITIES only. The one verified source is
-   * activities.raw_data.calories_kcal (written by the Intervals.icu importer).
+   * activities.raw_data.calories_kcal (written by the wearable normalizer for
+   * Strava, Garmin-style and Intervals.icu imports when the provider reports it).
+   * Superseded duplicates are skipped; planned sessions are a different table.
    * Returns null when no activity that day carries it — the UI then shows the
    * honest "not available" state. This is never a daily-burn / TDEE figure.
    */
@@ -145,6 +147,9 @@
       var d = new Date(a.start_date);
       if (isNaN(d.getTime()) || localDateKey(d) !== dayKey) return;
       var raw = a.raw_data && typeof a.raw_data === "object" ? a.raw_data : null;
+      // Cross-provider duplicates are flagged raw_data.superseded by the sync
+      // layer (the canonical copy is kept). Never count the same workout twice.
+      if (raw && raw.superseded === true) return;
       var kcal = raw ? num(raw.calories_kcal) : 0;
       if (kcal > 0) { total += kcal; count += 1; }
     });
@@ -157,6 +162,23 @@
     if (h >= 11 && h < 15) return "lunch";
     if (h >= 17 && h < 22) return "dinner";
     return "snack";
+  }
+
+  /* Idempotency key for a NEW-meal draft: a retry/double-submit of the same
+   * draft carries the same key, so the server returns the existing meal. */
+  function newClientId() {
+    try {
+      var c = (typeof crypto !== "undefined" && crypto) || (typeof globalThis !== "undefined" && globalThis.crypto);
+      if (c && typeof c.randomUUID === "function") return c.randomUUID();
+      if (c && typeof c.getRandomValues === "function") {
+        var b = new Uint8Array(16); c.getRandomValues(b);
+        b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+        var h = Array.prototype.map.call(b, function (x) { return (x < 16 ? "0" : "") + x.toString(16); }).join("");
+        return h.slice(0, 8) + "-" + h.slice(8, 12) + "-" + h.slice(12, 16) + "-" + h.slice(16, 20) + "-" + h.slice(20);
+      }
+    } catch (e) { /* fall through */ }
+    var t = function (n) { var o = ""; for (var i = 0; i < n; i++) o += Math.floor(Math.random() * 16).toString(16); return o; };
+    return t(8) + "-" + t(4) + "-4" + t(3) + "-a" + t(3) + "-" + t(12);
   }
 
   function emptyItem() {
@@ -173,7 +195,7 @@
       };
     });
     return {
-      mode: "items", source: "ai_photo", mealId: null,
+      mode: "items", source: "ai_photo", mealId: null, clientId: newClientId(),
       name: suggestion.meal_name || "", mealType: defaultMealType(now), note: note || "",
       localDate: todayKey, items: items,
       totals: { calories: 0, carbs_g: 0, protein_g: 0, fat_g: 0 },
@@ -198,6 +220,7 @@
       mode: items.length ? "items" : "quick",
       source: editing ? meal.source : "repeated",
       mealId: editing ? meal.id : null,
+      clientId: editing ? null : newClientId(),
       name: meal.meal_name || "",
       mealType: editing ? (meal.meal_type || "") : defaultMealType(now),
       note: editing ? (meal.note || "") : "",
@@ -244,6 +267,7 @@
       note: String(draft.note || "").trim() || null
     };
     if (draft.mealId) payload.id = draft.mealId;
+    else if (draft.clientId) payload.client_id = draft.clientId;
     if (draft.mode === "items") {
       payload.items = draft.items.map(function (it) {
         return {
@@ -278,7 +302,7 @@
     if (code === "AI_CONSENT_REQUIRED") return "Photo analysis is turned off. You can turn AI features on in Settings, or add the meal manually.";
     if (code === "AUTH_REQUIRED") return "Please sign in again to continue.";
     if (code === "RATE_LIMITED") return "You've reached the limit for now. Please try again in a little while, or add the meal manually.";
-    if (code === "UNSUPPORTED_IMAGE_TYPE") return "That photo format isn't supported. Try a JPEG or PNG.";
+    if (code === "UNSUPPORTED_IMAGE_TYPE") return "That photo couldn't be opened. Try a JPEG or PNG, or take the photo with your camera.";
     if (code === "IMAGE_TOO_LARGE") return "That photo is too large. Try a smaller one.";
     if (code === "INVALID_IMAGE") return "We couldn't read that photo. Try another one.";
     if (code === "ANALYSIS_TIMEOUT") return "The analysis is taking longer than usual. Try again, or add the meal manually.";
@@ -297,7 +321,7 @@
     defaultMealType: defaultMealType, draftFromSuggestion: draftFromSuggestion,
     draftFromMeal: draftFromMeal, draftTotals: draftTotals, validateDraft: validateDraft,
     buildPayload: buildPayload, parseField: parseField, describeError: describeError,
-    emptyItem: emptyItem
+    emptyItem: emptyItem, newClientId: newClientId, pickTraining: pickTraining, setPath: setPath
   };
 
   // Pure helpers are reachable without a DOM (unit tests load this file in a
@@ -434,17 +458,19 @@
   /* Real planned training only: today's session, else tomorrow's. */
   function pickTraining(sessions, today, tomorrow) {
     var byDay = function (d) {
-      return (sessions || []).filter(function (s) { return s && s.session_date === d; })[0] || null;
+      return (sessions || []).filter(function (s) { return s && s.session_date === d; });
     };
-    var s = byDay(today), label = "Today's training";
-    if (!s) { s = byDay(tomorrow); label = "Tomorrow"; }
-    if (!s) return null;
+    var list = byDay(today), label = "Today's training";
+    if (!list.length) { list = byDay(tomorrow); label = "Tomorrow"; }
+    if (!list.length) return null;
+    var s = list[0];
     var type = String(s.session_type || "").replace(/[_-]+/g, " ");
     var title = (s.title && String(s.title).trim()) || type.replace(/\b\w/g, function (ch) { return ch.toUpperCase(); });
     if (!title) return null;
     var bits = [];
     if (num(s.distance_km) > 0) bits.push(num(s.distance_km) + " km");
     else if (num(s.duration_minutes) > 0) bits.push(Math.round(num(s.duration_minutes)) + " min");
+    if (list.length > 1) bits.push("+" + (list.length - 1) + " more session" + (list.length > 2 ? "s" : ""));
     return { label: label, title: title, detail: bits.join(" · "), isToday: label === "Today's training" };
   }
 
@@ -476,7 +502,7 @@
       (logged
         ? '<div class="fuel-intake"><span class="fuel-intake-val">' + esc(fmtInt(t.calories)) + "</span><span class=\"fuel-intake-unit\"> kcal</span></div>" +
           '<div class="fuel-macros" role="group" aria-label="Macros from logged meals">' +
-            macroCell("Carbohydrate", t.carbs_g) + macroCell("Protein", t.protein_g) + macroCell("Fat", t.fat_g) + "</div>"
+            macroCell("Carbs", t.carbs_g) + macroCell("Protein", t.protein_g) + macroCell("Fat", t.fat_g) + "</div>"
         : '<div class="fuel-intake"><span class="fuel-intake-none">No logged meals yet today</span></div>') +
       '<p class="fuel-note">Based on meals you\'ve logged.' +
         (meals.some(function (m) { return m.source === "ai_photo"; }) ? " Photo estimates you reviewed are included." : "") + "</p></article>";
@@ -579,7 +605,7 @@
     }).join("");
     return '<section class="fuel-section" aria-labelledby="fuelGoalLbl"><h2 class="fuel-h2" id="fuelGoalLbl">Your focus <span class="fuel-optional">Optional</span></h2>' +
       '<div class="seg fuel-seg fuel-seg--goal" role="group" aria-label="Focus">' + chips + "</div>" +
-      '<p class="fuel-note">Athlevo never sets a calorie deficit or a target for you. Tap your choice again to clear it.</p></section>';
+      '<p class="fuel-note">Athlevo doesn’t set calorie targets for you. Tap your choice again to clear it.</p></section>';
   }
 
   function emptyHtml() {
@@ -876,7 +902,7 @@
     return '<h2 class="fuel-sheet-h" id="fuelSheetTitle" tabindex="-1">' + esc(m.meal_name) + "</h2>" +
       '<p class="fuel-sheet-sub">' + esc(mealTypeLabel(m)) + " · " + esc(src) + "</p>" +
       '<div class="fuel-card fuel-card--flat"><div class="fuel-intake"><span class="fuel-intake-val">' + esc(fmtInt(m.calories)) + '</span><span class="fuel-intake-unit"> kcal</span></div>' +
-      '<div class="fuel-macros">' + macroCell("Carbohydrate", m.carbs_g) + macroCell("Protein", m.protein_g) + macroCell("Fat", m.fat_g) + "</div></div>" +
+      '<div class="fuel-macros">' + macroCell("Carbs", m.carbs_g) + macroCell("Protein", m.protein_g) + macroCell("Fat", m.fat_g) + "</div></div>" +
       (items.length ? '<ul class="fuel-detail-items">' + items.map(function (it) {
         var qty = it.quantity != null ? num(it.quantity) + (it.unit ? " " + it.unit : "") : (it.grams != null ? num(it.grams) + " g" : "");
         return "<li><span>" + esc(it.name) + (qty ? '<small> · ' + esc(qty) + "</small>" : "") + "</span><span>" + esc(fmtKcal(it.calories)) + "</span></li>";
@@ -920,7 +946,7 @@
   function startManual(fromNote) {
     var now = new Date();
     state.draft = {
-      mode: "quick", source: "manual", mealId: null, name: "", mealType: defaultMealType(now),
+      mode: "quick", source: "manual", mealId: null, clientId: newClientId(), name: "", mealType: defaultMealType(now),
       note: fromNote || "", localDate: localDateKey(now), items: [],
       totals: { calories: 0, carbs_g: 0, protein_g: 0, fat_g: 0 }, assumptions: [], uncertainties: []
     };
@@ -963,6 +989,12 @@
   }
 
   async function analyze() {
+    if (state.analyzing) return;          // double tap / repeated Enter / slow consent
+    state.analyzing = true;
+    try { await analyzeOnce(); } finally { state.analyzing = false; }
+  }
+
+  async function analyzeOnce() {
     if (!state.photo) return;
     var note = readNote();
     // Shared AI-consent gate (js/aiConsent.js). Declining leaves manual logging fully available.

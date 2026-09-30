@@ -125,7 +125,7 @@ section("getAiConsentStatus / requireAiConsent — pure unit tests");
   sendAiConsentRequired(unavailableRes, { reason: "unavailable" });
   test("sendAiConsentRequired uses 503 for infra unavailability", unavailableRes.statusCode === 503);
 
-  test("AI_CONSENT_VERSION is a simple stable string", AI_CONSENT_VERSION === "1");
+  test("AI_CONSENT_VERSION is a simple stable string", AI_CONSENT_VERSION === "2");
 }
 
 /* ═══════════════════ api/coach.js — authenticated gate ═══════════════════ */

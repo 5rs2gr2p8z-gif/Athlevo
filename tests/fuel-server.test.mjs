@@ -259,7 +259,8 @@ section("analyze-meal — AI consent gate (real gate, Supabase mocked)");
     ["no consent row", null, false],
     ["denied", { status: "denied", consent_version: "1" }, false],
     ["withdrawn", { status: "withdrawn", consent_version: "1" }, false],
-    ["granted", { status: "granted", consent_version: "1" }, true]
+    ["granted under the older v1 disclosure (must re-consent for photo analysis)", { status: "granted", consent_version: "1" }, false],
+    ["granted (current version)", { status: "granted", consent_version: "2" }, true]
   ]) {
     await withConsentRow(row, async () => {
       const opened = [];

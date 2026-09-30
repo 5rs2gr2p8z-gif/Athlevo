@@ -141,8 +141,13 @@ section("6. Routes unchanged");
     t(`${p} still rewrites to /index.html`, rw(p)?.destination === "/index.html");
   t("/landing-preview still rewrites to landing-preview.html", rw("/landing-preview")?.destination === "/landing-preview.html");
   t('"/" is NOT rewritten (landing not activated)', !rw("/") && !(vercel.redirects || []).some(r => r.source === "/"));
-  t("index.html byte-for-byte unchanged (/ai and app untouched)",
-    createHash("sha256").update(indexHtml).digest("hex") === "70e390e9d7bae93383bf69b65e12208564131dfabd3fdbb9e5ed92864af17e11");
+  // Narrow invariants instead of a whole-file hash: legitimate app UI additions (e.g. Fuel) must not read as routing regressions.
+  t("index.html still routes /ai (and root) to the anonymous Coach entry",
+    /aiPath === "\/ai" \|\| aiPath === "" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"/.test(indexHtml));
+  t("index.html never references the landing preview or the APK download (landing/APK stay isolated from the app shell)",
+    !/landing-preview/.test(indexHtml) && !/download\/android|\.apk\b/i.test(indexHtml));
+  t("index.html public-legal route check runs before session restore (privacy/terms/support stay public)",
+    (() => { const a = indexHtml.indexOf("await window.openPublicLegalRoute(url.pathname)"); const b = indexHtml.indexOf("restoreSession(", a); return a > 0 && b > a; })());
   t("activation proposal is documented, not applied",
     existsSync("./docs/landing-activation-proposal.md") && /NOT applied/.test(readFileSync("./docs/landing-activation-proposal.md", "utf8")));
   t("/api and function count untouched (no new function files)", !existsSync("./api/download") && !existsSync("./api/download.js"));

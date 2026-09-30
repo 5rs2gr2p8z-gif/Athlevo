@@ -93,9 +93,9 @@ function fnBody(name) {
   }
   return "";
 }
-const analyzeBody = fnBody("analyze");
-test("analyze() exists and never hits /api/fuel/meals", analyzeBody.length > 0 && !/fuel\/meals/.test(analyzeBody));
-test("analyze() gates on AI consent", /AthlevoAiConsent\.ensure/.test(analyzeBody));
+const analyzeBody = fnBody("analyzeOnce");
+test("analyze flow exists and never hits /api/fuel/meals", analyzeBody.length > 0 && !/fuel\/meals/.test(analyzeBody));
+test("analyze flow gates on AI consent", /AthlevoAiConsent\.ensure/.test(analyzeBody));
 test("AI consent used only in analyze()", (src.match(/AthlevoAiConsent\.ensure/g) || []).length === 1);
 test("startManual does not touch consent", !/Consent/.test(fnBody("startManual")));
 const meal_calls = (src.match(/\/api\/fuel\/meals/g) || []).length;

@@ -29,7 +29,10 @@
 (function (root) {
   "use strict";
 
-  var CONSENT_VERSION = "1";
+  /* Bump when the disclosure materially changes. A "granted" record written
+   under an older version is treated as not-yet-granted by ensure(), so the
+   athlete sees the updated disclosure once. v2: adds optional Fuel meal-photo analysis. */
+  var CONSENT_VERSION = "2";
   var ANON_STORAGE_KEY = "athlevo_ai_consent_v1";
   var TABLE = "ai_consent";
 
@@ -173,7 +176,7 @@
     var userId = opts.userId || root.athlevoSessionUserId;
     if (!userId) return false;
     var record = await readAuthenticatedStatus(userId);
-    if (record && record.status === "granted") return true;
+    if (record && record.status === "granted" && record.version === CONSENT_VERSION) return true;
 
     var granted = await showModal(source);
     if (!granted) return false;
