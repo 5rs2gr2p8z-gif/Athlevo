@@ -105,7 +105,7 @@ section("Cache activation");
   stores.set("unrelated-library-cache", new Map());
   await dispatchLifecycle("activate");
 
-  test("cache version was bumped to v87", currentCacheName === "athlevo-shell-v87");
+  test("cache version was bumped to v89", currentCacheName === "athlevo-shell-v89");
   test("every old Athlevo cache is deleted",
     deletedCaches.includes("athlevo-shell-v12") &&
     deletedCaches.includes("athlevo-runtime-v4"));
@@ -135,6 +135,18 @@ section("Navigation is network-first");
     fetchOptions && fetchOptions.cache === "no-store");
   test("successful navigation refreshes the offline shell",
     await current.get("/index.html").text() === "CURRENT NETWORK HTML");
+
+  fetchImpl = async () => new FakeResponse("STORE HTML");
+  const beforeStore = await current.get("/index.html").text();
+  const storeResponse = await dispatchFetch({
+    method: "GET",
+    mode: "navigate",
+    url: "https://app.test/store/first-5k"
+  });
+  test("store navigation returns the store document",
+    await storeResponse.text() === "STORE HTML");
+  test("store navigation does not overwrite the app shell cache",
+    await current.get("/index.html").text() === beforeStore);
 }
 
 section("Offline fallback cannot cross into an old cache");

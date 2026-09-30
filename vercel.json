@@ -78,6 +78,14 @@
     {
       "source": "/landing-preview",
       "destination": "/landing-preview.html"
+    },
+    {
+      "source": "/store",
+      "destination": "/store.html"
+    },
+    {
+      "source": "/store/:slug",
+      "destination": "/store.html"
     }
   ]
 }

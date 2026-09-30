@@ -18,7 +18,9 @@
     "ios:run": "npm run ios:prepare && cap run ios",
     "android:apk:wire": "node scripts/wire-android-apk.mjs",
     "android:release-check": "node scripts/wire-android-apk.mjs --check",
-    "test:native": "node tests/native-ios-runtime.test.mjs && node tests/native-build-readiness.test.mjs"
+    "test:native": "node tests/native-ios-runtime.test.mjs && node tests/native-build-readiness.test.mjs",
+    "preview": "node scripts/serve-web.mjs",
+    "test:store": "node tests/store-route.test.mjs"
   },
   "dependencies": {
     "@capacitor/app": "8.1.1",

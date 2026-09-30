@@ -18,7 +18,7 @@
  */
 
 const ATHLEVO_CACHE_PREFIX = "athlevo-";
-const CACHE_VERSION = "athlevo-shell-v88";
+const CACHE_VERSION = "athlevo-shell-v89";
 const SHELL = [
   "/",
   "/index.html",
@@ -87,20 +87,24 @@ self.addEventListener("fetch", event => {
    * navigation so the offline copy can't drift far behind.
    */
   if (request.mode === "navigate") {
+    const navPath = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
+    const isAppShellNav = navPath === "/" || navPath === "/index.html" ||
+      !/^\/(store|landing-preview)(\/|$)/.test(navPath);
     event.respondWith(
       fetch(request, { cache: "no-store" }).then(response => {
-        if (response && response.ok) {
+        if (response && response.ok && isAppShellNav) {
           const copy = response.clone();
           event.waitUntil(
             caches.open(CACHE_VERSION).then(cache => cache.put("/index.html", copy))
           );
         }
         return response;
-      }).catch(() =>
-        caches.open(CACHE_VERSION).then(cache =>
+      }).catch(() => {
+        if (!isAppShellNav) return Promise.resolve(undefined);
+        return caches.open(CACHE_VERSION).then(cache =>
           cache.match("/index.html").then(r => r || cache.match("/"))
-        )
-      )
+        );
+      })
     );
     return;
   }
