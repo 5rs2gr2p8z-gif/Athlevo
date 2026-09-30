@@ -3,7 +3,7 @@
  *
  * Run: node tests/store-route.test.mjs
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
 import vm from "node:vm";
 
 let pass = 0, fail = 0;
@@ -126,6 +126,31 @@ section("6. App shell and service worker isolation");
     /\/\(store\|landing-preview\)/.test(sw));
   t("typography uses the project serif and warm paper",
     /Fraunces/.test(storeHtml) && /--paper: #f6f4ef/.test(css) && /--red: #c0272d/.test(css));
+}
+
+section("7. Responsive storefront images");
+{
+  const heroWebp = statSync("./assets/store/training-1206.webp").size;
+  t("catalog photos keep original sources on disk",
+    existsSync("./assets/landing/athlete-philosophy-training.png") &&
+    existsSync("./assets/landing/hero-athlevo.png") &&
+    existsSync("./assets/landing/dean-founder.png"));
+  t("derived store photos are WebP/AVIF under assets/store",
+    catalog.hero.image.src.startsWith("/assets/store/") &&
+    catalog.hero.image.webp.length === 2 &&
+    catalog.hero.image.avif.length === 2);
+  t("desktop hero WebP is under 500KB", heroWebp < 500 * 1024, String(heroWebp));
+  t("storefront renders picture/srcset with reserved width and height",
+    /createElement\("picture"\)/.test(storefrontSrc) &&
+    /srcset/.test(storefrontSrc) &&
+    /node\.width = photo\.width/.test(storefrontSrc));
+  t("catalog hero is eager and not lazy-loaded",
+    /eager:\s*true,\s*sizes:\s*SIZES\.hero/.test(storefrontSrc) &&
+    storefrontSrc.indexOf("picture(catalog.hero.image, { eager: true") >= 0);
+  t("below-the-fold catalog photos use lazy loading",
+    /picture\(collection\.image/.test(storefrontSrc) &&
+    /picture\(product\.hero, \{ sizes: SIZES\.card \}\)/.test(storefrontSrc) &&
+    !/picture\(collection\.image[\s\S]{0,40}eager:\s*true/.test(storefrontSrc));
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

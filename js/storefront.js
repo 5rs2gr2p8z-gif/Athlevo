@@ -17,13 +17,44 @@
     return el;
   }
 
-  function img(photo, className) {
+  var SIZES = {
+    hero: "100vw",
+    collection: "(min-width: 981px) 25vw, (min-width: 641px) 50vw, 100vw",
+    card: "(min-width: 981px) 33vw, (min-width: 641px) 50vw, 92vw",
+    story: "(min-width: 981px) 48vw, 92vw",
+    pdp: "(min-width: 981px) min(720px, 58vw), 92vw"
+  };
+
+  function picture(photo, opts) {
+    opts = opts || {};
+    var pic = document.createElement("picture");
+    var sizes = opts.sizes || "100vw";
+    function addSource(type, variants) {
+      if (!variants || !variants.length) return;
+      var source = document.createElement("source");
+      source.type = type;
+      source.sizes = sizes;
+      source.srcset = variants.map(function (item) {
+        return item.src + " " + item.w + "w";
+      }).join(", ");
+      pic.appendChild(source);
+    }
+    addSource("image/avif", photo.avif);
+    addSource("image/webp", photo.webp);
     var node = document.createElement("img");
     node.src = photo.src;
     node.alt = photo.alt || "";
+    if (photo.width) node.width = photo.width;
+    if (photo.height) node.height = photo.height;
     node.decoding = "async";
-    if (className) node.className = className;
-    return node;
+    if (opts.eager) {
+      node.loading = "eager";
+      node.fetchPriority = "high";
+    } else {
+      node.loading = "lazy";
+    }
+    pic.appendChild(node);
+    return pic;
   }
 
   function parseRoute() {
@@ -90,9 +121,7 @@
     var a = $("a", className || "product-card");
     a.href = productHref(product.slug);
     var figure = $("figure");
-    var photo = img(product.hero);
-    photo.loading = "lazy";
-    figure.appendChild(photo);
+    figure.appendChild(picture(product.hero, { sizes: SIZES.card }));
     a.appendChild(figure);
     a.appendChild($("h3", "", product.name));
     a.appendChild($("p", "product-meta", product.durationLabel + " · " + product.intendedRunner));
@@ -124,10 +153,7 @@
 
     var hero = $("section", "hero");
     hero.setAttribute("aria-labelledby", "store-hero-heading");
-    var heroImg = img(catalog.hero.image);
-    heroImg.loading = "eager";
-    heroImg.fetchPriority = "high";
-    hero.appendChild(heroImg);
+    hero.appendChild(picture(catalog.hero.image, { eager: true, sizes: SIZES.hero }));
     var copy = $("div", "hero-copy");
     copy.appendChild($("h1", "", catalog.hero.headline)).id = "store-hero-heading";
     copy.appendChild($("p", "", catalog.hero.lede));
@@ -147,7 +173,7 @@
     catalog.collections.forEach(function (collection) {
       var tile = $("a", "collection-tile");
       tile.href = catalogHref(collection.id);
-      tile.appendChild(img(collection.image));
+      tile.appendChild(picture(collection.image, { sizes: SIZES.collection }));
       tile.appendChild($("span", "", collection.name));
       tile.addEventListener("click", function (event) {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
@@ -210,9 +236,7 @@
     sCopy.appendChild($("h2", "", catalog.personalization.title)).id = "personalization-heading";
     sCopy.appendChild($("p", "lede", catalog.personalization.body));
     var sFig = $("figure");
-    var sImg = img(catalog.hero.image);
-    sImg.loading = "lazy";
-    sFig.appendChild(sImg);
+    sFig.appendChild(picture(catalog.hero.image, { sizes: SIZES.story }));
     sWrap.appendChild(sCopy);
     sWrap.appendChild(sFig);
     story.appendChild(sWrap);
@@ -260,10 +284,7 @@
     var page = $("article", "pdp wrap");
     var hero = $("div", "pdp-hero");
     var figure = $("figure");
-    var photo = img(product.hero);
-    photo.loading = "eager";
-    photo.fetchPriority = "high";
-    figure.appendChild(photo);
+    figure.appendChild(picture(product.hero, { eager: true, sizes: SIZES.pdp }));
     var copy = document.createElement("div");
     var crumb = $("p", "crumb");
     var back = $("a", "", "Programs");

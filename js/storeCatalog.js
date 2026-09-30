@@ -8,31 +8,51 @@
 (function storeCatalogModule(global) {
   "use strict";
 
+  function storePhoto(id, wide, height, original, alt) {
+    var prefix = "/assets/store/" + id + "-";
+    return {
+      original: original,
+      alt: alt,
+      width: wide,
+      height: height,
+      src: prefix + wide + ".webp",
+      webp: [
+        { src: prefix + "640.webp", w: 640 },
+        { src: prefix + wide + ".webp", w: wide }
+      ],
+      avif: [
+        { src: prefix + "640.avif", w: 640 },
+        { src: prefix + wide + ".avif", w: wide }
+      ]
+    };
+  }
+
   var PHOTO = {
-    pack: {
-      src: "/assets/landing/hero-athlevo.png",
-      alt: "Athlevo athletes gathered together after a training session."
-    },
-    training: {
-      src: "/assets/landing/athlete-philosophy-training.png",
-      alt: "A runner training on the road during an Athlevo session."
-    },
-    founder: {
-      src: "/assets/landing/dean-founder.png",
-      alt: "Dean Castro at an endurance race."
-    },
-    athlete: {
-      src: "/assets/testimonials/frances-patawaran.jpeg",
-      alt: "An Athlevo runner outdoors in race kit."
-    },
-    road: {
-      src: "/athlevo-assets/diagnostic%20proof/640393536_17877223146489492_4744442913120713853_n.jpg",
-      alt: "Runners moving together on an open road."
-    },
-    track: {
-      src: "/athlevo-assets/diagnostic%20proof/641749426_17877177045489492_4823496183798299753_n.jpg",
-      alt: "An athlete on the track during a workout."
-    }
+    pack: storePhoto(
+      "pack", 1206, 2622,
+      "/assets/landing/hero-athlevo.png",
+      "Athlevo athletes gathered together after a training session."
+    ),
+    training: storePhoto(
+      "training", 1206, 2622,
+      "/assets/landing/athlete-philosophy-training.png",
+      "A runner training on the road during an Athlevo session."
+    ),
+    founder: storePhoto(
+      "founder", 1145, 1374,
+      "/assets/landing/dean-founder.png",
+      "Dean Castro at an endurance race."
+    ),
+    road: storePhoto(
+      "road", 1280, 1707,
+      "/athlevo-assets/diagnostic%20proof/640393536_17877223146489492_4744442913120713853_n.jpg",
+      "Runners moving together on an open road."
+    ),
+    track: storePhoto(
+      "track", 1280, 1707,
+      "/athlevo-assets/diagnostic%20proof/641749426_17877177045489492_4823496183798299753_n.jpg",
+      "An athlete on the track during a workout."
+    )
   };
 
   var collections = [
