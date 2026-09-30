@@ -43,3 +43,6 @@ tests/
 
 # scratch artefact — delete before committing
 *.dbg
+
+# Direct-download release metadata / tooling notes are source-only.
+distribution/

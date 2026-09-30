@@ -112,8 +112,14 @@ section("6. No signup/login activation");
     !/sign\s*up|log\s*in|sign\s*in|create\s+your\s+free\s+account|start\s+free\s+trial/i.test(bodyMinusBanner));
   t("no references to live app auth functions (openSignup/openLogin/landingStartFree/etc.)",
     !/openSignup|openLogin|openAiSignup|landingStartFree|landingSignIn/.test(bodyOnly));
-  t("no href pointing at live acquisition routes (/ai, /signup, /ai-signup, /pricing)",
-    !/href="\/(ai|signup|ai-signup|pricing)"/.test(bodyOnly));
+  // Direct-download update: the iPhone-only state may link to the web app
+  // (/ai) as "Use Athlevo on the web". That single link is allowed; no other
+  // acquisition route may appear anywhere.
+  const bodyMinusIosState = bodyOnly.replace(/<div class="ios-state" data-ios-state hidden>[\s\S]*?<\/div>/, "");
+  t("no href pointing at live acquisition routes (/ai, /signup, /ai-signup, /pricing) outside the iPhone web-app link",
+    !/href="\/(ai|signup|ai-signup|pricing)"/.test(bodyMinusIosState));
+  t("the only /ai link is the iPhone-only \"Use Athlevo on the web\" link",
+    (bodyOnly.match(/href="\/ai"/g) || []).length === 1 && /href="\/ai">Use Athlevo on the web</.test(bodyOnly));
 }
 
 /* ── 7. No payment CTA ────────────────────────────────────────────────── */
@@ -145,28 +151,31 @@ section("9. No wearable connection activated");
     !/<(button|a)[^>]*>\s*Connect\b/i.test(bodyOnly));
 }
 
-/* ── 10. Hero CTA only scrolls ───────────────────────────────────────── */
-section("10. Hero CTA is scroll-only");
+/* ── 10. Hero CTA is the official Android download ─────────────────── */
+section("10. Hero CTA is the stable Android download link");
 {
   const ctaMatch = preview.match(/<a class="cta" href="([^"]+)"[^>]*>([^<]*)<\/a>/);
   t("hero CTA exists", !!ctaMatch);
-  t('hero CTA href is an in-page anchor ("#inside"), not an auth/signup destination',
-    !!ctaMatch && ctaMatch[1] === "#inside");
+  t('hero CTA href is the stable "/download/android" route (no auth/signup destination)',
+    !!ctaMatch && ctaMatch[1] === "/download/android");
   t("hero CTA has no onclick handler", !/<a class="cta"[^>]*onclick/.test(preview));
-  t('hero CTA label reads "See how it works"',
-    !!ctaMatch && /See how it works/.test(ctaMatch[2]));
+  t('hero CTA label reads "Download for Android"',
+    !!ctaMatch && /Download for Android/.test(ctaMatch[2]));
+  t('"See how it works" remains as a secondary in-page anchor to #inside',
+    /<a class="cta-link" href="#inside">See how it works/.test(preview));
 }
 
-/* ── 11. "Coming soon" status is noninteractive ──────────────────────── */
-section("11. Coming soon status is noninteractive");
+/* ── 11. iPhone status is noninteractive ─────────────────────────────── */
+section("11. iPhone coming-soon status is noninteractive");
 {
-  const pillMatches = [...preview.matchAll(/<span class="status-pill"[^>]*>[\s\S]*?Coming soon<\/span>/g)];
-  t("at least 2 non-interactive Coming soon status pills exist (nav + closing)",
-    pillMatches.length >= 2);
-  t("status pills are <span> elements, not <button> or <a>",
+  const pillMatches = [...preview.matchAll(/<span class="status-pill"[^>]*>[\s\S]*?iPhone version coming soon<\/span>/g)];
+  t("iPhone coming-soon status pill exists", pillMatches.length >= 1);
+  t("status pill is a <span>, not a <button> or <a>",
     pillMatches.every(m => !/<a\s|<button/.test(m[0])));
-  t("status pills carry role=\"status\" (no href/onclick)",
+  t("status pill carries role=\"status\" (no href/onclick)",
     pillMatches.every(m => /role="status"/.test(m[0]) && !/href=|onclick=/.test(m[0])));
+  t("closing download card also states iPhone version coming soon (role=status)",
+    /<div class="dl-ios" role="status">iPhone version coming soon\.<\/div>/.test(preview));
 }
 
 /* ── 12. Real screenshots render (or explicit placeholder) ──────────── */

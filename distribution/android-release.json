@@ -1,0 +1,27 @@
+{
+  "status": "pending-play-signed-apk",
+  "note": "PLACEHOLDER. Not uploaded. Filled in by scripts/wire-android-apk.mjs once the Play-signed universal APK is provided.",
+  "packageId": "org.athlevo.app",
+  "versionName": "1.0.0",
+  "versionCode": 6,
+  "versionCodeVerifiedAgainstPlayConsole": false,
+  "artifact": {
+    "fileName": "athlevo-android-v1.0.0.apk",
+    "source": "Google Play Console > App bundle explorer > Downloads > Signed, universal APK",
+    "sizeBytes": null,
+    "sha256": null
+  },
+  "signing": {
+    "scheme": "Play App Signing (app signing key, NOT the upload key)",
+    "certSha256": null,
+    "expectedCertSha256Source": "Play Console > Test and release > App integrity > App signing key certificate"
+  },
+  "hosting": {
+    "provider": "supabase-storage",
+    "bucket": "releases",
+    "bucketVisibility": "public",
+    "objectPath": "android/athlevo-android-v1.0.0.apk",
+    "publicUrl": "https://hqwdehqsllyvrcnlcytj.supabase.co/storage/v1/object/public/releases/android/athlevo-android-v1.0.0.apk?download=athlevo-android-v1.0.0.apk"
+  },
+  "stableUrl": "/download/android"
+}

@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/download/android",
+      "destination": "https://hqwdehqsllyvrcnlcytj.supabase.co/storage/v1/object/public/releases/android/athlevo-android-v1.0.0.apk?download=athlevo-android-v1.0.0.apk",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/ai",
