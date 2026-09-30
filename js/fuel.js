@@ -309,8 +309,11 @@
     if (code === "ANALYSIS_INVALID" || code === "ANALYSIS_FAILED" || code === "ANALYSIS_UNAVAILABLE") {
       return "We couldn't analyze that meal right now. Try again, or add it manually.";
     }
+    if (code === "HTTP_413" || code === "PAYLOAD_TOO_LARGE") {
+      return kind === "save" ? "That meal is too large to save. Try removing some items." : "That photo is too large. Try a smaller one.";
+    }
     if (code === "INVALID_MEAL" && err.message) return err.message;
-    if (kind === "save") return "We couldn't save that just now. What you entered is still here — please try again.";
+    if (kind === "save") return "We couldn’t save your meal. Your changes are still here — please try again.";
     return "Something went wrong. Please try again.";
   }
 
@@ -1260,7 +1263,7 @@
     // Always start from a clean slate so one athlete's meals are never shown to another
     // on a shared device, then load fresh.
     state.loaded = false; state.meals = []; state.training = null; state.energy = null;
-    state.energyChecked = false; state.status = ""; state.weeklyTracked = false;
+    state.energyChecked = false; state.status = ""; state.weeklyTracked = false; state.goalMode = null;
     if (typeof root.showScreen === "function") root.showScreen(SCREEN_ID);
     else {
       Array.prototype.forEach.call(doc.querySelectorAll(".screen"), function (s) { s.classList.remove("active"); });

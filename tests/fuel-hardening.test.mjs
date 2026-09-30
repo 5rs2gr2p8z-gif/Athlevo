@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { randomUUID } from "node:crypto";
 
+process.env.TZ = "Asia/Manila"; // day-boundary tests below assume a UTC+8 athlete
 process.env.SUPABASE_URL = "https://example.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-test";
 process.env.OPENAI_API_KEY = "openai-test";
@@ -229,6 +230,98 @@ section("Migration + native permissions");
   test("no photo-library / microphone permission added", !/NSPhotoLibraryUsageDescription|NSMicrophoneUsageDescription/.test(plist));
   test("Android: no CAMERA permission declared (capture goes through the system camera intent)", !/android\.permission\.CAMERA/.test(manifest));
   test("HEIC is not claimed as supported", !/heic\s+(is\s+)?supported/i.test(fuelSrc) && /couldn.t be opened/.test(fuelSrc));
+}
+
+/* ── QA-prep: consent second-ensure, timezone, precision, edge inputs, error copy ── */
+section("Consent v1→v2: no repeat prompt once granted");
+{
+  const t = loadConsent({ row: { status: "granted", consent_version: "1" } });
+  const p1 = t.C.ensure({ authenticated: true, source: "fuel_meal_analysis" });
+  await new Promise(r => setTimeout(r, 5)); t.handlers.c(); await p1;
+  const shownAfterFirst = t.shown();
+  const again = await t.C.ensure({ authenticated: true, source: "fuel_meal_analysis" });
+  test("after Continue (v2 saved) the next analysis does NOT show the prompt again", again === true && t.shown() === shownAfterFirst);
+  const failPersist = loadConsent({ row: { status: "granted", consent_version: "1" }, persistOk: false });
+  const pf = failPersist.C.ensure({ authenticated: true, source: "fuel_meal_analysis" });
+  await new Promise(r => setTimeout(r, 5)); failPersist.handlers.c();
+  test("if v2 cannot be saved, analysis is NOT allowed (never claim consent that isn't stored)", (await pf) === false);
+}
+
+section("Day boundaries (Asia/Manila, UTC+8)");
+{
+  const before = new Date("2026-09-30T15:50:00Z"); // 23:50 PHT, Sep 30
+  const after = new Date("2026-09-30T16:10:00Z");  // 00:10 PHT, Oct 1
+  test("23:50 PHT is still Sep 30 locally (although it is Sep 30 in UTC too)", H.localDateKey(before) === "2026-09-30");
+  test("00:10 PHT is Oct 1 locally even though UTC is still Sep 30", H.localDateKey(after) === "2026-10-01");
+  const meals = [
+    { local_date: H.localDateKey(before), logged_at: before.toISOString(), calories: 500, carbs_g: 1, protein_g: 1, fat_g: 1 },
+    { local_date: H.localDateKey(after), logged_at: after.toISOString(), calories: 300, carbs_g: 1, protein_g: 1, fat_g: 1 }
+  ];
+  test("Oct 1 view groups only the after-midnight meal (grouping uses local_date, never the UTC date of logged_at)",
+    H.mealsForDay(meals, "2026-10-01").length === 1 && H.mealsForDay(meals, "2026-10-01")[0].calories === 300);
+  test("Sep 30 keeps the pre-midnight meal", H.mealsForDay(meals, "2026-09-30").length === 1 && H.mealsForDay(meals, "2026-09-30")[0].calories === 500);
+  const wk = H.buildWeek(meals, "2026-10-01");
+  test("week view: Sep 30 = 500, Oct 1 = 300", wk[5].totals.calories === 500 && wk[6].totals.calories === 300);
+  const { validateMealPayload } = await import("../lib/server/fuelSchema.js");
+  const base = { source: "manual", meal_name: "x", calories: 1, carbs_g: 0, protein_g: 0, fat_g: 0 };
+  const utcLate = new Date("2026-09-30T23:30:00Z"); // 07:30 PHT Oct 1
+  test("server accepts the athlete's local date when it is a day ahead of UTC (PHT morning)", validateMealPayload({ ...base, local_date: "2026-10-01" }, { now: utcLate }).ok === true);
+  test("server still rejects dates 2+ days ahead", validateMealPayload({ ...base, local_date: "2026-10-02" }, { now: utcLate }).ok === false);
+  test("timestamps stay canonical: DB logged_at is timestamptz set server-side, grouping column is local_date", /logged_at timestamptz not null default now\(\)/.test(sql) && /local_date date not null/.test(sql));
+  test("draft date is the LOCAL day at creation", H.draftFromSuggestion({ meal_name: "x", items: [] }, "", H.localDateKey(before), before).localDate === "2026-09-30");
+}
+
+section("Number display precision");
+{
+  test("whole kcal / whole grams in display", H.fmtKcal(623.7) === "624 kcal" && H.fmtInt(37.428571) === "37");
+  const code = fuelSrc;
+  test("no toFixed / raw float rendering of macros in the UI", !/toFixed\(/.test(code));
+  const d = { mode: "quick", source: "manual", mealId: null, clientId: H.newClientId(), name: "x", mealType: "", note: "", localDate: "2026-09-30", items: [], totals: { calories: 400, carbs_g: 37.428571, protein_g: 20.25, fat_g: 10.05 } };
+  const { validateMealPayload } = await import("../lib/server/fuelSchema.js");
+  const v = validateMealPayload(H.buildPayload(d), { now: new Date("2026-09-30T04:00:00Z") });
+  test("server stores at most one decimal (37.428571 -> 37.4)", v.ok && v.value.meal.carbs_g === 37.4 && [20.2, 20.3].includes(v.value.meal.protein_g));
+  test("summed totals do not show float noise (0.1+0.2)", H.sumTotals([{ calories: 0.1 }, { calories: 0.2 }]).calories === 0.3);
+}
+
+section("Malicious / oversized input fails safely");
+{
+  const { validateMealPayload, validateImagePayload, FUEL_LIMITS } = await import("../lib/server/fuelSchema.js");
+  const now = new Date("2026-09-30T04:00:00Z");
+  const mk = extra => ({ source: "manual", local_date: "2026-09-30", meal_name: "x", calories: 1, carbs_g: 0, protein_g: 0, fat_g: 0, ...extra });
+  const item = extra => ({ name: "Rice", calories: 1, carbs_g: 0, protein_g: 0, fat_g: 0, ...extra });
+  test("empty image data rejected", validateImagePayload({ mime: "image/jpeg", data: "" }).ok === false);
+  test("Infinity via JSON (1e999) rejected", validateMealPayload(JSON.parse('{"source":"manual","local_date":"2026-09-30","meal_name":"x","calories":1e999,"carbs_g":0,"protein_g":0,"fat_g":0}'), { now }).ok === false);
+  test("huge calories rejected", validateMealPayload(mk({ calories: 1e9 }), { now }).ok === false);
+  test("huge macro rejected", validateMealPayload(mk({ protein_g: 99999 }), { now }).ok === false);
+  test("string 'NaN' / 'Infinity' rejected", validateMealPayload(mk({ calories: "NaN" }), { now }).ok === false && validateMealPayload(mk({ fat_g: "Infinity" }), { now }).ok === false);
+  test("exactly 30 items accepted, 31 rejected", validateMealPayload(mk({ calories: undefined, items: Array.from({ length: 30 }, () => item()) }), { now }).ok === true && validateMealPayload(mk({ items: Array.from({ length: 31 }, () => item()) }), { now }).ok === false);
+  const long = validateMealPayload(mk({ calories: undefined, items: [item({ name: "y".repeat(10000) })] }), { now });
+  test("very long food name is capped", long.ok && long.value.items[0].name.length <= FUEL_LIMITS.MAX_NAME_LEN);
+  test("negative quantity/grams rejected", validateMealPayload(mk({ calories: undefined, items: [item({ quantity: -1 })] }), { now }).ok === false && validateMealPayload(mk({ calories: undefined, items: [item({ grams: -5 })] }), { now }).ok === false);
+  // analyze endpoint: huge note is capped before it reaches the model; provider failure never leaks
+  const sof = Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, 3, 192, 5, 0, 0x03, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
+  const img = { mime: "image/jpeg", data: Buffer.concat([Buffer.from([0xff, 0xd8]), sof, Buffer.alloc(64, 1)]).toString("base64") };
+  const res = () => ({ statusCode: 0, body: null, status(c) { this.statusCode = c; return this; }, json(b) { this.body = b; return this; }, setHeader() {} });
+  let seenNote = null;
+  const h1 = createFuelHandlers({ now: () => now, verifyToken: async () => ({ ok: true, user: { id: "a" } }), requireAiConsent: async () => ({ allowed: true }), checkAiRateLimit: async () => ({ allowed: true }),
+    callOpenAI: async ({ note }) => { seenNote = note; return { output_text: JSON.stringify({ is_food_photo: true, meal_name: "x", items: [{ name: "Rice", quantity: null, unit: null, estimated_grams: null, calories: 200, carbs_g: 40, protein_g: 4, fat_g: 1, confidence: "low" }], assumptions: [], uncertainties: [] }) }; } });
+  let r = res(); await h1.analyzeMeal({ method: "POST", headers: { authorization: "Bearer t" }, body: { image: img, note: "n".repeat(50000) } }, r);
+  test("huge note is capped before reaching the model", r.statusCode === 200 && seenNote && seenNote.length <= FUEL_LIMITS.MAX_NOTE_LEN, String(seenNote && seenNote.length));
+  const origWarn = console.warn; console.warn = () => {};
+  const h2 = createFuelHandlers({ now: () => now, verifyToken: async () => ({ ok: true, user: { id: "a" } }), requireAiConsent: async () => ({ allowed: true }), checkAiRateLimit: async () => ({ allowed: true }),
+    callOpenAI: async () => { throw new Error("401 Incorrect API key sk-proj-SECRET at Object.<anonymous> (/var/task/x.js:1:1)"); } });
+  r = res(); await h2.analyzeMeal({ method: "POST", headers: { authorization: "Bearer t" }, body: { image: img } }, r);
+  const leak = JSON.stringify(r.body);
+  test("provider failure: friendly copy, no key/stack/provider text", r.statusCode === 502 && !/sk-|stack|Object\.|openai|\/var\/task|Incorrect/i.test(leak), leak);
+  const h3 = createFuelHandlers({ now: () => now, verifyToken: async () => ({ ok: true, user: { id: "a" } }),
+    db: { rpcSaveMeal: async () => { throw Object.assign(new Error('relation "fuel_meals" does not exist'), { code: "DB_ERROR" }); }, readMeal: async () => null, deleteMeal: async () => false } });
+  r = res(); await h3.meals({ method: "POST", headers: { authorization: "Bearer t" }, body: mk({}) }, r);
+  const leak2 = JSON.stringify(r.body);
+  test("DB failure: no SQL / relation names leak to the client", r.statusCode === 500 && !/relation|sql|fuel_meals|postgres|supabase/i.test(leak2), leak2);
+  console.warn = origWarn;
+  test("client describeError never echoes raw server/provider text", !/does not exist|sk-|stack/i.test(H.describeError({ code: "DB_ERROR", message: 'relation "fuel_meals" does not exist' }, "save")) && !/openai/i.test(H.describeError({ code: "ANALYSIS_FAILED", message: "OpenAI 500" })));
+  test("413 maps to human copy", /too large/i.test(H.describeError({ code: "HTTP_413" })) && /too large/i.test(H.describeError({ code: "PAYLOAD_TOO_LARGE" }, "save")));
+  test("save-failure copy says changes are kept", /Your changes are still here/.test(H.describeError({ code: "DB_ERROR" }, "save")));
 }
 
 section("Account deletion");
