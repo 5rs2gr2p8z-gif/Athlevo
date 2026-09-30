@@ -35,6 +35,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Athlevo uses the camera when you choose to photograph a meal for Fuel. Photos are used only to suggest an estimate you review, and Athlevo doesn't save them.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Athlevo uses your location to show local weather conditions for your training.</string>
 	<key>UILaunchStoryboardName</key>

@@ -37,6 +37,11 @@ api/coach-anonymous.js
 # remains for local/CORS tests.
 api/anonymous-handoff.js
 
+# Athlevo Fuel endpoints are rewritten to the provider gateway
+# (?action=fuel_analyze_meal | fuel_meals) so Fuel does not consume a 13th
+# Hobby slot. The thin api/fuel/*.js wrappers remain for local/CORS tests.
+api/fuel/
+
 # Not part of the deployed app.
 migrations/
 tests/

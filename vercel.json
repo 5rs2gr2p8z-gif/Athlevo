@@ -60,6 +60,14 @@
       "destination": "/api/providers?action=anonymous_handoff"
     },
     {
+      "source": "/api/fuel/analyze-meal",
+      "destination": "/api/providers?action=fuel_analyze_meal"
+    },
+    {
+      "source": "/api/fuel/meals",
+      "destination": "/api/providers?action=fuel_meals"
+    },
+    {
       "source": "/api/paymongo/webhook",
       "destination": "/api/whop/webhook?provider=paymongo"
     },

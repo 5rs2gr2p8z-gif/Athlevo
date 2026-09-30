@@ -32,6 +32,7 @@ import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
 import coachAnonymousHandler from "../../lib/server/coachAnonymousEndpoint.js";
 import anonymousHandoffHandler from "../../lib/server/anonymousHandoffEndpoint.js";
 import whopClaimHandler from "../../lib/server/whopClaimEndpoint.js";
+import { fuelAnalyzeMealHandler, fuelMealsHandler } from "../../lib/server/fuelEndpoint.js";
 // Beta analytics aggregation (admin_analytics action). Folded into this
 // gateway so the founder dashboard does not consume a separate Vercel
 // serverless slot — keeping the Whop webhook within the Hobby 12-fn limit.
@@ -132,6 +133,14 @@ import {
   STRAVA_STREAM_KEYS,
   INTERVALS_STREAM_TYPES
 } from "../../lib/server/activityStreams.js";
+
+/*
+ * Fuel photo analysis makes a vision-model call that can outlast the platform's
+ * default function timeout, so the gateway is given the same 60 s ceiling the
+ * other AI-backed functions already use (api/coach.js, api/training/generate-plan.js).
+ * Every other gateway action returns in well under a second and is unaffected.
+ */
+export const maxDuration = 60;
 
 /* ───────────────────────────── logging ──────────────────────────────── */
 
@@ -3812,6 +3821,9 @@ async function actionDeleteAccount(request, response) {
     "weekly_check_ins",
     "weekly_progress_summaries",
     "workout_execution_records",
+    // Athlevo Fuel — fuel_meal_items cascade from fuel_meals.
+    "fuel_meals",
+    "fuel_preferences",
   ];
 
   for (const table of userDataTables) {
@@ -3893,6 +3905,14 @@ export default async function handler(request, response) {
 
     if (action === "claim_pending_purchase") {
       return whopClaimHandler(request, response);
+    }
+
+    // Athlevo Fuel (folded in so Fuel does not consume a 13th Hobby slot).
+    if (action === "fuel_analyze_meal") {
+      return fuelAnalyzeMealHandler(request, response);
+    }
+    if (action === "fuel_meals") {
+      return fuelMealsHandler(request, response);
     }
 
     if (action === "delete_account") {
@@ -4026,7 +4046,8 @@ export default async function handler(request, response) {
         "coaching_dashboard_review", "coaching_dashboard_workout", "athlete_coaching_mode",
         "coaching_invite_create", "coaching_invite_list", "coaching_invite_accept",
         "coaching_invite_resend", "coaching_invite_revoke",
-        "athlete_messages", "athlete_request_adjustment", "delete_account"
+        "athlete_messages", "athlete_request_adjustment", "delete_account",
+        "fuel_analyze_meal", "fuel_meals"
       ].includes(action) ? action : "unsupported"
     });
     return response.status(500).json({ error: "Something went wrong. Please try again." });

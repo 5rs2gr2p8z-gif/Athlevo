@@ -1,0 +1,229 @@
+-- Athlevo Fuel V1 — nutrition tracking (meals, meal items, optional goal mode).
+-- Run this MANUALLY in Supabase BEFORE enabling the `fuel_tracking_v1` flag
+-- or deploying the matching server/client code. Nothing here runs
+-- automatically. Idempotent (create if not exists / drop policy if exists).
+--
+-- Data model
+--   fuel_meals        one row per CONFIRMED meal. Only meals the athlete
+--                     explicitly logged ever land here. AI estimates that
+--                     were never confirmed are never stored.
+--   fuel_meal_items   the athlete-reviewed items behind a meal (optional for
+--                     manual meals). ai_estimated marks items that began as
+--                     an AI suggestion (they may have been edited since).
+--   fuel_preferences  optional goal mode ("performance" | "maintain" |
+--                     "weight_management"). No row = no preference. Athlevo
+--                     never assigns a deficit or a calorie target.
+--
+-- Write path
+--   Athletes READ their own rows directly (RLS select policies below), the
+--   same way the calendar reads training_sessions. Meals and items are
+--   WRITTEN only by the server (POST/PATCH/DELETE /api/fuel/meals) with the
+--   service-role key, after server-side validation. There are deliberately
+--   NO insert/update/delete policies on fuel_meals / fuel_meal_items, so a
+--   client cannot bypass validation by talking to PostgREST directly.
+--
+-- What is NOT stored: meal photographs, raw AI prompts, raw AI responses.
+
+create table if not exists public.fuel_meals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null
+    references auth.users (id) on delete cascade,
+
+  -- Exact moment the athlete logged/assigned the meal, and the calendar day
+  -- it belongs to IN THE ATHLETE'S OWN TIME ZONE (client-supplied YYYY-MM-DD,
+  -- range-checked by the server). Daily totals group on local_date so a
+  -- late-evening meal never slides into the wrong day.
+  logged_at timestamptz not null default now(),
+  local_date date not null,
+
+  meal_type text
+    check (meal_type is null or meal_type in
+      ('breakfast', 'lunch', 'dinner', 'snack', 'other')),
+  meal_name text not null
+    check (char_length(meal_name) between 1 and 120),
+  note text
+    check (note is null or char_length(note) <= 500),
+
+  source text not null
+    check (source in ('ai_photo', 'manual', 'repeated')),
+
+  calories numeric(7, 1) not null check (calories >= 0 and calories <= 10000),
+  carbs_g   numeric(6, 1) not null check (carbs_g   >= 0 and carbs_g   <= 1500),
+  protein_g numeric(6, 1) not null check (protein_g >= 0 and protein_g <= 1000),
+  fat_g     numeric(6, 1) not null check (fat_g     >= 0 and fat_g     <= 1000),
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists fuel_meals_user_date_idx
+  on public.fuel_meals (user_id, local_date desc, logged_at desc);
+
+create table if not exists public.fuel_meal_items (
+  id uuid primary key default gen_random_uuid(),
+  meal_id uuid not null
+    references public.fuel_meals (id) on delete cascade,
+  -- Denormalised owner so the RLS policy is a plain equality (no join).
+  user_id uuid not null
+    references auth.users (id) on delete cascade,
+
+  position smallint not null default 0,
+  name text not null check (char_length(name) between 1 and 120),
+  quantity numeric(8, 2) check (quantity is null or (quantity >= 0 and quantity <= 100000)),
+  unit text check (unit is null or char_length(unit) <= 30),
+  grams numeric(8, 1) check (grams is null or (grams >= 0 and grams <= 20000)),
+
+  calories numeric(7, 1) not null check (calories >= 0 and calories <= 10000),
+  carbs_g   numeric(6, 1) not null check (carbs_g   >= 0 and carbs_g   <= 1500),
+  protein_g numeric(6, 1) not null check (protein_g >= 0 and protein_g <= 1000),
+  fat_g     numeric(6, 1) not null check (fat_g     >= 0 and fat_g     <= 1000),
+
+  ai_estimated boolean not null default false,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists fuel_meal_items_meal_idx
+  on public.fuel_meal_items (meal_id, position);
+create index if not exists fuel_meal_items_user_idx
+  on public.fuel_meal_items (user_id);
+
+create table if not exists public.fuel_preferences (
+  user_id uuid primary key
+    references auth.users (id) on delete cascade,
+  goal_mode text
+    check (goal_mode is null or goal_mode in
+      ('performance', 'maintain', 'weight_management')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ── Row level security ────────────────────────────────────────────────
+alter table public.fuel_meals enable row level security;
+alter table public.fuel_meal_items enable row level security;
+alter table public.fuel_preferences enable row level security;
+
+drop policy if exists "Athletes read own fuel meals" on public.fuel_meals;
+create policy "Athletes read own fuel meals"
+  on public.fuel_meals for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Athletes read own fuel meal items" on public.fuel_meal_items;
+create policy "Athletes read own fuel meal items"
+  on public.fuel_meal_items for select
+  using (auth.uid() = user_id);
+
+-- Goal mode is a harmless personal setting, so the athlete may manage their
+-- own row directly (same pattern as ai_consent / notification_preferences).
+drop policy if exists "Athletes read own fuel preferences" on public.fuel_preferences;
+create policy "Athletes read own fuel preferences"
+  on public.fuel_preferences for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Athletes insert own fuel preferences" on public.fuel_preferences;
+create policy "Athletes insert own fuel preferences"
+  on public.fuel_preferences for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Athletes update own fuel preferences" on public.fuel_preferences;
+create policy "Athletes update own fuel preferences"
+  on public.fuel_preferences for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ── Atomic meal + items write ─────────────────────────────────────────
+-- One transaction: the meal row and its items are created (or replaced)
+-- together, so a failure can never leave a meal without its items or items
+-- without a meal. Called ONLY by the server with the service-role key; the
+-- server has already validated every value and resolved the caller's
+-- identity from their verified access token.
+--
+-- p_meal_id null  => insert a new meal.
+-- p_meal_id set   => update that meal (must belong to p_user_id) and replace
+--                    its items.
+create or replace function public.fuel_save_meal(
+  p_user_id uuid,
+  p_meal_id uuid,
+  p_meal jsonb,
+  p_items jsonb
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  if p_user_id is null then
+    raise exception 'fuel_save_meal: user required';
+  end if;
+
+  if p_meal_id is null then
+    insert into public.fuel_meals (
+      user_id, logged_at, local_date, meal_type, meal_name, note, source,
+      calories, carbs_g, protein_g, fat_g
+    ) values (
+      p_user_id,
+      coalesce((p_meal->>'logged_at')::timestamptz, now()),
+      (p_meal->>'local_date')::date,
+      nullif(p_meal->>'meal_type', ''),
+      p_meal->>'meal_name',
+      nullif(p_meal->>'note', ''),
+      p_meal->>'source',
+      (p_meal->>'calories')::numeric,
+      (p_meal->>'carbs_g')::numeric,
+      (p_meal->>'protein_g')::numeric,
+      (p_meal->>'fat_g')::numeric
+    ) returning id into v_id;
+  else
+    update public.fuel_meals set
+      local_date = (p_meal->>'local_date')::date,
+      meal_type  = nullif(p_meal->>'meal_type', ''),
+      meal_name  = p_meal->>'meal_name',
+      note       = nullif(p_meal->>'note', ''),
+      calories   = (p_meal->>'calories')::numeric,
+      carbs_g    = (p_meal->>'carbs_g')::numeric,
+      protein_g  = (p_meal->>'protein_g')::numeric,
+      fat_g      = (p_meal->>'fat_g')::numeric,
+      updated_at = now()
+    where id = p_meal_id and user_id = p_user_id
+    returning id into v_id;
+
+    if v_id is null then
+      raise exception 'fuel_save_meal: meal not found';
+    end if;
+
+    delete from public.fuel_meal_items
+      where meal_id = v_id and user_id = p_user_id;
+  end if;
+
+  if p_items is not null and jsonb_typeof(p_items) = 'array' then
+    insert into public.fuel_meal_items (
+      meal_id, user_id, position, name, quantity, unit, grams,
+      calories, carbs_g, protein_g, fat_g, ai_estimated
+    )
+    select
+      v_id,
+      p_user_id,
+      (item.ord - 1)::smallint,
+      item.value->>'name',
+      nullif(item.value->>'quantity', '')::numeric,
+      nullif(item.value->>'unit', ''),
+      nullif(item.value->>'grams', '')::numeric,
+      (item.value->>'calories')::numeric,
+      (item.value->>'carbs_g')::numeric,
+      (item.value->>'protein_g')::numeric,
+      (item.value->>'fat_g')::numeric,
+      coalesce((item.value->>'ai_estimated')::boolean, false)
+    from jsonb_array_elements(p_items) with ordinality as item(value, ord);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+revoke all on function public.fuel_save_meal(uuid, uuid, jsonb, jsonb)
+  from public, anon, authenticated;
+grant execute on function public.fuel_save_meal(uuid, uuid, jsonb, jsonb)
+  to service_role;

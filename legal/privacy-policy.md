@@ -6,7 +6,7 @@
 
 # Privacy Policy
 
-Last updated: September 17, 2026
+Last updated: September 30, 2026
 
 ## 1. Introduction
 
@@ -61,6 +61,16 @@ You may provide:
 * Soreness reports
 * Injury information
 * Notes submitted to coaches or the AI
+
+### Nutrition and Meal Information
+
+If you use Athlevo Fuel, you may choose to log:
+
+* Meals, including meal names, foods, portions, and the calories, carbohydrate, protein, and fat you enter or confirm
+* Notes you add to a meal
+* An optional nutrition focus (performance, maintain, or weight management)
+
+If you choose to analyze a meal photo, the photo and any note you add are sent to an AI provider (see "AI Services" below) so it can suggest an estimate. You review and edit that estimate before anything is logged, and only meals you confirm are saved to your account. Nutrition values estimated from a photo are approximate. Athlevo does not save your meal photos: they are used to produce the estimate and are not stored in your Athlevo account.
 
 ### AI Conversation Data
 
@@ -133,6 +143,8 @@ Athlevo uses artificial intelligence providers, including OpenAI and potentially
 
 Information you submit during coaching conversations may be processed by these providers to generate responses.
 
+If you choose to analyze a meal photo in Athlevo Fuel, the photo and any note you add may also be processed by these providers to suggest a nutrition estimate. Meal photo analysis is optional, and you can log meals manually without it.
+
 AI-generated recommendations are intended to support training decisions and should not replace professional medical advice.
 
 ## 5. Third-Party Service Providers
@@ -186,6 +198,8 @@ Athlevo retains information only for as long as reasonably necessary to:
 * resolve disputes
 * maintain security
 * improve coaching continuity
+
+Meals you log in Athlevo Fuel are kept until you delete them or delete your account.
 
 Deleted accounts may have certain information retained for legitimate legal, accounting, fraud prevention, or security purposes where permitted by law.
 
