@@ -50,5 +50,25 @@ if (nativeHtml === sourceHtml) {
   throw new Error("Could not replace the Supabase CDN script in the native build.");
 }
 
-await writeFile(join(output, "index.html"), nativeHtml);
+// DEVELOPER-ONLY QA build (`npm run android:qa`): point /api traffic at a
+// Vercel Preview. Off unless --qa is passed; the origin comes from the
+// environment, never from source control.
+let finalHtml = nativeHtml;
+if (process.argv.includes("--qa")) {
+  const qaOrigin = String(process.env.ATHLEVO_QA_API_ORIGIN || "").trim().replace(/\/+$/, "");
+  if (!/^https:\/\/[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.vercel\.app$/.test(qaOrigin)) {
+    throw new Error(
+      "QA build needs ATHLEVO_QA_API_ORIGIN=https://<your-preview>.vercel.app (a Vercel Preview origin, no path)."
+    );
+  }
+  const marker = '<script src="js/runtimeEnvironment.js';
+  if (!nativeHtml.includes(marker)) throw new Error("Could not find runtimeEnvironment.js script tag.");
+  finalHtml = nativeHtml.replace(
+    marker,
+    `<script>window.__ATHLEVO_QA_API_ORIGIN__=${JSON.stringify(qaOrigin)};</script>\n${marker}`
+  );
+  console.log(`QA build: /api requests will go to ${qaOrigin}`);
+}
+
+await writeFile(join(output, "index.html"), finalHtml);
 console.log("Native web assets built in dist/.");

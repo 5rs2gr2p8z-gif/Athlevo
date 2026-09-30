@@ -11,6 +11,7 @@
     "android:open": "npm run android:prepare && cap open android",
     "android:run": "npm run android:prepare && cap run android",
     "android:debug": "npm run android:prepare && cd android && ./gradlew assembleDebug",
+    "android:qa": "node scripts/build-native-web.mjs --qa && cap sync android && cd android && ./gradlew assembleDebug",
     "android:bundle": "npm run android:prepare && cd android && ./gradlew bundleRelease",
     "ios:prepare": "npm run build:native && cap sync ios",
     "ios:open": "npm run ios:prepare && cap open ios",

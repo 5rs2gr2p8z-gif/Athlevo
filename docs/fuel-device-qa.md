@@ -71,3 +71,58 @@ Tick each. "✔" = expected.
 14. **Account deletion** (disposable account with Fuel data) — delete account; in SQL Editor check `select count(*) from public.fuel_meals where user_id = '<id>'` is `0`.
 15. **Persistence** — log out and back in, and force-close/reopen: ✔ meals still there, totals recompute.
 16. **Back button** — with the Add-meal sheet open, Android Back closes the sheet (not the app).
+
+
+---
+
+# Real-device QA against a Vercel Preview (Android debug build)
+
+Nothing here touches production: the debug APK talks to a **Preview** deployment of branch `qa/fuel-v1`. Fuel stays default OFF.
+
+## One-time setup (Mac)
+
+1. Confirm the migration: run `docs/fuel-migration-verify.sql` in Supabase SQL Editor → must end with `>>> ALL CHECKS PASSED = true`.
+2. Push the QA branch (never `main`, never merge it): `git push origin HEAD:refs/heads/qa/fuel-v1`. Vercel builds a Preview.
+3. Vercel → Project → Deployments → the `qa/fuel-v1` one → copy its URL (`https://<name>-git-qa-fuel-v1-<team>.vercel.app`).
+4. Preview needs env vars (Settings → Environment Variables, scope *Preview*): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SECRET_KEY`), `OPENAI_API_KEY`, plus whatever Coach already uses. Redeploy after adding.
+5. Settings → Deployment Protection: the app makes plain `fetch` calls, so **Vercel Authentication must not block the preview** for this test (set it to "Only Production" / disabled for previews, or use a Protection Bypass secret for the smoke script only). A protected preview returns an HTML sign-in page and the phone will fail.
+6. Use a disposable test account (email + password). Never real customer data.
+
+## Smoke test (no OpenAI call)
+
+    FUEL_QA_BASE=https://<preview>.vercel.app FUEL_QA_EMAIL=you+qa@example.com FUEL_QA_PASSWORD='…' \
+      node scripts/fuel-qa-smoke.mjs
+
+Expect all PASS: unauth rejected ×2, sign-in, meal read, create, delete. It leaves no meal behind.
+
+## Build the debug APK (Mac)
+
+    cd "Athlevo ai"
+    ATHLEVO_QA_API_ORIGIN=https://<preview>.vercel.app npm run android:qa
+    git restore dist/index.html      # dist/index.html is tracked; undo the generated copy
+
+`BUILD SUCCESSFUL` → `android/app/build/outputs/apk/debug/app-debug.apk` (debug-signed, not a release). `npm run android:debug` (no `--qa`) still targets production.
+
+## Phone steps
+
+1. Enable USB debugging, `adb install -r android/app/build/outputs/apk/debug/app-debug.apk`.
+2. Open Athlevo, sign in with the test account (email/password).
+3. On the Mac: Chrome → `chrome://inspect` → inspect Athlevo → Console:
+   `localStorage.setItem("athlevo_ff_fuel_tracking_v1","1"); location.reload();`
+4. You → Fuel.
+5. Add meal → Add manually → name + calories → Log meal. Check total + history.
+6. Add meal → Take photo (system camera opens, returns to Athlevo).
+7. Note: `two cups of rice`.
+8. Analyze meal.
+9. Consent v2 sheet → Continue.
+10. Review: edit quantity/calories/macros, add/remove a food; totals update live.
+11. Log meal.
+12. Verify the logged totals are your edited values.
+13. Log again / edit / delete a meal; totals update.
+14. Settings → AI features off (withdraw consent).
+15. Manual logging still works; photo analysis asks for consent again.
+16. Test Upload from gallery and Take photo.
+17. Test dark mode (summary, sheets, review, history).
+18. Test the Android back button (closes sheets, doesn't exit mid-flow).
+
+Turn Fuel off again: `localStorage.removeItem("athlevo_ff_fuel_tracking_v1")`.

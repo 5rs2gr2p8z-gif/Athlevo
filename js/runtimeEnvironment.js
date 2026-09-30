@@ -10,7 +10,21 @@
   "use strict";
 
   const APP_ORIGIN = "https://athlevo.org";
-  const API_ORIGIN = "https://athlevo.org";
+  const PRODUCTION_API_ORIGIN = "https://athlevo.org";
+  // DEVELOPER-ONLY: `npm run android:qa` injects window.__ATHLEVO_QA_API_ORIGIN__
+  // into the generated dist/index.html so a debug build can talk to a Vercel
+  // Preview. Never set in source, never reachable from UI, ignored on the web,
+  // and only a https://*.vercel.app origin is honoured. Default = production.
+  const QA_API_ORIGIN_PATTERN = /^https:\/\/[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.vercel\.app$/;
+  function apiOrigin() {
+    try {
+      const qa = root.__ATHLEVO_QA_API_ORIGIN__;
+      if (typeof qa === "string" && QA_API_ORIGIN_PATTERN.test(qa) && isNative()) return qa;
+    } catch {
+      // Fall through to production.
+    }
+    return PRODUCTION_API_ORIGIN;
+  }
   const AUTH_CALLBACK = "athlevo://auth/callback";
   const PROVIDER_CALLBACK = "athlevo://provider/callback";
   const INTERNAL_HOSTS = new Set(["athlevo.org", "www.athlevo.org"]);
@@ -205,11 +219,11 @@
       : value && typeof value.url === "string"
         ? value.url
         : "";
-    if (/^\/api(?:\/|\\?|$)/.test(raw)) return API_ORIGIN + raw;
+    if (/^\/api(?:\/|\\?|$)/.test(raw)) return apiOrigin() + raw;
     try {
       const url = new URL(raw);
       if (isLocalWebViewUrl(url) && /^\/api(?:\/|$)/.test(url.pathname)) {
-        return API_ORIGIN + url.pathname + url.search;
+        return apiOrigin() + url.pathname + url.search;
       }
     } catch {
       // A non-URL input is returned unchanged.
@@ -319,7 +333,7 @@
         }
       }
       const url = typeof rewritten === "string" ? rewritten : "";
-      const isBackendRequest = url.startsWith(API_ORIGIN + "/api/");
+      const isBackendRequest = url.startsWith(apiOrigin() + "/api/");
       try {
         const response = await originalFetch(requestInput, init);
         if (isBackendRequest && !nativeAppReady) {
@@ -794,7 +808,7 @@
 
   root.AthlevoRuntime = {
     APP_ORIGIN,
-    API_ORIGIN,
+    get API_ORIGIN() { return apiOrigin(); },
     AUTH_CALLBACK,
     PROVIDER_CALLBACK,
     isNative,
