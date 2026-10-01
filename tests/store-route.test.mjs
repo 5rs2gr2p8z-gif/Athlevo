@@ -74,45 +74,86 @@ section("3. No invented commercial claims");
     !/athleteStories/.test(catalogSrc));
   t("no accreditations or guarantees in catalog copy",
     !/certified by|accredited|guarantee a (time|result)|race-time guarantee/i.test(catalogSrc));
-  t("coach support is marked pending on every product",
+  t("undecided coach-support terms stay in internal catalog data",
     catalog.products.every(p => p.coachSupport && p.coachSupport.status === "pending"));
+  // Customer-facing copy = everything the storefront can render, minus coachSupport.
+  const publicCopy = JSON.stringify({
+    hero: catalog.hero, intro: catalog.intro, faqs: catalog.faqs,
+    collections: catalog.collections.map(c => ({ name: c.name, headline: c.headline })),
+    products: catalog.products.map(({ coachSupport, ...rest }) => ({ ...rest, hero: rest.hero.alt }))
+  });
+  t("customer-facing copy omits pending or undecided terms",
+    !/pending|not decided|not approved|to be announced|still being decided/i.test(publicCopy + storeHtml));
+  t("storefront never renders coachSupport",
+    !/coachSupport|Coach support/i.test(storefrontSrc));
 }
 
 section("4. Storefront chrome");
 {
   t("notice states purchasing is not yet available",
     /Purchasing is not yet available/.test(storeHtml));
-  t("nav includes Athlevo, Programs, How It Works, FAQ",
+  t("nav includes Athlevo, Programs, FAQ",
     /wordmark[\s\S]*Athlevo/.test(storeHtml) &&
     /href="\/store#programs">Programs</.test(storeHtml) &&
-    /How It Works/.test(storeHtml) &&
-    /href="\/store#faq">FAQ</.test(storeHtml));
+    /href="\/store#faq">FAQ</.test(storeHtml) &&
+    !/How It Works/.test(storeHtml));
   t("skip link is present", /Skip to main content/.test(storeHtml));
   t("hero headline is in the catalog source",
     catalog.hero.headline === "A stronger race starts here.");
-  t("storefront CTA copy is Explore Programs",
-    /Explore Programs/.test(storefrontSrc));
-  t("product pages render duration, audience, intake, and pending support",
+  t("product pages render duration, audience, intake, and related programs",
     /Duration/.test(storefrontSrc) &&
     /Who it is for/.test(storefrontSrc) &&
     /Starting fitness/.test(storefrontSrc) &&
     /What you receive/.test(storefrontSrc) &&
     /Intake and delivery/.test(storefrontSrc) &&
-    /Coach support — pending/.test(storefrontSrc) &&
     /Related programs/.test(storefrontSrc));
+  t("purchase button stays disabled",
+    /Purchasing not available/.test(storefrontSrc) &&
+    /aria-disabled", "true"/.test(storefrontSrc));
   t("no checkout, payment, or signup activation",
     !/<form/i.test(bodyOnly) &&
     !/openSignup|openLogin|checkout|paymongo|whop|storekit/i.test(storeHtml + storefrontSrc));
 }
 
-section("5. Client routing and filters");
+section("4b. Catalog page structure");
+{
+  t("catalog page has a short intro", typeof catalog.intro === "string" && catalog.intro.length > 20 && catalog.intro.length < 240);
+  t("hero is a clean photo with no overlaid text",
+    !/hero-copy/.test(storefrontSrc + css));
+  t("mobile nav uses a hamburger icon button",
+    /class="nav-toggle"[^>]*aria-label="Menu"[\s\S]*class="bars"/.test(storeHtml));
+  t("catalog page renders hero, intro, program cards, and FAQ",
+    /\$\("section", "hero"\)/.test(storefrontSrc) &&
+    /\$\("section", "intro"\)/.test(storefrontSrc) &&
+    /program-grid/.test(storefrontSrc) &&
+    /id = "faq"/.test(storefrontSrc));
+  t("program cards link to /store/:slug and show only the name",
+    /function renderProgramCard/.test(storefrontSrc) &&
+    /productHref\(product\.slug\)/.test(storefrontSrc) &&
+    !/durationLabel/.test(storefrontSrc.slice(storefrontSrc.indexOf("function renderProgramCard"), storefrontSrc.indexOf("function renderProductCard"))));
+  t("catalog page no longer carries program detail sections",
+    !/Who it is for|Starting fitness|How it works|Personalization|Filter by collection/.test(
+      storefrontSrc.slice(storefrontSrc.indexOf("function renderCatalog"), storefrontSrc.indexOf("function renderProduct("))));
+  t("every product has a card image", catalog.products.every(p => p.hero && p.hero.src));
+  t(".wrap layout selector exists in store.css", /^\.wrap\s*\{[^}]*max\)/m.test(css) || /^\.wrap\s*\{[^}]*var\(--max\)/m.test(css));
+  t("store.css has no orphaned declarations outside a rule",
+    (() => { let depth = 0, bad = false; const src = css.replace(/\/\*[\s\S]*?\*\//g, "");
+      let buf = "";
+      for (const ch of src) {
+        if (ch === "{") { depth++; buf = ""; }
+        else if (ch === "}") { depth--; buf = ""; }
+        else if (depth === 0) { buf += ch; }
+        if (depth < 0) bad = true;
+      }
+      return !bad && depth === 0 && buf.trim() === ""; })());
+}
+
+section("5. Client routing");
 {
   t("storefront reads /store and /store/:slug",
     storefrontSrc.includes('path === "/store"') &&
     storefrontSrc.includes("/store/") &&
     storefrontSrc.includes("([^/]+)"));
-  t("category filters use aria-pressed",
-    /aria-pressed/.test(storefrontSrc) && /filter-btn/.test(storefrontSrc));
   t("history API is used for in-store navigation",
     /history\.pushState/.test(storefrontSrc) && /popstate/.test(storefrontSrc));
 }
@@ -124,8 +165,8 @@ section("6. App shell and service worker isolation");
   t("store navigations are not written into the app-shell cache",
     /isAppShellNav/.test(sw) &&
     /\/\(store\|landing-preview\)/.test(sw));
-  t("typography uses the project serif and warm paper",
-    /Fraunces/.test(storeHtml) && /--paper: #f6f4ef/.test(css) && /--red: #c0272d/.test(css));
+  t("storefront uses Space Grotesk display type and the Athlevo red accent",
+    /Space\+Grotesk/.test(storeHtml) && /--display:\s*"Space Grotesk"/.test(css) && /--red: #c0272d/.test(css));
 }
 
 section("7. Responsive storefront images");
@@ -148,9 +189,8 @@ section("7. Responsive storefront images");
     /eager:\s*true,\s*sizes:\s*SIZES\.hero/.test(storefrontSrc) &&
     storefrontSrc.indexOf("picture(catalog.hero.image, { eager: true") >= 0);
   t("below-the-fold catalog photos use lazy loading",
-    /picture\(collection\.image/.test(storefrontSrc) &&
     /picture\(product\.hero, \{ sizes: SIZES\.card \}\)/.test(storefrontSrc) &&
-    !/picture\(collection\.image[\s\S]{0,40}eager:\s*true/.test(storefrontSrc));
+    !/picture\(product\.hero, \{ sizes: SIZES\.card[^)]*eager/.test(storefrontSrc));
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

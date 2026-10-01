@@ -19,9 +19,7 @@
 
   var SIZES = {
     hero: "100vw",
-    collection: "(min-width: 981px) 25vw, (min-width: 641px) 50vw, 100vw",
-    card: "(min-width: 981px) 33vw, (min-width: 641px) 50vw, 92vw",
-    story: "(min-width: 981px) 48vw, 92vw",
+    card: "(min-width: 981px) 33vw, (min-width: 641px) 50vw, 100vw",
     pdp: "(min-width: 981px) min(720px, 58vw), 92vw"
   };
 
@@ -61,28 +59,21 @@
     var url = new URL(global.location.href);
     var path = String(url.pathname || "/").replace(/\/+$/, "") || "/";
     var params = url.searchParams;
-    var collection = params.get("collection") || "all";
-    if (collection !== "all" && !catalog.getCollection(collection)) collection = "all";
     if (path === "/store.html") {
       var product = params.get("product");
-      if (product) return { view: "product", slug: product, collection: collection };
-      return { view: "catalog", collection: collection, hash: url.hash };
+      if (product) return { view: "product", slug: product };
+      return { view: "catalog", hash: url.hash };
     }
     if (path === "/store" || path === "") {
-      return { view: "catalog", collection: collection, hash: url.hash };
+      return { view: "catalog", hash: url.hash };
     }
     var match = path.match(/^\/store\/([^/]+)$/);
-    if (match) return { view: "product", slug: decodeURIComponent(match[1]), collection: collection };
+    if (match) return { view: "product", slug: decodeURIComponent(match[1]) };
     return { view: "missing" };
   }
 
   function productHref(slug) {
     return "/store/" + encodeURIComponent(slug);
-  }
-
-  function catalogHref(collection) {
-    if (!collection || collection === "all") return "/store";
-    return "/store?collection=" + encodeURIComponent(collection);
   }
 
   function setTitle(title) {
@@ -95,7 +86,7 @@
     if (links) links.classList.remove("is-open");
     if (toggle) {
       toggle.setAttribute("aria-expanded", "false");
-      toggle.textContent = "Menu";
+      toggle.setAttribute("aria-label", "Menu");
     }
   }
 
@@ -117,8 +108,27 @@
     return ul;
   }
 
+  function bindNav(a, href) {
+    a.addEventListener("click", function (event) {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      event.preventDefault();
+      navigate(href);
+    });
+  }
+
+  function renderProgramCard(product) {
+    var a = $("a", "program-card");
+    a.href = productHref(product.slug);
+    a.appendChild(picture(product.hero, { sizes: SIZES.card }));
+    var copy = $("div", "program-card-copy");
+    copy.appendChild($("h3", "", product.name));
+    a.appendChild(copy);
+    bindNav(a, productHref(product.slug));
+    return a;
+  }
+
   function renderProductCard(product, className) {
-    var a = $("a", className || "product-card");
+    var a = $("a", className || "related-card");
     a.href = productHref(product.slug);
     var figure = $("figure");
     figure.appendChild(picture(product.hero, { sizes: SIZES.card }));
@@ -152,120 +162,34 @@
     root.replaceChildren();
 
     var hero = $("section", "hero");
-    hero.setAttribute("aria-labelledby", "store-hero-heading");
     hero.appendChild(picture(catalog.hero.image, { eager: true, sizes: SIZES.hero }));
-    var copy = $("div", "hero-copy");
-    copy.appendChild($("h1", "", catalog.hero.headline)).id = "store-hero-heading";
-    copy.appendChild($("p", "", catalog.hero.lede));
-    var cta = $("a", "btn btn-solid", "Explore Programs");
-    cta.href = "#programs";
-    copy.appendChild(cta);
-    hero.appendChild(copy);
     root.appendChild(hero);
 
-    var collections = $("section", "section");
-    collections.setAttribute("aria-labelledby", "collections-heading");
-    var collectionsWrap = $("div", "wrap");
-    collectionsWrap.appendChild($("p", "kicker", "Collections"));
-    collectionsWrap.appendChild($("h2", "", "Choose the distance.")).id = "collections-heading";
-    collectionsWrap.appendChild($("p", "lede", "Four race collections. Each program is a draft catalog entry until purchasing opens."));
-    var grid = $("div", "collection-grid");
-    catalog.collections.forEach(function (collection) {
-      var tile = $("a", "collection-tile");
-      tile.href = catalogHref(collection.id);
-      tile.appendChild(picture(collection.image, { sizes: SIZES.collection }));
-      tile.appendChild($("span", "", collection.name));
-      tile.addEventListener("click", function (event) {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-        event.preventDefault();
-        navigate(catalogHref(collection.id) + "#programs");
-      });
-      grid.appendChild(tile);
-    });
-    collectionsWrap.appendChild(grid);
-    collections.appendChild(collectionsWrap);
-    root.appendChild(collections);
+    var intro = $("section", "intro");
+    var iWrap = $("div", "wrap");
+    iWrap.appendChild($("h1", "", catalog.hero.headline));
+    iWrap.appendChild($("p", "intro-text", catalog.intro));
+    intro.appendChild(iWrap);
+    root.appendChild(intro);
 
-    var programs = $("section", "section");
+    var programs = $("section", "programs");
     programs.id = "programs";
     programs.setAttribute("aria-labelledby", "programs-heading");
     var pWrap = $("div", "wrap");
-    var head = $("div", "catalog-head");
-    var titles = document.createElement("div");
-    titles.appendChild($("p", "kicker", "Programs"));
-    titles.appendChild($("h2", "", "The catalog.")).id = "programs-heading";
-    var activeCollection = catalog.getCollection(route.collection);
-    titles.appendChild($("p", "lede", activeCollection
-      ? activeCollection.headline
-      : "Duration and intended runner are listed on every program. Prices are not shown because they are not approved."));
-    head.appendChild(titles);
-    pWrap.appendChild(head);
-
-    var filters = $("fieldset", "filters");
-    filters.appendChild($("legend", "", "Filter by collection"));
-    var options = [{ id: "all", name: "All" }].concat(catalog.collections);
-    options.forEach(function (option) {
-      var btn = $("button", "filter-btn", option.name);
-      btn.type = "button";
-      btn.setAttribute("aria-pressed", String(option.id === route.collection || (route.collection === "all" && option.id === "all")));
-      btn.addEventListener("click", function () {
-        navigate(catalogHref(option.id) + "#programs", { replace: false });
-      });
-      filters.appendChild(btn);
+    pWrap.appendChild($("h2", "section-title", "Programs")).id = "programs-heading";
+    var cards = $("div", "program-grid");
+    catalog.products.forEach(function (product) {
+      cards.appendChild(renderProgramCard(product));
     });
-    pWrap.appendChild(filters);
-
-    var list = catalog.filterProducts(route.collection);
-    if (!list.length) {
-      pWrap.appendChild($("p", "product-empty", "No programs in this collection yet."));
-    } else {
-      var cards = $("div", "product-grid");
-      list.forEach(function (product) {
-        cards.appendChild(renderProductCard(product));
-      });
-      pWrap.appendChild(cards);
-    }
+    pWrap.appendChild(cards);
     programs.appendChild(pWrap);
     root.appendChild(programs);
-
-    var story = $("section", "section");
-    story.setAttribute("aria-labelledby", "personalization-heading");
-    var sWrap = $("div", "wrap story");
-    var sCopy = document.createElement("div");
-    sCopy.appendChild($("p", "kicker", "Personalization"));
-    sCopy.appendChild($("h2", "", catalog.personalization.title)).id = "personalization-heading";
-    sCopy.appendChild($("p", "lede", catalog.personalization.body));
-    var sFig = $("figure");
-    sFig.appendChild(picture(catalog.hero.image, { sizes: SIZES.story }));
-    sWrap.appendChild(sCopy);
-    sWrap.appendChild(sFig);
-    story.appendChild(sWrap);
-    root.appendChild(story);
-
-    var how = $("section", "section");
-    how.id = "how-it-works";
-    how.setAttribute("aria-labelledby", "how-heading");
-    var hWrap = $("div", "wrap");
-    hWrap.appendChild($("p", "kicker", "How it works"));
-    hWrap.appendChild($("h2", "", "From program to plan.")).id = "how-heading";
-    var steps = $("div", "steps");
-    catalog.howItWorks.forEach(function (step) {
-      var article = $("article", "step");
-      article.appendChild($("div", "step-num", step.step));
-      article.appendChild($("h3", "", step.title));
-      article.appendChild($("p", "", step.body));
-      steps.appendChild(article);
-    });
-    hWrap.appendChild(steps);
-    how.appendChild(hWrap);
-    root.appendChild(how);
 
     var faq = $("section", "section");
     faq.id = "faq";
     faq.setAttribute("aria-labelledby", "faq-heading");
     var fWrap = $("div", "wrap");
-    fWrap.appendChild($("p", "kicker", "FAQ"));
-    fWrap.appendChild($("h2", "", "Before purchasing opens.")).id = "faq-heading";
+    fWrap.appendChild($("h2", "section-title", "FAQ")).id = "faq-heading";
     renderFaqs(fWrap, catalog.faqs);
     faq.appendChild(fWrap);
     root.appendChild(faq);
@@ -319,10 +243,6 @@
     btn.href = "#";
     btn.addEventListener("click", function (event) { event.preventDefault(); });
     buy.appendChild(btn);
-    var pending = $("p", "pending");
-    pending.appendChild($("strong", "", "Coach support — pending"));
-    pending.appendChild(document.createTextNode(product.coachSupport.detail));
-    buy.appendChild(pending);
     copy.appendChild(buy);
 
     hero.appendChild(figure);
@@ -417,7 +337,7 @@
     var open = !links.classList.contains("is-open");
     links.classList.toggle("is-open", open);
     this.setAttribute("aria-expanded", String(open));
-    this.textContent = open ? "Close" : "Menu";
+    this.setAttribute("aria-label", open ? "Close menu" : "Menu");
   });
 
   document.querySelectorAll(".nav-links a").forEach(function (link) {

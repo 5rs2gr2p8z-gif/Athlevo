@@ -2,7 +2,8 @@
  * Athlevo program storefront catalog.
  *
  * Single editable source for collections, draft programs, storefront copy,
- * and FAQs. Do not add unapproved prices, promotional markdown, testimonials,
+ * and FAQs. Undecided terms (coachSupport) are internal data and must not
+ * appear in customer-facing copy. Do not add unapproved prices, promotional markdown, testimonials,
  * results, or outcome promises here.
  */
 (function storeCatalogModule(global) {
@@ -85,23 +86,23 @@
   var sharedFaqs = [
     {
       question: "Can I buy a program today?",
-      answer: "Not yet. This storefront is for browsing programs. Purchasing and payment are not available in this phase."
+      answer: "Not yet. Purchasing is not open, so this page is for browsing programs."
     },
     {
-      question: "What happens after a program is purchased?",
-      answer: "The intended path is: choose a program, complete purchase when buying opens, fill in an intake form, receive a coach-reviewed training plan, then receive coach support. Intake and delivery details for each program are listed on the program page."
+      question: "What happens after I choose a program?",
+      answer: "You complete a short intake, a coach reviews it and personalizes the plan, and you receive it to follow for the full block. Each program page lists the details."
     },
     {
       question: "Are these generic templates?",
       answer: "No. Each program is a distance-specific starting structure. After intake, a coach reviews your goal, schedule, and current training and personalizes the plan before you receive it."
     },
     {
-      question: "Do you publish prices here?",
-      answer: "No. Prices and final support terms are not approved yet, so they are not listed."
+      question: "What does the intake cover?",
+      answer: "Your goal and race date, recent training, the days you can run each week, and anything else you are balancing, such as strength work, other sports, or a busy schedule."
     },
     {
-      question: "Is coach support included?",
-      answer: "Coach review of the plan is part of delivery. Ongoing support terms (how often you can write, response times, and what is in scope) are still pending and will be stated before purchasing opens."
+      question: "Which program is right for me?",
+      answer: "Every program page lists who it is for and the starting fitness it assumes. If you are between two distances, the shorter one is usually the better place to begin."
     },
     {
       question: "Are race times guaranteed?",
@@ -140,6 +141,7 @@
         "A coach reviews the intake and personalizes the First 5K structure to you.",
         "You receive the plan to follow for the 8-week block."
       ],
+      // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
         detail: "How questions are answered during the block, and whether mid-block adjustments are included, is not decided yet. Those terms will be published before purchasing opens."
@@ -176,6 +178,7 @@
         "A coach personalizes volume and session difficulty from that picture.",
         "You receive the 12-week plan to run through race week."
       ],
+      // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
         detail: "In-block messaging, workout feedback, and plan-change rules are pending. They will be stated before purchasing opens."
@@ -212,6 +215,7 @@
         "A coach sets starting volume from that week, not from a default peak.",
         "You receive the plan for the full 12 weeks."
       ],
+      // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
         detail: "Support during the 12 weeks is pending. Frequency, channels, and what counts as an in-block change will be published before purchasing opens."
@@ -248,6 +252,7 @@
         "A coach personalizes starting mileage and how quickly the long run grows.",
         "You receive the 16-week plan to follow through race week."
       ],
+      // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
         detail: "Whether the block includes scheduled check-ins, message limits, or one mid-block rewrite is still pending."
@@ -284,39 +289,12 @@
         "A coach sets the opening weeks from that picture and how the long run is allowed to grow.",
         "You receive the 20-week plan to carry through race week."
       ],
+      // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
         detail: "Marathon-block support terms — check-in cadence, late-block adjustments, and race-week guidance — are pending and will be published before purchasing opens."
       },
       related: ["half-marathon"]
-    }
-  ];
-
-  var howItWorks = [
-    {
-      step: "01",
-      title: "Select a program",
-      body: "Choose the distance and starting point that match the race you are pointing at."
-    },
-    {
-      step: "02",
-      title: "Purchase",
-      body: "Buying is not available yet. When it is, purchase happens before intake — not the other way around."
-    },
-    {
-      step: "03",
-      title: "Complete intake",
-      body: "You describe your goal, schedule, recent training, and constraints so the plan is not written in the abstract."
-    },
-    {
-      step: "04",
-      title: "Receive a coach-reviewed plan",
-      body: "A coach reviews that intake and you receive a personalized plan for the full block."
-    },
-    {
-      step: "05",
-      title: "Coach support",
-      body: "Support after delivery is part of the intended path. Exact terms are still pending."
     }
   ];
 
@@ -363,16 +341,12 @@
     hero: {
       image: PHOTO.training,
       headline: "A stronger race starts here.",
-      lede: "Personalized running programs, reviewed by a coach after intake. Browse the distance. Purchasing is not open yet."
+      lede: "Personalized running programs, reviewed by a coach."
     },
+    intro: "Personalized running programs, from a first 5K to the marathon. Choose your distance and a coach shapes the plan around you.",
     collections: collections,
     products: products,
     faqs: sharedFaqs,
-    howItWorks: howItWorks,
-    personalization: {
-      title: "Written for the runner who fills in the form.",
-      body: "These programs are distance-specific starting points, not unsigned templates. After intake, a coach reviews your goal, available days, and current training, then you receive a plan for that block. Coach support after delivery is intended; the exact terms are still pending and will be published before anyone can buy."
-    },
     getProduct: getProduct,
     getCollection: getCollection,
     relatedProducts: relatedProducts,
