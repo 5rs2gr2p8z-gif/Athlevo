@@ -49,7 +49,25 @@ export async function runSmoke({ base, email, password, bypass, fetchImpl = fetc
   return results;
 }
 
+export const EXPECTED_CHECKS = 7;
+
+// Final verdict line. Never prints credentials or tokens.
+export function verdict(results) {
+  const failed = results.filter(x => !x.ok).length;
+  if (failed) return "FUEL QA SMOKE FAILED";
+  if (results.length < EXPECTED_CHECKS) return "FUEL QA SMOKE INCOMPLETE";
+  return "FUEL QA SMOKE PASSED";
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const res = await runSmoke({ base: process.env.FUEL_QA_BASE, email: process.env.FUEL_QA_EMAIL, password: process.env.FUEL_QA_PASSWORD, bypass: process.env.VERCEL_BYPASS_SECRET });
-  process.exit(res.every(x => x.ok) ? 0 : 1);
+  let res = [];
+  try {
+    res = await runSmoke({ base: process.env.FUEL_QA_BASE, email: process.env.FUEL_QA_EMAIL, password: process.env.FUEL_QA_PASSWORD, bypass: process.env.VERCEL_BYPASS_SECRET });
+  } catch (e) {
+    console.log(`ERROR  ${e && e.message ? e.message : e}`);
+    res = [{ name: "smoke run", ok: false }];
+  }
+  const line = verdict(res);
+  console.log(line);
+  process.exit(line === "FUEL QA SMOKE PASSED" ? 0 : 1);
 }

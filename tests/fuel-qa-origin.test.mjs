@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, mkdtempSync, cpSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, cpSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -86,5 +86,24 @@ await test("smoke script refuses production and passes against a mocked preview"
   const res = await runSmoke({ base: "https://p.vercel.app", email: "a@b.c", password: "x", fetchImpl: mock, log() {} });
   assert.equal(res.length, 7);
   assert.ok(res.every(r => r.ok));
+});
+await test("QA origin has no UI/user-facing override: only runtimeEnvironment.js reads it, nothing persists it", () => {
+  const files = [];
+  const walk = d => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(js|mjs|html)$/.test(e.name)) files.push(p); } };
+  walk("js"); files.push("index.html", "service-worker.js");
+  for (const f of files) {
+    const src = readFileSync(f, "utf8");
+    if (f.endsWith("runtimeEnvironment.js")) continue;
+    assert.ok(!/__ATHLEVO_QA_API_ORIGIN__|ATHLEVO_QA_API_ORIGIN/.test(src), f + " must not reference the QA origin");
+  }
+  const rt = readFileSync("js/runtimeEnvironment.js", "utf8");
+  assert.ok(!/localStorage|sessionStorage|location\.search|URLSearchParams/.test(rt.slice(rt.indexOf("QA_API_ORIGIN_PATTERN"), rt.indexOf("AUTH_CALLBACK"))), "QA origin must not come from storage or URL");
+});
+await test("verdict() prints PASSED only when every check ran and passed", async () => {
+  const { verdict, EXPECTED_CHECKS } = await import("../scripts/fuel-qa-smoke.mjs");
+  const ok = n => Array.from({ length: n }, () => ({ ok: true }));
+  assert.equal(verdict(ok(EXPECTED_CHECKS)), "FUEL QA SMOKE PASSED");
+  assert.equal(verdict(ok(EXPECTED_CHECKS - 1)), "FUEL QA SMOKE INCOMPLETE");
+  assert.equal(verdict([...ok(2), { ok: false }]), "FUEL QA SMOKE FAILED");
 });
 console.log(`fuel-qa-origin: ${passed} passed`);
