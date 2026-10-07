@@ -7,6 +7,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import vm from "node:vm";
 
 let pass = 0, fail = 0;
 const t = (name, cond, extra) => {
@@ -1418,13 +1419,75 @@ section("Service worker");
   const sw = readFileSync("./service-worker.js", "utf8");
   const v = Number((sw.match(/athlevo-shell-v(\d+)/) || [])[1] || 0);
   t("cache version is at or past the routing fix (v16+)", v >= 16, `v${v}`);
+  const cacheVersion = (sw.match(/const CACHE_VERSION = "([^"]+)"/) || [])[1];
+
+  /* Drive the REAL service-worker.js fetch handler against doubles, so these
+   * assertions describe navigation BEHAVIOUR (what is served, which network
+   * options are used, which cache is read or written) and survive refactors of
+   * the handler's internals. */
+  const runNavigation = async ({ path, networkOk, cachedShell }) => {
+    const handlers = {};
+    const log = { fetchOpts: null, puts: [], opened: [], globalMatch: 0 };
+    const store = new Map();
+    if (cachedShell) store.set(`${cacheVersion}|/index.html`, "CACHED_SHELL_CURRENT");
+    store.set("athlevo-shell-v1|/index.html", "CACHED_SHELL_OLD_GENERATION");
+    const cacheFor = name => ({
+      put: (key, value) => { log.puts.push([name, String(key)]); store.set(`${name}|${key}`, value); return Promise.resolve(); },
+      match: key => Promise.resolve(store.get(`${name}|${key}`)),
+      add: () => Promise.resolve()
+    });
+    const scope = {
+      self: {
+        location: { origin: "https://athlevo.org" },
+        addEventListener: (type, fn) => { handlers[type] = fn; },
+        skipWaiting: () => {},
+        clients: { claim: () => Promise.resolve() }
+      },
+      caches: {
+        open: name => { log.opened.push(name); return Promise.resolve(cacheFor(name)); },
+        match: () => { log.globalMatch++; return Promise.resolve(undefined); },
+        keys: () => Promise.resolve([]),
+        delete: () => Promise.resolve(true)
+      },
+      fetch: (request, opts) => {
+        log.fetchOpts = opts || null;
+        if (!networkOk) return Promise.reject(new TypeError("offline"));
+        return Promise.resolve({ ok: true, status: 200, type: "basic", body: "NETWORK_RESPONSE", clone() { return this; } });
+      },
+      URL, Promise, console
+    };
+    vm.runInNewContext(sw, scope, { filename: "service-worker.js" });
+    let responded;
+    const waits = [];
+    handlers.fetch({
+      request: { method: "GET", mode: "navigate", url: `https://athlevo.org${path}` },
+      respondWith: p => { responded = p; },
+      waitUntil: p => { waits.push(p); }
+    });
+    const result = await responded;
+    await Promise.all(waits);
+    return { result, log };
+  };
+
+  const online = await runNavigation({ path: "/ai", networkOk: true, cachedShell: true });
   t("navigations are network-first (stale shell can't dictate routing)",
-    /request\.mode === "navigate"[\s\S]{0,200}fetch\(request,\s*\{\s*cache:\s*"no-store"\s*\}\)\.then/.test(sw));
+    Boolean(online.result) && online.result.body === "NETWORK_RESPONSE" &&
+    Boolean(online.log.fetchOpts) && online.log.fetchOpts.cache === "no-store");
   t("successful navigation refreshes the cached shell",
     /cache\.put\("\/index\.html", copy\)/.test(sw));
+  const offline = await runNavigation({ path: "/ai", networkOk: false, cachedShell: true });
   t("cached shell still serves offline from the current cache only",
-    /\.catch\(\(\) =>\s*caches\.open\(CACHE_VERSION\)/.test(sw) &&
-    /cache\.match\("\/index\.html"\)/.test(sw));
+    offline.result === "CACHED_SHELL_CURRENT" &&
+    offline.log.opened.every(name => name === cacheVersion) &&
+    offline.log.globalMatch === 0);
+  const storeOnline = await runNavigation({ path: "/store/pace-plan", networkOk: true, cachedShell: true });
+  const previewOnline = await runNavigation({ path: "/landing-preview", networkOk: true, cachedShell: true });
+  const storeOffline = await runNavigation({ path: "/store", networkOk: false, cachedShell: true });
+  t("store and landing-preview navigations never overwrite or fall back to the cached app shell",
+    Boolean(storeOnline.result) && storeOnline.result.body === "NETWORK_RESPONSE" &&
+    Boolean(previewOnline.result) && previewOnline.result.body === "NETWORK_RESPONSE" &&
+    storeOnline.log.puts.length === 0 && previewOnline.log.puts.length === 0 &&
+    storeOffline.result !== "CACHED_SHELL_CURRENT");
   t("old Athlevo cache names are purged during activation",
     /k\.startsWith\(ATHLEVO_CACHE_PREFIX\)[\s\S]{0,100}caches\.delete\(k\)/.test(sw));
   t("auth + API remain network-only", /"supabase\.co"/.test(sw) && /"\/api\/"/.test(sw));
