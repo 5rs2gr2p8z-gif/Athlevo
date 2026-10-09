@@ -8921,6 +8921,9 @@ async function doLogout() {
   if (window.AthlevoMorningCheckIn && window.AthlevoMorningCheckIn.clearOnLogout) {
     try { window.AthlevoMorningCheckIn.clearOnLogout(); } catch (e) {}
   }
+  if (window.AthlevoFuel && window.AthlevoFuel.clearOnLogout) {
+    try { window.AthlevoFuel.clearOnLogout(); } catch (e) {}
+  }
 
   // Preserve the user's explicit app-entry intent across a same-tab refresh.
   rememberAppEntryIntent('logout');
@@ -9727,6 +9730,9 @@ async function confirmDeleteAccount() {
     try { if (window.AthlevoNotifications) { await window.AthlevoNotifications.onAccountDeleted(); } } catch(e){}
     try { await supabaseClient.auth.signOut(); } catch (e) { /* best-effort */ }
     AthlevoBrain.resetAthleteUI();
+    if (window.AthlevoFuel && window.AthlevoFuel.clearOnLogout) {
+      try { window.AthlevoFuel.clearOnLogout(); } catch (e) {}
+    }
     try { if (window.AthlevoProductAnalytics) AthlevoProductAnalytics.resetAthleteAnalytics(); } catch(e){}
     try { if (window.AthlevoAnalytics) AthlevoAnalytics.resetIdentity(); } catch(e){}
     if (typeof AthlevoBrain.invalidateActivityCache === "function") {
@@ -11717,6 +11723,9 @@ async function routeAfterAuth(userId) {
     if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.clearOnLogout) {
       try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
     }
+    if (window.AthlevoFuel && window.AthlevoFuel.clearOnLogout) {
+      try { window.AthlevoFuel.clearOnLogout(); } catch (e) {}
+    }
   }
   // Keep the "Open App" affordance in sync after interactive login/signup.
   athlevoSessionUserId = userId;
@@ -13013,7 +13022,7 @@ setTimeout(function () {
 <script src="js/anonymousHandoff.js?v=1"></script>
 <script src="js/diagnosticHandoff.js?v=9"></script>
 <script src="js/featureFlags.js?v=1"></script>
-<script src="js/fuel.js?v=1"></script>
+<script src="js/fuel.js?v=2"></script>
 <script src="js/authenticatedOnboarding.js?v=1"></script>
 <script src="js/diagnosticAcquisition.js?v=9"></script>
 <script>
@@ -13842,6 +13851,9 @@ setTimeout(function () {
           if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.clearOnLogout) {
             try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
           }
+          if (window.AthlevoFuel && window.AthlevoFuel.clearOnLogout) {
+            try { window.AthlevoFuel.clearOnLogout(); } catch (e) {}
+          }
         }
         athlevoSessionUserId = nextUserId;
         try { window.athlevoSessionUserId = nextUserId; } catch (e2) {}
@@ -13877,6 +13889,9 @@ setTimeout(function () {
       }
       if (window.AthlevoCoachDashboard && window.AthlevoCoachDashboard.clearOnLogout) {
         try { window.AthlevoCoachDashboard.clearOnLogout(); } catch (e) {}
+      }
+      if (window.AthlevoFuel && window.AthlevoFuel.clearOnLogout) {
+        try { window.AthlevoFuel.clearOnLogout(); } catch (e) {}
       }
     });
   }

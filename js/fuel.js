@@ -345,7 +345,8 @@
     weeklyTracked: false, openedTracked: false,
     sheetOpen: false, step: null, draft: null, photo: null,
     busy: false, error: "", detailMeal: null, confirmingDelete: false,
-    estimateEdited: false, analysisAbort: null, lastFocus: null, status: ""
+    estimateEdited: false, analysisAbort: null, lastFocus: null, status: "",
+    loadSeq: 0, userId: null
   };
 
   function $(id) { return doc.getElementById(id); }
@@ -369,15 +370,30 @@
   function itemBand(n) { return n <= 0 ? "none" : n === 1 ? "one" : n <= 3 ? "few" : "many"; }
 
   /* ── supabase / auth ───────────────────────────────────────────────── */
-  function sb() { return root.supabaseClient || null; }
+  /* index.html declares the client as a top-level `const supabaseClient`. That is a
+     global LEXICAL binding: every classic script can read it by its bare name, but it
+     is NOT a property of window. Reading only window.supabaseClient therefore always
+     yields undefined in production and made Fuel report "Sign in" to signed-in users. */
+  function sb() {
+    try { if (typeof supabaseClient !== "undefined" && supabaseClient) return supabaseClient; } catch (e) { /* not declared / not initialised */ }
+    return root.supabaseClient || null;
+  }
 
+  /* The signed-in user comes from the client's own session, via the shared bounded
+     wait in js/authSupport.js. supabase-js resolves getSession() only after it has
+     restored the persisted session, so opening Fuel while the app is still hydrating
+     waits for the session instead of reading null — no polling, no timers here. */
   async function currentUserId() {
-    if (root.athlevoSessionUserId) return root.athlevoSessionUserId;
     var c = sb();
     if (!c) return null;
     try {
-      var r = await c.auth.getUser();
-      return (r && r.data && r.data.user && r.data.user.id) || null;
+      var S = root.AthlevoSession;
+      if (S && typeof S.waitForValidUser === "function") {
+        var u = await S.waitForValidUser(c, { retries: 1 });
+        return (u && u.id) || null;
+      }
+      var r = await c.auth.getSession();
+      return (r && r.data && r.data.session && r.data.session.user && r.data.session.user.id) || null;
     } catch (e) { return null; }
   }
 
@@ -413,13 +429,32 @@
   }
 
   /* ── data loading (reads go through RLS, like the calendar) ───────── */
+  /* Drop every piece of loaded, per-account data. */
+  function resetData() {
+    state.loaded = false; state.meals = []; state.training = null; state.energy = null;
+    state.energyChecked = false; state.weeklyTracked = false; state.goalMode = null;
+    state.detailMeal = null;
+  }
+
   async function loadAll() {
+    var seq = ++state.loadSeq; // a newer load (or a logout) invalidates this one
     state.loading = true;
     state.loadError = null;
     render();
     var c = sb();
+    if (!c) {
+      // The auth client itself is unavailable: a load problem, not a signed-out user.
+      state.loading = false; state.loadError = "We couldn't load your meals right now."; render(); return;
+    }
     var uid = await currentUserId();
-    if (!c || !uid) { state.loading = false; state.loadError = "Sign in to use Fuel."; render(); return; }
+    if (seq !== state.loadSeq) return;
+    if (!uid) {
+      // Only here — no authenticated session at all — is the sign-in message true.
+      resetData(); state.userId = null;
+      state.loading = false; state.loadError = "Sign in to use Fuel."; render(); return;
+    }
+    if (state.userId && state.userId !== uid) resetData(); // never carry one account's meals into another
+    state.userId = uid;
     var today = localDateKey();
     var since = addDaysKey(today, -LOAD_DAYS_BACK + 1);
     var tomorrow = addDaysKey(today, 1);
@@ -439,6 +474,7 @@
       .then(function (r) { return r; }, function () { return { data: null }; });
 
     var results = await Promise.all([mealsP, prefP, planP, actP]);
+    if (seq !== state.loadSeq) return; // superseded, or the athlete signed out mid-load
     var mealsRes = results[0];
     if (mealsRes && mealsRes.error) {
       state.loadError = "We couldn't load your meals right now.";
@@ -1262,8 +1298,7 @@
     state.returnScreen = active && active.id && active.id !== SCREEN_ID ? active.id : "screen-trends";
     // Always start from a clean slate so one athlete's meals are never shown to another
     // on a shared device, then load fresh.
-    state.loaded = false; state.meals = []; state.training = null; state.energy = null;
-    state.energyChecked = false; state.status = ""; state.weeklyTracked = false; state.goalMode = null;
+    resetData(); state.status = "";
     if (typeof root.showScreen === "function") root.showScreen(SCREEN_ID);
     else {
       Array.prototype.forEach.call(doc.querySelectorAll(".screen"), function (s) { s.classList.remove("active"); });
@@ -1278,6 +1313,18 @@
   function close() {
     if (state.sheetOpen) closeSheet();
     if (typeof root.showScreen === "function") root.showScreen(state.returnScreen || "screen-trends");
+  }
+
+  /* Called from sign-out, account switch and delete-account (index.html) so one
+     account's nutrition data can never survive into the next session. */
+  function clearOnLogout() {
+    state.loadSeq++; // any load still in flight is now stale and will not render
+    closeSheet();    // aborts a running analysis, releases the photo, drops the draft
+    resetData();
+    state.userId = null; state.loading = false; state.loadError = null; state.status = "";
+    state.busy = false; state.noteText = "";
+    var host = $("fuelRoot"); if (host) host.innerHTML = "";
+    var body = sheetBody(); if (body) body.innerHTML = "";
   }
 
   function syncEntryPoints() {
@@ -1314,8 +1361,11 @@
     open: open,
     close: close,
     syncEntryPoints: syncEntryPoints,
+    clearOnLogout: clearOnLogout,
     _test: helpers
   };
+  // Test seam only (no behaviour): lets unit tests inspect state and call the API helper.
+  helpers.runtime = { api: api, state: state };
 
   if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", init);
   else init();
