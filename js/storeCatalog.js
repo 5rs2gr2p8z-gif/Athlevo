@@ -1,10 +1,18 @@
 /*
  * Athlevo program storefront catalog.
  *
- * Single editable source for collections, draft programs, storefront copy,
+ * Single editable source for draft programs, storefront copy,
  * and FAQs. Undecided terms (coachSupport) are internal data and must not
  * appear in customer-facing copy. Do not add unapproved prices, promotional markdown, testimonials,
  * results, or outcome promises here.
+ *
+ * Offer details (summary, description, audience, deliverables, duration) are
+ * intentionally absent until approved copy is supplied. The storefront renders
+ * those sections only when a product defines them.
+ *
+ * Athlevo Plan is the only offer with a built page (`page`). Its price and offer
+ * details were confirmed by the owner; the other offers stay bare until theirs
+ * are supplied.
  */
 (function storeCatalogModule(global) {
   "use strict";
@@ -56,53 +64,13 @@
     )
   };
 
-  var collections = [
-    {
-      id: "5k",
-      name: "5K",
-      headline: "Learn the distance, then race it with purpose.",
-      image: PHOTO.track
-    },
-    {
-      id: "10k",
-      name: "10K",
-      headline: "Build the engine between a first 5K and longer races.",
-      image: PHOTO.road
-    },
-    {
-      id: "half-marathon",
-      name: "Half Marathon",
-      headline: "Sixteen weeks of structure toward 21.1 kilometers.",
-      image: PHOTO.training
-    },
-    {
-      id: "marathon",
-      name: "Marathon",
-      headline: "A long, honest build toward 42.2 kilometers.",
-      image: PHOTO.pack
-    }
-  ];
-
+  // Only answers backed by confirmed information. Intake, coach review, delivery,
+  // support, pricing, and per-offer details are not confirmed yet; do not add FAQs
+  // about them until they are.
   var sharedFaqs = [
     {
       question: "Can I buy a program today?",
       answer: "Not yet. Purchasing is not open, so this page is for browsing programs."
-    },
-    {
-      question: "What happens after I choose a program?",
-      answer: "You complete a short intake, a coach reviews it and personalizes the plan, and you receive it to follow for the full block. Each program page lists the details."
-    },
-    {
-      question: "Are these generic templates?",
-      answer: "No. Each program is a distance-specific starting structure. After intake, a coach reviews your goal, schedule, and current training and personalizes the plan before you receive it."
-    },
-    {
-      question: "What does the intake cover?",
-      answer: "Your goal and race date, recent training, the days you can run each week, and anything else you are balancing, such as strength work, other sports, or a busy schedule."
-    },
-    {
-      question: "Which program is right for me?",
-      answer: "Every program page lists who it is for and the starting fitness it assumes. If you are between two distances, the shorter one is usually the better place to begin."
     },
     {
       question: "Are race times guaranteed?",
@@ -112,191 +80,133 @@
 
   var products = [
     {
-      slug: "first-5k",
-      name: "First 5K",
-      collection: "5k",
-      durationWeeks: 8,
-      durationLabel: "8 weeks",
-      intendedRunner: "New runners building toward a first 5K.",
+      slug: "athlevo-plan",
+      name: "Athlevo Plan",
       hero: PHOTO.track,
-      summary: "A patient eight-week introduction to consistent running, with enough structure to arrive at 5 kilometers prepared rather than guessing.",
-      description: "First 5K is for people who want a real race on the calendar without being dropped into a high-volume plan. The block develops the habit of showing up, the aerobic base a 5K needs, and the small amount of faster work that makes race day feel familiar.",
-      whoFor: [
-        "Runners preparing for their first 5K, or returning after a long time away.",
-        "People who can currently walk-run or jog for about 20–30 minutes.",
-        "Anyone who wants a coach-reviewed plan instead of an unsigned PDF."
-      ],
-      startingFitness: [
-        "Able to complete 20–30 minutes of easy movement most weeks, even if some of that is walking.",
-        "No current injury that prevents run/walk sessions three times per week.",
-        "Willing to train about three days per week for eight weeks."
-      ],
-      receives: [
-        "A personalized 8-week 5K plan after intake.",
-        "Coach review of that plan before you start the block.",
-        "Clear session intent for easy days, walks, and any introductory faster work."
-      ],
-      intakeAndDelivery: [
-        "After purchase is available, you complete an intake covering goal date, recent training, schedule, and constraints.",
-        "A coach reviews the intake and personalizes the First 5K structure to you.",
-        "You receive the plan to follow for the 8-week block."
-      ],
+      page: {
+        headline: "A clear plan for your next goal.",
+        description: "Personalized running and strength training built around your fitness, schedule, and goals.",
+        price: { amount: "₱1,998", period: "/month" },
+        cta: { label: "Sign Up", target: "how-to-get-started" },
+        supporting: "Monthly coaching plan. No lock-in.",
+        overview: {
+          intro: "Athlevo Plan is for runners who can train independently and want a clear, personalized structure to follow.",
+          includesTitle: "What is included",
+          includes: [
+            "A personalized running plan.",
+            "Strength training matched to your schedule and equipment.",
+            "Planning around your current fitness, goals, race calendar, and other training.",
+            "Basic coach support.",
+            "A monthly coach review and plan adjustment."
+          ],
+          note: "Athlevo Plan includes a monthly review. Weekly reviews are part of Athlevo Coaching."
+        },
+        // Approved athlete feedback about Athlevo coaching in general, not Plan-specific.
+        // Quotes are copied verbatim from the cited source file; a test enforces that.
+        athleteFeedback: {
+          label: "From Athlevo athletes.",
+          items: [
+            {
+              name: "Rodel Mark",
+              context: "Athlete · Sub-19 5K",
+              quote: "“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”",
+              source: "js/landingContent.js"
+            },
+            {
+              name: "Miguel Bulado",
+              context: "Student Athlete",
+              quote: "“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”",
+              source: "js/landingContent.js"
+            },
+            {
+              name: "JB Luna",
+              context: "Recreational Runner",
+              quote: "“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”",
+              source: "js/landingContent.js"
+            },
+            {
+              name: "Carl Zita",
+              context: "Recreational Runner",
+              quote: "“Effective program, quality sessions, and very informative coaching.”",
+              source: "js/landingContent.js"
+            }
+          ]
+        },
+        pricing: {
+          includes: [
+            "Personalized running plan",
+            "Strength training matched to your schedule and equipment",
+            "Basic coach support",
+            "Monthly coach review and plan adjustment"
+          ],
+          terms: "Month-to-month, no lock-in."
+        },
+        coach: {
+          name: "Dean Vincent Castro",
+          role: "Founder & Head Coach, Athlevo",
+          photo: PHOTO.founder,
+          intro: "Dean founded Athlevo and serves as its Head Coach. His focus is structured running and strength training: clear plans built around the athlete, reviewed and adjusted over time."
+        },
+        getStarted: {
+          steps: [
+            "Sign up and complete payment.",
+            "Fill out the intake form with your fitness, goals, schedule, and equipment.",
+            "Receive your personalized plan and coach contact instructions.",
+            "Follow the plan, with a monthly review and adjustment."
+          ],
+          notice: "Registration opening soon"
+        }
+      },
       // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
-        detail: "How questions are answered during the block, and whether mid-block adjustments are included, is not decided yet. Those terms will be published before purchasing opens."
+        detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
       },
-      related: ["faster-5k", "first-10k"]
+      related: ["athlevo-coaching", "hybrid-programming", "elite-coaching"]
     },
     {
-      slug: "faster-5k",
-      name: "Faster 5K",
-      collection: "5k",
-      durationWeeks: 12,
-      durationLabel: "12 weeks",
-      intendedRunner: "Runners who already finish 5K and want a sharper race.",
+      slug: "athlevo-coaching",
+      name: "Athlevo Coaching",
       hero: PHOTO.road,
-      summary: "Twelve weeks aimed at a faster 5K: more specific work, still built around the athlete who shows up in the intake, not a generic peak week.",
-      description: "Faster 5K assumes you can already complete the distance and want the race to feel more deliberate. The block keeps easy running honest, introduces work that belongs at 5K pace, and leaves room for a coach to set volume from your current week rather than from a poster plan.",
-      whoFor: [
-        "Runners who have finished a 5K and want a more specific next race.",
-        "Athletes who already run about three or four days per week.",
-        "People who prefer a coached block over stacking random intervals."
-      ],
-      startingFitness: [
-        "Can complete 5 kilometers continuously at an easy-to-steady effort.",
-        "Recent running of at least three days per week.",
-        "Able to add one quality session most weeks without dropping all easy running."
-      ],
-      receives: [
-        "A personalized 12-week 5K plan after intake.",
-        "Coach review of that plan before the block starts.",
-        "Session structure for easy running, 5K-specific work, and a taper into the race."
-      ],
-      intakeAndDelivery: [
-        "Intake covers recent 5K or time-trial context, weekly availability, and the target race.",
-        "A coach personalizes volume and session difficulty from that picture.",
-        "You receive the 12-week plan to run through race week."
-      ],
       // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
-        detail: "In-block messaging, workout feedback, and plan-change rules are pending. They will be stated before purchasing opens."
+        detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
       },
-      related: ["first-5k", "first-10k", "half-marathon"]
+      related: ["athlevo-plan", "hybrid-programming", "elite-coaching"]
     },
     {
-      slug: "first-10k",
-      name: "First 10K",
-      collection: "10k",
-      durationWeeks: 12,
-      durationLabel: "12 weeks",
-      intendedRunner: "Runners moving from 5K toward a first 10K.",
-      hero: PHOTO.training,
-      summary: "Twelve weeks that grow durable easy running and introduce the endurance a 10K actually asks for.",
-      description: "First 10K is the step after you can already handle a 5K. The work is still approachable: longer easy days, a weekly rhythm you can keep, and enough specific running that 10 kilometers on race day is a continuation of training, not a surprise.",
-      whoFor: [
-        "Runners who have raced or trained through a 5K and want 10K next.",
-        "People who can already run 30–40 minutes continuously.",
-        "Athletes who want the next distance without jumping straight to a half marathon."
-      ],
-      startingFitness: [
-        "Comfortable running 5 kilometers, or about 30–40 minutes, on easy days.",
-        "Training at least three days per week in the month before the block.",
-        "Able to progress toward a weekly long run in the 60–75 minute range by the later weeks."
-      ],
-      receives: [
-        "A personalized 12-week 10K plan after intake.",
-        "Coach review of that plan before you begin.",
-        "Progression for easy running, a developing long run, and 10K-specific sessions."
-      ],
-      intakeAndDelivery: [
-        "Intake records your recent 5K training, available days, and 10K date if you have one.",
-        "A coach sets starting volume from that week, not from a default peak.",
-        "You receive the plan for the full 12 weeks."
-      ],
-      // INTERNAL ONLY: undecided terms. Never render these on the storefront.
-      coachSupport: {
-        status: "pending",
-        detail: "Support during the 12 weeks is pending. Frequency, channels, and what counts as an in-block change will be published before purchasing opens."
-      },
-      related: ["faster-5k", "half-marathon"]
-    },
-    {
-      slug: "half-marathon",
-      name: "Half Marathon",
-      collection: "half-marathon",
-      durationWeeks: 16,
-      durationLabel: "16 weeks",
-      intendedRunner: "Runners preparing for 21.1 kilometers with a full training block.",
+      slug: "hybrid-programming",
+      name: "Hybrid Programming",
       hero: PHOTO.founder,
-      summary: "Sixteen weeks toward a half marathon, with volume and specific work set after a coach reads your intake.",
-      description: "The half marathon rewards patience more than hero sessions. This program is a sixteen-week arc: durable easy running, a long run that grows with you, and work that belongs at half-marathon effort — scheduled around the life you actually describe in intake.",
-      whoFor: [
-        "Runners targeting a first or returning half marathon.",
-        "People who already run several days per week and can protect a long-run day.",
-        "Athletes who want a coach-reviewed block rather than a public 16-week spreadsheet."
-      ],
-      startingFitness: [
-        "Able to run about 45–60 minutes continuously, or complete a recent 10K.",
-        "Training at least three to four days per week.",
-        "Willing to keep one longer session each week for most of the 16 weeks."
-      ],
-      receives: [
-        "A personalized 16-week half marathon plan after intake.",
-        "Coach review of that plan before the block starts.",
-        "Structure for easy volume, long runs, half-specific sessions, and a race-week taper."
-      ],
-      intakeAndDelivery: [
-        "Intake covers race date, recent long runs, weekly days, and other training load (strength, other sports).",
-        "A coach personalizes starting mileage and how quickly the long run grows.",
-        "You receive the 16-week plan to follow through race week."
-      ],
       // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
-        detail: "Whether the block includes scheduled check-ins, message limits, or one mid-block rewrite is still pending."
+        detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
       },
-      related: ["first-10k", "marathon", "faster-5k"]
+      related: ["athlevo-plan", "athlevo-coaching", "elite-coaching"]
     },
     {
-      slug: "marathon",
-      name: "Marathon",
-      collection: "marathon",
-      durationWeeks: 20,
-      durationLabel: "20 weeks",
-      intendedRunner: "Runners building toward 42.2 kilometers with time to do it honestly.",
+      slug: "elite-coaching",
+      name: "Elite Coaching",
       hero: PHOTO.pack,
-      summary: "A twenty-week marathon block: long enough to grow the work, short enough to stay pointed at one race.",
-      description: "Marathon training is mostly the unglamorous accumulation of easy running and a long run that teaches the day. This program is twenty weeks so the plan can start from your current week instead of pretending every athlete arrives ready for peak mileage. Specific work is included; it never outruns the aerobic base the distance requires.",
-      whoFor: [
-        "Runners with a marathon on the calendar and twenty weeks to prepare.",
-        "Athletes who have completed a half marathon or equivalent long training.",
-        "People who want a coach-reviewed plan before they start a long block."
-      ],
-      startingFitness: [
-        "Recent half marathon, or long runs already in the 90-minute range.",
-        "Consistent running of four days per week, or a clear path to that early in the block.",
-        "No unresolved injury that makes two-hour easy running unreasonable to progress toward."
-      ],
-      receives: [
-        "A personalized 20-week marathon plan after intake.",
-        "Coach review of that plan before you begin the block.",
-        "Progression for easy volume, long runs, marathon-specific sessions, and race week."
-      ],
-      intakeAndDelivery: [
-        "Intake includes race date, longest recent run, weekly availability, and other load you will keep (work, strength, family schedule).",
-        "A coach sets the opening weeks from that picture and how the long run is allowed to grow.",
-        "You receive the 20-week plan to carry through race week."
-      ],
       // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
-        detail: "Marathon-block support terms — check-in cadence, late-block adjustments, and race-week guidance — are pending and will be published before purchasing opens."
+        detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
       },
-      related: ["half-marathon"]
+      related: ["athlevo-plan", "athlevo-coaching", "hybrid-programming"]
     }
   ];
+
+  // Pre-rename URLs. Old links resolve to the renamed offer. First 10K was
+  // removed from the storefront and intentionally has no entry.
+  var legacySlugs = {
+    "first-5k": "athlevo-plan",
+    "faster-5k": "athlevo-coaching",
+    "half-marathon": "hybrid-programming",
+    "marathon": "elite-coaching"
+  };
 
   function getProduct(slug) {
     var key = String(slug || "").replace(/^\/+|\/+$/g, "");
@@ -306,11 +216,9 @@
     return null;
   }
 
-  function getCollection(id) {
-    for (var i = 0; i < collections.length; i++) {
-      if (collections[i].id === id) return collections[i];
-    }
-    return null;
+  function resolveSlug(slug) {
+    var key = String(slug || "").replace(/^\/+|\/+$/g, "");
+    return Object.prototype.hasOwnProperty.call(legacySlugs, key) ? legacySlugs[key] : key;
   }
 
   function relatedProducts(product) {
@@ -328,29 +236,19 @@
     return out;
   }
 
-  function filterProducts(collectionId) {
-    if (!collectionId || collectionId === "all") return products.slice();
-    return products.filter(function (product) {
-      return product.collection === collectionId;
-    });
-  }
-
   var catalog = {
     brand: "Athlevo",
     purchasingAvailable: false,
     hero: {
       image: PHOTO.training,
-      headline: "A stronger race starts here.",
-      lede: "Personalized running programs, reviewed by a coach."
+      headline: "Training built around you."
     },
-    intro: "Personalized running programs, from a first 5K to the marathon. Choose your distance and a coach shapes the plan around you.",
-    collections: collections,
+    intro: "Personalized running and strength programming built around your goals, schedule, and current fitness.",
     products: products,
     faqs: sharedFaqs,
     getProduct: getProduct,
-    getCollection: getCollection,
-    relatedProducts: relatedProducts,
-    filterProducts: filterProducts
+    resolveSlug: resolveSlug,
+    relatedProducts: relatedProducts
   };
 
   global.AthlevoStoreCatalog = catalog;
