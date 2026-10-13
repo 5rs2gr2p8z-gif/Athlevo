@@ -10,6 +10,10 @@
  * intentionally absent until approved copy is supplied. The storefront renders
  * those sections only when a product defines them.
  *
+ * `coaches` lists the people shown in "Meet the coaches". Add an entry only with a
+ * verified name, role, photo, and bio. List certifications only as supplied by the
+ * owner, in `certifications`; never add credentials or achievements of your own.
+ *
  * Athlevo Plan is the only offer with a built page (`page`). Its price and offer
  * details were confirmed by the owner; the other offers stay bare until theirs
  * are supplied.
@@ -17,9 +21,11 @@
 (function storeCatalogModule(global) {
   "use strict";
 
-  function storePhoto(id, wide, height, original, alt) {
+  // `focus` is optional: a CSS object-position that keeps the subject in frame when
+  // the photo is cropped into a shorter box (e.g. the square mobile card).
+  function storePhoto(id, wide, height, original, alt, focus) {
     var prefix = "/assets/store/" + id + "-";
-    return {
+    var photo = {
       original: original,
       alt: alt,
       width: wide,
@@ -34,6 +40,8 @@
         { src: prefix + wide + ".avif", w: wide }
       ]
     };
+    if (focus) photo.focus = focus;
+    return photo;
   }
 
   var PHOTO = {
@@ -42,15 +50,26 @@
       "/assets/landing/hero-athlevo.png",
       "Athlevo athletes gathered together after a training session."
     ),
-    training: storePhoto(
-      "training", 1206, 2622,
-      "/assets/landing/athlete-philosophy-training.png",
-      "A runner training on the road during an Athlevo session."
+    stretch: storePhoto(
+      "stretch", 1080, 1616,
+      "/assets/landing/store-hero-stretch.jpg",
+      "An Athlevo athlete in a white Athlevo shirt and red shorts holding one knee to the chest in a standing stretch."
     ),
     founder: storePhoto(
       "founder", 1145, 1374,
       "/assets/landing/dean-founder.png",
       "Dean Castro at an endurance race."
+    ),
+    hybrid: storePhoto(
+      "hybrid", 1023, 1279,
+      "/assets/landing/hybrid-programming-athlete.png",
+      "An athlete in a white Athlevo singlet running on a wet track during a marathon, one hand raised.",
+      "50% 0%"
+    ),
+    christian: storePhoto(
+      "christian", 880, 1100,
+      "/assets/landing/christian-francia-coach.jpg",
+      "Christian Francia smiling and flexing his arm while running a race."
     ),
     road: storePhoto(
       "road", 1280, 1707,
@@ -67,6 +86,29 @@
   // Only answers backed by confirmed information. Intake, coach review, delivery,
   // support, pricing, and per-offer details are not confirmed yet; do not add FAQs
   // about them until they are.
+  // Shared coach record: used by the Athlevo Plan page and the catalog's coaches section.
+  var DEAN = {
+    name: "Dean Vincent Castro",
+    role: "Founder & Head Coach, Athlevo",
+    photo: PHOTO.founder,
+    intro: "Dean founded Athlevo and serves as its Head Coach. His focus is structured running and strength training: clear plans built around the athlete, reviewed and adjusted over time."
+  };
+
+  // Role, specialty and certifications supplied by the owner. Do not add to them.
+  var CHRISTIAN = {
+    name: "Christian Francia",
+    role: "Assistant Coach, Athlevo",
+    photo: PHOTO.christian,
+    intro: "Christian is an assistant coach at Athlevo. He specializes in strength and conditioning.",
+    certifications: [
+      "Functional training",
+      "Fitness body anatomy",
+      "Movement analysis and corrective exercise",
+      "Basic nutrition",
+      "OCR"
+    ]
+  };
+
   var sharedFaqs = [
     {
       question: "Can I buy a program today?",
@@ -141,12 +183,7 @@
           ],
           terms: "Month-to-month, no lock-in."
         },
-        coach: {
-          name: "Dean Vincent Castro",
-          role: "Founder & Head Coach, Athlevo",
-          photo: PHOTO.founder,
-          intro: "Dean founded Athlevo and serves as its Head Coach. His focus is structured running and strength training: clear plans built around the athlete, reviewed and adjusted over time."
-        },
+        coach: DEAN,
         getStarted: {
           steps: [
             "Sign up and complete payment.",
@@ -178,7 +215,7 @@
     {
       slug: "hybrid-programming",
       name: "Hybrid Programming",
-      hero: PHOTO.founder,
+      hero: PHOTO.hybrid,
       // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
@@ -240,10 +277,11 @@
     brand: "Athlevo",
     purchasingAvailable: false,
     hero: {
-      image: PHOTO.training,
+      image: PHOTO.stretch,
       headline: "Training built around you."
     },
     intro: "Personalized running and strength programming built around your goals, schedule, and current fitness.",
+    coaches: [DEAN, CHRISTIAN],
     products: products,
     faqs: sharedFaqs,
     getProduct: getProduct,

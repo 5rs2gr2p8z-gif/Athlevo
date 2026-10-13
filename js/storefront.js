@@ -21,7 +21,8 @@
     hero: "100vw",
     card: "(min-width: 981px) 400px, (min-width: 641px) 50vw, 100vw",
     pdp: "(min-width: 981px) min(720px, 58vw), 92vw",
-    coach: "(min-width: 981px) 360px, 92vw"
+    coach: "(min-width: 981px) 360px, 92vw",
+    coachCard: "(min-width: 641px) 200px, 92vw"
   };
 
   function picture(photo, opts) {
@@ -43,6 +44,7 @@
     var node = document.createElement("img");
     node.src = photo.src;
     node.alt = photo.alt || "";
+    if (photo.focus) node.style.objectPosition = photo.focus;
     if (photo.width) node.width = photo.width;
     if (photo.height) node.height = photo.height;
     node.decoding = "async";
@@ -156,6 +158,25 @@
     target.appendChild(wrap);
   }
 
+  function renderCoachCard(coach) {
+    var card = $("article", "coach-card");
+    var figure = $("figure", "coach-card-photo");
+    figure.appendChild(picture(coach.photo, { sizes: SIZES.coachCard }));
+    var body = $("div", "coach-card-body");
+    body.appendChild($("h3", "coach-card-name", coach.name));
+    body.appendChild($("p", "coach-card-role", coach.role));
+    body.appendChild($("p", "", coach.intro));
+    if (coach.certifications && coach.certifications.length) {
+      var creds = $("div", "coach-card-creds");
+      creds.appendChild($("p", "coach-card-creds-label", "Certified in"));
+      creds.appendChild(listItems(coach.certifications));
+      body.appendChild(creds);
+    }
+    card.appendChild(figure);
+    card.appendChild(body);
+    return card;
+  }
+
   function renderCatalog(route) {
     setTitle("Programs — Athlevo");
     markNav("catalog");
@@ -184,6 +205,21 @@
     pWrap.appendChild(cards);
     programs.appendChild(pWrap);
     root.appendChild(programs);
+
+    if (catalog.coaches && catalog.coaches.length) {
+      var coaches = $("section", "coaches");
+      coaches.id = "coaches";
+      coaches.setAttribute("aria-labelledby", "coaches-heading");
+      var cWrap = $("div", "wrap");
+      cWrap.appendChild($("h2", "section-title", "Meet the coaches")).id = "coaches-heading";
+      var coachList = $("div", "coach-list");
+      catalog.coaches.forEach(function (coach) {
+        coachList.appendChild(renderCoachCard(coach));
+      });
+      cWrap.appendChild(coachList);
+      coaches.appendChild(cWrap);
+      root.appendChild(coaches);
+    }
 
     var faq = $("section", "section");
     faq.id = "faq";

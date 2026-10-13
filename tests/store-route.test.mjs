@@ -59,10 +59,10 @@ section("2. Catalog data");
     new Set(catalog.products.map(p => p.slug)).size === 4);
   t("slugs follow the new names",
     catalog.products.map(p => p.slug).join(",") === "athlevo-plan,athlevo-coaching,hybrid-programming,elite-coaching");
-  t("each card keeps its current photo",
+  t("each card uses its assigned photo",
     [["athlevo-plan", "/assets/store/track-1280.webp"],
      ["athlevo-coaching", "/assets/store/road-1280.webp"],
-     ["hybrid-programming", "/assets/store/founder-1145.webp"],
+     ["hybrid-programming", "/assets/store/hybrid-1023.webp"],
      ["elite-coaching", "/assets/store/pack-1206.webp"]]
       .every(([slug, src]) => catalog.getProduct(slug).hero.src === src));
   t("offers carry no old race-specific copy or durations",
@@ -135,6 +135,11 @@ section("4. Storefront chrome");
     /href="\/store#faq">FAQ</.test(storeHtml) &&
     !/How It Works/.test(storeHtml));
   t("skip link is present", /Skip to main content/.test(storeHtml));
+  t("header and footer brand is the original text wordmark",
+    /<a class="wordmark" href="\/store">Athlevo<\/a>/.test(storeHtml) &&
+    /<a class="footer-mark" href="\/store">Athlevo<\/a>/.test(storeHtml));
+  t("the storefront chrome carries no logo image",
+    !/athlevo-coaching-logo|brand-logo/.test(storeHtml) && !/brand-logo/.test(css));
   t("hero headline is in the catalog source",
     catalog.hero.headline === "Training built around you.");
   t("product pages render detail sections only when an offer defines them",
@@ -167,6 +172,31 @@ section("4b. Catalog page structure");
     /\$\("section", "intro"\)/.test(storefrontSrc) &&
     /program-grid/.test(storefrontSrc) &&
     /id = "faq"/.test(storefrontSrc));
+  const renderCat = storefrontSrc.slice(storefrontSrc.indexOf("function renderCatalog"), storefrontSrc.indexOf("function renderProduct("));
+  t("catalog order is hero, intro, programs, Meet the coaches, FAQ",
+    ['$("section", "hero")', '$("section", "intro")', 'programs.id = "programs"', 'coaches.id = "coaches"', 'faq.id = "faq"']
+      .map(s => renderCat.indexOf(s)).every((v, i, a) => v >= 0 && (i === 0 || v > a[i - 1])));
+  t("coaches section is headed 'Meet the coaches' and renders every catalog coach",
+    /"Meet the coaches"/.test(renderCat) && /catalog\.coaches\.forEach/.test(renderCat) && /function renderCoachCard/.test(storefrontSrc));
+  t("coaches list holds only verified people: Dean Vincent Castro, Christian Francia",
+    catalog.coaches.map(c => c.name).join("|") === "Dean Vincent Castro|Christian Francia" &&
+    catalog.coaches[0].role === "Founder & Head Coach, Athlevo" &&
+    catalog.coaches[0] === catalog.getProduct("athlevo-plan").page.coach &&
+    catalog.coaches[1].role === "Assistant Coach, Athlevo" &&
+    catalog.coaches[1].intro === "Christian is an assistant coach at Athlevo. He specializes in strength and conditioning.");
+  t("only the owner-supplied certifications appear, on Christian's card, exactly as supplied",
+    catalog.coaches.filter(c => c.certifications).map(c => c.name).join("|") === "Christian Francia" &&
+    JSON.stringify(catalog.coaches[1].certifications) === JSON.stringify(
+      ["Functional training", "Fitness body anatomy", "Movement analysis and corrective exercise", "Basic nutrition", "OCR"]) &&
+    /"Certified in"/.test(storefrontSrc) &&
+    !catalog.getProduct("athlevo-plan").page.coach.certifications);
+  t("coach entries have name, role, optimized photo and a short bio, with no credentials or achievements",
+    catalog.coaches.every(c => c.name && c.role && c.photo && c.photo.src.startsWith("/assets/store/") && c.photo.alt &&
+      c.intro.length > 40 && c.intro.length < 300 &&
+      !/certif\w*|licen[sc]\w*|accredit\w*|usatf|champion|record|winner|podium|years of|\d+\+?\s*(athletes|years)/i.test(c.intro + " " + c.role)));
+  t("coach photos are lazy-loaded below the fold", !/picture\(coach\.photo, \{[^}]*eager/.test(storefrontSrc));
+  t("coach card layout stacks to one column on mobile",
+    /\.coach-card\s*\{\s*grid-template-columns:\s*1fr/.test(css.slice(css.lastIndexOf("@media (max-width: 640px)"))));
   t("program cards link to /store/:slug and show only the name",
     /function renderProgramCard/.test(storefrontSrc) &&
     /productHref\(product\.slug\)/.test(storefrontSrc) &&
@@ -379,11 +409,41 @@ section("6. App shell and service worker isolation");
 
 section("7. Responsive storefront images");
 {
-  const heroWebp = statSync("./assets/store/training-1206.webp").size;
+  const heroWebp = statSync("./assets/store/stretch-1080.webp").size;
   t("catalog photos keep original sources on disk",
-    existsSync("./assets/landing/athlete-philosophy-training.png") &&
+    existsSync("./assets/landing/store-hero-stretch.jpg") &&
     existsSync("./assets/landing/hero-athlevo.png") &&
     existsSync("./assets/landing/dean-founder.png"));
+  t("catalog hero is the stretch photo with 640w and 1080w WebP and AVIF files on disk",
+    catalog.hero.image.original === "/assets/landing/store-hero-stretch.jpg" &&
+    catalog.hero.image.width === 1080 && catalog.hero.image.height === 1616 &&
+    catalog.hero.image.alt.length > 20 &&
+    ["640", "1080"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/stretch-" + w + "." + ext))));
+  t("Christian Francia's coach photo is cropped, optimized, and the original is kept",
+    catalog.coaches[1].photo.original === "/assets/landing/christian-francia-coach.jpg" &&
+    existsSync("./assets/landing/christian-francia-coach.jpg") &&
+    catalog.coaches[1].photo.width === 880 && catalog.coaches[1].photo.height === 1100 &&
+    ["640", "880"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/christian-" + w + "." + ext))));
+  const hybridWebp = statSync("./assets/store/hybrid-1023.webp").size;
+  const hybrid = catalog.getProduct("hybrid-programming").hero;
+  t("Hybrid Programming uses the supplied athlete photo, cropped 4:5, with the original kept",
+    hybrid.original === "/assets/landing/hybrid-programming-athlete.png" &&
+    existsSync("./assets/landing/hybrid-programming-athlete.png") &&
+    hybrid.width === 1023 && hybrid.height === 1279 &&
+    ["640", "1023"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/hybrid-" + w + "." + ext))));
+  t("Hybrid Programming no longer uses the founder photo, which stays on Dean's coach card only",
+    hybrid.src !== catalog.coaches[0].photo.src &&
+    catalog.coaches[0].photo.src === "/assets/store/founder-1145.webp" &&
+    catalog.products.filter(p => p.hero.src === catalog.coaches[0].photo.src).length === 0);
+  t("Hybrid photo alt text describes the scene without naming a person or race number",
+    hybrid.alt.length > 20 && !/dean|castro|founder|christian|francia|\d{4,}/i.test(hybrid.alt));
+  t("Hybrid photo has a top-anchored focus so the head stays in the square mobile card",
+    hybrid.focus === "50% 0%" &&
+    /if \(photo\.focus\) node\.style\.objectPosition = photo\.focus/.test(storefrontSrc) &&
+    catalog.products.filter(p => p.hero.focus).length === 1);
+  t("Hybrid WebP is under 500KB", hybridWebp < 500 * 1024, String(hybridWebp));
+  t("hero crop keeps the shirt lettering and hands in the wide banner",
+    /\.hero img\s*\{[^}]*object-position:\s*center 16%/.test(css));
   t("derived store photos are WebP/AVIF under assets/store",
     catalog.hero.image.src.startsWith("/assets/store/") &&
     catalog.hero.image.webp.length === 2 &&
