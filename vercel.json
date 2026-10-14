@@ -4,6 +4,26 @@
       "source": "/download/android",
       "destination": "https://hqwdehqsllyvrcnlcytj.supabase.co/storage/v1/object/public/releases/android/athlevo-android-v1.0.0.apk?download=athlevo-android-v1.0.0.apk",
       "permanent": false
+    },
+    {
+      "source": "/store/first-5k",
+      "destination": "/store/athlevo-plan",
+      "permanent": true
+    },
+    {
+      "source": "/store/faster-5k",
+      "destination": "/store/athlevo-coaching",
+      "permanent": true
+    },
+    {
+      "source": "/store/half-marathon",
+      "destination": "/store/hybrid-programming",
+      "permanent": true
+    },
+    {
+      "source": "/store/marathon",
+      "destination": "/store/elite-coaching",
+      "permanent": true
     }
   ],
   "rewrites": [
@@ -82,6 +102,22 @@
     {
       "source": "/store",
       "destination": "/store.html"
+    },
+    {
+      "source": "/store/athlevo-plan",
+      "destination": "/store-pages/athlevo-plan.html"
+    },
+    {
+      "source": "/store/athlevo-coaching",
+      "destination": "/store-pages/athlevo-coaching.html"
+    },
+    {
+      "source": "/store/hybrid-programming",
+      "destination": "/store-pages/hybrid-programming.html"
+    },
+    {
+      "source": "/store/elite-coaching",
+      "destination": "/store-pages/elite-coaching.html"
     },
     {
       "source": "/store/:slug",

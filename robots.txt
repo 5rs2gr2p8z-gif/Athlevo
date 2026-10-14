@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://athlevo.org/sitemap.xml

@@ -83,6 +83,22 @@
     document.title = title;
   }
 
+  function setMeta(selector, attr, value) {
+    var el = document.querySelector(selector);
+    if (el) el.setAttribute(attr, value);
+  }
+
+  // Mirrors the static <head> that scripts/build-store-pages.mjs writes for each route.
+  function applySeo(meta) {
+    if (!meta) return;
+    setTitle(meta.title);
+    setMeta('meta[name="description"]', "content", meta.description);
+    setMeta('link[rel="canonical"]', "href", meta.url);
+    setMeta('meta[property="og:title"]', "content", meta.title);
+    setMeta('meta[property="og:description"]', "content", meta.description);
+    setMeta('meta[property="og:url"]', "content", meta.url);
+  }
+
   function closeMenu() {
     var links = document.getElementById("storeNavLinks");
     var toggle = document.getElementById("storeNavToggle");
@@ -178,7 +194,7 @@
   }
 
   function renderCatalog(route) {
-    setTitle("Programs — Athlevo");
+    applySeo(catalog.seo());
     markNav("catalog");
     root.replaceChildren();
 
@@ -241,7 +257,7 @@
     if (canonical !== slug) {
       history.replaceState({ athlevoStore: true }, "", productHref(canonical) + (global.location.hash || ""));
     }
-    setTitle(product.name + " — Athlevo");
+    applySeo(catalog.seo(product.slug));
     markNav("product");
     root.replaceChildren();
 

@@ -63,7 +63,7 @@
     hybrid: storePhoto(
       "hybrid", 1023, 1279,
       "/assets/landing/hybrid-programming-athlete.png",
-      "An athlete in a white Athlevo singlet running on a wet track during a marathon, one hand raised.",
+      "An athlete in a white Athlevo singlet running on a wet track, one hand raised.",
       "50% 0%"
     ),
     christian: storePhoto(
@@ -126,6 +126,7 @@
       name: "Athlevo Plan",
       hero: PHOTO.track,
       page: {
+        seoTitle: "Athlevo Plan — Personalized Running and Strength Training",
         headline: "A clear plan for your next goal.",
         description: "Personalized running and strength training built around your fitness, schedule, and goals.",
         price: { amount: "₱1,998", period: "/month" },
@@ -273,8 +274,38 @@
     return out;
   }
 
+  var SITE_URL = "https://athlevo.org";
+
+  // Search and share metadata for each route. The browser (storefront.js) and the
+  // build script (scripts/build-store-pages.mjs) both read this, so the static page
+  // and the client-updated page always agree. Reuse approved copy only: no new claims.
+  function seo(slug) {
+    if (!slug) {
+      return {
+        path: "/store",
+        url: SITE_URL + "/store",
+        title: "Athlevo Programs: Running and Strength Programming",
+        description: "Explore Athlevo Plan, Athlevo Coaching, Hybrid Programming, and Elite Coaching. Find training support that fits your goals."
+      };
+    }
+    var product = getProduct(slug);
+    if (!product) return null;
+    var path = "/store/" + product.slug;
+    var meta = { path: path, url: SITE_URL + path };
+    if (product.page) {
+      var page = product.page;
+      meta.title = page.seoTitle;
+      meta.description = page.description + " " + page.price.amount + page.price.period + ". " + page.pricing.terms;
+    } else {
+      meta.title = product.name + " — Athlevo Programs";
+      meta.description = product.name + " from Athlevo. Purchasing is not yet available.";
+    }
+    return meta;
+  }
+
   var catalog = {
     brand: "Athlevo",
+    siteUrl: SITE_URL,
     purchasingAvailable: false,
     hero: {
       image: PHOTO.stretch,
@@ -284,9 +315,11 @@
     coaches: [DEAN, CHRISTIAN],
     products: products,
     faqs: sharedFaqs,
+    legacySlugs: legacySlugs,
     getProduct: getProduct,
     resolveSlug: resolveSlug,
-    relatedProducts: relatedProducts
+    relatedProducts: relatedProducts,
+    seo: seo
   };
 
   global.AthlevoStoreCatalog = catalog;

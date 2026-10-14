@@ -5,6 +5,7 @@
  */
 import { readFileSync, existsSync, statSync } from "node:fs";
 import vm from "node:vm";
+import { staleFiles } from "../scripts/build-store-pages.mjs";
 
 let pass = 0, fail = 0;
 const t = (name, cond, extra) => {
@@ -459,6 +460,114 @@ section("7. Responsive storefront images");
   t("below-the-fold catalog photos use lazy loading",
     /picture\(product\.hero, \{ sizes: SIZES\.card \}\)/.test(storefrontSrc) &&
     !/picture\(product\.hero, \{ sizes: SIZES\.card[^)]*eager/.test(storefrontSrc));
+}
+
+section("8. Crawler-readable pages");
+{
+  const stale = staleFiles();
+  t("generated store pages and sitemap are up to date (fix: node scripts/build-store-pages.mjs)",
+    stale.length === 0, stale.join(", "));
+
+  const read = (p) => readFileSync("./" + p, "utf8");
+  const pages = [{ slug: null, file: "store.html" }]
+    .concat(catalog.products.map(p => ({ slug: p.slug, file: "store-pages/" + p.slug + ".html" })))
+    .map(r => ({ ...r, meta: catalog.seo(r.slug), html: read(r.file) }));
+  const bySlug = (slug) => pages.find(p => p.slug === slug);
+  const unescapeHtml = (x) => x.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  const tag = (html, re) => { const m = html.match(re); return m ? unescapeHtml(m[1]) : null; };
+  const visible = (html) => unescapeHtml(html.replace(/<!--[\s\S]*?-->/g, "").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<[^>]+>/g, " "));
+
+  t("each route has its own metadata in the catalog, and unknown routes have none",
+    pages.length === 5 && pages.every(p => p.meta && p.meta.url === "https://athlevo.org" + (p.slug ? "/store/" + p.slug : "/store")) &&
+    catalog.seo("not-a-program") === null);
+  t("every page carries its own title, description and canonical in the static HTML",
+    pages.every(p => tag(p.html, /<title>([^<]*)<\/title>/) === p.meta.title &&
+      tag(p.html, /<meta name="description" content="([^"]*)">/) === p.meta.description &&
+      tag(p.html, /<link rel="canonical" href="([^"]*)">/) === p.meta.url &&
+      tag(p.html, /<meta property="og:url" content="([^"]*)">/) === p.meta.url &&
+      tag(p.html, /<meta property="og:title" content="([^"]*)">/) === p.meta.title));
+  t("titles, descriptions and canonicals are unique across pages",
+    ["title", "description", "url"].every(k => new Set(pages.map(p => p.meta[k])).size === pages.length));
+  t("titles fit in search results (≤ 65 chars) and descriptions in snippets (≤ 160 chars)",
+    pages.every(p => p.meta.title.length <= 65 && p.meta.description.length <= 160),
+    pages.map(p => p.meta.title.length + "/" + p.meta.description.length).join(" "));
+  t("the shared catalog description is the approved text",
+    catalog.seo(null).description === "Explore Athlevo Plan, Athlevo Coaching, Hybrid Programming, and Elite Coaching. Find training support that fits your goals.");
+  t("no page is marked noindex",
+    pages.every(p => !/noindex/i.test(p.html)));
+  t("every page has exactly one h1 and it names the page",
+    pages.every(p => (p.html.match(/<h1[ >]/g) || []).length === 1) &&
+    /<h1>Training built around you\.<\/h1>/.test(bySlug(null).html) &&
+    catalog.products.every(p => new RegExp("<h1>" + p.name + "</h1>").test(bySlug(p.slug).html)));
+
+  const home = visible(bySlug(null).html);
+  t("/store text is in the HTML: headline, intro, programs, coaches and FAQs",
+    home.includes(catalog.hero.headline) && home.includes(catalog.intro) &&
+    catalog.products.every(p => home.includes(p.name) && bySlug(null).html.includes('href="/store/' + p.slug + '"')) &&
+    catalog.coaches.every(c => home.includes(c.name) && home.includes(c.role)) &&
+    home.includes("Meet the coaches") &&
+    catalog.faqs.every(f => home.includes(f.question) && home.includes(f.answer)));
+  t("Christian's certifications are in the /store HTML exactly as supplied",
+    catalog.coaches[1].certifications.every(c => bySlug(null).html.includes("<li>" + c + "</li>")));
+
+  const plan = visible(bySlug("athlevo-plan").html);
+  const planData = catalog.getProduct("athlevo-plan").page;
+  t("Athlevo Plan text is in the HTML: price, what is included, athlete quotes and how to get started",
+    plan.includes("₱1,998") && plan.includes("/month") && plan.includes(planData.getStarted.notice) &&
+    planData.overview.includes.every(i => plan.includes(i)) &&
+    planData.getStarted.steps.every(i => plan.includes(i)) &&
+    planData.athleteFeedback.items.every(i => plan.includes(i.quote) && plan.includes(i.name)) &&
+    plan.includes(planData.coach.name));
+  t("offers without confirmed details show no price and no invented copy",
+    ["athlevo-coaching", "hybrid-programming", "elite-coaching"].every(slug => {
+      const v = visible(bySlug(slug).html);
+      return !/₱|\bper month\b|\/month/i.test(v) && v.includes(catalog.getProduct(slug).name) && v.includes("Purchasing not available");
+    }));
+
+  t("pages load only the two storefront scripts, and contain no form fields",
+    pages.every(p => {
+      const srcs = [...p.html.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m => m[1]);
+      return srcs.join(",") === "/js/storeCatalog.js,/js/storefront.js" && (p.html.match(/<script/g) || []).length === 2 &&
+        !/<(form|input|textarea|select)\b/i.test(p.html);
+    }));
+  t("only the /store page marks Programs as the current nav item",
+    pages.every(p => /aria-current="page"/.test(p.html) === (p.slug === null)));
+  t("each page keeps the markers the build script needs",
+    pages.every(p => /<!-- prerender:head -->[\s\S]*<!-- \/prerender:head -->/.test(p.html) &&
+      /<!-- prerender:main -->[\s\S]*<!-- \/prerender:main -->/.test(p.html)));
+
+  const rewrites = vercel.rewrites.map(r => r.source);
+  t("each offer is rewritten to its own prerendered page, ahead of the generic /store/:slug rule",
+    catalog.products.every(p => {
+      const i = vercel.rewrites.findIndex(r => r.source === "/store/" + p.slug);
+      return i > -1 && vercel.rewrites[i].destination === "/store-pages/" + p.slug + ".html" &&
+        i < rewrites.indexOf("/store/:slug") && existsSync("./store-pages/" + p.slug + ".html");
+    }));
+  const legacy = Object.entries(catalog.legacySlugs);
+  t("pre-rename offer URLs redirect permanently to their new page; removed offers have no redirect",
+    legacy.length === 4 &&
+    legacy.every(([from, to]) => vercel.redirects.some(r => r.source === "/store/" + from && r.destination === "/store/" + to && r.permanent === true) &&
+      catalog.getProduct(to)) &&
+    !vercel.redirects.some(r => r.source === "/store/first-10k") &&
+    vercel.redirects.filter(r => r.source.startsWith("/store/")).length === legacy.length);
+
+  const sitemap = read("sitemap.xml");
+  const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
+  t("sitemap lists the home page, /store and each offer, and no old URLs",
+    locs.join("|") === ["https://athlevo.org/", "https://athlevo.org/store"].concat(catalog.products.map(p => "https://athlevo.org/store/" + p.slug)).join("|") &&
+    /^<\?xml version="1\.0" encoding="UTF-8"\?>/.test(sitemap) && /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/.test(sitemap));
+  const robots = read("robots.txt");
+  t("robots.txt allows crawling and points to the sitemap",
+    /^User-agent: \*$/m.test(robots) && /^Allow: \/$/m.test(robots) && !/^Disallow:\s*\/\s*$/m.test(robots) &&
+    /^Sitemap: https:\/\/athlevo\.org\/sitemap\.xml$/m.test(robots));
+
+  t("the browser keeps title, description, canonical and share tags in step with the route",
+    /catalog\.seo\(\)/.test(storefrontSrc) && /catalog\.seo\(product\.slug\)/.test(storefrontSrc) &&
+    /meta\[name="description"\]/.test(storefrontSrc) && /link\[rel="canonical"\]/.test(storefrontSrc) &&
+    /meta\[property="og:url"\]/.test(storefrontSrc));
+  const serveSrc = readFileSync("./scripts/serve-web.mjs", "utf8");
+  t("the local preview server serves the same per-offer pages",
+    /store-pages/.test(serveSrc) && /\.xml/.test(serveSrc));
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /**
  * Local static preview with the same public rewrites Vercel uses for
- * /store and /store/:slug.
+ * /store and /store/:slug (each offer has its own prerendered page; see
+ * scripts/build-store-pages.mjs). Old pre-rename offer URLs are redirected by
+ * Vercel in production; here they fall through to /store.html and the page
+ * script redirects them.
  *
  *   node scripts/serve-web.mjs
  */
@@ -25,11 +28,15 @@ const types = {
   ".svg": "image/svg+xml",
   ".mp4": "video/mp4",
   ".webmanifest": "application/manifest+json",
-  ".md": "text/markdown; charset=utf-8"
+  ".md": "text/markdown; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8"
 };
 
 function rewrite(pathname) {
   if (pathname === "/store" || pathname === "/store/") return "/store.html";
+  const offer = pathname.match(/^\/store\/([a-z0-9-]+)\/?$/);
+  if (offer && existsSync(join(root, "store-pages", offer[1] + ".html"))) return "/store-pages/" + offer[1] + ".html";
   if (/^\/store\/[^/]+\/?$/.test(pathname)) return "/store.html";
   if (pathname === "/landing-preview") return "/landing-preview.html";
   if (
