@@ -7,22 +7,32 @@
     },
     {
       "source": "/store/first-5k",
-      "destination": "/store/athlevo-plan",
+      "destination": "/programs/athlevo-plan",
       "permanent": true
     },
     {
       "source": "/store/faster-5k",
-      "destination": "/store/athlevo-coaching",
+      "destination": "/programs/athlevo-coaching",
       "permanent": true
     },
     {
       "source": "/store/half-marathon",
-      "destination": "/store/hybrid-programming",
+      "destination": "/programs/hybrid-programming",
       "permanent": true
     },
     {
       "source": "/store/marathon",
-      "destination": "/store/elite-coaching",
+      "destination": "/programs/elite-coaching",
+      "permanent": true
+    },
+    {
+      "source": "/store",
+      "destination": "/programs",
+      "permanent": true
+    },
+    {
+      "source": "/store/:slug",
+      "destination": "/programs/:slug",
       "permanent": true
     }
   ],
@@ -116,27 +126,27 @@
       "destination": "/landing-preview.html"
     },
     {
-      "source": "/store",
+      "source": "/programs",
       "destination": "/store.html"
     },
     {
-      "source": "/store/athlevo-plan",
+      "source": "/programs/athlevo-plan",
       "destination": "/store-pages/athlevo-plan.html"
     },
     {
-      "source": "/store/athlevo-coaching",
+      "source": "/programs/athlevo-coaching",
       "destination": "/store-pages/athlevo-coaching.html"
     },
     {
-      "source": "/store/hybrid-programming",
+      "source": "/programs/hybrid-programming",
       "destination": "/store-pages/hybrid-programming.html"
     },
     {
-      "source": "/store/elite-coaching",
+      "source": "/programs/elite-coaching",
       "destination": "/store-pages/elite-coaching.html"
     },
     {
-      "source": "/store/:slug",
+      "source": "/programs/:slug",
       "destination": "/store.html"
     }
   ]

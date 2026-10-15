@@ -1,6 +1,9 @@
 /*
  * Athlevo program storefront.
  * Pattern: dark header, clean hero photo, centered intro, rounded image cards, FAQ.
+ *
+ * Type matches the main Athlevo site and app: Fraunces (serif) for every heading, name and
+ * price; the system sans for body text. Do not introduce a third family.
  */
 :root {
   --paper: #f7f8fa;
@@ -9,7 +12,8 @@
   --muted: #5a5d66;
   --line: #dfe2e8;
   --red: #c0272d;
-  --display: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --red-on-dark: #e5484d; /* the same red, lifted so the full stop reads on the dark header and footer */
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --wordmark: var(--display);
   --gutter: clamp(20px, 4vw, 56px);
@@ -91,9 +95,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .wordmark {
   font-family: var(--wordmark);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 22px;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   text-decoration: none;
   justify-self: start;
 }
@@ -237,30 +241,32 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .intro h1 {
   font-family: var(--display);
-  font-weight: 700;
-  font-size: clamp(40px, 6.5vw, 76px);
+  font-weight: 500;
+  font-size: clamp(38px, 6vw, 64px);
   line-height: 1.04;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.025em;
   margin: 0 auto 22px;
   max-width: 900px;
+  text-wrap: balance;
 }
 
 .intro-text {
   max-width: 620px;
   margin: 0 auto;
+  text-wrap: balance;
   font-size: clamp(18px, 2.2vw, 22px);
   line-height: 1.5;
-  color: var(--ink);
+  color: var(--muted);
 }
 
 .section { padding: 72px 0 96px; }
 
 .section-title {
   font-family: var(--display);
-  font-weight: 700;
+  font-weight: 500;
   font-size: clamp(32px, 4.4vw, 48px);
   line-height: 1.1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
   text-align: center;
   margin: 0 0 40px;
 }
@@ -376,10 +382,18 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .site-footer a:hover { color: var(--white); }
 .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 22px; font-size: 13px; }
 .copyright { margin: 4px 0 0; font-size: 13px; color: #8d9099; }
+/* The red full stop after the name, as on the main Athlevo site. */
+.wordmark i,
+.footer-mark i {
+  color: var(--red-on-dark);
+  font-style: normal;
+}
+
 .footer-mark {
   font-family: var(--wordmark);
+  font-weight: 600;
   color: var(--white);
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
 }
 
 .pdp { padding-top: 28px; padding-bottom: 88px; }
@@ -407,9 +421,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .pdp h1 {
   font-family: var(--display);
-  font-weight: 700;
+  font-weight: 500;
   font-size: clamp(36px, 5vw, 64px);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
   line-height: 1.08;
   margin: 0 0 12px;
 }
@@ -447,7 +461,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .pdp-grid h2 {
   font-family: var(--display);
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
   margin: 0 0 14px;
 }
 
@@ -509,9 +523,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .offer-price-amount {
-  font-weight: 700;
+  font-weight: 500;
   font-size: 36px;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
 }
 
 .offer-price-period {
@@ -528,10 +542,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .offer-section > h2 {
   font-family: var(--display);
-  font-weight: 700;
+  font-weight: 500;
   font-size: clamp(28px, 3.6vw, 40px);
   line-height: 1.1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
   margin: 0 0 20px;
 }
 
@@ -539,7 +553,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .offer-subhead {
   font-family: var(--display);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 20px;
   margin: 28px 0 14px;
 }
@@ -642,7 +656,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .offer-coach-name {
   font-family: var(--display);
-  font-weight: 700;
+  font-weight: 600;
   font-size: clamp(24px, 2.8vw, 32px);
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -706,7 +720,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .coach-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
 
@@ -722,6 +736,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
   background: var(--white);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+}
+
+/* Desktop: three equal cards side by side, photo on top. Below that the cards are
+   full-width rows (photo beside text) on tablet and stack on mobile (see 640px query). */
+@media (min-width: 981px) {
+  .coach-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .coach-card {
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    align-content: start;
+    gap: 20px;
+    padding: 20px;
+  }
 }
 
 .coach-card-photo {
@@ -743,7 +771,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .coach-card-name {
   font-family: var(--display);
-  font-weight: 700;
+  font-weight: 600;
   font-size: clamp(22px, 2.4vw, 28px);
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -792,6 +820,27 @@ button, a { -webkit-tap-highlight-color: transparent; }
   background: var(--red);
 }
 
+.coach-card-bests-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  max-width: 280px;
+  font-size: 15px;
+}
+
+.coach-card-bests-list > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.coach-card-bests-list > div:last-child { border-bottom: 0; }
+.coach-card-bests-list dt { margin: 0; color: var(--muted); }
+.coach-card-bests-list dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; }
+
 .missing {
   min-height: 50vh;
   display: grid;
@@ -801,7 +850,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   padding: 80px var(--gutter);
 }
 
-.missing h1 { font-family: var(--display); font-weight: 700; margin: 0; }
+.missing h1 { font-family: var(--display); font-weight: 500; margin: 0; }
 
 @media (max-width: 980px) {
   .nav { grid-template-columns: 1fr auto; }
@@ -851,6 +900,36 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .coaches { padding: 56px 0 72px; }
   .coach-card { grid-template-columns: 1fr; gap: 20px; padding: 20px; }
   .coach-card-photo { aspect-ratio: 1 / 1; }
+}
+
+/*
+ * Smooth loading as you scroll. js/storefront.js marks blocks below the first screen
+ * data-reveal="pending", then "in" as they scroll into view, and marks lazy photos
+ * data-img="loading" until they have loaded. Without that script (or with reduced motion)
+ * nothing carries these attributes, so everything is simply visible.
+ */
+[data-reveal] {
+  transition: opacity 0.55s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+[data-reveal="in"] {
+  opacity: 1;
+  transform: none;
+}
+
+img[data-img] { transition: opacity 0.5s ease; }
+img[data-img="loading"] { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce), print {
+  [data-reveal],
+  img[data-img] { transition: none; }
+  [data-reveal="pending"] { opacity: 1; transform: none; }
+  img[data-img="loading"] { opacity: 1; }
 }
 
 /* Athlevo Plan sign-up */

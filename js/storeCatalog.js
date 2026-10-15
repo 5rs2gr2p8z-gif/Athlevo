@@ -12,7 +12,9 @@
  *
  * `coaches` lists the people shown in "Meet the coaches". Add an entry only with a
  * verified name, role, photo, and bio. List certifications only as supplied by the
- * owner, in `certifications`; never add credentials or achievements of your own.
+ * owner, in `certifications` (heading `credentialsLabel`, default "Certified in"), and
+ * personal bests only as supplied, in `personalBests`; never add credentials or
+ * achievements of your own.
  *
  * Athlevo Plan is the only offer with a built page (`page`). Its price and offer
  * details were confirmed by the owner; the other offers stay bare until theirs
@@ -25,20 +27,16 @@
   // the photo is cropped into a shorter box (e.g. the square mobile card).
   function storePhoto(id, wide, height, original, alt, focus) {
     var prefix = "/assets/store/" + id + "-";
+    // Photos no wider than 640 have a single variant; wider ones add the 640 variant.
+    var widths = wide > 640 ? [640, wide] : [wide];
     var photo = {
       original: original,
       alt: alt,
       width: wide,
       height: height,
       src: prefix + wide + ".webp",
-      webp: [
-        { src: prefix + "640.webp", w: 640 },
-        { src: prefix + wide + ".webp", w: wide }
-      ],
-      avif: [
-        { src: prefix + "640.avif", w: 640 },
-        { src: prefix + wide + ".avif", w: wide }
-      ]
+      webp: widths.map(function (w) { return { src: prefix + w + ".webp", w: w }; }),
+      avif: widths.map(function (w) { return { src: prefix + w + ".avif", w: w }; })
     };
     if (focus) photo.focus = focus;
     return photo;
@@ -70,6 +68,11 @@
       "christian", 880, 1100,
       "/assets/landing/christian-francia-coach.jpg",
       "Christian Francia smiling and flexing his arm while running a race."
+    ),
+    louie: storePhoto(
+      "louie", 640, 800,
+      "/assets/landing/louie-agawa-coach.jpg",
+      "Louie Agawa in a black running singlet and sport sunglasses, standing with his hands on his hips."
     ),
     road: storePhoto(
       "road", 1280, 1707,
@@ -106,6 +109,27 @@
       "Movement analysis and corrective exercise",
       "Basic nutrition",
       "OCR"
+    ]
+  };
+
+  // Role label, credentials and personal bests supplied by the owner. Do not add to them.
+  // Personal bests are shown exactly as supplied (event, then time).
+  var LOUIE = {
+    name: "Louie Agawa",
+    role: "Coach, Athlevo",
+    photo: PHOTO.louie,
+    intro: "Louie is a coach at Athlevo and a competitive middle to long distance runner.",
+    credentialsLabel: "Credentials",
+    certifications: [
+      "World Athletics Certified Coach — CECS Level 1",
+      "ISSA Certified Running Coach"
+    ],
+    personalBests: [
+      { event: "10km", time: "35 mins" },
+      { event: "5km", time: "16 mins" },
+      { event: "3k", time: "9:00" },
+      { event: "1500m", time: "4:01" },
+      { event: "800m", time: "1:54" }
     ]
   };
 
@@ -363,15 +387,15 @@
   function seo(slug) {
     if (!slug) {
       return {
-        path: "/store",
-        url: SITE_URL + "/store",
+        path: "/programs",
+        url: SITE_URL + "/programs",
         title: "Athlevo Programs: Running and Strength Programming",
         description: "Explore Athlevo Plan, Athlevo Coaching, Hybrid Programming, and Elite Coaching. Find training support that fits your goals."
       };
     }
     var product = getProduct(slug);
     if (!product) return null;
-    var path = "/store/" + product.slug;
+    var path = "/programs/" + product.slug;
     var meta = { path: path, url: SITE_URL + path };
     if (product.page) {
       var page = product.page;
@@ -418,10 +442,10 @@
     purchasingAvailable: false,
     hero: {
       image: PHOTO.stretch,
-      headline: "Training built around you."
+      headline: "Welcome to Athlevo Coaching"
     },
-    intro: "Personalized running and strength programming built around your goals, schedule, and current fitness.",
-    coaches: [DEAN, CHRISTIAN],
+    intro: "Built for runners committed to the personal pursuit of excellence.",
+    coaches: [DEAN, CHRISTIAN, LOUIE],
     products: products,
     faqs: sharedFaqs,
     getFaqs: getFaqs,

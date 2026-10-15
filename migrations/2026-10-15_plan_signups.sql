@@ -1,4 +1,4 @@
--- Athlevo Plan sign-ups from the public /store page.
+-- Athlevo Plan sign-ups from the public /programs page.
 -- Additive and safe to re-run. Run manually in Supabase (SQL editor) BEFORE
 -- setting PLAN_SIGNUP_ENABLED=true in Vercel.
 --

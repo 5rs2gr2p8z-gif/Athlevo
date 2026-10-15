@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Writes crawler-readable copies of the /store pages.
+ * Writes crawler-readable copies of the /programs pages.
  *
  * The storefront is drawn in the browser by js/storefront.js. Search engines and
  * AI crawlers that do not run JavaScript would otherwise see an empty page, with
@@ -10,9 +10,9 @@
  * markup, so nothing visibly changes.
  *
  * Outputs (all generated, do not edit by hand):
- *   store.html                  /store (also the banner text, from catalog.notice())
- *   store-pages/<slug>.html     /store/<slug>, one per offer
- *   sitemap.xml                 home, /store and every offer
+ *   store.html                  /programs (also the banner text, from catalog.notice())
+ *   store-pages/<slug>.html     /programs/<slug>, one per offer
+ *   sitemap.xml                 home, /programs and every offer
  *
  * Run after changing js/storeCatalog.js, js/storefront.js or the shell in store.html:
  *   node scripts/build-store-pages.mjs          write the files
@@ -124,8 +124,8 @@ function renderRoute(catalogSrc, storefrontSrc, path, siteUrl) {
 
 // ---- Page assembly ----
 
-const NAV_PROGRAMS = '<li><a href="/store#programs">Programs</a></li>';
-const NAV_PROGRAMS_CURRENT = '<li><a href="/store#programs" aria-current="page">Programs</a></li>';
+const NAV_PROGRAMS = '<li><a href="/programs#programs">Programs</a></li>';
+const NAV_PROGRAMS_CURRENT = '<li><a href="/programs#programs" aria-current="page">Programs</a></li>';
 
 function headBlock(meta) {
   const lines = [

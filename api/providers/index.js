@@ -3895,7 +3895,7 @@ export default async function handler(request, response) {
       return paymongoCheckoutHandler(request, response);
     }
 
-    // Athlevo Plan sign-up on the public /store page (no Athlevo account).
+    // Athlevo Plan sign-up on the public /programs page (no Athlevo account).
     if (action === "plan_signup_checkout") {
       return planSignupCheckoutHandler(request, response);
     }

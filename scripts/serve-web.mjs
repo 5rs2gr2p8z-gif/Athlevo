@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
  * Local static preview with the same public rewrites Vercel uses for
- * /store and /store/:slug (each offer has its own prerendered page; see
- * scripts/build-store-pages.mjs). Old pre-rename offer URLs are redirected by
- * Vercel in production; here they fall through to /store.html and the page
- * script redirects them.
+ * /programs and /programs/:slug (each offer has its own prerendered page; see
+ * scripts/build-store-pages.mjs). The old /store paths and pre-rename offer URLs are
+ * redirected permanently by Vercel in production; here /store... is redirected too.
  *
  *   node scripts/serve-web.mjs
  */
@@ -33,11 +32,27 @@ const types = {
   ".txt": "text/plain; charset=utf-8"
 };
 
+// Mirrors the permanent redirects in vercel.json: /store and /store/:slug move to
+// /programs, and the pre-rename offer slugs go straight to their current offer.
+const LEGACY_OFFERS = {
+  "first-5k": "athlevo-plan",
+  "faster-5k": "athlevo-coaching",
+  "half-marathon": "hybrid-programming",
+  "marathon": "elite-coaching"
+};
+
+function redirectFor(pathname) {
+  const legacy = pathname.match(/^\/store(?:\/([^/]+))?\/?$/);
+  if (!legacy) return null;
+  if (!legacy[1]) return "/programs";
+  return "/programs/" + (LEGACY_OFFERS[legacy[1]] || legacy[1]);
+}
+
 function rewrite(pathname) {
-  if (pathname === "/store" || pathname === "/store/") return "/store.html";
-  const offer = pathname.match(/^\/store\/([a-z0-9-]+)\/?$/);
+  if (pathname === "/programs" || pathname === "/programs/") return "/store.html";
+  const offer = pathname.match(/^\/programs\/([a-z0-9-]+)\/?$/);
   if (offer && existsSync(join(root, "store-pages", offer[1] + ".html"))) return "/store-pages/" + offer[1] + ".html";
-  if (/^\/store\/[^/]+\/?$/.test(pathname)) return "/store.html";
+  if (/^\/programs\/[^/]+\/?$/.test(pathname)) return "/store.html";
   if (pathname === "/landing-preview") return "/landing-preview.html";
   if (
     pathname === "/ai" || pathname === "/landing" || pathname === "/signup" ||
@@ -60,6 +75,12 @@ function safePath(urlPath) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", "http://127.0.0.1");
+  const moved = redirectFor(url.pathname);
+  if (moved) {
+    res.writeHead(308, { location: moved + url.search });
+    res.end();
+    return;
+  }
   let pathname = rewrite(url.pathname);
   if (pathname === "/") pathname = "/index.html";
   const file = safePath(pathname);
@@ -74,5 +95,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log("Athlevo preview: http://127.0.0.1:" + port + "/store");
+  console.log("Athlevo preview: http://127.0.0.1:" + port + "/programs");
 });

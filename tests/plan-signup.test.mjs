@@ -1,5 +1,5 @@
 /*
- * Store sign-up (Athlevo Plan and Athlevo Coaching, public /store checkout): server behaviour.
+ * Store sign-up (Athlevo Plan and Athlevo Coaching, public /programs checkout): server behaviour.
  * Runs the real handlers against an in-memory Supabase and PayMongo, with a
  * correctly signed PayMongo webhook. Run: node tests/plan-signup.test.mjs
  */
@@ -228,8 +228,8 @@ let reference;
   t("tagged as the Plan product, with no Athlevo user",
     a.metadata.athlevo_product === "ATHLEVO_PLAN_MONTHLY" && !("athlevo_user_id" in a.metadata));
   t("returns to the Plan page with the reference, or back on cancel",
-    a.success_url === `https://athlevo.org/store/athlevo-plan?payment=success&ref=${encodeURIComponent(reference)}` &&
-    a.cancel_url === "https://athlevo.org/store/athlevo-plan?payment=cancelled");
+    a.success_url === `https://athlevo.org/programs/athlevo-plan?payment=success&ref=${encodeURIComponent(reference)}` &&
+    a.cancel_url === "https://athlevo.org/programs/athlevo-plan?payment=cancelled");
   t("no secret or key reaches the browser", !JSON.stringify(r.body).includes("sk_test"));
   t("asks PayMongo to email a receipt", a.send_email_receipt === true);
 }
@@ -238,7 +238,7 @@ env({ VERCEL_ENV: "preview", VERCEL_URL: "athlevo-git-store-x.vercel.app" });
   const r = res(); await checkout(post({}, "203.0.113.6"), r);
   const a = log.paymongo[log.paymongo.length - 1].attributes;
   t("a Vercel preview returns to itself, so a test payment never lands on the live site",
-    a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/store/athlevo-plan?payment=success"));
+    a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/programs/athlevo-plan?payment=success"));
 }
 env({ VERCEL_ENV: undefined, VERCEL_URL: undefined });
 paymongoDown = true;
@@ -461,14 +461,14 @@ section("9. Athlevo Coaching (₱4,998)");
     t("tagged as the Coaching product, with no Athlevo user",
       a.metadata.athlevo_product === "ATHLEVO_COACHING_MONTHLY" && !("athlevo_user_id" in a.metadata));
     t("returns to the Coaching page with the reference, or back on cancel",
-      a.success_url === `https://athlevo.org/store/athlevo-coaching?payment=success&ref=${encodeURIComponent(coRef)}` &&
-      a.cancel_url === "https://athlevo.org/store/athlevo-coaching?payment=cancelled");
+      a.success_url === `https://athlevo.org/programs/athlevo-coaching?payment=success&ref=${encodeURIComponent(coRef)}` &&
+      a.cancel_url === "https://athlevo.org/programs/athlevo-coaching?payment=cancelled");
   }
   env({ VERCEL_ENV: "preview", VERCEL_URL: "athlevo-git-store-x.vercel.app" });
   {
     const r = res(); await coachingCheckout(post({}, "203.0.113.31"), r);
     const a = log.paymongo[log.paymongo.length - 1].attributes;
-    t("a Vercel preview returns to itself", a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/store/athlevo-coaching?payment=success"));
+    t("a Vercel preview returns to itself", a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/programs/athlevo-coaching?payment=success"));
   }
   env({ VERCEL_ENV: undefined, VERCEL_URL: undefined });
   {

@@ -1,5 +1,5 @@
 /**
- * Athlevo /store program storefront contract.
+ * Athlevo /programs program storefront contract.
  *
  * Run: node tests/store-route.test.mjs
  */
@@ -33,10 +33,12 @@ const bodyOnly = storeHtml.replace(/<!--[\s\S]*?-->/g, "");
 section("1. Route wiring");
 {
   t("store.html exists", existsSync("./store.html") && storeHtml.length > 400);
-  t("vercel rewrites /store to store.html",
-    vercel.rewrites.some(r => r.source === "/store" && r.destination === "/store.html"));
-  t("vercel rewrites /store/:slug to store.html",
-    vercel.rewrites.some(r => r.source === "/store/:slug" && r.destination === "/store.html"));
+  t("vercel rewrites /programs to store.html",
+    vercel.rewrites.some(r => r.source === "/programs" && r.destination === "/store.html"));
+  t("vercel rewrites /programs/:slug to store.html",
+    vercel.rewrites.some(r => r.source === "/programs/:slug" && r.destination === "/store.html"));
+  t("the old /store paths are no longer rewritten, only redirected",
+    !vercel.rewrites.some(r => r.source === "/store" || r.source.startsWith("/store/")));
   t("existing /ai rewrite is unchanged",
     vercel.rewrites.some(r => r.source === "/ai" && r.destination === "/index.html"));
   t("existing /pricing rewrite is unchanged",
@@ -137,17 +139,19 @@ section("4. Storefront chrome");
     /Purchasing is not yet available/.test(storeHtml));
   t("nav includes Athlevo, Programs, FAQ",
     /wordmark[\s\S]*Athlevo/.test(storeHtml) &&
-    /href="\/store#programs">Programs</.test(storeHtml) &&
-    /href="\/store#faq">FAQ</.test(storeHtml) &&
+    /href="\/programs#programs"[^>]*>Programs</.test(storeHtml) &&
+    /href="\/programs#faq">FAQ</.test(storeHtml) &&
     !/How It Works/.test(storeHtml));
   t("skip link is present", /Skip to main content/.test(storeHtml));
-  t("header and footer brand is the original text wordmark",
-    /<a class="wordmark" href="\/store">Athlevo<\/a>/.test(storeHtml) &&
-    /<a class="footer-mark" href="\/store">Athlevo<\/a>/.test(storeHtml));
+  t("header and footer brand is the text wordmark with the red full stop, hidden from screen readers",
+    /<a class="wordmark" href="\/programs">Athlevo<i aria-hidden="true">\.<\/i><\/a>/.test(storeHtml) &&
+    /<a class="footer-mark" href="\/programs">Athlevo<i aria-hidden="true">\.<\/i><\/a>/.test(storeHtml) &&
+    /\.wordmark i,\s*\.footer-mark i\s*\{[^}]*color:\s*var\(--red-on-dark\)[^}]*font-style:\s*normal/.test(css) &&
+    /--red-on-dark:\s*#e5484d/.test(css));
   t("the storefront chrome carries no logo image",
     !/athlevo-coaching-logo|brand-logo/.test(storeHtml) && !/brand-logo/.test(css));
   t("hero headline is in the catalog source",
-    catalog.hero.headline === "Training built around you.");
+    catalog.hero.headline === "Welcome to Athlevo Coaching");
   t("product pages render detail sections only when an offer defines them",
     /if \(!items \|\| !items\.length\) return;/.test(storefrontSrc) &&
     /if \(grid\.children\.length\)/.test(storefrontSrc) &&
@@ -186,18 +190,45 @@ section("4b. Catalog page structure");
       .map(s => renderCat.indexOf(s)).every((v, i, a) => v >= 0 && (i === 0 || v > a[i - 1])));
   t("coaches section is headed 'Meet the coaches' and renders every catalog coach",
     /"Meet the coaches"/.test(renderCat) && /catalog\.coaches\.forEach/.test(renderCat) && /function renderCoachCard/.test(storefrontSrc));
-  t("coaches list holds only verified people: Dean Vincent Castro, Christian Francia",
-    catalog.coaches.map(c => c.name).join("|") === "Dean Vincent Castro|Christian Francia" &&
+  t("coaches list holds only verified people: Dean Vincent Castro, Christian Francia, Louie Agawa",
+    catalog.coaches.map(c => c.name).join("|") === "Dean Vincent Castro|Christian Francia|Louie Agawa" &&
     catalog.coaches[0].role === "Founder & Head Coach, Athlevo" &&
     catalog.coaches[0] === catalog.getProduct("athlevo-plan").page.coach &&
     catalog.coaches[1].role === "Assistant Coach, Athlevo" &&
     catalog.coaches[1].intro === "Christian is an assistant coach at Athlevo. He specializes in strength and conditioning.");
-  t("only the owner-supplied certifications appear, on Christian's card, exactly as supplied",
-    catalog.coaches.filter(c => c.certifications).map(c => c.name).join("|") === "Christian Francia" &&
+  t("only the owner-supplied certifications appear, on Christian's and Louie's cards, exactly as supplied",
+    catalog.coaches.filter(c => c.certifications).map(c => c.name).join("|") === "Christian Francia|Louie Agawa" &&
     JSON.stringify(catalog.coaches[1].certifications) === JSON.stringify(
       ["Functional training", "Fitness body anatomy", "Movement analysis and corrective exercise", "Basic nutrition", "OCR"]) &&
+    !("credentialsLabel" in catalog.coaches[1]) &&
     /"Certified in"/.test(storefrontSrc) &&
     !catalog.getProduct("athlevo-plan").page.coach.certifications);
+  const louie = catalog.coaches[2];
+  t("Louie Agawa: role, intro and credentials exactly as supplied",
+    louie.role === "Coach, Athlevo" &&
+    louie.intro === "Louie is a coach at Athlevo and a competitive middle to long distance runner." &&
+    louie.credentialsLabel === "Credentials" &&
+    JSON.stringify(louie.certifications) === JSON.stringify(
+      ["World Athletics Certified Coach — CECS Level 1", "ISSA Certified Running Coach"]) &&
+    /coach\.credentialsLabel \|\| "Certified in"/.test(storefrontSrc));
+  t("Louie's personal bests are exactly the five supplied, in order, and only he has any",
+    JSON.stringify(louie.personalBests) === JSON.stringify([
+      { event: "10km", time: "35 mins" },
+      { event: "5km", time: "16 mins" },
+      { event: "3k", time: "9:00" },
+      { event: "1500m", time: "4:01" },
+      { event: "800m", time: "1:54" }]) &&
+    catalog.coaches.filter(c => c.personalBests).length === 1);
+  t("personal bests render as a labelled list of event/time pairs on the coach card",
+    /"Personal bests"/.test(storefrontSrc) && /\$\("dl", "coach-card-bests-list"\)/.test(storefrontSrc) &&
+    /\$\("dt", "", best\.event\)/.test(storefrontSrc) && /\$\("dd", "", best\.time\)/.test(storefrontSrc));
+  t("Louie's photo: original plus optimized WebP and AVIF exist, with alt text",
+    louie.photo.src === "/assets/store/louie-640.webp" &&
+    louie.photo.original === "/assets/landing/louie-agawa-coach.jpg" &&
+    existsSync("." + louie.photo.original) &&
+    louie.photo.webp.length === 1 && louie.photo.avif.length === 1 &&
+    existsSync("." + louie.photo.webp[0].src) && existsSync("." + louie.photo.avif[0].src) &&
+    /Louie Agawa/.test(louie.photo.alt) && louie.photo.width === 640 && louie.photo.height === 800);
   t("coach entries have name, role, optimized photo and a short bio, with no credentials or achievements",
     catalog.coaches.every(c => c.name && c.role && c.photo && c.photo.src.startsWith("/assets/store/") && c.photo.alt &&
       c.intro.length > 40 && c.intro.length < 300 &&
@@ -205,7 +236,7 @@ section("4b. Catalog page structure");
   t("coach photos are lazy-loaded below the fold", !/picture\(coach\.photo, \{[^}]*eager/.test(storefrontSrc));
   t("coach card layout stacks to one column on mobile",
     /\.coach-card\s*\{\s*grid-template-columns:\s*1fr/.test(css.slice(css.lastIndexOf("@media (max-width: 640px)"))));
-  t("program cards link to /store/:slug and show only the name",
+  t("program cards link to /programs/:slug and show only the name",
     /function renderProgramCard/.test(storefrontSrc) &&
     /productHref\(product\.slug\)/.test(storefrontSrc) &&
     !/durationLabel/.test(storefrontSrc.slice(storefrontSrc.indexOf("function renderProgramCard"), storefrontSrc.indexOf("function renderProductCard"))));
@@ -256,17 +287,21 @@ section("4b. Catalog page structure");
 
 section("4c. Shared storefront copy");
 {
-  const INTRO = "Personalized running and strength programming built around your goals, schedule, and current fitness.";
+  const INTRO = "Built for runners committed to the personal pursuit of excellence.";
   const META = "Explore Athlevo Plan, Athlevo Coaching, Hybrid Programming, and Elite Coaching. Find training support that fits your goals.";
   const metaMatch = storeHtml.match(/<meta name="description" content="([^"]*)">/);
-  t("headline matches the approved copy", catalog.hero.headline === "Training built around you.");
+  t("headline matches the approved copy", catalog.hero.headline === "Welcome to Athlevo Coaching");
   t("intro matches the approved copy", catalog.intro === INTRO, catalog.intro);
   t("meta description matches the approved copy", !!metaMatch && metaMatch[1] === META, metaMatch && metaMatch[1]);
   t("unused hero lede (old coach-review claim) is gone", !("lede" in catalog.hero));
   const sharedCopy = [catalog.hero.headline, catalog.intro, metaMatch ? metaMatch[1] : "",
     ...catalog.faqs.flatMap(f => [f.question, f.answer])].join("\n");
+  // Louie's bio says he is a "middle to long distance runner" (his own description, not a
+  // distance choice for customers), so that one phrase is exempt from the scan.
+  const louieBio = catalog.coaches.find(c => c.name === "Louie Agawa").intro;
   t("shared copy has no distance choice, race ladder, or former-product wording",
-    !/\b(5k|10k|half[- ]marathon|marathon|distances?|choose your|first 5k|faster 5k|ladder)\b/i.test(sharedCopy + "\n" + bodyOnly + "\n" + storefrontSrc),
+    !/\b(5k|10k|half[- ]marathon|marathon|distances?|choose your|first 5k|faster 5k|ladder)\b/i.test(
+      (sharedCopy + "\n" + bodyOnly + "\n" + storefrontSrc).split(louieBio).join("")),
     (sharedCopy.match(/\b(5k|10k|half[- ]marathon|marathon|distances?|choose your|ladder)\b/i) || [])[0]);
   t("FAQs keep only the confirmed answers",
     catalog.faqs.map(f => f.question).join("|") === "Can I buy a program today?|Are race times guaranteed?",
@@ -484,10 +519,18 @@ section("4e. Athlevo Coaching page");
 
 section("5. Client routing");
 {
-  t("storefront reads /store and /store/:slug",
-    storefrontSrc.includes('path === "/store"') &&
-    storefrontSrc.includes("/store/") &&
-    storefrontSrc.includes("([^/]+)"));
+  t("storefront reads /programs and /programs/:slug, and still accepts the old /store paths",
+    storefrontSrc.includes('var BASE = "/programs"') &&
+    storefrontSrc.includes('path === BASE || path === "/store"') &&
+    /\^\\\/\(\?:programs\|store\)\\\/\(\[\^\/\]\+\)\$/.test(storefrontSrc) &&
+    storefrontSrc.includes("BASE + \"/\" + encodeURIComponent(slug)"));
+  t("a stale /store address is rewritten to /programs in the address bar, keeping the query and hash",
+    /function canonicalizeLegacyPath\(\)/.test(storefrontSrc) &&
+    /history\.replaceState\([^)]*BASE \+ rest \+ \(loc\.search \|\| ""\) \+ \(loc\.hash \|\| ""\)\)/.test(storefrontSrc) &&
+    storefrontSrc.indexOf("canonicalizeLegacyPath();") > storefrontSrc.indexOf("function renderView()"));
+  t("no link in the storefront still points at /store",
+    !/["'`]\/store(["'`#/])/.test(storefrontSrc.replace(/path === "\/store"|\^\\\/store/g, "")) &&
+    !/href="\/store[#/"]/.test(storeHtml));
   t("history API is used for in-store navigation",
     /history\.pushState/.test(storefrontSrc) && /popstate/.test(storefrontSrc));
 }
@@ -498,9 +541,43 @@ section("6. App shell and service worker isolation");
     /aiPath === "\/ai" \|\| aiPath === "" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"/.test(indexHtml));
   t("store navigations are not written into the app-shell cache",
     /isAppShellNav/.test(sw) &&
-    /\/\(store\|landing-preview\)/.test(sw));
-  t("storefront uses Space Grotesk display type and the Athlevo red accent",
-    /Space\+Grotesk/.test(storeHtml) && /--display:\s*"Space Grotesk"/.test(css) && /--red: #c0272d/.test(css));
+    /\/\(programs\|store\|landing-preview\)/.test(sw));
+  t("storefront uses the site's Fraunces display type and the Athlevo red accent",
+    /family=Fraunces:opsz,wght@9\.\.144,400;9\.\.144,500;9\.\.144,600/.test(storeHtml) &&
+    /--display:\s*"Fraunces", Georgia/.test(css) && /--red: #c0272d/.test(css));
+  t("typography is consistent: one serif for headings, the system sans for body, nothing else",
+    !/Space[ +]Grotesk/.test(storeHtml + css) &&
+    (css.match(/font-family:\s*[^;]+;/g) || []).every(d => /^font-family:\s*var\(--(display|wordmark|sans)\);$/.test(d)) &&
+    /--wordmark:\s*var\(--display\)/.test(css) &&
+    /body\s*\{[^}]*font-family:\s*var\(--sans\)/.test(css));
+  t("every heading and name uses the display serif at weight 500 or 600 (no bold sans-style 700)",
+    [".intro h1", ".section-title", ".pdp h1", ".offer-section > h2", ".coach-card-name", ".offer-coach-name", ".wordmark"]
+      .every(sel => {
+        const m = css.match(new RegExp(sel.replace(/[.>]/g, c => "\\" + c).replace(/ /g, "\\s*") + "\\s*\\{([^}]*)\\}"));
+        return m && /font-family:\s*var\(--(display|wordmark)\)/.test(m[1]) && /font-weight:\s*(500|600)\b/.test(m[1]);
+      }) &&
+    !/(var\(--display\)|var\(--wordmark\))[^}]*font-weight:\s*700|font-weight:\s*700[^}]*(var\(--display\)|var\(--wordmark\))/.test(css));
+  t("scroll reveal is an enhancement: needs IntersectionObserver, skips reduced motion, never touches the first screen",
+    /typeof global\.IntersectionObserver !== "function" \|\| prefersReducedMotion\(\)/.test(storefrontSrc) &&
+    /prefers-reduced-motion: reduce/.test(storefrontSrc.slice(storefrontSrc.indexOf("function prefersReducedMotion"))) &&
+    /getBoundingClientRect\(\)\.top < fold\) return/.test(storefrontSrc) &&
+    !/REVEAL_SELECTOR = \[[^\]]*\.(intro|hero)\b/.test(storefrontSrc) &&
+    /function render\(\) \{\s*renderView\(\);\s*setupReveal\(\);\s*\}/.test(storefrontSrc));
+  t("blocks the reader jumped past are shown in place, and the scroll listener is replaced on every redraw",
+    /getBoundingClientRect\(\)\.bottom > 0\) return true/.test(storefrontSrc) &&
+    /addEventListener\("scroll", revealScrollHandler, \{ passive: true \}\)/.test(storefrontSrc) &&
+    /removeEventListener\("scroll", revealScrollHandler\)/.test(storefrontSrc) &&
+    /revealObserver\.disconnect\(\)/.test(storefrontSrc));
+  t("hidden states exist only for attributes the script adds; reduced motion and print show everything",
+    /\[data-reveal="pending"\]\s*\{\s*opacity:\s*0;\s*transform:\s*translateY\(14px\);/.test(css) &&
+    /img\[data-img="loading"\]\s*\{\s*opacity:\s*0;/.test(css) &&
+    /@media \(prefers-reduced-motion: reduce\), print \{[\s\S]*\[data-reveal="pending"\]\s*\{\s*opacity:\s*1;\s*transform:\s*none;/.test(css) &&
+    !/data-reveal|data-img/.test(storeHtml) &&
+    ![".program-card", ".coach-card", ".offer-section", ".section-title", ".faq"].some(sel => new RegExp("\\" + sel + "\\s*\\{[^}]*opacity:\\s*0").test(css)));
+  t("hero intro text uses the body font at 18-22px and the headline at 38-64px, in the same section",
+    /\.intro h1\s*\{[^}]*font-size:\s*clamp\(38px, 6vw, 64px\)/.test(css) &&
+    /\.intro-text\s*\{[^}]*font-size:\s*clamp\(18px, 2\.2vw, 22px\)/.test(css) &&
+    !/\.intro-text\s*\{[^}]*font-family/.test(css));
 }
 
 section("7. Responsive storefront images");
@@ -573,8 +650,10 @@ section("8. Crawler-readable pages");
   const visible = (html) => unescapeHtml(html.replace(/<!--[\s\S]*?-->/g, "").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<[^>]+>/g, " "));
 
   t("each route has its own metadata in the catalog, and unknown routes have none",
-    pages.length === 5 && pages.every(p => p.meta && p.meta.url === "https://athlevo.org" + (p.slug ? "/store/" + p.slug : "/store")) &&
+    pages.length === 5 && pages.every(p => p.meta && p.meta.url === "https://athlevo.org" + (p.slug ? "/programs/" + p.slug : "/programs")) &&
     catalog.seo("not-a-program") === null);
+  t("no prerendered page links to, or names as canonical, an old /store address",
+    pages.every(p => !/(href|content)="(https:\/\/athlevo\.org)?\/store(["#/])/.test(p.html)));
   t("every page carries its own title, description and canonical in the static HTML",
     pages.every(p => tag(p.html, /<title>([^<]*)<\/title>/) === p.meta.title &&
       tag(p.html, /<meta name="description" content="([^"]*)">/) === p.meta.description &&
@@ -592,17 +671,17 @@ section("8. Crawler-readable pages");
     pages.every(p => !/noindex/i.test(p.html)));
   t("every page has exactly one h1 and it names the page",
     pages.every(p => (p.html.match(/<h1[ >]/g) || []).length === 1) &&
-    /<h1>Training built around you\.<\/h1>/.test(bySlug(null).html) &&
+    /<h1>Welcome to Athlevo Coaching<\/h1>/.test(bySlug(null).html) &&
     catalog.products.every(p => new RegExp("<h1>" + p.name + "</h1>").test(bySlug(p.slug).html)));
 
   const home = visible(bySlug(null).html);
-  t("/store text is in the HTML: headline, intro, programs, coaches and FAQs",
+  t("/programs text is in the HTML: headline, intro, programs, coaches and FAQs",
     home.includes(catalog.hero.headline) && home.includes(catalog.intro) &&
-    catalog.products.every(p => home.includes(p.name) && bySlug(null).html.includes('href="/store/' + p.slug + '"')) &&
+    catalog.products.every(p => home.includes(p.name) && bySlug(null).html.includes('href="/programs/' + p.slug + '"')) &&
     catalog.coaches.every(c => home.includes(c.name) && home.includes(c.role)) &&
     home.includes("Meet the coaches") &&
     catalog.faqs.every(f => home.includes(f.question) && home.includes(f.answer)));
-  t("Christian's certifications are in the /store HTML exactly as supplied",
+  t("Christian's certifications are in the /programs HTML exactly as supplied",
     catalog.coaches[1].certifications.every(c => bySlug(null).html.includes("<li>" + c + "</li>")));
 
   const plan = visible(bySlug("athlevo-plan").html);
@@ -625,7 +704,7 @@ section("8. Crawler-readable pages");
       return srcs.join(",") === "/js/storeCatalog.js,/js/storefront.js" && (p.html.match(/<script/g) || []).length === 2 &&
         !/<(form|input|textarea|select)\b/i.test(p.html);
     }));
-  t("only the /store page marks Programs as the current nav item",
+  t("only the /programs page marks Programs as the current nav item",
     pages.every(p => /aria-current="page"/.test(p.html) === (p.slug === null)));
   t("each page keeps the markers the build script needs",
     pages.every(p => /<!-- prerender:head -->[\s\S]*<!-- \/prerender:head -->/.test(p.html) &&
@@ -633,24 +712,30 @@ section("8. Crawler-readable pages");
       /<!-- prerender:main -->[\s\S]*<!-- \/prerender:main -->/.test(p.html)));
 
   const rewrites = vercel.rewrites.map(r => r.source);
-  t("each offer is rewritten to its own prerendered page, ahead of the generic /store/:slug rule",
+  t("each offer is rewritten to its own prerendered page, ahead of the generic /programs/:slug rule",
     catalog.products.every(p => {
-      const i = vercel.rewrites.findIndex(r => r.source === "/store/" + p.slug);
+      const i = vercel.rewrites.findIndex(r => r.source === "/programs/" + p.slug);
       return i > -1 && vercel.rewrites[i].destination === "/store-pages/" + p.slug + ".html" &&
-        i < rewrites.indexOf("/store/:slug") && existsSync("./store-pages/" + p.slug + ".html");
+        i < rewrites.indexOf("/programs/:slug") && existsSync("./store-pages/" + p.slug + ".html");
     }));
   const legacy = Object.entries(catalog.legacySlugs);
-  t("pre-rename offer URLs redirect permanently to their new page; removed offers have no redirect",
+  t("pre-rename offer URLs redirect permanently, in one hop, to the new /programs page; removed offers have no redirect",
     legacy.length === 4 &&
-    legacy.every(([from, to]) => vercel.redirects.some(r => r.source === "/store/" + from && r.destination === "/store/" + to && r.permanent === true) &&
+    legacy.every(([from, to]) => vercel.redirects.some(r => r.source === "/store/" + from && r.destination === "/programs/" + to && r.permanent === true) &&
       catalog.getProduct(to)) &&
-    !vercel.redirects.some(r => r.source === "/store/first-10k") &&
-    vercel.redirects.filter(r => r.source.startsWith("/store/")).length === legacy.length);
+    !vercel.redirects.some(r => r.source === "/store/first-10k"));
+  const redirectSources = vercel.redirects.map(r => r.source);
+  t("the old /store and /store/:slug paths redirect permanently to /programs, after the specific legacy-slug rules",
+    vercel.redirects.some(r => r.source === "/store" && r.destination === "/programs" && r.permanent === true) &&
+    vercel.redirects.some(r => r.source === "/store/:slug" && r.destination === "/programs/:slug" && r.permanent === true) &&
+    legacy.every(([from]) => redirectSources.indexOf("/store/" + from) > -1 && redirectSources.indexOf("/store/" + from) < redirectSources.indexOf("/store/:slug")) &&
+    vercel.redirects.filter(r => r.source.startsWith("/store")).every(r => r.permanent === true && r.destination.startsWith("/programs")));
 
   const sitemap = read("sitemap.xml");
   const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-  t("sitemap lists the home page, /store and each offer, and no old URLs",
-    locs.join("|") === ["https://athlevo.org/", "https://athlevo.org/store"].concat(catalog.products.map(p => "https://athlevo.org/store/" + p.slug)).join("|") &&
+  t("sitemap lists the home page, /programs and each offer, and no old /store URLs",
+    locs.join("|") === ["https://athlevo.org/", "https://athlevo.org/programs"].concat(catalog.products.map(p => "https://athlevo.org/programs/" + p.slug)).join("|") &&
+    !/athlevo\.org\/store/.test(sitemap) &&
     /^<\?xml version="1\.0" encoding="UTF-8"\?>/.test(sitemap) && /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/.test(sitemap));
   const robots = read("robots.txt");
   t("robots.txt allows crawling and points to the sitemap",
@@ -662,8 +747,9 @@ section("8. Crawler-readable pages");
     /meta\[name="description"\]/.test(storefrontSrc) && /link\[rel="canonical"\]/.test(storefrontSrc) &&
     /meta\[property="og:url"\]/.test(storefrontSrc));
   const serveSrc = readFileSync("./scripts/serve-web.mjs", "utf8");
-  t("the local preview server serves the same per-offer pages",
-    /store-pages/.test(serveSrc) && /\.xml/.test(serveSrc));
+  t("the local preview server serves the same per-offer pages and mirrors the /store redirects",
+    /store-pages/.test(serveSrc) && /\.xml/.test(serveSrc) &&
+    /pathname === "\/programs"/.test(serveSrc) && /function redirectFor/.test(serveSrc) && /res\.writeHead\(308/.test(serveSrc));
 }
 
 section("10. Sign-up on Athlevo Plan and Athlevo Coaching (client; closed by default)");
@@ -699,8 +785,8 @@ section("10. Sign-up on Athlevo Plan and Athlevo Coaching (client; closed by def
     /\[data\.signUp\.payment, data\.signUp\.renewal, data\.signUp\.terms\]/.test(storefrontSrc));
   t("the browser and the server agree on the reference format and the return pages",
     new RegExp(storefrontSrc.match(/var SIGNUP_REF = \/(.+)\/i;/)[1]).source === SIGNUP_REFERENCE_PATTERN.source &&
-    PLAN_PAGE_PATH === "/store/athlevo-plan" && catalog.getProduct("athlevo-plan").slug === "athlevo-plan" &&
-    COACHING_PAGE_PATH === "/store/athlevo-coaching" && catalog.getProduct("athlevo-coaching").slug === "athlevo-coaching");
+    PLAN_PAGE_PATH === "/programs/athlevo-plan" && catalog.getProduct("athlevo-plan").slug === "athlevo-plan" &&
+    COACHING_PAGE_PATH === "/programs/athlevo-coaching" && catalog.getProduct("athlevo-coaching").slug === "athlevo-coaching");
   t("the confirmation names the offer from the catalog instead of hard-coding the Plan",
     /"Thank you for signing up for " \+ product\.name/.test(storefrontSrc) &&
     /"Confirmation of your " \+ product\.name \+ " payment\."/.test(storefrontSrc) &&

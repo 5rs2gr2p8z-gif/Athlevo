@@ -1,13 +1,13 @@
-# Store sign-up: Athlevo Plan and Athlevo Coaching (public /store)
+# Store sign-up: Athlevo Plan and Athlevo Coaching (public /programs)
 
-Lets a visitor pay for **Athlevo Plan** (₱1,998 per month) on `/store/athlevo-plan` or **Athlevo Coaching**
-(₱4,998 per month) on `/store/athlevo-coaching` without an Athlevo app account. Each offer is **off** until you
+Lets a visitor pay for **Athlevo Plan** (₱1,998 per month) on `/programs/athlevo-plan` or **Athlevo Coaching**
+(₱4,998 per month) on `/programs/athlevo-coaching` without an Athlevo app account. Each offer is **off** until you
 turn it on, and you can open one without the other.
 
 | | Athlevo Plan | Athlevo Coaching |
 |---|---|---|
 | Price (owned by the server) | ₱1,998 | ₱4,998 |
-| Page | `/store/athlevo-plan` | `/store/athlevo-coaching` |
+| Page | `/programs/athlevo-plan` | `/programs/athlevo-coaching` |
 | Server switch | `PLAN_SIGNUP_ENABLED` | `COACHING_SIGNUP_ENABLED` |
 | Questionnaire link | `PLAN_QUESTIONNAIRE_URL` | `COACHING_QUESTIONNAIRE_URL`, or the Plan's when not set |
 | Call-scheduling link (optional) | `PLAN_SCHEDULE_URL` | `COACHING_SCHEDULE_URL` |

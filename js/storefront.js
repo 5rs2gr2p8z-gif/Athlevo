@@ -1,6 +1,6 @@
 /*
  * Athlevo program storefront.
- * Renders /store and /store/:slug from AthlevoStoreCatalog.
+ * Renders /programs and /programs/:slug from AthlevoStoreCatalog.
  * The only purchase flow is the sign-up on the Athlevo Plan and Athlevo Coaching
  * pages (page.signUp), which stays closed per offer until signUp.open is true. It
  * starts a hosted PayMongo checkout through
@@ -65,6 +65,11 @@
   // PL = Athlevo Plan, CO = Athlevo Coaching (lib/server/planSignup.js builds these).
   var SIGNUP_REF = /^ATH-(PL|CO)-[0-9A-F]{8,16}-[0-9A-F]{24}$/i;
 
+  // The public path is /programs. /store was the first path, and Vercel redirects it
+  // permanently (vercel.json); the client also accepts it, and rewrites the address bar
+  // to /programs, for a page that was cached or opened before the redirect applied.
+  var BASE = "/programs";
+
   function parseRoute() {
     var url = new URL(global.location.href);
     var path = String(url.pathname || "/").replace(/\/+$/, "") || "/";
@@ -74,10 +79,10 @@
       if (product) return { view: "product", slug: product };
       return { view: "catalog", hash: url.hash };
     }
-    if (path === "/store" || path === "") {
+    if (path === BASE || path === "/store" || path === "") {
       return { view: "catalog", hash: url.hash };
     }
-    var match = path.match(/^\/store\/([^/]+)$/);
+    var match = path.match(/^\/(?:programs|store)\/([^/]+)$/);
     if (match) {
       var slug = decodeURIComponent(match[1]);
       var ref = params.get("ref");
@@ -90,7 +95,7 @@
   }
 
   function productHref(slug) {
-    return "/store/" + encodeURIComponent(slug);
+    return BASE + "/" + encodeURIComponent(slug);
   }
 
   function setTitle(title) {
@@ -142,7 +147,7 @@
     var links = document.querySelectorAll(".nav-links a");
     links.forEach(function (link) {
       var href = link.getAttribute("href") || "";
-      var current = view === "catalog" && (href === "/store#programs" || href === "/store");
+      var current = view === "catalog" && (href === BASE + "#programs" || href === BASE);
       if (current) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     });
@@ -213,9 +218,22 @@
     body.appendChild($("p", "", coach.intro));
     if (coach.certifications && coach.certifications.length) {
       var creds = $("div", "coach-card-creds");
-      creds.appendChild($("p", "coach-card-creds-label", "Certified in"));
+      creds.appendChild($("p", "coach-card-creds-label", coach.credentialsLabel || "Certified in"));
       creds.appendChild(listItems(coach.certifications));
       body.appendChild(creds);
+    }
+    if (coach.personalBests && coach.personalBests.length) {
+      var bests = $("div", "coach-card-creds coach-card-bests");
+      bests.appendChild($("p", "coach-card-creds-label", "Personal bests"));
+      var list = $("dl", "coach-card-bests-list");
+      coach.personalBests.forEach(function (best) {
+        var row = $("div");
+        row.appendChild($("dt", "", best.event));
+        row.appendChild($("dd", "", best.time));
+        list.appendChild(row);
+      });
+      bests.appendChild(list);
+      body.appendChild(bests);
     }
     card.appendChild(figure);
     card.appendChild(body);
@@ -302,11 +320,11 @@
     var copy = document.createElement("div");
     var crumb = $("p", "crumb");
     var back = $("a", "", "Programs");
-    back.href = "/store#programs";
+    back.href = BASE + "#programs";
     back.addEventListener("click", function (event) {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
       event.preventDefault();
-      navigate("/store#programs");
+      navigate(BASE + "#programs");
     });
     crumb.appendChild(back);
     copy.appendChild(crumb);
@@ -440,8 +458,8 @@
     copy.className = "offer-first";
     var crumb = $("p", "crumb");
     var back = $("a", "", "Programs");
-    back.href = "/store#programs";
-    bindNav(back, "/store#programs");
+    back.href = BASE + "#programs";
+    bindNav(back, BASE + "#programs");
     crumb.appendChild(back);
     copy.appendChild(crumb);
     copy.appendChild($("h1", "", product.name));
@@ -727,11 +745,11 @@
     var box = $("div", "missing");
     box.appendChild($("h1", "", "This program is not in the catalog."));
     var link = $("a", "btn btn-ink", "Back to programs");
-    link.href = "/store";
+    link.href = BASE;
     link.addEventListener("click", function (event) {
       if (event.metaKey || event.ctrlKey) return;
       event.preventDefault();
-      navigate("/store");
+      navigate(BASE);
     });
     box.appendChild(link);
     root.appendChild(box);
@@ -750,8 +768,18 @@
     else window.scrollTo(0, 0);
   }
 
-  function render() {
+  // /store/... -> /programs/... in the address bar (same page, nothing reloads).
+  function canonicalizeLegacyPath() {
+    var loc = global.location;
+    var legacy = String(loc.pathname || "").match(/^\/store(\/.*)?$/);
+    if (!legacy) return;
+    var rest = (legacy[1] || "").replace(/\/+$/, "");
+    history.replaceState({ athlevoStore: true }, "", BASE + rest + (loc.search || "") + (loc.hash || ""));
+  }
+
+  function renderView() {
     closeMenu();
+    canonicalizeLegacyPath();
     stopConfirmation();
     var route = parseRoute();
     if (route.view === "confirmation") {
@@ -781,6 +809,93 @@
     applyHash(route.hash || global.location.hash);
   }
 
+  // ---- Smooth loading as you scroll -------------------------------------------
+  // Blocks below the first screen fade and rise into place as they scroll into view, and
+  // lazy photos fade in once they have loaded, so the page never pops in all at once.
+  // This is an enhancement only: the first screen (hero, headline, intro) is never held
+  // back, nothing is hidden until this runs, and a browser without IntersectionObserver, or
+  // set to reduced motion, simply shows everything. The prerendered HTML is never touched.
+  var REVEAL_SELECTOR = [
+    ".section-title", ".program-card", ".coach-card", ".faq",
+    ".offer-section", ".pdp-grid > *", ".related-card"
+  ].join(", ");
+  var revealObserver = null;
+  var revealScrollHandler = null;
+
+  function prefersReducedMotion() {
+    return !!(global.matchMedia && global.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function setupReveal() {
+    if (revealObserver) {
+      revealObserver.disconnect();
+      revealObserver = null;
+    }
+    if (revealScrollHandler) {
+      global.removeEventListener("scroll", revealScrollHandler);
+      revealScrollHandler = null;
+    }
+    if (typeof global.IntersectionObserver !== "function" || prefersReducedMotion()) return;
+    // Wait one frame so a scroll the route just made (a #hash, or back to the top) has landed.
+    requestAnimationFrame(function () {
+      var fold = global.innerHeight || document.documentElement.clientHeight || 0;
+      var waiting = [];
+      var observer = new global.IntersectionObserver(function (entries) {
+        var step = 0;
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var el = entry.target;
+          // Blocks that arrive together (a row of cards) come in one after another.
+          el.style.transitionDelay = Math.min(step, 4) * 70 + "ms";
+          step += 1;
+          el.setAttribute("data-reveal", "in");
+          observer.unobserve(el);
+          global.setTimeout(function () { el.style.transitionDelay = ""; }, 1000);
+        });
+      }, { rootMargin: "0px 0px -6% 0px", threshold: 0.05 });
+      revealObserver = observer;
+
+      root.querySelectorAll(REVEAL_SELECTOR).forEach(function (el) {
+        // Already on the first screen (or scrolled past): leave it as it is.
+        if (el.getBoundingClientRect().top < fold) return;
+        el.setAttribute("data-reveal", "pending");
+        observer.observe(el);
+        waiting.push(el);
+      });
+
+      // A jump (an anchor, the End key, a fast flick) can carry the reader past a block
+      // without it ever being on screen. Show those at once, where they are, so scrolling
+      // back up never meets an empty gap.
+      var sweeping = false;
+      revealScrollHandler = function () {
+        if (sweeping) return;
+        sweeping = true;
+        requestAnimationFrame(function () {
+          sweeping = false;
+          waiting = waiting.filter(function (el) {
+            if (el.getAttribute("data-reveal") !== "pending") return false;
+            if (el.getBoundingClientRect().bottom > 0) return true;
+            el.style.transition = "none";
+            el.setAttribute("data-reveal", "in");
+            void el.offsetWidth;
+            el.style.transition = "";
+            observer.unobserve(el);
+            return false;
+          });
+        });
+      };
+      global.addEventListener("scroll", revealScrollHandler, { passive: true });
+
+      root.querySelectorAll('img[loading="lazy"]').forEach(function (img) {
+        if (img.complete && img.naturalWidth > 0) return;
+        img.setAttribute("data-img", "loading");
+        function shown() { img.setAttribute("data-img", "ready"); }
+        img.addEventListener("load", shown, { once: true });
+        img.addEventListener("error", shown, { once: true });
+      });
+    });
+  }
+
   function navigate(href, opts) {
     var next = new URL(href, global.location.origin);
     if (opts && opts.replace) history.replaceState({ athlevoStore: true }, "", next.pathname + next.search + next.hash);
@@ -799,12 +914,18 @@
   document.querySelectorAll(".nav-links a").forEach(function (link) {
     link.addEventListener("click", function (event) {
       var href = link.getAttribute("href") || "";
-      if (!href.startsWith("/store")) return;
+      if (!href.startsWith(BASE)) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       event.preventDefault();
       navigate(href);
     });
   });
+
+  // Draws the current route, then sets up the scroll-in effect for what it drew.
+  function render() {
+    renderView();
+    setupReveal();
+  }
 
   global.addEventListener("popstate", render);
   // Back from checkout can restore this page from the browser cache with a
