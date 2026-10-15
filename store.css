@@ -852,3 +852,42 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .coach-card { grid-template-columns: 1fr; gap: 20px; padding: 20px; }
   .coach-card-photo { aspect-ratio: 1 / 1; }
 }
+
+/* Athlevo Plan sign-up */
+.signup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.signup-status {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.signup-status:empty { display: none; }
+
+.signup-note {
+  margin: -8px 0 20px;
+  max-width: 46ch;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.signup-notice {
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  border: 1px solid var(--ink);
+  background: var(--white);
+  font-weight: 650;
+}
+
+.signup-confirm { padding-top: 48px; padding-bottom: 96px; min-height: 60vh; }
+.signup-confirm-panel { max-width: 680px; }
+.signup-confirm-panel h1 { margin: 0 0 12px; }
+.signup-confirm-lede { margin: 0 0 28px; font-size: 18px; }
+.signup-confirm-steps { margin-bottom: 20px; }
+.signup-confirm-steps li p { margin: 4px 0 12px; color: var(--muted); }

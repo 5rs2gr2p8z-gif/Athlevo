@@ -1,7 +1,11 @@
 /*
  * Athlevo program storefront.
  * Renders /store and /store/:slug from AthlevoStoreCatalog.
- * No purchasing, payments, or account collection.
+ * The only purchase flow is the sign-up on the Athlevo Plan and Athlevo Coaching
+ * pages (page.signUp), which stays closed per offer until signUp.open is true. It
+ * starts a hosted PayMongo checkout through
+ * Athlevo's own API. This file never handles payment details, prices or payment
+ * state: "paid" is whatever the server reports from PayMongo's signed webhook.
  */
 (function storefrontModule(global) {
   "use strict";
@@ -58,6 +62,9 @@
     return pic;
   }
 
+  // PL = Athlevo Plan, CO = Athlevo Coaching (lib/server/planSignup.js builds these).
+  var SIGNUP_REF = /^ATH-(PL|CO)-[0-9A-F]{8,16}-[0-9A-F]{24}$/i;
+
   function parseRoute() {
     var url = new URL(global.location.href);
     var path = String(url.pathname || "/").replace(/\/+$/, "") || "/";
@@ -71,7 +78,14 @@
       return { view: "catalog", hash: url.hash };
     }
     var match = path.match(/^\/store\/([^/]+)$/);
-    if (match) return { view: "product", slug: decodeURIComponent(match[1]) };
+    if (match) {
+      var slug = decodeURIComponent(match[1]);
+      var ref = params.get("ref");
+      if (params.get("payment") === "success" && ref && SIGNUP_REF.test(ref)) {
+        return { view: "confirmation", slug: slug, ref: ref.toUpperCase() };
+      }
+      return { view: "product", slug: slug };
+    }
     return { view: "missing" };
   }
 
@@ -88,6 +102,20 @@
     if (el) el.setAttribute(attr, value);
   }
 
+  function setRobots(value) {
+    var el = document.querySelector('meta[name="robots"]');
+    if (!value) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      return;
+    }
+    if (!el) {
+      el = document.createElement("meta");
+      el.setAttribute("name", "robots");
+      document.head.appendChild(el);
+    }
+    el.setAttribute("content", value);
+  }
+
   // Mirrors the static <head> that scripts/build-store-pages.mjs writes for each route.
   function applySeo(meta) {
     if (!meta) return;
@@ -97,6 +125,7 @@
     setMeta('meta[property="og:title"]', "content", meta.title);
     setMeta('meta[property="og:description"]', "content", meta.description);
     setMeta('meta[property="og:url"]', "content", meta.url);
+    setRobots(meta.noindex ? "noindex, nofollow" : "");
   }
 
   function closeMenu() {
@@ -242,7 +271,7 @@
     faq.setAttribute("aria-labelledby", "faq-heading");
     var fWrap = $("div", "wrap");
     fWrap.appendChild($("h2", "section-title", "FAQ")).id = "faq-heading";
-    renderFaqs(fWrap, catalog.faqs);
+    renderFaqs(fWrap, catalog.getFaqs());
     faq.appendChild(fWrap);
     root.appendChild(faq);
   }
@@ -332,7 +361,7 @@
     var faq = $("section");
     faq.style.marginTop = "64px";
     faq.appendChild($("h2", "", "FAQ"));
-    renderFaqs(faq, catalog.faqs);
+    renderFaqs(faq, catalog.getFaqs());
     page.appendChild(faq);
 
     var related = catalog.relatedProducts(product);
@@ -349,7 +378,7 @@
     }
   }
 
-  // ---- Built offer page (a product with `page` data, currently Athlevo Plan) ----
+  // ---- Built offer page (a product with `page` data: Athlevo Plan and Athlevo Coaching) ----
 
   function bindAnchor(a, id) {
     a.addEventListener("click", function (event) {
@@ -382,7 +411,12 @@
     return ul;
   }
 
+  function signUpOpen(data) {
+    return !!(data && data.signUp && data.signUp.open === true);
+  }
+
   function offerSignUp(data) {
+    if (signUpOpen(data)) return signUpControl(data);
     var a = $("a", "btn btn-red btn-lg", data.cta.label);
     a.href = "#" + data.cta.target;
     bindAnchor(a, data.cta.target);
@@ -392,6 +426,11 @@
   function renderOfferPage(product) {
     var data = product.page;
     var page = $("article", "pdp pdp-offer wrap");
+    if (signUpOpen(data) && new URL(global.location.href).searchParams.get("payment") === "cancelled") {
+      var cancelled = $("p", "signup-notice", "Checkout was cancelled and no payment was made.");
+      cancelled.setAttribute("role", "status");
+      page.appendChild(cancelled);
+    }
 
     // 1. First screen
     var hero = $("div", "pdp-hero pdp-hero--offer");
@@ -455,34 +494,231 @@
     card.appendChild(cardPrice);
     card.appendChild(offerList(data.pricing.includes));
     card.appendChild($("p", "offer-terms", data.pricing.terms));
+    if (signUpOpen(data)) {
+      card.appendChild($("p", "signup-note", [data.signUp.payment, data.signUp.renewal, data.signUp.terms].join(" ")));
+    }
     card.appendChild(offerSignUp(data));
     pricing.appendChild(card);
     page.appendChild(pricing);
 
-    // 5. Meet the coach
-    var coach = offerSection("coach", "Meet the Coach", "offer-coach");
-    var coachFigure = $("figure", "offer-coach-photo");
-    coachFigure.appendChild(picture(data.coach.photo, { sizes: SIZES.coach }));
-    var coachCopy = document.createElement("div");
-    coachCopy.appendChild($("h3", "offer-coach-name", data.coach.name));
-    coachCopy.appendChild($("p", "offer-coach-role", data.coach.role));
-    coachCopy.appendChild($("p", "", data.coach.intro));
-    var coachRow = $("div", "offer-coach-row");
-    coachRow.appendChild(coachFigure);
-    coachRow.appendChild(coachCopy);
-    coach.appendChild(coachRow);
-    page.appendChild(coach);
+    // 5. Meet the coach (omitted when the offer names no coach)
+    if (data.coach) {
+      var coach = offerSection("coach", "Meet the Coach", "offer-coach");
+      var coachFigure = $("figure", "offer-coach-photo");
+      coachFigure.appendChild(picture(data.coach.photo, { sizes: SIZES.coach }));
+      var coachCopy = document.createElement("div");
+      coachCopy.appendChild($("h3", "offer-coach-name", data.coach.name));
+      coachCopy.appendChild($("p", "offer-coach-role", data.coach.role));
+      coachCopy.appendChild($("p", "", data.coach.intro));
+      var coachRow = $("div", "offer-coach-row");
+      coachRow.appendChild(coachFigure);
+      coachRow.appendChild(coachCopy);
+      coach.appendChild(coachRow);
+      page.appendChild(coach);
+    }
 
     // 6. How to get started
     var start = offerSection("how-to-get-started", "How to Get Started");
     start.appendChild(offerList(data.getStarted.steps, "offer-steps", "ol"));
-    var soon = $("div", "offer-soon");
-    soon.appendChild($("strong", "", data.getStarted.notice));
-    start.appendChild(soon);
+    if (!signUpOpen(data)) {
+      var soon = $("div", "offer-soon");
+      soon.appendChild($("strong", "", data.getStarted.notice));
+      start.appendChild(soon);
+    }
     page.appendChild(start);
 
     appendFaqAndRelated(page, product);
     return page;
+  }
+
+  // ---- Offer sign-up (only reachable when product.page.signUp.open is true) ----
+
+  var POLL_MS = 2500;
+  var POLL_MAX = 24;
+  var confirmRun = 0;
+  var confirmTimer = null;
+
+  function postJson(url, payload) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    }).then(function (response) {
+      return response.json().catch(function () { return {}; }).then(function (body) {
+        return { ok: response.ok, status: response.status, body: body || {} };
+      });
+    });
+  }
+
+  function signUpControl(data) {
+    var cfg = data.signUp;
+    var wrap = $("div", "signup");
+    var button = $("button", "btn btn-red btn-lg", cfg.label || data.cta.label);
+    button.type = "button";
+    var status = $("p", "signup-status");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    button.addEventListener("click", function () {
+      startCheckout(button, status, cfg);
+    });
+    wrap.appendChild(button);
+    wrap.appendChild(status);
+    return wrap;
+  }
+
+  function startCheckout(button, status, cfg) {
+    if (button.disabled) return;
+    var label = button.textContent;
+    function reset(message) {
+      button.disabled = false;
+      button.textContent = label;
+      button.removeAttribute("aria-busy");
+      status.textContent = message || "";
+    }
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    button.textContent = "Starting checkout\u2026";
+    status.textContent = "";
+    postJson(cfg.checkoutEndpoint).then(function (res) {
+      var target = res.body && res.body.checkout_url;
+      if (res.ok && typeof target === "string" && /^https:\/\//i.test(target)) {
+        status.textContent = "Taking you to secure checkout\u2026";
+        global.location.assign(target);
+        return;
+      }
+      if (res.status === 429) reset("Too many attempts. Please wait a few minutes and try again.");
+      else if (res.status === 503) reset("Sign-up is not open yet. Please check back soon.");
+      else reset("We could not start checkout. Please try again.");
+    }).catch(function () {
+      reset("We could not start checkout. Check your connection and try again.");
+    });
+  }
+
+  function stopConfirmation() {
+    confirmRun += 1;
+    if (confirmTimer) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
+  }
+
+  function secureUrl(value) {
+    return typeof value === "string" && /^https:\/\//i.test(value) ? value : null;
+  }
+
+  function externalLink(url, label, className) {
+    var a = $("a", className, label);
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    return a;
+  }
+
+  // Shown after PayMongo returns the buyer. It asks the server whether the signed
+  // webhook has recorded the payment, and shows the next steps only once it has.
+  function renderConfirmation(product, ref) {
+    stopConfirmation();
+    var run = confirmRun;
+    var cfg = product.page.signUp;
+    applySeo({
+      title: "Payment confirmation \u2014 Athlevo",
+      description: "Confirmation of your " + product.name + " payment.",
+      url: catalog.siteUrl + productHref(product.slug),
+      noindex: true
+    });
+    markNav("product");
+    root.replaceChildren();
+    var page = $("article", "pdp wrap signup-confirm");
+    var crumb = $("p", "crumb");
+    var back = $("a", "", product.name);
+    back.href = productHref(product.slug);
+    bindNav(back, productHref(product.slug));
+    crumb.appendChild(back);
+    page.appendChild(crumb);
+    var panel = $("div", "signup-confirm-panel");
+    panel.setAttribute("role", "status");
+    panel.setAttribute("aria-live", "polite");
+    page.appendChild(panel);
+    root.appendChild(page);
+
+    var attempts = 0;
+    function show() {
+      panel.replaceChildren.apply(panel, arguments);
+    }
+    function retryButton() {
+      var b = $("button", "btn btn-ink", "Check again");
+      b.type = "button";
+      b.addEventListener("click", function () {
+        attempts = 0;
+        showChecking();
+        check();
+      });
+      return b;
+    }
+    function showChecking() {
+      show(
+        $("h1", "", "Confirming your payment"),
+        $("p", "signup-confirm-lede", "This usually takes a few seconds. Please keep this page open.")
+      );
+    }
+    function showPaid(body) {
+      var questionnaire = secureUrl(body.questionnaire_url);
+      var schedule = secureUrl(body.schedule_url);
+      var steps = $("ol", "offer-steps signup-confirm-steps");
+      var one = $("li");
+      one.appendChild($("strong", "", "Complete the Athlevo questionnaire."));
+      one.appendChild($("p", "", "Tell us about your fitness, goals, schedule, and equipment."));
+      if (questionnaire) one.appendChild(externalLink(questionnaire, "Open the questionnaire", "btn btn-red"));
+      steps.appendChild(one);
+      var two = $("li");
+      two.appendChild($("strong", "", "Schedule a call."));
+      two.appendChild($("p", "", "After you submit the questionnaire, you will be asked to schedule a call."));
+      if (schedule) two.appendChild(externalLink(schedule, "Schedule your call", "btn btn-ink"));
+      steps.appendChild(two);
+      show(
+        $("h1", "", "Payment received."),
+        $("p", "signup-confirm-lede", "Thank you for signing up for " + product.name + ". Here is what happens next."),
+        steps,
+        $("p", "offer-supporting", "PayMongo emails your receipt.")
+      );
+    }
+    function showSlow() {
+      show(
+        $("h1", "", "We are still confirming your payment"),
+        $("p", "signup-confirm-lede", "If you finished paying, it can take a few minutes to show up here. Keep this page open or check again in a moment. PayMongo emails your receipt once the payment goes through."),
+        retryButton()
+      );
+    }
+    function showFailed() {
+      show(
+        $("h1", "", "We could not check your payment right now"),
+        $("p", "signup-confirm-lede", "Your payment is not affected. Check again in a moment."),
+        retryButton()
+      );
+    }
+    function showRefunded() {
+      show(
+        $("h1", "", "This payment was refunded"),
+        $("p", "signup-confirm-lede", "If you think this is a mistake, please contact Athlevo.")
+      );
+    }
+    function check() {
+      if (run !== confirmRun) return;
+      attempts += 1;
+      postJson(cfg.statusEndpoint, { ref: ref }).then(function (res) {
+        if (run !== confirmRun) return;
+        if (!res.ok) { showFailed(); return; }
+        var state = res.body && res.body.status;
+        if (state === "paid") { showPaid(res.body); return; }
+        if (state === "refunded") { showRefunded(); return; }
+        if (attempts >= POLL_MAX) { showSlow(); return; }
+        confirmTimer = setTimeout(check, POLL_MS);
+      }).catch(function () {
+        if (run === confirmRun) showFailed();
+      });
+    }
+    showChecking();
+    check();
   }
 
   function renderMissing() {
@@ -516,7 +752,17 @@
 
   function render() {
     closeMenu();
+    stopConfirmation();
     var route = parseRoute();
+    if (route.view === "confirmation") {
+      var paidFor = catalog.getProduct(catalog.resolveSlug(route.slug));
+      if (paidFor && paidFor.page && paidFor.page.signUp) {
+        renderConfirmation(paidFor, route.ref);
+        window.scrollTo(0, 0);
+        return;
+      }
+      route = { view: "product", slug: route.slug };
+    }
     if (route.view === "product") {
     renderProduct(route.slug);
     requestAnimationFrame(function () {
@@ -561,6 +807,11 @@
   });
 
   global.addEventListener("popstate", render);
+  // Back from checkout can restore this page from the browser cache with a
+  // disabled button; redraw it fresh.
+  global.addEventListener("pageshow", function (event) {
+    if (event && event.persisted) render();
+  });
   render();
 
   global.AthlevoStorefront = {

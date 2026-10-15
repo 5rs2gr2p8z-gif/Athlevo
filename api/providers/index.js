@@ -28,6 +28,10 @@ import { handleCors } from "../../lib/server/cors.js";
 
 import crypto from "node:crypto";
 import paymongoCheckoutHandler from "../../lib/server/paymongoCheckoutEndpoint.js";
+import {
+  coachingSignupCheckoutHandler, coachingSignupStatusHandler,
+  planSignupCheckoutHandler, planSignupStatusHandler
+} from "../../lib/server/planSignup.js";
 import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
 import coachAnonymousHandler from "../../lib/server/coachAnonymousEndpoint.js";
 import anonymousHandoffHandler from "../../lib/server/anonymousHandoffEndpoint.js";
@@ -3889,6 +3893,21 @@ export default async function handler(request, response) {
     // Provider-independent routes (folded in to save serverless slots).
     if (action === "paymongo_checkout") {
       return paymongoCheckoutHandler(request, response);
+    }
+
+    // Athlevo Plan sign-up on the public /store page (no Athlevo account).
+    if (action === "plan_signup_checkout") {
+      return planSignupCheckoutHandler(request, response);
+    }
+    if (action === "plan_signup_status") {
+      return planSignupStatusHandler(request, response);
+    }
+    // Athlevo Coaching sign-up, same flow with its own product, price and switch.
+    if (action === "coaching_signup_checkout") {
+      return coachingSignupCheckoutHandler(request, response);
+    }
+    if (action === "coaching_signup_status") {
+      return coachingSignupStatusHandler(request, response);
     }
 
     if (action === "diagnostic_chat") {

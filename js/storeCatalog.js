@@ -74,7 +74,7 @@
     road: storePhoto(
       "road", 1280, 1707,
       "/athlevo-assets/diagnostic%20proof/640393536_17877223146489492_4744442913120713853_n.jpg",
-      "Runners moving together on an open road."
+      "A smiling runner in a white singlet and race bib, giving a thumbs up."
     ),
     track: storePhoto(
       "track", 1280, 1707,
@@ -107,6 +107,48 @@
       "Basic nutrition",
       "OCR"
     ]
+  };
+
+  // Approved athlete feedback about Athlevo coaching in general. It is not specific to
+  // any one offer, so the Plan and Coaching pages share it. Quotes are copied verbatim
+  // from the cited source file; a test enforces that.
+  var ATHLETE_FEEDBACK = {
+    label: "From Athlevo athletes.",
+    items: [
+      {
+        name: "Rodel Mark",
+        context: "Athlete · Sub-19 5K",
+        quote: "“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”",
+        source: "js/landingContent.js"
+      },
+      {
+        name: "Miguel Bulado",
+        context: "Student Athlete",
+        quote: "“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”",
+        source: "js/landingContent.js"
+      },
+      {
+        name: "JB Luna",
+        context: "Recreational Runner",
+        quote: "“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”",
+        source: "js/landingContent.js"
+      },
+      {
+        name: "Carl Zita",
+        context: "Recreational Runner",
+        quote: "“Effective program, quality sessions, and very informative coaching.”",
+        source: "js/landingContent.js"
+      }
+    ]
+  };
+
+  // Checkout copy shown on every offer that opens sign-up. The payment line must match the
+  // methods the server offers (lib/server/paymongoClient.js); a test checks that.
+  var SIGNUP_COPY = {
+    payment: "Pay securely through PayMongo with QRPh, Maya, or GrabPay.",
+    renewal: "There is no automatic renewal. We will remind you when your next payment is due.",
+    // Wording from Section 6 of the Athlevo Coaching Agreement v2.0.
+    terms: "All payments to Athlevo are final and non-refundable, to the fullest extent allowed under Philippine law."
   };
 
   var sharedFaqs = [
@@ -142,39 +184,9 @@
             "Basic coach support.",
             "A monthly coach review and plan adjustment."
           ],
-          note: "Athlevo Plan includes a monthly review. Weekly reviews are part of Athlevo Coaching."
+          note: "Athlevo Plan includes a monthly review. More frequent reviews are part of Athlevo Coaching."
         },
-        // Approved athlete feedback about Athlevo coaching in general, not Plan-specific.
-        // Quotes are copied verbatim from the cited source file; a test enforces that.
-        athleteFeedback: {
-          label: "From Athlevo athletes.",
-          items: [
-            {
-              name: "Rodel Mark",
-              context: "Athlete · Sub-19 5K",
-              quote: "“Maraming salamat, Athlevo! Dahil sa coaching, nakuha ko ang sub-19. Sobrang laki ng improvement ko since I started.”",
-              source: "js/landingContent.js"
-            },
-            {
-              name: "Miguel Bulado",
-              context: "Student Athlete",
-              quote: "“Athlevo doesn’t just give me training programs. It also emphasizes the importance of quality training days and prioritizing recovery. I’m deeply thankful for the guidance during my final year as a student athlete at Pampanga State University.”",
-              source: "js/landingContent.js"
-            },
-            {
-              name: "JB Luna",
-              context: "Recreational Runner",
-              quote: "“Athlevo has been an amazing coach. I’ve never felt stronger, faster, and more motivated. The personalized training made a huge impact on my running journey.”",
-              source: "js/landingContent.js"
-            },
-            {
-              name: "Carl Zita",
-              context: "Recreational Runner",
-              quote: "“Effective program, quality sessions, and very informative coaching.”",
-              source: "js/landingContent.js"
-            }
-          ]
-        },
+        athleteFeedback: ATHLETE_FEEDBACK,
         pricing: {
           includes: [
             "Personalized running plan",
@@ -185,10 +197,24 @@
           terms: "Month-to-month, no lock-in."
         },
         coach: DEAN,
+        // Athlevo Plan sign-up. Keep `open` false until the checkout, the sign-ups
+        // table and the questionnaire link are set up (docs/plan-signup.md). A test
+        // keeps the store notice and FAQ in step with it. The price itself is owned
+        // by the server (lib/server/planSignup.js); a test checks the two agree.
+        signUp: {
+          open: false,
+          label: "Sign Up",
+          checkoutEndpoint: "/api/plan-signup/checkout",
+          statusEndpoint: "/api/plan-signup/status",
+          payment: SIGNUP_COPY.payment,
+          renewal: SIGNUP_COPY.renewal,
+          terms: SIGNUP_COPY.terms
+        },
         getStarted: {
           steps: [
             "Sign up and complete payment.",
-            "Fill out the intake form with your fitness, goals, schedule, and equipment.",
+            "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
+            "Schedule a call with the Athlevo team.",
             "Receive your personalized plan and coach contact instructions.",
             "Follow the plan, with a monthly review and adjustment."
           ],
@@ -206,6 +232,61 @@
       slug: "athlevo-coaching",
       name: "Athlevo Coaching",
       hero: PHOTO.road,
+      page: {
+        seoTitle: "Athlevo Coaching — Online Running and Strength Coaching",
+        headline: "Your training, reviewed and adjusted regularly.",
+        description: "Personalized online running coaching with regular reviews and direct coach communication.",
+        price: { amount: "₱4,998", period: "/month" },
+        cta: { label: "Sign Up", target: "how-to-get-started" },
+        supporting: "Month-to-month coaching. No lock-in.",
+        overview: {
+          intro: "Athlevo Coaching is for runners who want more than a plan. Your coach reviews and adjusts your training regularly, and you can communicate with your coach directly.",
+          includesTitle: "What is included",
+          includes: [
+            "An onboarding call to understand your training history, current fitness, schedule, equipment, limitations, and goals.",
+            "A personalized running plan.",
+            "Strength and conditioning guidance where appropriate.",
+            "Regular coach reviews and assessments of your progress.",
+            "Direct coach communication.",
+            "Frequent adjustments based on how training is actually going."
+          ],
+          note: "Coaching is delivered online. Athlevo Coaching includes more frequent reviews than Athlevo Plan, which includes a monthly review."
+        },
+        athleteFeedback: ATHLETE_FEEDBACK,
+        pricing: {
+          includes: [
+            "Personalized running plan",
+            "Strength and conditioning guidance where appropriate",
+            "Regular coach reviews and assessments",
+            "Direct coach communication"
+          ],
+          terms: "Month-to-month, no lock-in."
+        },
+        // No coach profile on purpose: the page does not name or imply a coach.
+        // Athlevo Coaching sign-up works exactly like Athlevo Plan's. Keep `open` false
+        // until the checkout, the sign-ups table and the questionnaire link are set up
+        // (docs/plan-signup.md). The price is owned by the server
+        // (lib/server/planSignup.js); a test checks the two agree.
+        signUp: {
+          open: false,
+          label: "Sign Up",
+          checkoutEndpoint: "/api/coaching-signup/checkout",
+          statusEndpoint: "/api/coaching-signup/status",
+          payment: SIGNUP_COPY.payment,
+          renewal: SIGNUP_COPY.renewal,
+          terms: SIGNUP_COPY.terms
+        },
+        getStarted: {
+          steps: [
+            "Sign up and complete payment.",
+            "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
+            "Schedule your onboarding call.",
+            "Receive your personalized running plan, with strength and conditioning guidance where appropriate.",
+            "Train with regular coach reviews, frequent adjustments, and direct coach communication."
+          ],
+          notice: "Registration opening soon"
+        }
+      },
       // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
@@ -303,6 +384,34 @@
     return meta;
   }
 
+  // Names of the offers whose sign-up switch is on, in catalog order.
+  function openOfferNames() {
+    return products.filter(function (product) {
+      return !!(product.page && product.page.signUp && product.page.signUp.open === true);
+    }).map(function (product) { return product.name; });
+  }
+
+  function openOffersPhrase(names) {
+    return names.join(" and ") + (names.length === 1 ? " is" : " are") + " open for sign-up";
+  }
+
+  // The banner at the top of every store page. scripts/build-store-pages.mjs writes
+  // it into the static HTML, so flipping the switch needs one rebuild, not a hand edit.
+  function notice() {
+    var names = openOfferNames();
+    return names.length ? openOffersPhrase(names) : "Purchasing is not yet available";
+  }
+
+  // The first FAQ answers "can I buy today?", so it follows the sign-up switches.
+  function getFaqs() {
+    var names = openOfferNames();
+    if (!names.length) return sharedFaqs;
+    return [{
+      question: sharedFaqs[0].question,
+      answer: openOffersPhrase(names) + ". The other programs are not available to buy yet."
+    }].concat(sharedFaqs.slice(1));
+  }
+
   var catalog = {
     brand: "Athlevo",
     siteUrl: SITE_URL,
@@ -315,6 +424,8 @@
     coaches: [DEAN, CHRISTIAN],
     products: products,
     faqs: sharedFaqs,
+    getFaqs: getFaqs,
+    notice: notice,
     legacySlugs: legacySlugs,
     getProduct: getProduct,
     resolveSlug: resolveSlug,

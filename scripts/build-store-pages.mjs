@@ -10,7 +10,7 @@
  * markup, so nothing visibly changes.
  *
  * Outputs (all generated, do not edit by hand):
- *   store.html                  /store
+ *   store.html                  /store (also the banner text, from catalog.notice())
  *   store-pages/<slug>.html     /store/<slug>, one per offer
  *   sitemap.xml                 home, /store and every offer
  *
@@ -172,6 +172,8 @@ export function buildStorePages(root = ROOT) {
     if (!rendered.html) throw new Error("storefront.js rendered nothing for " + meta.path);
     let page = shell;
     if (!route.slug) page = page.replace(NAV_PROGRAMS, NAV_PROGRAMS_CURRENT);
+    page = replaceRegion(page, "notice", "<!-- prerender:notice -->\n  " +
+      '<div class="notice">' + escapeText(catalog.notice()) + "</div>\n  <!-- /prerender:notice -->");
     page = replaceRegion(page, "head", headBlock(meta));
     page = replaceRegion(page, "main", "<!-- prerender:main -->\n" + rendered.html + "\n<!-- /prerender:main -->");
     files.push({ path: route.slug ? "store-pages/" + route.slug + ".html" : "store.html", content: page });

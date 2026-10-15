@@ -68,6 +68,22 @@
       "destination": "/api/providers?action=paymongo_checkout"
     },
     {
+      "source": "/api/plan-signup/checkout",
+      "destination": "/api/providers?action=plan_signup_checkout"
+    },
+    {
+      "source": "/api/plan-signup/status",
+      "destination": "/api/providers?action=plan_signup_status"
+    },
+    {
+      "source": "/api/coaching-signup/checkout",
+      "destination": "/api/providers?action=coaching_signup_checkout"
+    },
+    {
+      "source": "/api/coaching-signup/status",
+      "destination": "/api/providers?action=coaching_signup_status"
+    },
+    {
       "source": "/api/diagnostic-chat",
       "destination": "/api/providers?action=diagnostic_chat"
     },
