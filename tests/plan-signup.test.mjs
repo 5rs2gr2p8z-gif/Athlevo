@@ -25,7 +25,8 @@ const section = (title) => console.log(`\n── ${title}`);
 // ---- in-memory Supabase + PayMongo -----------------------------------------
 
 const db = { plan_signups: [], rates: new Map() };
-const log = { paymongo: [], tables: [], urls: [] };
+const log = { paymongo: [], tables: [], urls: [], emails: [] };
+let resendMode = "ok"; // "ok" | "reject" | "throw" | "hang"
 const paymentAmounts = new Map(); // payment id -> amount PayMongo reports (default ₱1,998)
 let paymongoDown = false;
 let planTableMissing = false;
@@ -50,6 +51,15 @@ globalThis.fetch = async (input, init = {}) => {
       return json({ data: { attributes: { amount: paymentAmounts.get(paymentId) || 199800, refunds: [] } } });
     }
     return json({}, 404);
+  }
+  if (url.host === "api.resend.com") {
+    log.emails.push({ headers: init.headers, body: JSON.parse(init.body), signal: init.signal });
+    if (resendMode === "throw") throw new TypeError("network down");
+    if (resendMode === "reject") return json({ message: "rejected" }, 500);
+    if (resendMode === "hang") {
+      return new Promise((resolve, reject) => init.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))));
+    }
+    return json({ id: `em_${log.emails.length}` });
   }
   if (url.host !== "db.test") return json({}, 404);
   const table = url.pathname.replace("/rest/v1/", "");
@@ -638,6 +648,250 @@ section("10. Wiring");
   t("migration is re-runnable", !/drop table/i.test(sql) && /create table if not exists public\.plan_signups/i.test(sql));
   t("unique constraints back the idempotent insert",
     /reference_number text not null unique/.test(sql) && /provider_payment_id text not null unique/.test(sql));
+}
+
+// ---- 11. emails -------------------------------------------------------------
+section("11. Sign-up emails (buyer next steps + owner alert)");
+{
+  const { alertRecipients, buyerConfirmationEmail } = await import("../lib/server/signupNotifications.js");
+  const planRef = (c) => "ATH-PL-FEEDFACE01-" + c.repeat(24);
+  const coRef = (c) => "ATH-CO-FEEDFACE01-" + c.repeat(24);
+  const MAIL_ENV = {
+    RESEND_API_KEY: "re_test_key", SIGNUP_ALERT_EMAIL: "dean@athlevo.example, ops@athlevo.example",
+    SIGNUP_FROM_EMAIL: undefined, ATHLEVO_INVITE_FROM_EMAIL: undefined, SIGNUP_REPLY_TO_EMAIL: undefined,
+    PLAN_AGREEMENT_URL: undefined, COACHING_AGREEMENT_URL: undefined
+  };
+  const mailEnv = (extra = {}) => env({ ...MAIL_ENV, ...extra });
+  const toList = (e) => e.body.to.join(",");
+  const byTo = (needle) => log.emails.filter(e => toList(e).includes(needle));
+  const rowFor = (paymentId) => db.plan_signups.find(x => x.provider_payment_id === paymentId);
+
+  // Not configured: the payment is recorded exactly as before and nothing is sent.
+  mailEnv({ RESEND_API_KEY: undefined, SIGNUP_ALERT_EMAIL: undefined });
+  open(); openCoaching();
+  log.emails.length = 0;
+  {
+    const r = await deliver(paidEvent({ reference: planRef("1"), paymentId: "pay_e1", id: "evt_e1" }));
+    t("with no RESEND_API_KEY nothing is sent and the payment is recorded as before",
+      r.statusCode === 200 && r.body.result.applied === true && log.emails.length === 0 &&
+      rowFor("pay_e1") && !("notifications" in rowFor("pay_e1").metadata));
+  }
+
+  // Configured: one email to the buyer, one alert to the owner.
+  mailEnv();
+  log.emails.length = 0;
+  const ref2 = planRef("2");
+  {
+    const r = await deliver(paidEvent({ reference: ref2, paymentId: "pay_e2", id: "evt_e2" }));
+    const buyer = byTo("maria@example.com")[0];
+    const owner = byTo("dean@athlevo.example")[0];
+    t("a new Plan payment sends exactly two emails: the buyer's and the owner's",
+      r.statusCode === 200 && log.emails.length === 2 && buyer && owner && buyer !== owner);
+    t("the buyer's email goes only to the buyer, with the Plan subject and the default sender",
+      buyer.body.to.length === 1 && buyer.body.to[0] === "maria@example.com" &&
+      buyer.body.subject === "Welcome to Athlevo Plan: your next steps" &&
+      buyer.body.from === "Athlevo <noreply@athlevo.org>" && buyer.body.reply_to === "support@athlevo.org");
+    t("requests carry the Resend key and a per-email idempotency key built from the reference",
+      buyer.headers.Authorization === "Bearer re_test_key" &&
+      buyer.headers["Idempotency-Key"] === `signup-buyer-${ref2}` && owner.headers["Idempotency-Key"] === `signup-owner-${ref2}`);
+    t("the buyer's email carries the price, reference, questionnaire and scheduling links",
+      [buyer.body.html, buyer.body.text].every(x =>
+        x.includes("₱1,998") && x.includes(ref2) && x.includes(QUESTIONNAIRE) && x.includes(SCHEDULE)) &&
+      buyer.body.text.startsWith("Hi Maria,"));
+    t("it links back to the confirmation page for that reference",
+      buyer.body.text.includes(`https://athlevo.org/programs/athlevo-plan?payment=success&ref=${ref2}`) &&
+      buyer.body.html.includes(`https://athlevo.org/programs/athlevo-plan?payment=success&amp;ref=${ref2}`));
+    t("it makes no weekly promise, says it does not renew automatically, and has no agreement link when none is set",
+      !/weekly/i.test(buyer.body.text + buyer.body.html) && /does not renew automatically/.test(buyer.body.text) &&
+      !/agreement/i.test(buyer.body.text));
+    t("it does not repeat the buyer's phone number or any coach's name",
+      !/\+63917/.test(buyer.body.html + buyer.body.text) && !/Dean|Christian|Louie/.test(buyer.body.html + buyer.body.text));
+    t("the owner's alert goes to every configured recipient in one message",
+      owner.body.to.join(",") === "dean@athlevo.example,ops@athlevo.example");
+    t("the alert is marked TEST for a test-mode payment and names offer, amount and buyer",
+      owner.body.subject === "[TEST] New Athlevo Plan sign-up: ₱1,998 — Maria Santos" &&
+      /TEST payment/.test(owner.body.html) && /TEST payment/.test(owner.body.text));
+    t("the alert lists contact details, reference, payment method and dates",
+      [owner.body.html, owner.body.text].every(x =>
+        x.includes("Maria Santos") && x.includes("maria@example.com") && x.includes("+639171234567") &&
+        x.includes(ref2) && x.includes("QR Ph") && x.includes("Oct 9, 2025") && x.includes("November 8, 2025")));
+    t("the row notes how each email went, with statuses only (no personal data)",
+      JSON.stringify(rowFor("pay_e2").metadata.notifications).match(/^\{"buyer":"sent","owner":"sent","at":"[^"]+"\}$/) &&
+      rowFor("pay_e2").metadata.webhook_mode === "test" && rowFor("pay_e2").metadata.event_id === "evt_e2");
+  }
+
+  // Redelivery never sends again.
+  {
+    const before = log.emails.length;
+    await deliver(paidEvent({ reference: ref2, paymentId: "pay_e2", id: "evt_e2" }));
+    await deliver(paidEvent({ reference: ref2, paymentId: "pay_e2", id: "evt_e2_retry" }));
+    t("a redelivered or retried payment event sends nothing more", log.emails.length === before);
+  }
+
+  // Coaching: its own links, its own agreement, never the Plan's.
+  mailEnv({ PLAN_AGREEMENT_URL: "https://docs.example.com/plan-agreement", COACHING_AGREEMENT_URL: "https://docs.example.com/coaching-agreement" });
+  log.emails.length = 0;
+  const ref3 = coRef("3");
+  {
+    await deliver(paidEvent({ reference: ref3, productId: ATHLEVO_COACHING_PRODUCT.id, amount: 499800, paymentId: "pay_e3", checkoutId: "cs_e3", id: "evt_e3" }));
+    const buyer = byTo("maria@example.com")[0];
+    const owner = byTo("dean@athlevo.example")[0];
+    const all = buyer.body.html + buyer.body.text;
+    t("a Coaching payment emails the Coaching subject, price and links",
+      buyer.body.subject === "Welcome to Athlevo Coaching: your next steps" && all.includes("₱4,998") &&
+      all.includes(COACHING_QUESTIONNAIRE) && all.includes(COACHING_SCHEDULE) && all.includes(ref3) &&
+      all.includes("https://athlevo.org/programs/athlevo-coaching?payment=success"));
+    t("it never shows the Plan's questionnaire, scheduling or agreement link",
+      !all.includes(QUESTIONNAIRE + "\"") && !all.includes(SCHEDULE) && !all.includes("plan-agreement"));
+    t("it shows the Coaching agreement link when one is set",
+      all.includes("https://docs.example.com/coaching-agreement") && /Read the Athlevo agreement/.test(buyer.body.html));
+    t("the alert names Athlevo Coaching and its price",
+      owner.body.subject === "[TEST] New Athlevo Coaching sign-up: ₱4,998 — Maria Santos");
+  }
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({ reference: planRef("4"), paymentId: "pay_e4", checkoutId: "cs_e4", id: "evt_e4" }));
+    const all = byTo("maria@example.com")[0].body;
+    t("a Plan email shows the Plan agreement link and not the Coaching one",
+      all.text.includes("https://docs.example.com/plan-agreement") && !all.text.includes("coaching-agreement"));
+  }
+  {
+    const s1 = res(); await status(post({ ref: ref2 }), s1);
+    const s2 = res(); await coachingStatus(post({ ref: ref3 }), s2);
+    t("each offer's status returns only its own agreement link",
+      s1.body.agreement_url === "https://docs.example.com/plan-agreement" &&
+      s2.body.agreement_url === "https://docs.example.com/coaching-agreement" &&
+      !JSON.stringify(s1.body).match(/maria|@|\+63/i));
+    env({ PLAN_AGREEMENT_URL: "http://insecure.example.com/a" });
+    const s3 = res(); await status(post({ ref: ref2 }), s3);
+    env({ PLAN_AGREEMENT_URL: undefined });
+    const s4 = res(); await status(post({ ref: ref2 }), s4);
+    t("an insecure or missing agreement link is null, not invented", s3.body.agreement_url === null && s4.body.agreement_url === null);
+    const pending = res(); await status(post({ ref: planRef("A") }), pending);
+    t("a pending sign-up exposes no agreement link", pending.body.status === "pending" && !("agreement_url" in pending.body));
+  }
+
+  // Coaching borrows the Plan's questionnaire when it has none of its own, as the page does.
+  mailEnv();
+  env({ COACHING_QUESTIONNAIRE_URL: undefined });
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({ reference: coRef("5"), productId: ATHLEVO_COACHING_PRODUCT.id, amount: 499800, paymentId: "pay_e5", checkoutId: "cs_e5", id: "evt_e5" }));
+    const buyer = byTo("maria@example.com")[0];
+    t("Coaching without its own questionnaire link emails the Plan's, matching the confirmation page",
+      buyer && buyer.body.text.includes(QUESTIONNAIRE) && !buyer.body.text.includes(COACHING_QUESTIONNAIRE));
+  }
+  openCoaching();
+
+  // Hostile contact details never become markup, headers or extra recipients.
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({
+      reference: planRef("6"), paymentId: "pay_e6", checkoutId: "cs_e6", id: "evt_e6",
+      billing: { name: "<img src=x onerror=alert(1)>\r\nBcc: evil@example.com", email: "buyer@example.com", phone: "<b>1</b>" }
+    }));
+    const buyer = byTo("buyer@example.com")[0];
+    const owner = byTo("dean@athlevo.example")[0];
+    t("the buyer's HTML escapes whatever name PayMongo returned", !/<img/i.test(buyer.body.html) && /&lt;img/.test(buyer.body.html));
+    t("the alert's HTML escapes name and phone", !/<img/i.test(owner.body.html) && !/<b>1<\/b>/.test(owner.body.html) && /&lt;b&gt;1/.test(owner.body.html));
+    t("no subject carries a line break, and recipients are exactly the validated addresses",
+      !/[\r\n]/.test(buyer.body.subject + owner.body.subject) && buyer.body.to.join() === "buyer@example.com" &&
+      owner.body.to.join() === "dean@athlevo.example,ops@athlevo.example");
+  }
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({
+      reference: planRef("7"), paymentId: "pay_e7", checkoutId: "cs_e7", id: "evt_e7",
+      billing: { name: "Two Mails", email: "a@example.com,b@example.com", phone: "" }
+    }));
+    t("an email field holding several addresses is not used for the buyer",
+      byTo("a@example.com").length === 0 && log.emails.length === 1 && /not provided/.test(log.emails[0].body.text));
+  }
+
+  // No usable email from PayMongo: the owner is still alerted.
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({ reference: planRef("8"), paymentId: "pay_e8", checkoutId: "cs_e8", id: "evt_e8", billing: null }));
+    const row = rowFor("pay_e8");
+    t("with no buyer email only the alert is sent, and it says so",
+      log.emails.length === 1 && log.emails[0].body.to.join() === "dean@athlevo.example,ops@athlevo.example" &&
+      /No email address came through/.test(log.emails[0].body.text) && !/\[TEST\] New Athlevo Plan sign-up: .* —/.test(log.emails[0].body.subject));
+    t("and the row records the buyer as no_email", row.metadata.notifications.buyer === "no_email" && row.metadata.notifications.owner === "sent");
+  }
+
+  // No alert address: the buyer's email still goes.
+  mailEnv({ SIGNUP_ALERT_EMAIL: undefined });
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({ reference: planRef("9"), paymentId: "pay_e9", checkoutId: "cs_e9", id: "evt_e9" }));
+    t("with no SIGNUP_ALERT_EMAIL only the buyer's email is sent",
+      log.emails.length === 1 && log.emails[0].body.to.join() === "maria@example.com" &&
+      rowFor("pay_e9").metadata.notifications.owner === "no_recipient");
+  }
+  mailEnv();
+
+  // Sender and reply-to overrides.
+  mailEnv({ ATHLEVO_INVITE_FROM_EMAIL: "Athlevo Invites <invites@athlevo.example>", SIGNUP_REPLY_TO_EMAIL: "hello@athlevo.example" });
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({ reference: planRef("B"), paymentId: "pay_eb", checkoutId: "cs_eb", id: "evt_eb" }));
+    const buyer = byTo("maria@example.com")[0];
+    t("the sender falls back to the invite sender, and reply-to is configurable",
+      buyer.body.from === "Athlevo Invites <invites@athlevo.example>" && buyer.body.reply_to === "hello@athlevo.example");
+  }
+  mailEnv({ ATHLEVO_INVITE_FROM_EMAIL: "Athlevo Invites <invites@athlevo.example>", SIGNUP_FROM_EMAIL: "Athlevo <team@athlevo.example>" });
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({ reference: planRef("C"), paymentId: "pay_ec", checkoutId: "cs_ec", id: "evt_ec" }));
+    t("SIGNUP_FROM_EMAIL wins over the invite sender", log.emails.every(e => e.body.from === "Athlevo <team@athlevo.example>") && log.emails.length === 2);
+  }
+  mailEnv();
+
+  // A live payment is not marked as a test.
+  log.emails.length = 0;
+  {
+    await deliver(paidEvent({ reference: planRef("D"), paymentId: "pay_ed", checkoutId: "cs_ed", id: "evt_ed", livemode: true }), { live: true });
+    const owner = byTo("dean@athlevo.example")[0];
+    t("a live payment's alert is not marked TEST", owner && !/TEST/.test(owner.body.subject + owner.body.text) && /Live payment/.test(owner.body.text));
+  }
+
+  // Mail failures never touch the payment.
+  for (const mode of ["reject", "throw"]) {
+    resendMode = mode;
+    log.emails.length = 0;
+    const ref = planRef(mode === "reject" ? "E" : "F");
+    const id = `pay_ef_${mode}`;
+    const r = await deliver(paidEvent({ reference: ref, paymentId: id, checkoutId: `cs_${id}`, id: `evt_${id}` }));
+    t(`a ${mode === "reject" ? "rejecting" : "failing"} mail service still returns 200 and records the payment`,
+      r.statusCode === 200 && r.body.result.applied === true && rowFor(id) && rowFor(id).status === "paid");
+    t(`and the row records both emails as failed (${mode})`,
+      rowFor(id).metadata.notifications.buyer === "failed" && rowFor(id).metadata.notifications.owner === "failed");
+  }
+  {
+    resendMode = "hang";
+    const started = Date.now();
+    const r = await deliver(paidEvent({ reference: planRef("0"), paymentId: "pay_hang", checkoutId: "cs_hang", id: "evt_hang" }));
+    const took = Date.now() - started;
+    t("a mail service that never answers is given up on within a few seconds, and the payment is still recorded",
+      r.statusCode === 200 && r.body.result.applied === true && took < 6000 && rowFor("pay_hang").metadata.notifications.buyer === "failed", `took ${took}ms`);
+    resendMode = "ok";
+  }
+
+  // Recipient parsing and unit-level guards.
+  t("alert recipients: valid, lower-cased, de-duplicated, at most five",
+    JSON.stringify(alertRecipients({ SIGNUP_ALERT_EMAIL: "A@x.com; b@y.com, bad, a@x.com, c@z.com d@z.com e@z.com f@z.com" })) ===
+    JSON.stringify(["a@x.com", "b@y.com", "c@z.com", "d@z.com", "e@z.com"]) && alertRecipients({}).length === 0);
+  t("the buyer's email is not built without a questionnaire link or a usable address",
+    buyerConfirmationEmail({ product: ATHLEVO_PLAN_PRODUCT, details: { contact: { email: "x@y.com" }, referenceNumber: "R" }, steps: { questionnaireUrl: null } }) === null &&
+    buyerConfirmationEmail({ product: ATHLEVO_PLAN_PRODUCT, details: { contact: { email: "nope" }, referenceNumber: "R" }, steps: { questionnaireUrl: QUESTIONNAIRE } }) === null);
+
+  // Only the store branch notifies; Pro is untouched; nothing new under api/.
+  const endpoint = readFileSync("lib/server/paymongoWebhookEndpoint.js", "utf8");
+  const storeBranch = endpoint.slice(endpoint.indexOf("if (storePaid) {"), endpoint.indexOf("const paid = extractPaidCheckout(envelope);"));
+  t("the webhook notifies only inside the store branch, after the payment is recorded",
+    /applyPlanPayment\(/.test(storeBranch) && /notifySignup\(/.test(storeBranch) &&
+    storeBranch.indexOf("applyPlanPayment(") < storeBranch.indexOf("notifySignup(") &&
+    (endpoint.match(/notifySignup\(/g) || []).length === 1);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

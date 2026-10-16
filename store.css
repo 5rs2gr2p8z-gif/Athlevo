@@ -820,27 +820,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
   background: var(--red);
 }
 
-.coach-card-bests-list {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  max-width: 280px;
-  font-size: 15px;
-}
-
-.coach-card-bests-list > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.coach-card-bests-list > div:last-child { border-bottom: 0; }
-.coach-card-bests-list dt { margin: 0; color: var(--muted); }
-.coach-card-bests-list dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; }
-
 .missing {
   min-height: 50vh;
   display: grid;
@@ -970,3 +949,5 @@ img[data-img="loading"] { opacity: 0; }
 .signup-confirm-lede { margin: 0 0 28px; font-size: 18px; }
 .signup-confirm-steps { margin-bottom: 20px; }
 .signup-confirm-steps li p { margin: 4px 0 12px; color: var(--muted); }
+.signup-confirm-agreement { margin: 0 0 8px; font-size: 16px; }
+.signup-confirm-agreement a { color: var(--red); text-decoration: underline; text-underline-offset: 3px; }

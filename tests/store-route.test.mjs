@@ -194,34 +194,30 @@ section("4b. Catalog page structure");
     catalog.coaches.map(c => c.name).join("|") === "Dean Vincent Castro|Christian Francia|Louie Agawa" &&
     catalog.coaches[0].role === "Founder & Head Coach, Athlevo" &&
     catalog.coaches[0] === catalog.getProduct("athlevo-plan").page.coach &&
-    catalog.coaches[1].role === "Assistant Coach, Athlevo" &&
+    catalog.coaches[1].role === "Strength & Conditioning Coach, Assistant Running Coach, Athlevo" &&
     catalog.coaches[1].intro === "Christian is an assistant coach at Athlevo. He specializes in strength and conditioning.");
-  t("only the owner-supplied certifications appear, on Christian's and Louie's cards, exactly as supplied",
-    catalog.coaches.filter(c => c.certifications).map(c => c.name).join("|") === "Christian Francia|Louie Agawa" &&
+  t("only the owner-supplied certifications appear, on Dean's, Christian's and Louie's cards, exactly as supplied",
+    catalog.coaches.filter(c => c.certifications).map(c => c.name).join("|") === "Dean Vincent Castro|Christian Francia|Louie Agawa" &&
+    JSON.stringify(catalog.coaches[0].certifications) === JSON.stringify(
+      ["USATF Level 1 Certified Coach", "STRYD Certified Running Coach"]) &&
+    catalog.coaches[0].credentialsLabel === "Credentials" &&
     JSON.stringify(catalog.coaches[1].certifications) === JSON.stringify(
       ["Functional training", "Fitness body anatomy", "Movement analysis and corrective exercise", "Basic nutrition", "OCR"]) &&
     !("credentialsLabel" in catalog.coaches[1]) &&
     /"Certified in"/.test(storefrontSrc) &&
-    !catalog.getProduct("athlevo-plan").page.coach.certifications);
+    catalog.getProduct("athlevo-plan").page.coach === catalog.coaches[0]);
   const louie = catalog.coaches[2];
   t("Louie Agawa: role, intro and credentials exactly as supplied",
-    louie.role === "Coach, Athlevo" &&
-    louie.intro === "Louie is a coach at Athlevo and a competitive middle to long distance runner." &&
+    louie.role === "Running Coach, Athlevo" &&
+    louie.intro === "Louie is a running coach at Athlevo and a competitive middle to long distance runner." &&
     louie.credentialsLabel === "Credentials" &&
     JSON.stringify(louie.certifications) === JSON.stringify(
       ["World Athletics Certified Coach — CECS Level 1", "ISSA Certified Running Coach"]) &&
     /coach\.credentialsLabel \|\| "Certified in"/.test(storefrontSrc));
-  t("Louie's personal bests are exactly the five supplied, in order, and only he has any",
-    JSON.stringify(louie.personalBests) === JSON.stringify([
-      { event: "10km", time: "35 mins" },
-      { event: "5km", time: "16 mins" },
-      { event: "3k", time: "9:00" },
-      { event: "1500m", time: "4:01" },
-      { event: "800m", time: "1:54" }]) &&
-    catalog.coaches.filter(c => c.personalBests).length === 1);
-  t("personal bests render as a labelled list of event/time pairs on the coach card",
-    /"Personal bests"/.test(storefrontSrc) && /\$\("dl", "coach-card-bests-list"\)/.test(storefrontSrc) &&
-    /\$\("dt", "", best\.event\)/.test(storefrontSrc) && /\$\("dd", "", best\.time\)/.test(storefrontSrc));
+  t("coach cards show credentials only: no coach has personal bests and none render",
+    catalog.coaches.every(c => !("personalBests" in c)) &&
+    !/personalBests|Personal bests|coach-card-bests/.test(storefrontSrc) &&
+    !/coach-card-bests/.test(readFileSync("store.css", "utf8")));
   t("Louie's photo: original plus optimized WebP and AVIF exist, with alt text",
     louie.photo.src === "/assets/store/louie-640.webp" &&
     louie.photo.original === "/assets/landing/louie-agawa-coach.jpg" &&
@@ -681,8 +677,15 @@ section("8. Crawler-readable pages");
     catalog.coaches.every(c => home.includes(c.name) && home.includes(c.role)) &&
     home.includes("Meet the coaches") &&
     catalog.faqs.every(f => home.includes(f.question) && home.includes(f.answer)));
-  t("Christian's certifications are in the /programs HTML exactly as supplied",
-    catalog.coaches[1].certifications.every(c => bySlug(null).html.includes("<li>" + c + "</li>")));
+  t("every coach's certifications are in the /programs HTML exactly as supplied, with the supplied role lines",
+    catalog.coaches.every(c => c.certifications.every(x => bySlug(null).html.includes("<li>" + x + "</li>"))) &&
+    catalog.coaches.every(c => home.includes(c.role)) &&
+    home.includes("Strength & Conditioning Coach, Assistant Running Coach, Athlevo") &&
+    home.includes("Running Coach, Athlevo"));
+  t("the Plan page's Meet the Coach block shows Dean's credentials too; the Coaching page names no coach",
+    catalog.coaches[0].certifications.every(x => bySlug("athlevo-plan").html.includes("<li>" + x + "</li>")) &&
+    /<p class="coach-card-creds-label">Credentials<\/p>/.test(bySlug("athlevo-plan").html) &&
+    !/id="coach"|USATF|STRYD/.test(bySlug("athlevo-coaching").html));
 
   const plan = visible(bySlug("athlevo-plan").html);
   const planData = catalog.getProduct("athlevo-plan").page;
@@ -811,6 +814,10 @@ section("10. Sign-up on Athlevo Plan and Athlevo Coaching (client; closed by def
       const block = storefrontSrc.slice(storefrontSrc.indexOf("function renderConfirmation"), storefrontSrc.indexOf("function renderMissing"));
       return !/\b(within|hours?|business days?|24\/7|whatsapp|messenger|viber|telegram|email you|call you|contact you)\b/i.test(block);
     })());
+
+  t("the confirmation page shows an agreement link only when the server returns an https one",
+    /var agreement = secureUrl\(body\.agreement_url\)/.test(storefrontSrc) && /if \(agreement\) \{/.test(storefrontSrc) &&
+    /externalLink\(agreement, "Read the Athlevo agreement"\)/.test(storefrontSrc));
 
   // Open state: render the real storefront with the switch on, in a throwaway copy.
   const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("node:fs");

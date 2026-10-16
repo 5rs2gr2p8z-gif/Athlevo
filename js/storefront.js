@@ -208,6 +208,17 @@
     target.appendChild(wrap);
   }
 
+  // Credentials, when the coach record has them. Shared by the
+  // catalog's coach cards and the Plan page's "Meet the Coach" block.
+  function appendCoachCredentials(body, coach) {
+    if (coach.certifications && coach.certifications.length) {
+      var creds = $("div", "coach-card-creds");
+      creds.appendChild($("p", "coach-card-creds-label", coach.credentialsLabel || "Certified in"));
+      creds.appendChild(listItems(coach.certifications));
+      body.appendChild(creds);
+    }
+  }
+
   function renderCoachCard(coach) {
     var card = $("article", "coach-card");
     var figure = $("figure", "coach-card-photo");
@@ -216,25 +227,7 @@
     body.appendChild($("h3", "coach-card-name", coach.name));
     body.appendChild($("p", "coach-card-role", coach.role));
     body.appendChild($("p", "", coach.intro));
-    if (coach.certifications && coach.certifications.length) {
-      var creds = $("div", "coach-card-creds");
-      creds.appendChild($("p", "coach-card-creds-label", coach.credentialsLabel || "Certified in"));
-      creds.appendChild(listItems(coach.certifications));
-      body.appendChild(creds);
-    }
-    if (coach.personalBests && coach.personalBests.length) {
-      var bests = $("div", "coach-card-creds coach-card-bests");
-      bests.appendChild($("p", "coach-card-creds-label", "Personal bests"));
-      var list = $("dl", "coach-card-bests-list");
-      coach.personalBests.forEach(function (best) {
-        var row = $("div");
-        row.appendChild($("dt", "", best.event));
-        row.appendChild($("dd", "", best.time));
-        list.appendChild(row);
-      });
-      bests.appendChild(list);
-      body.appendChild(bests);
-    }
+    appendCoachCredentials(body, coach);
     card.appendChild(figure);
     card.appendChild(body);
     return card;
@@ -528,6 +521,7 @@
       coachCopy.appendChild($("h3", "offer-coach-name", data.coach.name));
       coachCopy.appendChild($("p", "offer-coach-role", data.coach.role));
       coachCopy.appendChild($("p", "", data.coach.intro));
+      appendCoachCredentials(coachCopy, data.coach);
       var coachRow = $("div", "offer-coach-row");
       coachRow.appendChild(coachFigure);
       coachRow.appendChild(coachCopy);
@@ -682,6 +676,7 @@
     function showPaid(body) {
       var questionnaire = secureUrl(body.questionnaire_url);
       var schedule = secureUrl(body.schedule_url);
+      var agreement = secureUrl(body.agreement_url);
       var steps = $("ol", "offer-steps signup-confirm-steps");
       var one = $("li");
       one.appendChild($("strong", "", "Complete the Athlevo questionnaire."));
@@ -693,12 +688,18 @@
       two.appendChild($("p", "", "After you submit the questionnaire, you will be asked to schedule a call."));
       if (schedule) two.appendChild(externalLink(schedule, "Schedule your call", "btn btn-ink"));
       steps.appendChild(two);
-      show(
+      var parts = [
         $("h1", "", "Payment received."),
         $("p", "signup-confirm-lede", "Thank you for signing up for " + product.name + ". Here is what happens next."),
-        steps,
-        $("p", "offer-supporting", "PayMongo emails your receipt.")
-      );
+        steps
+      ];
+      if (agreement) {
+        var agree = $("p", "signup-confirm-agreement", "Your agreement: ");
+        agree.appendChild(externalLink(agreement, "Read the Athlevo agreement"));
+        parts.push(agree);
+      }
+      parts.push($("p", "offer-supporting", "Keep this page to come back to these steps. PayMongo emails your receipt."));
+      show.apply(null, parts);
     }
     function showSlow() {
       show(

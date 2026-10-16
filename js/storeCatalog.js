@@ -12,9 +12,9 @@
  *
  * `coaches` lists the people shown in "Meet the coaches". Add an entry only with a
  * verified name, role, photo, and bio. List certifications only as supplied by the
- * owner, in `certifications` (heading `credentialsLabel`, default "Certified in"), and
- * personal bests only as supplied, in `personalBests`; never add credentials or
- * achievements of your own.
+ * owner, in `certifications` (heading `credentialsLabel`, default "Certified in");
+ * never add credentials or achievements of your own. Coach cards show credentials
+ * only, not personal bests.
  *
  * Athlevo Plan is the only offer with a built page (`page`). Its price and offer
  * details were confirmed by the owner; the other offers stay bare until theirs
@@ -90,17 +90,23 @@
   // support, pricing, and per-offer details are not confirmed yet; do not add FAQs
   // about them until they are.
   // Shared coach record: used by the Athlevo Plan page and the catalog's coaches section.
+  // Role and certifications supplied by the owner. Do not add to them.
   var DEAN = {
     name: "Dean Vincent Castro",
     role: "Founder & Head Coach, Athlevo",
     photo: PHOTO.founder,
-    intro: "Dean founded Athlevo and serves as its Head Coach. His focus is structured running and strength training: clear plans built around the athlete, reviewed and adjusted over time."
+    intro: "Dean founded Athlevo and serves as its Head Coach. His focus is structured running and strength training: clear plans built around the athlete, reviewed and adjusted over time.",
+    credentialsLabel: "Credentials",
+    certifications: [
+      "USATF Level 1 Certified Coach",
+      "STRYD Certified Running Coach"
+    ]
   };
 
   // Role, specialty and certifications supplied by the owner. Do not add to them.
   var CHRISTIAN = {
     name: "Christian Francia",
-    role: "Assistant Coach, Athlevo",
+    role: "Strength & Conditioning Coach, Assistant Running Coach, Athlevo",
     photo: PHOTO.christian,
     intro: "Christian is an assistant coach at Athlevo. He specializes in strength and conditioning.",
     certifications: [
@@ -112,24 +118,16 @@
     ]
   };
 
-  // Role label, credentials and personal bests supplied by the owner. Do not add to them.
-  // Personal bests are shown exactly as supplied (event, then time).
+  // Role label and credentials supplied by the owner. Do not add to them.
   var LOUIE = {
     name: "Louie Agawa",
-    role: "Coach, Athlevo",
+    role: "Running Coach, Athlevo",
     photo: PHOTO.louie,
-    intro: "Louie is a coach at Athlevo and a competitive middle to long distance runner.",
+    intro: "Louie is a running coach at Athlevo and a competitive middle to long distance runner.",
     credentialsLabel: "Credentials",
     certifications: [
       "World Athletics Certified Coach — CECS Level 1",
       "ISSA Certified Running Coach"
-    ],
-    personalBests: [
-      { event: "10km", time: "35 mins" },
-      { event: "5km", time: "16 mins" },
-      { event: "3k", time: "9:00" },
-      { event: "1500m", time: "4:01" },
-      { event: "800m", time: "1:54" }
     ]
   };
 
