@@ -219,12 +219,13 @@
           terms: "Month-to-month, no lock-in."
         },
         coach: DEAN,
-        // Athlevo Plan sign-up. Keep `open` false until the checkout, the sign-ups
-        // table and the questionnaire link are set up (docs/plan-signup.md). A test
+        // Athlevo Plan sign-up. `open` shows the Sign Up button; it needs the checkout, the
+        // sign-ups table and the questionnaire link set up (docs/plan-signup.md), and
+        // PLAN_SIGNUP_ENABLED on the server. Set it back to false to hide the button. A test
         // keeps the store notice and FAQ in step with it. The price itself is owned
         // by the server (lib/server/planSignup.js); a test checks the two agree.
         signUp: {
-          open: false,
+          open: true,
           label: "Sign Up",
           checkoutEndpoint: "/api/plan-signup/checkout",
           statusEndpoint: "/api/plan-signup/status",
@@ -285,12 +286,12 @@
           terms: "Month-to-month, no lock-in."
         },
         // No coach profile on purpose: the page does not name or imply a coach.
-        // Athlevo Coaching sign-up works exactly like Athlevo Plan's. Keep `open` false
-        // until the checkout, the sign-ups table and the questionnaire link are set up
-        // (docs/plan-signup.md). The price is owned by the server
+        // Athlevo Coaching sign-up works exactly like Athlevo Plan's, with its own switch
+        // (COACHING_SIGNUP_ENABLED on the server; see docs/plan-signup.md). Set `open` back to
+        // false to hide the button. The price is owned by the server
         // (lib/server/planSignup.js); a test checks the two agree.
         signUp: {
-          open: false,
+          open: true,
           label: "Sign Up",
           checkoutEndpoint: "/api/coaching-signup/checkout",
           statusEndpoint: "/api/coaching-signup/status",
