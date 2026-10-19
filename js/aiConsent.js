@@ -71,7 +71,11 @@
 
   /* ── authenticated (durable, Supabase-backed) ───────────────────── */
 
+  /* index.html declares `const supabaseClient` at script top level: a global lexical
+     binding readable by bare name but NOT a window property, so root.supabaseClient is
+     always undefined in production. Read the bare binding first. */
   function getSupabase() {
+    try { if (typeof supabaseClient !== "undefined" && supabaseClient) return supabaseClient; } catch (e) { /* not declared / not initialised */ }
     return root.supabaseClient || null;
   }
 
@@ -112,10 +116,14 @@
     if (status === "withdrawn" || status === "denied") next.withdrawn_at = now;
     try {
       var result = await client.from(TABLE).upsert(next, { onConflict: "user_id" });
-      if (result.error) return false;
+      if (result.error) {
+        try { console.warn("[AthlevoAiConsent] save failed:", result.error.code, result.error.message); } catch (e) {}
+        return false;
+      }
       _authCache = { userId: userId, status: status, version: CONSENT_VERSION };
       return true;
     } catch (e) {
+      try { console.warn("[AthlevoAiConsent] save threw:", e && e.message); } catch (e2) {}
       return false;
     }
   }
@@ -182,7 +190,9 @@
     if (!granted) return false;
     var persisted = await writeAuthenticatedStatus(userId, "granted");
     if (!persisted) {
-      // Could not durably persist — do not claim consent was granted.
+      // Could not durably persist — do not claim consent was granted, but tell the
+      // athlete instead of silently re-opening the prompt on their next message.
+      try { if (typeof root.toast === "function") root.toast("Couldn't save your AI preference. Please try again in a moment."); } catch (e) {}
       return false;
     }
     track("ai_consent_granted", source);
