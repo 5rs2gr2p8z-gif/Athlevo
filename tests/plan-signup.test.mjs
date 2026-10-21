@@ -24,12 +24,14 @@ const section = (title) => console.log(`\n── ${title}`);
 
 // ---- in-memory Supabase + PayMongo -----------------------------------------
 
-const db = { plan_signups: [], rates: new Map() };
+const db = { plan_signups: [], partner_codes: [], rates: new Map() };
 const log = { paymongo: [], tables: [], urls: [], emails: [] };
 let resendMode = "ok"; // "ok" | "reject" | "throw" | "hang"
 const paymentAmounts = new Map(); // payment id -> amount PayMongo reports (default ₱1,998)
 let paymongoDown = false;
 let planTableMissing = false;
+let partnerTableMissing = false;
+let extraColumnsMissing = false; // the partner-codes migration was not run on plan_signups
 let nextId = 1;
 
 function strip(v) { return String(v || "").replace(/^eq\./, ""); }
@@ -76,10 +78,16 @@ globalThis.fetch = async (input, init = {}) => {
     db.rates.set(`${body.client_key}|${body.endpoint}|${body.window_start}`, body.request_count);
     return new Response("", { status: 201 });
   }
+  if (table === "partner_codes") {
+    if (partnerTableMissing) return json({ code: "PGRST205", message: "Could not find the table 'public.partner_codes'" }, 404);
+    const wanted = strip(q.get("code"));
+    return json(db.partner_codes.filter(r => !wanted || r.code === wanted));
+  }
   if (table === "plan_signups") {
     if (planTableMissing) return json({ code: "PGRST205", message: "Could not find the table 'public.plan_signups'" }, 404);
     if (method === "POST") {
       const row = JSON.parse(init.body);
+      if (extraColumnsMissing && "partner_code" in row) return json({ code: "PGRST204", message: "Could not find the 'partner_code' column" }, 400);
       const byRef = db.plan_signups.some(r => r.reference_number === row.reference_number);
       const byPay = db.plan_signups.some(r => r.provider_payment_id === row.provider_payment_id);
       if (byRef) return prefer.includes("ignore-duplicates") ? json([]) : json({ code: "23505" }, 409);
@@ -95,6 +103,9 @@ globalThis.fetch = async (input, init = {}) => {
     if (q.get("provider_payment_id")) rows = rows.filter(r => r.provider_payment_id === strip(q.get("provider_payment_id")));
     if (q.get("id")) rows = rows.filter(r => r.id === strip(q.get("id")));
     if (q.get("status")) rows = rows.filter(r => r.status === strip(q.get("status")));
+    if (q.get("partner_code")) rows = rows.filter(r => r.partner_code === strip(q.get("partner_code")));
+    if (q.get("order") === "paid_at.asc") rows = [...rows].sort((a, b) => String(a.paid_at).localeCompare(String(b.paid_at)));
+    if (q.get("limit")) rows = rows.slice(0, Number(q.get("limit")));
     if (method === "PATCH") {
       rows.forEach(r => Object.assign(r, JSON.parse(init.body)));
       return new Response(null, { status: 204 });
@@ -138,13 +149,17 @@ const closedCoaching = () => env({
 const post = (body, ip = "203.0.113.5") => ({ method: "POST", headers: { "x-forwarded-for": ip }, body });
 
 function paidEvent({ reference, productId = ATHLEVO_PLAN_PRODUCT.id, amount = 199800, livemode = false,
-  paymentId = "pay_1", checkoutId = "cs_1", id = "evt_1", billing } = {}) {
+  paymentId = "pay_1", checkoutId = "cs_1", id = "evt_1", billing, partnerCode, discountPercent, paidAt = 1760000000 } = {}) {
   return { data: { id, type: "event", attributes: {
     type: "checkout_session.payment.paid", livemode, created_at: 1760000000,
     data: { id: checkoutId, type: "checkout_session", attributes: {
-      reference_number: reference, metadata: { athlevo_product: productId },
+      reference_number: reference, metadata: {
+        athlevo_product: productId,
+        ...(partnerCode !== undefined ? { partner_code: partnerCode } : {}),
+        ...(discountPercent !== undefined ? { discount_percent: String(discountPercent) } : {})
+      },
       payments: [{ id: paymentId, type: "payment", attributes: {
-        status: "paid", amount, currency: "PHP", paid_at: 1760000000, source: { type: "qrph" },
+        status: "paid", amount, currency: "PHP", paid_at: paidAt, source: { type: "qrph" },
         billing: billing === undefined ? { name: "Maria Santos", email: "Maria@Example.com", phone: "+639171234567" } : billing
       } }]
     } }
@@ -892,6 +907,276 @@ section("11. Sign-up emails (buyer next steps + owner alert)");
     /applyPlanPayment\(/.test(storeBranch) && /notifySignup\(/.test(storeBranch) &&
     storeBranch.indexOf("applyPlanPayment(") < storeBranch.indexOf("notifySignup(") &&
     (endpoint.match(/notifySignup\(/g) || []).length === 1);
+}
+
+// ---- 12. partner discount codes ----------------------------------------------
+section("12. Partner discount codes (unique per runner, 10% off every payment)");
+{
+  const pc = await import("../lib/server/partnerCodes.js");
+  const gen = await import("../scripts/generate-partner-codes.mjs");
+  const { ownerAlertEmail } = await import("../lib/server/signupNotifications.js");
+  const MAIL = {
+    RESEND_API_KEY: "re_test_key", SIGNUP_ALERT_EMAIL: "dean@athlevo.example",
+    SIGNUP_FROM_EMAIL: undefined, ATHLEVO_INVITE_FROM_EMAIL: undefined, SIGNUP_REPLY_TO_EMAIL: undefined,
+    PLAN_AGREEMENT_URL: undefined, COACHING_AGREEMENT_URL: undefined
+  };
+  env(MAIL); open(); openCoaching();
+  resendMode = "ok";
+  const ref = (code, n) => `ATH-${code}-FEEDFACE02-${n.toString(16).toUpperCase().padStart(24, "0")}`;
+  const rowFor = (paymentId) => db.plan_signups.find(x => x.provider_payment_id === paymentId);
+  const ALL = "KQ7MX4RT", COACH_ONLY = "HT3N8WZC", EXPIRED = "PD5J2VFG", OFF = "RB6S9YAE", BAD_PCT = "NE8H3TUB", TWENTY = "MC4W7XKD";
+  const BATCH = "acme-test-batch";
+  db.partner_codes.push(
+    { code: ALL, partner: BATCH, percent_off: 10, product_ids: null, active: true, expires_at: null },
+    { code: COACH_ONLY, partner: BATCH, percent_off: 10, product_ids: [ATHLEVO_COACHING_PRODUCT.id], active: true, expires_at: null },
+    { code: EXPIRED, partner: BATCH, percent_off: 10, product_ids: null, active: true, expires_at: "2020-01-01T00:00:00+08:00" },
+    { code: OFF, partner: BATCH, percent_off: 10, product_ids: null, active: false, expires_at: null },
+    { code: BAD_PCT, partner: BATCH, percent_off: 80, product_ids: null, active: true, expires_at: null },
+    { code: TWENTY, partner: BATCH, percent_off: 20, product_ids: [], active: true, expires_at: "2099-01-01T00:00:00+08:00" }
+  );
+
+  // Pure helpers.
+  t("a code is read case-insensitively, ignoring spaces and hyphens",
+    pc.normalizePartnerCode(" kq7m-x4rt ") === ALL && pc.normalizePartnerCode("KQ7M X4RT") === ALL && pc.formatPartnerCode(ALL) === "KQ7M-X4RT");
+  t("anything that cannot be a code is rejected without a lookup (wrong length, 0/1/I/L/O, symbols, non-strings)",
+    [null, undefined, "", "KQ7MX4R", "KQ7MX4RTT", "KQ7MX4R0", "KQ7MX4RI", "KQ7MX4RO", "KQ7MX4R'", 12345678, {}].every(v => pc.normalizePartnerCode(v) === null));
+  t("the price after a discount is exact whole centavos, rounded half up",
+    pc.discountedCents(199800, 10) === 179820 && pc.discountedCents(499800, 10) === 449820 &&
+    pc.discountedCents(199800, 15) === 169830 && pc.discountedCents(1001, 50) === 501 && pc.discountedCents(199800, 100) === 0);
+  t("only whole percentages from 1 to 50 are valid",
+    [1, 10, 50].every(pc.validDiscountPercent) && [0, -5, 51, 10.5, NaN, null, undefined, "10"].every(v => !pc.validDiscountPercent(v)));
+
+  // Checking a code (no checkout is opened).
+  const sessions = () => log.paymongo.length;
+  {
+    const before = sessions();
+    const r = res(); await checkout(post({ code: " kq7m-x4rt ", check: true }, "198.51.100.10"), r);
+    t("checking a Plan code answers the discounted price and opens no checkout",
+      r.statusCode === 200 && r.body.valid === true && r.body.percent_off === 10 &&
+      r.body.price_cents === 179820 && r.body.list_price_cents === 199800 && sessions() === before);
+    t("the answer never names the partner or the batch",
+      !JSON.stringify(r.body).toLowerCase().includes("acme") && !JSON.stringify(r.body).includes(BATCH));
+    const c = res(); await coachingCheckout(post({ code: ALL, check: true }, "198.51.100.11"), c);
+    t("the same code gives the Coaching price too (₱4,498.20 off ₱4,998)",
+      c.statusCode === 200 && c.body.price_cents === 449820 && c.body.list_price_cents === 499800);
+    const w = res(); await checkout(post({ code: TWENTY, check: true }, "198.51.100.12"), w);
+    t("the percentage comes from the code's row: a 20% code takes 20% off",
+      w.body.percent_off === 20 && w.body.price_cents === 159840);
+  }
+  {
+    const bodies = [];
+    const tryCode = async (handler, code, check = true) => { const r = res(); await handler(post({ code, check }, "198.51.100.13"), r); bodies.push(r); return r; };
+    await tryCode(checkout, "ZZZZZZZZ");
+    await tryCode(checkout, EXPIRED);
+    await tryCode(checkout, OFF);
+    await tryCode(checkout, COACH_ONLY);
+    await tryCode(checkout, BAD_PCT);
+    await tryCode(checkout, "nope");
+    t("an unknown, expired, switched-off, wrong-offer, out-of-range or malformed code is the same 400",
+      bodies.every(r => r.statusCode === 400 && r.body.error === "invalid_code" && r.body.message === "That code isn't valid.") &&
+      new Set(bodies.map(r => JSON.stringify(r.body))).size === 1);
+    const ok = await tryCode(coachingCheckout, COACH_ONLY);
+    t("an offer-specific code works on its own offer", ok.statusCode === 200 && ok.body.price_cents === 449820);
+    const empty = res(); await checkout(post({ check: true }, "198.51.100.14"), empty);
+    t("checking with no code is a 400", empty.statusCode === 400 && empty.body.error === "invalid_code");
+  }
+
+  // Starting a checkout with a code.
+  let discountedRef;
+  {
+    const before = sessions();
+    const r = res();
+    await checkout(post({ code: ALL, percent: 90, amount: 1, price_cents: 1, discount: 99 }, "198.51.100.20"), r);
+    const a = log.paymongo[log.paymongo.length - 1].attributes;
+    discountedRef = a.reference_number;
+    t("a coded checkout is priced by the server: ₱1,798.20, whatever the browser claims",
+      r.statusCode === 200 && sessions() === before + 1 && JSON.stringify(Object.keys(r.body)) === '["checkout_url"]' &&
+      a.line_items[0].amount === 179820 && a.line_items.length === 1 && a.line_items[0].quantity === 1);
+    t("the session records the code, the percentage and the list price for the webhook to check",
+      a.metadata.partner_code === ALL && a.metadata.discount_percent === "10" && a.metadata.list_price_cents === "199800" &&
+      a.metadata.athlevo_product === "ATHLEVO_PLAN_MONTHLY");
+    t("PayMongo shows that a discount was applied, and the line item name is unchanged",
+      /10% discount applied/.test(a.description) && /10% discount applied/.test(a.line_items[0].description) && a.line_items[0].name === "Athlevo Plan");
+    t("nothing in what PayMongo or the browser sees names the partner",
+      !JSON.stringify(a).toLowerCase().includes("acme") && !JSON.stringify(r.body).toLowerCase().includes("acme"));
+    const co = res(); await coachingCheckout(post({ code: ALL }, "198.51.100.21"), co);
+    const ca = log.paymongo[log.paymongo.length - 1].attributes;
+    t("a coded Coaching checkout is ₱4,498.20", co.statusCode === 200 && ca.line_items[0].amount === 449820 && ca.metadata.athlevo_product === "ATHLEVO_COACHING_MONTHLY");
+  }
+  {
+    const before = sessions();
+    const bad = res(); await checkout(post({ code: EXPIRED }, "198.51.100.22"), bad);
+    t("an invalid code never opens a checkout (the buyer is not silently charged full price)",
+      bad.statusCode === 400 && bad.body.error === "invalid_code" && sessions() === before);
+    const numeric = res(); await checkout(post({ code: 12345678 }, "198.51.100.23"), numeric);
+    const na = log.paymongo[log.paymongo.length - 1].attributes;
+    t("a code that is not text is ignored: the normal full-price checkout", numeric.statusCode === 200 && na.line_items[0].amount === 199800 && !("partner_code" in na.metadata));
+    const none = res(); await checkout(post({}, "198.51.100.24"), none);
+    const noneAttrs = log.paymongo[log.paymongo.length - 1].attributes;
+    t("with no code the checkout is exactly as before", none.statusCode === 200 && noneAttrs.line_items[0].amount === 199800 &&
+      JSON.stringify(Object.keys(noneAttrs.metadata)) === '["athlevo_product","athlevo_source"]' && noneAttrs.description === "Athlevo Plan — 1 month");
+  }
+  {
+    partnerTableMissing = true;
+    const before = sessions();
+    const check = res(); await checkout(post({ code: ALL, check: true }, "198.51.100.30"), check);
+    const coded = res(); await checkout(post({ code: ALL }, "198.51.100.30"), coded);
+    const plain = res(); await checkout(post({}, "198.51.100.30"), plain);
+    partnerTableMissing = false;
+    t("before the migration, codes say 'unavailable' (503) and open no checkout, while a normal sign-up still works",
+      check.statusCode === 503 && check.body.error === "codes_unavailable" && coded.statusCode === 503 && plain.statusCode === 200 && sessions() === before + 1);
+  }
+  {
+    const ip = "198.51.100.40";
+    let last;
+    for (let i = 0; i < 31; i += 1) { last = res(); await checkout(post({ code: "ZZZZZZZZ", check: true }, ip), last); }
+    t("code guessing is rate limited (30 checks an hour), separately from opening checkouts", last.statusCode === 429);
+    const stillOk = res(); await checkout(post({}, ip), stillOk);
+    t("and a rate-limited guesser can still open a normal checkout", stillOk.statusCode === 200);
+  }
+  t("an owner who switches sign-up off also switches the code check off",
+    await (async () => { closed(); const r = res(); await checkout(post({ code: ALL, check: true }, "198.51.100.50"), r); open(); return r.statusCode === 503; })());
+
+  // The webhook: exactly the discounted amount, nothing else.
+  const msgs = () => log.emails.map(e => e.body);
+  log.emails.length = 0;
+  {
+    const r = await deliver(paidEvent({ reference: discountedRef, amount: 179820, partnerCode: ALL, discountPercent: 10, paymentId: "pay_d1", id: "evt_d1" }));
+    const row = rowFor("pay_d1");
+    t("a payment of exactly the discounted price is recorded, with the code and the partner label",
+      r.statusCode === 200 && r.body.result.applied === true && row && row.amount_cents === 179820 &&
+      row.partner_code === ALL && row.partner === BATCH && row.list_price_cents === 199800 && row.discount_percent === 10);
+    t("the sign-up row's metadata also carries the code, and shows no sharing flag the first time",
+      row.metadata.partner_code === ALL && row.metadata.discount_percent === 10 && !("code_email_mismatch" in row.metadata), JSON.stringify(row.metadata));
+    const owner = msgs().find(m => m.to.includes("dean@athlevo.example"));
+    const buyer = msgs().find(m => m.to.includes("maria@example.com"));
+    t("the owner's alert shows what was paid, the discount, the code and the partner batch",
+      owner && owner.subject.includes("₱1,798.20") && owner.subject.endsWith(` · ${BATCH}`) &&
+      owner.text.includes("Discount: 10% off the ₱1,998 price") && owner.text.includes("Discount code: KQ7M-X4RT") &&
+      owner.text.includes(`Partner batch: ${BATCH}`) && owner.text.includes("Amount: ₱1,798.20") && !/may have been shared/.test(owner.text));
+    t("the buyer's email shows the amount paid and the discount, and never names the partner",
+      buyer && buyer.text.includes("Your payment of ₱1,798.20 is confirmed.") && buyer.text.includes("Your discount code took 10% off. Use the same code (KQ7M-X4RT) again when you renew to keep the discount.") &&
+      buyer.html.includes("₱1,798.20") && !(buyer.subject + buyer.text + buyer.html).toLowerCase().includes("acme") &&
+      !(buyer.subject + buyer.text + buyer.html).includes(BATCH));
+    const dup = await deliver(paidEvent({ reference: discountedRef, amount: 179820, partnerCode: ALL, discountPercent: 10, paymentId: "pay_d1", id: "evt_d1" }));
+    t("a redelivered discounted event is a duplicate: nothing new is recorded or sent",
+      dup.statusCode === 200 && dup.body.result.duplicate === true && db.plan_signups.filter(x => x.provider_payment_id === "pay_d1").length === 1 && msgs().length === 2);
+  }
+  {
+    // Month two: the same runner pays again with the same code. The discount applies again.
+    log.emails.length = 0;
+    const r = await deliver(paidEvent({ reference: ref("PL", 2), amount: 179820, partnerCode: ALL, discountPercent: 10,
+      paymentId: "pay_d2", id: "evt_d2", paidAt: 1762600000 }));
+    const row = rowFor("pay_d2");
+    const owner = msgs().find(m => m.to.includes("dean@athlevo.example"));
+    t("a renewal with the same code from the same email is discounted again and is not flagged",
+      r.statusCode === 200 && r.body.result.applied === true && row.partner_code === ALL && !("code_email_mismatch" in row.metadata) &&
+      owner && !/may have been shared/.test(owner.text) && r.body.result.partner.mismatch === false);
+    // A different person pays with the same code: still accepted (they already paid), but flagged.
+    log.emails.length = 0;
+    const s2 = await deliver(paidEvent({ reference: ref("PL", 3), amount: 179820, partnerCode: ALL, discountPercent: 10,
+      paymentId: "pay_d3", id: "evt_d3", paidAt: 1762700000, billing: { name: "Someone Else", email: "other@example.com", phone: "+639170000000" } }));
+    const shared = rowFor("pay_d3");
+    const ownerShared = msgs().find(m => m.to.includes("dean@athlevo.example"));
+    t("a different email using the same code is still recorded, but flagged on the row and in the alert",
+      s2.statusCode === 200 && s2.body.result.applied === true && shared.metadata.code_email_mismatch === true &&
+      ownerShared && /may have been shared/.test(ownerShared.text) && ownerShared.text.includes("Discount code: KQ7M-X4RT"), JSON.stringify([s2.statusCode, s2.body, shared && shared.metadata, ownerShared && ownerShared.text]));
+  }
+  {
+    const before = db.plan_signups.length;
+    const wrong = {};
+    wrong.fullPriceWithCode = await deliver(paidEvent({ reference: ref("PL", 4), amount: 199800, partnerCode: ALL, discountPercent: 10, paymentId: "pay_w1", id: "evt_w1" }));
+    wrong.discountWithoutCode = await deliver(paidEvent({ reference: ref("PL", 5), amount: 179820, paymentId: "pay_w2", id: "evt_w2" }));
+    wrong.codeWithoutPercent = await deliver(paidEvent({ reference: ref("PL", 6), amount: 179820, partnerCode: ALL, paymentId: "pay_w3", id: "evt_w3" }));
+    wrong.percentWithoutCode = await deliver(paidEvent({ reference: ref("PL", 7), amount: 179820, discountPercent: 10, paymentId: "pay_w4", id: "evt_w4" }));
+    wrong.over50 = await deliver(paidEvent({ reference: ref("PL", 8), amount: 99900, partnerCode: ALL, discountPercent: 51, paymentId: "pay_w5", id: "evt_w5" }));
+    wrong.notANumber = await deliver(paidEvent({ reference: ref("PL", 9), amount: 179820, partnerCode: ALL, discountPercent: "abc", paymentId: "pay_w6", id: "evt_w6" }));
+    wrong.badCode = await deliver(paidEvent({ reference: ref("PL", 10), amount: 179820, partnerCode: "KQ7MX4R0", discountPercent: 10, paymentId: "pay_w7", id: "evt_w7" }));
+    wrong.mismatchedPercent = await deliver(paidEvent({ reference: ref("PL", 11), amount: 179820, partnerCode: ALL, discountPercent: 20, paymentId: "pay_w8", id: "evt_w8" }));
+    wrong.coachingAtPlanDiscount = await deliver(paidEvent({ reference: ref("CO", 12), productId: ATHLEVO_COACHING_PRODUCT.id, amount: 179820, partnerCode: ALL, discountPercent: 10, paymentId: "pay_w9", id: "evt_w9" }));
+    t("every other amount or half-filled discount is refused with a 400 and nothing is recorded",
+      Object.values(wrong).every(r => r.statusCode === 400 && r.body.error === "Payment validation failed.") && db.plan_signups.length === before,
+      JSON.stringify(Object.entries(wrong).map(([k, v]) => [k, v.statusCode, v.body && v.body.error])));
+    const u = (details, product) => planMod.validatePlanPayment(details, product);
+    const base = { amountCents: 179820, currency: "PHP", productId: ATHLEVO_PLAN_PRODUCT.id, checkoutId: "cs", paymentId: "p",
+      referenceNumber: ref("PL", 13), partnerCode: ALL, discountPercent: 10 };
+    t("validation names the reason: ok, bad_discount, wrong_amount",
+      u(base, ATHLEVO_PLAN_PRODUCT) === null && u({ ...base, partnerCode: null }, ATHLEVO_PLAN_PRODUCT) === "bad_discount" &&
+      u({ ...base, amountCents: 199800 }, ATHLEVO_PLAN_PRODUCT) === "wrong_amount" &&
+      u({ ...base, partnerCode: undefined, discountPercent: undefined }, ATHLEVO_PLAN_PRODUCT) === "wrong_amount",
+      JSON.stringify([u(base, ATHLEVO_PLAN_PRODUCT), u({ ...base, partnerCode: null }, ATHLEVO_PLAN_PRODUCT), u({ ...base, amountCents: 199800 }, ATHLEVO_PLAN_PRODUCT), u({ ...base, partnerCode: undefined, discountPercent: undefined }, ATHLEVO_PLAN_PRODUCT)]));
+  }
+  {
+    // Coaching renewal and refund of a discounted payment.
+    log.emails.length = 0;
+    const r = await deliver(paidEvent({ reference: ref("CO", 14), productId: ATHLEVO_COACHING_PRODUCT.id, amount: 449820,
+      partnerCode: COACH_ONLY, discountPercent: 10, paymentId: "pay_c1", id: "evt_c1" }));
+    const row = rowFor("pay_c1");
+    t("a discounted Coaching payment (₱4,498.20) is recorded under the Coaching product",
+      r.statusCode === 200 && row.product_id === ATHLEVO_COACHING_PRODUCT.id && row.amount_cents === 449820 && row.list_price_cents === 499800 && row.partner === BATCH, JSON.stringify([r.statusCode, r.body, row]));
+    paymentAmounts.set("pay_d1", 179820);
+    const refund = await deliver(refundEvent({ paymentId: "pay_d1", amount: 179820, id: "evt_rd1" }));
+    t("a full refund of a discounted payment is recognised against the amount actually paid",
+      refund.statusCode === 200 && rowFor("pay_d1").status === "refunded");
+  }
+  {
+    // Before the migration adds the columns, a coded payment is still kept (in metadata).
+    extraColumnsMissing = true;
+    const r = await deliver(paidEvent({ reference: ref("PL", 15), amount: 179820, partnerCode: ALL, discountPercent: 10, paymentId: "pay_x1", id: "evt_x1" }));
+    extraColumnsMissing = false;
+    const row = rowFor("pay_x1");
+    t("if the new columns are missing, the payment is still recorded with the code in metadata",
+      r.statusCode === 200 && r.body.result.applied === true && row && !("partner_code" in row) && row.metadata.partner_code === ALL && row.amount_cents === 179820, JSON.stringify([r.statusCode, r.body, row]));
+  }
+  t("an ordinary payment's row has no partner columns at all",
+    !("partner_code" in rowFor("pay_e2")) && !("partner" in rowFor("pay_e2")) && !("discount_percent" in rowFor("pay_e2")));
+  t("the owner's alert for an ordinary payment is unchanged (no discount rows)",
+    !/Discount/.test(ownerAlertEmail({ product: ATHLEVO_PLAN_PRODUCT, details: { amountCents: 199800, contact: {}, referenceNumber: "R" }, recipients: ["a@b.com"] }).text));
+
+  // The code generator.
+  {
+    const codes = gen.generateCodes(1000);
+    t("the generator makes 1000 distinct, valid codes", new Set(codes).size === 1000 && codes.every(c => pc.normalizePartnerCode(c) === c));
+    let n = 0;
+    const seq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1];
+    const forced = gen.generateCodes(2, () => seq[n++ % seq.length]);
+    t("a repeated code is thrown away, never written twice", forced.length === 2 && forced[0] !== forced[1]);
+    const o = gen.parseOptions(["--partner", "acme-2026-11-24", "--count", "50", "--expires", "2026-12-31", "--products", "plan,coaching"]);
+    t("options: defaults to 10%, both products means 'every product', expiry is the end of that day in Philippine time",
+      o.percent === 10 && o.productIds === null && o.expiresAt === "2026-12-31T23:59:59+08:00" && o.count === 50 && o.out === "partner-codes");
+    t("options: one product, a custom percent",
+      JSON.stringify(gen.parseOptions(["--partner", "x", "--count", "1", "--products", "coaching", "--percent", "15"]).productIds) === '["ATHLEVO_COACHING_MONTHLY"]');
+    const bad = [
+      [], ["--partner", "Bad Label", "--count", "1"], ["--partner", "x'; drop table", "--count", "1"], ["--partner", "x"],
+      ["--partner", "x", "--count", "0"], ["--partner", "x", "--count", "1001"], ["--partner", "x", "--count", "1.5"],
+      ["--partner", "x", "--count", "1", "--percent", "0"], ["--partner", "x", "--count", "1", "--percent", "51"],
+      ["--partner", "x", "--count", "1", "--expires", "31-12-2026"], ["--partner", "x", "--count", "1", "--expires", "2026-13-40"],
+      ["--partner", "x", "--count", "1", "--products", "elite"], ["--partner", "x", "--count", "1", "--bogus", "1"], ["stray"]
+    ];
+    t("options: every malformed input is refused", bad.every(argv => { try { gen.parseOptions(argv); return false; } catch (e) { return true; } }));
+    const sql = gen.buildSql(["KQ7MX4RT", "HT3N8WZC"], gen.parseOptions(["--partner", "acme-test", "--count", "2", "--note", "it's a test", "--products", "plan"]));
+    t("the SQL inserts each code once, quotes text safely, and skips codes that already exist",
+      /insert into public\.partner_codes/.test(sql) && sql.includes("('KQ7MX4RT', 'acme-test', 10, array['ATHLEVO_PLAN_MONTHLY']::text[], null, 'it''s a test')") &&
+      /on conflict \(code\) do nothing;/.test(sql) && (sql.match(/\('/g) || []).length === 2);
+    const csv = gen.buildCsv(["KQ7MX4RT"], gen.parseOptions(["--partner", "acme-test", "--count", "1"]));
+    t("the CSV lists codes the way runners type them", csv === "code,batch,percent_off,expires\nKQ7M-X4RT,acme-test,10,\n");
+  }
+
+  // Wiring.
+  {
+    const migration = readFileSync("migrations/2026-10-21_partner_codes.sql", "utf8");
+    t("the migration is additive, locks both tables to the service role, and matches the code alphabet",
+      /create table if not exists public\.partner_codes/.test(migration) && /enable row level security/.test(migration) &&
+      !/\bdrop\b|\bdelete\b|create policy/i.test(migration) && migration.includes(`[${pc.PARTNER_CODE_ALPHABET}]{${pc.PARTNER_CODE_LENGTH}}`) &&
+      /add column if not exists partner_code/.test(migration) && /percent_off between 1 and 50/.test(migration));
+    const handlerSource = readFileSync("lib/server/planSignup.js", "utf8");
+    t("only the code text is read from the browser's request, never an amount or a percentage",
+      !/body\.(amount|percent|price|discount)/.test(handlerSource) && /body\.code/.test(handlerSource));
+    t("the partner label is never put in anything sent to PayMongo or the browser",
+      !/partner:|\.partner\b/.test(handlerSource.slice(handlerSource.indexOf("function checkoutAttributes"), handlerSource.indexOf("function clientIp"))));
+    t("the code check reuses the checkout endpoint (no new function under api/)",
+      !readFileSync("vercel.json", "utf8").includes("partner") && !readFileSync("vercel.json", "utf8").includes("discount"));
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

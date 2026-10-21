@@ -104,7 +104,10 @@ section("3. No invented commercial claims");
   const blob = catalogSrc + storeHtml + storefrontSrc;
   const withoutConfirmedPrice = blob.split("₱1,998").join("").split("₱4,998").join("");
   t("no prices, currency, or fake discounts beyond the confirmed ₱1,998 and ₱4,998",
-    !/\$\d|₱\d|€\d|£\d|%\s*off|discount|was\s*₱|sale price|\bfees?\b|free trial|coupon/i.test(withoutConfirmedPrice));
+    !/\$\d|₱\d|€\d|£\d|was\s*₱|sale price|\bfees?\b|free trial/i.test(withoutConfirmedPrice) &&
+    !/%\s*off|discount|coupon/i.test(catalogSrc + storeHtml));
+  t("the only discount wording is the code box: the storefront hard-codes no percentage and no amount",
+    !/\d\s*%\s*(off|discount)/i.test(storefrontSrc) && !/₱\s*\d/.test(storefrontSrc) && !/\b(jcir|partner)\b/i.test(catalogSrc + storeHtml + storefrontSrc));
   t("each confirmed price lives only in its own offer's page data",
     catalogSrc.split("₱1,998").length - 1 === 1 && catalogSrc.split("₱4,998").length - 1 === 1 &&
     !storeHtml.includes("₱") && !storefrontSrc.includes("₱") &&
@@ -418,9 +421,12 @@ section("4d. Athlevo Plan page");
     'offerSection("coach"', 'offerSection("how-to-get-started"'].map(k => storefrontSrc.indexOf(k));
   t("sections render in order: overview, feedback, pricing, coach, how to get started",
     order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1])), order.join(","));
-  t("offer page collects no input: no form fields, and buttons only for sign-up and retry",
-    !/\$\("(form|input|textarea|select)"|createElement\("(form|input|textarea|select)"\)/.test(storefrontSrc) &&
-    (storefrontSrc.match(/\$\("button"/g) || []).length === 2);
+  t("offer page collects no payment details: one input, for the discount code only, and no form, textarea or select",
+    !/\$\("(form|textarea|select)"|createElement\("(form|textarea|select)"\)/.test(storefrontSrc) &&
+    (storefrontSrc.match(/\$\("input"/g) || []).length === 1 &&
+    /setAttribute\("name", "discount-code"\)/.test(storefrontSrc) && /setAttribute\("autocomplete", "off"\)/.test(storefrontSrc) &&
+    !/cc-|cvv|cvc|card-?number/i.test(storefrontSrc) &&
+    (storefrontSrc.match(/\$\("button"/g) || []).length === 4);
   t("other offers still use the shared bare product layout",
     /if \(product\.page\) \{\s*root\.appendChild\(renderOfferPage\(product\)\);\s*return;\s*\}/.test(storefrontSrc) &&
     /function appendFaqAndRelated/.test(storefrontSrc));
@@ -510,8 +516,12 @@ section("4e. Athlevo Coaching page");
     !text.includes("Meet the Coach") && !text.includes("Purchasing not available"));
   t("the prerendered Coaching page has Sign Up buttons exactly when its switch is on, and never a form field or card input",
     (html.match(/<button class="btn btn-red btn-lg" type="button">Sign Up<\/button>/g) || []).length === (page.signUp.open ? 2 : 0) &&
-    !/<(form|input|textarea|select)\b/i.test(html) &&
+    !/<(form|textarea|select)\b/i.test(html) &&
     (page.signUp.open || !/checkout|paymongo|payment=/i.test(html.replace(/<script[\s\S]*?<\/script>/g, ""))));
+  t("the prerendered Coaching page has the discount code box exactly when sign-up is open, and no card field",
+    (html.match(/<input\b[^>]*name="discount-code"[^>]*>/g) || []).length === (page.signUp.open ? 2 : 0) &&
+    (html.match(/<input\b/g) || []).length === (page.signUp.open ? 2 : 0) && !/cc-|cvv|cvc|card-?number/i.test(html) &&
+    (html.includes("Have a discount code?") === page.signUp.open));
 }
 
 section("5. Client routing");
@@ -703,11 +713,12 @@ section("8. Crawler-readable pages");
       return !/₱|\bper month\b|\/month/i.test(v) && v.includes(catalog.getProduct(slug).name) && v.includes("Purchasing not available");
     }));
 
-  t("pages load only the two storefront scripts, and contain no form fields",
+  t("pages load only the two storefront scripts, and contain no form fields beyond the discount code box",
     pages.every(p => {
       const srcs = [...p.html.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m => m[1]);
+      const inputs = p.html.match(/<input\b[^>]*>/g) || [];
       return srcs.join(",") === "/js/storeCatalog.js,/js/storefront.js" && (p.html.match(/<script/g) || []).length === 2 &&
-        !/<(form|input|textarea|select)\b/i.test(p.html);
+        !/<(form|textarea|select)\b/i.test(p.html) && inputs.every(i => /name="discount-code"/.test(i));
     }));
   t("only the /programs page marks Programs as the current nav item",
     pages.every(p => /aria-current="page"/.test(p.html) === (p.slug === null)));
@@ -798,8 +809,11 @@ section("10. Sign-up on Athlevo Plan and Athlevo Coaching (client)");
     !/signing up for Athlevo Plan/.test(storefrontSrc));
   t("the only network calls are to the configured endpoints, with no payment data handled",
     (storefrontSrc.match(/\bfetch\(/g) || []).length === 1 &&
-    /postJson\(cfg\.checkoutEndpoint\)/.test(storefrontSrc) && /postJson\(cfg\.statusEndpoint/.test(storefrontSrc) &&
-    !/["']\/api\//.test(storefrontSrc));
+    /postJson\(cfg\.checkoutEndpoint, chosen\.code \? \{ code: chosen\.code \} : \{\}\)/.test(storefrontSrc) &&
+    /postJson\(cfg\.checkoutEndpoint, \{ code: code, check: true \}\)/.test(storefrontSrc) &&
+    /postJson\(cfg\.statusEndpoint/.test(storefrontSrc) && !/["']\/api\//.test(storefrontSrc));
+  t("the browser sends nothing but the code text (and the check flag): never an amount, percentage or price",
+    !/postJson\([^)]*(amount|percent|price|discount)[^)]*\)/i.test(storefrontSrc));
   t("the checkout redirect only follows an https URL, and next-step links are https-only",
     /res\.ok && typeof target === "string" && \/\^https:/.test(storefrontSrc) && /function secureUrl/.test(storefrontSrc) &&
     /rel = "noopener noreferrer"/.test(storefrontSrc));

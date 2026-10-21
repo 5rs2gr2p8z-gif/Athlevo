@@ -928,6 +928,81 @@ img[data-img="loading"] { opacity: 0; }
 
 .signup-status:empty { display: none; }
 
+/* Discount code: a quiet link until it is wanted, then a box and an Apply button. */
+.signup-code {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-width: 46ch;
+}
+
+.signup-code-toggle {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.signup-code-toggle:hover,
+.signup-code-toggle:focus-visible { color: var(--ink); }
+
+.signup-code-form { width: 100%; }
+.signup-code-form[hidden] { display: none; }
+
+.signup-code-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.signup-code-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.signup-code-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--white);
+  color: var(--ink);
+  font: 650 16px/1 var(--sans); /* 16px stops iOS zooming the page when the box is focused */
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.signup-code-input::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.signup-code-apply { flex: none; }
+
+.signup-code-status {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.signup-code-status:empty { display: none; }
+.signup-code-status.is-ok { color: #1b6b3b; font-weight: 650; }
+.signup-code-status.is-error { color: var(--red); }
+
 .signup-note {
   margin: -8px 0 20px;
   max-width: 46ch;

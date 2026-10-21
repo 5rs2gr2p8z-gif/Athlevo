@@ -7,3 +7,6 @@ ios/DerivedData/
 android/keystore.properties
 .vercel
 .env*
+
+# Partner discount code batches (generated; never commit)
+partner-codes/

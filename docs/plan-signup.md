@@ -87,6 +87,81 @@ PayMongo collected at checkout and can be empty; the PayMongo dashboard always h
 - No renewal link. Month two is another Sign Up checkout.
 - Nothing yet checks that a Coaching buyer's questionnaire or call happened; the confirmation page only shows the links.
 
+## Partner discount codes (one unique code per runner)
+
+For groups whose members get a discount (for example the runners of an event). Each runner gets **their own code**; it takes a
+fixed percentage off **every** payment that runner makes with it, renewals included (month two is another Sign Up, and the
+runner types the same code again; the welcome email reminds them). Nothing on the public site names a partner. Which
+batch a code belongs to is an internal label that only you see (in the database and in your sign-up alert).
+
+**How it works.** The Plan and Coaching pages have a small "Have a discount code?" link under each Sign Up button.
+A runner types the code (or opens a link ending in `?code=ABCD-EFGH`, which fills it in and applies it) and sees the new
+price before paying. The browser only ever sends the code text. The server looks the code up in `partner_codes`, works out
+the price itself, opens the PayMongo checkout at that price, and tags the checkout with the code. The webhook then accepts
+the payment only if it is exactly that discounted price. A code that is unknown, switched off, expired, not for that offer
+or malformed all give the same answer ("That code isn't valid"), and an invalid code never silently becomes a full-price
+checkout. Checking codes is rate limited (30 an hour per visitor), and codes are 8 characters from a 31-character
+alphabet, so they cannot be guessed.
+
+**Set up (once).** Run `migrations/2026-10-21_partner_codes.sql` in the Supabase SQL editor, before you give anyone a code.
+It adds the `partner_codes` table and a few columns on `plan_signups`, and is safe to run twice.
+
+**Make a batch of codes.**
+
+```
+node scripts/generate-partner-codes.mjs --partner race-2026-11-24 --count 100
+```
+
+Options: `--percent 10` (default 10, up to 50), `--products all|plan|coaching` (default all), `--expires 2026-12-31`
+(last day, Philippine time; default none), `--note "text"`, `--out folder` (default `partner-codes/`, which git ignores).
+It writes two files and changes nothing else. Run the `.sql` file in the Supabase SQL editor to switch the codes on, and hand
+out the codes in the `.csv` (written `ABCD-EFGH`; runners can type them in any case, with or without the hyphen). Make
+another batch any time with a new label, for example `race-2027-01-12`. The label is yours to choose, in lower case.
+
+**What gets recorded.** A payment made with a code is saved on its `plan_signups` row with `partner_code`, `partner` (the
+label), `list_price_cents` and `discount_percent`, next to the amount actually paid. Your sign-up alert shows the amount paid,
+the discount, the code and the batch (the subject ends with the batch label). Each code is remembered against the first
+email that paid with it. If a later payment with that code comes from a different email, it is still accepted (they already
+paid), but the alert says "this code may have been shared" and the row carries `code_email_mismatch`.
+
+**Working out a partner's share** (Supabase SQL editor). A partner's share is normally on a runner's *first* payment only,
+and the discount code stays on later payments, so look at each code's earliest payment. Replace `race-2026-11-24` with
+your own batch label and `0.30` with the agreed share:
+
+```sql
+-- every payment made with this batch
+select paid_at, partner_code, customer_name, customer_email, product_id,
+       amount_cents / 100.0 as paid, list_price_cents / 100.0 as list_price, status
+from public.plan_signups
+where partner = 'race-2026-11-24' and livemode
+order by paid_at;
+
+-- the partner's share of first payments (refunded first payments are left out)
+with first_payment as (
+  select distinct on (partner_code) *
+  from public.plan_signups
+  where partner = 'race-2026-11-24' and livemode
+  order by partner_code, paid_at
+)
+select count(*) as runners,
+       sum(amount_cents) / 100.0 as first_payments_total,
+       round(sum(amount_cents) * 0.30) / 100.0 as share_amount
+from first_payment
+where status = 'paid';
+
+-- codes that may have been shared
+select paid_at, partner_code, customer_email from public.plan_signups
+where metadata->>'code_email_mismatch' = 'true' order by paid_at;
+```
+
+**Switching codes off.** One runner: `update public.partner_codes set active = false where code = 'KQ7MX4RT';`
+A whole batch: `... where partner = 'race-2026-11-24';`. Set `active = true` again to restore. A payment already in flight
+when you switch a code off is still recorded.
+
+**If the migration has not been run yet.** Codes answer "unavailable" (503) and open no checkout, and normal full-price
+sign-up carries on as before. A coded payment that reaches the webhook before the new columns exist is still recorded, with
+the code in its `metadata`.
+
 ## Things to know
 
 - **Changing a price.** The price lives in `lib/server/planSignup.js` and on the page. Change both together, and only when no
@@ -113,6 +188,9 @@ can still open their confirmation page.
 - Payments are recognised by their own product tag, so Athlevo Pro payments and refunds follow the same path as before.
 - One offer's status page can never show another offer's sign-up or links, and each offer has its own rate limits.
 - Closing sign-up never drops a payment that was already in flight.
+- A discount is worked out only on the server, from a code's own row. The browser sends the code text and nothing else,
+  the webhook accepts only the exact discounted amount (or the full price with no code), and a code or percentage on its own
+  is refused. A percentage is whole and at most 50. The partner label never reaches the browser, PayMongo or the buyer.
 - Emails go out only for a newly recorded payment, from the signature-verified webhook, never from the browser. They
   never fail or roll back the payment, give up after a few seconds, and carry a Resend idempotency key per email.
 - Everything PayMongo supplied (name, phone) is escaped in the HTML and stripped of line breaks in subjects, and the

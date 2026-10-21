@@ -437,6 +437,7 @@
   function renderOfferPage(product) {
     var data = product.page;
     var page = $("article", "pdp pdp-offer wrap");
+    resetDiscount();
     if (signUpOpen(data) && new URL(global.location.href).searchParams.get("payment") === "cancelled") {
       var cancelled = $("p", "signup-notice", "Checkout was cancelled and no payment was made.");
       cancelled.setAttribute("role", "status");
@@ -540,6 +541,7 @@
     page.appendChild(start);
 
     appendFaqAndRelated(page, product);
+    if (signUpOpen(data)) applyCodeFromLink(data.signUp);
     return page;
   }
 
@@ -562,6 +564,168 @@
     });
   }
 
+  // ---- Discount code ----
+  // One code box per Sign Up button, all showing the same state. The browser only ever sends
+  // the code text; the server looks the code up and works out the price. Nothing here says where
+  // a code came from, and no amount is sent: the figure shown is what the server answered.
+
+  var discount = { typed: "", code: "", message: "", tone: "", busy: false };
+  var codeViews = [];
+  var codeSeq = 0;
+
+  function resetDiscount() {
+    discount = { typed: "", code: "", message: "", tone: "", busy: false };
+    codeViews = [];
+  }
+
+  function formatPeso(cents) {
+    var pesos = Number(cents) / 100;
+    return "\u20B1" + pesos.toLocaleString("en-US", {
+      minimumFractionDigits: Number(cents) % 100 ? 2 : 0, maximumFractionDigits: 2
+    });
+  }
+
+  function renderDiscount() {
+    codeViews.forEach(function (view) {
+      view.note.textContent = discount.message;
+      view.note.className = "signup-code-status" + (discount.tone ? " is-" + discount.tone : "");
+      if (view.input.value !== discount.typed) view.input.value = discount.typed;
+      if (discount.busy) view.apply.setAttribute("disabled", ""); else view.apply.removeAttribute("disabled");
+    });
+  }
+
+  function openCodeBoxes() {
+    codeViews.forEach(function (view) {
+      view.form.removeAttribute("hidden");
+      view.toggle.setAttribute("aria-expanded", "true");
+    });
+  }
+
+  // Ask the server what a code would cost. Resolves to { ok: true } when it is valid, else
+  // { ok: false, message }. The shown message is updated either way.
+  function checkCode(cfg, text) {
+    var code = String(text || "").trim();
+    if (!code) {
+      discount.code = "";
+      discount.message = "Enter your code.";
+      discount.tone = "error";
+      renderDiscount();
+      return Promise.resolve({ ok: false, message: discount.message });
+    }
+    discount.busy = true;
+    discount.message = "Checking your code\u2026";
+    discount.tone = "";
+    renderDiscount();
+    function done(ok, message, tone) {
+      discount.busy = false;
+      discount.message = message;
+      discount.tone = tone;
+      if (!ok) discount.code = "";
+      renderDiscount();
+      return { ok: ok, message: message };
+    }
+    return postJson(cfg.checkoutEndpoint, { code: code, check: true }).then(function (res) {
+      var body = res.body || {};
+      if (res.ok && body.valid === true && Number(body.price_cents) > 0) {
+        discount.code = code;
+        return done(true, "Code applied: " + Number(body.percent_off) + "% off. You\u2019ll pay " +
+          formatPeso(body.price_cents) + ".", "ok");
+      }
+      if (res.status === 400) return done(false, "That code isn\u2019t valid.", "error");
+      if (res.status === 429) return done(false, "Too many tries. Please wait a few minutes and try again.", "error");
+      if (res.status === 503) return done(false, "Discount codes aren\u2019t available right now. You can still sign up at the full price.", "error");
+      return done(false, "We couldn\u2019t check that code. Please try again.", "error");
+    }).catch(function () {
+      return done(false, "We couldn\u2019t check that code. Check your connection and try again.", "error");
+    });
+  }
+
+  // The code to send with checkout: none, or one the server has accepted. A code that was typed
+  // but not applied yet is checked first, so a buyer who typed one never pays full price by
+  // accident, and a code that does not work stops the checkout instead of being ignored.
+  function codeForCheckout(cfg) {
+    var typed = discount.typed.trim();
+    if (!typed) return Promise.resolve({ ok: true, code: "" });
+    if (discount.code && discount.code === typed) return Promise.resolve({ ok: true, code: discount.code });
+    return checkCode(cfg, typed).then(function (result) {
+      return result.ok
+        ? { ok: true, code: discount.code }
+        : { ok: false, message: result.message + " Clear the box to sign up at the full price." };
+    });
+  }
+
+  function codeControl(cfg) {
+    var box = $("div", "signup-code");
+    var toggle = $("button", "signup-code-toggle", "Have a discount code?");
+    toggle.type = "button";
+    toggle.setAttribute("aria-expanded", "false");
+    var form = $("div", "signup-code-form");
+    form.setAttribute("hidden", "");
+    codeSeq += 1;
+    var id = "signup-code-" + codeSeq;
+    var label = $("label", "signup-code-label", "Discount code");
+    label.setAttribute("for", id);
+    var input = $("input", "signup-code-input");
+    input.type = "text";
+    input.id = id;
+    input.setAttribute("name", "discount-code");
+    input.setAttribute("placeholder", "Enter your code");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("autocapitalize", "characters");
+    input.setAttribute("autocorrect", "off");
+    input.setAttribute("spellcheck", "false");
+    input.setAttribute("maxlength", "24");
+    var apply = $("button", "btn btn-ink signup-code-apply", "Apply");
+    apply.type = "button";
+    var note = $("p", "signup-code-status");
+    note.setAttribute("role", "status");
+    note.setAttribute("aria-live", "polite");
+
+    var row = $("div", "signup-code-row");
+    row.appendChild(input);
+    row.appendChild(apply);
+    form.appendChild(label);
+    form.appendChild(row);
+    box.appendChild(toggle);
+    box.appendChild(form);
+    box.appendChild(note);
+    codeViews.push({ input: input, apply: apply, note: note, form: form, toggle: toggle });
+
+    toggle.addEventListener("click", function () {
+      openCodeBoxes();
+      input.focus();
+    });
+    input.addEventListener("input", function () {
+      // Editing the box drops an applied code until it is applied again.
+      discount.typed = input.value;
+      if (discount.code && discount.code !== input.value.trim()) discount.code = "";
+      discount.message = "";
+      discount.tone = "";
+      renderDiscount();
+    });
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (!discount.busy) checkCode(cfg, discount.typed);
+      }
+    });
+    apply.addEventListener("click", function () {
+      if (!discount.busy) checkCode(cfg, discount.typed);
+    });
+    return box;
+  }
+
+  function applyCodeFromLink(cfg) {
+    var code = "";
+    try { code = new URL(global.location.href).searchParams.get("code") || ""; } catch (error) { code = ""; }
+    code = code.trim().slice(0, 24);
+    if (!code || !codeViews.length) return;
+    discount.typed = code;
+    openCodeBoxes();
+    renderDiscount();
+    checkCode(cfg, code);
+  }
+
   function signUpControl(data) {
     var cfg = data.signUp;
     var wrap = $("div", "signup");
@@ -574,6 +738,7 @@
       startCheckout(button, status, cfg);
     });
     wrap.appendChild(button);
+    wrap.appendChild(codeControl(cfg));
     wrap.appendChild(status);
     return wrap;
   }
@@ -591,16 +756,25 @@
     button.setAttribute("aria-busy", "true");
     button.textContent = "Starting checkout\u2026";
     status.textContent = "";
-    postJson(cfg.checkoutEndpoint).then(function (res) {
-      var target = res.body && res.body.checkout_url;
-      if (res.ok && typeof target === "string" && /^https:\/\//i.test(target)) {
-        status.textContent = "Taking you to secure checkout\u2026";
-        global.location.assign(target);
-        return;
-      }
-      if (res.status === 429) reset("Too many attempts. Please wait a few minutes and try again.");
-      else if (res.status === 503) reset("Sign-up is not open yet. Please check back soon.");
-      else reset("We could not start checkout. Please try again.");
+    codeForCheckout(cfg).then(function (chosen) {
+      if (!chosen.ok) { reset(chosen.message); return null; }
+      return postJson(cfg.checkoutEndpoint, chosen.code ? { code: chosen.code } : {}).then(function (res) {
+        var target = res.body && res.body.checkout_url;
+        if (res.ok && typeof target === "string" && /^https:\/\//i.test(target)) {
+          status.textContent = "Taking you to secure checkout\u2026";
+          global.location.assign(target);
+          return;
+        }
+        if (res.status === 400 && res.body && res.body.error === "invalid_code") {
+          discount.code = "";
+          discount.message = "That code isn\u2019t valid.";
+          discount.tone = "error";
+          renderDiscount();
+          reset("That code isn\u2019t valid. Clear the box to sign up at the full price.");
+        } else if (res.status === 429) reset("Too many attempts. Please wait a few minutes and try again.");
+        else if (res.status === 503) reset("Sign-up is not open yet. Please check back soon.");
+        else reset("We could not start checkout. Please try again.");
+      });
     }).catch(function () {
       reset("We could not start checkout. Check your connection and try again.");
     });
