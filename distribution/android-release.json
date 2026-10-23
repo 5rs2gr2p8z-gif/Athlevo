@@ -3,7 +3,7 @@
   "note": "PLACEHOLDER. Not uploaded. Filled in by scripts/wire-android-apk.mjs once the Play-signed universal APK is provided.",
   "packageId": "org.athlevo.app",
   "versionName": "1.0.0",
-  "versionCode": 6,
+  "versionCode": 7,
   "versionCodeVerifiedAgainstPlayConsole": false,
   "artifact": {
     "fileName": "athlevo-android-v1.0.0.apk",

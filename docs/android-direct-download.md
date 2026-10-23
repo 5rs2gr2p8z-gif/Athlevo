@@ -13,13 +13,13 @@ Status: **prepared, not deployed, not activated.** Nothing is uploaded and no AP
 - Do **not** build or sign a release APK locally with the upload key. There is deliberately no
   `assembleRelease` npm script for APKs. Do not rotate keys.
 
-## Getting the APK (Play Console, versionCode 6)
+## Getting the APK (Play Console, versionCode 7)
 
 Menu names shift between Console redesigns; go by the labels.
 
 1. Open Play Console → **Athlevo** app.
 2. **Test and release → Latest releases and bundles** (older UI: **Release → App bundle explorer**).
-   Open the App bundle explorer and choose the **versionCode 6** bundle (`1.0.0`) from the version selector.
+   Open the App bundle explorer and choose the **versionCode 7** bundle (`1.0.0`) from the version selector.
    If 6 is not listed, it has not been uploaded/processed yet — do not use another version.
 3. Open the **Downloads** tab.
 4. Under *Assets*, choose **Signed, universal APK** → download it (rename nothing).
@@ -30,7 +30,7 @@ Menu names shift between Console redesigns; go by the labels.
 6. On the Mac with the Android SDK, from the repo:
    `npm run android:apk:wire -- ~/Downloads/<file>.apk --expected-cert-sha256 <SHA-256 from step 5>`
    It verifies (apksigner + aapt2): signature valid, cert equals the Play app signing key, package
-   `org.athlevo.app`, versionCode 6, versionName 1.0.0, not debuggable. Only then does it record
+   `org.athlevo.app`, versionCode 7, versionName 1.0.0, not debuggable. Only then does it record
    size / SHA-256 in `distribution/android-release.json` and fill the landing page metadata.
 7. Upload the same file (unchanged) to hosting (below), then `npm run android:release-check`.
 
