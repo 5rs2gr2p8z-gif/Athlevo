@@ -1,6 +1,10 @@
 # Fuel V1 — release checklist
 
-Flag: `fuel_tracking_v1` (default **OFF**). Nothing here enables it globally.
+Flag: `fuel_tracking_v1` (default **ON** since the versionCode 7 Android release; `js/fuel.js` `DEFAULT_ENABLED`).
+Kill switch (no app update): create/disable a PostHog flag named `fuel_tracking_v1` at 0% rollout, or set
+`localStorage.setItem("athlevo_ff_fuel_tracking_v1","0")` for one browser. NOTE: if a `fuel_tracking_v1` PostHog flag
+already exists below 100% rollout it overrides the default and hides Fuel for everyone it evaluates false for —
+set it to 100% or delete it before relying on the default.
 
 ## BEFORE QA
 

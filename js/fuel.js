@@ -3,9 +3,14 @@
  *  Athlevo Fuel V1 — nutrition tracking built around running (client)
  * ══════════════════════════════════════════════════════════════════════
  *
- *  Behind the `fuel_tracking_v1` feature flag (default OFF). Enable for one
- *  browser with:  localStorage.setItem("athlevo_ff_fuel_tracking_v1", "1")
- *  or open the app once with  ?ff_fuel_tracking_v1=1  (see js/featureFlags.js).
+ *  Behind the `fuel_tracking_v1` feature flag, which is ON by default for
+ *  launch (DEFAULT_ENABLED). The flag is still the kill switch — resolution
+ *  order is in js/featureFlags.js:
+ *    1. per-browser override:  localStorage.setItem("athlevo_ff_fuel_tracking_v1", "0")  (or "1")
+ *       or open the app once with  ?ff_fuel_tracking_v1=0|1
+ *    2. a PostHog flag named `fuel_tracking_v1`, if one is defined — roll it to 0%
+ *       (or disable it) to hide Fuel for everyone without an app update
+ *    3. DEFAULT_ENABLED
  *
  *  Principles this file enforces:
  *    · AI NEVER silently logs. A photo produces a SUGGESTION; nothing is
@@ -29,6 +34,7 @@
   "use strict";
 
   var FLAG = "fuel_tracking_v1";
+  var DEFAULT_ENABLED = true;          // launch state; override/PostHog can still turn Fuel off
   var SCREEN_ID = "screen-fuel";
   var WEEK_DAYS = 7;
   var LOAD_DAYS_BACK = 8;              // today + 7 previous days
@@ -354,7 +360,7 @@
   /* ── feature flag (existing pattern: js/featureFlags.js) ───────────── */
   function isEnabled() {
     try {
-      return !!(root.AthlevoFeatureFlags && root.AthlevoFeatureFlags.isEnabled(FLAG, false));
+      return !!(root.AthlevoFeatureFlags && root.AthlevoFeatureFlags.isEnabled(FLAG, DEFAULT_ENABLED));
     } catch (e) { return false; }
   }
 
@@ -1352,11 +1358,19 @@
       else if (isFuelActive()) { e.preventDefault(); close(); }
     });
     root.addEventListener("athlevo:app-ready", syncEntryPoints);
+    // PostHog flags arrive asynchronously. Re-sync when they do so a remote enable/disable
+    // is reflected without a reload and the entry is never left visible but unopenable.
+    try {
+      if (root.posthog && typeof root.posthog.onFeatureFlags === "function") {
+        root.posthog.onFeatureFlags(syncEntryPoints);
+      }
+    } catch (e) { /* analytics/flags must never break Fuel */ }
     syncEntryPoints();
   }
 
   root.AthlevoFuel = {
     FLAG: FLAG,
+    DEFAULT_ENABLED: DEFAULT_ENABLED,
     isEnabled: isEnabled,
     open: open,
     close: close,
