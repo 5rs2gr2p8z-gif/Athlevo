@@ -1,5 +1,5 @@
 {
-  "redirects": [
+  "redirects": [ { "source": "/go/android/post", "destination": "https://play.google.com/store/apps/details?id=org.athlevo.app&referrer=utm_source%3Dmeta%26utm_medium%3Dpaid%26utm_campaign%3Dplay_test1%26utm_content%3Dpost_now_on_play", "permanent": false }, { "source": "/go/android/run4", "destination": "https://play.google.com/store/apps/details?id=org.athlevo.app&referrer=utm_source%3Dmeta%26utm_medium%3Dpaid%26utm_campaign%3Dplay_test1%26utm_content%3Dreel_run4days", "permanent": false }, { "source": "/go/android/taper", "destination": "https://play.google.com/store/apps/details?id=org.athlevo.app&referrer=utm_source%3Dmeta%26utm_medium%3Dpaid%26utm_campaign%3Dplay_test1%26utm_content%3Dreel_taper", "permanent": false },
     {
       "source": "/download/android",
       "destination": "https://hqwdehqsllyvrcnlcytj.supabase.co/storage/v1/object/public/releases/android/athlevo-android-v1.0.0.apk?download=athlevo-android-v1.0.0.apk",
