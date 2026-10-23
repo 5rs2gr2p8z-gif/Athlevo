@@ -1,23 +1,25 @@
-# Store sign-up: Athlevo Plan and Athlevo Coaching (public /programs)
+# Store sign-up: Athlevo Plan, Athlevo Coaching and Elite Coaching (public /programs)
 
-Lets a visitor pay for **Athlevo Plan** (₱1,998 per month) on `/programs/athlevo-plan` or **Athlevo Coaching**
-(₱4,998 per month) on `/programs/athlevo-coaching` without an Athlevo app account. Each offer is **off** until you
-turn it on, and you can open one without the other.
+Lets a visitor pay for **Athlevo Plan** (₱1,998 per month) on `/programs/athlevo-plan`, **Athlevo Coaching**
+(₱4,998 per month) on `/programs/athlevo-coaching` or **Elite Coaching** (₱7,998 per month, coached directly by Dean)
+on `/programs/elite-coaching` without an Athlevo app account. Each offer is **off** until you turn it on, and you can
+open any of them without the others. The short links `athlevo.org/athlevo-plan`, `/athlevo-coaching` and
+`/elite-coaching` go straight to each offer's page (set in `vercel.json`).
 
-| | Athlevo Plan | Athlevo Coaching |
-|---|---|---|
-| Price (owned by the server) | ₱1,998 | ₱4,998 |
-| Page | `/programs/athlevo-plan` | `/programs/athlevo-coaching` |
-| Server switch | `PLAN_SIGNUP_ENABLED` | `COACHING_SIGNUP_ENABLED` |
-| Questionnaire link | `PLAN_QUESTIONNAIRE_URL` | `COACHING_QUESTIONNAIRE_URL`, or the Plan's when not set |
-| Call-scheduling link (optional) | `PLAN_SCHEDULE_URL` | `COACHING_SCHEDULE_URL` |
-| Agreement link (optional) | `PLAN_AGREEMENT_URL` | `COACHING_AGREEMENT_URL` |
-| Page switch | `signUp.open` on the Plan in `js/storeCatalog.js` | `signUp.open` on the Coaching entry |
-| API paths | `/api/plan-signup/checkout`, `/status` | `/api/coaching-signup/checkout`, `/status` |
-| Reference on PayMongo | `ATH-PL-...` | `ATH-CO-...` |
+| | Athlevo Plan | Athlevo Coaching | Elite Coaching |
+|---|---|---|---|
+| Price (owned by the server) | ₱1,998 | ₱4,998 | ₱7,998 |
+| Page | `/programs/athlevo-plan` | `/programs/athlevo-coaching` | `/programs/elite-coaching` |
+| Server switch | `PLAN_SIGNUP_ENABLED` | `COACHING_SIGNUP_ENABLED` | `ELITE_SIGNUP_ENABLED` |
+| Questionnaire link | `PLAN_QUESTIONNAIRE_URL` | `COACHING_QUESTIONNAIRE_URL`, or the Plan's when not set | `ELITE_QUESTIONNAIRE_URL`, or the Plan's when not set |
+| Call-scheduling link (optional) | `PLAN_SCHEDULE_URL` | `COACHING_SCHEDULE_URL` | `ELITE_SCHEDULE_URL` |
+| Agreement link (optional) | `PLAN_AGREEMENT_URL` | `COACHING_AGREEMENT_URL` | `ELITE_AGREEMENT_URL` |
+| Page switch | `signUp.open` on the Plan in `js/storeCatalog.js` | `signUp.open` on the Coaching entry | `signUp.open` on the Elite entry |
+| API paths | `/api/plan-signup/checkout`, `/status` | `/api/coaching-signup/checkout`, `/status` | `/api/elite-signup/checkout`, `/status` |
+| Reference on PayMongo | `ATH-PL-...` | `ATH-CO-...` | `ATH-EL-...` |
 
-Both offers write to the same table, `plan_signups`; the `product_id` column says which one
-(`ATHLEVO_PLAN_MONTHLY` or `ATHLEVO_COACHING_MONTHLY`).
+All offers write to the same table, `plan_signups`; the `product_id` column says which one
+(`ATHLEVO_PLAN_MONTHLY`, `ATHLEVO_COACHING_MONTHLY` or `ATHLEVO_ELITE_MONTHLY`).
 
 ## The flow
 
@@ -26,7 +28,7 @@ Both offers write to the same table, `plan_signups`; the `product_id` column say
    endpoint that was called.
 2. They pay on PayMongo (QRPh, Maya or GrabPay, whatever `PAYMONGO_PAYMENT_METHODS` allows).
 3. PayMongo sends the signed webhook (`checkout_session.payment.paid`) to `/api/paymongo/webhook`.
-   If it is a Plan or Coaching payment, one row is written to `plan_signups`.
+   If it is a Plan, Coaching or Elite payment, one row is written to `plan_signups`.
 4. When a payment is newly recorded, two emails go out (if you set them up, see step 3 under "Turn it on"): the
    buyer's next steps (reference, questionnaire link, scheduling link, agreement link if set, and a link back to the
    confirmation page) and an alert to you. A redelivered event never sends them again.
@@ -42,14 +44,14 @@ Payment is month to month with no automatic renewal. Month two is another checko
 2. **Vercel environment variables** (Settings, Environment Variables). The PayMongo ones already exist for Athlevo Pro.
    - Questionnaire link, https, required. Current form:
      `https://docs.google.com/forms/d/e/1FAIpQLScnKgZvr86oITPSNEGEjSZTULQeIufXPUdiCIgO_AhqkUJFfg/viewform?usp=header`
-     Set `PLAN_QUESTIONNAIRE_URL`. Coaching uses the same link unless you also set `COACHING_QUESTIONNAIRE_URL`
-     (if you set that one it must be a valid https link, or Coaching stays closed).
-   - Scheduling link (optional): `PLAN_SCHEDULE_URL` and/or `COACHING_SCHEDULE_URL`. Without one, the page only says
-     they will be asked to schedule a call. Coaching does not borrow the Plan's scheduling link.
-   - Agreement link (optional): `PLAN_AGREEMENT_URL` and/or `COACHING_AGREEMENT_URL`, an https link to the agreement.
-     When set, it appears on the confirmation page and in the buyer's email. Neither offer borrows the other's.
-   - The switch: `PLAN_SIGNUP_ENABLED=true` and/or `COACHING_SIGNUP_ENABLED=true`. An offer stays closed on the
-     server unless its switch is `true` AND a questionnaire link is valid.
+     Set `PLAN_QUESTIONNAIRE_URL`. Coaching and Elite use the same link unless you also set `COACHING_QUESTIONNAIRE_URL`
+     or `ELITE_QUESTIONNAIRE_URL` (if you set one it must be a valid https link, or that offer stays closed).
+   - Scheduling link (optional): `PLAN_SCHEDULE_URL`, `COACHING_SCHEDULE_URL` and/or `ELITE_SCHEDULE_URL`. Without one, the
+     page only says they will be asked to schedule a call. No offer borrows another's scheduling link.
+   - Agreement link (optional): `PLAN_AGREEMENT_URL`, `COACHING_AGREEMENT_URL` and/or `ELITE_AGREEMENT_URL`, an https link
+     to the agreement. When set, it appears on the confirmation page and in the buyer's email. No offer borrows another's.
+   - The switch: `PLAN_SIGNUP_ENABLED=true`, `COACHING_SIGNUP_ENABLED=true` and/or `ELITE_SIGNUP_ENABLED=true`. An offer stays
+     closed on the server unless its switch is `true` AND a questionnaire link is valid.
 3. **Emails (optional, once, recommended).** Uses the Resend account the coach invites already use. All of these are
    Vercel environment variables, and nothing is sent until `RESEND_API_KEY` is set.
    - `RESEND_API_KEY`: already set if coach invites work.
@@ -62,12 +64,39 @@ Payment is month to month with no automatic renewal. Month two is another checko
    sent). It is separate from PayMongo's own receipt, which PayMongo still sends.
 4. **Test it before the public can see it.** The server switch and the page switch are separate: with the page switch
    still `false` there is no Sign Up button, so nobody finds it. Either use PayMongo test keys on a Vercel preview
-   deployment (with a test-mode webhook pointed at that preview), or pay once yourself (₱1,998 or ₱4,998) and refund it
-   in the PayMongo dashboard (refunds mark the row `refunded`). Check that a `plan_signups` row appears with the right
+   deployment (with a test-mode webhook pointed at that preview; never scan the test QR with a real app), or pay once
+   yourself with the live keys (₱1,998, ₱4,998 or ₱7,998) and refund it in the PayMongo dashboard (refunds mark the row
+   `refunded`). See "Test keys and live keys" below. Check that a `plan_signups` row appears with the right
    `product_id` and that the confirmation page shows your links.
 5. **Open it to the public.** In `js/storeCatalog.js` set that offer's `signUp.open` to `true`, then run
    `npm run build:store` and `node tests/store-route.test.mjs`. The build rewrites the banner (it names whichever
    offers are open), the FAQ answer and the static pages, so nothing is edited by hand. Deploy.
+
+## Test keys and live keys (read before opening to the public)
+
+The site takes real money only with PayMongo's **live** keys. In Vercel, **Production** must hold:
+
+- `PAYMONGO_SECRET_KEY` = the **Live** secret key (starts `sk_live_`).
+- `PAYMONGO_WEBHOOK_SECRET` = the signing secret of a webhook created in PayMongo's **Live** mode. Create it at
+  Developers, Webhooks, with the URL `https://athlevo.org/api/paymongo/webhook` and these events:
+  `checkout_session.payment.paid`, `payment.refunded` and `payment.refund.updated`. A Test-mode webhook has a different
+  secret, and the site rejects a webhook whose signature mode does not match the event.
+
+**Why this matters.** In test mode PayMongo's QR Ph codes are real, scannable codes. PayMongo's own docs: "In test mode,
+QR Ph generates real QR codes. Do not scan and pay them, it will process a real transaction." A customer who pays one has
+real money taken, but it never reaches the live account and no webhook is sent, so nothing is recorded or emailed, and
+the payer's bank has to reverse it. A test-mode checkout page shows a **Simulate Payment** button under the QR code, and a live
+one never does.
+
+**The safeguard.** On the production deployment (`VERCEL_ENV=production`), a checkout is refused while
+`PAYMONGO_SECRET_KEY` starts with `sk_test_`: every offer answers "Sign-up is not open yet", Athlevo Pro checkout in the app
+answers "Local payment is unavailable", and the server log says "checkout refused: production is using a PayMongo test key". Previews and local runs may still use test keys, so keep
+**Preview** on test keys and **Production** on live ones (give each environment its own value in Vercel). Changing an
+environment variable only takes effect after a redeploy.
+
+**Before telling anyone it is open**, make one small real payment yourself on the production site: the PayMongo page must
+have no Simulate Payment button, the payment must appear under **Live** Payments, a `plan_signups` row with
+`livemode = true` must appear, and the alert and buyer emails must arrive. Then refund it in the PayMongo dashboard.
 
 ## Seeing sign-ups
 
@@ -94,7 +123,8 @@ fixed percentage off **every** payment that runner makes with it, renewals inclu
 runner types the same code again; the welcome email reminds them). Nothing on the public site names a partner. Which
 batch a code belongs to is an internal label that only you see (in the database and in your sign-up alert).
 
-**How it works.** The Plan and Coaching pages have a small "Have a discount code?" link under each Sign Up button.
+**How it works.** The Plan and Coaching pages have a small "Have a discount code?" link under each Sign Up button. The Elite
+page has none (see "Which offers a code works on" below).
 A runner types the code (or opens a link ending in `?code=ABCD-EFGH`, which fills it in and applies it) and sees the new
 price before paying. The browser only ever sends the code text. The server looks the code up in `partner_codes`, works out
 the price itself, opens the PayMongo checkout at that price, and tags the checkout with the code. The webhook then accepts
@@ -106,13 +136,20 @@ alphabet, so they cannot be guessed.
 **Set up (once).** Run `migrations/2026-10-21_partner_codes.sql` in the Supabase SQL editor, before you give anyone a code.
 It adds the `partner_codes` table and a few columns on `plan_signups`, and is safe to run twice.
 
+**Which offers a code works on.** A code with no product list works on the Plan and Coaching only. Elite Coaching takes a code
+only when that code's row names it in `product_ids` (make the batch with `--products elite`, or `plan,coaching,elite`, below),
+so opening a new offer never quietly gives it a discount. The Elite page has no code box today, so the site cannot take an
+Elite code until that is switched on in the page code (`takesCodes` on the Elite entry in `js/storeCatalog.js`). An Elite
+checkout with a code that does not cover Elite is refused ("That code isn't valid"), never charged full price.
+
 **Make a batch of codes.**
 
 ```
 node scripts/generate-partner-codes.mjs --partner race-2026-11-24 --count 100
 ```
 
-Options: `--percent 10` (default 10, up to 50), `--products all|plan|coaching` (default all), `--expires 2026-12-31`
+Options: `--percent 10` (default 10, up to 50), `--products plan,coaching,elite` (any of the three, comma separated;
+default Plan and Coaching, which is also what naming exactly those two means), `--expires 2026-12-31`
 (last day, Philippine time; default none), `--note "text"`, `--out folder` (default `partner-codes/`, which git ignores).
 It writes two files and changes nothing else. Run the `.sql` file in the Supabase SQL editor to switch the codes on, and hand
 out the codes in the `.csv` (written `ABCD-EFGH`; runners can type them in any case, with or without the hyphen). Make

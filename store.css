@@ -251,12 +251,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .intro-text {
-  max-width: 620px;
+  max-width: 720px;
   margin: 0 auto;
   text-wrap: balance;
   font-size: clamp(18px, 2.2vw, 22px);
   line-height: 1.5;
   color: var(--muted);
+}
+
+.intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 28px auto 0;
 }
 
 .section { padding: 72px 0 96px; }
@@ -875,6 +883,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .offer-pricing-card .btn-lg { width: 100%; }
   .offer-coach-row { grid-template-columns: 1fr; gap: 24px; }
   .intro { padding: 48px 0 32px; }
+  .intro-actions .btn { width: 100%; max-width: 280px; }
   .section { padding: 56px 0 72px; }
   .coaches { padding: 56px 0 72px; }
   .coach-card { grid-template-columns: 1fr; gap: 20px; padding: 20px; }

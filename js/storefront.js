@@ -63,7 +63,7 @@
   }
 
   // PL = Athlevo Plan, CO = Athlevo Coaching (lib/server/planSignup.js builds these).
-  var SIGNUP_REF = /^ATH-(PL|CO)-[0-9A-F]{8,16}-[0-9A-F]{24}$/i;
+  var SIGNUP_REF = /^ATH-(PL|CO|EL)-[0-9A-F]{8,16}-[0-9A-F]{24}$/i;
 
   // The public path is /programs. /store was the first path, and Vercel redirects it
   // permanently (vercel.json); the client also accepts it, and rewrites the address bar
@@ -246,6 +246,12 @@
     var iWrap = $("div", "wrap");
     iWrap.appendChild($("h1", "", catalog.hero.headline));
     iWrap.appendChild($("p", "intro-text", catalog.intro));
+    var actions = $("div", "intro-actions");
+    var seePrograms = $("a", "btn btn-red", catalog.hub.primaryLabel);
+    seePrograms.href = BASE + "#programs";
+    actions.appendChild(seePrograms);
+    actions.appendChild(externalLink(catalog.hub.messageUrl, catalog.hub.messageLabel, "btn btn-ink"));
+    iWrap.appendChild(actions);
     intro.appendChild(iWrap);
     root.appendChild(intro);
 
@@ -282,7 +288,7 @@
     faq.setAttribute("aria-labelledby", "faq-heading");
     var fWrap = $("div", "wrap");
     fWrap.appendChild($("h2", "section-title", "FAQ")).id = "faq-heading";
-    renderFaqs(fWrap, catalog.getFaqs());
+    renderFaqs(fWrap, catalog.getHubFaqs());
     faq.appendChild(fWrap);
     root.appendChild(faq);
   }
@@ -738,7 +744,8 @@
       startCheckout(button, status, cfg);
     });
     wrap.appendChild(button);
-    wrap.appendChild(codeControl(cfg));
+    // An offer that takes no codes (Elite Coaching) shows no code box.
+    if (cfg.takesCodes !== false) wrap.appendChild(codeControl(cfg));
     wrap.appendChild(status);
     return wrap;
   }
@@ -797,6 +804,11 @@
     a.href = url;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
+    // The prerender stub (scripts/build-store-pages.mjs) writes only attributes set with
+    // setAttribute, so set them this way too: the static page then opens the link safely
+    // before the script runs.
+    a.setAttribute("target", "_blank");
+    a.setAttribute("rel", "noopener noreferrer");
     return a;
   }
 

@@ -62,4 +62,28 @@ assert.equal(pending.entitlement_days, 30);
 assert.equal(pending.status, "pending");
 assert.ok(!JSON.stringify(success.body).includes("sk_test_secret"));
 
-console.log("PayMongo checkout: 17 assertions passed");
+// A test key on the production site must never open a checkout (test-mode QR Ph
+// codes are real, but the money never reaches the live account).
+{
+  const savedEnv = process.env.VERCEL_ENV;
+  const fetchCalls = [];
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => { fetchCalls.push(String(input)); return new Response("{}", { status: 404 }); };
+
+  process.env.VERCEL_ENV = "production";
+  const blocked = response();
+  await handler({ method: "POST", headers: { authorization: "Bearer athlete-token" }, body: {} }, blocked);
+  assert.equal(blocked.statusCode, 503);
+  assert.deepEqual(blocked.body, { error: "Local payment is unavailable." });
+  assert.equal(fetchCalls.length, 0, "no Supabase or PayMongo call is made with a test key on production");
+
+  process.env.VERCEL_ENV = "preview";
+  const preview = response();
+  await handler({ method: "POST", headers: {}, body: {} }, preview);
+  assert.equal(preview.statusCode, 401, "preview still reaches the normal flow with a test key");
+
+  globalThis.fetch = priorFetch;
+  if (savedEnv === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = savedEnv;
+}
+
+console.log("PayMongo checkout: 21 assertions passed");

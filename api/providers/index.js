@@ -30,6 +30,7 @@ import crypto from "node:crypto";
 import paymongoCheckoutHandler from "../../lib/server/paymongoCheckoutEndpoint.js";
 import {
   coachingSignupCheckoutHandler, coachingSignupStatusHandler,
+  eliteSignupCheckoutHandler, eliteSignupStatusHandler,
   planSignupCheckoutHandler, planSignupStatusHandler
 } from "../../lib/server/planSignup.js";
 import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
@@ -3908,6 +3909,13 @@ export default async function handler(request, response) {
     }
     if (action === "coaching_signup_status") {
       return coachingSignupStatusHandler(request, response);
+    }
+    // Elite Coaching sign-up, same flow again with its own product, price and switch.
+    if (action === "elite_signup_checkout") {
+      return eliteSignupCheckoutHandler(request, response);
+    }
+    if (action === "elite_signup_status") {
+      return eliteSignupStatusHandler(request, response);
     }
 
     if (action === "diagnostic_chat") {

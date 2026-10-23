@@ -41,6 +41,14 @@ const LEGACY_OFFERS = {
   "marathon": "elite-coaching"
 };
 
+// Short links to send to a client: /athlevo-plan -> /programs/athlevo-plan (temporary, like vercel.json).
+const SHORT_LINKS = new Set(["athlevo-plan", "athlevo-coaching", "hybrid-programming", "elite-coaching"]);
+
+function shortLinkFor(pathname) {
+  const m = pathname.match(/^\/([a-z0-9-]+)\/?$/);
+  return m && SHORT_LINKS.has(m[1]) ? "/programs/" + m[1] : null;
+}
+
 function redirectFor(pathname) {
   const legacy = pathname.match(/^\/store(?:\/([^/]+))?\/?$/);
   if (!legacy) return null;
@@ -75,6 +83,12 @@ function safePath(urlPath) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", "http://127.0.0.1");
+  const shortLink = shortLinkFor(url.pathname);
+  if (shortLink) {
+    res.writeHead(307, { location: shortLink + url.search });
+    res.end();
+    return;
+  }
   const moved = redirectFor(url.pathname);
   if (moved) {
     res.writeHead(308, { location: moved + url.search });

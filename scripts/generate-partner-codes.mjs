@@ -9,7 +9,8 @@
  *                       Lower-case letters, digits, dots, dashes and underscores.
  *   --count <n>         how many codes to make, 1 to 1000 (required)
  *   --percent <n>       percent off, 1 to 50 (default 10)
- *   --products <list>   "all" (default), or any of: plan, coaching (comma separated)
+ *   --products <list>   leave out for Athlevo Plan and Athlevo Coaching (the default). Elite Coaching
+ *                       takes a code only when named: any of plan, coaching, elite (comma separated)
  *   --expires <date>    last day a code works, YYYY-MM-DD in Philippine time (default: no expiry)
  *   --note <text>       free text stored with each code
  *   --out <folder>      where to write the files (default: partner-codes/, which git ignores)
@@ -25,10 +26,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  MAX_DISCOUNT_PERCENT, PARTNER_CODE_ALPHABET, PARTNER_CODE_LENGTH, formatPartnerCode
+  DEFAULT_CODE_PRODUCT_IDS, MAX_DISCOUNT_PERCENT, PARTNER_CODE_ALPHABET, PARTNER_CODE_LENGTH, formatPartnerCode
 } from "../lib/server/partnerCodes.js";
 
-const PRODUCT_IDS = { plan: "ATHLEVO_PLAN_MONTHLY", coaching: "ATHLEVO_COACHING_MONTHLY" };
+const PRODUCT_IDS = { plan: "ATHLEVO_PLAN_MONTHLY", coaching: "ATHLEVO_COACHING_MONTHLY", elite: "ATHLEVO_ELITE_MONTHLY" };
 const MAX_COUNT = 1000;
 
 /** `count` distinct codes. `randomInt` is injectable so a test can force collisions. */
@@ -73,12 +74,12 @@ export function parseOptions(argv) {
     throw new Error(`--percent must be a whole number from 1 to ${MAX_DISCOUNT_PERCENT}`);
   }
   let productIds = null;
-  const products = String(raw.products || "all").toLowerCase().trim();
-  if (products !== "all") {
-    const names = products.split(",").map(item => item.trim()).filter(Boolean);
-    if (!names.length || names.some(name => !PRODUCT_IDS[name])) throw new Error("--products must be all, or plan and/or coaching");
+  if (raw.products !== undefined) {
+    const names = String(raw.products).toLowerCase().trim().split(",").map(item => item.trim()).filter(Boolean);
+    if (!names.length || names.some(name => !PRODUCT_IDS[name])) throw new Error("--products must be plan, coaching and/or elite");
     productIds = [...new Set(names)].map(name => PRODUCT_IDS[name]);
-    if (productIds.length === Object.keys(PRODUCT_IDS).length) productIds = null;
+    // Exactly Plan and Coaching is what a code with no list already means, so store no list.
+    if (productIds.length === DEFAULT_CODE_PRODUCT_IDS.length && DEFAULT_CODE_PRODUCT_IDS.every(id => productIds.includes(id))) productIds = null;
   }
   let expiresAt = null;
   if (raw.expires !== undefined) {

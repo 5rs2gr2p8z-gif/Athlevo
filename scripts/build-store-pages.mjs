@@ -127,7 +127,7 @@ function renderRoute(catalogSrc, storefrontSrc, path, siteUrl) {
 const NAV_PROGRAMS = '<li><a href="/programs#programs">Programs</a></li>';
 const NAV_PROGRAMS_CURRENT = '<li><a href="/programs#programs" aria-current="page">Programs</a></li>';
 
-function headBlock(meta) {
+function headBlock(meta, structured) {
   const lines = [
     "<title>" + escapeText(meta.title) + "</title>",
     '<meta name="description" content="' + escapeAttr(meta.description) + '">',
@@ -138,6 +138,10 @@ function headBlock(meta) {
     '<meta property="og:description" content="' + escapeAttr(meta.description) + '">',
     '<meta property="og:url" content="' + escapeAttr(meta.url) + '">'
   ];
+  // JSON-LD (the /programs page only). "<" is escaped so no value can close the script tag.
+  if (structured) {
+    lines.push('<script type="application/ld+json">' + JSON.stringify(structured).replace(/</g, "\\u003c") + "</script>");
+  }
   return "<!-- prerender:head -->\n" + lines.map((l) => "  " + l).join("\n") + "\n  <!-- /prerender:head -->";
 }
 
@@ -174,7 +178,7 @@ export function buildStorePages(root = ROOT) {
     if (!route.slug) page = page.replace(NAV_PROGRAMS, NAV_PROGRAMS_CURRENT);
     page = replaceRegion(page, "notice", "<!-- prerender:notice -->\n  " +
       '<div class="notice">' + escapeText(catalog.notice()) + "</div>\n  <!-- /prerender:notice -->");
-    page = replaceRegion(page, "head", headBlock(meta));
+    page = replaceRegion(page, "head", headBlock(meta, catalog.structuredData(route.slug)));
     page = replaceRegion(page, "main", "<!-- prerender:main -->\n" + rendered.html + "\n<!-- /prerender:main -->");
     files.push({ path: route.slug ? "store-pages/" + route.slug + ".html" : "store.html", content: page });
   }

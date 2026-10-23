@@ -184,6 +184,36 @@
     }
   ];
 
+  // Extra questions shown on /programs only, supplied by the owner on 2026-10-22 for the
+  // search "online running coach in the Philippines". They follow the shared FAQs and are
+  // also what the FAQPage markup in the page head says (see structuredData below).
+  var hubFaqs = [
+    {
+      question: "Do you coach runners outside Pampanga?",
+      answer: "Yes. Coaching is fully online, so you can train from anywhere in the Philippines."
+    },
+    {
+      question: "Can beginners join?",
+      answer: "Yes. Our athletes range from first-time 5K runners to marathoners, and every plan starts from where you are now."
+    },
+    {
+      question: "What distances do you coach?",
+      answer: "5K, 10K, half marathon and marathon."
+    },
+    {
+      question: "Are your coaches certified?",
+      answer: "Head Coach Dean Castro is USATF Level 1 and STRYD certified."
+    },
+    {
+      question: "How fast will I improve?",
+      answer: "It depends on your starting point, your consistency and your recovery. We don't promise a number or a race time."
+    },
+    {
+      question: "How do I start?",
+      answer: "Pick a program on this page and tap Sign Up. If you would rather talk first, message \"PR\" on our Facebook or Instagram page."
+    }
+  ];
+
   var products = [
     {
       slug: "athlevo-plan",
@@ -332,6 +362,65 @@
       slug: "elite-coaching",
       name: "Elite Coaching",
       hero: PHOTO.pack,
+      page: {
+        seoTitle: "Elite Coaching — Online Running Coaching with Dean Castro",
+        headline: "Your training, coached directly by Dean.",
+        description: "Personalized online running coaching with Head Coach Dean Castro, with regular reviews and direct coach communication.",
+        price: { amount: "₱7,998", period: "/month" },
+        cta: { label: "Sign Up", target: "how-to-get-started" },
+        supporting: "Month-to-month coaching. No lock-in.",
+        overview: {
+          intro: "Elite Coaching is Athlevo Coaching with Dean Castro as your coach. Dean reviews and adjusts your training regularly, and you communicate with him directly.",
+          includesTitle: "What is included",
+          includes: [
+            "Dean Castro, Head Coach of Athlevo, as your coach.",
+            "An onboarding call to understand your training history, current fitness, schedule, equipment, limitations, and goals.",
+            "A personalized running plan.",
+            "Strength and conditioning guidance where appropriate.",
+            "Regular coach reviews and assessments of your progress.",
+            "Direct coach communication.",
+            "Frequent adjustments based on how training is actually going."
+          ],
+          note: "Coaching is delivered online. Elite Coaching has the same reviews and coach communication as Athlevo Coaching, with Dean as your coach."
+        },
+        athleteFeedback: ATHLETE_FEEDBACK,
+        pricing: {
+          includes: [
+            "Dean Castro as your coach",
+            "Personalized running plan",
+            "Strength and conditioning guidance where appropriate",
+            "Regular coach reviews and assessments",
+            "Direct coach communication"
+          ],
+          terms: "Month-to-month, no lock-in."
+        },
+        coach: DEAN,
+        // Elite Coaching sign-up works exactly like Athlevo Coaching's, with its own switch
+        // (ELITE_SIGNUP_ENABLED on the server; see docs/plan-signup.md). Set `open` back to false
+        // to hide the button. `takesCodes: false` keeps the code box off this page: codes cover
+        // Plan and Coaching only. The price is owned by the server
+        // (lib/server/planSignup.js); a test checks the two agree.
+        signUp: {
+          open: true,
+          label: "Sign Up",
+          checkoutEndpoint: "/api/elite-signup/checkout",
+          statusEndpoint: "/api/elite-signup/status",
+          takesCodes: false,
+          payment: SIGNUP_COPY.payment,
+          renewal: SIGNUP_COPY.renewal,
+          terms: SIGNUP_COPY.terms
+        },
+        getStarted: {
+          steps: [
+            "Sign up and complete payment.",
+            "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
+            "Schedule your onboarding call.",
+            "Receive your personalized running plan, with strength and conditioning guidance where appropriate.",
+            "Train with Dean: regular coach reviews, frequent adjustments, and direct coach communication."
+          ],
+          notice: "Registration opening soon"
+        }
+      },
       // INTERNAL ONLY: undecided terms. Never render these on the storefront.
       coachSupport: {
         status: "pending",
@@ -379,6 +468,8 @@
   }
 
   var SITE_URL = "https://athlevo.org";
+  // The Facebook page already linked from the Athlevo landing page.
+  var FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61574957235305";
 
   // Search and share metadata for each route. The browser (storefront.js) and the
   // build script (scripts/build-store-pages.mjs) both read this, so the static page
@@ -388,8 +479,8 @@
       return {
         path: "/programs",
         url: SITE_URL + "/programs",
-        title: "Athlevo Programs: Running and Strength Programming",
-        description: "Explore Athlevo Plan, Athlevo Coaching, Hybrid Programming, and Elite Coaching. Find training support that fits your goals."
+        title: "Online Running Coach in the Philippines | Athlevo Coaching",
+        description: "Train with an online running coach in the Philippines. USATF Level 1 and STRYD certified. Structured 5K to marathon plans, built around your schedule."
       };
     }
     var product = getProduct(slug);
@@ -415,7 +506,8 @@
   }
 
   function openOffersPhrase(names) {
-    return names.join(" and ") + (names.length === 1 ? " is" : " are") + " open for sign-up";
+    var list = names.length > 2 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names.join(" and ");
+    return list + (names.length === 1 ? " is" : " are") + " open for sign-up";
   }
 
   // The banner at the top of every store page. scripts/build-store-pages.mjs writes
@@ -431,8 +523,55 @@
     if (!names.length) return sharedFaqs;
     return [{
       question: sharedFaqs[0].question,
-      answer: openOffersPhrase(names) + ". The other programs are not available to buy yet."
+      answer: openOffersPhrase(names) + (names.length === products.length - 1
+        ? ". The other program is not available to buy yet."
+        : ". The other programs are not available to buy yet.")
     }].concat(sharedFaqs.slice(1));
+  }
+
+  // What the /programs page shows: the shared FAQs (with the live "can I buy" answer) plus the hub-only ones.
+  function getHubFaqs() {
+    return getFaqs().concat(hubFaqs);
+  }
+
+  // JSON-LD for the /programs page only. The build script writes it into the static
+  // <head>. Everything here is read from data the page already shows (the FAQs, Dean's
+  // record, the Facebook page), so the markup cannot say anything the page does not.
+  function structuredData(slug) {
+    if (slug) return null;
+    var orgId = SITE_URL + "/#organization";
+    var deanId = SITE_URL + "/programs#dean-castro";
+    return {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": orgId,
+          name: "Athlevo",
+          url: SITE_URL + "/",
+          address: { "@type": "PostalAddress", addressRegion: "Pampanga", addressCountry: "PH" },
+          areaServed: { "@type": "Country", name: "Philippines" },
+          sameAs: [FACEBOOK_URL],
+          founder: { "@id": deanId }
+        },
+        {
+          "@type": "Person",
+          "@id": deanId,
+          name: DEAN.name,
+          jobTitle: "Founder and Head Coach",
+          worksFor: { "@id": orgId },
+          hasCredential: DEAN.certifications.map(function (name) {
+            return { "@type": "EducationalOccupationalCredential", name: name };
+          })
+        },
+        {
+          "@type": "FAQPage",
+          mainEntity: getHubFaqs().map(function (item) {
+            return { "@type": "Question", name: item.question, acceptedAnswer: { "@type": "Answer", text: item.answer } };
+          })
+        }
+      ]
+    };
   }
 
   var catalog = {
@@ -441,13 +580,20 @@
     purchasingAvailable: false,
     hero: {
       image: PHOTO.stretch,
-      headline: "Welcome to Athlevo Coaching"
+      headline: "Online Running Coach in the Philippines"
     },
-    intro: "Built for runners committed to the personal pursuit of excellence.",
+    intro: "Athlevo Coaching is an online running coach service based in Pampanga and open to runners anywhere in the Philippines. Coach Dean Castro is a USATF Level 1 and STRYD certified coach. Your plan follows your schedule, your recovery and your race goal, from first 5K to marathon. You also learn why each workout is there, so you can train smarter on your own.",
+    hub: {
+      primaryLabel: "See the programs",
+      messageLabel: "Message PR to start",
+      messageUrl: FACEBOOK_URL
+    },
     coaches: [DEAN, CHRISTIAN, LOUIE],
     products: products,
     faqs: sharedFaqs,
     getFaqs: getFaqs,
+    getHubFaqs: getHubFaqs,
+    structuredData: structuredData,
     notice: notice,
     legacySlugs: legacySlugs,
     getProduct: getProduct,

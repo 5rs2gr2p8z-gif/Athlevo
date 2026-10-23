@@ -34,6 +34,26 @@
       "source": "/store/:slug",
       "destination": "/programs/:slug",
       "permanent": true
+    },
+    {
+      "source": "/athlevo-plan",
+      "destination": "/programs/athlevo-plan",
+      "permanent": false
+    },
+    {
+      "source": "/athlevo-coaching",
+      "destination": "/programs/athlevo-coaching",
+      "permanent": false
+    },
+    {
+      "source": "/hybrid-programming",
+      "destination": "/programs/hybrid-programming",
+      "permanent": false
+    },
+    {
+      "source": "/elite-coaching",
+      "destination": "/programs/elite-coaching",
+      "permanent": false
     }
   ],
   "rewrites": [
@@ -92,6 +112,14 @@
     {
       "source": "/api/coaching-signup/status",
       "destination": "/api/providers?action=coaching_signup_status"
+    },
+    {
+      "source": "/api/elite-signup/checkout",
+      "destination": "/api/providers?action=elite_signup_checkout"
+    },
+    {
+      "source": "/api/elite-signup/status",
+      "destination": "/api/providers?action=elite_signup_status"
     },
     {
       "source": "/api/diagnostic-chat",

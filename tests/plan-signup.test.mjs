@@ -1,5 +1,5 @@
 /*
- * Store sign-up (Athlevo Plan and Athlevo Coaching, public /programs checkout): server behaviour.
+ * Store sign-up (Athlevo Plan, Athlevo Coaching and Elite Coaching, public /programs checkout): server behaviour.
  * Runs the real handlers against an in-memory Supabase and PayMongo, with a
  * correctly signed PayMongo webhook. Run: node tests/plan-signup.test.mjs
  */
@@ -130,10 +130,13 @@ const { default: webhook } = await import("../lib/server/paymongoWebhookEndpoint
 const {
   planSignupCheckoutHandler: checkout, planSignupStatusHandler: status, ATHLEVO_PLAN_PRODUCT,
   coachingSignupCheckoutHandler: coachingCheckout, coachingSignupStatusHandler: coachingStatus,
-  ATHLEVO_COACHING_PRODUCT
+  ATHLEVO_COACHING_PRODUCT,
+  eliteSignupCheckoutHandler: eliteCheckout, eliteSignupStatusHandler: eliteStatus, ATHLEVO_ELITE_PRODUCT
 } = planMod;
 const COACHING_QUESTIONNAIRE = "https://forms.example.com/athlevo-coaching-questionnaire";
 const COACHING_SCHEDULE = "https://cal.example.com/athlevo-coaching-call";
+const ELITE_QUESTIONNAIRE = "https://forms.example.com/athlevo-elite-questionnaire";
+const ELITE_SCHEDULE = "https://cal.example.com/athlevo-elite-call";
 
 const env = (patch) => Object.keys(patch).forEach(k => {
   if (patch[k] === undefined) delete process.env[k]; else process.env[k] = patch[k];
@@ -145,6 +148,12 @@ const openCoaching = () => env({
 });
 const closedCoaching = () => env({
   COACHING_SIGNUP_ENABLED: undefined, COACHING_QUESTIONNAIRE_URL: undefined, COACHING_SCHEDULE_URL: undefined
+});
+const openElite = () => env({
+  ELITE_SIGNUP_ENABLED: "true", ELITE_QUESTIONNAIRE_URL: ELITE_QUESTIONNAIRE, ELITE_SCHEDULE_URL: ELITE_SCHEDULE
+});
+const closedElite = () => env({
+  ELITE_SIGNUP_ENABLED: undefined, ELITE_QUESTIONNAIRE_URL: undefined, ELITE_SCHEDULE_URL: undefined
 });
 const post = (body, ip = "203.0.113.5") => ({ method: "POST", headers: { "x-forwarded-for": ip }, body });
 
@@ -596,9 +605,9 @@ section("9. Athlevo Coaching (₱4,998)");
     t("a Coaching reference on a Plan payment is rejected", coRefOnPlan.statusCode === 400 && db.plan_signups.length === before);
     const junk = await deliver(coachingPaid({ reference: "ATH-CO-NOT-A-REFERENCE", paymentId: "pay_co6", id: "evt_co6" }));
     t("a malformed Coaching reference is rejected", junk.statusCode === 400 && db.plan_signups.length === before);
-    const unknownProduct = await deliver(paidEvent({ reference: CO_REF("E"), productId: "ATHLEVO_ELITE_MONTHLY", amount: 799800, paymentId: "pay_co7", id: "evt_co7" }));
+    const unknownProduct = await deliver(paidEvent({ reference: CO_REF("E"), productId: "ATHLEVO_HYBRID_MONTHLY", amount: 799800, paymentId: "pay_co7", id: "evt_co7" }));
     t("an unknown store product is never recorded as a sign-up",
-      db.plan_signups.length === before && !db.plan_signups.some(x => x.product_id === "ATHLEVO_ELITE_MONTHLY"));
+      db.plan_signups.length === before && !db.plan_signups.some(x => x.product_id === "ATHLEVO_HYBRID_MONTHLY"));
     t("(and falls to the Pro path, which rejects it)", unknownProduct.statusCode === 400);
   }
 
@@ -633,6 +642,289 @@ section("9. Athlevo Coaching (₱4,998)");
       db.plan_signups.find(x => x.provider_payment_id === "pay_co1").status === "refunded", JSON.stringify(full.body));
   }
   open();
+}
+
+section("9b. Elite Coaching (₱7,998)");
+{
+  const EL_REF = (c) => "ATH-EL-1234567890A-" + c.repeat(24);
+  const elitePaid = (o = {}) => paidEvent({ productId: ATHLEVO_ELITE_PRODUCT.id, amount: 799800, ...o });
+
+  // closed by default, and each switch only opens its own offer
+  closed(); closedCoaching(); closedElite();
+  {
+    const before = log.paymongo.length;
+    const r = res(); await eliteCheckout(post({}, "203.0.113.40"), r);
+    t("Elite checkout is unavailable until ELITE_SIGNUP_ENABLED is set", r.statusCode === 503 && log.paymongo.length === before);
+    const s1 = res(); await eliteStatus(post({ ref: EL_REF("A") }, "203.0.113.40"), s1);
+    t("Elite status still answers while closed (buyers keep their confirmation)", s1.statusCode === 200 && s1.body.status === "pending");
+  }
+  open(); openCoaching();
+  {
+    const r = res(); await eliteCheckout(post({}, "203.0.113.41"), r);
+    t("opening the Plan and Coaching does not open Elite", r.statusCode === 503);
+  }
+  closed(); closedCoaching(); openElite();
+  {
+    const p = res(); await checkout(post({}, "203.0.113.42"), p);
+    const c = res(); await coachingCheckout(post({}, "203.0.113.42"), c);
+    t("opening Elite does not open the Plan or Coaching", p.statusCode === 503 && c.statusCode === 503);
+  }
+  env({ ELITE_QUESTIONNAIRE_URL: undefined, ELITE_SCHEDULE_URL: undefined });
+  {
+    const r = res(); await eliteCheckout(post({}, "203.0.113.43"), r);
+    t("enabled with no questionnaire link anywhere: still closed", r.statusCode === 503);
+  }
+  env({ PLAN_QUESTIONNAIRE_URL: QUESTIONNAIRE });
+  {
+    const r = res(); await eliteCheckout(post({}, "203.0.113.44"), r);
+    t("with no Elite link it uses the Plan's questionnaire (same questionnaire)", r.statusCode === 200);
+    const paidRef = log.paymongo[log.paymongo.length - 1].attributes.reference_number;
+    db.plan_signups.push({ id: "row_elfb", reference_number: paidRef, product_id: ATHLEVO_ELITE_PRODUCT.id, status: "paid" });
+    const s2 = res(); await eliteStatus(post({ ref: paidRef }, "203.0.113.44"), s2);
+    t("and shows that questionnaire after payment, with no schedule link when none is set",
+      s2.body.status === "paid" && s2.body.questionnaire_url === QUESTIONNAIRE && s2.body.schedule_url === null);
+    db.plan_signups.pop();
+  }
+  env({ ELITE_QUESTIONNAIRE_URL: "http://forms.example.com/insecure" });
+  {
+    const r = res(); await eliteCheckout(post({}, "203.0.113.45"), r);
+    t("a non-https Elite link keeps it closed and does not fall back to the Plan's", r.statusCode === 503);
+  }
+  env({ ELITE_QUESTIONNAIRE_URL: "   " });
+  {
+    const r = res(); await eliteCheckout(post({}, "203.0.113.46"), r);
+    t("a blank Elite link counts as not set and uses the Plan's", r.statusCode === 200);
+  }
+  closed(); openElite();
+  {
+    const r = res(); await eliteCheckout({ method: "GET", headers: {} }, r);
+    t("Elite checkout is POST-only", r.statusCode === 405 && r.headers.Allow === "POST");
+  }
+
+  // the checkout
+  let elRef;
+  {
+    const r = res();
+    await eliteCheckout(post({ amount: 1, currency: "USD", product: "ATHLEVO_PLAN_MONTHLY", success_url: "https://evil.example" }, "203.0.113.50"), r);
+    const a = log.paymongo[log.paymongo.length - 1].attributes;
+    elRef = a.reference_number;
+    t("returns only a checkout URL", r.statusCode === 200 && JSON.stringify(Object.keys(r.body)) === '["checkout_url"]');
+    t("amount is the server-owned ₱7,998 whatever the browser sends",
+      a.line_items.length === 1 && a.line_items[0].amount === 799800 && a.line_items[0].currency === "PHP" &&
+      a.line_items[0].quantity === 1 && a.line_items[0].name === "Elite Coaching");
+    t("the Elite price matches the price shown on the page",
+      (() => {
+        const sandbox = {}; sandbox.window = sandbox; sandbox.globalThis = sandbox;
+        vm.runInNewContext(readFileSync("js/storeCatalog.js", "utf8"), sandbox);
+        const shown = sandbox.AthlevoStoreCatalog.getProduct("elite-coaching").page.price;
+        return shown.amount === "₱" + (ATHLEVO_ELITE_PRODUCT.priceCents / 100).toLocaleString("en-US") && /month/i.test(shown.period);
+      })());
+    t("same payment methods as the other offers; GCash is not offered",
+      JSON.stringify(a.payment_method_types) === '["qrph","grab_pay","paymaya"]');
+    t("reference number has the Elite format, never the Plan's or Coaching's", /^ATH-EL-[0-9A-F]{8,16}-[0-9A-F]{24}$/.test(elRef), elRef);
+    t("tagged as the Elite product, with no Athlevo user",
+      a.metadata.athlevo_product === "ATHLEVO_ELITE_MONTHLY" && !("athlevo_user_id" in a.metadata));
+    t("an ordinary Elite checkout carries no discount fields",
+      !("partner_code" in a.metadata) && !("discount_percent" in a.metadata) && !/discount/i.test(a.description + a.line_items[0].description));
+    t("returns to the Elite page with the reference, or back on cancel",
+      a.success_url === `https://athlevo.org/programs/elite-coaching?payment=success&ref=${encodeURIComponent(elRef)}` &&
+      a.cancel_url === "https://athlevo.org/programs/elite-coaching?payment=cancelled");
+  }
+  env({ VERCEL_ENV: "preview", VERCEL_URL: "athlevo-git-store-x.vercel.app" });
+  {
+    const r = res(); await eliteCheckout(post({}, "203.0.113.51"), r);
+    const a = log.paymongo[log.paymongo.length - 1].attributes;
+    t("a Vercel preview returns to itself", a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/programs/elite-coaching?payment=success"));
+  }
+  env({ VERCEL_ENV: undefined, VERCEL_URL: undefined });
+  {
+    let last;
+    for (let i = 0; i < 12; i++) { last = res(); await eliteCheckout(post({}, "198.51.100.97"), last); }
+    t("Elite checkout creation is rate limited per visitor", last.statusCode === 429 && last.body.code === "RATE_LIMITED");
+    open(); openCoaching();
+    const pl = res(); await checkout(post({}, "198.51.100.97"), pl);
+    const co = res(); await coachingCheckout(post({}, "198.51.100.97"), co);
+    t("Elite is rate limited separately from the Plan and Coaching", pl.statusCode === 200 && co.statusCode === 200);
+    closed(); closedCoaching(); openElite();
+  }
+
+  // a discount code can't be used on Elite unless a code names it, and a bad code never opens a checkout
+  {
+    const before = log.paymongo.length;
+    const r = res(); await eliteCheckout(post({ code: "KQ7MX4RT" }, "203.0.113.52"), r);
+    t("with no valid code row, an Elite checkout with a code is refused, not silently charged full price",
+      r.statusCode === 400 && r.body.error === "invalid_code" && log.paymongo.length === before);
+  }
+
+  // status before payment, and the offers cannot read each other
+  {
+    const bad = res(); await eliteStatus(post({ ref: "nonsense" }), bad);
+    t("a malformed reference is rejected", bad.statusCode === 400);
+    const planRef = res(); await eliteStatus(post({ ref: reference }), planRef);
+    t("a Plan reference is rejected by the Elite status endpoint", planRef.statusCode === 400);
+    const coachingRef = res(); await eliteStatus(post({ ref: "ATH-CO-1234567890A-" + "A".repeat(24) }), coachingRef);
+    t("a Coaching reference is rejected by the Elite status endpoint", coachingRef.statusCode === 400);
+    const elOnPlan = res(); await status(post({ ref: elRef }), elOnPlan);
+    t("an Elite reference is rejected by the Plan status endpoint", elOnPlan.statusCode === 400);
+    const elOnCoaching = res(); await coachingStatus(post({ ref: elRef }), elOnCoaching);
+    t("an Elite reference is rejected by the Coaching status endpoint", elOnCoaching.statusCode === 400);
+    const pending = res(); await eliteStatus(post({ ref: elRef }), pending);
+    t("before the webhook arrives it reports pending, with no links",
+      pending.statusCode === 200 && pending.body.status === "pending" && !("questionnaire_url" in pending.body));
+  }
+
+  // recording is tied to the product the payment was made for
+  {
+    const details = {
+      referenceNumber: EL_REF("G"), checkoutId: "cs_elm", paymentId: "pay_elm", amountCents: 799800, currency: "PHP",
+      productId: "ATHLEVO_ELITE_MONTHLY", paidAt: new Date().toISOString(), contact: {}, eventId: "evt_elm"
+    };
+    const before = db.plan_signups.length;
+    let threw = false;
+    try { await planMod.applyPlanPayment("https://db.test", "service-secret", details, "test"); } catch (error) { threw = true; }
+    t("recording an Elite payment as the Plan product (the default) is refused outright", threw && db.plan_signups.length === before);
+    let threwCoaching = false;
+    try { await planMod.applyPlanPayment("https://db.test", "service-secret", details, "test", ATHLEVO_COACHING_PRODUCT); } catch (error) { threwCoaching = true; }
+    t("recording it as Coaching is refused too", threwCoaching && db.plan_signups.length === before);
+    const ok = await planMod.applyPlanPayment("https://db.test", "service-secret", details, "test", ATHLEVO_ELITE_PRODUCT);
+    t("the same payment is recorded when the matching product is given",
+      ok.applied === true && db.plan_signups[db.plan_signups.length - 1].product_id === "ATHLEVO_ELITE_MONTHLY");
+    db.plan_signups.pop();
+  }
+
+  // webhook
+  log.tables.length = 0;
+  {
+    const r = await deliver(elitePaid({ reference: elRef, paymentId: "pay_el1", checkoutId: "cs_el1", id: "evt_el1" }));
+    const row = db.plan_signups.find(x => x.reference_number === elRef);
+    t("a signed Elite payment is accepted", r.statusCode === 200 && r.body.result.applied === true, JSON.stringify(r.body));
+    t("the row carries the Elite product and the verified ₱7,998",
+      row && row.product_id === "ATHLEVO_ELITE_MONTHLY" && row.amount_cents === 799800 && row.currency === "PHP" &&
+      row.provider_payment_id === "pay_el1" && row.status === "paid" && row.livemode === false);
+    t("contact details come from PayMongo, email normalised",
+      row.customer_name === "Maria Santos" && row.customer_email === "maria@example.com");
+    t("paid_through is 30 days after payment", Date.parse(row.paid_through) - Date.parse(row.paid_at) === 30 * 86400000);
+    t("an ordinary Elite payment has no partner columns", !("partner_code" in row) && !("discount_percent" in row));
+    t("an Elite payment touches no app subscription or Pro ledger",
+      !log.tables.some(x => /subscriptions|payment_transactions|subscription_events/.test(x)), log.tables.join(","));
+    const dup = await deliver(elitePaid({ reference: elRef, paymentId: "pay_el1", checkoutId: "cs_el1", id: "evt_el1b" }));
+    t("the same payment delivered twice is recorded once",
+      dup.statusCode === 200 && dup.body.result.duplicate === true && db.plan_signups.filter(x => x.reference_number === elRef).length === 1);
+  }
+
+  // status after payment
+  openElite();
+  {
+    const r = res(); await eliteStatus(post({ ref: elRef }), r);
+    t("paid: returns the Elite questionnaire and scheduling links, and no personal data",
+      r.statusCode === 200 && r.body.status === "paid" && r.body.questionnaire_url === ELITE_QUESTIONNAIRE &&
+      r.body.schedule_url === ELITE_SCHEDULE && !JSON.stringify(r.body).match(/maria|santos|@|\+63/i));
+    const urls = log.urls.filter(u => u.includes(encodeURIComponent(elRef))).slice(-1)[0] || "";
+    t("the status lookup is scoped to the Elite product", urls.includes("product_id=eq.ATHLEVO_ELITE_MONTHLY"), urls);
+    const odd = EL_REF("9");
+    db.plan_signups.push({ id: "row_elodd", reference_number: odd, product_id: "ATHLEVO_PLAN_MONTHLY", status: "paid" });
+    const oddStatus = res(); await eliteStatus(post({ ref: odd }), oddStatus);
+    t("a row for another product is never shown as an Elite sign-up", oddStatus.body.status === "pending");
+    db.plan_signups.pop();
+  }
+
+  // rejected payments
+  {
+    const before = db.plan_signups.length;
+    const planPrice = await deliver(elitePaid({ reference: EL_REF("B"), amount: 199800, paymentId: "pay_el2", id: "evt_el2" }));
+    t("the Plan's price on an Elite payment is rejected and not recorded", planPrice.statusCode === 400 && db.plan_signups.length === before);
+    const coachingPrice = await deliver(elitePaid({ reference: EL_REF("C"), amount: 499800, paymentId: "pay_el3", id: "evt_el3" }));
+    t("the Coaching price on an Elite payment is rejected too", coachingPrice.statusCode === 400 && db.plan_signups.length === before);
+    const elitePriceOnPlan = await deliver(paidEvent({ reference: "ATH-PL-1234567890A-" + "B".repeat(24), amount: 799800, paymentId: "pay_el4", id: "evt_el4" }));
+    t("the Elite price on a Plan payment is rejected", elitePriceOnPlan.statusCode === 400 && db.plan_signups.length === before);
+    const elitePriceOnCoaching = await deliver(paidEvent({ reference: "ATH-CO-1234567890A-" + "B".repeat(24), productId: ATHLEVO_COACHING_PRODUCT.id, amount: 799800, paymentId: "pay_el5", id: "evt_el5" }));
+    t("the Elite price on a Coaching payment is rejected", elitePriceOnCoaching.statusCode === 400 && db.plan_signups.length === before);
+    const planRefOnElite = await deliver(elitePaid({ reference: "ATH-PL-1234567890A-" + "D".repeat(24), paymentId: "pay_el6", id: "evt_el6" }));
+    t("a Plan reference on an Elite payment is rejected", planRefOnElite.statusCode === 400 && db.plan_signups.length === before);
+    const eliteRefOnPlan = await deliver(paidEvent({ reference: EL_REF("D"), paymentId: "pay_el7", id: "evt_el7" }));
+    t("an Elite reference on a Plan payment is rejected", eliteRefOnPlan.statusCode === 400 && db.plan_signups.length === before);
+    const junk = await deliver(elitePaid({ reference: "ATH-EL-NOT-A-REFERENCE", paymentId: "pay_el8", id: "evt_el8" }));
+    t("a malformed Elite reference is rejected", junk.statusCode === 400 && db.plan_signups.length === before);
+  }
+
+  // closing it never loses a payment in flight
+  closed(); closedCoaching(); closedElite();
+  {
+    const ref = EL_REF("F");
+    const before = db.plan_signups.length;
+    const inFlight = await deliver(elitePaid({ reference: ref, paymentId: "pay_el9", checkoutId: "cs_el9", id: "evt_el9" }));
+    t("closing Elite sign-up never loses a payment already in flight",
+      inFlight.statusCode === 200 && db.plan_signups.length === before + 1);
+    const s3 = res(); await eliteStatus(post({ ref }), s3);
+    t("and the buyer can still open their confirmation", s3.statusCode === 200 && s3.body.status === "paid");
+    const refunded = await deliver(refundEvent({ paymentId: "pay_el9", amount: 799800, id: "evt_el9r" }));
+    t("its refund is still applied while closed",
+      refunded.statusCode === 200 && refunded.body.result.applied === true &&
+      db.plan_signups.find(x => x.provider_payment_id === "pay_el9").status === "refunded");
+    const s4 = res(); await eliteStatus(post({ ref }), s4);
+    t("a refunded Elite sign-up no longer returns the next-step links", s4.body.status === "refunded" && !("questionnaire_url" in s4.body));
+  }
+
+  // partial refunds are ignored against the Elite amount
+  {
+    paymentAmounts.set("pay_el1", 799800);
+    const partial = await deliver(refundEvent({ paymentId: "pay_el1", amount: 100000, id: "evt_el1p", type: "payment.refund.updated" }));
+    t("a partial refund on an Elite payment is ignored",
+      partial.statusCode === 200 && partial.body.result.ignored === true &&
+      db.plan_signups.find(x => x.provider_payment_id === "pay_el1").status === "paid", JSON.stringify(partial.body));
+    const full = await deliver(refundEvent({ paymentId: "pay_el1", amount: 799800, id: "evt_el1f" }));
+    t("a full refund marks it refunded",
+      full.statusCode === 200 && full.body.result.applied === true &&
+      db.plan_signups.find(x => x.provider_payment_id === "pay_el1").status === "refunded", JSON.stringify(full.body));
+  }
+  open();
+}
+
+section("9c. Test keys never open a checkout on the production site");
+{
+  const client = await import("../lib/server/paymongoClient.js");
+  t("only an sk_test_ key counts as a test key (spaces ignored, live and empty keys do not)",
+    client.isTestSecretKey("sk_test_abc") && client.isTestSecretKey("  sk_test_abc  ") && client.isTestSecretKey("SK_TEST_abc") &&
+    !client.isTestSecretKey("sk_live_abc") && !client.isTestSecretKey("") && !client.isTestSecretKey(null) && !client.isTestSecretKey("not a key"));
+  t("blocked only on production with a test key",
+    client.testKeyBlockedHere({ VERCEL_ENV: "production", PAYMONGO_SECRET_KEY: "sk_test_abc" }) === true &&
+    client.testKeyBlockedHere({ VERCEL_ENV: "production", PAYMONGO_SECRET_KEY: "sk_live_abc" }) === false &&
+    client.testKeyBlockedHere({ VERCEL_ENV: "preview", PAYMONGO_SECRET_KEY: "sk_test_abc" }) === false &&
+    client.testKeyBlockedHere({ PAYMONGO_SECRET_KEY: "sk_test_abc" }) === false);
+
+  const savedKey = process.env.PAYMONGO_SECRET_KEY;
+  open(); openCoaching(); openElite();
+  const handlers = [["Plan", checkout], ["Coaching", coachingCheckout], ["Elite", eliteCheckout]];
+
+  env({ VERCEL_ENV: "production", PAYMONGO_SECRET_KEY: "sk_test_secret" });
+  {
+    const before = log.paymongo.length;
+    const results = [];
+    for (const [name, handler] of handlers) {
+      const r = res(); await handler(post({}, "203.0.113.90"), r); results.push([name, r]);
+      const c = res(); await handler(post({ code: "KQ7MX4RT", check: true }, "203.0.113.91"), c); results.push([name + " code check", c]);
+    }
+    t("production + test key: every offer's checkout and code check answer 'not open yet' and open nothing",
+      results.every(([, r]) => r.statusCode === 503 && r.body.error === "Sign-up is not open yet.") && log.paymongo.length === before,
+      JSON.stringify(results.map(([n, r]) => [n, r.statusCode])));
+    const s = res(); await coachingStatus(post({ ref: "ATH-CO-1234567890A-" + "A".repeat(24) }, "203.0.113.92"), s);
+    t("the status lookup still answers, so a buyer who already paid keeps their confirmation", s.statusCode === 200 && s.body.status === "pending");
+  }
+  env({ VERCEL_ENV: "production", PAYMONGO_SECRET_KEY: "sk_live_secret" });
+  {
+    const before = log.paymongo.length;
+    const results = [];
+    for (const [name, handler] of handlers) { const r = res(); await handler(post({}, "203.0.113.93"), r); results.push([name, r]); }
+    t("production + live key: every offer opens its checkout",
+      results.every(([, r]) => r.statusCode === 200 && r.body.checkout_url) && log.paymongo.length === before + 3);
+  }
+  env({ VERCEL_ENV: "preview", VERCEL_URL: "athlevo-git-store-x.vercel.app", PAYMONGO_SECRET_KEY: "sk_test_secret" });
+  {
+    const r = res(); await checkout(post({}, "203.0.113.94"), r);
+    t("a preview deployment may still use a test key", r.statusCode === 200);
+  }
+  env({ VERCEL_ENV: undefined, VERCEL_URL: undefined, PAYMONGO_SECRET_KEY: savedKey });
+  closed(); closedCoaching(); closedElite();
 }
 
 section("10. Wiring");
@@ -674,7 +966,7 @@ section("11. Sign-up emails (buyer next steps + owner alert)");
   const MAIL_ENV = {
     RESEND_API_KEY: "re_test_key", SIGNUP_ALERT_EMAIL: "dean@athlevo.example, ops@athlevo.example",
     SIGNUP_FROM_EMAIL: undefined, ATHLEVO_INVITE_FROM_EMAIL: undefined, SIGNUP_REPLY_TO_EMAIL: undefined,
-    PLAN_AGREEMENT_URL: undefined, COACHING_AGREEMENT_URL: undefined
+    PLAN_AGREEMENT_URL: undefined, COACHING_AGREEMENT_URL: undefined, ELITE_AGREEMENT_URL: undefined
   };
   const mailEnv = (extra = {}) => env({ ...MAIL_ENV, ...extra });
   const toList = (e) => e.body.to.join(",");
@@ -763,6 +1055,30 @@ section("11. Sign-up emails (buyer next steps + owner alert)");
     t("the alert names Athlevo Coaching and its price",
       owner.body.subject === "[TEST] New Athlevo Coaching sign-up: ₱4,998 — Maria Santos");
   }
+  log.emails.length = 0;
+
+  // Elite Coaching: its own subject, price, links and agreement.
+  env({ ELITE_AGREEMENT_URL: "https://docs.example.com/elite-agreement" });
+  openElite();
+  log.emails.length = 0;
+  const refElite = "ATH-EL-FEEDFACE01-" + "E".repeat(24);
+  {
+    await deliver(paidEvent({ reference: refElite, productId: ATHLEVO_ELITE_PRODUCT.id, amount: 799800, paymentId: "pay_e4el", checkoutId: "cs_e4el", id: "evt_e4el" }));
+    const buyer = byTo("maria@example.com")[0];
+    const owner = byTo("dean@athlevo.example")[0];
+    const all = buyer.body.html + buyer.body.text;
+    t("an Elite payment emails the Elite subject, price and links",
+      buyer.body.subject === "Welcome to Elite Coaching: your next steps" && all.includes("₱7,998") &&
+      all.includes(ELITE_QUESTIONNAIRE) && all.includes(ELITE_SCHEDULE) && all.includes(refElite) &&
+      all.includes("https://athlevo.org/programs/elite-coaching?payment=success"));
+    t("it never shows the Plan's or Coaching's links",
+      !all.includes(QUESTIONNAIRE + "\"") && !all.includes(SCHEDULE) && !all.includes(COACHING_QUESTIONNAIRE) &&
+      !all.includes(COACHING_SCHEDULE) && !all.includes("plan-agreement") && !all.includes("coaching-agreement"));
+    t("it shows the Elite agreement link when one is set", all.includes("https://docs.example.com/elite-agreement"));
+    t("the alert names Elite Coaching and its price", owner.body.subject === "[TEST] New Elite Coaching sign-up: ₱7,998 — Maria Santos");
+  }
+  closedElite();
+  env({ ELITE_AGREEMENT_URL: undefined });
   log.emails.length = 0;
   {
     await deliver(paidEvent({ reference: planRef("4"), paymentId: "pay_e4", checkoutId: "cs_e4", id: "evt_e4" }));
@@ -918,7 +1234,7 @@ section("12. Partner discount codes (unique per runner, 10% off every payment)")
   const MAIL = {
     RESEND_API_KEY: "re_test_key", SIGNUP_ALERT_EMAIL: "dean@athlevo.example",
     SIGNUP_FROM_EMAIL: undefined, ATHLEVO_INVITE_FROM_EMAIL: undefined, SIGNUP_REPLY_TO_EMAIL: undefined,
-    PLAN_AGREEMENT_URL: undefined, COACHING_AGREEMENT_URL: undefined
+    PLAN_AGREEMENT_URL: undefined, COACHING_AGREEMENT_URL: undefined, ELITE_AGREEMENT_URL: undefined
   };
   env(MAIL); open(); openCoaching();
   resendMode = "ok";
@@ -980,6 +1296,78 @@ section("12. Partner discount codes (unique per runner, 10% off every payment)")
     const empty = res(); await checkout(post({ check: true }, "198.51.100.14"), empty);
     t("checking with no code is a 400", empty.statusCode === 400 && empty.body.error === "invalid_code");
   }
+
+  // Elite Coaching: a code with no product list never reaches it. Only a code that names it does.
+  openElite();
+  const ELITE_ONLY = "XM6D4GHK", ALL_THREE = "TR9V2CNP";
+  db.partner_codes.push(
+    { code: ELITE_ONLY, partner: BATCH, percent_off: 10, product_ids: [ATHLEVO_ELITE_PRODUCT.id], active: true, expires_at: null },
+    { code: ALL_THREE, partner: BATCH, percent_off: 10, product_ids: [ATHLEVO_PLAN_PRODUCT.id, ATHLEVO_COACHING_PRODUCT.id, ATHLEVO_ELITE_PRODUCT.id], active: true, expires_at: null }
+  );
+  {
+    const before = sessions();
+    const refused = [];
+    for (const code of [ALL, COACH_ONLY, TWENTY]) {
+      const r = res(); await eliteCheckout(post({ code, check: true }, "198.51.100.61"), r); refused.push(r);
+    }
+    t("a code with no product list (or an empty one), or one for another offer, is not valid on Elite",
+      refused.every(r => r.statusCode === 400 && r.body.error === "invalid_code" && r.body.message === "That code isn't valid.") && sessions() === before);
+    const plan = res(); await checkout(post({ code: ELITE_ONLY, check: true }, "198.51.100.62"), plan);
+    const coaching = res(); await coachingCheckout(post({ code: ELITE_ONLY, check: true }, "198.51.100.62"), coaching);
+    t("a code that names only Elite is not valid on the Plan or Coaching",
+      plan.statusCode === 400 && coaching.statusCode === 400 && plan.body.error === "invalid_code");
+    const ok = res(); await eliteCheckout(post({ code: " xm6d-4ghk ", check: true }, "198.51.100.63"), ok);
+    t("a code that names Elite checks out at ₱7,198.20 off ₱7,998, with no checkout opened",
+      ok.statusCode === 200 && ok.body.valid === true && ok.body.percent_off === 10 &&
+      ok.body.price_cents === 719820 && ok.body.list_price_cents === 799800 && sessions() === before &&
+      !JSON.stringify(ok.body).toLowerCase().includes("acme"));
+    const prices = [];
+    for (const [handler, ip] of [[checkout, "198.51.100.64"], [coachingCheckout, "198.51.100.65"], [eliteCheckout, "198.51.100.66"]]) {
+      const r = res(); await handler(post({ code: ALL_THREE, check: true }, ip), r); prices.push(r.body.price_cents);
+    }
+    t("a code that lists all three offers works on each, at that offer's own price", JSON.stringify(prices) === "[179820,449820,719820]", JSON.stringify(prices));
+  }
+  let eliteCodedRef;
+  {
+    const before = sessions();
+    const bad = res(); await eliteCheckout(post({ code: ALL }, "198.51.100.67"), bad);
+    t("an Elite checkout with a code that does not cover Elite opens nothing (never silently full price)",
+      bad.statusCode === 400 && bad.body.error === "invalid_code" && sessions() === before);
+    const r = res(); await eliteCheckout(post({ code: ELITE_ONLY, percent: 90, amount: 1, price_cents: 1 }, "198.51.100.68"), r);
+    const a = log.paymongo[log.paymongo.length - 1].attributes;
+    eliteCodedRef = a.reference_number;
+    t("a coded Elite checkout is priced by the server: ₱7,198.20, whatever the browser claims",
+      r.statusCode === 200 && sessions() === before + 1 && JSON.stringify(Object.keys(r.body)) === '["checkout_url"]' &&
+      a.line_items.length === 1 && a.line_items[0].amount === 719820 && a.line_items[0].name === "Elite Coaching");
+    t("the Elite session records the code, the percentage and the list price for the webhook to check",
+      a.metadata.partner_code === ELITE_ONLY && a.metadata.discount_percent === "10" && a.metadata.list_price_cents === "799800" &&
+      a.metadata.athlevo_product === "ATHLEVO_ELITE_MONTHLY" && /^ATH-EL-/.test(eliteCodedRef) &&
+      /10% discount applied/.test(a.description) && !JSON.stringify(a).toLowerCase().includes("acme"));
+  }
+  {
+    log.emails.length = 0;
+    const r = await deliver(paidEvent({ reference: eliteCodedRef, productId: ATHLEVO_ELITE_PRODUCT.id, amount: 719820,
+      partnerCode: ELITE_ONLY, discountPercent: 10, paymentId: "pay_ed1", checkoutId: "cs_ed1", id: "evt_ed1" }));
+    const row = rowFor("pay_ed1");
+    t("an Elite payment of exactly the discounted price is recorded with the code and the list price",
+      r.statusCode === 200 && r.body.result.applied === true && row && row.product_id === "ATHLEVO_ELITE_MONTHLY" &&
+      row.amount_cents === 719820 && row.partner_code === ELITE_ONLY && row.list_price_cents === 799800 && row.discount_percent === 10);
+    const owner = log.emails.map(e => e.body).find(m => m.to.includes("dean@athlevo.example"));
+    t("the owner's alert shows the Elite price and discount",
+      owner && owner.subject.includes("Elite Coaching") && owner.subject.includes("₱7,198.20") &&
+      owner.text.includes("Discount: 10% off the ₱7,998 price"), owner && owner.subject);
+    const before = db.plan_signups.length;
+    const wrong = {};
+    wrong.fullPriceWithCode = await deliver(paidEvent({ reference: ref("EL", 40), productId: ATHLEVO_ELITE_PRODUCT.id, amount: 799800, partnerCode: ELITE_ONLY, discountPercent: 10, paymentId: "pay_ew1", id: "evt_ew1" }));
+    wrong.discountWithoutCode = await deliver(paidEvent({ reference: ref("EL", 41), productId: ATHLEVO_ELITE_PRODUCT.id, amount: 719820, paymentId: "pay_ew2", id: "evt_ew2" }));
+    wrong.coachingDiscountOnElite = await deliver(paidEvent({ reference: ref("EL", 42), productId: ATHLEVO_ELITE_PRODUCT.id, amount: 449820, partnerCode: ELITE_ONLY, discountPercent: 10, paymentId: "pay_ew3", id: "evt_ew3" }));
+    wrong.mismatchedPercent = await deliver(paidEvent({ reference: ref("EL", 43), productId: ATHLEVO_ELITE_PRODUCT.id, amount: 719820, partnerCode: ELITE_ONLY, discountPercent: 20, paymentId: "pay_ew4", id: "evt_ew4" }));
+    t("every other Elite amount or half-filled discount is refused and nothing is recorded",
+      Object.values(wrong).every(x => x.statusCode === 400 && x.body.error === "Payment validation failed.") && db.plan_signups.length === before,
+      JSON.stringify(Object.entries(wrong).map(([k, v]) => [k, v.statusCode, v.body && v.body.error])));
+    log.emails.length = 0;
+  }
+  closedElite();
 
   // Starting a checkout with a code.
   let discountedRef;
@@ -1144,6 +1532,13 @@ section("12. Partner discount codes (unique per runner, 10% off every payment)")
     const o = gen.parseOptions(["--partner", "acme-2026-11-24", "--count", "50", "--expires", "2026-12-31", "--products", "plan,coaching"]);
     t("options: defaults to 10%, both products means 'every product', expiry is the end of that day in Philippine time",
       o.percent === 10 && o.productIds === null && o.expiresAt === "2026-12-31T23:59:59+08:00" && o.count === 50 && o.out === "partner-codes");
+    t("options: leaving --products out means the default scope (Plan and Coaching), stored as no list",
+      gen.parseOptions(["--partner", "x", "--count", "1"]).productIds === null);
+    t("options: Elite is only ever included when it is named",
+      JSON.stringify(gen.parseOptions(["--partner", "x", "--count", "1", "--products", "elite"]).productIds) === '["ATHLEVO_ELITE_MONTHLY"]' &&
+      JSON.stringify(gen.parseOptions(["--partner", "x", "--count", "1", "--products", "plan,coaching,elite"]).productIds) ===
+        '["ATHLEVO_PLAN_MONTHLY","ATHLEVO_COACHING_MONTHLY","ATHLEVO_ELITE_MONTHLY"]' &&
+      gen.parseOptions(["--partner", "x", "--count", "1", "--products", "coaching,plan"]).productIds === null);
     t("options: one product, a custom percent",
       JSON.stringify(gen.parseOptions(["--partner", "x", "--count", "1", "--products", "coaching", "--percent", "15"]).productIds) === '["ATHLEVO_COACHING_MONTHLY"]');
     const bad = [
@@ -1151,7 +1546,8 @@ section("12. Partner discount codes (unique per runner, 10% off every payment)")
       ["--partner", "x", "--count", "0"], ["--partner", "x", "--count", "1001"], ["--partner", "x", "--count", "1.5"],
       ["--partner", "x", "--count", "1", "--percent", "0"], ["--partner", "x", "--count", "1", "--percent", "51"],
       ["--partner", "x", "--count", "1", "--expires", "31-12-2026"], ["--partner", "x", "--count", "1", "--expires", "2026-13-40"],
-      ["--partner", "x", "--count", "1", "--products", "elite"], ["--partner", "x", "--count", "1", "--bogus", "1"], ["stray"]
+      ["--partner", "x", "--count", "1", "--products", "all"], ["--partner", "x", "--count", "1", "--products", "hybrid"],
+      ["--partner", "x", "--count", "1", "--products", ""], ["--partner", "x", "--count", "1", "--bogus", "1"], ["stray"]
     ];
     t("options: every malformed input is refused", bad.every(argv => { try { gen.parseOptions(argv); return false; } catch (e) { return true; } }));
     const sql = gen.buildSql(["KQ7MX4RT", "HT3N8WZC"], gen.parseOptions(["--partner", "acme-test", "--count", "2", "--note", "it's a test", "--products", "plan"]));
