@@ -1514,6 +1514,42 @@ input,textarea,select{color:var(--text)}
 .w-btn.google{background:var(--paper);border:1px solid var(--line)}
 .w-btn[disabled]{opacity:.5;cursor:not-allowed}
 .w-btn .w-btn-icon{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+/* ── Premium Email CTA (signup/login welcome) ──────────────────────────────
+   Depth in the default state (works on touch: no hover needed); a thin conic ring + soft
+   bloom on hover (fine pointers), keyboard focus and press. Same red, same white label,
+   no layout change: the ring/bloom are absolutely positioned pseudo-elements. */
+.w-btns{isolation:isolate}
+#authBtnEmail{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--red) 92%,#fff) 0%,var(--red) 52%,color-mix(in srgb,var(--red) 90%,#000) 100%);
+  border-color:color-mix(in srgb,var(--red) 82%,#000);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.26),inset 0 -1px 0 rgba(0,0,0,.16),0 1px 2px rgba(0,0,0,.22),0 8px 18px -8px color-mix(in srgb,var(--red) 60%,transparent);
+  transition:transform var(--dur-fast),box-shadow var(--dur-base) var(--ease-standard),opacity var(--dur-base)}
+#authBtnEmail::before,#authBtnEmail::after{content:"";position:absolute;border-radius:inherit;pointer-events:none;opacity:0;
+  transition:opacity .35s var(--ease-standard);animation:authEmailRing 7s linear infinite;animation-play-state:paused}
+#authBtnEmail::before{inset:-2px;padding:2px;
+  background:conic-gradient(from var(--qr-angle),transparent 0%,transparent 52%,color-mix(in srgb,var(--red) 70%,#fff) 74%,var(--red) 86%,transparent 100%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude}
+#authBtnEmail::after{inset:-3px;z-index:-1;filter:blur(9px);
+  background:conic-gradient(from var(--qr-angle),transparent 0%,transparent 45%,var(--red) 78%,transparent 100%)}
+@keyframes authEmailRing{0%{--qr-angle:0deg}100%{--qr-angle:360deg}}
+#authBtnEmail:focus-visible{outline:2px solid var(--focus-ring);outline-offset:4px}
+#authBtnEmail:focus-visible::before{opacity:.95;animation-play-state:running}
+#authBtnEmail:focus-visible::after{opacity:.45;animation-play-state:running}
+@media (hover:hover) and (pointer:fine){
+  #authBtnEmail:hover:not([disabled]){transform:translateY(-1px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(0,0,0,.18),0 2px 4px rgba(0,0,0,.22),0 12px 24px -8px color-mix(in srgb,var(--red) 70%,transparent)}
+  #authBtnEmail:hover:not([disabled])::before{opacity:.95;animation-play-state:running}
+  #authBtnEmail:hover:not([disabled])::after{opacity:.5;animation-play-state:running}
+}
+/* pressed state sits after the hover block so it wins on desktop too */
+#authBtnEmail:active:not([disabled]){opacity:1;transform:scale(.97);box-shadow:inset 0 2px 5px rgba(0,0,0,.28),inset 0 -1px 0 rgba(255,255,255,.08),0 1px 1px rgba(0,0,0,.2)}
+#authBtnEmail:active:not([disabled])::before{opacity:.95;animation-play-state:running}
+#authBtnEmail:active:not([disabled])::after{opacity:.45;animation-play-state:running}
+@media (prefers-reduced-motion:reduce){
+  #authBtnEmail,#authBtnEmail:hover:not([disabled]),#authBtnEmail:active:not([disabled]){transform:none}
+  #authBtnEmail::before,#authBtnEmail::after{animation:none;transition:none;--qr-angle:210deg}
+}
 .w-signup-link{margin:8px 0 0;text-align:center;font-size:var(--fs-body-sm);color:var(--ink3);line-height:var(--lh-body)}
 .w-signup-link a{color:var(--text);font-weight:650;cursor:pointer;text-decoration:none}
 .w-signup-link a:hover{text-decoration:underline}

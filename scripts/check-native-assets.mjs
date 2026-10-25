@@ -48,7 +48,8 @@ const MARKERS = [
   ["index.html", 'id="wAiSignupSub"', "signup value proposition"],
   ["index.html", "function syncSignupCtaOrder", "signup Meta-browser CTA order"],
   ["js/runtimeEnvironment.js", "isMetaInAppBrowser", "Meta in-app browser helper"],
-  ["js/analytics.js", "signupContextProps", "signup analytics context"]
+  ["js/analytics.js", "signupContextProps", "signup analytics context"],
+  ["index.html", "@keyframes authEmailRing", "premium Email CTA styling"]
 ];
 
 async function exists(path) {
