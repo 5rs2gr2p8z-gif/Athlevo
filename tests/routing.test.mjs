@@ -1480,14 +1480,18 @@ section("Service worker");
     offline.result === "CACHED_SHELL_CURRENT" &&
     offline.log.opened.every(name => name === cacheVersion) &&
     offline.log.globalMatch === 0);
-  const storeOnline = await runNavigation({ path: "/store/pace-plan", networkOk: true, cachedShell: true });
+  const storeOnline = await runNavigation({ path: "/programs/pace-plan", networkOk: true, cachedShell: true });
   const previewOnline = await runNavigation({ path: "/landing-preview", networkOk: true, cachedShell: true });
-  const storeOffline = await runNavigation({ path: "/store", networkOk: false, cachedShell: true });
-  t("store and landing-preview navigations never overwrite or fall back to the cached app shell",
+  const storeOffline = await runNavigation({ path: "/programs", networkOk: false, cachedShell: true });
+  const legacyOnline = await runNavigation({ path: "/store/pace-plan", networkOk: true, cachedShell: true });
+  const legacyOffline = await runNavigation({ path: "/store", networkOk: false, cachedShell: true });
+  t("programs (and the old store path) and landing-preview navigations never overwrite or fall back to the cached app shell",
     Boolean(storeOnline.result) && storeOnline.result.body === "NETWORK_RESPONSE" &&
     Boolean(previewOnline.result) && previewOnline.result.body === "NETWORK_RESPONSE" &&
     storeOnline.log.puts.length === 0 && previewOnline.log.puts.length === 0 &&
-    storeOffline.result !== "CACHED_SHELL_CURRENT");
+    storeOffline.result !== "CACHED_SHELL_CURRENT" &&
+    Boolean(legacyOnline.result) && legacyOnline.result.body === "NETWORK_RESPONSE" &&
+    legacyOnline.log.puts.length === 0 && legacyOffline.result !== "CACHED_SHELL_CURRENT");
   t("old Athlevo cache names are purged during activation",
     /k\.startsWith\(ATHLEVO_CACHE_PREFIX\)[\s\S]{0,100}caches\.delete\(k\)/.test(sw));
   t("auth + API remain network-only", /"supabase\.co"/.test(sw) && /"\/api\/"/.test(sw));
