@@ -77,7 +77,9 @@
     "buyer_intent", "checkout_method",
     "outcome",
     // Phase 1 local training reminders (categorical only)
-    "notification_type", "platform", "trigger"
+    "notification_type", "platform", "trigger",
+    // Signup-conversion context (categorical only; see signupContextProps)
+    "signup_surface", "browser_type", "traffic_source"
   ];
 
   /*
@@ -165,7 +167,10 @@
     tab_name: {
       today: true, coach: true, train: true, trends: true, you: true, unknown: true
     },
-    outcome: { unpaid: true, activating: true, paid: true }
+    outcome: { unpaid: true, activating: true, paid: true },
+    signup_surface: { web: true, android: true, ios: true },
+    browser_type: { standard: true, meta_in_app: true },
+    traffic_source: { paid_social: true, organic: true, unknown: true }
   };
 
   /* ═══════════════════ attribution persistence ═════════════════════ */
@@ -299,6 +304,60 @@
       return shortValue(url.toString(), 500);
     } catch (e) { return null; }
   }
+
+  /*
+   * Signup-conversion context. Three closed-vocabulary categories only — no
+   * URL, referrer text, email, name or token ever enters these values.
+   *   signup_surface : web | android | ios
+   *   browser_type   : standard | meta_in_app
+   *   traffic_source : paid_social | organic | unknown   (best-effort; a bare
+   *                    fbclid also appears on organic Facebook shares, so
+   *                    paid_social means "Meta-sourced click")
+   */
+  function signupSurface() {
+    try {
+      var rt = root.AthlevoRuntime;
+      if (rt && typeof rt.isNativeAndroid === "function" && rt.isNativeAndroid()) return "android";
+      if (rt && typeof rt.isNativeIOS === "function" && rt.isNativeIOS()) return "ios";
+    } catch (e) {}
+    return "web";
+  }
+  function signupBrowserType() {
+    try {
+      var rt = root.AthlevoRuntime;
+      if (rt && typeof rt.isMetaInAppBrowser === "function" && rt.isMetaInAppBrowser()) return "meta_in_app";
+    } catch (e) {}
+    return "standard";
+  }
+  function signupTrafficSource() {
+    var u = {};
+    try { u = utmProps() || {}; } catch (e) {}
+    var src = String(u.utm_source || "").toLowerCase();
+    var med = String(u.utm_medium || "").toLowerCase();
+    if (/^(paid|paid[_-]?social|paidsocial|social[_-]?paid|cpc|ppc)$/.test(med)) return "paid_social";
+    if (med === "organic") return "organic";
+    if (u.fbclid || /^(facebook|fb|instagram|ig|meta)([_-]?ads?)?$/.test(src)) return "paid_social";
+    if (!src && !med) {
+      try {
+        var ref = String(document.referrer || "");
+        if (ref && new URL(ref).origin !== root.location.origin) return "organic";
+      } catch (e) {}
+    }
+    return "unknown";
+  }
+  function signupContextProps() {
+    return {
+      signup_surface: signupSurface(),
+      browser_type: signupBrowserType(),
+      traffic_source: signupTrafficSource()
+    };
+  }
+  var SIGNUP_CONTEXT_EVENTS = {
+    auth_screen_viewed: true,
+    ai_signup_viewed: true,
+    google_signup_clicked: true,
+    email_signup_clicked: true
+  };
 
   function landingProps() {
     var loc = locationParts();
@@ -541,6 +600,10 @@
         // Premium feature events intentionally carry feature/surface only.
         var utm = utmProps();
         Object.keys(utm).forEach(function (k) { if (!safe[k]) safe[k] = utm[k]; });
+        if (SIGNUP_CONTEXT_EVENTS[name]) {
+          var signupCtx = signupContextProps();
+          Object.keys(signupCtx).forEach(function (k) { if (!safe[k]) safe[k] = signupCtx[k]; });
+        }
         if (!safe.device_type) {
           try {
             safe.device_type = /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop";
@@ -788,6 +851,7 @@
     landingProps: landingProps,
     rememberAuthEntry: rememberAuthEntry,
     authEntryProps: authEntryProps,
+    signupContextProps: signupContextProps,
     beginSignupIntent: beginSignupIntent,
     clearSignupIntent: clearSignupIntent,
     completeRegistration: completeRegistration,

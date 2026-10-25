@@ -135,6 +135,13 @@
     return kind === "facebook" || kind === "instagram";
   }
 
+  /* Facebook / Instagram / Messenger in-app browsers. Always false inside the
+   * Capacitor app (native is checked first), so it can never reclassify the
+   * Android/iOS shell. Used ONLY to adjust signup CTA priority + analytics. */
+  function isMetaInAppBrowser() {
+    return isFacebookInstagramBrowser();
+  }
+
   function isEmbeddedBrowser() {
     if (isNative()) return false;
     return /FBAN|FBAV|FB_IAB|Instagram|Messenger|Line\/|Twitter|TikTok|Snapchat|Pinterest|MicroMessenger|;\s?wv\)/i
@@ -818,6 +825,7 @@
     isInstalledPWA,
     browserKind,
     isFacebookInstagramBrowser,
+    isMetaInAppBrowser,
     isEmbeddedBrowser,
     isAppMode,
     shouldShowInstallUI,

@@ -206,7 +206,7 @@
   }
 })();
 </script>
-<script src="js/runtimeEnvironment.js?v=74"></script>
+<script src="js/runtimeEnvironment.js?v=75"></script>
 <script>
 (function(){
   try{
@@ -1491,6 +1491,20 @@ input,textarea,select{color:var(--text)}
 #screen-welcome.is-ai-signup .w-tag{display:none}
 .w-continue-note{display:none;font-size:var(--fs-body);color:var(--ink2);margin:12px auto 0;line-height:var(--lh-body);max-width:300px}
 .w-continue-note.is-visible{display:block}
+/* Signup value proposition (is-ai-signup / first-run native welcome) */
+.w-ai-sub,.w-ai-trust{display:none;margin:12px auto 0;line-height:var(--lh-body);text-align:center}
+.w-ai-sub{font-size:var(--fs-body);color:var(--ink2);max-width:300px}
+.w-ai-trust{font-size:var(--fs-body-sm);color:var(--ink3);max-width:300px;margin-top:10px}
+.w-ai-sub.is-visible,.w-ai-trust.is-visible{display:block}
+.w-google-note{display:none;margin:-4px 0 0;text-align:center;font-size:var(--fs-caption);color:var(--ink3);line-height:var(--lh-body)}
+.w-google-note.is-visible{display:block}
+.w-legal{display:none;margin:6px 0 0;text-align:center;font-size:var(--fs-caption);color:var(--ink3);line-height:var(--lh-body)}
+.w-legal.is-visible{display:block}
+.w-legal a{color:var(--ink2);text-decoration:underline;cursor:pointer}
+#screen-welcome.is-ai-signup .w-top{overflow-wrap:anywhere;padding-bottom:18px}
+#screen-welcome.is-ai-signup .w-ai-title{font-size:clamp(1.6rem,7vw,1.9rem);line-height:1.15;letter-spacing:-.025em}
+@media(max-height:720px){#screen-welcome.is-ai-signup .w-top{padding-top:44px}#screen-welcome.is-ai-signup .w-icon{width:56px;height:56px}#screen-welcome.is-ai-signup .w-lockup{gap:var(--s-4)}#screen-welcome.is-ai-signup .w-ai-title{margin-top:14px}#screen-welcome.is-ai-signup .w-btns{padding-bottom:28px;gap:10px}}
+@media(max-height:600px){#screen-welcome.is-ai-signup .w-top{padding-top:28px}#screen-welcome.is-ai-signup .w-mark{font-size:32px}#screen-welcome.is-ai-signup .w-ai-sub{margin-top:8px}}
 .w-btns{padding:0 26px 46px;display:flex;flex-direction:column;gap:12px}
 .w-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--sans);font-size:var(--fs-body);font-weight:650;padding:15px var(--s-4);border-radius:var(--r-pill);cursor:pointer;border:1px solid var(--line);background:var(--paper);color:var(--text);transition:transform var(--dur-fast),opacity var(--dur-base);-webkit-tap-highlight-color:transparent}
 .w-btn:active{transform:scale(.97)}
@@ -4933,7 +4947,9 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="w-mark">Athlevo<i>.</i></div>
     </div>
     <p class="w-tag">An endurance coach that thinks — built on the Athlevo Method, available 24/7.</p>
-    <h1 class="w-ai-title" id="wAiSignupTitle" hidden>Create your Athlevo account</h1>
+    <h1 class="w-ai-title" id="wAiSignupTitle" hidden>Your running, understood.</h1>
+    <p class="w-ai-sub" id="wAiSignupSub" hidden>Get training guidance built around your schedule, recent training, and goals.</p>
+    <p class="w-ai-trust" id="wAiSignupTrust" hidden>Create your account in about a minute.</p>
     <p class="w-continue-note" id="wCheckoutContinue">Create your Athlevo account to continue.</p>
     <p class="w-continue-note" id="wWelcomeBack">Welcome back. Sign in to continue.</p>
   </div>
@@ -4946,11 +4962,15 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <span class="w-btn-icon"><svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.08 24.08 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg></span>
       Continue with Google
     </button>
+    <p class="w-google-note" id="wGoogleNote" hidden>Google sign-in may open in your browser.</p>
     <button class="w-btn primary" id="authBtnEmail" onclick="openLogin(true)">
       <span class="w-btn-icon"><svg width="20" height="16" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.5" y="0.5" width="19" height="15" rx="2.5" stroke="#fff" stroke-width="1.2" fill="none"/><path d="M1 1l9 7 9-7" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
       Continue with Email
     </button>
     <p class="w-signup-link" id="wSignupLink">Don't have an account? <a onclick="openSignup(true)">Sign up</a></p>
+    <p class="w-legal" id="wAiSignupLegal" hidden>By continuing, you agree to our
+      <a onclick="openLegal('terms')">Terms of Service</a> and
+      <a onclick="openLegal('privacy')">Privacy Policy</a>.</p>
   </div>
 </section>
 
@@ -7910,10 +7930,53 @@ function applyAiSignupWelcomeCopy() {
   var emailBtn = document.getElementById("authBtnEmail");
   if (screen) screen.classList.add("is-ai-signup");
   if (title) { title.hidden = false; title.classList.add("is-visible"); }
+  setSignupValuePropVisible(true);
   if (checkout) { checkout.hidden = true; checkout.classList.remove("is-visible"); }
   if (back) { back.hidden = true; back.classList.remove("is-visible"); }
   if (link) link.innerHTML = 'Already have an account? <a onclick="openLogin(true)">Sign in</a>';
   if (emailBtn) emailBtn.setAttribute("onclick", "openSignup(true)");
+  syncSignupCtaOrder(true);
+}
+/* Value-proposition lines under the headline. Visibility only; copy lives in
+ * the markup so there is exactly one source. */
+function setSignupValuePropVisible(visible) {
+  ["wAiSignupSub", "wAiSignupTrust", "wAiSignupLegal"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.hidden = !visible;
+    el.classList.toggle("is-visible", !!visible);
+  });
+}
+/* Facebook/Instagram in-app browser: Email leads, Google stays available with
+ * a short note (Google may hand off to the system browser). DOM order is
+ * changed (not CSS order) so keyboard/tab order matches what is shown.
+ * Every other browser, and the Capacitor app, keep the normal order. */
+function isMetaInAppSignupContext() {
+  try {
+    return !!(window.AthlevoRuntime &&
+      typeof AthlevoRuntime.isMetaInAppBrowser === "function" &&
+      AthlevoRuntime.isMetaInAppBrowser());
+  } catch (e) { return false; }
+}
+function syncSignupCtaOrder(signupMode) {
+  var wrap = document.querySelector("#screen-welcome .w-btns");
+  var google = document.getElementById("authBtnGoogle");
+  var email = document.getElementById("authBtnEmail");
+  var note = document.getElementById("wGoogleNote");
+  if (!wrap || !google || !email) return;
+  var metaFirst = signupMode === true && isMetaInAppSignupContext();
+  if (note) google.after(note);               /* note always directly under Google */
+  if (metaFirst) {
+    wrap.insertBefore(email, google);         /* Email, Google, note */
+  } else if (note) {
+    note.after(email);                        /* default: Google, note, Email */
+  } else {
+    google.after(email);
+  }
+  if (note) {
+    note.hidden = !metaFirst;
+    note.classList.toggle("is-visible", metaFirst);
+  }
 }
 function resetAiSignupWelcome() {
   var screen = document.getElementById("screen-welcome");
@@ -7924,6 +7987,8 @@ function resetAiSignupWelcome() {
   if (title) { title.hidden = true; title.classList.remove("is-visible"); }
   if (link) link.innerHTML = 'Don\'t have an account? <a onclick="openSignup(true)">Sign up</a>';
   if (emailBtn) emailBtn.setAttribute("onclick", "openLogin(true)");
+  setSignupValuePropVisible(false);
+  syncSignupCtaOrder(false);
 }
 function openAiSignup(opts) {
   opts = opts || {};
@@ -12972,9 +13037,9 @@ setTimeout(function () {
 <script src="js/trendsAnalytics.js?v=84"></script>
 <script src="js/trainingState.js?v=1"></script>
 <script src="js/socialAuth.js?v=75"></script>
-<script src="js/analyticsRegistry.js?v=74"></script>
+<script src="js/analyticsRegistry.js?v=75"></script>
 <script src="js/metaPixel.js?v=69"></script>
-<script src="js/analytics.js?v=75"></script>
+<script src="js/analytics.js?v=76"></script>
 <script src="js/aiConsent.js?v=3"></script>
 <script src="js/notifications.js?v=1"></script>
 <script src="js/betaDashboard.js?v=67"></script>

@@ -44,7 +44,11 @@ const MARKERS = [
   ["js/aiConsent.js", 'CONSENT_VERSION = "2"', "AI consent v2"],
   ["js/runtimeEnvironment.js", 'AUTH_CALLBACK = "athlevo://auth/callback"', "native Google callback"],
   ["js/socialAuth.js", "authRedirectUrl()", "native/web redirect separation"],
-  ["index.html", ".coach-side-panel-nav{display:flex", "drawer layout fix"]
+  ["index.html", ".coach-side-panel-nav{display:flex", "drawer layout fix"],
+  ["index.html", 'id="wAiSignupSub"', "signup value proposition"],
+  ["index.html", "function syncSignupCtaOrder", "signup Meta-browser CTA order"],
+  ["js/runtimeEnvironment.js", "isMetaInAppBrowser", "Meta in-app browser helper"],
+  ["js/analytics.js", "signupContextProps", "signup analytics context"]
 ];
 
 async function exists(path) {

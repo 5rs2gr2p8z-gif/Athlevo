@@ -24,13 +24,13 @@
   var EVENTS = {
     landing_viewed:               { kind: "behavioural", props: ["page_url", "page_path", "referrer", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     ai_landing_viewed:            { kind: "behavioural", props: ["source", "path", "page_path", "referrer", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer", "acquisition_intent"] },
-    ai_signup_viewed:             { kind: "behavioural", props: ["from", "diagnostic_completed", "path", "page_path", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
+    ai_signup_viewed:             { kind: "behavioural", props: ["from", "diagnostic_completed", "path", "page_path", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer", "signup_surface", "browser_type", "traffic_source"] },
     payment_screen_viewed:        { kind: "behavioural", props: ["source", "price_php", "plan", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     payment_completed:            { kind: "milestone",   props: ["provider", "plan_id", "price_php", "source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "initial_referrer"] },
     signup_cta_clicked:           { kind: "behavioural", props: ["cta_text", "cta_location", "destination", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
-    auth_screen_viewed:           { kind: "behavioural", props: ["entry_source", "previous_page", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
-    google_signup_clicked:        { kind: "behavioural", props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
-    email_signup_clicked:         { kind: "behavioural", props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
+    auth_screen_viewed:           { kind: "behavioural", props: ["entry_source", "previous_page", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "signup_surface", "browser_type", "traffic_source"] },
+    google_signup_clicked:        { kind: "behavioural", props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "signup_surface", "browser_type", "traffic_source"] },
+    email_signup_clicked:         { kind: "behavioural", props: ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "signup_surface", "browser_type", "traffic_source"] },
     login_clicked:                { kind: "behavioural", props: ["entry_source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] },
     in_app_browser_signup_blocked:{ kind: "behavioural", props: ["browser", "intent", "source_surface"] },
     external_signup_link_copied:  { kind: "behavioural", props: ["browser", "intent", "source_surface"] },
@@ -284,6 +284,9 @@
     selected_role: { athlete: true, coach: true },
     application_status: { pending: true },
     outcome: { unpaid: true, activating: true, paid: true },
+    signup_surface: { web: true, android: true, ios: true },
+    browser_type: { standard: true, meta_in_app: true },
+    traffic_source: { paid_social: true, organic: true, unknown: true },
     // Free -> Pro conversion trigger taxonomy (revenue-funnel breakdown).
     trigger: {
       first_plan: true, coach_limit: true, plan_limit: true,
