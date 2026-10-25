@@ -166,7 +166,7 @@ test("A. no unverified or risky claims on the signup screen", () => {
 /* ═══════════ B / C. CTAs stay functional ═══════════ */
 
 test("B. Email CTA: legacy login handler by default, signup handler in signup mode", () => {
-  assert.match(html, /<button class="w-btn primary" id="authBtnEmail" onclick="openLogin\(true\)">/);
+  assert.match(html, /<button class="w-btn primary btn-premium-red" id="authBtnEmail" onclick="openLogin\(true\)">/);
   const w = welcomeWorld({ ua: UA.chrome });
   w.sandbox.applyAiSignupWelcomeCopy();
   assert.equal(w.dom.ids.authBtnEmail.getAttribute("onclick"), "openSignup(true)");

@@ -49,7 +49,8 @@ const MARKERS = [
   ["index.html", "function syncSignupCtaOrder", "signup Meta-browser CTA order"],
   ["js/runtimeEnvironment.js", "isMetaInAppBrowser", "Meta in-app browser helper"],
   ["js/analytics.js", "signupContextProps", "signup analytics context"],
-  ["index.html", "@keyframes authEmailRing", "premium Email CTA styling"]
+  ["index.html", 'id="premiumRedButtons"', "shared premium red CTA styling"],
+  ["index.html", "@keyframes prbRing", "premium red CTA glow"]
 ];
 
 async function exists(path) {
