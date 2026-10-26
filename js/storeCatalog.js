@@ -54,9 +54,9 @@
       "An Athlevo athlete in a white Athlevo shirt and red shorts holding one knee to the chest in a standing stretch."
     ),
     founder: storePhoto(
-      "founder", 1145, 1374,
-      "/assets/landing/dean-founder.png",
-      "Dean Castro at an endurance race."
+      "founder", 920, 1150,
+      "/assets/landing/dean-castro-coach.jpg",
+      "Dean Castro running a race in a white Athlevo singlet and race bib."
     ),
     hybrid: storePhoto(
       "hybrid", 1023, 1279,

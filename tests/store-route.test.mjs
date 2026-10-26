@@ -456,8 +456,8 @@ section("4d. Athlevo Plan page");
   t("coach: name, role, and an existing optimized photo of Dean",
     page.coach.name === "Dean Vincent Castro" &&
     page.coach.role === "Founder & Head Coach, Athlevo" &&
-    page.coach.photo.src === "/assets/store/founder-1145.webp" &&
-    page.coach.photo.original === "/assets/landing/dean-founder.png" &&
+    page.coach.photo.src === "/assets/store/founder-920.webp" &&
+    page.coach.photo.original === "/assets/landing/dean-castro-coach.jpg" &&
     existsSync("." + page.coach.photo.original) &&
     page.coach.photo.webp.length === 2 && page.coach.photo.avif.length === 2);
   t("coach intro invents no credentials and does not promise Dean coaches every customer",
@@ -657,7 +657,8 @@ section("7. Responsive storefront images");
   t("catalog photos keep original sources on disk",
     existsSync("./assets/landing/store-hero-stretch.jpg") &&
     existsSync("./assets/landing/hero-athlevo.png") &&
-    existsSync("./assets/landing/dean-founder.png"));
+    existsSync("./assets/landing/dean-founder.png") &&
+    existsSync("./assets/landing/dean-castro-coach.jpg"));
   t("catalog hero is the stretch photo with 640w and 1080w WebP and AVIF files on disk",
     catalog.hero.image.original === "/assets/landing/store-hero-stretch.jpg" &&
     catalog.hero.image.width === 1080 && catalog.hero.image.height === 1616 &&
@@ -677,7 +678,7 @@ section("7. Responsive storefront images");
     ["640", "1023"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/hybrid-" + w + "." + ext))));
   t("Hybrid Programming no longer uses the founder photo, which stays on Dean's coach card only",
     hybrid.src !== catalog.coaches[0].photo.src &&
-    catalog.coaches[0].photo.src === "/assets/store/founder-1145.webp" &&
+    catalog.coaches[0].photo.src === "/assets/store/founder-920.webp" &&
     catalog.products.filter(p => p.hero.src === catalog.coaches[0].photo.src).length === 0);
   t("Hybrid photo alt text describes the scene without naming a person or race number",
     hybrid.alt.length > 20 && !/dean|castro|founder|christian|francia|\d{4,}/i.test(hybrid.alt));
