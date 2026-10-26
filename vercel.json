@@ -72,6 +72,108 @@
       "permanent": false
     },
     {
+      "source": "/programs",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/programs",
+      "permanent": false
+    },
+    {
+      "source": "/programs/athlevo-plan",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/athlevo-plan",
+      "permanent": false
+    },
+    {
+      "source": "/programs/athlevo-coaching",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/athlevo-coaching",
+      "permanent": false
+    },
+    {
+      "source": "/programs/hybrid-programming",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/hybrid-programming",
+      "permanent": false
+    },
+    {
+      "source": "/programs/elite-coaching",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/elite-coaching",
+      "permanent": false
+    },
+    {
+      "source": "/programs/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/programs/:slug",
+      "permanent": false
+    },
+    {
       "source": "/store/first-5k",
       "destination": "/programs/athlevo-plan",
       "permanent": true
@@ -100,6 +202,74 @@
       "source": "/store/:slug",
       "destination": "/programs/:slug",
       "permanent": true
+    },
+    {
+      "source": "/athlevo-plan",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/athlevo-plan",
+      "permanent": false
+    },
+    {
+      "source": "/athlevo-coaching",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/athlevo-coaching",
+      "permanent": false
+    },
+    {
+      "source": "/hybrid-programming",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/hybrid-programming",
+      "permanent": false
+    },
+    {
+      "source": "/elite-coaching",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/elite-coaching",
+      "permanent": false
     },
     {
       "source": "/athlevo-plan",

@@ -8,6 +8,9 @@
  * It also mirrors programs.athlevo.org. A request whose Host is that name gets the
  * rules below (an offer is /<slug>, "/" goes to the hub, anything that is not a program
  * page, an API call or a static file goes to athlevo.org), exactly as vercel.json does.
+ * And a request whose Host is athlevo.org itself has its program addresses (/programs,
+ * /programs/<slug>, the short links) sent to programs.athlevo.org. Every other host, such
+ * as 127.0.0.1 or a preview deployment, serves the program pages under /programs.
  * To try it from a browser, map the name to this server, for example in Chrome:
  *   --host-resolver-rules="MAP programs.athlevo.org 127.0.0.1:4173"
  * and open http://programs.athlevo.org/
@@ -58,7 +61,9 @@ function shortLinkFor(pathname) {
 
 // programs.athlevo.org (see vercel.json). Offers live at /<slug> there.
 const PROGRAMS_HOST = "programs.athlevo.org";
-const APP_ORIGIN = "https://athlevo.org";
+const PROGRAMS_ORIGIN = "https://" + PROGRAMS_HOST;
+const APP_HOST = "athlevo.org";
+const APP_ORIGIN = "https://" + APP_HOST;
 // Paths the programs host serves itself; everything else is the app, which stays on athlevo.org.
 const PROGRAMS_HOST_KEEPS = /^\/(?:(?:programs|athlevo-plan|athlevo-coaching|hybrid-programming|elite-coaching)(?:\/|$)|(?:api|assets|athlevo-assets|js)\/|(?:store\.css|robots\.txt|sitemap\.xml|sitemap-programs\.xml)$)/;
 
@@ -68,6 +73,18 @@ function programsHostRedirect(pathname, search) {
   const nested = pathname.match(/^\/programs\/([a-z0-9-]+)$/);
   if (nested && SHORT_LINKS.has(nested[1])) return [308, "/" + nested[1] + search];
   if (!PROGRAMS_HOST_KEEPS.test(pathname)) return [307, APP_ORIGIN + pathname + search];
+  return null;
+}
+
+// The app host's redirects to the program host: the hub, every offer (also by its short link),
+// and any other /programs/<x>, which the program host then sorts out. Temporary (307), like the
+// short links they replace. Query strings, including ?code=, are kept.
+function appHostRedirect(pathname, search) {
+  if (pathname === "/programs") return [307, PROGRAMS_ORIGIN + "/programs" + search];
+  const nested = pathname.match(/^\/programs\/([a-z0-9-]+)$/);
+  if (nested) return [307, PROGRAMS_ORIGIN + (SHORT_LINKS.has(nested[1]) ? "/" : "/programs/") + nested[1] + search];
+  const short = pathname.match(/^\/([a-z0-9-]+)$/);
+  if (short && SHORT_LINKS.has(short[1])) return [307, PROGRAMS_ORIGIN + "/" + short[1] + search];
   return null;
 }
 
@@ -112,6 +129,14 @@ const server = http.createServer((req, res) => {
   const host = String(req.headers.host || "").split(":")[0].toLowerCase();
   if (host === PROGRAMS_HOST) {
     const hop = programsHostRedirect(url.pathname, url.search);
+    if (hop) {
+      res.writeHead(hop[0], { location: hop[1] });
+      res.end();
+      return;
+    }
+  }
+  if (host === APP_HOST) {
+    const hop = appHostRedirect(url.pathname, url.search);
     if (hop) {
       res.writeHead(hop[0], { location: hop[1] });
       res.end();

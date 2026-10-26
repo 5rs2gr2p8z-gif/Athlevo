@@ -468,10 +468,14 @@
     return out;
   }
 
-  var SITE_URL = "https://athlevo.org";
-  // The program pages are also served from this host, where an offer lives at /<slug>
-  // (programs.athlevo.org/athlevo-plan) instead of /programs/<slug>. The hub stays at
-  // /programs on every host. Only the host decides: see productPath().
+  // The program pages live on their own host: the hub is programs.athlevo.org/programs and an
+  // offer is programs.athlevo.org/<slug>. Canonical tags, share tags, JSON-LD and the sitemap
+  // are written from SITE_URL. The app, its sign-in and the legal pages stay on APP_URL, and
+  // athlevo.org redirects every old program address here (see vercel.json). On any other host
+  // (a preview deployment, local) an offer is still /programs/<slug>; only the host decides:
+  // see productPath().
+  var SITE_URL = "https://programs.athlevo.org";
+  var APP_URL = "https://athlevo.org";
   var PROGRAMS_HOST = "programs.athlevo.org";
   var SITE_HOST = SITE_URL.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
 
@@ -551,7 +555,8 @@
   // record, the Facebook page), so the markup cannot say anything the page does not.
   function structuredData(slug) {
     if (slug) return null;
-    var orgId = SITE_URL + "/#organization";
+    // The organization is Athlevo itself, whose home page is on the app host.
+    var orgId = APP_URL + "/#organization";
     var deanId = SITE_URL + "/programs#dean-castro";
     return {
       "@context": "https://schema.org",
@@ -560,7 +565,7 @@
           "@type": "Organization",
           "@id": orgId,
           name: "Athlevo",
-          url: SITE_URL + "/",
+          url: APP_URL + "/",
           address: { "@type": "PostalAddress", addressRegion: "Pampanga", addressCountry: "PH" },
           areaServed: { "@type": "Country", name: "Philippines" },
           sameAs: [FACEBOOK_URL],
@@ -589,6 +594,7 @@
   var catalog = {
     brand: "Athlevo",
     siteUrl: SITE_URL,
+    appUrl: APP_URL,
     programsHost: PROGRAMS_HOST,
     productPath: productPath,
     purchasingAvailable: false,

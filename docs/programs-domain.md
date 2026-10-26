@@ -1,7 +1,7 @@
 # programs.athlevo.org
 
-The public program pages (the hub and the four offers) are also served from their own host,
-`programs.athlevo.org`. The app, its sign-in, the legal pages and the PayMongo webhook stay on
+The public program pages (the hub and the four offers) are served from their own host,
+`programs.athlevo.org`; `athlevo.org` redirects the old addresses there. The app, its sign-in, the legal pages and the PayMongo webhook stay on
 `athlevo.org`. It is one Vercel project and one deployment; the host in the request decides what answers.
 
 ## Addresses
@@ -36,16 +36,29 @@ checkout return links and the athlevo.org addresses are all unchanged; the new h
    `/hybrid-programming`, `/elite-coaching` opens; `/athlevo-plan?code=XXXX` keeps the code;
    `/privacy` lands on `https://athlevo.org/privacy`.
 
-**Step 2: switch over.** Change what points at the new host, in one commit:
+**Step 2: switch over (done).** What now points at the new host, all in one commit:
 
-- `SITE_URL` in `js/storeCatalog.js` becomes `https://programs.athlevo.org`, then `npm run build:store`
-  (canonicals, `og:url`, JSON-LD and the offer links in the built pages follow).
-- `PLAN_PAGE_PATH`, `COACHING_PAGE_PATH`, `ELITE_PAGE_PATH` in `lib/server/planSignup.js` become `/<slug>` and
-  the default of `planSiteUrl()` becomes the new host, so PayMongo returns the buyer, and the emails link,
-  to `programs.athlevo.org`. If `PLAN_SIGNUP_SITE_URL` is set in Vercel it must be changed too.
-- On `athlevo.org`, `/programs`, `/programs/:slug`, `/store...` and the short links redirect to the new host.
+- `SITE_URL` in `js/storeCatalog.js` is `https://programs.athlevo.org` (`APP_URL`, `https://athlevo.org`, is kept for
+  the one thing that is not a program page: the Organization in the JSON-LD). `npm run build:store` writes the
+  canonicals, `og:url`, JSON-LD and the offer links from it, and two sitemaps: `sitemap.xml` (the home page, on
+  athlevo.org) and `sitemap-programs.xml` (the hub and the four offers, on programs.athlevo.org). `robots.txt`
+  names both. The store footer's Privacy, Terms and Support links are absolute `https://athlevo.org/...` links.
+- `PLAN_PAGE_PATH`, `COACHING_PAGE_PATH` and `ELITE_PAGE_PATH` in `lib/server/planSignup.js` are `/<slug>`, and the
+  default of `planSiteUrl()` is `https://programs.athlevo.org`, so PayMongo returns the buyer, and the emails link,
+  to `programs.athlevo.org`. A Vercel preview deployment still returns to itself (its short links reach the page).
+  `PLAN_SIGNUP_SITE_URL` is not set in Vercel; if it ever is, it overrides this.
+- On `athlevo.org`, `/programs`, `/programs/<slug>`, `/programs/<anything else>` and the four short links redirect (307,
+  one hop, query kept) to the same page on `programs.athlevo.org`. The legacy `/store...` paths take their old first
+  hop to `/programs...`, then these. A checkout started before the switch returns to the old address and lands
+  in the right place through the same redirect. Other hosts (previews, local) are unchanged.
+  Every one of these rules is keyed on `athlevo.org` and excludes `programs.athlevo.org`, so they can never loop.
 
-**Rollback.** Revert the step 2 commit (and `PLAN_SIGNUP_SITE_URL` if it was changed). Step 1 can stay.
+**Make the redirects permanent later.** They are temporary (307) so the move is easy to undo. Once it has run
+for a while, change `"permanent": false` to `true` on the ten rules in `vercel.json` that have `"value": "athlevo.org"`
+(browsers remember a 308 for a long time, which is why this is a separate, later step).
+
+**Rollback.** Revert the Step 2 commit. Nothing else changes: the new host keeps working, the old addresses serve the
+pages again, and checkouts return to `athlevo.org/programs/<slug>`. If `PLAN_SIGNUP_SITE_URL` was ever set, put it back.
 
 ## Why the redirect for everything else
 

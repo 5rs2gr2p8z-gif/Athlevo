@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://athlevo.org/sitemap.xml
+Sitemap: https://programs.athlevo.org/sitemap-programs.xml

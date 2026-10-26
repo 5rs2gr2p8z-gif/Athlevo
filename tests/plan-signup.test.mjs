@@ -262,8 +262,8 @@ let reference;
   t("tagged as the Plan product, with no Athlevo user",
     a.metadata.athlevo_product === "ATHLEVO_PLAN_MONTHLY" && !("athlevo_user_id" in a.metadata));
   t("returns to the Plan page with the reference, or back on cancel",
-    a.success_url === `https://athlevo.org/programs/athlevo-plan?payment=success&ref=${encodeURIComponent(reference)}` &&
-    a.cancel_url === "https://athlevo.org/programs/athlevo-plan?payment=cancelled");
+    a.success_url === `https://programs.athlevo.org/athlevo-plan?payment=success&ref=${encodeURIComponent(reference)}` &&
+    a.cancel_url === "https://programs.athlevo.org/athlevo-plan?payment=cancelled");
   t("no secret or key reaches the browser", !JSON.stringify(r.body).includes("sk_test"));
   t("asks PayMongo to email a receipt", a.send_email_receipt === true);
 }
@@ -272,7 +272,7 @@ env({ VERCEL_ENV: "preview", VERCEL_URL: "athlevo-git-store-x.vercel.app" });
   const r = res(); await checkout(post({}, "203.0.113.6"), r);
   const a = log.paymongo[log.paymongo.length - 1].attributes;
   t("a Vercel preview returns to itself, so a test payment never lands on the live site",
-    a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/programs/athlevo-plan?payment=success"));
+    a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/athlevo-plan?payment=success"));
 }
 env({ VERCEL_ENV: undefined, VERCEL_URL: undefined });
 paymongoDown = true;
@@ -495,14 +495,14 @@ section("9. Athlevo Coaching (₱4,998)");
     t("tagged as the Coaching product, with no Athlevo user",
       a.metadata.athlevo_product === "ATHLEVO_COACHING_MONTHLY" && !("athlevo_user_id" in a.metadata));
     t("returns to the Coaching page with the reference, or back on cancel",
-      a.success_url === `https://athlevo.org/programs/athlevo-coaching?payment=success&ref=${encodeURIComponent(coRef)}` &&
-      a.cancel_url === "https://athlevo.org/programs/athlevo-coaching?payment=cancelled");
+      a.success_url === `https://programs.athlevo.org/athlevo-coaching?payment=success&ref=${encodeURIComponent(coRef)}` &&
+      a.cancel_url === "https://programs.athlevo.org/athlevo-coaching?payment=cancelled");
   }
   env({ VERCEL_ENV: "preview", VERCEL_URL: "athlevo-git-store-x.vercel.app" });
   {
     const r = res(); await coachingCheckout(post({}, "203.0.113.31"), r);
     const a = log.paymongo[log.paymongo.length - 1].attributes;
-    t("a Vercel preview returns to itself", a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/programs/athlevo-coaching?payment=success"));
+    t("a Vercel preview returns to itself", a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/athlevo-coaching?payment=success"));
   }
   env({ VERCEL_ENV: undefined, VERCEL_URL: undefined });
   {
@@ -727,14 +727,14 @@ section("9b. Elite Coaching (₱7,998)");
     t("an ordinary Elite checkout carries no discount fields",
       !("partner_code" in a.metadata) && !("discount_percent" in a.metadata) && !/discount/i.test(a.description + a.line_items[0].description));
     t("returns to the Elite page with the reference, or back on cancel",
-      a.success_url === `https://athlevo.org/programs/elite-coaching?payment=success&ref=${encodeURIComponent(elRef)}` &&
-      a.cancel_url === "https://athlevo.org/programs/elite-coaching?payment=cancelled");
+      a.success_url === `https://programs.athlevo.org/elite-coaching?payment=success&ref=${encodeURIComponent(elRef)}` &&
+      a.cancel_url === "https://programs.athlevo.org/elite-coaching?payment=cancelled");
   }
   env({ VERCEL_ENV: "preview", VERCEL_URL: "athlevo-git-store-x.vercel.app" });
   {
     const r = res(); await eliteCheckout(post({}, "203.0.113.51"), r);
     const a = log.paymongo[log.paymongo.length - 1].attributes;
-    t("a Vercel preview returns to itself", a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/programs/elite-coaching?payment=success"));
+    t("a Vercel preview returns to itself", a.success_url.startsWith("https://athlevo-git-store-x.vercel.app/elite-coaching?payment=success"));
   }
   env({ VERCEL_ENV: undefined, VERCEL_URL: undefined });
   {
@@ -1006,8 +1006,8 @@ section("11. Sign-up emails (buyer next steps + owner alert)");
         x.includes("₱1,998") && x.includes(ref2) && x.includes(QUESTIONNAIRE) && x.includes(SCHEDULE)) &&
       buyer.body.text.startsWith("Hi Maria,"));
     t("it links back to the confirmation page for that reference",
-      buyer.body.text.includes(`https://athlevo.org/programs/athlevo-plan?payment=success&ref=${ref2}`) &&
-      buyer.body.html.includes(`https://athlevo.org/programs/athlevo-plan?payment=success&amp;ref=${ref2}`));
+      buyer.body.text.includes(`https://programs.athlevo.org/athlevo-plan?payment=success&ref=${ref2}`) &&
+      buyer.body.html.includes(`https://programs.athlevo.org/athlevo-plan?payment=success&amp;ref=${ref2}`));
     t("it makes no weekly promise, says it does not renew automatically, and has no agreement link when none is set",
       !/weekly/i.test(buyer.body.text + buyer.body.html) && /does not renew automatically/.test(buyer.body.text) &&
       !/agreement/i.test(buyer.body.text));
@@ -1047,7 +1047,7 @@ section("11. Sign-up emails (buyer next steps + owner alert)");
     t("a Coaching payment emails the Coaching subject, price and links",
       buyer.body.subject === "Welcome to Athlevo Coaching: your next steps" && all.includes("₱4,998") &&
       all.includes(COACHING_QUESTIONNAIRE) && all.includes(COACHING_SCHEDULE) && all.includes(ref3) &&
-      all.includes("https://athlevo.org/programs/athlevo-coaching?payment=success"));
+      all.includes("https://programs.athlevo.org/athlevo-coaching?payment=success"));
     t("it never shows the Plan's questionnaire, scheduling or agreement link",
       !all.includes(QUESTIONNAIRE + "\"") && !all.includes(SCHEDULE) && !all.includes("plan-agreement"));
     t("it shows the Coaching agreement link when one is set",
@@ -1070,7 +1070,7 @@ section("11. Sign-up emails (buyer next steps + owner alert)");
     t("an Elite payment emails the Elite subject, price and links",
       buyer.body.subject === "Welcome to Elite Coaching: your next steps" && all.includes("₱7,998") &&
       all.includes(ELITE_QUESTIONNAIRE) && all.includes(ELITE_SCHEDULE) && all.includes(refElite) &&
-      all.includes("https://athlevo.org/programs/elite-coaching?payment=success"));
+      all.includes("https://programs.athlevo.org/elite-coaching?payment=success"));
     t("it never shows the Plan's or Coaching's links",
       !all.includes(QUESTIONNAIRE + "\"") && !all.includes(SCHEDULE) && !all.includes(COACHING_QUESTIONNAIRE) &&
       !all.includes(COACHING_SCHEDULE) && !all.includes("plan-agreement") && !all.includes("coaching-agreement"));
