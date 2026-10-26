@@ -110,7 +110,7 @@ function renderRoute(catalogSrc, storefrontSrc, path, siteUrl) {
   const url = new URL(path, siteUrl);
   const ctx = {
     URL, document,
-    location: { href: url.href, pathname: url.pathname, search: "", hash: "", origin: url.origin },
+    location: { href: url.href, pathname: url.pathname, search: "", hash: "", origin: url.origin, hostname: url.hostname },
     history: { pushState: noop, replaceState: noop },
     requestAnimationFrame: noop, scrollTo: noop, addEventListener: noop
   };

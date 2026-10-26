@@ -140,7 +140,9 @@ section("6. Routes unchanged");
   for (const p of ["/ai", "/privacy", "/terms", "/support"])
     t(`${p} still rewrites to /index.html`, rw(p)?.destination === "/index.html");
   t("/landing-preview still rewrites to landing-preview.html", rw("/landing-preview")?.destination === "/landing-preview.html");
-  t('"/" is NOT rewritten (landing not activated)', !rw("/") && !(vercel.redirects || []).some(r => r.source === "/"));
+  // A "/" rule keyed on a host (programs.athlevo.org sends its bare root to the hub) is not athlevo.org's root.
+  const apexRoot = (r) => r.source === "/" && !(r.has || []).length;
+  t('"/" is NOT rewritten on athlevo.org (landing not activated)', !(vercel.rewrites || []).some(apexRoot) && !(vercel.redirects || []).some(apexRoot));
   // Narrow invariants instead of a whole-file hash: legitimate app UI additions (e.g. Fuel) must not read as routing regressions.
   t("index.html still routes /ai (and root) to the anonymous Coach entry",
     /aiPath === "\/ai" \|\| aiPath === "" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"/.test(indexHtml));

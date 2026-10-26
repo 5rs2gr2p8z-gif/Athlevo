@@ -468,6 +468,17 @@
   }
 
   var SITE_URL = "https://athlevo.org";
+  // The program pages are also served from this host, where an offer lives at /<slug>
+  // (programs.athlevo.org/athlevo-plan) instead of /programs/<slug>. The hub stays at
+  // /programs on every host. Only the host decides: see productPath().
+  var PROGRAMS_HOST = "programs.athlevo.org";
+  var SITE_HOST = SITE_URL.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+
+  // Where an offer's page lives on a given host.
+  function productPath(slug, host) {
+    return (host === PROGRAMS_HOST ? "/" : "/programs/") + slug;
+  }
+
   // The Facebook page already linked from the Athlevo landing page.
   var FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61574957235305";
 
@@ -485,7 +496,7 @@
     }
     var product = getProduct(slug);
     if (!product) return null;
-    var path = "/programs/" + product.slug;
+    var path = productPath(product.slug, SITE_HOST);
     var meta = { path: path, url: SITE_URL + path };
     if (product.page) {
       var page = product.page;
@@ -577,6 +588,8 @@
   var catalog = {
     brand: "Athlevo",
     siteUrl: SITE_URL,
+    programsHost: PROGRAMS_HOST,
+    productPath: productPath,
     purchasingAvailable: false,
     hero: {
       image: PHOTO.stretch,

@@ -70,6 +70,10 @@
   // to /programs, for a page that was cached or opened before the redirect applied.
   var BASE = "/programs";
 
+  // On programs.athlevo.org an offer lives at /<slug> (programs.athlevo.org/athlevo-plan);
+  // everywhere else it is /programs/<slug>. The hub is /programs on both.
+  var FLAT = !!(global.location && global.location.hostname === catalog.programsHost);
+
   function parseRoute() {
     var url = new URL(global.location.href);
     var path = String(url.pathname || "/").replace(/\/+$/, "") || "/";
@@ -79,10 +83,11 @@
       if (product) return { view: "product", slug: product };
       return { view: "catalog", hash: url.hash };
     }
-    if (path === BASE || path === "/store" || path === "") {
+    if (path === BASE || path === "/store" || path === "" || (FLAT && path === "/")) {
       return { view: "catalog", hash: url.hash };
     }
     var match = path.match(/^\/(?:programs|store)\/([^/]+)$/);
+    if (!match && FLAT) match = path.match(/^\/([^/]+)$/);
     if (match) {
       var slug = decodeURIComponent(match[1]);
       var ref = params.get("ref");
@@ -95,7 +100,7 @@
   }
 
   function productHref(slug) {
-    return BASE + "/" + encodeURIComponent(slug);
+    return (FLAT ? "" : BASE) + "/" + encodeURIComponent(slug);
   }
 
   function setTitle(title) {
@@ -821,7 +826,7 @@
     applySeo({
       title: "Payment confirmation \u2014 Athlevo",
       description: "Confirmation of your " + product.name + " payment.",
-      url: catalog.siteUrl + productHref(product.slug),
+      url: catalog.seo(product.slug).url,
       noindex: true
     });
     markNav("product");
@@ -955,13 +960,20 @@
     else window.scrollTo(0, 0);
   }
 
-  // /store/... -> /programs/... in the address bar (same page, nothing reloads).
+  // /store/... -> /programs/... in the address bar (same page, nothing reloads). On
+  // programs.athlevo.org an offer's address is then shortened again to /<slug>.
   function canonicalizeLegacyPath() {
     var loc = global.location;
-    var legacy = String(loc.pathname || "").match(/^\/store(\/.*)?$/);
-    if (!legacy) return;
-    var rest = (legacy[1] || "").replace(/\/+$/, "");
-    history.replaceState({ athlevoStore: true }, "", BASE + rest + (loc.search || "") + (loc.hash || ""));
+    var path = String(loc.pathname || "");
+    var target = path;
+    var legacy = target.match(/^\/store(\/.*)?$/);
+    if (legacy) target = BASE + (legacy[1] || "").replace(/\/+$/, "");
+    if (FLAT) {
+      var nested = target.match(/^\/programs\/([^/]+)\/?$/);
+      if (nested) target = "/" + nested[1];
+    }
+    if (target === path) return;
+    history.replaceState({ athlevoStore: true }, "", target + (loc.search || "") + (loc.hash || ""));
   }
 
   function renderView() {

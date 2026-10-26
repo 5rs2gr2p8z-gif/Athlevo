@@ -49,8 +49,10 @@ section("1. Preview route wiring");
 section("2-3. Live / and /ai routing untouched");
 {
   // Narrow invariants instead of a whole-file hash: legitimate app UI additions (e.g. Fuel) must not read as routing regressions.
-  t("\"/\" is not switched to the landing: vercel has no root rewrite/redirect",
-    !(JSON.parse(readFileSync("./vercel.json","utf8")).rewrites||[]).some(r => r.source === "/") && !(JSON.parse(readFileSync("./vercel.json","utf8")).redirects||[]).some(r => r.source === "/"));
+  // A "/" rule keyed on a host (programs.athlevo.org sends its bare root to the hub) is not athlevo.org's root.
+  const apexRoot = (r) => r.source === "/" && !(r.has || []).length;
+  t("\"/\" is not switched to the landing: vercel has no root rewrite/redirect on athlevo.org",
+    !(JSON.parse(readFileSync("./vercel.json","utf8")).rewrites||[]).some(apexRoot) && !(JSON.parse(readFileSync("./vercel.json","utf8")).redirects||[]).some(apexRoot));
   t("index.html still routes /ai (and root) to the anonymous Coach entry",
     /aiPath === "\/ai" \|\| aiPath === "" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"/.test(html));
   t("landing-preview.html is never referenced from the live app shell",
