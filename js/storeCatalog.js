@@ -56,7 +56,8 @@
     founder: storePhoto(
       "founder", 920, 1150,
       "/assets/landing/dean-castro-coach.jpg",
-      "Dean Castro running a race in a white Athlevo singlet and race bib."
+      "Dean Castro in a white Athlevo jersey, arms crossed, looking off to the side.",
+      "50% 20%"
     ),
     hybrid: storePhoto(
       "hybrid", 1023, 1279,
