@@ -117,6 +117,20 @@ test("pressed rule out-ranks the global press contract (>= its 5 :not() exclusio
   assert.ok(PRESS.includes(global[1]), "premium press repeats every exclusion of the global rule");
 });
 
+test("glow never clips: visible reach (inset + 2×blur) fits inside the side padding of the CTA containers", () => {
+  const m = block.match(/::after\{inset:-(\d+)px;z-index:-1;filter:blur\((\d+)px\)/);
+  const reach = Number(m[1]) + 2 * Number(m[2]);          // ≈2σ: the glow is <5% beyond this
+  const sidePad = (re) => { const x = html.match(re); assert.ok(x, `container rule found: ${re}`); return Number(x[1]); };
+  const containers = {
+    "welcome (.w-btns)":        sidePad(/\.w-btns\{padding:0 (\d+)px \d+px;/),
+    "login modal (.auth-box)":  sidePad(/\.auth-box \{ position:relative;[^}]*?padding:\d+px (\d+)px;/),
+    "onboarding (.ob2-foot)":   sidePad(/\.ob2-foot\{flex-shrink:0;padding:\d+px (\d+)px /)
+  };
+  for (const [name, pad] of Object.entries(containers)) {
+    assert.ok(pad > reach, `${name}: side padding ${pad}px must exceed glow reach ${reach}px`);
+  }
+});
+
 test("reduced motion: no lift, no animation or transition, static ring angle", () => {
   const r = block.slice(block.indexOf("@media (prefers-reduced-motion:reduce)"));
   assert.match(r, /transform:none/);
