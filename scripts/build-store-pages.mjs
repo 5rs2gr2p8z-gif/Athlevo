@@ -12,7 +12,8 @@
  * Outputs (all generated, do not edit by hand):
  *   store.html                  /programs (also the banner text, from catalog.notice())
  *   store-pages/<slug>.html     /programs/<slug>, one per offer
- *   sitemap.xml                 home, /programs and every offer
+ *   sitemap-programs.xml        the hub and every offer, on programs.athlevo.org
+ *   sitemap.xml                 the home page (athlevo.org); the program pages are not in it
  *
  * Run after changing js/storeCatalog.js, js/storefront.js or the shell in store.html:
  *   node scripts/build-store-pages.mjs          write the files
@@ -110,7 +111,7 @@ function renderRoute(catalogSrc, storefrontSrc, path, siteUrl) {
   const url = new URL(path, siteUrl);
   const ctx = {
     URL, document,
-    location: { href: url.href, pathname: url.pathname, search: "", hash: "", origin: url.origin },
+    location: { href: url.href, pathname: url.pathname, search: "", hash: "", origin: url.origin, hostname: url.hostname },
     history: { pushState: noop, replaceState: noop },
     requestAnimationFrame: noop, scrollTo: noop, addEventListener: noop
   };
@@ -183,14 +184,14 @@ export function buildStorePages(root = ROOT) {
     files.push({ path: route.slug ? "store-pages/" + route.slug + ".html" : "store.html", content: page });
   }
 
-  const urls = [catalog.siteUrl + "/", ...routes.map((r) => catalog.seo(r.slug).url)];
-  files.push({
-    path: "sitemap.xml",
-    content: '<?xml version="1.0" encoding="UTF-8"?>\n' +
-      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-      urls.map((u) => "  <url><loc>" + escapeText(u) + "</loc></url>").join("\n") +
-      "\n</urlset>\n"
-  });
+  // A sitemap lists one host's addresses: the program pages are on SITE_URL's host, the home page
+  // is on the app's. robots.txt names both files.
+  const sitemap = (urls) => '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    urls.map((u) => "  <url><loc>" + escapeText(u) + "</loc></url>").join("\n") +
+    "\n</urlset>\n";
+  files.push({ path: "sitemap-programs.xml", content: sitemap(routes.map((r) => catalog.seo(r.slug).url)) });
+  files.push({ path: "sitemap.xml", content: sitemap([catalog.appUrl + "/"]) });
   return files;
 }
 

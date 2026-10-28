@@ -54,9 +54,10 @@
       "An Athlevo athlete in a white Athlevo shirt and red shorts holding one knee to the chest in a standing stretch."
     ),
     founder: storePhoto(
-      "founder", 1145, 1374,
-      "/assets/landing/dean-founder.png",
-      "Dean Castro at an endurance race."
+      "founder", 920, 1150,
+      "/assets/landing/dean-castro-coach.jpg",
+      "Dean Castro in a white Athlevo jersey, arms crossed, looking off to the side.",
+      "50% 20%"
     ),
     hybrid: storePhoto(
       "hybrid", 1023, 1279,
@@ -467,7 +468,22 @@
     return out;
   }
 
-  var SITE_URL = "https://athlevo.org";
+  // The program pages live on their own host: the hub is programs.athlevo.org/programs and an
+  // offer is programs.athlevo.org/<slug>. Canonical tags, share tags, JSON-LD and the sitemap
+  // are written from SITE_URL. The app, its sign-in and the legal pages stay on APP_URL, and
+  // athlevo.org redirects every old program address here (see vercel.json). On any other host
+  // (a preview deployment, local) an offer is still /programs/<slug>; only the host decides:
+  // see productPath().
+  var SITE_URL = "https://programs.athlevo.org";
+  var APP_URL = "https://athlevo.org";
+  var PROGRAMS_HOST = "programs.athlevo.org";
+  var SITE_HOST = SITE_URL.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+
+  // Where an offer's page lives on a given host.
+  function productPath(slug, host) {
+    return (host === PROGRAMS_HOST ? "/" : "/programs/") + slug;
+  }
+
   // The Facebook page already linked from the Athlevo landing page.
   var FACEBOOK_URL = "https://www.facebook.com/profile.php?id=61574957235305";
 
@@ -485,7 +501,7 @@
     }
     var product = getProduct(slug);
     if (!product) return null;
-    var path = "/programs/" + product.slug;
+    var path = productPath(product.slug, SITE_HOST);
     var meta = { path: path, url: SITE_URL + path };
     if (product.page) {
       var page = product.page;
@@ -539,7 +555,8 @@
   // record, the Facebook page), so the markup cannot say anything the page does not.
   function structuredData(slug) {
     if (slug) return null;
-    var orgId = SITE_URL + "/#organization";
+    // The organization is Athlevo itself, whose home page is on the app host.
+    var orgId = APP_URL + "/#organization";
     var deanId = SITE_URL + "/programs#dean-castro";
     return {
       "@context": "https://schema.org",
@@ -548,7 +565,7 @@
           "@type": "Organization",
           "@id": orgId,
           name: "Athlevo",
-          url: SITE_URL + "/",
+          url: APP_URL + "/",
           address: { "@type": "PostalAddress", addressRegion: "Pampanga", addressCountry: "PH" },
           areaServed: { "@type": "Country", name: "Philippines" },
           sameAs: [FACEBOOK_URL],
@@ -577,6 +594,9 @@
   var catalog = {
     brand: "Athlevo",
     siteUrl: SITE_URL,
+    appUrl: APP_URL,
+    programsHost: PROGRAMS_HOST,
+    productPath: productPath,
     purchasingAvailable: false,
     hero: {
       image: PHOTO.stretch,

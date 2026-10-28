@@ -1,15 +1,16 @@
-# Store sign-up: Athlevo Plan, Athlevo Coaching and Elite Coaching (public /programs)
+# Store sign-up: Athlevo Plan, Athlevo Coaching and Elite Coaching (programs.athlevo.org)
 
-Lets a visitor pay for **Athlevo Plan** (₱1,998 per month) on `/programs/athlevo-plan`, **Athlevo Coaching**
-(₱4,998 per month) on `/programs/athlevo-coaching` or **Elite Coaching** (₱7,998 per month, coached directly by Dean)
-on `/programs/elite-coaching` without an Athlevo app account. Each offer is **off** until you turn it on, and you can
-open any of them without the others. The short links `athlevo.org/athlevo-plan`, `/athlevo-coaching` and
-`/elite-coaching` go straight to each offer's page (set in `vercel.json`).
+Lets a visitor pay for **Athlevo Plan** (₱1,998 per month) on `programs.athlevo.org/athlevo-plan`, **Athlevo Coaching**
+(₱4,998 per month) on `/athlevo-coaching` or **Elite Coaching** (₱7,998 per month, coached directly by Dean)
+on `/elite-coaching` without an Athlevo app account. Each offer is **off** until you turn it on, and you can
+open any of them without the others. These four paths on `programs.athlevo.org` are the links to send to clients;
+`athlevo.org/athlevo-plan`, `/athlevo-coaching` and `/elite-coaching` (and the old `athlevo.org/programs/...`
+addresses) redirect to them (set in `vercel.json`; see `docs/programs-domain.md`).
 
 | | Athlevo Plan | Athlevo Coaching | Elite Coaching |
 |---|---|---|---|
 | Price (owned by the server) | ₱1,998 | ₱4,998 | ₱7,998 |
-| Page | `/programs/athlevo-plan` | `/programs/athlevo-coaching` | `/programs/elite-coaching` |
+| Page (on programs.athlevo.org) | `/athlevo-plan` | `/athlevo-coaching` | `/elite-coaching` |
 | Server switch | `PLAN_SIGNUP_ENABLED` | `COACHING_SIGNUP_ENABLED` | `ELITE_SIGNUP_ENABLED` |
 | Questionnaire link | `PLAN_QUESTIONNAIRE_URL` | `COACHING_QUESTIONNAIRE_URL`, or the Plan's when not set | `ELITE_QUESTIONNAIRE_URL`, or the Plan's when not set |
 | Call-scheduling link (optional) | `PLAN_SCHEDULE_URL` | `COACHING_SCHEDULE_URL` | `ELITE_SCHEDULE_URL` |

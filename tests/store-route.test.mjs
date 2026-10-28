@@ -369,10 +369,12 @@ section("4e. Search copy for /programs (\"online running coach in the Philippine
         /target="_blank"/.test(b[0]) && /rel="noopener noreferrer"/.test(b[0]);
     })());
   const robots = existsSync("./robots.txt") ? readFileSync("./robots.txt", "utf8") : "";
-  const sitemap = readFileSync("./sitemap.xml", "utf8");
-  t("robots.txt lets every crawler in (search and AI) and names the sitemap, which lists /programs",
+  const programsSitemap = readFileSync("./sitemap-programs.xml", "utf8");
+  t("robots.txt lets every crawler in (search and AI) and names both sitemaps; the programs one lists /programs",
     /^User-agent:\s*\*/m.test(robots) && /^Allow:\s*\/\s*$/m.test(robots) && !/^Disallow:\s*\/\s*$/m.test(robots) &&
-    /^Sitemap:\s*https:\/\/athlevo\.org\/sitemap\.xml/m.test(robots) && sitemap.includes("<loc>https://athlevo.org/programs</loc>"));
+    /^Sitemap:\s*https:\/\/athlevo\.org\/sitemap\.xml\s*$/m.test(robots) &&
+    /^Sitemap:\s*https:\/\/programs\.athlevo\.org\/sitemap-programs\.xml\s*$/m.test(robots) &&
+    programsSitemap.includes("<loc>https://programs.athlevo.org/programs</loc>"));
 }
 
 section("4d. Athlevo Plan page");
@@ -456,8 +458,8 @@ section("4d. Athlevo Plan page");
   t("coach: name, role, and an existing optimized photo of Dean",
     page.coach.name === "Dean Vincent Castro" &&
     page.coach.role === "Founder & Head Coach, Athlevo" &&
-    page.coach.photo.src === "/assets/store/founder-1145.webp" &&
-    page.coach.photo.original === "/assets/landing/dean-founder.png" &&
+    page.coach.photo.src === "/assets/store/founder-920.webp" &&
+    page.coach.photo.original === "/assets/landing/dean-castro-coach.jpg" &&
     existsSync("." + page.coach.photo.original) &&
     page.coach.photo.webp.length === 2 && page.coach.photo.avif.length === 2);
   t("coach intro invents no credentials and does not promise Dean coaches every customer",
@@ -594,10 +596,17 @@ section("5. Client routing");
     storefrontSrc.includes('var BASE = "/programs"') &&
     storefrontSrc.includes('path === BASE || path === "/store"') &&
     /\^\\\/\(\?:programs\|store\)\\\/\(\[\^\/\]\+\)\$/.test(storefrontSrc) &&
-    storefrontSrc.includes("BASE + \"/\" + encodeURIComponent(slug)"));
+    storefrontSrc.includes('(FLAT ? "" : BASE) + "/" + encodeURIComponent(slug)'));
+  t("on programs.athlevo.org an offer is /<slug> (FLAT), everywhere else /programs/<slug>",
+    storefrontSrc.includes("var FLAT = !!(global.location && global.location.hostname === catalog.programsHost)") &&
+    storefrontSrc.includes('(FLAT && path === "/")') &&
+    storefrontSrc.includes("if (!match && FLAT) match = path.match(/^\\/([^/]+)$/)") &&
+    catalog.programsHost === "programs.athlevo.org" && catalog.productPath("athlevo-plan", "programs.athlevo.org") === "/athlevo-plan" &&
+    catalog.productPath("athlevo-plan", "athlevo.org") === "/programs/athlevo-plan");
   t("a stale /store address is rewritten to /programs in the address bar, keeping the query and hash",
     /function canonicalizeLegacyPath\(\)/.test(storefrontSrc) &&
-    /history\.replaceState\([^)]*BASE \+ rest \+ \(loc\.search \|\| ""\) \+ \(loc\.hash \|\| ""\)\)/.test(storefrontSrc) &&
+    /history\.replaceState\(\{ athlevoStore: true \}, "", target \+ \(loc\.search \|\| ""\) \+ \(loc\.hash \|\| ""\)\)/.test(storefrontSrc) &&
+    /if \(legacy\) target = BASE \+/.test(storefrontSrc) &&
     storefrontSrc.indexOf("canonicalizeLegacyPath();") > storefrontSrc.indexOf("function renderView()"));
   t("no link in the storefront still points at /store",
     !/["'`]\/store(["'`#/])/.test(storefrontSrc.replace(/path === "\/store"|\^\\\/store/g, "")) &&
@@ -657,7 +666,8 @@ section("7. Responsive storefront images");
   t("catalog photos keep original sources on disk",
     existsSync("./assets/landing/store-hero-stretch.jpg") &&
     existsSync("./assets/landing/hero-athlevo.png") &&
-    existsSync("./assets/landing/dean-founder.png"));
+    existsSync("./assets/landing/dean-founder.png") &&
+    existsSync("./assets/landing/dean-castro-coach.jpg"));
   t("catalog hero is the stretch photo with 640w and 1080w WebP and AVIF files on disk",
     catalog.hero.image.original === "/assets/landing/store-hero-stretch.jpg" &&
     catalog.hero.image.width === 1080 && catalog.hero.image.height === 1616 &&
@@ -677,7 +687,7 @@ section("7. Responsive storefront images");
     ["640", "1023"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/hybrid-" + w + "." + ext))));
   t("Hybrid Programming no longer uses the founder photo, which stays on Dean's coach card only",
     hybrid.src !== catalog.coaches[0].photo.src &&
-    catalog.coaches[0].photo.src === "/assets/store/founder-1145.webp" &&
+    catalog.coaches[0].photo.src === "/assets/store/founder-920.webp" &&
     catalog.products.filter(p => p.hero.src === catalog.coaches[0].photo.src).length === 0);
   t("Hybrid photo alt text describes the scene without naming a person or race number",
     hybrid.alt.length > 20 && !/dean|castro|founder|christian|francia|\d{4,}/i.test(hybrid.alt));
@@ -721,7 +731,7 @@ section("8. Crawler-readable pages");
   const visible = (html) => unescapeHtml(html.replace(/<!--[\s\S]*?-->/g, "").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<[^>]+>/g, " "));
 
   t("each route has its own metadata in the catalog, and unknown routes have none",
-    pages.length === 5 && pages.every(p => p.meta && p.meta.url === "https://athlevo.org" + (p.slug ? "/programs/" + p.slug : "/programs")) &&
+    pages.length === 5 && pages.every(p => p.meta && p.meta.url === "https://programs.athlevo.org" + (p.slug ? "/" + p.slug : "/programs")) &&
     catalog.seo("not-a-program") === null);
   t("no prerendered page links to, or names as canonical, an old /store address",
     pages.every(p => !/(href|content)="(https:\/\/athlevo\.org)?\/store(["#/])/.test(p.html)));
@@ -748,7 +758,7 @@ section("8. Crawler-readable pages");
   const home = visible(bySlug(null).html);
   t("/programs text is in the HTML: headline, intro, programs, coaches and FAQs",
     home.includes(catalog.hero.headline) && home.includes(catalog.intro) &&
-    catalog.products.every(p => home.includes(p.name) && bySlug(null).html.includes('href="/programs/' + p.slug + '"')) &&
+    catalog.products.every(p => home.includes(p.name) && bySlug(null).html.includes('href="/' + p.slug + '"')) &&
     catalog.coaches.every(c => home.includes(c.name) && home.includes(c.role)) &&
     home.includes("Meet the coaches") &&
     catalog.getHubFaqs().every(f => home.includes(f.question) && home.includes(f.answer)));
@@ -806,13 +816,16 @@ section("8. Crawler-readable pages");
     !vercel.redirects.some(r => r.source === "/store/first-10k"));
   const redirectSources = vercel.redirects.map(r => r.source);
   const SHORT = ["athlevo-plan", "athlevo-coaching", "hybrid-programming", "elite-coaching"];
-  t("short links (athlevo.org/athlevo-plan and the other three) redirect, temporarily and in one hop, to the offer page",
+  t("short links (athlevo.org/athlevo-plan and the other three) redirect, temporarily and in one hop, to the offer page on programs.athlevo.org; other hosts (previews) go to /programs/<slug>",
     SHORT.every(slug => catalog.getProduct(slug) &&
-      vercel.redirects.filter(r => r.source === "/" + slug).length === 1 &&
+      vercel.redirects.filter(r => r.source === "/" + slug).length === 2 &&
+      vercel.redirects.some(r => r.source === "/" + slug && r.destination === "https://programs.athlevo.org/" + slug && r.permanent === false &&
+        r.has.length === 1 && r.has[0].value === "athlevo.org" && r.missing.length === 1 && r.missing[0].value === "programs.athlevo.org") &&
       vercel.redirects.some(r => r.source === "/" + slug && r.destination === "/programs/" + slug && r.permanent === false) &&
       vercel.rewrites.some(r => r.source === "/programs/" + slug)));
-  t("short links collide with nothing: no rewrite, root file or folder uses those paths",
-    SHORT.every(slug => !vercel.rewrites.some(r => r.source === "/" + slug || r.source === "/" + slug + "/:path*") &&
+  t("short links collide with nothing: no rewrite (except the programs.athlevo.org page itself), root file or folder uses those paths",
+    SHORT.every(slug => !vercel.rewrites.some(r => (r.source === "/" + slug || r.source === "/" + slug + "/:path*") &&
+        !(r.has && r.has.length === 1 && r.has[0].type === "host" && r.has[0].value === "programs.athlevo.org")) &&
       !existsSync("./" + slug) && !existsSync("./" + slug + ".html")));
   t("the local preview server mirrors the short links and keeps the query string (a ?code= link survives)",
     /const SHORT_LINKS = new Set\(\["athlevo-plan", "athlevo-coaching", "hybrid-programming", "elite-coaching"\]\)/.test(readFileSync("./scripts/serve-web.mjs", "utf8")) &&
@@ -824,15 +837,20 @@ section("8. Crawler-readable pages");
     vercel.redirects.filter(r => r.source.startsWith("/store")).every(r => r.permanent === true && r.destination.startsWith("/programs")));
 
   const sitemap = read("sitemap.xml");
-  const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-  t("sitemap lists the home page, /programs and each offer, and no old /store URLs",
-    locs.join("|") === ["https://athlevo.org/", "https://athlevo.org/programs"].concat(catalog.products.map(p => "https://athlevo.org/programs/" + p.slug)).join("|") &&
-    !/athlevo\.org\/store/.test(sitemap) &&
+  const programsSitemap = read("sitemap-programs.xml");
+  const locsOf = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
+  t("the app's sitemap lists only the home page on athlevo.org",
+    locsOf(sitemap).join("|") === "https://athlevo.org/" &&
     /^<\?xml version="1\.0" encoding="UTF-8"\?>/.test(sitemap) && /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/.test(sitemap));
+  t("the programs sitemap lists /programs and each offer on programs.athlevo.org (offers flat), and no old /store or athlevo.org URLs",
+    locsOf(programsSitemap).join("|") === ["https://programs.athlevo.org/programs"].concat(catalog.products.map(p => "https://programs.athlevo.org/" + p.slug)).join("|") &&
+    !/store/.test(programsSitemap) && !/\/\/athlevo\.org/.test(programsSitemap) &&
+    /^<\?xml version="1\.0" encoding="UTF-8"\?>/.test(programsSitemap) && /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/.test(programsSitemap));
   const robots = read("robots.txt");
-  t("robots.txt allows crawling and points to the sitemap",
+  t("robots.txt allows crawling and points to both sitemaps",
     /^User-agent: \*$/m.test(robots) && /^Allow: \/$/m.test(robots) && !/^Disallow:\s*\/\s*$/m.test(robots) &&
-    /^Sitemap: https:\/\/athlevo\.org\/sitemap\.xml$/m.test(robots));
+    /^Sitemap: https:\/\/athlevo\.org\/sitemap\.xml$/m.test(robots) &&
+    /^Sitemap: https:\/\/programs\.athlevo\.org\/sitemap-programs\.xml$/m.test(robots));
 
   t("the browser keeps title, description, canonical and share tags in step with the route",
     /catalog\.seo\(\)/.test(storefrontSrc) && /catalog\.seo\(product\.slug\)/.test(storefrontSrc) &&
@@ -879,9 +897,9 @@ section("10. Sign-up on Athlevo Plan, Athlevo Coaching and Elite Coaching (clien
     /\[data\.signUp\.payment, data\.signUp\.renewal, data\.signUp\.terms\]/.test(storefrontSrc));
   t("the browser and the server agree on the reference format and the return pages",
     new RegExp(storefrontSrc.match(/var SIGNUP_REF = \/(.+)\/i;/)[1]).source === SIGNUP_REFERENCE_PATTERN.source &&
-    PLAN_PAGE_PATH === "/programs/athlevo-plan" && catalog.getProduct("athlevo-plan").slug === "athlevo-plan" &&
-    COACHING_PAGE_PATH === "/programs/athlevo-coaching" && catalog.getProduct("athlevo-coaching").slug === "athlevo-coaching" &&
-    ELITE_PAGE_PATH === "/programs/elite-coaching" && catalog.getProduct("elite-coaching").slug === "elite-coaching");
+    PLAN_PAGE_PATH === "/athlevo-plan" && catalog.getProduct("athlevo-plan").slug === "athlevo-plan" &&
+    COACHING_PAGE_PATH === "/athlevo-coaching" && catalog.getProduct("athlevo-coaching").slug === "athlevo-coaching" &&
+    ELITE_PAGE_PATH === "/elite-coaching" && catalog.getProduct("elite-coaching").slug === "elite-coaching");
   t("the confirmation names the offer from the catalog instead of hard-coding the Plan",
     /"Thank you for signing up for " \+ product\.name/.test(storefrontSrc) &&
     /"Confirmation of your " \+ product\.name \+ " payment\."/.test(storefrontSrc) &&
@@ -1030,6 +1048,245 @@ section("10. Sign-up on Athlevo Plan, Athlevo Coaching and Elite Coaching (clien
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
+}
+
+section("11. programs.athlevo.org (the same pages, served from their own host)");
+{
+  const { spawn } = await import("node:child_process");
+  const { request } = await import("node:http");
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync, readdirSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { buildStorePages } = await import("../scripts/build-store-pages.mjs");
+
+  const HOST = "programs.athlevo.org";
+  const SLUGS = catalog.products.map(p => p.slug);
+
+  // A small stand-in for how Vercel reads vercel.json: redirects first, then real files,
+  // then rewrites. Only what this file uses: literal paths, :name, and :name(regex).
+  const toRegExp = (source) => {
+    let out = "", i = 0;
+    while (i < source.length) {
+      const param = /^\/:\w+/.exec(source.slice(i));
+      if (!param) { out += source[i] === "." ? "\\." : source[i]; i++; continue; }
+      i += param[0].length;
+      if (source[i] !== "(") { out += "/[^/]+"; continue; }
+      let depth = 0, j = i;
+      for (; j < source.length; j++) {
+        if (source[j] === "\\") { j++; continue; }
+        if (source[j] === "(") depth++;
+        else if (source[j] === ")" && --depth === 0) break;
+      }
+      out += "/(?:" + source.slice(i + 1, j) + ")";
+      i = j + 1;
+    }
+    return new RegExp("^" + out + "$");
+  };
+  const hostOk = (rule, host) =>
+    (rule.has || []).every(c => c.type === "host" && new RegExp("^" + c.value + "$").test(host)) &&
+    (rule.missing || []).every(c => c.type === "host" && !new RegExp("^" + c.value + "$").test(host));
+  const fillIn = (dest, source, path) => {
+    const m = toRegExp(source).exec(path);
+    // :path names the rest of the path in the catch-all; :slug the last segment.
+    return dest.replace(/:path\b/, () => path.slice(1)).replace(/:slug\b/, () => path.split("/").pop());
+  };
+  const STATIC_FILES = (p) => ["/", "/index.html", "/store.html", "/store.css", "/robots.txt", "/sitemap.xml", "/sitemap-programs.xml"].includes(p) ||
+    /^\/(assets|js|athlevo-assets|store-pages)\//.test(p);
+  const viaVercel = (host, path) => {
+    for (const r of vercel.redirects) {
+      if (!toRegExp(r.source).test(path) || !hostOk(r, host)) continue;
+      return { status: r.permanent ? 308 : 307, location: fillIn(r.destination, r.source, path) };
+    }
+    if (STATIC_FILES(path)) return { status: 200, file: path === "/" ? "/index.html" : path };
+    for (const r of vercel.rewrites) {
+      if (!toRegExp(r.source).test(path) || !hostOk(r, host)) continue;
+      return { status: 200, rewrite: fillIn(r.destination, r.source, path).split("?")[0] };
+    }
+    return { status: 404 };
+  };
+
+  const APP = "https://athlevo.org";
+  const PROGRAMS = "https://" + HOST;
+  const PREVIEW = "athlevo-ai.vercel.app";
+  const table = [
+    // [host, path, expected]
+    [HOST, "/", { status: 307, location: "/programs" }],
+    [HOST, "/programs", { status: 200, rewrite: "/store.html" }],
+    ...SLUGS.flatMap(s => [
+      [HOST, "/" + s, { status: 200, rewrite: "/store-pages/" + s + ".html" }],
+      [HOST, "/programs/" + s, { status: 308, location: "/" + s }],
+      // athlevo.org sends every old program address, in one hop, to the new host.
+      ["athlevo.org", "/" + s, { status: 307, location: PROGRAMS + "/" + s }],
+      ["athlevo.org", "/programs/" + s, { status: 307, location: PROGRAMS + "/" + s }],
+      // A preview deployment (any other host) still serves the pages under /programs.
+      [PREVIEW, "/" + s, { status: 307, location: "/programs/" + s }],
+      [PREVIEW, "/programs/" + s, { status: 200, rewrite: "/store-pages/" + s + ".html" }]
+    ]),
+    [HOST, "/programs/not-an-offer", { status: 200, rewrite: "/store.html" }],
+    [HOST, "/api/plan-signup/checkout", { status: 200, rewrite: "/api/providers" }],
+    [HOST, "/assets/store/founder-920.webp", { status: 200, file: "/assets/store/founder-920.webp" }],
+    [HOST, "/js/storefront.js", { status: 200, file: "/js/storefront.js" }],
+    [HOST, "/store.css", { status: 200, file: "/store.css" }],
+    [HOST, "/robots.txt", { status: 200, file: "/robots.txt" }],
+    // The app stays on athlevo.org: its pages, files and old links never answer on this host.
+    [HOST, "/privacy", { status: 307, location: APP + "/privacy" }],
+    [HOST, "/support", { status: 307, location: APP + "/support" }],
+    [HOST, "/terms", { status: 307, location: APP + "/terms" }],
+    [HOST, "/signup", { status: 307, location: APP + "/signup" }],
+    [HOST, "/ai", { status: 307, location: APP + "/ai" }],
+    [HOST, "/index.html", { status: 307, location: APP + "/index.html" }],
+    [HOST, "/service-worker.js", { status: 307, location: APP + "/service-worker.js" }],
+    [HOST, "/store/first-5k", { status: 307, location: APP + "/store/first-5k" }],
+    [HOST, "/programs-extra", { status: 307, location: APP + "/programs-extra" }],
+    [HOST, "/apiary", { status: 307, location: APP + "/apiary" }],
+    // athlevo.org itself is unchanged: its root is the app.
+    ["athlevo.org", "/", { status: 200, file: "/index.html" }],
+    ["athlevo.org", "/privacy", { status: 200, rewrite: "/index.html" }],
+    ["athlevo.org", "/api/plan-signup/checkout", { status: 200, rewrite: "/api/providers" }],
+    ["athlevo.org", "/robots.txt", { status: 200, file: "/robots.txt" }],
+    ["athlevo.org", "/sitemap.xml", { status: 200, file: "/sitemap.xml" }],
+    [HOST, "/sitemap-programs.xml", { status: 200, file: "/sitemap-programs.xml" }],
+    // The hub, and old and unknown program addresses, also go to the new host (which sorts out the rest).
+    ["athlevo.org", "/programs", { status: 307, location: PROGRAMS + "/programs" }],
+    ["athlevo.org", "/programs/first-5k", { status: 307, location: PROGRAMS + "/programs/first-5k" }],
+    ["athlevo.org", "/programs/not-an-offer", { status: 307, location: PROGRAMS + "/programs/not-an-offer" }],
+    // The legacy /store paths take their old first hop, then the rules above.
+    ["athlevo.org", "/store", { status: 308, location: "/programs" }],
+    ["athlevo.org", "/store/first-5k", { status: 308, location: "/programs/athlevo-plan" }],
+    ["athlevo.org", "/store/athlevo-plan", { status: 308, location: "/programs/athlevo-plan" }],
+    [PREVIEW, "/", { status: 200, file: "/index.html" }],
+    [PREVIEW, "/programs", { status: 200, rewrite: "/store.html" }]
+  ];
+  const same = (got, want) => got.status === want.status && (got.location || "") === (want.location || "") &&
+    (want.rewrite ? (got.rewrite || "").startsWith(want.rewrite) : true) && (want.file ? got.file === want.file : true);
+
+  const bad = table.filter(([h, p, want]) => !same(viaVercel(h, p), want));
+  t("vercel.json: " + table.length + " requests on programs.athlevo.org and athlevo.org behave as designed",
+    bad.length === 0, bad.map(([h, p, w]) => h + p + " got " + JSON.stringify(viaVercel(h, p))).join(" | "));
+
+  const host = vercel.redirects.filter(r => (r.has || []).some(c => c.value === HOST));
+  const catchAll = host[host.length - 1];
+  t("the host's redirects come before the legacy and short-link redirects, and the catch-all is last of them",
+    host.length === 2 + SLUGS.length && host[0].source === "/" && catchAll.destination === "https://athlevo.org/:path" &&
+    catchAll.permanent === false &&
+    vercel.redirects.indexOf(catchAll) < vercel.redirects.findIndex(r => r.source === "/store/first-5k"));
+  t("short links are only redirects off the programs host (on it they are the pages)",
+    SLUGS.every(s => {
+      const r = vercel.redirects.find(x => x.source === "/" + s && x.destination === "/programs/" + s);
+      return r && r.missing.length === 1 && r.missing[0].type === "host" && r.missing[0].value === HOST &&
+        vercel.rewrites.some(w => w.source === "/" + s && w.has && w.has[0].value === HOST && w.destination === "/store-pages/" + s + ".html");
+    }));
+  t("every host rule is keyed on exactly programs.athlevo.org or athlevo.org, and every athlevo.org rule excludes programs.athlevo.org",
+    [...vercel.redirects, ...vercel.rewrites].every(r => [...(r.has || []), ...(r.missing || [])].every(c => c.type === "host" && (c.value === HOST || c.value === "athlevo.org"))) &&
+    [...vercel.redirects, ...vercel.rewrites].filter(r => (r.has || []).some(c => c.value === "athlevo.org"))
+      .every(r => r.has.length === 1 && (r.missing || []).length === 1 && r.missing[0].value === HOST));
+  const apexRules = vercel.redirects.filter(r => (r.has || []).some(c => c.value === "athlevo.org"));
+  t("athlevo.org's redirects to the new host are the hub, the four offers (by /programs/<slug> and by short link) and the rest of /programs/<x>: temporary, in one hop, query kept, before the legacy /store rules",
+    apexRules.length === 1 + 4 + 1 + 4 && apexRules.every(r => r.permanent === false && r.destination.startsWith(PROGRAMS + "/")) &&
+    SLUGS.every(s => apexRules.some(r => r.source === "/programs/" + s && r.destination === PROGRAMS + "/" + s) &&
+      apexRules.some(r => r.source === "/" + s && r.destination === PROGRAMS + "/" + s)) &&
+    apexRules.some(r => r.source === "/programs" && r.destination === PROGRAMS + "/programs") &&
+    apexRules.some(r => r.source === "/programs/:slug" && r.destination === PROGRAMS + "/programs/:slug") &&
+    vercel.redirects.indexOf(apexRules[0]) < vercel.redirects.findIndex(r => r.source === "/store/first-5k") &&
+    vercel.redirects.indexOf(apexRules.find(r => r.source === "/programs/:slug")) > vercel.redirects.indexOf(apexRules.find(r => r.source === "/programs/elite-coaching")));
+
+  // Everything the store pages load or link to must still work from this host: files and
+  // API calls are served, the three legal pages go to athlevo.org, nothing else is needed.
+  const pages = ["store.html", ...readdirSync("./store-pages").map(f => "store-pages/" + f)];
+  const refs = new Set();
+  for (const f of pages) {
+    for (const m of readFileSync("./" + f, "utf8").matchAll(/(?:href|src|action)="(\/[^"]*)"/g)) refs.add(m[1].split("#")[0].split("?")[0] || "/programs");
+  }
+  for (const m of storefrontSrc.matchAll(/["'](\/api\/[a-z-]+\/[a-z-]+)["']/g)) refs.add(m[1]);
+  for (const s of catalog.products) {
+    const su = s.page && s.page.signUp;
+    if (su) { refs.add(su.checkoutEndpoint); refs.add(su.statusEndpoint); }
+  }
+  const strays = [...refs].filter(p => {
+    const got = viaVercel(HOST, p);
+    if (got.status === 200) return false;
+    if (got.status === 308 && got.location.startsWith("/")) return false; // /programs/<slug> -> /<slug>, same host
+    return !(got.status === 307 && ["/privacy", "/support", "/terms"].some(l => got.location === APP + l));
+  });
+  t("every link, file and API call on the store pages works from programs.athlevo.org (" + refs.size + " checked)",
+    refs.size > 15 && strays.length === 0, strays.join(", "));
+  t("every file those pages load exists on disk",
+    [...refs].filter(p => /\.(?:js|css|webp|avif|png|jpg)$/.test(p)).every(p => existsSync("." + decodeURIComponent(p))));
+
+  // The preview server answers the same table.
+  const port = 4300 + Math.floor(Math.random() * 400);
+  const server = spawn(process.execPath, ["scripts/serve-web.mjs"], { env: { ...process.env, PORT: String(port) }, stdio: "ignore" });
+  const ask = (h, path) => new Promise((resolve, reject) => {
+    const req = request({ host: "127.0.0.1", port, path, headers: { host: h + ":" + port } }, (res) => {
+      const chunks = [];
+      res.on("data", c => chunks.push(c));
+      res.on("end", () => resolve({ status: res.statusCode, location: res.headers.location || "", body: Buffer.concat(chunks) }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+  try {
+    let up = false;
+    for (let i = 0; i < 50 && !up; i++) {
+      try { await ask("127.0.0.1", "/robots.txt"); up = true; } catch { await new Promise(r => setTimeout(r, 100)); }
+    }
+    t("the preview server starts", up);
+    const badLocal = [];
+    for (const [h, p, want] of table) {
+      const got = await ask(h, p);
+      let ok = got.status === want.status && got.location === (want.location || "");
+      if (want.rewrite && want.rewrite.startsWith("/store")) ok = ok && got.body.equals(readFileSync("." + want.rewrite));
+      if (want.rewrite && want.rewrite === "/index.html") ok = ok && got.body.equals(readFileSync("./index.html"));
+      if (want.file) ok = ok && got.body.equals(readFileSync("." + want.file));
+      if (want.rewrite === "/api/providers") ok = got.status !== 308 && got.status !== 307; // no function is run locally
+      if (!ok) badLocal.push(h + p + " -> " + got.status + " " + got.location);
+    }
+    t("the local preview server gives the same answers as vercel.json for the table above", badLocal.length === 0, badLocal.join(" | "));
+    const withCode = await ask(HOST, "/?code=AV8S-KUEW");
+    const short = await ask("athlevo.org", "/athlevo-plan?code=AV8S-KUEW");
+    const nested = await ask("athlevo.org", "/programs/athlevo-plan?code=AV8S-KUEW");
+    const hub = await ask("athlevo.org", "/programs?code=AV8S-KUEW");
+    const preview = await ask(PREVIEW, "/athlevo-plan?code=AV8S-KUEW");
+    t("a ?code= link keeps its code through the preview server's redirects",
+      withCode.location === "/programs?code=AV8S-KUEW" && short.location === PROGRAMS + "/athlevo-plan?code=AV8S-KUEW" &&
+      nested.location === PROGRAMS + "/athlevo-plan?code=AV8S-KUEW" && hub.location === PROGRAMS + "/programs?code=AV8S-KUEW" &&
+      preview.location === "/programs/athlevo-plan?code=AV8S-KUEW");
+  } finally {
+    server.kill();
+  }
+
+  // The switch-over: SITE_URL is the new host, so the files on disk carry it everywhere a search
+  // engine or a buyer could see an address. A build from the same sources must reproduce them.
+  t("the catalog has one SITE_URL, on programs.athlevo.org, and the app's address (athlevo.org) is kept separately",
+    (catalogSrc.match(/var SITE_URL = "https:\/\/[a-z.]+";/g) || []).length === 1 &&
+    /var SITE_URL = "https:\/\/programs\.athlevo\.org";/.test(catalogSrc) &&
+    /var APP_URL = "https:\/\/athlevo\.org";/.test(catalogSrc) &&
+    catalog.siteUrl === "https://" + HOST && catalog.appUrl === APP);
+  const onDisk = Object.fromEntries(buildStorePages(".").map(f => [f.path, readFileSync("./" + f.path, "utf8") === f.content]));
+  t("every generated page and sitemap on disk is exactly what the build writes", Object.values(onDisk).every(Boolean) && Object.keys(onDisk).length === 7,
+    Object.entries(onDisk).filter(([, ok]) => !ok).map(([p]) => p).join(", "));
+  const builtPages = Object.fromEntries(["store.html", ...SLUGS.map(s => "store-pages/" + s + ".html")].map(f => [f, readFileSync("./" + f, "utf8")]));
+  t("every offer page is canonical at https://programs.athlevo.org/<slug> and links to its siblings as /<slug>",
+    SLUGS.every(s => {
+      const html = builtPages["store-pages/" + s + ".html"];
+      return html.includes('<link rel="canonical" href="https://' + HOST + "/" + s + '">') &&
+        html.includes('<meta property="og:url" content="https://' + HOST + "/" + s + '">') &&
+        !/href="\/programs\/[a-z]/.test(html) && !html.includes("athlevo.org/programs/");
+    }));
+  t("the hub is canonical at https://programs.athlevo.org/programs and its cards link to /<slug>",
+    builtPages["store.html"].includes('<link rel="canonical" href="https://' + HOST + '/programs">') &&
+    SLUGS.every(s => builtPages["store.html"].includes('href="/' + s + '"')) && !/href="\/programs\/[a-z]/.test(builtPages["store.html"]));
+  t("nothing in the built pages still points at athlevo.org/programs",
+    Object.values(builtPages).every(html => !/https:\/\/athlevo\.org\/programs/.test(html)));
+  t("the legal links in the footer go to athlevo.org (the program host does not serve them)",
+    Object.values(builtPages).every(html => ["privacy", "terms", "support"].every(l => html.includes('<a href="https://athlevo.org/' + l + '">')) &&
+      !/<a href="\/(?:privacy|terms|support)">/.test(html)));
+  const ld = JSON.parse(builtPages["store.html"].match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  const org = ld["@graph"].find(x => x["@type"] === "Organization");
+  const person = ld["@graph"].find(x => x["@type"] === "Person");
+  t("structured data: Athlevo (the organization) is on athlevo.org, Dean's entry is on the hub, and they still point at each other",
+    org["@id"] === APP + "/#organization" && org.url === APP + "/" &&
+    person["@id"] === PROGRAMS + "/programs#dean-castro" && org.founder["@id"] === person["@id"] && person.worksFor["@id"] === org["@id"]);
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

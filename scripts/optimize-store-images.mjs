@@ -21,7 +21,7 @@ mkdirSync(outDir, { recursive: true });
 const sources = [
   { id: "training", file: "assets/landing/athlete-philosophy-training.png", hero: true },
   { id: "pack", file: "assets/landing/hero-athlevo.png" },
-  { id: "founder", file: "assets/landing/dean-founder.png" },
+  { id: "founder", file: "assets/landing/dean-castro-coach.jpg" },
   { id: "road", file: "athlevo-assets/diagnostic proof/640393536_17877223146489492_4744442913120713853_n.jpg" },
   { id: "track", file: "athlevo-assets/diagnostic proof/641749426_17877177045489492_4823496183798299753_n.jpg" }
 ];
