@@ -61,7 +61,7 @@
       "permanent": true
     },
     {
-      "source": "/:path((?!(?:programs|athlevo-plan|athlevo-coaching|hybrid-programming|elite-coaching)(?:/|$)|(?:api|assets|athlevo-assets|js)/|(?:store\\.css|robots\\.txt|sitemap\\.xml|sitemap-programs\\.xml)$).+)",
+      "source": "/:path((?!(?:programs|athlevo-plan|athlevo-coaching|hybrid-programming|elite-coaching|webinar)(?:/|$)|(?:api|assets|athlevo-assets|js)/|(?:store\\.css|webinar\\.css|robots\\.txt|sitemap\\.xml|sitemap-programs\\.xml)$).+)",
       "has": [
         {
           "type": "host",
@@ -272,6 +272,74 @@
       "permanent": false
     },
     {
+      "source": "/webinar",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/webinar",
+      "permanent": false
+    },
+    {
+      "source": "/webinar/",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/webinar/",
+      "permanent": false
+    },
+    {
+      "source": "/webinar/thank-you",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/webinar/thank-you",
+      "permanent": false
+    },
+    {
+      "source": "/webinar/thank-you/",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "programs.athlevo.org"
+        }
+      ],
+      "destination": "https://programs.athlevo.org/webinar/thank-you/",
+      "permanent": false
+    },
+    {
       "source": "/athlevo-plan",
       "destination": "/programs/athlevo-plan",
       "permanent": false,
@@ -382,6 +450,10 @@
       "destination": "/api/providers?action=elite_signup_status"
     },
     {
+      "source": "/api/webinar/register",
+      "destination": "/api/providers?action=webinar_register"
+    },
+    {
       "source": "/api/diagnostic-chat",
       "destination": "/api/providers?action=diagnostic_chat"
     },
@@ -476,6 +548,22 @@
     {
       "source": "/programs/:slug",
       "destination": "/store.html"
+    },
+    {
+      "source": "/webinar",
+      "destination": "/webinar.html"
+    },
+    {
+      "source": "/webinar/",
+      "destination": "/webinar.html"
+    },
+    {
+      "source": "/webinar/thank-you",
+      "destination": "/webinar-thank-you.html"
+    },
+    {
+      "source": "/webinar/thank-you/",
+      "destination": "/webinar-thank-you.html"
     }
   ]
 }

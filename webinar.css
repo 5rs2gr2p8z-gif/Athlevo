@@ -1,0 +1,196 @@
+/*
+ * Athlevo webinar pages (/webinar and /webinar/thank-you).
+ * Loaded after store.css and built entirely from its tokens and components: the same colours,
+ * Fraunces headings, system body type, buttons, cards, details block, FAQ and footer. Nothing
+ * here introduces a new colour or font. These rules only cover what the storefront did not
+ * already have: a form, a three-card row, a two-column session block, and focus outlines.
+ * Wording lives in content/webinar.mjs; markup in scripts/build-webinar-pages.mjs.
+ */
+
+/* The one emphasised word in a heading takes the site's red, the same accent as the wordmark's full stop. */
+.webinar em {
+  font-style: normal;
+  color: var(--red);
+}
+
+/* Small caps label above a heading. Same values as .crumb and .coach-card-role. */
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pdp-hero--offer .eyebrow { margin-bottom: 18px; }
+.section-head { text-align: center; }
+.section-title.is-left { text-align: left; margin-bottom: 20px; }
+
+/* Section spacing: store.css gives each section 72px above and 96px below, which doubles up
+   between neighbours on a single page. One even step keeps the same rhythm without the gap. */
+.webinar .section { padding: 64px 0; }
+.webinar .pdp-offer { padding-bottom: 24px; }
+
+#main:focus,
+.webinar-form:focus { outline: none; }
+
+#register { scroll-margin-top: calc(var(--nav-h) + 24px); }
+
+/* How Athlevo works: three cards, then one plain line. Card look matches .offer-quote. */
+.how-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+
+.how-card {
+  padding: 28px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.how-card h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(22px, 2.4vw, 28px);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+
+.how-card p:last-child { margin: 0; }
+.how-line { margin-top: 32px; text-align: center; }
+
+/* Coach: the storefront's photo-and-text row, with the credential list from the coach cards. */
+.webinar .offer-coach-row .coach-card-creds { margin-top: 20px; }
+
+/* Free session: details and who it is for, with the form beside them. Stacked on small screens. */
+.session-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+}
+
+.session-intro { margin: 0 0 24px; max-width: 56ch; font-size: 18px; }
+.session-copy .pdp-facts { margin-bottom: 8px; }
+.session-copy p { max-width: 56ch; }
+.session-copy .offer-subhead { margin-top: 24px; }
+
+/* The form card matches .offer-pricing-card; fields match the discount-code box. */
+.webinar-form {
+  padding: 32px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(16, 17, 20, 0.08);
+}
+
+.webinar-form-title {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(26px, 3vw, 32px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  margin: 0 0 8px;
+}
+
+.webinar-form-sub { margin: 0 0 24px; color: var(--muted); }
+
+.field { margin: 0 0 18px; }
+
+.field label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.field input,
+.field select,
+.field textarea {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--white);
+  color: var(--ink);
+  font: 400 16px/1.4 var(--sans); /* 16px stops iOS zooming the page when a field is focused */
+}
+
+.field textarea {
+  min-height: 112px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.field [aria-invalid="true"] { border-color: var(--red); }
+
+.field-error {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--red);
+}
+
+.field-error[hidden] { display: none; }
+
+.form-error {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--red);
+}
+
+.form-error:empty { display: none; }
+
+.webinar-form .btn { width: 100%; }
+.webinar-form .offer-supporting { margin-top: 16px; }
+
+/* Spam trap: kept off screen, not display:none, so a bot that fills every field still fills it. */
+.hp {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Visible focus on everything a keyboard can reach, in the same outline the buttons already use. */
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible,
+.faq summary:focus-visible,
+.skip:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+.faq summary:focus-visible { outline-offset: 4px; }
+
+/* Closing call to action */
+.closing .section-title { margin-bottom: 28px; }
+.closing .intro-actions { margin-top: 0; }
+
+/* Footer: the two lines the page carries, centred like the storefront footer. */
+.footer-line { margin: 0; font-size: 13px; }
+.site-footer .copyright { max-width: 62ch; }
+
+@media (min-width: 981px) {
+  .how-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .session-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 480px);
+    gap: 56px;
+    align-items: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .webinar .section { padding: 48px 0; }
+  .how-card { padding: 22px; }
+  .webinar-form { padding: 24px; }
+  .closing .intro-actions .btn { width: 100%; max-width: 280px; }
+}

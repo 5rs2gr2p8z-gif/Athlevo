@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>You're registered | Athlevo Coaching</title>
+  <meta name="robots" content="noindex, nofollow">
+  <!-- ======================= META PIXEL =======================
+       Paste your Meta Pixel base code here: the whole <script> block and the <noscript>
+       line from Events Manager. It is the same spot on both pages. The thank-you page sends
+       the Lead event itself (see the end of that page), so leave Lead out of the snippet.
+       Whatever sits between this comment and the closing marker below is kept when the
+       pages are rebuilt.
+       ========================================================== -->
+  <!-- /META PIXEL -->
+  <link rel="icon" type="image/png" href="/assets/athlevo-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/store.css">
+  <link rel="stylesheet" href="/webinar.css">
+</head>
+<body class="webinar">
+  <a class="skip" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <div class="nav"><span class="wordmark">Athlevo<i aria-hidden="true">.</i></span></div>
+  </header>
+  <main id="main" tabindex="-1">
+<article class="pdp wrap signup-confirm"><p class="eyebrow">Registration received</p><div class="signup-confirm-panel"><h1>You're <em>in</em>.</h1><p class="signup-confirm-lede">Thank you. Here is what happens next.</p><ol class="offer-steps signup-confirm-steps"><li><strong>Watch your messages</strong><p>We will send the session link and reminders to the mobile number you gave.</p></li><li><strong>Send us your questions</strong><p>Reply to any message with what you want covered. We will answer as many as we can live.</p></li></ol><dl class="pdp-facts"><div><dt>Date</dt><dd>To be announced</dd></div><div><dt>Time</dt><dd>To be announced</dd></div><div><dt>Format</dt><dd>Live online, with Q&amp;A</dd></div><div><dt>Cost</dt><dd>Free</dd></div></dl><p class="offer-supporting">Ignite the Grit Run · November 22, 2026 · In partnership with JCIR Events Management.</p></div></article>
+  </main>
+  <footer class="site-footer">
+    <div class="wrap footer-row">
+      <p class="footer-line">Athlevo Coaching · athlevo.org</p>
+      <p class="copyright">General guidance for healthy runners. If something hurts or feels wrong, stop and see a doctor.</p>
+    </div>
+  </footer>
+  <script>
+    (function () {
+      if (typeof window.fbq !== "function") return;
+      try { if (window.sessionStorage.getItem("athlevoWebinarLead")) return; } catch (e) { /* storage blocked: still count it */ }
+      window.fbq("track", "Lead");
+      try { window.sessionStorage.setItem("athlevoWebinarLead", "1"); } catch (e) { /* ignore */ }
+    })();
+  </script>
+</body>
+</html>

@@ -33,6 +33,7 @@ import {
   eliteSignupCheckoutHandler, eliteSignupStatusHandler,
   planSignupCheckoutHandler, planSignupStatusHandler
 } from "../../lib/server/planSignup.js";
+import webinarRegisterHandler from "../../lib/server/webinarRegistration.js";
 import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
 import coachAnonymousHandler from "../../lib/server/coachAnonymousEndpoint.js";
 import anonymousHandoffHandler from "../../lib/server/anonymousHandoffEndpoint.js";
@@ -4324,6 +4325,10 @@ export default async function handler(request, response) {
     }
     if (action === "elite_signup_status") {
       return eliteSignupStatusHandler(request, response);
+    }
+    // Free webinar registration on the public /webinar page (no Athlevo account).
+    if (action === "webinar_register") {
+      return webinarRegisterHandler(request, response);
     }
 
     if (action === "diagnostic_chat") {

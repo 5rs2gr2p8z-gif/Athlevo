@@ -1090,7 +1090,7 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
     // :path names the rest of the path in the catch-all; :slug the last segment.
     return dest.replace(/:path\b/, () => path.slice(1)).replace(/:slug\b/, () => path.split("/").pop());
   };
-  const STATIC_FILES = (p) => ["/", "/index.html", "/store.html", "/store.css", "/robots.txt", "/sitemap.xml", "/sitemap-programs.xml"].includes(p) ||
+  const STATIC_FILES = (p) => ["/", "/index.html", "/store.html", "/store.css", "/robots.txt", "/sitemap.xml", "/sitemap-programs.xml", "/webinar.css", "/webinar.html", "/webinar-thank-you.html"].includes(p) ||
     /^\/(assets|js|athlevo-assets|store-pages)\//.test(p);
   const viaVercel = (host, path) => {
     for (const r of vercel.redirects) {
@@ -1155,7 +1155,24 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
     ["athlevo.org", "/store/first-5k", { status: 308, location: "/programs/athlevo-plan" }],
     ["athlevo.org", "/store/athlevo-plan", { status: 308, location: "/programs/athlevo-plan" }],
     [PREVIEW, "/", { status: 200, file: "/index.html" }],
-    [PREVIEW, "/programs", { status: 200, rewrite: "/store.html" }]
+    [PREVIEW, "/programs", { status: 200, rewrite: "/store.html" }],
+    // The free webinar pages (see docs/webinar.md): served on the programs host, moved there from athlevo.org.
+    [HOST, "/webinar", { status: 200, rewrite: "/webinar.html" }],
+    [HOST, "/webinar/", { status: 200, rewrite: "/webinar.html" }],
+    [HOST, "/webinar/thank-you", { status: 200, rewrite: "/webinar-thank-you.html" }],
+    [HOST, "/webinar/thank-you/", { status: 200, rewrite: "/webinar-thank-you.html" }],
+    [HOST, "/webinar.css", { status: 200, file: "/webinar.css" }],
+    [HOST, "/js/webinar.js", { status: 200, file: "/js/webinar.js" }],
+    [HOST, "/api/webinar/register", { status: 200, rewrite: "/api/providers" }],
+    [HOST, "/webinars", { status: 307, location: APP + "/webinars" }],
+    [HOST, "/webinar.html", { status: 307, location: APP + "/webinar.html" }],
+    ["athlevo.org", "/webinar", { status: 307, location: PROGRAMS + "/webinar" }],
+    ["athlevo.org", "/webinar/", { status: 307, location: PROGRAMS + "/webinar/" }],
+    ["athlevo.org", "/webinar/thank-you", { status: 307, location: PROGRAMS + "/webinar/thank-you" }],
+    ["athlevo.org", "/webinar/thank-you/", { status: 307, location: PROGRAMS + "/webinar/thank-you/" }],
+    ["athlevo.org", "/api/webinar/register", { status: 200, rewrite: "/api/providers" }],
+    [PREVIEW, "/webinar", { status: 200, rewrite: "/webinar.html" }],
+    [PREVIEW, "/webinar/thank-you", { status: 200, rewrite: "/webinar-thank-you.html" }]
   ];
   const same = (got, want) => got.status === want.status && (got.location || "") === (want.location || "") &&
     (want.rewrite ? (got.rewrite || "").startsWith(want.rewrite) : true) && (want.file ? got.file === want.file : true);
@@ -1181,8 +1198,8 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
     [...vercel.redirects, ...vercel.rewrites].filter(r => (r.has || []).some(c => c.value === "athlevo.org"))
       .every(r => r.has.length === 1 && (r.missing || []).length === 1 && r.missing[0].value === HOST));
   const apexRules = vercel.redirects.filter(r => (r.has || []).some(c => c.value === "athlevo.org"));
-  t("athlevo.org's redirects to the new host are the hub, the four offers (by /programs/<slug> and by short link) and the rest of /programs/<x>: temporary, in one hop, query kept, before the legacy /store rules",
-    apexRules.length === 1 + 4 + 1 + 4 && apexRules.every(r => r.permanent === false && r.destination.startsWith(PROGRAMS + "/")) &&
+  t("athlevo.org's redirects to the new host are the hub, the four offers (by /programs/<slug> and by short link) the rest of /programs/<x> and the four /webinar addresses: temporary, in one hop, query kept, before the legacy /store rules",
+    apexRules.length === 1 + 4 + 1 + 4 + 4 && apexRules.every(r => r.permanent === false && r.destination.startsWith(PROGRAMS + "/")) &&
     SLUGS.every(s => apexRules.some(r => r.source === "/programs/" + s && r.destination === PROGRAMS + "/" + s) &&
       apexRules.some(r => r.source === "/" + s && r.destination === PROGRAMS + "/" + s)) &&
     apexRules.some(r => r.source === "/programs" && r.destination === PROGRAMS + "/programs") &&

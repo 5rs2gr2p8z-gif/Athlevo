@@ -13,7 +13,8 @@ The public program pages (the hub and the four offers) are served from their own
 | Athlevo Coaching | `/athlevo-coaching` | |
 | Hybrid Programming | `/hybrid-programming` | |
 | Elite Coaching | `/elite-coaching` | |
-| Anything else | redirected (307) to the same path on `athlevo.org` | Only program pages, `/api/`, `/assets/`, `/athlevo-assets/`, `/js/`, `/store.css`, `robots.txt` and the sitemaps are served here. |
+| Free webinar | `/webinar` and `/webinar/thank-you` | A campaign page (see `docs/webinar.md`). Its stylesheet is `/webinar.css`; the same paths on `athlevo.org` redirect here (307). |
+| Anything else | redirected (307) to the same path on `athlevo.org` | Only program pages, the webinar pages, `/api/`, `/assets/`, `/athlevo-assets/`, `/js/`, `/store.css`, `/webinar.css`, `robots.txt` and the sitemaps are served here. |
 
 `/programs/<slug>` on the new host redirects (308) to `/<slug>`. Query strings, including `?code=`, are kept.
 On every other host (athlevo.org, previews, local) an offer is still `/programs/<slug>`; `js/storefront.js`

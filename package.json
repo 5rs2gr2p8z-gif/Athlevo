@@ -22,7 +22,9 @@
     "test:native": "node tests/native-ios-runtime.test.mjs && node tests/native-build-readiness.test.mjs",
     "preview": "node scripts/serve-web.mjs",
     "test:store": "node tests/store-route.test.mjs",
-    "build:store": "node scripts/build-store-pages.mjs"
+    "build:store": "node scripts/build-store-pages.mjs",
+    "build:webinar": "node scripts/build-webinar-pages.mjs",
+    "test:webinar": "node tests/webinar-pages.test.mjs && node tests/webinar-registration.test.mjs"
   },
   "dependencies": {
     "@capacitor/app": "8.1.1",

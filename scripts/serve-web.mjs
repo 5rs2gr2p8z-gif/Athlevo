@@ -65,7 +65,7 @@ const PROGRAMS_ORIGIN = "https://" + PROGRAMS_HOST;
 const APP_HOST = "athlevo.org";
 const APP_ORIGIN = "https://" + APP_HOST;
 // Paths the programs host serves itself; everything else is the app, which stays on athlevo.org.
-const PROGRAMS_HOST_KEEPS = /^\/(?:(?:programs|athlevo-plan|athlevo-coaching|hybrid-programming|elite-coaching)(?:\/|$)|(?:api|assets|athlevo-assets|js)\/|(?:store\.css|robots\.txt|sitemap\.xml|sitemap-programs\.xml)$)/;
+const PROGRAMS_HOST_KEEPS = /^\/(?:(?:programs|athlevo-plan|athlevo-coaching|hybrid-programming|elite-coaching|webinar)(?:\/|$)|(?:api|assets|athlevo-assets|js)\/|(?:store\.css|webinar\.css|robots\.txt|sitemap\.xml|sitemap-programs\.xml)$)/;
 
 // The programs host's own redirects: [status, location], or null.
 function programsHostRedirect(pathname, search) {
@@ -85,6 +85,8 @@ function appHostRedirect(pathname, search) {
   if (nested) return [307, PROGRAMS_ORIGIN + (SHORT_LINKS.has(nested[1]) ? "/" : "/programs/") + nested[1] + search];
   const short = pathname.match(/^\/([a-z0-9-]+)$/);
   if (short && SHORT_LINKS.has(short[1])) return [307, PROGRAMS_ORIGIN + "/" + short[1] + search];
+  // The free webinar pages (scripts/build-webinar-pages.mjs) live on the programs host too.
+  if (/^\/webinar(?:\/thank-you)?\/?$/.test(pathname)) return [307, PROGRAMS_ORIGIN + pathname + search];
   return null;
 }
 
@@ -100,6 +102,8 @@ function rewrite(pathname, host) {
     const flat = pathname.match(/^\/([a-z0-9-]+)$/);
     if (flat && SHORT_LINKS.has(flat[1])) return "/store-pages/" + flat[1] + ".html";
   }
+  if (pathname === "/webinar" || pathname === "/webinar/") return "/webinar.html";
+  if (pathname === "/webinar/thank-you" || pathname === "/webinar/thank-you/") return "/webinar-thank-you.html";
   if (pathname === "/programs" || pathname === "/programs/") return "/store.html";
   const offer = pathname.match(/^\/programs\/([a-z0-9-]+)\/?$/);
   if (offer && existsSync(join(root, "store-pages", offer[1] + ".html"))) return "/store-pages/" + offer[1] + ".html";
