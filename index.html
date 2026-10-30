@@ -2882,6 +2882,8 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 #screen-coachai.coach-is-empty #chips{display:none!important}
 #screen-coachai .coach-composer .coach-followups{margin:0 0 var(--s-2)}
 .am-coach-mode-mount{flex:1 1 auto;min-height:0}
+/* Tablet/desktop: the nav rail sits over the left of the Coach screen, so centre the mount in the free area. */
+body.layout-tablet .am-coach-mode-mount,body.layout-desktop .am-coach-mode-mount{padding-left:var(--athlevo-rail-w);box-sizing:border-box}
 .am-ai-surface-hidden{display:none!important}
 .am-coach-resolving{
   display:flex;flex-direction:column;padding:0;background:var(--paper);overflow:hidden
@@ -2904,21 +2906,20 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 .am-coach-surface-enter{animation:amCoachSurfaceIn 120ms var(--ease-standard) both}
 @keyframes amCoachSurfaceIn{from{opacity:0}to{opacity:1}}
 .am-human-coach{position:relative;display:flex;flex-direction:column;background:var(--paper)}
+/* Same feel as the old AI Coach: a quiet centered header, plain coach text, a pill composer. */
 .am-human-coach-head{
-  flex:0 0 auto;display:flex;align-items:center;gap:var(--s-3);padding:14px 22px 12px;
-  border-bottom:1px solid var(--line);background:var(--paper)
+  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 22px 10px;
+  background:var(--paper);text-align:center
 }
 .am-human-coach-avatar{
-  width:34px;height:34px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;
-  background:var(--athlevo-red);color:#fff;font-size:var(--fs-body-sm);font-weight:700
+  width:44px;height:44px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;object-fit:cover;
+  background:var(--ink);color:var(--paper);font:600 var(--fs-body)/1 var(--serif);margin-bottom:4px
 }
-.am-human-coach-head strong,.am-human-coach-head small{display:block}
-.am-human-coach-head>span:last-child{min-width:0}
-.am-human-coach-head strong{font-size:var(--fs-body-sm);overflow-wrap:anywhere}
-.am-human-coach-head small{margin-top:2px;color:var(--text-muted);font-size:var(--fs-caption)}
+.am-human-coach-head strong{display:block;font-size:var(--fs-body);font-weight:650;overflow-wrap:anywhere}
+.am-human-coach-head small{display:block;color:var(--text-muted);font-size:var(--fs-caption)}
 .am-human-coach-thread{
-  flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--s-5) 22px;
-  display:flex;flex-direction:column;gap:var(--s-3);-webkit-overflow-scrolling:touch
+  flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--s-5) 22px 10px;
+  display:flex;flex-direction:column;gap:var(--s-5);-webkit-overflow-scrolling:touch
 }
 .am-human-coach-thread>:first-child{margin-top:auto}
 .am-human-thread-state,.am-human-thread-empty{margin:auto;text-align:center;color:var(--text-muted);font-size:var(--fs-body-sm)}
@@ -2930,35 +2931,36 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 .am-human-thread-loading i:nth-child(2){width:72%;animation-delay:80ms}
 .am-human-thread-loading i:nth-child(3){width:88%;animation-delay:160ms}
 @keyframes amHumanThreadPulse{to{opacity:.42}}
-.am-human-thread-empty strong{display:block;color:var(--ink);font-size:var(--fs-body);margin-bottom:var(--s-1)}
-.am-human-thread-empty p{max-width:280px;margin:0}
-.am-human-message{max-width:min(82%,440px);align-self:flex-start}
-.am-human-message.is-athlete{align-self:flex-end}
+.am-human-thread-empty{display:flex;flex-direction:column;align-items:center;width:100%}
+.am-human-thread-empty strong{display:block;color:var(--text);font:500 var(--fs-h1)/1.15 var(--serif);letter-spacing:var(--ls-tight);margin-bottom:var(--s-2)}
+.am-human-thread-empty p{max-width:300px;margin:0;font-size:var(--fs-body);color:var(--ink2);line-height:var(--lh-body)}
+.am-human-message{align-self:stretch;max-width:100%;animation:msgIn var(--dur-base) var(--ease-emphasized)}
 .am-human-message p{
-  margin:0;padding:10px 13px;border-radius:14px 14px 14px 4px;background:var(--card2);
-  color:var(--ink);font-size:var(--fs-body-sm);line-height:var(--lh-body);overflow-wrap:anywhere
+  margin:0;padding:0;background:transparent;color:var(--text);
+  font-size:var(--fs-body);line-height:var(--lh-body);overflow-wrap:anywhere;white-space:pre-wrap
 }
-.am-human-message.is-athlete p{border-radius:14px 14px 4px 14px;background:var(--ink);color:var(--paper)}
+.am-human-message.is-athlete{align-self:flex-end;width:auto;max-width:78%}
+.am-human-message.is-athlete p{
+  padding:9px 13px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);color:var(--text)
+}
 .am-human-message time{display:block;margin-top:4px;color:var(--text-muted);font-size:10px}
 .am-human-message.is-athlete time{text-align:right}
+.am-human-empty-avatar{
+  width:72px;height:72px;display:grid;place-items:center;border-radius:50%;object-fit:cover;margin:0 auto var(--s-4);
+  background:var(--ink);color:var(--paper);font:600 28px/1 var(--serif)
+}
+.am-human-starters{display:grid;gap:var(--s-2);margin:var(--s-5) auto 0;width:100%;max-width:420px}
 .am-human-coach-latest{position:absolute;right:22px;bottom:88px;z-index:2;min-height:44px;padding:0 13px;
   border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--ink);box-shadow:var(--elev-1);
   font:700 var(--fs-caption)/1 var(--sans);cursor:pointer}
 .am-human-coach-latest[hidden]{display:none}
 .am-human-coach-composer{
-  flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s-2);
-  padding:var(--s-2) 22px var(--s-3);background:var(--paper);border-top:1px solid var(--line)
+  flex:0 0 auto;display:block;padding:var(--s-2) 22px var(--s-3);background:var(--paper);border-top:none
 }
-.am-human-coach-composer textarea{
-  width:100%;min-width:0;min-height:44px;max-height:120px;resize:vertical;padding:11px 13px;
-  border:1px solid var(--line);border-radius:var(--ui-radius-control);background:var(--paper);color:var(--ink);
-  font:inherit;font-size:var(--fs-body-sm)
-}
-.am-human-coach-composer button{
-  min-height:44px;padding:0 var(--s-4);border:0;border-radius:var(--ui-radius-control);
-  background:var(--ink);color:var(--paper);font:inherit;font-size:var(--fs-body-sm);font-weight:700;cursor:pointer
-}
-.am-human-coach-composer button:disabled{opacity:.55;cursor:default}
+.am-human-compose-box{margin:0}
+.am-human-compose-box label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.am-human-coach-composer .am-human-compose-box textarea{min-height:36px}
+.am-human-coach-composer .send{align-self:flex-end}
 .am-human-coach-status{
   grid-column:1/-1;min-height:14px;margin:0;color:var(--athlevo-red);font-size:var(--fs-caption)
 }
@@ -5851,15 +5853,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
   </section>
 
-  <!-- ═══════ HOME · COACH (training context + one tap into Coach) ═══════ -->
-  <section class="home-coach" id="homeCoachCard" aria-labelledby="homeCoachHeading">
-    <span class="today-section-eyebrow" id="homeCoachHeading">Coach</span>
-    <p class="home-coach-context" id="homeCoachContext" hidden></p>
-    <button class="rowlink" type="button" onclick="openCoachFromHome()">
-      <div><b data-home-coach-title>Ask about your training</b><small data-home-coach-sub>Your training, in context.</small></div><span class="arr" aria-hidden="true">→</span>
-    </button>
-  </section>
-
   <section class="today-week" id="todayWeekSnapshot" aria-labelledby="todayWeekHeading" hidden>
     <h2 id="todayWeekHeading">Last 7 days</h2>
     <div class="today-week-grid">
@@ -5881,7 +5874,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <!-- ═══════ HOME · FUEL (small link; hidden unless Fuel is enabled — js/fuel.js syncEntryPoints) ═══════ -->
   <div class="home-fuel" id="homeFuelEntry" hidden>
     <button class="rowlink" type="button" onclick="AthlevoFuel.open('home_card')">
-      <div><b>Fuel</b><small>Log meals and see them alongside your training.</small></div><span class="arr" aria-hidden="true">→</span>
+      <div><b>Fuel <span class="beta-tag">Beta</span></b><small>Log meals and see them alongside your training.</small></div><span class="arr" aria-hidden="true">→</span>
     </button>
   </div>
 
@@ -6486,14 +6479,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div id="youPacesCard"></div>
   </div>
 
-  <!-- ══ Fuel entry (nutrition tracking V1). Hidden unless the `fuel_tracking_v1` flag is on
-       (js/fuel.js → AthlevoFuel.syncEntryPoints). Opens the dedicated Fuel screen. ══ -->
-  <div class="you-fuel-section" id="youFuelEntry" hidden>
-    <button class="rowlink" type="button" onclick="AthlevoFuel.open('you_card')">
-      <div><b>Fuel</b><small>Log meals and see them alongside your training.</small></div><span class="arr" aria-hidden="true">→</span>
-    </button>
-  </div>
-
   <!-- ══ SECTION D — Trends (existing content, now the lower portion of You) ══ -->
   <div class="greet">
     <h1 class="serif">Training Status</h1>
@@ -6912,6 +6897,8 @@ html.coach-led .coach-side-panel-section:has([onclick*="new-chat"]),
 html.coach-led .af-card-analyze,
 html.coach-led #todayProUpgradeCard,
 html.coach-led #athlevoTrialIndicator{display:none!important}
+.beta-tag{display:inline-block;margin-left:6px;padding:2px 7px;border:1px solid var(--line);border-radius:var(--r-pill,999px);
+  font:700 9.5px/1.3 var(--sans,inherit);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);vertical-align:2px}
 /* The plan comes from the coach: no AI plan-builder calls to action on Home or, for coached athletes, Calendar. */
 html.coach-led #todayNoPlanState .today-state-note,
 body.athlete-coached .train-empty .primary-btn{display:none!important}
@@ -11057,14 +11044,9 @@ function applyHomeCoachContext(text){
 
 /* Home → Coach: same canonical go() path as the tab, so entitlement
    gating, Coach entry and the active-tab state all behave identically. */
-/* Coach-led app: the Home Coach row talks to the athlete's coach, not an AI. */
+/* Coach-led app: Home first card points to the athlete coach, not an AI. */
 (function applyCoachLedHomeCopy(){
   if (window.ATHLEVO_COACH_LED !== true) return;
-  var t = document.querySelector("[data-home-coach-title]");
-  var s = document.querySelector("[data-home-coach-sub]");
-  // Neutral until the athlete's coaching mode is known (js/athleteMode.js applyHomeCoachRow).
-  if (t) t.textContent = "Your coach";
-  if (s) s.textContent = "Messages and workouts from your coach.";
   // Home's first card: the athlete's workouts; with none, it points to the coach.
   var noPlanTitle = document.querySelector("#todayNoPlanState h2");
   var noPlanAction = document.getElementById("todayNoPlanAction");

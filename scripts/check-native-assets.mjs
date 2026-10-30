@@ -38,7 +38,6 @@ const SYNCED_DIRS = ["js", "assets", "legal"];
 // Features this Android release must contain. Update when the release scope changes.
 const MARKERS = [
   ["index.html", 'id="screen-fuel"', "Fuel screen"],
-  ["index.html", 'id="youFuelEntry"', "You → Fuel entry"],
   ["js/fuel.js", "DEFAULT_ENABLED", "Fuel launch flag state"],
   ["js/fuel.js", "currentUserId", "Fuel auth lifecycle fix"],
   ["js/aiConsent.js", 'CONSENT_VERSION = "2"', "AI consent v2"],

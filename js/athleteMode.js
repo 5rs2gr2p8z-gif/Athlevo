@@ -444,6 +444,35 @@
     syncHumanJumpLatest(log);
   }
 
+  /*
+   * Who the athlete's coach is, for the Coach tab. Until real coach profiles
+   * carry a name and photo, an unnamed coach is Coach Dean. A photo is shown
+   * only when we know whose it is (a profile photo URL, or one of the three
+   * Athlevo coaches by first name); otherwise initials.
+   */
+  var COACH_PHOTOS = {
+    dean: "assets/store/founder-640.webp",
+    christian: "assets/store/christian-640.webp",
+    louie: "assets/store/louie-640.webp"
+  };
+
+  function coachIdentity() {
+    var raw = _coach && _coach.display_name ? String(_coach.display_name).trim() : "";
+    if (!raw || /^your\s+coach$/i.test(raw)) raw = "Dean";
+    raw = raw.replace(/^coach\s+/i, "");
+    var first = raw.split(/\s+/)[0] || "Dean";
+    var photo = _coach && typeof _coach.photo_url === "string" && /^https:\/\//.test(_coach.photo_url)
+      ? _coach.photo_url
+      : COACH_PHOTOS[first.toLowerCase()] || null;
+    return { label: "Coach " + first, first: first, photo: photo, initials: first.slice(0, 1).toUpperCase() };
+  }
+
+  function coachAvatarHtml(who, className) {
+    return who.photo
+      ? '<img class="' + className + '" src="' + esc(who.photo) + '" alt="' + esc(who.label) + '" width="88" height="88">'
+      : '<span class="' + className + ' is-initials" aria-hidden="true">' + esc(who.initials) + '</span>';
+  }
+
   function renderHumanThread(options) {
     var log = document.getElementById("amHumanCoachThread");
     if (!log) return;
@@ -459,8 +488,25 @@
     }
     var messages = _thread && Array.isArray(_thread.messages) ? _thread.messages : [];
     if (!messages.length) {
-      log.innerHTML = '<div class="am-human-thread-empty"><strong>Message your coach</strong>' +
-        '<p>Ask about your training, schedule, or anything your coach should know.</p></div>';
+      var who = coachIdentity();
+      log.innerHTML = '<div class="am-human-thread-empty">' +
+        coachAvatarHtml(who, "am-human-empty-avatar") +
+        '<strong>Message ' + esc(who.label) + '</strong>' +
+        '<p>Ask about your training, schedule, or anything your coach should know.</p>' +
+        '<div class="am-human-starters">' +
+          ["I need to move a workout.", "How should I handle soreness?", "I have a question about my plan."].map(function (text) {
+            return '<button type="button" class="coach-suggestion" data-am-starter="' + esc(text) + '">' + esc(text) + '</button>';
+          }).join("") +
+        '</div></div>';
+      log.querySelectorAll("[data-am-starter]").forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          var field = document.getElementById("amHumanCoachInput");
+          if (!field) return;
+          field.value = chip.getAttribute("data-am-starter");
+          field.dispatchEvent(new Event("input", { bubbles: true }));
+          field.focus();
+        });
+      });
       return;
     }
     log.innerHTML = messages.map(function (message) {
@@ -583,22 +629,25 @@
     setAiCoachVisible(false);
     removeCoachModeMounts();
 
-    var coachName = (_coach && _coach.display_name) ? esc(_coach.display_name) : "Your Coach";
-    var initials = (_coach && _coach.initials) ? esc(_coach.initials) : "C";
-    var title = (_coach && _coach.coaching_title) ? esc(_coach.coaching_title) : "Coach";
+    var who = coachIdentity();
+    var coachName = esc(who.label);
     var mount = document.createElement("div");
     mount.className = "am-coach-mode-mount am-human-coach";
     mount.innerHTML =
       '<header class="am-human-coach-head">' +
-        '<span class="am-human-coach-avatar" aria-hidden="true">' + initials + '</span>' +
-        '<span><strong>' + coachName + '</strong><small>' + title + '</small></span>' +
+        coachAvatarHtml(who, "am-human-coach-avatar") +
+        '<strong>' + coachName + '</strong><small>Your coach</small>' +
       '</header>' +
       '<div class="am-human-coach-thread" id="amHumanCoachThread" aria-label="Conversation with ' + coachName + '"></div>' +
       '<button class="am-human-coach-latest" id="amHumanCoachLatest" type="button" hidden>Jump to latest</button>' +
       '<form class="am-human-coach-composer" id="amHumanCoachComposer">' +
-        '<label class="sr-only" for="amHumanCoachInput">Message ' + coachName + '</label>' +
-        '<textarea id="amHumanCoachInput" maxlength="4000" rows="1" placeholder="Message your coach"></textarea>' +
-        '<button type="submit" id="amHumanCoachSend" disabled>Send</button>' +
+        '<div class="composer am-human-compose-box">' +
+          '<label class="sr-only" for="amHumanCoachInput">Message ' + coachName + '</label>' +
+          '<textarea id="amHumanCoachInput" maxlength="4000" rows="1" placeholder="Message ' + coachName + '…"></textarea>' +
+          '<button type="submit" class="send" id="amHumanCoachSend" aria-label="Send message" disabled>' +
+            '<svg class="send-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"></path></svg>' +
+          '</button>' +
+        '</div>' +
         '<p class="am-human-coach-status" id="amHumanCoachStatus" aria-live="polite"></p>' +
       '</form>';
     screen.appendChild(mount);
@@ -723,33 +772,6 @@
   }
 
   /*
-   * Coach-led app: the Home "Coach" row says what is true for this athlete.
-   * Coached athletes message their coach; everyone else is told how to get
-   * connected. While the mode is still resolving it makes no claim.
-   */
-  function applyHomeCoachRow() {
-    if (typeof window === "undefined" || window.ATHLEVO_COACH_LED !== true) return;
-    var eyebrow = document.getElementById("homeCoachHeading");
-    var title = document.querySelector("[data-home-coach-title]");
-    var sub = document.querySelector("[data-home-coach-sub]");
-    if (!title || !sub) return;
-    if (_mode === "human_coached") {
-      var first = _coach && _coach.display_name ? String(_coach.display_name).trim().split(/\s+/)[0] : "";
-      if (eyebrow) eyebrow.textContent = "Your coach";
-      title.textContent = first ? "Message " + first : "Message your coach";
-      sub.textContent = "Your coach reviews your training and sends your workouts.";
-    } else if (_mode === "self_guided" || _mode === "anonymous") {
-      if (eyebrow) eyebrow.textContent = "Coach";
-      title.textContent = "Connect with your coach";
-      sub.textContent = "Ask your coach for their invite link and open it on this device.";
-    } else {
-      if (eyebrow) eyebrow.textContent = "Coach";
-      title.textContent = "Your coach";
-      sub.textContent = "Messages and workouts from your coach.";
-    }
-  }
-
-  /*
    * A coached athlete's plan comes from their coach, so the AI plan-builder
    * call to action steps aside on Home and Calendar until the coach adds work.
    */
@@ -768,7 +790,6 @@
   }
 
   function applyModeUi() {
-    applyHomeCoachRow();
     applyCoachedHome();
     renderAssignedCoach();
     renderCoachTab();

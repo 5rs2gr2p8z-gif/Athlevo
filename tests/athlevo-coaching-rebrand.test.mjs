@@ -91,7 +91,7 @@ test("duplicate account Settings entry stays hidden on tablet/desktop where the 
   /body\.layout-desktop \[data-coach-auth="signed-in"\] \[onclick="runCoachMenuAction\('settings'\)"\]\{display:none\}/.test(html));
 test("Settings is reachable from You (profile avatar → You) and the You screen exists",
   /onclick="openProfileScreen\(\)"/.test(html) && /id="screen-you"/.test(html));
-test("Fuel is reachable from You and Home", /AthlevoFuel\.open\('you_card'\)/.test(html) && /AthlevoFuel\.open\('home_card'\)/.test(html));
+test("Fuel is reachable from Home (Beta)", /AthlevoFuel\.open\('home_card'\)/.test(html) && /class="beta-tag">Beta</.test(html));
 
 console.log("\n──── Google native callback + deep links preserved ────");
 test("native Google callback constant unchanged", /AUTH_CALLBACK = "athlevo:\/\/auth\/callback"/.test(runtimeEnv));

@@ -109,10 +109,14 @@ test("the Home Pro card, trial indicator and Analyze-with-Coach buttons are hidd
   /html\.coach-led \.af-card-analyze,\s*html\.coach-led #todayProUpgradeCard,\s*html\.coach-led #athlevoTrialIndicator\{display:none!important\}/.test(html));
 test("Settings 'Plan' becomes 'Programs' with a View programs button",
   /heading\.textContent = 'Programs'/.test(html) && /programsCta\.textContent = 'View programs'/.test(html));
-test("Home Coach row starts neutral and is set per athlete once the mode is known",
-  /textContent = "Your coach"/.test(html) && /function applyHomeCoachRow/.test(read("./js/athleteMode.js")) && /applyModeUi\(\) \{\s*applyHomeCoachRow\(\);/.test(read("./js/athleteMode.js")));
-
-section("Programs screen");
+test("Home has no separate Coach row; Fuel is marked Beta and You has no Fuel card",
+  !/id="homeCoachCard"/.test(html) && /<b>Fuel <span class="beta-tag">Beta<\/span><\/b>/.test(html) && !/id="youFuelEntry"/.test(html));
+test("Coach tab names the coach with a photo: Coach Dean until real coach profiles exist",
+  /function coachIdentity\(\)/.test(am) && /\/\^your\\s\+coach\$\/i\.test\(raw\)\) raw = "Dean"/.test(am) &&
+  /dean: "assets\/store\/founder-640\.webp"/.test(am) && /coachAvatarHtml\(who, "am-human-coach-avatar"\)/.test(am));
+test("Coach tab looks like the old AI Coach: centered header, plain coach text, pill composer with arrow send",
+  /\.am-human-coach-head\{[^}]*flex-direction:column;align-items:center/.test(html) &&
+  /\.am-human-message\{align-self:stretch/.test(html) && /class="composer am-human-compose-box"/.test(am) && /type="submit" class="send" id="amHumanCoachSend"/.test(am));
 test("screen, root and both controls exist", ["screen-programs", "programsRoot", "programsBack", "programsSkip"].every(id => html.includes(`id="${id}"`)));
 test("the screen script is loaded; the store catalog is lazy-loaded on first open (the app shell never ships the storefront)",
   html.includes('<script src="js/programsScreen.js') && !html.includes("storeCatalog") && /tag\.src = "js\/storeCatalog\.js/.test(read("./js/programsScreen.js")));

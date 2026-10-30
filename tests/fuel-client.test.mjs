@@ -77,7 +77,7 @@ test("esc escapes HTML", H.esc("<b>&\"") .indexOf("<") === -1);
 test("flag key is fuel_tracking_v1", H.FLAG === "fuel_tracking_v1");
 test("flag is ON by default for launch but still resolved through the feature-flag system", /var DEFAULT_ENABLED = true;/.test(src) && /AthlevoFeatureFlags\.isEnabled\(FLAG, DEFAULT_ENABLED\)/.test(src));
 test("flag architecture is intact: local override and PostHog can still switch Fuel off", /localOverride\(flagName\)/.test(readFileSync("js/featureFlags.js", "utf8")) && /posthogFlag\(flagName\)/.test(readFileSync("js/featureFlags.js", "utf8")) && /onFeatureFlags\(syncEntryPoints\)/.test(src));
-test("entry point is hidden by default", /id="youFuelEntry"[^>]*hidden/.test(html));
+test("entry point is hidden by default", /id="homeFuelEntry"[^>]*hidden/.test(html));
 test("Fuel screen exists", /id="screen-fuel"/.test(html));
 test("camera input uses image/* + capture", /id="fuelCameraInput"[^>]*accept="image\/\*"[^>]*capture="environment"/.test(html));
 test("library input has no capture", /id="fuelLibraryInput"[^>]*accept="image\/\*"/.test(html) && !/id="fuelLibraryInput"[^>]*capture/.test(html));

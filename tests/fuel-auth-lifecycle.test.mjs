@@ -122,7 +122,7 @@ function makeWorld({ session = null, sessionGate = null, clientAsWindowProp = fa
   };
 
   const els = {};
-  for (const id of ["fuelRoot", "screen-fuel", "fuelSheet", "fuelSheetBody", "youFuelEntry", "fuelCameraInput", "fuelLibraryInput"]) els[id] = makeEl(id);
+  for (const id of ["fuelRoot", "screen-fuel", "fuelSheet", "fuelSheetBody", "homeFuelEntry", "fuelCameraInput", "fuelLibraryInput"]) els[id] = makeEl(id);
   const doc = {
     readyState: "complete", activeElement: null,
     getElementById: id => els[id] || null,

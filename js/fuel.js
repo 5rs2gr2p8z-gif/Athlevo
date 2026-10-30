@@ -1334,8 +1334,8 @@
   }
 
   function syncEntryPoints() {
-    // Two entry points share one flag: You (youFuelEntry) and Home (homeFuelEntry).
-    ["youFuelEntry", "homeFuelEntry"].forEach(function (id) {
+    // The entry point is on Home (homeFuelEntry); it follows the flag.
+    ["homeFuelEntry"].forEach(function (id) {
       var entry = $(id);
       if (entry) entry.hidden = !isEnabled();
     });

@@ -61,24 +61,24 @@ const yesterday = api.homeDateKeyPlusDays(-1);
 const futureRace = api.homeDateKeyPlusDays(20);
 
 console.log("\n──── Home structure (first viewport = Today / context / Next) ────");
-const order = ["todayActivePlanState", "homeNextCard", "homeCoachCard", "todayWeekSnapshot", "homeFuelEntry", "todayProUpgradeCard"]
+const order = ["todayActivePlanState", "homeNextCard", "todayWeekSnapshot", "homeFuelEntry", "todayProUpgradeCard"]
   .map(id => html.indexOf(`id="${id}"`));
 test("all Home sections exist", order.every(i => i > 0), order.join(","));
-test("order is Today → Next → Coach → Last 7 days → Fuel → Pro upgrade (upsell no longer above today's training)",
+test("order is Today → Next → Last 7 days → Fuel → Pro upgrade (upsell no longer above today's training)",
   order.every((v, i) => i === 0 || v > order[i - 1]));
 test("Home keeps the existing greeting and training-context data sources",
   /id="todayGreeting"/.test(html) && /id="dailyBriefCard"/.test(html) && /id="todayWhyToday"/.test(html));
 test("Home has no hero banner element", !/class="[^"]*home-hero/.test(html));
-test("Coach card opens Coach through the canonical go() path",
-  /onclick="openCoachFromHome\(\)"/.test(html) &&
-  /function openCoachFromHome\(\)[\s\S]*?#tabbar \.tab\[data-screen="screen-coachai"\][\s\S]*?go\(tab\)/.test(html));
-test("Coach card uses coaching language, not 'AI coach' marketing",
-  /Ask about your training/.test(html) && /Your training, in context\./.test(html));
-test("Fuel row on Home is hidden by default and shares the Fuel flag with You",
+test("Home's first card reaches the coach through the canonical go() path; the separate Coach row is gone",
+  /id="todayNoPlanAction"/.test(html) && /setAttribute\("onclick", "openCoachFromHome\(\)"\)/.test(html) &&
+  /function openCoachFromHome\(\)[\s\S]*?#tabbar \.tab\[data-screen="screen-coachai"\][\s\S]*?go\(tab\)/.test(html) &&
+  !/id="homeCoachCard"/.test(html));
+test("Fuel row on Home is hidden by default, follows the Fuel flag, and is marked Beta",
   /id="homeFuelEntry" hidden/.test(html) &&
-  /\["youFuelEntry", "homeFuelEntry"\]/.test(fuel) &&
-  /AthlevoFuel\.open\('home_card'\)/.test(html));
-test("Fuel is still reachable from You", /id="youFuelEntry"[\s\S]{0,200}AthlevoFuel\.open\('you_card'\)/.test(html));
+  /\["homeFuelEntry"\]/.test(fuel) &&
+  /AthlevoFuel\.open\('home_card'\)/.test(html) &&
+  /<b>Fuel <span class="beta-tag">Beta<\/span><\/b>/.test(html));
+test("Fuel now lives on Home only (the You card was removed)", !/id="youFuelEntry"/.test(html) && !/AthlevoFuel\.open\('you_card'\)/.test(html));
 test("Fuel is not the dominant Home feature (single link row, no Fuel summary markup)",
   (html.match(/id="homeFuelEntry"/g) || []).length === 1 && !/id="homeFuel(Summary|Card|Macros)/.test(html));
 
