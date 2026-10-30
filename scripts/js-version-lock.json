@@ -1,0 +1,318 @@
+{
+  "js/runtimeEnvironment.js": {
+    "v": 76,
+    "sha256": "2f9071cc69dff4eb6c6cae68dad0d8f9484d0056ce178f8aaa8b336bc708e615"
+  },
+  "js/appMode.js": {
+    "v": 2,
+    "sha256": "35a9bee3684575fa45ddf3dbf4f741551ba012984360a36ab9154c82b699e111"
+  },
+  "js/landingContent.js": {
+    "v": 79,
+    "sha256": "6a5bd9d18c9f85a0385c511701eaf045d6f61e5bf6f19faedca667dc800a9a6d"
+  },
+  "js/authSupport.js": {
+    "v": 76,
+    "sha256": "8c37acfa51e4dab9e161a6724d3841f44a33465c72ec4b598bfee77a99dd45e8"
+  },
+  "js/recoveryScore.js": {
+    "v": 69,
+    "sha256": "dded7ddf6e0d410169261a023b284b7c67ff6c49d81667c7aa57dfc955c8b7a6"
+  },
+  "js/sportClassification.js": {
+    "v": 74,
+    "sha256": "6d9b4145676c7a5a8d22f02ffba9b6260dfaa4d2c989aa0f1818a60fbc395ccd"
+  },
+  "js/loadingContinuity.js": {
+    "v": 81,
+    "sha256": "e1e7afea17a7232fc5d989e70aa0186bfa7e506fbc222ab41d5e174648b046ed"
+  },
+  "js/brain.js": {
+    "v": 82,
+    "sha256": "4167ee7c712390545bbba2be993f9f459f1a8a41c016e1696ce56a4f70253f00"
+  },
+  "js/weather.js": {
+    "v": 78,
+    "sha256": "a609d69e89781c05a223880dfcd79428a9831f23f549bc4ed144971375d07473"
+  },
+  "js/syncStatus.js": {
+    "v": 67,
+    "sha256": "a3c8fb29e59bf968a1ae56ccc39b92b2b45820768c6d200861a9bcbe5de2d761"
+  },
+  "js/performance.js": {
+    "v": 67,
+    "sha256": "7db74a98936e5f5a9eff1d900dfecf87f42d519e29ce8c618987030c897e0b2d"
+  },
+  "js/aerobicCalibration.js": {
+    "v": 67,
+    "sha256": "27756a66500dd68f3351640960214af7ef96bc628a03cdb9b893c455775ea834"
+  },
+  "js/paceService.js": {
+    "v": 67,
+    "sha256": "fb6915e0bb5c9c6f8684a889ef606e784c836445e33ffa558f1521a57b5f2830"
+  },
+  "js/workoutGuidance.js": {
+    "v": 67,
+    "sha256": "862571407a7afe994cd75a3f3fd2ba76ea8689bc72b0d9dd7db2ac2a8c575cdf"
+  },
+  "js/athleteEngine.js": {
+    "v": 67,
+    "sha256": "fd8f281c1109819433ce5b006dfab44b608cbb108cc19fc285495a2849bf0c26"
+  },
+  "js/planEngine.js": {
+    "v": 67,
+    "sha256": "31f6ac3f7956d178ad630d6e2d6cfd5ce6dd0757f134adb2bee1ea3830db80d4"
+  },
+  "js/prescription.js": {
+    "v": 67,
+    "sha256": "485534d19bc1cbc00a9040975a98c15d528a568509af6d650333f8e90c16750c"
+  },
+  "js/athleteModel.js": {
+    "v": 67,
+    "sha256": "eebee06ff0da00c2232aa9627c8a746be2ac6d9caa21161a1cb4a4b8da56f6c2"
+  },
+  "js/calendarWeeks.js": {
+    "v": 67,
+    "sha256": "beffb05dd82916ab2677654f439c902278bcc90cf0f2ac5b9013c3853b68be0c"
+  },
+  "js/workoutClassifier.js": {
+    "v": 67,
+    "sha256": "5d3c6ecb466b5f97dc0f7fb353076e2c3243ce67b5f5f5e2f13cbb021e616291"
+  },
+  "js/trends.js": {
+    "v": 67,
+    "sha256": "cbb9caf512a5959c35e7c2423a84b16be44ce906f360a86dd9f05a956db0c005"
+  },
+  "js/trendsAnalytics.js": {
+    "v": 84,
+    "sha256": "338750171fa70218111f317e6e575ec9f0984bdc0a92915e0252fdd6ac528d8d"
+  },
+  "js/trainingState.js": {
+    "v": 1,
+    "sha256": "bb1fd2d7b8822f3093c1747e8df64478856b11bef478c49d6a694829e187ffde"
+  },
+  "js/socialAuth.js": {
+    "v": 75,
+    "sha256": "42c3f7156d322a807ac711ddcf6909a0e17622cd8ff3663443fa2aee868e80c0"
+  },
+  "js/analyticsRegistry.js": {
+    "v": 75,
+    "sha256": "c2568d6018867cab1a6f8ef65227967d1cd38eb880594764be858b5b4875960a"
+  },
+  "js/metaPixel.js": {
+    "v": 69,
+    "sha256": "6fe763216fc80a64d8339cc489afaa4fa8543bc57f2d905fddeb255dd87bbc44"
+  },
+  "js/analytics.js": {
+    "v": 76,
+    "sha256": "246bf473de5a06d0bd32403fcea46a00878a8d1d83b8f5ddb28762216c82b30e"
+  },
+  "js/aiConsent.js": {
+    "v": 3,
+    "sha256": "fe7eb581fe16d48721577ffe0a98db14b9bc77623470d3db2c49576f4ce5e633"
+  },
+  "js/notifications.js": {
+    "v": 1,
+    "sha256": "7bc956635906042cf6832de00f057d88dd61eb4d27ac8c7d19f695ebd3744ef7"
+  },
+  "js/betaDashboard.js": {
+    "v": 67,
+    "sha256": "90bc6cdb0aa1e707d1d3c2e91db6a52419a1edca141dca9c56a9642a6f438f26"
+  },
+  "js/activation.js": {
+    "v": 68,
+    "sha256": "ccf8a28f36a8bc5d45b020d502fabea70d2c91420e855d8ffc25ac6f4cb1419e"
+  },
+  "js/onboardingConnect.js": {
+    "v": 70,
+    "sha256": "e26a32047cde3f2cc848b1d68a14179c2ae042bd4b65469e4cc952bf7e445489"
+  },
+  "js/productionVerify.js": {
+    "v": 67,
+    "sha256": "a63c34281425a8e75c864ea4e99b98da88423aeddaba87dec0f102f8aeb872d6"
+  },
+  "js/sheet.js": {
+    "v": 3,
+    "sha256": "8f43c86ec5fc09fd01d4f2059e6aa574531c5bb7fec52f1aacd2db7bc1c85c61"
+  },
+  "js/athlevoScore.js": {
+    "v": 79,
+    "sha256": "ecf42386393ae51c622fc62788136905c099f03e3203b07210a5200f95631964"
+  },
+  "js/coachBrain.js": {
+    "v": 67,
+    "sha256": "79f8a4ac7c9d1b47a61171f09358ce7b4ddf909589f8a409c755321e44893522"
+  },
+  "js/coachBrainData.js": {
+    "v": 67,
+    "sha256": "38aebf3a7ea9fc3f4880fe39b0ba4e05f9b26c5a872f6e39292ebd762516d42c"
+  },
+  "js/developmentEngine.js": {
+    "v": 67,
+    "sha256": "a8f171d2b3465c1e2448f65e15e6b83a35432e60120767c3d50bb8ebf8550733"
+  },
+  "js/developmentData.js": {
+    "v": 67,
+    "sha256": "1da454970e1e440f61b1aa1c394b85b9b75984ade2b053f9220ccbdc8cdc9a0b"
+  },
+  "js/raceDetection.js": {
+    "v": 67,
+    "sha256": "5f66ef88eabaeb37a72c839fae195a665ac3e420f100de0e5c5d3a6868105d0d"
+  },
+  "js/memory.js": {
+    "v": 67,
+    "sha256": "3dcf4ccabedd61bf0e17e4edb61620fd5699c4afefc009d2e89c37b40e71deaf"
+  },
+  "js/dailyBrief.js": {
+    "v": 77,
+    "sha256": "d683d083a412f5c36aa8389c730432398ccf27ef6ffa996559fea3e07feba58a"
+  },
+  "js/renderCoachResponse.js": {
+    "v": 68,
+    "sha256": "33e1e9614f2ed8af49cbf5ae42917003834d8a28bdb7bc0e27687a403b64ebcf"
+  },
+  "js/planActionHeuristics.js": {
+    "v": 1,
+    "sha256": "86f5e3afd127c1f2fc0a0678dd126d0a6d64e100648bde4ee81e8440a0fbebae"
+  },
+  "js/coach.js": {
+    "v": 84,
+    "sha256": "c813ba543a9d7db6ae2bdb9858e35b91ed1e55eb04dbe4b4ab971cc7ef52186c"
+  },
+  "js/anonymousCoach.js": {
+    "v": 2,
+    "sha256": "c4224a32e053314890e5e759fdc7653ceb8609c046959090fc18e4d19d969a01"
+  },
+  "js/features.js": {
+    "v": 70,
+    "sha256": "3efd205fa39411c689ac2eb6f8e4280325d3d7da52275253ef1856f9752ecf39"
+  },
+  "js/train.js": {
+    "v": 84,
+    "sha256": "d232365a4831e14258d9c72dae05775d7b5b1b36c926b80fe6e881893e2a0bfc"
+  },
+  "js/buildWeekPlan.js": {
+    "v": 1,
+    "sha256": "a473cd69be11b373bb57944883fce3577a646090bfe87e8998404b952957393d"
+  },
+  "js/coachTimeline.js": {
+    "v": 67,
+    "sha256": "b0ad090a4c391ad02237f3340befdf321fc3c850c0c0e031ae36546a89eac135"
+  },
+  "js/workoutStructure.js": {
+    "v": 67,
+    "sha256": "a5344bc441880f1a450d622b9e781c9ff8502995f558f3cf1e96fca7527fc72c"
+  },
+  "js/activityStreams.js": {
+    "v": 5,
+    "sha256": "9ec56e23cd1ba9fe3abf25cdec0856dd4513757703f042385da6c9db1000ee87"
+  },
+  "js/trainCalendar.js": {
+    "v": 101,
+    "sha256": "5b025f2edcae6be9205c50dad17415d28c7e8a4d0c7189de87e74ac0d2b2c614"
+  },
+  "js/coachInvites.js": {
+    "v": 2,
+    "sha256": "b3a4e78c04235604bec5ac10a4084082b815bfcab953d07fcea7bdeceb67f6a7"
+  },
+  "js/athleteMode.js": {
+    "v": 83,
+    "sha256": "7386d965444e0e053ae94e86b211d88ffbbbd25d192fcd94df756c87a117f225"
+  },
+  "js/authRouteGuard.js": {
+    "v": 1,
+    "sha256": "d670de2be8ee9a8e0249b74a0145ef440e5c73b86521eba1cf1aa1e8b5d752c8"
+  },
+  "js/structuredWorkout.js": {
+    "v": 2,
+    "sha256": "49aef169f67b13b008f7ea745c7fdaf14f2d22cfebb41a24ce3edbf450b8b0f3"
+  },
+  "js/coachWorkoutBuilder.js": {
+    "v": 2,
+    "sha256": "f0465ddefb32ad503c56562993cd53481d5e550cfbedb15e0bbe3d9f3bc740db"
+  },
+  "js/coachDashboard.js": {
+    "v": 79,
+    "sha256": "f62999d9fc9eac62cbcd7b5f435014eda665d53a5338e02d726ac8625b71e1ee"
+  },
+  "js/coachMode.js": {
+    "v": 22,
+    "sha256": "5b84f5f44e460b744fdc9ddfd4de7552d20ae1bc4c6be1a1edecef543d2c2303"
+  },
+  "js/adaptivePlan.js": {
+    "v": 79,
+    "sha256": "72f870455d98357e49ae60fcc80516e631ab4473efac598268147c6ed4a5556a"
+  },
+  "js/accessGuard.js": {
+    "v": 80,
+    "sha256": "5044e6078f1a79b30b9f3260b7b7e058ec64e2ba591cb46409680d9c85a517fd"
+  },
+  "js/programsScreen.js": {
+    "v": 2,
+    "sha256": "e2292dbbd9d6344f756d6ebc0c949f1af8d51d3548bb023e3fd34dd156886911"
+  },
+  "js/planSetup.js": {
+    "v": 70,
+    "sha256": "6ca3d876dd011b056f2ec47d599f45ebfe07842f05f0cfc8735d15eb3e5ee50f"
+  },
+  "js/feedback.js": {
+    "v": 79,
+    "sha256": "e3773ab7338d53ca34bdd30752bd36423c2e09a49e414b218333502e5afad0cd"
+  },
+  "js/readiness.js": {
+    "v": 79,
+    "sha256": "d99a3f3c72fac2a89790e5ad42c4a5236e0b3a293d693c0a84c508cdaa5a895a"
+  },
+  "js/morningCheckIn.js": {
+    "v": 72,
+    "sha256": "08a69f52928390f3af6121e6197b3f26af8dd35b90b7de16a4a3af41c968830f"
+  },
+  "js/workoutAnalysis.js": {
+    "v": 68,
+    "sha256": "b0bf56a5a8e3c6b831536ca81669a6b7b09c14acae1f3dfc2272e4a1f7e54a90"
+  },
+  "js/legal.js": {
+    "v": 68,
+    "sha256": "913805b98165685ddd0eb6d2b12e0cd4093609553839bf6ee7af35d46500e331"
+  },
+  "js/onboarding.js": {
+    "v": 72,
+    "sha256": "ac575a65bc5aefd0e113ea92da6d60cf0a0841af8b2660bdf2a53df0cb068160"
+  },
+  "js/diagnostic.js": {
+    "v": 10,
+    "sha256": "ec06685a43cda9ccc87676e383c6a1507075cfeee316e04333798c8995a0c961"
+  },
+  "js/diagnosticSalesEngine.js": {
+    "v": 10,
+    "sha256": "b6838f1a512be991d2d415ee73d868f8eef437161ba316b2537d8a54b89a1841"
+  },
+  "js/diagnosticUI.js": {
+    "v": 10,
+    "sha256": "fbf5ba77c19b81e825d4096782a40580523045162c1f2a8ae13d30853f9c0a99"
+  },
+  "js/anonymousHandoff.js": {
+    "v": 1,
+    "sha256": "aee331d7f1bc413c3fc4e407f628f380b5906eaf6817e7353f41da813b11ad2c"
+  },
+  "js/diagnosticHandoff.js": {
+    "v": 10,
+    "sha256": "036fc913d49974de3815d7977e9c082693f9777fd1371e2e0bea9bc96be79248"
+  },
+  "js/featureFlags.js": {
+    "v": 1,
+    "sha256": "849fd1f42bc392f9de7a77008fbef586f9b2b795a957ecbad5708299fcba229d"
+  },
+  "js/fuel.js": {
+    "v": 4,
+    "sha256": "b125d35504eabd444d1325ce24792a2ce8ce249694e0085930bf3ad0c3bd0246"
+  },
+  "js/authenticatedOnboarding.js": {
+    "v": 1,
+    "sha256": "e50c7e5f6aeabddb316b3ae3f7802b3fa2b4a599cdd4508dea148538b047b057"
+  },
+  "js/diagnosticAcquisition.js": {
+    "v": 10,
+    "sha256": "b82438f9a1f7e1e6bbd06838a5411701fffbd27f8c3e1151000908b327ba8cde"
+  }
+}

@@ -214,8 +214,8 @@
   }
 })();
 </script>
-<script src="js/runtimeEnvironment.js?v=75"></script>
-<script src="js/appMode.js?v=1"></script>
+<script src="js/runtimeEnvironment.js?v=76"></script>
+<script src="js/appMode.js?v=2"></script>
 <script>
 (function(){
   try{
@@ -2938,7 +2938,17 @@ body.layout-tablet .am-coach-mode-mount,body.layout-desktop .am-coach-mode-mount
 .am-human-thread-empty{display:flex;flex-direction:column;align-items:center;width:100%}
 .am-human-thread-empty strong{display:block;color:var(--text);font:500 var(--fs-h1)/1.15 var(--serif);letter-spacing:var(--ls-tight);margin-bottom:var(--s-2)}
 .am-human-thread-empty p{max-width:300px;margin:0;font-size:var(--fs-body);color:var(--ink2);line-height:var(--lh-body)}
-.am-human-message{align-self:flex-start;max-width:82%;animation:msgIn var(--dur-base) var(--ease-emphasized)}
+.am-human-message{align-self:flex-start;max-width:82%}
+/* Only a message that just arrived animates; everything already on screen stays still. */
+@keyframes amBubbleSend{0%{opacity:0;transform:translateY(24px) scale(.86)}58%{opacity:1;transform:translateY(-2px) scale(1.015)}100%{opacity:1;transform:none}}
+@keyframes amBubbleArrive{0%{opacity:0;transform:translateY(10px) scale(.96)}100%{opacity:1;transform:none}}
+@keyframes amSendPop{0%{transform:scale(1)}40%{transform:scale(.84)}100%{transform:scale(1)}}
+.am-human-message.is-athlete.is-new{transform-origin:right bottom;animation:amBubbleSend 380ms var(--ease-emphasized) both}
+.am-human-message.is-coach.is-new{transform-origin:left bottom;animation:amBubbleArrive 260ms var(--ease-emphasized) both}
+.am-human-message.is-pending .am-bubble{opacity:.8}
+.am-human-message.is-pending time{font-style:italic}
+.am-human-coach-composer .send.is-popped{animation:amSendPop 260ms var(--ease-emphasized)}
+@media(prefers-reduced-motion:reduce){.am-human-message.is-new,.am-human-coach-composer .send.is-popped{animation:none}}
 .am-human-message.is-athlete{align-self:flex-end}
 .am-human-message.is-first{margin-top:9px}
 .am-human-message .am-bubble{
@@ -13561,7 +13571,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/notifications.js?v=1"></script>
 <script src="js/betaDashboard.js?v=67"></script>
 <script src="js/activation.js?v=68"></script>
-<script src="js/onboardingConnect.js?v=69"></script>
+<script src="js/onboardingConnect.js?v=70"></script>
 <script src="js/productionVerify.js?v=67"></script>
 <script src="js/sheet.js?v=3"></script>
 <script src="js/athlevoScore.js?v=79"></script>
@@ -13578,41 +13588,41 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/dailyBrief.js?v=77"></script>
 <script src="js/renderCoachResponse.js?v=68"></script>
 <script src="js/planActionHeuristics.js?v=1"></script>
-<script src="js/coach.js?v=83"></script>
+<script src="js/coach.js?v=84"></script>
 <script src="js/anonymousCoach.js?v=2"></script>
-<script src="js/features.js?v=69"></script>
-<script src="js/train.js?v=83"></script>
+<script src="js/features.js?v=70"></script>
+<script src="js/train.js?v=84"></script>
 <script src="js/buildWeekPlan.js?v=1"></script>
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=5"></script>
-<script src="js/trainCalendar.js?v=100"></script>
-<script src="js/coachInvites.js?v=1"></script>
-<script src="js/athleteMode.js?v=82"></script>
+<script src="js/trainCalendar.js?v=101"></script>
+<script src="js/coachInvites.js?v=2"></script>
+<script src="js/athleteMode.js?v=83"></script>
 <script src="js/authRouteGuard.js?v=1"></script>
-<script src="js/structuredWorkout.js?v=1"></script>
-<script src="js/coachWorkoutBuilder.js?v=1"></script>
-<script src="js/coachDashboard.js?v=78"></script>
-<script src="js/coachMode.js?v=21"></script>
+<script src="js/structuredWorkout.js?v=2"></script>
+<script src="js/coachWorkoutBuilder.js?v=2"></script>
+<script src="js/coachDashboard.js?v=79"></script>
+<script src="js/coachMode.js?v=22"></script>
 <script src="js/adaptivePlan.js?v=79"></script>
-<script src="js/accessGuard.js?v=79"></script>
-<script src="js/programsScreen.js?v=1"></script>
-<script src="js/planSetup.js?v=69"></script>
+<script src="js/accessGuard.js?v=80"></script>
+<script src="js/programsScreen.js?v=2"></script>
+<script src="js/planSetup.js?v=70"></script>
 <script src="js/feedback.js?v=79"></script>
 <script src="js/readiness.js?v=79"></script>
-<script src="js/morningCheckIn.js?v=71"></script>
+<script src="js/morningCheckIn.js?v=72"></script>
 <script src="js/workoutAnalysis.js?v=68"></script>
 <script src="js/legal.js?v=68"></script>
-<script src="js/onboarding.js?v=71"></script>
-<script src="js/diagnostic.js?v=9"></script>
-<script src="js/diagnosticSalesEngine.js?v=9"></script>
-<script src="js/diagnosticUI.js?v=9"></script>
+<script src="js/onboarding.js?v=72"></script>
+<script src="js/diagnostic.js?v=10"></script>
+<script src="js/diagnosticSalesEngine.js?v=10"></script>
+<script src="js/diagnosticUI.js?v=10"></script>
 <script src="js/anonymousHandoff.js?v=1"></script>
-<script src="js/diagnosticHandoff.js?v=9"></script>
+<script src="js/diagnosticHandoff.js?v=10"></script>
 <script src="js/featureFlags.js?v=1"></script>
-<script src="js/fuel.js?v=3"></script>
+<script src="js/fuel.js?v=4"></script>
 <script src="js/authenticatedOnboarding.js?v=1"></script>
-<script src="js/diagnosticAcquisition.js?v=9"></script>
+<script src="js/diagnosticAcquisition.js?v=10"></script>
 <script>
   // Pull the newest Strava activities, then refresh every surface that
   // depends on "latest activity" (Today, Train) and regenerate today's

@@ -3722,7 +3722,9 @@ async function actionAthleteMessages(request, response) {
     }
 
     if (request.method === "POST") {
-      const validated = validateCoachMessage(request.body && request.body.message);
+      // { message: { body } } is the contract; a bare string is accepted from older clients.
+      const incoming = request.body && request.body.message;
+      const validated = validateCoachMessage(typeof incoming === "string" ? { body: incoming } : incoming);
       if (!validated.ok) return sendJson(response, 400, { error: validated.error });
       const saved = await sbCoachWrite("coach_messages", "POST", {
         coach_id: resolved.coachId,

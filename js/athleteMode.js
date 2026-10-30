@@ -48,6 +48,9 @@
   var _threadScroll = { top: 0, nearBottom: true };
   var _threadScrollFrame = null;
   var _renderedThreadCount = 0;
+  var _seenMessageIds = {};        // ids already drawn: only new ones animate in
+  var _seenReady = false;          // false until the first thread render
+  var _pollTimer = null;
   var _requestGeneration = 0;
   var MODE_STALE_MS = 2 * 60 * 1000;
 
@@ -443,6 +446,17 @@
       : { month: "long", day: "numeric", year: "numeric" });
   }
 
+  function markMessagesSeen(messages) {
+    (messages || []).forEach(function (message) {
+      if (message && message.id) _seenMessageIds[message.id] = true;
+    });
+  }
+
+  function resetMessageAnimationState() {
+    _seenMessageIds = {};
+    _seenReady = false;
+  }
+
   function humanThreadNearBottom(log) {
     return !log || log.scrollHeight - log.clientHeight - log.scrollTop < 96;
   }
@@ -536,6 +550,7 @@
     // corner "tail" only on the last bubble of a run from the same sender.
     var previousDay = "";
     var previousRole = "";
+    var animateNew = _seenReady;
     log.innerHTML = messages.map(function (message, index) {
       var athlete = message.sender_role === "athlete";
       var day = humanDayKey(message.created_at);
@@ -548,12 +563,17 @@
       var first = Boolean(separator) || previousRole !== message.sender_role;
       previousDay = day || previousDay;
       previousRole = message.sender_role;
+      var isNew = animateNew && message.id && !_seenMessageIds[message.id];
       return separator + '<article class="am-human-message ' + (athlete ? "is-athlete" : "is-coach") +
-        (first ? " is-first" : "") + (sameRunAsNext ? "" : " is-last") + '">' +
+        (first ? " is-first" : "") + (sameRunAsNext ? "" : " is-last") +
+        (isNew ? " is-new" : "") + (message.pending ? " is-pending" : "") + '">' +
         '<div class="am-bubble">' + esc(message.body) +
-        '<time datetime="' + esc(message.created_at || "") + '">' + esc(humanClock(message.created_at)) + '</time></div>' +
+        '<time datetime="' + esc(message.created_at || "") + '">' +
+          (message.pending ? "Sending…" : esc(humanClock(message.created_at))) + '</time></div>' +
       '</article>';
     }).join("");
+    markMessagesSeen(messages);
+    _seenReady = true;
     var nextCount = messages.length;
     requestAnimationFrame(function () {
       if (!log.isConnected) return;
@@ -577,7 +597,8 @@
     var options = { method: method, cache: "no-store", headers: { Authorization: "Bearer " + t } };
     if (method === "POST") {
       options.headers["Content-Type"] = "application/json";
-      options.body = JSON.stringify({ message: message });
+      // The server validates { message: { body } } (same shape the coach side sends).
+      options.body = JSON.stringify({ message: { body: message } });
     }
     var response = await fetch("/api/providers?action=athlete_messages", options);
     var data = await response.json().catch(function () { return {}; });
@@ -587,6 +608,28 @@
       throw error;
     }
     return data.thread || { messages: [], can_send: true };
+  }
+
+  /* New coach messages arrive while the tab is open: refresh quietly, no loading state. */
+  async function refreshHumanMessagesQuietly() {
+    var screen = coachScreen();
+    if (_mode !== "human_coached" || _threadLoading || _sendInFlight || !screen || !screen.classList.contains("active") ||
+        (typeof document.hidden === "boolean" && document.hidden)) return;
+    var requestGeneration = _requestGeneration;
+    try {
+      var nextThread = await athleteMessageRequest("GET");
+      if (requestGeneration !== _requestGeneration || _mode !== "human_coached" || _sendInFlight) return;
+      var before = _thread && Array.isArray(_thread.messages) ? _thread.messages.length : 0;
+      var after = nextThread && Array.isArray(nextThread.messages) ? nextThread.messages.length : 0;
+      if (after === before) return;
+      _thread = nextThread;
+      renderHumanThread();
+    } catch (error) { /* quiet by design */ }
+  }
+
+  function ensureMessagePolling() {
+    if (_pollTimer !== null || typeof setInterval !== "function") return;
+    _pollTimer = setInterval(refreshHumanMessagesQuietly, 20000);
   }
 
   async function loadHumanMessages() {
@@ -606,9 +649,17 @@
     } finally {
       if (requestGeneration === _requestGeneration) _threadLoading = false;
     }
-    if (requestGeneration === _requestGeneration && _mode === "human_coached") renderHumanThread();
+    if (requestGeneration === _requestGeneration && _mode === "human_coached") {
+      renderHumanThread();
+      ensureMessagePolling();
+    }
   }
 
+  /*
+   * Sends like a chat app: the bubble appears at once ("Sending…"), the
+   * composer clears, and the new bubble springs up from the composer. If the
+   * send fails the bubble goes away and the text returns to the box.
+   */
   async function sendHumanMessage(message) {
     var clean = String(message || "").trim();
     if (_mode !== "human_coached" || !clean || _sendInFlight) return;
@@ -617,25 +668,53 @@
     var status = document.getElementById("amHumanCoachStatus");
     var requestGeneration = _requestGeneration;
     _sendInFlight = true;
-    if (button) button.disabled = true;
-    if (status) status.textContent = "Sending…";
+
+    var pendingId = "pending-" + Date.now();
+    var base = _thread && Array.isArray(_thread.messages) ? _thread : { messages: [], can_send: true };
+    _thread = Object.assign({}, base, {
+      messages: base.messages.concat([{
+        id: pendingId, sender_role: "athlete", body: clean, created_at: new Date().toISOString(), pending: true
+      }])
+    });
+    if (input) {
+      input.value = "";
+      input.style.height = "";
+    }
+    if (button) {
+      button.disabled = true;
+      button.classList.remove("is-popped");
+      void button.offsetWidth;
+      button.classList.add("is-popped");
+    }
+    if (status) status.textContent = "";
+    try { if (navigator.vibrate) navigator.vibrate(6); } catch (e) {}
+    renderHumanThread({ forceLatest: true });
+
     try {
       var nextThread = await athleteMessageRequest("POST", clean);
       if (requestGeneration !== _requestGeneration || _mode !== "human_coached") return;
+      markMessagesSeen(nextThread.messages); // the confirmed bubble must not animate in a second time
       _thread = nextThread;
-      if (input) {
-        input.value = "";
-        input.style.height = "";
-      }
-      if (status) status.textContent = "";
       renderHumanThread({ forceLatest: true });
     } catch (error) {
-      if (status) status.textContent = error && error.message ? error.message : "The message could not be sent.";
+      if (requestGeneration === _requestGeneration && _thread && Array.isArray(_thread.messages)) {
+        _thread = Object.assign({}, _thread, {
+          messages: _thread.messages.filter(function (item) { return item.id !== pendingId; })
+        });
+        renderHumanThread({ forceLatest: true });
+        var field = document.getElementById("amHumanCoachInput");
+        if (field && !field.value) {
+          field.value = clean;
+          field.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+      var failedStatus = document.getElementById("amHumanCoachStatus");
+      if (failedStatus) failedStatus.textContent = error && error.message ? error.message : "The message could not be sent.";
       if (error && error.status === 403) await revalidateMode();
     } finally {
       if (requestGeneration === _requestGeneration) {
         _sendInFlight = false;
-        if (button) button.disabled = !input || !input.value.trim();
+        syncHumanSendState();
       }
     }
   }
@@ -698,6 +777,13 @@
       sendHumanMessage(input ? input.value : "");
     });
     var input = document.getElementById("amHumanCoachInput");
+    // Desktop: Enter sends, Shift+Enter makes a new line. On touch screens Enter stays a new line.
+    if (input) input.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+      if (!(window.matchMedia && window.matchMedia("(pointer:fine)").matches)) return;
+      event.preventDefault();
+      sendHumanMessage(input.value);
+    });
     if (input) input.addEventListener("input", function () {
       input.style.height = "auto";
       input.style.height = Math.min(120, input.scrollHeight) + "px";
@@ -868,6 +954,7 @@
     _transition = null;
     _confirmed = false;
     _thread = null;
+    resetMessageAnimationState();
     _lastError = null;
     renderAssignedCoach();
     renderCoachTab();
@@ -929,6 +1016,7 @@
     _cacheKey = null;
     _lastError = null;
     _thread = null;
+    resetMessageAnimationState();
     _threadLoading = false;
     _sendInFlight = false;
     hideUnknownNotice();

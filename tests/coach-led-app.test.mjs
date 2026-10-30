@@ -246,6 +246,30 @@ test("the AI plan-builder note is hidden on Home; Calendar's builder button is h
   /html\.coach-led #todayNoPlanState \.today-state-note,\s*body\.athlete-coached \.train-empty \.primary-btn\{display:none!important\}/.test(html));
 test("the desktop Home greeting clears the rail toggle", /body\.layout-desktop #screen-today \.today-header\{margin-top:72px\}/.test(html));
 
+section("Sending a message to the coach");
+{
+  const { validateCoachMessage } = await import("../lib/server/coachMessaging.js");
+  const gateway = read("./api/providers/index.js");
+  test("the server reads {message:{body}}; a bare string is not a message", validateCoachMessage({ body: "hi" }).ok !== false && validateCoachMessage("hi").ok === false);
+  test("the client sends the shape the server validates ({ message: { body } })", /JSON\.stringify\(\{ message: \{ body: message \} \}\)/.test(am));
+  test("the athlete POST accepts either the object or a bare string", /typeof incoming === "string" \? \{ body: incoming \} : incoming/.test(gateway));
+}
+test("sending is optimistic: the bubble appears at once as pending, and is removed with the text restored if the send fails",
+  /var pendingId = "pending-" \+ Date\.now\(\)/.test(am) && /pending: true/.test(am) && /is-pending/.test(am) && /Sending…/.test(am) &&
+  /filter\(function \(item\) \{ return item\.id !== pendingId; \}\)/.test(am) && /amHumanCoachInput/.test(am));
+test("only newly arrived bubbles animate (seen-id tracking), so re-renders and polling never replay the animation",
+  /_seenMessageIds/.test(am) && /markMessagesSeen/.test(am) && /is-new/.test(am));
+test("the send animation: sender bubble springs in, coach bubble fades in, send button pops, all off under reduced motion",
+  /@keyframes amBubbleSend/.test(html) && /@keyframes amBubbleArrive/.test(html) && /@keyframes amSendPop/.test(html) &&
+  /\.am-human-message\.is-athlete\.is-new\{[^}]*amBubbleSend/.test(html) && /\.send\.is-popped\{[^}]*amSendPop/.test(html) &&
+  /prefers-reduced-motion[\s\S]{0,400}\.am-human-message\.is-new/.test(html));
+test("incoming coach replies appear without reopening the tab (quiet polling, only while the Coach tab is open)",
+  /ensureMessagePolling/.test(am) && /setInterval\(/.test(am));
+
+section("Scripts are cache-busted");
+test("service-worker cache and script versions were raised together (stale JS can no longer pair with new HTML)",
+  /athlevo-shell-v92/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
+
 section("Packaged for Android");
 const markers = read("./scripts/check-native-assets.mjs");
 test("native asset check pins the Programs screen and the coach-led flag",
