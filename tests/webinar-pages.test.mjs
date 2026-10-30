@@ -321,6 +321,8 @@ section("7. Speed");
   const assets = [...new Set([...landing.matchAll(/\/assets\/store\/[a-z0-9-]+\.(?:avif|webp)/g)].map(m => m[0].slice(1)))];
   const absent = assets.filter(p => !existsSync(p));
   t("every picture file the page points at exists in the repository", assets.length === 8 && absent.length === 0, absent.join());
+  const icons = [...(landing + thanks).matchAll(/<link rel="icon"[^>]*href="(\/[^"?]+)/g)].map(m => m[1].slice(1));
+  t("the tab icon on both pages points at a file that exists (the site renamed it once already)", icons.length === 2 && icons.every(p => existsSync(p)), icons.join());
   t("the stylesheets exist and are small", existsSync("webinar.css") && statSync("webinar.css").size < 8000 && statSync("js/webinar.js").size < 8000);
 }
 
