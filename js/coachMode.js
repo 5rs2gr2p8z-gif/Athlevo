@@ -365,6 +365,18 @@
       ".cm-day-empty{cursor:pointer;width:100%}.cm-day-add{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--line,#ebebe8);border-radius:50%;color:var(--ink2,#6d7075);font-size:18px;line-height:1}.cm-day-empty:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:-2px}",
       ".cm-add-menu{max-width:420px}.cm-add-list{display:grid;gap:8px}.cm-add-choice{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:10px 14px;border:1px solid var(--line,#ebebe8);border-radius:var(--ui-radius-control,12px);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-add-choice b{display:block;font-size:15px}.cm-add-choice small{display:block;margin-top:2px;color:var(--ink3,#9a9da3);font-size:12px}.cm-add-choice i{color:var(--ink3,#9a9da3);font-style:normal;font-size:20px}.cm-add-choice:disabled{opacity:.5}.cm-add-choice:focus-visible,.cm-add-back:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:2px}.cm-add-back{justify-self:start;border:0;background:transparent;padding:6px 0;color:var(--ink2,#6d7075);font:700 12px/1 var(--sans,sans-serif);cursor:pointer}",
       "@media(hover:hover) and (pointer:fine){.cm-day-empty:hover .cm-day-add{border-color:var(--red,#C0272D);color:var(--red,#C0272D)}.cm-add-choice:hover{border-color:var(--ink2,#6d7075)}}",
+      /* Sheets sit above the tab bar (z-index 1000). The editor keeps Cancel and Save pinned. */
+      "body .cm-workout-overlay,body .cm-invite-overlay,body .cm-note-confirm{z-index:1200}",
+      ".cm-editor{display:flex;flex-direction:column;padding-bottom:0}.cm-editor .cm-workout-form{display:grid;grid-template-columns:1fr;gap:12px;min-height:0}.cm-editor .cm-field--full{grid-column:1/-1}.cm-field-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.cm-field-hint{color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}",
+      ".cm-editor .cm-form-actions{position:sticky;bottom:0;margin:4px -16px 0;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:var(--surface-base,#fff);border-top:1px solid var(--line,#ebebe8)}",
+      ".cm-add-steps{justify-self:start;border:0;background:transparent;padding:4px 0;color:var(--red,#C0272D);font:700 12px/1.3 var(--sans,sans-serif);cursor:pointer}.cm-add-steps:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:2px}",
+      ".cm-add-menu textarea{width:100%;box-sizing:border-box;border:1px solid var(--line,#ebebe8);border-radius:var(--ui-radius-control,10px);background:var(--surface-raised,#fff);color:inherit;padding:10px;font:14px/1.4 var(--sans,sans-serif);resize:vertical}.cm-add-save{justify-self:end;min-height:44px;padding-inline:22px}.cm-add-menu .cm-field{margin-top:4px}",
+      ".cm-day-right{display:flex;align-items:center;gap:8px}.cm-day-grip{color:var(--ink3,#9a9da3);font-size:14px;letter-spacing:-3px;line-height:1;padding:8px 4px;touch-action:none;cursor:grab;user-select:none}",
+      ".cm-day-row.is-draggable{cursor:grab;touch-action:pan-y}.cm-day-row.is-drag-source{opacity:.35}.cm-day-row.is-moving{opacity:.5;pointer-events:none}",
+      ".cm-drag-ghost{position:fixed;z-index:1300;margin:0;pointer-events:none;background:var(--surface-base,#fff);border:1px solid var(--line,#ebebe8);border-radius:var(--ui-radius-control,12px);box-shadow:var(--elev-3);cursor:grabbing;opacity:.96}",
+      ".is-dragging-workout .cm-day-empty{outline:1px dashed var(--line,#c9c9c4);outline-offset:-3px}.is-dragging-workout .cm-day-empty.is-drop-target{outline:2px solid var(--red,#C0272D);background:var(--card2,#f6f6f4)}",
+      ".cm-editor .cm-form-actions .cm-week-btn{min-height:44px;padding:0 20px;font:700 13px/1 var(--sans,sans-serif)}.cm-editor .cm-form-actions .cm-week-btn.cm-dialog-close{border:1px solid var(--line,#ebebe8);background:transparent;font-size:13px}",
+      "@media(max-width:420px){.cm-field-row{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-field-row .cm-field:last-child{grid-column:1/-1}}",
       ".cm-roster-state{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--ink3,#9a9da3);max-width:92px;text-align:right}.cm-roster-state.attention{color:var(--bad,#c0272d)}",
       /* My Athletes table (coach Home). Wide: a real table. Narrow: one card-like row per athlete. */
       ".cm-command--roster{max-width:1180px}.cm-table-wrap{margin-top:6px;overflow-x:auto}.cm-roster-table{width:100%;border-collapse:collapse;table-layout:auto}",
@@ -1880,7 +1892,7 @@
         }
         continue;
       }
-      rows.push('<button type="button" class="cm-day-row' + (session.date === ath.today_key ? ' is-today' : '') + '" data-workout-id="' + esc(session.id) + '"><span class="cm-day-date">' + esc(dateLabel) + '<b>' + esc(dayNumber) + '</b></span><span class="cm-day-copy"><span class="cm-day-title">' + esc(session.title) + '</span><span class="cm-day-meta">' + esc(workoutMeta(session) || "Prescription details unavailable") + '</span></span><span class="cm-day-status ' + esc(session.execution_status) + '">' + esc(sessionStatusLabel(session.execution_status)) + '</span></button>');
+      rows.push('<button type="button" class="cm-day-row' + (session.date === ath.today_key ? ' is-today' : '') + '" data-workout-id="' + esc(session.id) + '"><span class="cm-day-date">' + esc(dateLabel) + '<b>' + esc(dayNumber) + '</b></span><span class="cm-day-copy"><span class="cm-day-title">' + esc(session.title) + '</span><span class="cm-day-meta">' + esc(workoutMeta(session) || "Prescription details unavailable") + '</span></span><span class="cm-day-right"><span class="cm-day-status ' + esc(session.execution_status) + '">' + esc(sessionStatusLabel(session.execution_status)) + '</span>' + (canWrite && session.can_reschedule ? '<span class="cm-day-grip" aria-hidden="true" title="Drag to another day">\u22ee\u22ee</span>' : '') + '</span></button>');
     }
     var completed = sessions.filter(function (s) { return s.execution_status === "completed" || s.execution_status === "modified"; }).length;
     var plannedDistance = sessions.reduce(function (sum, s) { return sum + (Number(s.distance_km) || 0); }, 0);
@@ -1890,7 +1902,7 @@
       (!canWrite ? '<div class="cm-readonly-note">View-only assignment. Workout details are available, but plan changes are disabled.</div>' : '') +
       (canWrite && !hasPlan ? '<div class="cm-readonly-note">No workouts yet. Tap a day to add the first one.</div>' : '') +
       '<div class="cm-day-list">' + rows.join("") + '</div>' +
-      (canWrite ? '<button type="button" class="cm-add-workout" id="cmAddWorkout">+ Add workout</button>' : '') + '</div>';
+      '</div>';
   }
 
   function renderAthleteAnalytics(ath) {
@@ -2226,8 +2238,7 @@
       base.setUTCDate(base.getUTCDate() + Number(btn.getAttribute("data-week-shift")));
       openCoachAthletePage(ath.athlete_id, "training", base.toISOString().slice(0, 10));
     }); });
-    var add = el.querySelector("#cmAddWorkout");
-    if (add) add.addEventListener("click", function () { openWorkoutEditor(null); });
+    bindWorkoutDrag(el, ath);
     el.querySelectorAll("[data-add-day]").forEach(function (row) { row.addEventListener("click", function () {
       openAddDayMenu(row.getAttribute("data-add-day"), row);
     }); });
@@ -2239,18 +2250,31 @@
 
   /* What each "Add Activity" choice pre-fills (same four choices V.O2 offers). */
   var ACTIVITY_KINDS = [
-    { id: "easy", label: "Easy Run", hint: "Steady, comfortable running", type: "Easy run", sport: "run", template: "easy" },
-    { id: "quality", label: "Quality Session", hint: "Warm-up, hard efforts, cool-down", type: "Quality session", sport: "run", template: "tempo" },
-    { id: "race", label: "Race", hint: "Race day", type: "Race", sport: "run", template: null },
-    { id: "cross", label: "Cross Training", hint: "Bike, swim, strength or other", type: "Cross training", sport: "cross_training", template: null }
+    { id: "easy", label: "Easy Run", hint: "Steady, comfortable running", type: "Easy run", sport: "run", template: null, paceZone: "easy" },
+    { id: "quality", label: "Quality Session", hint: "Warm-up, hard efforts, cool-down", type: "Quality session", sport: "run", template: "tempo", paceZone: "threshold" },
+    { id: "race", label: "Race", hint: "Race day", type: "Race", sport: "run", template: null, paceZone: null },
+    { id: "cross", label: "Cross Training", hint: "Bike, swim, strength or other", type: "Cross training", sport: "cross_training", template: null, paceZone: null }
   ];
 
   function activitySeed(kind, dateKey) {
-    var seed = { date: dateKey, type: kind.type, sport: kind.sport, title: kind.type, structure: null };
+    var seed = { date: dateKey, kind: kind.id, type: kind.type, sport: kind.sport, title: kind.type, structure: null, paceZone: kind.paceZone };
     var builder = window.AthlevoCoachWorkoutBuilder;
     var tpl = kind.template && builder && builder.TEMPLATES && builder.TEMPLATES.filter(function (t) { return t.id === kind.template; })[0];
     if (tpl) seed.structure = tpl.build();
     return seed;
+  }
+
+  /*
+   * Pace guidance filled in from the athlete's own fitness (their VDOT paces from a confirmed
+   * race or a recent run, the same source the builder uses). Shown as a band of 5% either
+   * side of the zone pace. Blank when the athlete has no usable race or run yet.
+   */
+  function autoPaceText(ath, zone) {
+    var zones = ath && ath.training_paces && ath.training_paces.zones;
+    var centre = zone && zones && zones[zone] && zones[zone].secPerKm;
+    var SW = window.AthlevoStructuredWorkout;
+    if (!centre || !SW || typeof SW.fmtPace !== "function") return "";
+    return SW.fmtPace(centre * 0.95) + "\u2013" + SW.fmtPace(centre * 1.05) + " /km";
   }
 
   function dayHeading(dateKey) {
@@ -2263,6 +2287,105 @@
     return openCoachAthletePage(_athleteDetailId, "training", _athleteWeekStart, true);
   }
 
+  /* Move a workout to another day with the full set of its current fields (the server replaces the row). */
+  async function moveWorkoutToDay(session, dateKey) {
+    var workout = {
+      session_date: dateKey, title: session.title, session_type: session.type, sport: session.sport,
+      duration_minutes: session.duration_minutes, distance_km: session.distance_km, intensity: session.intensity,
+      target_rpe: session.target_rpe, pace_guidance: session.pace_guidance, heart_rate_guidance: session.heart_rate_guidance,
+      description: session.description, notes: session.notes
+    };
+    if (session.structure) workout.structure = session.structure;
+    var res = await api("workout", { method: "PATCH", body: { athlete_id: _athleteDetailId, session_id: session.id, workout: workout } });
+    if (!res.ok) {
+      if (typeof window.toast === "function") window.toast(res.body && res.body.error || "The workout could not be moved.");
+      return false;
+    }
+    if (typeof window.toast === "function") window.toast("Moved to " + dayHeading(dateKey) + ".");
+    await refreshTrainingWeek();
+    return true;
+  }
+
+  /*
+   * Drag a workout onto an empty day (today or later). Mouse: drag the row. Touch: drag the
+   * grip, so scrolling the list still works. Dropping anywhere else cancels. The click that
+   * ends a drag is swallowed so it does not also open the editor.
+   */
+  function bindWorkoutDrag(el, ath) {
+    if (ath.assignment_permission !== "read_write") return;
+    var THRESHOLD = 6;
+    el.querySelectorAll(".cm-day-row[data-workout-id]").forEach(function (row) {
+      var session = ((ath.training_week || {}).sessions || []).find(function (item) { return String(item.id) === String(row.getAttribute("data-workout-id")); });
+      if (!session || !session.can_reschedule) return;
+      row.classList.add("is-draggable");
+      var dragging = false;
+      row.addEventListener("click", function (event) {
+        if (dragging) { event.preventDefault(); event.stopImmediatePropagation(); }
+      }, true);
+      row.addEventListener("pointerdown", function (down) {
+        if (down.button != null && down.button !== 0) return;
+        if (down.pointerType !== "mouse" && !down.target.closest(".cm-day-grip")) return;
+        var startX = down.clientX, startY = down.clientY;
+        var overlayGhost = null, hovered = null, active = false;
+
+        function targetAt(x, y) {
+          var hit = document.elementFromPoint(x, y);
+          var day = hit && hit.closest && hit.closest("[data-add-day]");
+          return day && el.contains(day) ? day : null;
+        }
+        function begin() {
+          active = true; dragging = true;
+          var box = row.getBoundingClientRect();
+          overlayGhost = row.cloneNode(true);
+          overlayGhost.classList.add("cm-drag-ghost");
+          overlayGhost.style.width = box.width + "px";
+          overlayGhost.style.left = box.left + "px";
+          overlayGhost.style.top = box.top + "px";
+          document.body.appendChild(overlayGhost);
+          row.classList.add("is-drag-source");
+          el.classList.add("is-dragging-workout");
+          document.body.style.userSelect = "none";
+        }
+        function onMove(move) {
+          if (!active) {
+            if (Math.abs(move.clientX - startX) < THRESHOLD && Math.abs(move.clientY - startY) < THRESHOLD) return;
+            begin();
+          }
+          move.preventDefault();
+          overlayGhost.style.transform = "translate3d(" + (move.clientX - startX) + "px," + (move.clientY - startY) + "px,0)";
+          var next = targetAt(move.clientX, move.clientY);
+          if (next !== hovered) {
+            if (hovered) hovered.classList.remove("is-drop-target");
+            hovered = next;
+            if (hovered) hovered.classList.add("is-drop-target");
+          }
+        }
+        function finish(up, cancelled) {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          window.removeEventListener("pointercancel", onCancel);
+          if (!active) return;
+          var target = cancelled ? null : targetAt(up.clientX, up.clientY);
+          if (overlayGhost) overlayGhost.remove();
+          row.classList.remove("is-drag-source");
+          el.classList.remove("is-dragging-workout");
+          if (hovered) hovered.classList.remove("is-drop-target");
+          document.body.style.userSelect = "";
+          setTimeout(function () { dragging = false; }, 0);
+          if (target) {
+            row.classList.add("is-moving");
+            moveWorkoutToDay(session, target.getAttribute("data-add-day")).then(function (moved) { if (!moved) row.classList.remove("is-moving"); });
+          }
+        }
+        function onUp(up) { finish(up, false); }
+        function onCancel(up) { finish(up, true); }
+        window.addEventListener("pointermove", onMove, { passive: false });
+        window.addEventListener("pointerup", onUp);
+        window.addEventListener("pointercancel", onCancel);
+      });
+    });
+  }
+
   /* Tap an empty day: Add Activity / Add Rest Day, then the four activity types. */
   function openAddDayMenu(dateKey, returnFocus) {
     if (!_athleteDetail || document.getElementById("cmAddDayOverlay")) return;
@@ -2272,7 +2395,13 @@
     var heading = esc(dayHeading(dateKey));
     function stepOne() {
       return '<button type="button" class="cm-add-choice" data-add-step="activity"><span><b>Add Activity</b><small>Easy run, quality session, race or cross training</small></span><i aria-hidden="true">›</i></button>' +
-        '<button type="button" class="cm-add-choice" data-add-step="rest"><span><b>Add Rest Day</b><small>Tell the athlete to take the day off</small></span></button>';
+        '<button type="button" class="cm-add-choice" data-add-step="rest"><span><b>Add Rest Day</b><small>Tell the athlete to take the day off</small></span></button>' +
+        '<button type="button" class="cm-add-choice" data-add-step="note"><span><b>Add Note</b><small>A message the athlete sees on this day</small></span><i aria-hidden="true">\u203a</i></button>';
+    }
+    function stepNote() {
+      return '<button type="button" class="cm-add-back" data-add-step="back">\u2039 Back</button>' +
+        '<div class="cm-field"><label for="cmNoteText">Note for ' + heading + '</label><textarea id="cmNoteText" rows="4" maxlength="1200" placeholder="Add a note, suggestion or tip\u2026"></textarea></div>' +
+        '<button type="button" class="cm-week-btn cm-week-btn--primary cm-add-save" data-add-step="save-note">Save note</button>';
     }
     function stepTwo() {
       return '<button type="button" class="cm-add-back" data-add-step="back">‹ Back</button>' + ACTIVITY_KINDS.map(function (kind) {
@@ -2302,6 +2431,23 @@
       var step = target.getAttribute("data-add-step");
       var kindId = target.getAttribute("data-add-kind");
       if (step === "activity") { list.innerHTML = stepTwo(); focusFirst(); return; }
+      if (step === "note") { list.innerHTML = stepNote(); var field = list.querySelector("textarea"); if (field) field.focus(); return; }
+      if (step === "save-note") {
+        var text = (list.querySelector("textarea").value || "").trim();
+        if (!text) { error.textContent = "Write the note first."; return; }
+        list.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+        error.textContent = "";
+        var saved = await api("workout", { method: "POST", body: { athlete_id: _athleteDetailId, workout: { session_date: dateKey, title: "Coach note", session_type: "Note", sport: "other", description: text } } });
+        if (!saved.ok) {
+          list.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
+          error.textContent = saved.body && saved.body.error || "The note could not be saved.";
+          return;
+        }
+        close();
+        if (typeof window.toast === "function") window.toast("Note added.");
+        refreshTrainingWeek();
+        return;
+      }
       if (step === "back") { list.innerHTML = stepOne(); focusFirst(); return; }
       if (kindId) {
         var kind = ACTIVITY_KINDS.filter(function (item) { return item.id === kindId; })[0];
@@ -2337,32 +2483,44 @@
     overlay.className = "cm-workout-overlay";
     overlay.id = "cmWorkoutOverlay";
     var value = function (key) { var source = session || seed; return esc(source && source[key] != null ? source[key] : ""); };
-    overlay.innerHTML = '<div class="cm-workout-dialog" role="dialog" aria-modal="true" aria-label="' + (session ? "Workout details" : "Add workout") + '"><div class="cm-workout-dialog-head"><h2>' + (session ? "Workout details" : "Add workout") + '</h2><button type="button" class="cm-dialog-close" aria-label="Close">×</button></div><form class="cm-workout-form" id="cmWorkoutForm">' +
-      '<div class="cm-field"><label for="cmWorkoutDate">' + (session ? 'Move session to' : 'Date') + '</label><input id="cmWorkoutDate" name="session_date" type="date" required value="' + value("date") + '" ' + (!editable || session && !session.can_reschedule ? "disabled" : "") + '></div>' +
-      '<div class="cm-field"><label for="cmWorkoutType">Type</label><input id="cmWorkoutType" name="session_type" value="' + value("type") + '" ' + (!editable ? "disabled" : "") + '></div>' +
-      '<div class="cm-field"><label for="cmWorkoutSport">Sport</label><input id="cmWorkoutSport" name="sport" value="' + value("sport") + '" ' + (!editable ? "disabled" : "") + '></div>' +
-      '<div class="cm-field cm-field--full"><label for="cmWorkoutTitle">Title</label><input id="cmWorkoutTitle" name="title" required value="' + value("title") + '" ' + (!editable ? "disabled" : "") + '></div>' +
-      '<div class="cm-field"><label for="cmWorkoutDuration">Duration (min)</label><input id="cmWorkoutDuration" name="duration_minutes" type="number" min="0" max="1440" value="' + value("duration_minutes") + '" ' + (!editable ? "disabled" : "") + '></div>' +
-      '<div class="cm-field"><label for="cmWorkoutDistance">Distance (km)</label><input id="cmWorkoutDistance" name="distance_km" type="number" min="0" max="1000" step="0.1" value="' + value("distance_km") + '" ' + (!editable ? "disabled" : "") + '></div>' +
-      '<div class="cm-field"><label for="cmWorkoutRpe">Target RPE</label><input id="cmWorkoutRpe" name="target_rpe" value="' + value("target_rpe") + '" ' + (!editable ? "disabled" : "") + '></div>' +
-      '<div class="cm-field"><label for="cmWorkoutIntensity">Intensity</label><input id="cmWorkoutIntensity" name="intensity" value="' + value("intensity") + '" ' + (!editable ? "disabled" : "") + '></div>' +
-      '<div class="cm-field cm-field--full"><label for="cmWorkoutPace">Pace guidance</label><input id="cmWorkoutPace" name="pace_guidance" value="' + value("pace_guidance") + '" ' + (!editable ? "disabled" : "") + '></div>' +
-      '<div class="cm-field cm-field--full" id="cmBuilderMount"></div>' +
-      '<div class="cm-field cm-field--full"><label for="cmWorkoutDescription">Description</label><textarea id="cmWorkoutDescription" name="description" ' + (!editable ? "disabled" : "") + '>' + value("description") + '</textarea></div>' +
-      '<div class="cm-field cm-field--full"><label for="cmWorkoutNotes">Coach notes</label><textarea id="cmWorkoutNotes" name="notes" ' + (!editable ? "disabled" : "") + '>' + value("notes") + '</textarea></div>' +
-      '<div class="cm-form-error" id="cmWorkoutError" aria-live="polite"></div><div class="cm-form-actions">' + (session && session.can_remove && canWrite ? '<button type="button" class="cm-week-btn cm-danger" id="cmRemoveWorkout">Remove from plan</button>' : '<span></span>') + '<div class="cm-form-actions-right"><button type="button" class="cm-week-btn cm-dialog-close">Close</button>' + (editable ? '<button type="submit" class="cm-week-btn cm-week-btn--primary">' + (session ? 'Adjust session' : 'Save workout') + '</button>' : '') + '</div></div></form></div>';
+    var off = !editable ? "disabled" : "";
+    var heading = session ? "Workout details" : dayHeading(seed ? seed.date : "") + (seed && seed.type ? " \u00b7 " + seed.type : "");
+    var athleteFirstName = String(ath.athlete_name || ath.name || ath.full_name || "").split(" ")[0];
+    var paceAuto = seed ? autoPaceText(ath, seed.paceZone) : "";
+    var showBuilder = Boolean(session && session.structure || seed && seed.structure);
+    overlay.innerHTML = '<div class="cm-workout-dialog cm-editor" role="dialog" aria-modal="true" aria-label="' + esc(session ? "Workout details" : "Add workout") + '"><div class="cm-workout-dialog-head"><h2>' + esc(heading) + '</h2><button type="button" class="cm-dialog-close" aria-label="Close">\u00d7</button></div><form class="cm-workout-form" id="cmWorkoutForm">' +
+      (session
+        ? '<div class="cm-field cm-field--full"><label for="cmWorkoutDate">Move to</label><input id="cmWorkoutDate" name="session_date" type="date" required value="' + value("date") + '" ' + (!editable || !session.can_reschedule ? "disabled" : "") + '></div>'
+        : '<input type="hidden" name="session_date" value="' + value("date") + '">') +
+      '<input type="hidden" name="session_type" value="' + value("type") + '"><input type="hidden" name="sport" value="' + value("sport") + '">' +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutTitle">Title</label><input id="cmWorkoutTitle" name="title" required value="' + value("title") + '" ' + off + '></div>' +
+      '<div class="cm-field-row cm-field--full">' +
+        '<div class="cm-field"><label for="cmWorkoutDuration">Duration (min)</label><input id="cmWorkoutDuration" name="duration_minutes" type="number" min="0" max="1440" inputmode="numeric" value="' + value("duration_minutes") + '" ' + off + '></div>' +
+        '<div class="cm-field"><label for="cmWorkoutDistance">Distance (km)</label><input id="cmWorkoutDistance" name="distance_km" type="number" min="0" max="1000" step="0.1" inputmode="decimal" value="' + value("distance_km") + '" ' + off + '></div>' +
+        '<div class="cm-field"><label for="cmWorkoutRpe">Target RPE</label><input id="cmWorkoutRpe" name="target_rpe" inputmode="numeric" placeholder="1\u201310" value="' + value("target_rpe") + '" ' + off + '></div>' +
+      '</div>' +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutPace">Pace guidance</label><input id="cmWorkoutPace" name="pace_guidance" placeholder="e.g. 5:30\u20136:00 /km" value="' + (session ? value("pace_guidance") : esc(paceAuto)) + '" ' + off + '>' +
+        (seed && paceAuto ? '<small class="cm-field-hint">Set automatically from ' + esc(athleteFirstName || "the athlete") + '\u2019s fitness. Edit it if you want.</small>' : '') + '</div>' +
+      '<div class="cm-field cm-field--full" id="cmBuilderMount"' + (showBuilder ? '' : ' hidden') + '></div>' +
+      (editable && !showBuilder ? '<button type="button" class="cm-add-steps cm-field--full" id="cmAddSteps">+ Build it in steps (warm-up, intervals, cool-down)</button>' : '') +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutDescription">Description</label><textarea id="cmWorkoutDescription" name="description" rows="2" ' + off + '>' + value("description") + '</textarea></div>' +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutNotes">Workout notes</label><textarea id="cmWorkoutNotes" name="notes" rows="3" placeholder="Add workout notes, suggestions or tips\u2026" ' + off + '>' + value("notes") + '</textarea></div>' +
+      '<div class="cm-form-error" id="cmWorkoutError" aria-live="polite"></div><div class="cm-form-actions">' + (session && session.can_remove && canWrite ? '<button type="button" class="cm-week-btn cm-danger" id="cmRemoveWorkout">Remove from plan</button>' : '<span></span>') + '<div class="cm-form-actions-right"><button type="button" class="cm-week-btn cm-dialog-close">' + (editable ? "Cancel" : "Close") + '</button>' + (editable ? '<button type="submit" class="cm-week-btn cm-week-btn--primary">' + (session ? 'Save changes' : 'Save workout') + '</button>' : '') + '</div></div></form></div>';
     document.body.appendChild(overlay);
 
     // Structured builder: shows the athlete's own paces, previews the shape,
     // and saves to / loads from the coach's library. Falls back to the simple
-    // fields when the coach adds no steps.
+    // fields when the coach adds no steps. Quality sessions start with it open;
+    // other workouts offer it behind "Build it in steps".
     var builderHost = overlay.querySelector("#cmBuilderMount");
-    if (builderHost && window.AthlevoCoachWorkoutBuilder && (editable || (session && session.structure))) {
-      var flatFieldIds = ["cmWorkoutDuration", "cmWorkoutDistance", "cmWorkoutIntensity", "cmWorkoutPace"];
+    function mountBuilder(structure) {
+      if (!builderHost || !window.AthlevoCoachWorkoutBuilder || overlay._builder) return;
+      builderHost.hidden = false;
+      var flatFieldIds = ["cmWorkoutDuration", "cmWorkoutDistance", "cmWorkoutPace"];
       overlay._builder = window.AthlevoCoachWorkoutBuilder.mount(builderHost, {
-        structure: session && session.structure || seed && seed.structure || null,
+        structure: structure,
         paces: ath.training_paces || null,
-        athleteName: String(ath.athlete_name || ath.name || ath.full_name || "").split(" ")[0],
+        athleteName: athleteFirstName,
         readOnly: !editable,
         library: editable ? workoutLibrary : null,
         onChange: function (state) {
@@ -2378,6 +2536,9 @@
         }
       });
     }
+    if (showBuilder && (editable || session && session.structure)) mountBuilder(session && session.structure || seed && seed.structure || null);
+    var addSteps = overlay.querySelector("#cmAddSteps");
+    if (addSteps) addSteps.addEventListener("click", function () { addSteps.hidden = true; mountBuilder(null); });
     var previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     var onKey = function (event) { if (event.key === "Escape") close(); };
@@ -2407,7 +2568,7 @@
     if (form) form.addEventListener("submit", function (e) { e.preventDefault(); saveWorkoutForm(form, session, overlay); });
     var remove = overlay.querySelector("#cmRemoveWorkout");
     if (remove) remove.addEventListener("click", function () { removeWorkout(session, overlay); });
-    var initialFocus = dialog.querySelector("input:not([disabled]), textarea:not([disabled])") || dialog.querySelector("button");
+    var initialFocus = dialog.querySelector("input:not([disabled]):not([type=hidden]), textarea:not([disabled])") || dialog.querySelector("button");
     if (initialFocus) initialFocus.focus();
   }
 

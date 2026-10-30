@@ -69,7 +69,7 @@ test("workflow transitions share restrained timing and reduced-motion handling",
 
 console.log("\n──── Mutation, notes, and accessibility ────");
 test("read-only permissions still hide mutation entry points",
-  /canWrite \? '<button type="button" class="cm-add-workout"/.test(source) &&
+  /if \(canWrite && key && key >= todayKey\)/.test(source) &&
   /session && session\.can_remove && canWrite/.test(source));
 test("workout sheet traps focus, supports Escape, and restores invoking focus",
   /event\.key !== "Tab"/.test(workoutDialog) && /event\.key === "Escape"/.test(workoutDialog) &&

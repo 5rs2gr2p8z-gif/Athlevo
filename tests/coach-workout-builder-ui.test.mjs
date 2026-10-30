@@ -41,11 +41,11 @@ console.log("\n──── Coach workout editor wiring ────");
 const editor = coachMode.slice(coachMode.indexOf("function openWorkoutEditor"), coachMode.indexOf("async function saveWorkoutForm"));
 const save = coachMode.slice(coachMode.indexOf("async function saveWorkoutForm"), coachMode.indexOf("async function removeWorkout"));
 test("the editor has a builder mount and passes the athlete's paces and existing structure",
-  /id="cmBuilderMount"/.test(editor) && /paces: ath\.training_paces/.test(editor) && /structure: session && session\.structure/.test(editor));
+  /id="cmBuilderMount"/.test(editor) && /paces: ath\.training_paces/.test(editor) && /mountBuilder\(session && session\.structure/.test(editor));
 test("read-only sessions render the builder read-only; the library is offered only to editors",
   /readOnly: !editable/.test(editor) && /library: editable \? workoutLibrary : null/.test(editor));
-test("the simple duration/distance/intensity/pace fields hide while steps exist (the server derives them)",
-  /flatFieldIds = \["cmWorkoutDuration", "cmWorkoutDistance", "cmWorkoutIntensity", "cmWorkoutPace"\]/.test(editor) && /field\.hidden = state\.hasSteps/.test(editor));
+test("the simple duration/distance/pace fields hide while steps exist (the server derives them)",
+  /flatFieldIds = \["cmWorkoutDuration", "cmWorkoutDistance", "cmWorkoutPace"\]/.test(editor) && /field\.hidden = state\.hasSteps/.test(editor));
 test("saving validates the steps client-side and sends the structure",
   /builder\.validate\(\)/.test(save) && /workout\.structure = checked\.value/.test(save));
 test("derived fields are not sent back stale when the coach edits a built workout",

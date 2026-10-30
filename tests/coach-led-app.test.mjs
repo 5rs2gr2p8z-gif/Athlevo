@@ -268,7 +268,7 @@ test("incoming coach replies appear without reopening the tab (quiet polling, on
 
 section("Scripts are cache-busted");
 test("service-worker cache and script versions were raised together (stale JS can no longer pair with new HTML)",
-  /athlevo-shell-v94/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
+  /athlevo-shell-v95/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
 
 section("Coach Home and navigation");
 {

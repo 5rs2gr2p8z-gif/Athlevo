@@ -201,8 +201,8 @@ const sessions = [
   test("week header is compact and uses truthful planned totals",
     /Aug 10–16/i.test(html) && /2 \/ 5 sessions complete/.test(html) && /18 km planned/.test(html));
   test("today uses the restrained is-today treatment", /cm-day-row is-today/.test(html));
-  test("read_write keeps workout details and quiet add action",
-    /data-workout-id="s4"/.test(html) && /\+ Add workout/.test(html) &&
+  test("read_write keeps workout details and tappable empty days to add on",
+    /data-workout-id="s4"/.test(html) && /data-add-day=/.test(html) && !/\+ Add workout/.test(html) &&
     !/View-only assignment/.test(html));
   test("previous and next week controls remain available",
     /data-week-shift="-7"/.test(html) && /data-week-shift="7"/.test(html));
@@ -244,6 +244,19 @@ const sessions = [
     has_active_plan: true, assignment_permission: "read_write", today_key: "2026-10-30", training_week: week
   }));
   test("with a plan, empty days read Rest and are still add buttons", /cm-day-title">Rest</.test(planned) && /data-add-day="2026-10-31"/.test(planned) && !/Nothing planned/.test(planned));
+}
+
+{
+  // Pace guidance filled in from the athlete's own fitness: a 5% band around the zone pace.
+  const win = {};
+  vm.runInNewContext(readFileSync("./js/structuredWorkout.js", "utf8"), { window: win, globalThis: win, console });
+  const sandbox = { window: win, SW: win.AthlevoStructuredWorkout };
+  vm.runInNewContext(extractFunction("autoPaceText") + "\nthis.autoPaceText = autoPaceText;", sandbox);
+  const ath = { training_paces: { zones: { easy: { secPerKm: 356 }, threshold: { secPerKm: 300 } } } };
+  test("easy pace guidance is a band either side of the athlete's easy pace", sandbox.autoPaceText(ath, "easy") === "5:38\u20136:14 /km", sandbox.autoPaceText(ath, "easy"));
+  test("quality sessions use the threshold pace", sandbox.autoPaceText(ath, "threshold") === "4:45\u20135:15 /km", sandbox.autoPaceText(ath, "threshold"));
+  test("no paces, no zone, or no pace maths means a blank field, never an invented number",
+    sandbox.autoPaceText({}, "easy") === "" && sandbox.autoPaceText(ath, null) === "" && sandbox.autoPaceText(ath, "vo2") === "" && sandbox.autoPaceText(null, "easy") === "");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

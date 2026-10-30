@@ -679,7 +679,40 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes("openWorkoutEditor(null, activitySeed(kind, dateKey))"));
     assert.ok(source.includes("function openWorkoutEditor(session, preset)"));
     assert.ok(source.includes("seed && seed.structure"));
-    assert.ok(source.includes("(session ? 'Adjust session' : 'Save workout')"));
+    assert.ok(source.includes("(session ? 'Save changes' : 'Save workout')"));
+  });
+
+  it("the day menu also offers Add Note, and the add sheet sits above the tab bar", () => {
+    assert.ok(source.includes('data-add-step="note"'));
+    assert.ok(source.includes('title: "Coach note", session_type: "Note", sport: "other"'));
+    assert.ok(source.includes("body .cm-workout-overlay,body .cm-invite-overlay,body .cm-note-confirm{z-index:1200}"));
+  });
+
+  it("the workout form asks only what V.O2 asks: no date for a new workout, no sport, no intensity, pace filled in", () => {
+    const start = source.indexOf("function openWorkoutEditor");
+    const editor = source.slice(start, source.indexOf("async function saveWorkoutForm", start));
+    assert.ok(editor.includes('<input type="hidden" name="session_date"'), "a new workout carries the tapped day, with no date field");
+    assert.ok(editor.includes('<label for="cmWorkoutDate">Move to</label>'), "an existing workout can still be moved by date");
+    assert.ok(!editor.includes('name="intensity"'));
+    assert.ok(!editor.includes('<label for="cmWorkoutSport">'));
+    assert.ok(!editor.includes('<label for="cmWorkoutType">'));
+    for (const label of ["Duration (min)", "Distance (km)", "Target RPE", "Pace guidance", "Workout notes"]) assert.ok(editor.includes(label), label);
+    assert.ok(editor.includes("autoPaceText(ath, seed.paceZone)"));
+    assert.ok(editor.includes("Set automatically from"));
+    assert.ok(editor.includes("Build it in steps"));
+    assert.ok(source.includes(".cm-editor .cm-form-actions{position:sticky;bottom:0"));
+  });
+
+  it("workouts can be dragged onto an empty day (mouse on the row, touch on the grip) and are moved with all their fields", () => {
+    assert.ok(source.includes("function bindWorkoutDrag(el, ath)"));
+    assert.ok(source.includes('down.pointerType !== "mouse" && !down.target.closest(".cm-day-grip")'));
+    assert.ok(source.includes('hit.closest("[data-add-day]")'));
+    assert.ok(source.includes("async function moveWorkoutToDay(session, dateKey)"));
+    assert.ok(source.includes('method: "PATCH"') && source.includes("heart_rate_guidance: session.heart_rate_guidance"));
+    assert.ok(source.includes("if (session.structure) workout.structure = session.structure"));
+    assert.ok(source.includes('event.preventDefault(); event.stopImmediatePropagation()'), "the click that ends a drag does not open the editor");
+    assert.ok(source.includes(".cm-day-grip{") && source.includes("touch-action:none"));
+    assert.ok(source.includes('class="cm-day-grip"'));
   });
 
   it("provides a real current-week programming workspace", () => {
@@ -803,7 +836,7 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes('aria-label="Next week"'));
     assert.ok(source.includes('plannedDistance ? Math.round(plannedDistance * 10) / 10 + " km planned"'));
     assert.ok(source.includes('plannedMinutes ? plannedMinutes + " min planned"'));
-    assert.ok(source.includes("+ Add workout"));
+    assert.ok(source.includes("data-add-day"));
     const panelStart = source.indexOf("function athletePanelContent");
     const panelEnd = source.indexOf("function positionAthleteTabIndicator", panelStart);
     assert.ok(!source.slice(panelStart, panelEnd).includes("Coming soon"));
@@ -812,8 +845,8 @@ describe("Coach Mode — coaching command center UI", () => {
   it("keeps mutation controls permission-aware and uses coaching language", () => {
     assert.ok(source.includes('var canWrite = ath.assignment_permission === "read_write"'));
     assert.ok(source.includes("View-only assignment."));
-    assert.ok(source.includes("Adjust session"));
-    assert.ok(source.includes("Move session to"));
+    assert.ok(source.includes("Save changes"));
+    assert.ok(source.includes("Move to"));
     assert.ok(source.includes("Remove from plan"));
     assert.ok(source.includes("can_reschedule"));
     assert.ok(source.includes("can_remove"));
@@ -821,7 +854,7 @@ describe("Coach Mode — coaching command center UI", () => {
     const trainingEnd = source.indexOf("function renderAthleteAnalytics", trainingStart);
     const training = source.slice(trainingStart, trainingEnd);
     assert.ok(training.includes("!canWrite ? '<div class=\"cm-readonly-note\""));
-    assert.ok(training.includes("canWrite ? '<button type=\"button\" class=\"cm-add-workout\""));
+    assert.ok(training.includes("if (canWrite && key && key >= todayKey)"), "only editors get tappable empty days");
   });
 
   it("scopes Analytics, Check-ins, and Notes without athlete selectors", () => {
