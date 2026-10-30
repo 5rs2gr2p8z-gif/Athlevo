@@ -268,7 +268,7 @@ test("incoming coach replies appear without reopening the tab (quiet polling, on
 
 section("Scripts are cache-busted");
 test("service-worker cache and script versions were raised together (stale JS can no longer pair with new HTML)",
-  /athlevo-shell-v95/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
+  /athlevo-shell-v96/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
 
 section("Coach Home and navigation");
 {
@@ -280,6 +280,18 @@ section("Coach Home and navigation");
     /rewriteRail\(\);\s*\/\/ Hide athlete profile avatar/.test(cm) && /restoreAthleteRail\(\);\s*\/\/ Re-show profile avatar/.test(cm));
   test("coach Home is the My Athletes table; a row opens that athlete's training calendar",
     /<h1>My Athletes<\/h1>/.test(cm) && /openCoachAthletePage\(row\.getAttribute\("data-open-athlete"\), "training"\)/.test(cm));
+}
+
+section("Fuel is locked for now");
+{
+  const fuel = read("./js/fuel.js");
+  test("a single switch in appMode.js locks Fuel (set it to false to open Fuel again)", /root\.ATHLEVO_FUEL_LOCKED = true/.test(appMode));
+  test("with the lock on, opening Fuel shows the notice and never opens the screen",
+    /function open\(source\) \{\s*if \(isLocked\(\)\) \{ showLockedNotice\(\); return false; \}/.test(fuel) &&
+    /Fuel is locked/.test(fuel) && /Fuel will only be available for coaching clients\./.test(fuel));
+  test("the Home entry stays visible and shows a lock instead of the arrow",
+    /entry\.classList\.toggle\("is-locked", isLocked\(\)\)/.test(fuel) && /\.home-fuel\.is-locked \.arr\{display:none\}/.test(html) && /class="fuel-lock-glyph"/.test(html));
+  test("the notice sheet sits above the tab bar", /\.fuel-lock-overlay\{[^}]*z-index:1200/.test(html));
 }
 
 section("Packaged for Android");

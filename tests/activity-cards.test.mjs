@@ -169,8 +169,8 @@ console.log("\n──── Card markup ────");
     /Planned: Threshold/.test(runCard) && !/af-card--planned/.test(runCard));
   test("completed cards do not use the planned outline treatment",
     !/af-card--planned/.test(runCard) && /af-card--activity/.test(runCard));
-  test("run card uses inline metrics, not labeled boxes",
-    /af-card-metrics-row/.test(runCard) && /af-card-metric-val/.test(runCard) &&
+  test("run card is the Intervals.icu layout: coloured header (icon, duration, distance), stats, no labelled boxes",
+    /af-icu-head/.test(runCard) && /af-icu-dur">1h34m</.test(runCard) && /af-icu-dist">16\.0 km</.test(runCard) &&
     /16\.0 km/.test(runCard) && /1h34m/.test(runCard) &&
     !/<small>Duration<\/small>/.test(runCard) &&
     !/AVERAGE PACE/.test(runCard));
@@ -252,9 +252,8 @@ console.log("\n──── Mini graph inside completed cards ────");
     raw_data: { training_load: 105, laps }
   };
   const lapCard = TC.activityCardHtml(runLaps, "2026-08-24", {});
-  test("completed run + lap data renders a workout strip inside the card",
-    /af-card-strip/.test(lapCard) && /af-strip-seg/.test(lapCard) &&
-    /af-card--has-strip/.test(lapCard));
+  test("completed run + lap data renders a bar graph inside the card, coloured by effort",
+    /af-icu-graph" data-graph-source="laps"/.test(lapCard) && (lapCard.match(/<i class="z[1-5]"/g) || []).length >= 8);
   test("lap profile is real pace data, not a decorative placeholder",
     !!TC.cardProfileSeries(runLaps) && TC.cardProfileSeries(runLaps).invert === true &&
     TC.cardProfileSeries(runLaps).values.length >= 2);
@@ -272,8 +271,8 @@ console.log("\n──── Mini graph inside completed cards ────");
     }
   };
   const streamCard = TC.activityCardHtml(streamRun, "2026-08-25", {});
-  test("completed run + cached full stream renders a workout strip",
-    /af-card-strip/.test(streamCard) && /af-strip-seg/.test(streamCard));
+  test("completed run + cached full stream renders a bar graph from the stream",
+    /af-icu-graph" data-graph-source="streams"/.test(streamCard) && (streamCard.match(/<i class="z[0-5]"/g) || []).length >= 6);
 
   const summaryOnly = {
     id: "avg-only",
@@ -302,8 +301,8 @@ console.log("\n──── Mini graph inside completed cards ────");
     activities: [{ ...runLaps, id: "a1" }]
   }, "2026-08-30");
   const matchedHtml = TC.renderSelectedDayHtml(matched);
-  test("matched plan + completed still shows the workout strip",
-    /Planned: Threshold/.test(matchedHtml) && /af-card-strip/.test(matchedHtml) &&
+  test("matched plan + completed still shows the graph",
+    /Planned: Threshold/.test(matchedHtml) && /af-icu-graph/.test(matchedHtml) &&
     !/data-train-item="plan"/.test(matchedHtml));
 
   const runA = { ...runLaps, id: "r1" };
@@ -316,9 +315,9 @@ console.log("\n──── Mini graph inside completed cards ────");
   const both = TC.renderSelectedDayHtml(TC.buildSelectedDayModel("2026-08-24", {
     activities: [runA, lift, runB]
   }, "2026-08-30"));
-  test("each eligible same-day activity has its own strip",
-    /af-card-strip/.test(TC.activityCardHtml(runA, "2026-08-24", {})) &&
-    /af-card-strip/.test(TC.activityCardHtml(runB, "2026-08-24", {})) &&
+  test("each eligible same-day activity has its own graph",
+    /af-icu-graph/.test(TC.activityCardHtml(runA, "2026-08-24", {})) &&
+    /af-icu-graph/.test(TC.activityCardHtml(runB, "2026-08-24", {})) &&
     /data-activity-id="r1"/.test(both) && /data-activity-id="r2"/.test(both) && /data-activity-id="s1"/.test(both));
 
   test("mini graph uses the sport accent token",
@@ -357,12 +356,12 @@ console.log("\n──── Scanability ────");
     average_heartrate: 161,
     raw_data: { training_load: 105, perceived_exertion: 7, laps: [{ distance: 1000, moving_time: 360 }, { distance: 1000, moving_time: 340 }] }
   }, "2026-08-24", { done: true });
-  test("run card can be read without metric labels",
+  test("run card can be read without metric labels: heart rate, pace, Load and RPE",
     /16\.0 km/.test(runCard) && /1h34m/.test(runCard) &&
-    /5:53\/km/.test(runCard) && /161 bpm/.test(runCard) &&
-    /af-card-metric-val/.test(runCard) && !/DURATION/.test(runCard));
-  test("workout strip uses sport accent for work segments",
-    /af-card-strip/.test(runCard) && /af-strip-seg/.test(runCard));
+    /af-icu-pace">5:53\/km</.test(runCard) && /af-icu-hr">161bpm</.test(runCard) &&
+    /af-icu-load">Load <b>105<\/b>/.test(runCard) && /af-icu-rpe af-icu-rpe--hard">RPE <b>7<\/b>/.test(runCard) && !/DURATION/.test(runCard));
+  test("the card header uses the sport accent",
+    /\.af-icu-head\{[^}]*background:var\(--sport-accent/.test(html));
   test("strength does not show a fake graph",
     TC.cardMiniProfile({ id: "s", sport_type: "WeightTraining", moving_time_seconds: 1800, raw_data: { training_load: 40 } }) === "");
 
@@ -376,6 +375,38 @@ console.log("\n──── Scanability ────");
   test("detail top is one compact metric line",
     /ad-metrics/.test(detail) && /16\.0 km · 1h34m · 5:53\/km · 161 bpm · Load 105 · RPE 7/.test(detail) &&
     !/ad-summary-item/.test(detail));
+
+
+  /* Positive, even and negative split, from lap paces (seconds per km for each 1 km lap). */
+  const lapRun = (times, extra) => ({
+    id: "split", sport_type: "Run", name: "Morning Run",
+    moving_time_seconds: times.reduce((s, x) => s + x, 0), distance_meters: times.length * 1000,
+    raw_data: { laps: times.map(x => ({ distance: 1000, moving_time: x })) }, ...(extra || {})
+  });
+  const neg = TC.graphModel(lapRun([340, 338, 335, 330, 326, 322, 318, 314, 310, 306]));
+  const pos = TC.graphModel(lapRun([300, 303, 306, 310, 314, 318, 322, 326, 330, 335]));
+  const even = TC.graphModel(lapRun([320, 321, 319, 320, 321, 320, 319, 320, 321, 320]));
+  test("a faster second half is a negative split, with both half paces", neg.split && neg.split.kind === "negative" && neg.split.p2 < neg.split.p1);
+  test("a slower second half is a positive split", pos.split && pos.split.kind === "positive" && pos.split.p2 > pos.split.p1);
+  test("within 1.5% is an even split", even.split && even.split.kind === "even");
+  const chip = TC.activityCardHtml(lapRun([340, 338, 335, 330, 326, 322, 318, 314, 310, 306]), "2026-08-24", {});
+  test("the card says which split, with the pace of each half", /af-split af-split--negative"><b>Negative split<\/b> 5:3\d → 5:[01]\d \/km/.test(chip), (chip.match(/af-split[^<]*<b>[^<]*<\/b>[^<]*/) || [])[0]);
+  test("an interval session gets no split label (halves say nothing)",
+    TC.graphModel(lapRun([300, 420, 300, 420, 300, 420, 300, 420, 300, 420])).split === null &&
+    TC.graphModel(lapRun([340, 338, 335, 330, 326, 322, 318, 314, 310, 306], { raw_data: { laps: lapRun([340, 338, 335, 330, 326, 322, 318, 314, 310, 306]).raw_data.laps, recognition: { workoutType: "Threshold" } } })).split === null);
+  test("a short run gets no split label", TC.graphModel(lapRun([300, 290, 280])).split === null);
+  test("rides and strength never get a pace split",
+    TC.graphModel({ id: "r", sport_type: "Ride", moving_time_seconds: 3600, distance_meters: 30000, raw_data: { laps: [{ distance: 10000, moving_time: 1300 }, { distance: 10000, moving_time: 1200 }, { distance: 10000, moving_time: 1100 }] } }).split === null &&
+    TC.graphModel({ id: "s", sport_type: "WeightTraining", moving_time_seconds: 1800, raw_data: { training_load: 40 } }) === null);
+  test("with only an average there is a flat, faded bar and no split",
+    (g => g.flat && g.split === null)(TC.graphModel({ id: "avg", sport_type: "Run", moving_time_seconds: 3000, distance_meters: 8000 })));
+  test("bars are tallest where the effort is highest and coloured harder as they get faster",
+    (m => m.bars[m.bars.length - 1].h >= m.bars[0].h && m.bars[m.bars.length - 1].band >= m.bars[0].band)(neg));
+  test("RPE colours: 1-3 green, 4-6 amber, 7+ red",
+    ["easy", "mid", "hard"].every((tone, i) => new RegExp("af-icu-rpe--" + tone + "\"").test(TC.activityCardHtml({ ...lapRun([300, 300, 300, 300, 300, 300, 300, 300]), raw_data: { laps: lapRun([300, 300, 300, 300, 300, 300, 300, 300]).raw_data.laps, rpe: [2, 5, 8][i] } }, "2026-08-24", {}))));
+  test("the feel face shows only when the source recorded one",
+    !/af-icu-feel/.test(chip) && /af-icu-feel[^>]*>😊|af-icu-feel[^>]*>🙂/.test(TC.activityCardHtml({ ...lapRun([300, 300, 300, 300, 300, 300, 300, 300]), raw_data: { laps: lapRun([300, 300, 300, 300, 300, 300, 300, 300]).raw_data.laps, feel: 2 } }, "2026-08-24", {})));
+  test("each card fetches its real stream once and redraws its graph", /function hydrateCardGraphs/.test(calendar) && /hydrateCardGraphs\(el, selected\)/.test(calendar));
 
   const longCoach = TC.clipCoachText("First sentence stays. Second sentence also stays. Third sentence must drop.");
   test("coach analysis is clipped to two sentences",

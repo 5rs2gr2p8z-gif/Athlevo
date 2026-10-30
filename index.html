@@ -215,7 +215,7 @@
 })();
 </script>
 <script src="js/runtimeEnvironment.js?v=76"></script>
-<script src="js/appMode.js?v=2"></script>
+<script src="js/appMode.js?v=3"></script>
 <script>
 (function(){
   try{
@@ -5902,7 +5902,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <!-- ═══════ HOME · FUEL (small link; hidden unless Fuel is enabled — js/fuel.js syncEntryPoints) ═══════ -->
   <div class="home-fuel" id="homeFuelEntry" hidden>
     <button class="rowlink" type="button" onclick="AthlevoFuel.open('home_card')">
-      <div><b>Fuel <span class="beta-tag">Beta</span></b><small>Log meals and see them alongside your training.</small></div><span class="arr" aria-hidden="true">→</span>
+      <div><b>Fuel <span class="beta-tag">Beta</span></b><small>Log meals and see them alongside your training.</small></div><span class="arr" aria-hidden="true">→</span><span class="fuel-lock-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
     </button>
   </div>
 
@@ -6241,6 +6241,53 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-pstrip-seg--recovery{background:color-mix(in srgb,var(--info) 15%,var(--paper));border:1px dashed color-mix(in srgb,var(--info) 25%,transparent)}
   .af-pstrip-seg--cool{background:color-mix(in srgb,var(--ink3) 14%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 20%,transparent)}
   .af-pstrip-seg--steady{background:color-mix(in srgb,var(--ink3) 12%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 18%,transparent)}
+
+  /* ── Intervals.icu-style activity card ───────────────────────── */
+  .af-card--icu{--af-hr:#c2306b;--af-pace:#7a45c9;--af-z1:#2f9aa0;--af-z2:#3fa86a;--af-z3:#d2b126;--af-z4:#e8862b;--af-z5:#d4432e;
+    padding:0;overflow:hidden;gap:0;background:var(--paper);border-radius:16px;
+    border:1px solid color-mix(in srgb,var(--sport-accent,var(--ink3)) 22%,var(--line));box-shadow:var(--elev-1)}
+  html[data-theme="dark"] .af-card--icu{--af-hr:#ff7aa9;--af-pace:#b79bff}
+  @media (prefers-color-scheme:dark){html[data-theme="system"] .af-card--icu{--af-hr:#ff7aa9;--af-pace:#b79bff}}
+  .af-icu-head{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 14px;
+    background:var(--sport-accent,var(--ink3));color:#fff;font-size:var(--fs-body);font-weight:700;font-variant-numeric:tabular-nums}
+  .af-icu-head .af-sport-icon{width:20px;height:20px;color:#fff;margin:0}
+  .af-icu-dur{text-align:center}.af-icu-dist{text-align:right;min-width:3.5em}
+  .af-icu-body{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 14px 12px;text-align:center}
+  .af-icu-stats,.af-icu-effort{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:2px 12px;font-variant-numeric:tabular-nums}
+  .af-icu-stats{font-size:var(--fs-body-sm);font-weight:600}
+  .af-icu-hr{color:var(--af-hr)}.af-icu-pace{color:var(--af-pace)}.af-icu-pwr,.af-icu-vol{color:var(--ink2)}
+  .af-icu-effort{font-size:var(--fs-caption);color:var(--ink2)}.af-icu-effort b{font-weight:700;color:var(--text)}
+  .af-icu-rpe--easy b{color:var(--good)}.af-icu-rpe--mid b{color:var(--warn)}.af-icu-rpe--hard b{color:var(--bad)}
+  .af-icu-feel{font-size:var(--fs-body);line-height:1}
+  .af-icu-graph{display:flex;align-items:flex-end;gap:1px;width:100%;height:48px;margin-top:2px;border-radius:6px;overflow:hidden;
+    background:color-mix(in srgb,var(--ink3) 7%,var(--paper))}
+  .af-icu-graph i{flex:1 1 0;min-width:0;border-radius:1px 1px 0 0;background:var(--af-z2)}
+  .af-icu-graph i.z0{background:transparent}.af-icu-graph i.z1{background:var(--af-z1)}.af-icu-graph i.z3{background:var(--af-z3)}
+  .af-icu-graph i.z4{background:var(--af-z4)}.af-icu-graph i.z5{background:var(--af-z5)}
+  .af-icu-graph--flat i{height:55%;background:var(--ink3);opacity:.22}
+  .af-icu-title{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);line-height:1.3;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .af-split{display:inline-flex;flex-wrap:wrap;justify-content:center;gap:2px 6px;padding:3px 10px;border-radius:var(--r-pill);font-size:var(--fs-caption);
+    font-variant-numeric:tabular-nums;color:var(--ink2);background:color-mix(in srgb,var(--ink3) 12%,var(--paper))}
+  .af-split b{font-weight:700}
+  .af-split--negative{color:var(--good);background:color-mix(in srgb,var(--good) 12%,var(--paper))}
+  .af-split--positive{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--paper))}
+  .af-card--icu .af-card-plan{margin:0}
+  .af-card--icu .af-card-analyze{margin-top:2px;padding:4px 0 0}
+
+  /* ── Fuel: temporary lock ────────────────────────────────────── */
+  .fuel-lock-glyph{display:none;flex:none;width:18px;height:18px;color:var(--ink3)}
+  .fuel-lock-glyph svg{display:block;width:100%;height:100%}
+  .home-fuel.is-locked .arr{display:none}.home-fuel.is-locked .fuel-lock-glyph{display:block}
+  .fuel-lock-overlay{position:fixed;inset:0;z-index:1200;display:flex;align-items:flex-end;justify-content:center;background:var(--backdrop)}
+  .fuel-lock-sheet{width:100%;max-width:420px;box-sizing:border-box;padding:24px 22px calc(22px + env(safe-area-inset-bottom));text-align:center;
+    background:var(--surface-base,var(--paper));border-radius:var(--ui-radius-sheet,26px) var(--ui-radius-sheet,26px) 0 0;box-shadow:var(--elev-3)}
+  .fuel-lock-icon{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 12px;border-radius:50%;color:var(--ink2);background:color-mix(in srgb,var(--ink3) 12%,var(--paper))}
+  .fuel-lock-icon svg{width:24px;height:24px}
+  .fuel-lock-sheet h2{margin:0;font-family:var(--serif);font-size:var(--fs-title,22px);font-weight:520;color:var(--text)}
+  .fuel-lock-sheet p{margin:8px 0 18px;font-size:var(--fs-body-sm);line-height:1.5;color:var(--ink2)}
+  .fuel-lock-btn{width:100%;min-height:48px;border:0;border-radius:var(--r-pill);background:var(--text);color:var(--paper);font:700 var(--fs-body)/1 var(--sans);cursor:pointer}
+  .fuel-lock-btn:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+  @media (min-width:600px){.fuel-lock-overlay{align-items:center}.fuel-lock-sheet{border-radius:var(--ui-radius-card,22px)}}
 
   /* ── metrics row (values only, no big labels) ────────────────── */
   .af-card-metrics-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:4px;font-variant-numeric:tabular-nums}
@@ -13597,7 +13644,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=5"></script>
-<script src="js/trainCalendar.js?v=101"></script>
+<script src="js/trainCalendar.js?v=104"></script>
 <script src="js/coachInvites.js?v=2"></script>
 <script src="js/athleteMode.js?v=83"></script>
 <script src="js/authRouteGuard.js?v=1"></script>
@@ -13621,7 +13668,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/anonymousHandoff.js?v=1"></script>
 <script src="js/diagnosticHandoff.js?v=10"></script>
 <script src="js/featureFlags.js?v=1"></script>
-<script src="js/fuel.js?v=4"></script>
+<script src="js/fuel.js?v=7"></script>
 <script src="js/authenticatedOnboarding.js?v=1"></script>
 <script src="js/diagnosticAcquisition.js?v=10"></script>
 <script>

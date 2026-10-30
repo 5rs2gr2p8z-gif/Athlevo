@@ -1298,7 +1298,41 @@
   function fuelScreen() { return $(SCREEN_ID); }
   function isFuelActive() { var s = fuelScreen(); return !!(s && s.classList.contains("active")); }
 
+  /* Temporary lock (ATHLEVO_FUEL_LOCKED in js/appMode.js): Fuel only opens for coaching clients later. */
+  function isLocked() { return !!root && root.ATHLEVO_FUEL_LOCKED === true; }
+
+  function showLockedNotice() {
+    if (doc.getElementById("fuelLockOverlay")) return;
+    var overlay = doc.createElement("div");
+    overlay.id = "fuelLockOverlay";
+    overlay.className = "fuel-lock-overlay";
+    overlay.setAttribute("data-athlevo-sheet", "fuel-locked");
+    overlay.innerHTML =
+      '<section class="fuel-lock-sheet" role="dialog" aria-modal="true" aria-labelledby="fuelLockTitle">' +
+        '<div class="fuel-lock-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>' +
+        '<h2 id="fuelLockTitle">Fuel is locked</h2>' +
+        '<p>Fuel will only be available for coaching clients.</p>' +
+        '<button type="button" class="fuel-lock-btn" data-fuel-lock-close>Got it</button>' +
+      '</section>';
+    doc.body.appendChild(overlay);
+    function remove() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    var sheetApi = root.AthlevoSheet;
+    if (sheetApi && typeof sheetApi.open === "function") {
+      sheetApi.open({
+        root: overlay, sheet: ".fuel-lock-sheet", draggable: true, initialFocus: "[data-fuel-lock-close]",
+        closeOnEscape: true, closeOnBackdrop: true, onAfterClose: remove
+      });
+      overlay.querySelector("[data-fuel-lock-close]").addEventListener("click", function () {
+        sheetApi.close(overlay, { onAfterClose: remove });
+      });
+    } else {
+      overlay.querySelector("[data-fuel-lock-close]").addEventListener("click", remove);
+    }
+    track("fuel_locked_viewed", { source_surface: "home_card" });
+  }
+
   function open(source) {
+    if (isLocked()) { showLockedNotice(); return false; }
     if (!isEnabled() || !fuelScreen()) return false;
     var active = doc.querySelector(".screen.active");
     state.returnScreen = active && active.id && active.id !== SCREEN_ID ? active.id : "screen-trends";
@@ -1337,7 +1371,7 @@
     // The entry point is on Home (homeFuelEntry); it follows the flag.
     ["homeFuelEntry"].forEach(function (id) {
       var entry = $(id);
-      if (entry) entry.hidden = !isEnabled();
+      if (entry) { entry.hidden = !isEnabled(); if (entry.classList && entry.classList.toggle) entry.classList.toggle("is-locked", isLocked()); }
     });
   }
 

@@ -633,6 +633,116 @@
     return `<div class="af-card-strip" aria-label="Workout structure" aria-hidden="true">${blocks}</div>`;
   }
 
+  /* ── Intervals.icu-style card: bar graph of the workout + split label ──
+   * One bar per slice of the workout (about 48), as tall as the effort in that slice
+   * (speed, or power for rides) and coloured by how hard it was against the rest of
+   * the same workout. Data, best first: cached/stored streams, laps, recognised
+   * segments. With only an average there is a flat, faded bar and no split label.
+   */
+  const ICU_BARS = 48;
+  const SPLIT_SPORTS = new Set(["run", "walk", "hike"]);
+  const STRUCTURED_RE = /Interval|Threshold|VO2|Repetition|Hill|Speed|Fartlek|Tempo|Race|Time Trial/i;
+
+  function meanOf(list) {
+    const v = list.filter(Number.isFinite);
+    return v.length ? v.reduce((t, x) => t + x, 0) / v.length : null;
+  }
+  function percentile(sorted, p) {
+    if (!sorted.length) return null;
+    const i = Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * p)));
+    return sorted[i];
+  }
+  function bucketMeans(values, n) {
+    const count = Math.min(n, values.length);
+    const per = values.length / count;
+    const out = [];
+    for (let i = 0; i < count; i += 1) {
+      const from = Math.floor(i * per);
+      const to = Math.max(from + 1, Math.floor((i + 1) * per));
+      out.push(meanOf(values.slice(from, to)));
+    }
+    return out;
+  }
+  /* Effort series (higher = harder) from the best available source. */
+  function effortSeries(a) {
+    const prof = cardProfileSeries(a);
+    if (!prof || !prof.values) return null;
+    const values = prof.values.map(v => (Number.isFinite(v) && v > 0) ? (prof.invert ? 1 / v : v) : null);
+    if (values.filter(v => v != null).length < 3) return null;
+    return { values, invert: !!prof.invert };
+  }
+  function graphSource(a) {
+    const AS = window.AthlevoActivityStreams;
+    const id = a && a.id != null ? String(a.id) : null;
+    if (AS && typeof AS.hasUsableStreams === "function") {
+      const streams = (id && AS.cacheGet(id)) || AS.streamsFromActivity(a);
+      if (streams && AS.hasUsableStreams(streams)) return "streams";
+    }
+    return lapList(a).length >= 2 ? "laps" : "segments";
+  }
+  /* Positive, even or negative split: average pace of the first half against the second. */
+  function splitInfo(a, series) {
+    const sport = canonSport(a);
+    if (!SPLIT_SPORTS.has(sport) || !series || !series.invert) return null;
+    if (!(num(a.moving_time_seconds) >= 900)) return null;
+    const rec = storedRecognition(a);
+    if (rec && STRUCTURED_RE.test(String(rec.workoutType || ""))) return null;
+    const v = series.values.filter(Number.isFinite);
+    if (v.length < 8) return null;
+    const mean = meanOf(v);
+    const sd = Math.sqrt(meanOf(v.map(x => (x - mean) * (x - mean))));
+    if (!(mean > 0) || sd / mean > 0.12) return null;          // repeats or stops: a split says little
+    const half = Math.floor(v.length / 2);
+    const m1 = meanOf(v.slice(0, half)), m2 = meanOf(v.slice(v.length - half));
+    if (!(m1 > 0) || !(m2 > 0)) return null;
+    const p1 = 1 / m1, p2 = 1 / m2;                            // effort is 1 / (sec per km)
+    const rel = (p2 - p1) / p1;
+    const kind = rel <= -0.015 ? "negative" : rel >= 0.015 ? "positive" : "even";
+    return { kind, p1, p2 };
+  }
+  function splitChipHtml(split) {
+    if (!split) return "";
+    const label = split.kind === "negative" ? "Negative split" : split.kind === "positive" ? "Positive split" : "Even split";
+    return `<span class="af-split af-split--${split.kind}"><b>${label}</b> ${esc(fmtPace(split.p1))} → ${esc(fmtPace(split.p2))} /km</span>`;
+  }
+  function graphModel(a) {
+    const sport = canonSport(a);
+    if (sport === "strength" || sport === "mobility") return null;
+    const series = effortSeries(a);
+    if (!series) {
+      if (!(num(a.moving_time_seconds) > 0)) return null;
+      return { source: "summary", bars: [], flat: true, split: null };
+    }
+    const bars = bucketMeans(series.values, ICU_BARS).map(v => (Number.isFinite(v) ? v : 0));
+    const sorted = bars.filter(x => x > 0).sort((x, y) => x - y);
+    const top = percentile(sorted, 0.95) || 1;
+    const median = percentile(sorted, 0.5) || top;
+    const out = bars.map(v => {
+      const h = Math.min(1, Math.max(0.1, v / top));
+      const r = v / median;
+      const band = r < 0.88 ? 1 : r < 1.06 ? 2 : r < 1.18 ? 3 : r < 1.35 ? 4 : 5;
+      return { h: Math.round(Math.pow(h, 1.5) * 100), band, empty: !(v > 0) };
+    });
+    return { source: graphSource(a), bars: out, flat: false, split: splitInfo(a, series) };
+  }
+  function icuGraphHtml(model) {
+    if (!model) return "";
+    if (model.flat) {
+      return `<span class="af-icu-graph af-icu-graph--flat" data-graph-source="summary" aria-hidden="true">${"<i></i>".repeat(24)}</span>`;
+    }
+    const bars = model.bars.map(b => `<i class="z${b.empty ? 0 : b.band}" style="height:${b.h}%"></i>`).join("");
+    return `<span class="af-icu-graph" data-graph-source="${model.source}" aria-hidden="true">${bars}</span>`;
+  }
+
+  /* RPE reads green when easy, amber in the middle, red when hard. */
+  function rpeTone(v) { return v <= 3 ? "easy" : v <= 6 ? "mid" : "hard"; }
+  const FEEL_FACES = { 1: "😄", 2: "🙂", 3: "😐", 4: "🙁", 5: "😣" };
+  function activityFeel(a) {
+    const raw = a && a.raw_data && typeof a.raw_data === "object" ? a.raw_data : {};
+    const f = Math.round(num(raw.feel));
+    return FEEL_FACES[f] || null;
+  }
+
   /* ── selected-day model (planned + imported for ONE date) ───────── */
   function buildSelectedDayModel(dISO, entry, todayKey) {
     const REST = new Set(["rest", "rest_day", "restday", "off", "day_off"]);
@@ -897,37 +1007,76 @@
     const session = opts && opts.session;
     const ex = opts && opts.execution;
     const theme = sportTheme(a);
+    const sport = canonSport(a);
     const name = sportLabel(a);
-    const source = a.name && a.name !== name ? a.name : null;
-    const packed = cardMetricItems(a, ex);
-    const strip = cardWorkoutStrip(a);
+    const title = a.name && a.name !== name ? a.name : name;
     const id = a && a.id != null ? String(a.id) : "";
     const planNote = done ? matchedPlanNote(session) : "";
-    // Device / source line
-    const deviceName = a.device_name || (a.raw_data && a.raw_data.device_name) || null;
-    const sourceApp = a.source || (a.raw_data && a.raw_data.source) || null;
-    const deviceLine = [deviceName, sourceApp].filter(Boolean).join(" · ");
-    // Metric values inline — no big labels
-    const metricValues = (packed.items || []).slice(0, 5).map(
-      item => `<span class="af-card-metric-val">${esc(item.value)}</span>`
-    ).join("");
-    return `<button type="button" class="af-card af-card--activity af-card--premium af-card--${theme}${done ? " af-card--done" : ""}${strip ? " af-card--has-strip" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
-      <div class="af-card-main">
-        <div class="af-card-top">
-          ${sportIcon(a)}
-          <div class="af-card-titles">
-            <span class="af-card-sport">${esc(name)}</span>
-            ${source ? `<span class="af-card-name">${esc(source)}</span>` : ""}
-            ${deviceLine ? `<span class="af-card-device">${esc(deviceLine)}</span>` : ""}
-          </div>
-          <span class="af-card-chevron" aria-hidden="true">›</span>
-        </div>
-        ${strip}
-        ${metricValues ? `<div class="af-card-metrics-row">${metricValues}</div>` : ""}
+
+    const isStrength = sport === "strength" || sport === "mobility";
+    const dur = a.moving_time_seconds ? fmtDuration(a.moving_time_seconds) : "";
+    const dist = (a.distance_meters && !isStrength) ? (a.distance_meters / 1000).toFixed(1) + " km" : "";
+    const hr = a.average_heartrate ? Math.round(a.average_heartrate) + "bpm" : "";
+    let pace = "";
+    if (a.distance_meters && a.moving_time_seconds) {
+      if (sport === "swim") pace = fmtPace(a.moving_time_seconds / (a.distance_meters / 100)) + "/100m";
+      else if (sport === "run" || sport === "walk" || sport === "hike") pace = fmtPace(a.moving_time_seconds / (a.distance_meters / 1000)) + "/km";
+      else if (sport === "ride") pace = ((a.distance_meters / a.moving_time_seconds) * 3.6).toFixed(1) + "km/h";
+    }
+    const pwrVal = sport === "ride" ? activityPower(a) : null;
+    const watts = pwrVal > 0 ? Math.round(pwrVal) + "W" : "";
+    const volume = isStrength ? strengthVolume(a) : null;
+    const loadVal = activityLoad(a);
+    const rpeVal = activityRpe(a, ex);
+    const feel = activityFeel(a);
+
+    const stats = [hr && `<span class="af-icu-hr">${esc(hr)}</span>`, pace && `<span class="af-icu-pace">${esc(pace)}</span>`,
+      watts && `<span class="af-icu-pwr">${esc(watts)}</span>`, volume && `<span class="af-icu-vol">${esc(volume)}</span>`].filter(Boolean).join("");
+    const effort = [loadVal && `<span class="af-icu-load">Load <b>${loadVal}</b></span>`,
+      rpeVal && `<span class="af-icu-rpe af-icu-rpe--${rpeTone(rpeVal)}">RPE <b>${esc(rpeVal)}</b></span>`,
+      feel && `<span class="af-icu-feel" aria-hidden="true">${feel}</span>`].filter(Boolean).join("");
+
+    const model = graphModel(a);
+    const graph = icuGraphHtml(model);
+    const split = splitChipHtml(model && model.split);
+    const analyze = opts && opts.isToday
+      ? `<div class="af-card-analyze" onclick="event.stopPropagation(); AthlevoTrainCalendar.askCoach('${esc(id)}')" role="link" tabindex="0">Analyze my ${esc((CANON_SPORT_SHORT[canonSport(a)] || "workout").toLowerCase())}</div>` : "";
+    return `<button type="button" class="af-card af-card--activity af-card--icu af-card--${theme}${done ? " af-card--done" : ""}" data-train-item="activity" data-activity-id="${esc(id)}" onclick="AthlevoTrainCalendar.openModal('${dISO}','${esc(id)}')">
+      <span class="af-icu-head">${sportIcon(a)}<span class="af-icu-dur">${esc(dur || name)}</span><span class="af-icu-dist">${esc(dist)}</span></span>
+      <span class="af-icu-body">
+        ${stats ? `<span class="af-icu-stats">${stats}</span>` : ""}
+        ${effort ? `<span class="af-icu-effort">${effort}</span>` : ""}
+        ${graph}
+        <span class="af-icu-title">${esc(title)}</span>
+        ${split}
         ${planNote}
-        ${opts && opts.isToday ? `<div class="af-card-analyze" onclick="event.stopPropagation(); AthlevoTrainCalendar.askCoach('${esc(id)}')" role="link" tabindex="0">Analyze my ${esc((CANON_SPORT_SHORT[canonSport(a)] || "workout").toLowerCase())}</div>` : ""}
-      </div>
+        ${analyze}
+      </span>
     </button>`;
+  }
+
+  /* After the cards paint, fetch each card's real stream once and redraw its graph. */
+  function hydrateCardGraphs(panel, dISO) {
+    const AS = window.AthlevoActivityStreams;
+    if (!panel || !AS || typeof AS.loadStreams !== "function") return;
+    panel.querySelectorAll(".af-card--icu[data-activity-id]").forEach(card => {
+      const graphEl = card.querySelector(".af-icu-graph");
+      if (!graphEl || graphEl.getAttribute("data-graph-source") === "streams") return;
+      const a = actById[card.getAttribute("data-activity-id")];
+      if (!a || !["run", "walk", "hike", "ride"].includes(canonSport(a))) return;
+      Promise.resolve(AS.loadStreams(a)).then(streams => {
+        if (!streams || !AS.hasUsableStreams(streams)) return;
+        if (!card.isConnected || panel.dataset.selectedDay !== dISO) return;
+        const model = graphModel(a);
+        if (!model || model.source !== "streams") return;
+        const old = card.querySelector(".af-icu-graph");
+        if (old) old.outerHTML = icuGraphHtml(model);
+        card.querySelectorAll(".af-split").forEach(el => el.remove());
+        const chip = splitChipHtml(model.split);
+        const titleEl = card.querySelector(".af-icu-title");
+        if (chip && titleEl) titleEl.insertAdjacentHTML("afterend", chip);
+      }).catch(() => {});
+    });
   }
 
   function renderSelectedDayHtml(model) {
@@ -997,6 +1146,7 @@
     const model = buildSelectedDayModel(selected, byDate[selected] || { activities: [] }, todayISO());
     el.innerHTML = renderSelectedDayHtml(model);
     el.dataset.selectedDay = selected;
+    hydrateCardGraphs(el, selected);
   }
 
   /* ── weekly progress (compact, near header) ─────────────────────── */
@@ -1695,7 +1845,7 @@
     }
 
     const sport = canonSport(act);
-    const sportName = (CANON_SPORT_SHORT[sport] || "workout").toLowerCase();
+    const sportName = (CANON_SPORT_SHORT[canonSport(a)] || "workout").toLowerCase();
 
     // Compact activity — no raw_data, no streams, no GPS arrays
     const compactActivity = {
@@ -2113,7 +2263,7 @@
     open, prevWeek, nextWeek, goToday, select, openModal, closeModal, retryActivityCharts, askCoach,
     activityDateKey, buildSelectedDayModel, cardMetricItems, sportTheme,
     activityCardHtml, plannedCardHtml, renderSelectedDayHtml,
-    cardMiniProfile, cardProfileSeries,
+    cardMiniProfile, cardProfileSeries, graphModel, splitInfo, icuGraphHtml, activityFeel,
     hydrate, getSelectedDate,
     clipCoachText, renderDetailSummary, renderSplitsStrip, renderCoachSection,
     workoutStructureHtml, normalizeSegments,

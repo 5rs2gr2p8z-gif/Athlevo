@@ -20,6 +20,9 @@
   // No automatic daily check-in pop-up on Home. The Readiness card still lets an
   // athlete log a check-in on purpose. Set to true to bring the pop-up back.
   root.ATHLEVO_MORNING_PROMPT = false;
+  // TEMPORARY: Fuel shows a "locked, coaching clients only" notice instead of opening.
+  // Set to false to open Fuel again. (js/fuel.js reads this; index.html styles the sheet.)
+  root.ATHLEVO_FUEL_LOCKED = true;
   // CSS hook: html.coach-led hides AI-chat and upgrade surfaces (see index.html).
   try {
     if (root.document && root.document.documentElement) {
