@@ -50,8 +50,8 @@ test("page title and social/app metadata",
   /name="application-name" content="Athlevo Coaching"/.test(html));
 test("sidebar brand reads Athlevo Coaching", /id="coachSidePanelTitle">[\s\S]*?<span>Athlevo Coaching<\/span>/.test(html));
 test("Coach logo is labelled Athlevo Coaching", /class="coach-logo-bubble" aria-label="Athlevo Coaching"/.test(html));
-test("sign-up (welcome) shows the Athlevo Coaching logo, not the old 'Athlevo AI' lockup",
-  /id="screen-welcome"[\s\S]*?<img class="w-logo" src="assets\/brand\/athlevo-coaching-logo\.png" alt="Athlevo Coaching"/.test(html));
+test("sign-up (welcome) shows the Athlevo wordmark over the photo, not the old 'Athlevo AI' lockup",
+  /id="screen-welcome"[\s\S]*?<img class="w-wordmark" src="assets\/brand\/athlevo-wordmark-white\.png" alt="Athlevo"/.test(html));
 test("support surface names the product", /<h1>Athlevo Coaching Support<\/h1>/.test(html));
 const appRegion = html.slice(html.indexOf('id="screen-welcome"'));
 test("no 'Athlevo AI' label remains in the authenticated app / sign-up shell", !/Athlevo AI/.test(appRegion),
