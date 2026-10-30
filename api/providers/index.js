@@ -99,8 +99,11 @@ import {
   dateKey,
   executionForSession,
   recentSkippedCount,
-  sanitizeCoachWorkoutInput
+  sanitizeCoachWorkoutInput,
+  withoutStructureColumn
 } from "../../lib/server/coachTraining.js";
+import { resolveAthletePaces } from "../../lib/server/coachPaces.js";
+import { sanitizeLibraryItem, shapeLibraryRow } from "../../lib/server/coachWorkoutLibrary.js";
 import { mapIntervals, normalizeIntervalLaps, toActivityRow, buildRecognitionFromRow, RECOGNITION_VERSION, isCurrentRecognitionVersion } from "../../lib/server/wearable/normalizer.js";
 import { resolveDuplicates, mapProviderError, isIntervalsEnabled } from "../../lib/server/wearable/providers.js";
 import {
@@ -1934,7 +1937,7 @@ async function sbSelect(path) {
   } catch { return []; }
 }
 
-async function sbCoachWrite(path, method, body) {
+async function sbCoachWrite(path, method, body, preferOverride) {
   try {
     const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -1944,7 +1947,7 @@ async function sbCoachWrite(path, method, body) {
         apikey: key,
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        Prefer: "return=representation"
+        Prefer: preferOverride || "return=representation"
       },
       body: body == null ? undefined : JSON.stringify(body)
     });
@@ -3036,6 +3039,8 @@ async function actionCoachingDashboardAthlete(request, response) {
       today: todayKey
     });
     overview.coach_check_ins = buildCoachCheckIns(bundle.readinessHistory);
+    // The builder shows THIS athlete's numbers next to each zone target.
+    overview.training_paces = await loadAthletePaces(athleteId);
     try {
       overview.coach_notes = await loadCoachNotesForAthlete(
         athleteId,
@@ -3236,6 +3241,51 @@ async function actionCoachingDashboardReview(request, response) {
   }
 }
 
+
+/*
+ * One athlete's training paces for the coach builder. Evidence rules match the
+ * AI planner (see lib/server/coachPaces.js). Never throws: no evidence just
+ * means zone names without numbers.
+ */
+async function loadAthletePaces(athleteId) {
+  try {
+    const idf = enc(athleteId);
+    const [raceResults, activities] = await Promise.all([
+      sbSelect(`race_results?user_id=eq.${idf}&select=race_type,race_date,distance_meters,duration_seconds&order=race_date.desc&limit=30`),
+      sbSelect(`activities?user_id=eq.${idf}&select=start_date,sport_type,activity_type,distance_meters,moving_time_seconds&order=start_date.desc&limit=60`)
+    ]);
+    return resolveAthletePaces({ raceResults, activities });
+  } catch {
+    return { vdot: null, source: null, zones: null };
+  }
+}
+
+/*
+ * A coach can schedule for an athlete who has no AI plan yet (for example a
+ * client moving over from another platform). Sessions hang off a weekly plan
+ * row, so make sure one exists for the session's week. Insert-if-absent only:
+ * an existing plan row is never overwritten.
+ */
+async function resolveCoachPlanForWeek(athleteId, weekStart, nowIso) {
+  const userFilter = `user_id=eq.${enc(athleteId)}`;
+  const sameWeek = await sbCoachRead(`training_plans?${userFilter}&week_start=eq.${enc(weekStart)}&select=id&limit=1`);
+  if (!sameWeek.ok) return { ok: false };
+  if (sameWeek.rows[0] && sameWeek.rows[0].id) return { ok: true, id: sameWeek.rows[0].id };
+  const active = await sbCoachRead(`training_plans?${userFilter}&status=in.(active,current)&select=id&order=updated_at.desc&limit=1`);
+  if (!active.ok) return { ok: false };
+  if (active.rows[0] && active.rows[0].id) return { ok: true, id: active.rows[0].id };
+  const created = await sbCoachWrite(
+    "training_plans?on_conflict=user_id,week_start",
+    "POST",
+    { user_id: athleteId, week_start: weekStart, week_end: addDateDays(weekStart, 6), status: "active", generated_at: nowIso, updated_at: nowIso },
+    "resolution=ignore-duplicates,return=representation"
+  );
+  if (created.ok && created.rows[0] && created.rows[0].id) return { ok: true, id: created.rows[0].id, created: true };
+  const reread = await sbCoachRead(`training_plans?${userFilter}&week_start=eq.${enc(weekStart)}&select=id&limit=1`);
+  if (reread.ok && reread.rows[0] && reread.rows[0].id) return { ok: true, id: reread.rows[0].id };
+  return { ok: false };
+}
+
 async function actionCoachingDashboardWorkout(request, response) {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -3273,8 +3323,12 @@ async function actionCoachingDashboardWorkout(request, response) {
   });
 
   try {
+    const wantsStructure = Boolean(body.workout && typeof body.workout === "object" && body.workout.structure != null);
+    const athletePaces = wantsStructure ? await loadAthletePaces(athleteId) : null;
+    const pacesByZone = athletePaces && athletePaces.zones ? athletePaces.zones : null;
+
     if (request.method === "POST") {
-      const validated = sanitizeCoachWorkoutInput(body.workout);
+      const validated = sanitizeCoachWorkoutInput(body.workout, { paces: pacesByZone });
       if (!validated.ok) return sendJson(response, 400, { error: validated.error });
       if (validated.value.session_date < todayKey) {
         return sendJson(response, 409, { error: "Create workouts for today or a future date." });
@@ -3287,29 +3341,33 @@ async function actionCoachingDashboardWorkout(request, response) {
       if (collisionLookup.rows.length) {
         return sendJson(response, 409, { error: "A workout is already scheduled on that date." });
       }
-      const planLookup = await sbCoachRead(
-        `training_plans?${userFilter}&status=in.(active,current)&select=id&order=updated_at.desc&limit=1`
-      );
-      if (!planLookup.ok) return sendJson(response, 503, { error: "The athlete's plan could not be verified. Please try again." });
-      if (!planLookup.rows[0] || !planLookup.rows[0].id) {
-        return sendJson(response, 409, { error: "This athlete needs an active training plan before a workout can be added." });
+      const planForWeek = await resolveCoachPlanForWeek(athleteId, validated.value.plan_week_start, nowIso);
+      if (!planForWeek.ok) {
+        return sendJson(response, 409, { error: "A training week could not be opened for this athlete. Please try again." });
       }
 
       const row = {
         ...validated.value,
         user_id: athleteId,
-        training_plan_id: planLookup.rows[0].id,
+        training_plan_id: planForWeek.id,
         ...ownership,
         created_by: user.id,
         updated_at: nowIso
       };
-      const saved = await sbCoachWrite("training_sessions", "POST", row);
+      let saved = await sbCoachWrite("training_sessions", "POST", row);
+      let structureSaved = Boolean(row.structure);
+      if (!saved.ok && row.structure && saved.status === 400) {
+        // The additive migration (training_sessions.structure) is not applied yet:
+        // still save the readable workout; it just cannot be re-opened in the builder.
+        saved = await sbCoachWrite("training_sessions", "POST", withoutStructureColumn(row));
+        structureSaved = false;
+      }
       if (!saved.ok || !saved.rows[0]) {
         return sendJson(response, saved.status === 409 ? 409 : 500, {
           error: saved.status === 409 ? "A workout is already scheduled on that date." : "The workout could not be saved."
         });
       }
-      return sendJson(response, 201, { saved: true, workout_id: saved.rows[0].id });
+      return sendJson(response, 201, { saved: true, workout_id: saved.rows[0].id, structure_saved: structureSaved });
     }
 
     const sessionId = body.session_id;
@@ -3342,7 +3400,7 @@ async function actionCoachingDashboardWorkout(request, response) {
     }
 
     if (request.method === "PATCH") {
-      const validated = sanitizeCoachWorkoutInput(body.workout);
+      const validated = sanitizeCoachWorkoutInput(body.workout, { paces: pacesByZone });
       if (!validated.ok) return sendJson(response, 400, { error: validated.error });
       if (validated.value.session_date < todayKey) {
         return sendJson(response, 409, { error: "Move workouts to today or a future date." });
@@ -3357,19 +3415,102 @@ async function actionCoachingDashboardWorkout(request, response) {
         }
       }
       const patch = { ...validated.value, ...ownership, updated_at: nowIso };
-      const saved = await sbCoachWrite(
+      let saved = await sbCoachWrite(
         `training_sessions?${userFilter}&id=eq.${enc(sessionId)}`,
         "PATCH",
         patch
       );
+      let structureSaved = Boolean(patch.structure);
+      if (!saved.ok && "structure" in patch && saved.status === 400) {
+        saved = await sbCoachWrite(
+          `training_sessions?${userFilter}&id=eq.${enc(sessionId)}`,
+          "PATCH",
+          withoutStructureColumn(patch)
+        );
+        structureSaved = false;
+      }
       if (!saved.ok || !saved.rows[0]) return sendJson(response, 500, { error: "The workout could not be saved." });
-      return sendJson(response, 200, { saved: true, workout_id: saved.rows[0].id });
+      return sendJson(response, 200, { saved: true, workout_id: saved.rows[0].id, structure_saved: structureSaved });
     }
 
     return sendJson(response, 405, { error: "Method not allowed." });
   } catch {
     return sendJson(response, 500, { error: "The workout could not be saved." });
   }
+}
+
+
+/* ═══════════════════ COACH WORKOUT LIBRARY ═════════════════════ */
+
+async function authenticateCoach(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) { sendJson(response, 500, { error: "Server is not configured." }); return null; }
+  const tok = bearer(request);
+  if (!tok) { sendJson(response, 401, { error: "Authentication is required." }); return null; }
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) { sendJson(response, 401, { error: "Your session is invalid or expired." }); return null; }
+  const profile = await loadCoachProfile(user.id);
+  if (!canAccessCoachDashboard(profile)) {
+    sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(profile) });
+    return null;
+  }
+  return user;
+}
+
+const LIBRARY_SETUP_MESSAGE = "The workout library is not set up yet. Run the structured-workouts migration in Supabase.";
+
+async function actionCoachingLibraryList(request, response) {
+  const user = await authenticateCoach(request, response);
+  if (!user) return;
+  const found = await sbCoachRead(
+    `coach_workout_library?coach_id=eq.${enc(user.id)}&select=id,name,folder,structure,summary,notes,updated_at&order=updated_at.desc&limit=300`
+  );
+  // A missing table is reported honestly, never shown as an empty library.
+  if (!found.ok) return sendJson(response, 200, { items: [], unavailable: true, message: LIBRARY_SETUP_MESSAGE });
+  return sendJson(response, 200, { items: found.rows.map(shapeLibraryRow).filter(Boolean) });
+}
+
+async function actionCoachingLibrarySave(request, response) {
+  const user = await authenticateCoach(request, response);
+  if (!user) return;
+  const body = stripClientAuthorityFields(request.body || {});
+  const validated = sanitizeLibraryItem(body.item);
+  if (!validated.ok) return sendJson(response, 400, { error: validated.error });
+  const nowIso = new Date().toISOString();
+  const id = body.item && body.item.id ? String(body.item.id) : null;
+  let saved;
+  if (id) {
+    saved = await sbCoachWrite(
+      `coach_workout_library?coach_id=eq.${enc(user.id)}&id=eq.${enc(id)}`,
+      "PATCH",
+      { ...validated.value, updated_at: nowIso }
+    );
+    if (saved.ok && !saved.rows[0]) return sendJson(response, 404, { error: "Library workout not found." });
+  } else {
+    saved = await sbCoachWrite("coach_workout_library", "POST", {
+      ...validated.value, coach_id: user.id, created_at: nowIso, updated_at: nowIso
+    });
+  }
+  if (!saved.ok || !saved.rows[0]) {
+    return sendJson(response, saved.status === 404 || saved.status === 400 ? 503 : 500, {
+      error: saved.status === 404 || saved.status === 400 ? LIBRARY_SETUP_MESSAGE : "The workout could not be saved to your library."
+    });
+  }
+  return sendJson(response, id ? 200 : 201, { saved: true, item: shapeLibraryRow(saved.rows[0]) });
+}
+
+async function actionCoachingLibraryDelete(request, response) {
+  const user = await authenticateCoach(request, response);
+  if (!user) return;
+  const id = (request.query && request.query.id) || (request.body && request.body.id);
+  if (!id) return sendJson(response, 400, { error: "id is required." });
+  const removed = await sbCoachWrite(
+    `coach_workout_library?coach_id=eq.${enc(user.id)}&id=eq.${enc(id)}`,
+    "DELETE"
+  );
+  if (!removed.ok) return sendJson(response, 500, { error: "The workout could not be removed." });
+  return sendJson(response, 200, { removed: true });
 }
 
 /* ═══════════════════ ATHLETE MODE actions ══════════════════════════ */
@@ -3980,6 +4121,18 @@ export default async function handler(request, response) {
         return response.status(405).json({ error: "Method not allowed." });
       }
       return actionCoachingDashboardWorkout(request, response);
+    }
+    if (action === "coaching_library_list") {
+      if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingLibraryList(request, response);
+    }
+    if (action === "coaching_library_save") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingLibrarySave(request, response);
+    }
+    if (action === "coaching_library_delete") {
+      if (!["DELETE", "POST"].includes(request.method)) { response.setHeader("Allow", "DELETE, POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingLibraryDelete(request, response);
     }
     if (action === "coaching_dashboard_notes") {
       return actionCoachingDashboardNotes(request, response);

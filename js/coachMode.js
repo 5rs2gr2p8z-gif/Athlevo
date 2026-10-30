@@ -130,6 +130,36 @@
     }
   }
 
+  // Coach workout library (js/coachWorkoutBuilder.js calls these).
+  async function libraryApi(action, opts) {
+    opts = opts || {};
+    var session = await authSession();
+    if (!session) return { ok: false, status: 401, body: { error: "No matching session" } };
+    var init = { method: opts.method || "GET", headers: { Authorization: "Bearer " + session.accessToken } };
+    if (opts.body) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(opts.body); }
+    try {
+      var res = await fetch("/api/providers?action=coaching_library_" + encodeURIComponent(action), init);
+      var body = {};
+      try { body = await res.json(); } catch (e) { body = {}; }
+      return { ok: res.ok, status: res.status, body: body || {} };
+    } catch (e) {
+      return { ok: false, status: 0, body: { error: "network" } };
+    }
+  }
+
+  var workoutLibrary = {
+    list: function () {
+      return libraryApi("list").then(function (r) {
+        return r.ok ? r.body : { items: [], unavailable: true, message: "Your workout library could not be loaded." };
+      });
+    },
+    save: function (item) {
+      return libraryApi("save", { method: "POST", body: { item: item } }).then(function (r) {
+        return r.ok ? { ok: true, item: r.body.item } : { ok: false, error: r.body && r.body.error };
+      });
+    }
+  };
+
   async function inviteApi(action, opts) {
     opts = opts || {};
     var t = await token();
@@ -2114,10 +2144,37 @@
       '<div class="cm-field"><label for="cmWorkoutRpe">Target RPE</label><input id="cmWorkoutRpe" name="target_rpe" value="' + value("target_rpe") + '" ' + (!editable ? "disabled" : "") + '></div>' +
       '<div class="cm-field"><label for="cmWorkoutIntensity">Intensity</label><input id="cmWorkoutIntensity" name="intensity" value="' + value("intensity") + '" ' + (!editable ? "disabled" : "") + '></div>' +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutPace">Pace guidance</label><input id="cmWorkoutPace" name="pace_guidance" value="' + value("pace_guidance") + '" ' + (!editable ? "disabled" : "") + '></div>' +
+      '<div class="cm-field cm-field--full" id="cmBuilderMount"></div>' +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutDescription">Description</label><textarea id="cmWorkoutDescription" name="description" ' + (!editable ? "disabled" : "") + '>' + value("description") + '</textarea></div>' +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutNotes">Coach notes</label><textarea id="cmWorkoutNotes" name="notes" ' + (!editable ? "disabled" : "") + '>' + value("notes") + '</textarea></div>' +
       '<div class="cm-form-error" id="cmWorkoutError" aria-live="polite"></div><div class="cm-form-actions">' + (session && session.can_remove && canWrite ? '<button type="button" class="cm-week-btn cm-danger" id="cmRemoveWorkout">Remove from plan</button>' : '<span></span>') + '<div class="cm-form-actions-right"><button type="button" class="cm-week-btn cm-dialog-close">Close</button>' + (editable ? '<button type="submit" class="cm-week-btn cm-week-btn--primary">' + (session ? 'Adjust session' : 'Add workout') + '</button>' : '') + '</div></div></form></div>';
     document.body.appendChild(overlay);
+
+    // Structured builder: shows the athlete's own paces, previews the shape,
+    // and saves to / loads from the coach's library. Falls back to the simple
+    // fields when the coach adds no steps.
+    var builderHost = overlay.querySelector("#cmBuilderMount");
+    if (builderHost && window.AthlevoCoachWorkoutBuilder && (editable || (session && session.structure))) {
+      var flatFieldIds = ["cmWorkoutDuration", "cmWorkoutDistance", "cmWorkoutIntensity", "cmWorkoutPace"];
+      overlay._builder = window.AthlevoCoachWorkoutBuilder.mount(builderHost, {
+        structure: session && session.structure || null,
+        paces: ath.training_paces || null,
+        athleteName: String(ath.athlete_name || ath.name || ath.full_name || "").split(" ")[0],
+        readOnly: !editable,
+        library: editable ? workoutLibrary : null,
+        onChange: function (state) {
+          flatFieldIds.forEach(function (id) {
+            var input = overlay.querySelector("#" + id);
+            var field = input && input.closest(".cm-field");
+            if (field) field.hidden = state.hasSteps;
+          });
+        },
+        onLoadLibraryItem: function (item) {
+          var title = overlay.querySelector("#cmWorkoutTitle");
+          if (title && !title.value) title.value = item.name;
+        }
+      });
+    }
     var previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     var onKey = function (event) { if (event.key === "Escape") close(); };
@@ -2158,6 +2215,22 @@
     var data = new FormData(form);
     var workout = {};
     data.forEach(function (value, key) { workout[key] = value; });
+    var builder = overlay._builder;
+    if (builder && builder.hasSteps()) {
+      var checked = builder.validate();
+      if (!checked.ok) { if (error) error.textContent = checked.error; return; }
+      workout.structure = checked.value;
+      // Derived from the steps and this athlete's paces on the server.
+      delete workout.duration_minutes;
+      delete workout.distance_km;
+      delete workout.pace_guidance;
+      delete workout.intensity;
+      if (/^\d+ min(?: · [\d.]+ km)?$/.test(String(workout.description || ""))) delete workout.description;
+    } else if (builder && session && session.structure) {
+      workout.structure = null;
+      workout.clear_structure = true;
+    }
+    if (error) error.textContent = "";
     if (submit) { submit.disabled = true; submit.textContent = "Saving…"; }
     var res = await api("workout", { method: session ? "PATCH" : "POST", body: { athlete_id: _athleteDetailId, session_id: session && session.id, workout: workout } });
     if (!res.ok) {
