@@ -214,6 +214,10 @@
   }
 
   async function evaluate(options = {}) {
+    // Coach-led app (js/appMode.js): the daily pop-up is off.
+    if (root.ATHLEVO_MORNING_PROMPT === false) {
+      return { shown: false, reason: "disabled" };
+    }
     if (!appReady(options)) {
       return { shown: false, reason: "app_not_ready" };
     }

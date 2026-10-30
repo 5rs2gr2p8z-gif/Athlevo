@@ -237,7 +237,7 @@ await test("rewrites only native API calls to the production backend", () => {
     runtime.nativeApiUrl("/api/training/get-week?week=1"),
     "https://athlevo.org/api/training/get-week?week=1"
   );
-  assert.equal(runtime.nativeApiUrl("assets/athlevo-icon.png"), "assets/athlevo-icon.png");
+  assert.equal(runtime.nativeApiUrl("assets/athlevo-ae-icon.png"), "assets/athlevo-ae-icon.png");
 });
 
 await test("accepts only the exact native auth callback with a bounded PKCE code", () => {

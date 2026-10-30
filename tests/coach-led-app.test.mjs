@@ -211,6 +211,18 @@ test("no-coach Coach tab offers no purchase: it points to the coach's invite lin
   /You are not connected to a coach yet\. Ask your coach for their Athlevo invite link/.test(am) && /var offer = !!\(window\.AthlevoPrograms/.test(am));
 test("Settings hides the Plan/Programs section entirely while the app is free", /Free app: no plan or programs section at all/.test(html) && /card\.hidden = true/.test(html));
 
+section("No daily check-in pop-up");
+test("appMode.js turns the morning prompt off", /ATHLEVO_MORNING_PROMPT = false/.test(appMode));
+{
+  const sb = { document: { addEventListener() {} }, console, setTimeout, Promise, Set, Date, localStorage: { getItem: () => null, setItem() {} },
+    addEventListener() {}, ATHLEVO_MORNING_PROMPT: false, openReadinessCheck: () => { sb.opened = true; } };
+  sb.window = sb;
+  vm.runInNewContext(read("./js/morningCheckIn.js").replace(/\}\)\(window\);\s*$/, "})(window);"), sb);
+  const out = await sb.AthlevoMorningCheckIn.evaluate({ reason: "today-open" });
+  test("with the prompt off, evaluate() never opens the readiness form", out.shown === false && out.reason === "disabled" && !sb.opened);
+}
+test("the Readiness card on Home still offers a manual check-in", /id="todayReadinessSignal"/.test(html) && /Needs check-in/.test(html));
+
 section("Packaged for Android");
 const markers = read("./scripts/check-native-assets.mjs");
 test("native asset check pins the Programs screen and the coach-led flag",

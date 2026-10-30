@@ -331,7 +331,7 @@
     if (!mount) return;
     mount.innerHTML = `
       <div class="pg-wrap">
-        <div class="pg-orb"><img src="assets/athlevo-icon.png" alt="" width="46" height="46"></div>
+        <div class="pg-orb"><img src="assets/athlevo-ae-icon.png" alt="" width="46" height="46"></div>
         <h2 class="pg-title serif" id="pgTitle">Creating your personalized training plan</h2>
         <ul class="pg-steps" id="pgSteps">
           ${GEN_STEPS.map((s, i) => `<li data-i="${i}"><span class="pg-dot"></span><span>${esc(s)}</span></li>`).join("")}

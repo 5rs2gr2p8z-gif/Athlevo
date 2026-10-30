@@ -18,13 +18,13 @@
  */
 
 const ATHLEVO_CACHE_PREFIX = "athlevo-";
-const CACHE_VERSION = "athlevo-shell-v90";
+const CACHE_VERSION = "athlevo-shell-v91";
 const SHELL = [
   "/",
   "/index.html",
   "/manifest.webmanifest",
-  "/assets/athlevo-icon.png",
-  "/assets/athlevo-logo.png",
+  "/assets/athlevo-ae-icon.png",
+  "/assets/athlevo-ae-logo.png",
   "/assets/pwa/icon-192.png",
   "/assets/pwa/icon-512.png",
   "/assets/pwa/apple-touch-180.png"

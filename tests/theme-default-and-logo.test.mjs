@@ -96,33 +96,33 @@ section("Settings still exposes exactly System / Light / Dark, and persistence p
 section("A white+red dark-mode variant of the primary mark exists, with the red byte-identical");
 {
   t("dark-mode mark asset is referenced from CSS",
-    /assets\/athlevo-icon-transparent-dark\.png/.test(html));
+    /assets\/athlevo-ae-mark-dark\.png/.test(html));
 }
 
 section("One canonical CSS rule swaps the primary mark under dark — no per-site markup duplication");
 {
-  const explicitRule = /html\[data-theme="dark"\] img\[src\$="athlevo-icon-transparent\.png"\],\s*html\[data-theme="dark"\] img\[src\$="athlevo-icon\.png"\]\{\s*content:url\(assets\/athlevo-icon-transparent-dark\.png\);\s*\}/;
-  const systemRule = /@media \(prefers-color-scheme: dark\)\{\s*html\[data-theme="system"\] img\[src\$="athlevo-icon-transparent\.png"\],\s*html\[data-theme="system"\] img\[src\$="athlevo-icon\.png"\]\{\s*content:url\(assets\/athlevo-icon-transparent-dark\.png\);/;
+  const explicitRule = /html\[data-theme="dark"\] img\[src\$="athlevo-ae-mark\.png"\],\s*html\[data-theme="dark"\] img\[src\$="athlevo-ae-icon\.png"\]\{\s*content:url\(assets\/athlevo-ae-mark-dark\.png\);\s*\}/;
+  const systemRule = /@media \(prefers-color-scheme: dark\)\{\s*html\[data-theme="system"\] img\[src\$="athlevo-ae-mark\.png"\],\s*html\[data-theme="system"\] img\[src\$="athlevo-ae-icon\.png"\]\{\s*content:url\(assets\/athlevo-ae-mark-dark\.png\);/;
   t("explicit dark: img[src$=...] rule swaps both primary-mark filenames to the dark variant",
     explicitRule.test(html));
   t("system + OS dark: the identical swap rule is mirrored under the prefers-color-scheme media query",
     systemRule.test(html));
   t("no filter:invert()/hue-rotate() is used for the logo swap (which could shift the red's hue)",
-    !/athlevo-icon[\s\S]{0,120}filter:\s*invert/i.test(html));
+    !/athlevo-ae-[\s\S]{0,120}filter:\s*invert/i.test(html));
 
   // Exactly one occurrence of each selector pair — the swap is declared once,
   // not copy-pasted per screen/call-site.
   t("the content:url swap declaration appears exactly twice total (explicit dark + system/OS-dark), not duplicated per call site",
-    (html.match(/content:url\(assets\/athlevo-icon-transparent-dark\.png\);/g) || []).length === 2);
+    (html.match(/content:url\(assets\/athlevo-ae-mark-dark\.png\);/g) || []).length === 2);
 }
 
 section("Light mode's black+red mark markup is completely unchanged");
 {
-  const primaryMarkImgs = (html.match(/<img[^>]*src="[^"]*athlevo-icon(?:-transparent)?\.png"[^>]*>/g) || []);
+  const primaryMarkImgs = (html.match(/<img[^>]*src="[^"]*athlevo-ae-(?:icon|mark)\.png"[^>]*>/g) || []);
   t("primary-mark <img> call sites still point at the original (light) PNGs — no per-theme duplicate <img> elements were introduced",
     primaryMarkImgs.length > 0 &&
-    primaryMarkImgs.every(tag => /src="[^"]*athlevo-icon(?:-transparent)?\.png"/.test(tag)) &&
-    primaryMarkImgs.every(tag => !/athlevo-icon-transparent-dark\.png/.test(tag)));
+    primaryMarkImgs.every(tag => /src="[^"]*athlevo-ae-(?:icon|mark)\.png"/.test(tag)) &&
+    primaryMarkImgs.every(tag => !/athlevo-ae-mark-dark\.png/.test(tag)));
   t("no new id was introduced on any primary-mark <img> (no duplicate-element / duplicate-id risk)",
     primaryMarkImgs.every(tag => !/\bid="/.test(tag)));
 }

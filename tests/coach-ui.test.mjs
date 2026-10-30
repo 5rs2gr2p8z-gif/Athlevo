@@ -80,7 +80,7 @@ test("header has a labelled menu button with exactly two horizontal lines",
   /id="coachMenuButton"[\s\S]*?aria-label="Open Coach menu"/.test(coachHeader) &&
   (coachHeader.match(/<i><\/i>/g) || []).length === 2);
 test("the centered identity uses the existing transparent Athlevo icon (labelled Athlevo Coaching)",
-  /class="coach-logo-bubble"[\s\S]*?<img[^>]+athlevo-icon-transparent\.png[^>]+alt="Athlevo Coaching"/.test(coachHeader) &&
+  /class="coach-logo-bubble"[\s\S]*?<img[^>]+athlevo-ae-mark\.png[^>]+alt="Athlevo Coaching"/.test(coachHeader) &&
   /\.coach-logo-bubble\{[^}]*width:42px;height:42px;border-radius:50%/.test(html));
 test("header uses a true centered three-column grid",
   /#screen-coachai \.coach-head\{[^}]*display:grid[^}]*grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/.test(html) &&

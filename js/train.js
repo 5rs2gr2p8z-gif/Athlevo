@@ -108,14 +108,14 @@ function renderNoPlan() {
     document.getElementById("trainHeader").innerHTML = hasActivities
         ? `
         <div class="train-empty">
-            <div class="train-empty-art"><img src="assets/athlevo-icon.png" alt="" width="56" height="56"></div>
+            <div class="train-empty-art"><img src="assets/athlevo-ae-icon.png" alt="" width="56" height="56"></div>
             <h3>No training plan yet.</h3>
             <p>Let Athlevo turn your profile into a personalized, adapting plan.</p>
             <button class="primary-btn" type="button" onclick="${build}">Build My Plan</button>
         </div>`
         : `
         <div class="train-empty">
-            <div class="train-empty-art"><img src="assets/athlevo-icon.png" alt="" width="56" height="56"></div>
+            <div class="train-empty-art"><img src="assets/athlevo-ae-icon.png" alt="" width="56" height="56"></div>
             <h3>Waiting for your first workout.</h3>
             <p>Complete a workout with your connected watch and Athlevo will automatically analyze it.</p>
             <button class="primary-btn" type="button" onclick="${build}">Build My Plan</button>

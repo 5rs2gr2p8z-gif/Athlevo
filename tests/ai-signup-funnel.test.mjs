@@ -823,7 +823,7 @@ section("Authenticated payment screen is an Athlevo AI pricing offer");
     !/diagnostic-paywall-limiter|diagnosticPaywallLimiter|Primary limiter/.test(paywall));
   t("top branding is the logo mark only",
     /diagnostic-paywall-brand/.test(paywall) &&
-    /athlevo-icon-transparent/.test(paywall) &&
+    /athlevo-ae-mark/.test(paywall) &&
     !/Athlevo<span>\.<\/span>/.test(paywall) &&
     !/diagnostic-paywall-brand">[\s\S]*Athlevo\s*<span>/.test(paywall));
   t("offer heading is Built to Evolve With You",

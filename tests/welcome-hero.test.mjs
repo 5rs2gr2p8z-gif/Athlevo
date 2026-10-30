@@ -26,7 +26,7 @@ console.log("\n──── Markup ────");
 test("the white Athlevo wordmark sits inside the copy block, directly above the tagline, with an accessible name",
   /<div class="w-top">\s*<img class="w-wordmark" src="assets\/brand\/athlevo-wordmark-white\.png" alt="Athlevo"[^>]*>\s*<p class="w-tag">/.test(welcome));
 test("the old top-left logo is gone", !/w-logo|athlevo-coaching-logo/.test(welcome) && !/\.w-logo/.test(css));
-test("the old icon + 'Athlevo.' text lockup is gone from the welcome screen", !/w-lockup|w-mark|athlevo-icon-transparent/.test(welcome));
+test("the old icon + 'Athlevo.' text lockup is gone from the welcome screen", !/w-lockup|w-mark|athlevo-ae-mark/.test(welcome));
 test("four slides, each responsive (webp 720/1080 with jpg fallback), decorative, and lazy so signed-in users never download them",
   (welcome.match(/<picture class="w-slide"/g) || []).length === 4 &&
   [1, 2, 3, 4].every(i => welcome.includes(`style="--i:${i - 1}"><source type="image/webp" srcset="assets/welcome/hero-${i}-720.webp 720w, assets/welcome/hero-${i}-1080.webp 1080w"`) &&

@@ -17,6 +17,9 @@
   // The Programs offer (js/programsScreen.js) is OFF: the app is completely free
   // for athletes and coaches. Set to true to show it once after sign-up again.
   root.ATHLEVO_PROGRAMS_OFFER = false;
+  // No automatic daily check-in pop-up on Home. The Readiness card still lets an
+  // athlete log a check-in on purpose. Set to true to bring the pop-up back.
+  root.ATHLEVO_MORNING_PROMPT = false;
   // CSS hook: html.coach-led hides AI-chat and upgrade surfaces (see index.html).
   try {
     if (root.document && root.document.documentElement) {

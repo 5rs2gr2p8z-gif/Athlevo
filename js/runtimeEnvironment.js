@@ -291,7 +291,7 @@
     element.setAttribute("aria-live", "assertive");
     element.innerHTML =
       '<div class="ans-card">' +
-        '<img src="assets/athlevo-icon.png" alt="">' +
+        '<img src="assets/athlevo-ae-icon.png" alt="">' +
         '<h1 id="athlevoNativeStateTitle">Athlevo is offline</h1>' +
         '<p id="athlevoNativeStateBody">Reconnect to continue syncing your training.</p>' +
         '<button id="athlevoNativeRetry" type="button">Try again</button>' +

@@ -290,7 +290,7 @@
   "@type": "Organization",
   "name": "Athlevo",
   "url": "https://athlevo.org/",
-  "logo": "https://athlevo.org/assets/athlevo-logo.png",
+  "logo": "https://athlevo.org/assets/athlevo-ae-logo.png",
   "description": "A personalized endurance coaching company offering Athlevo AI and dedicated human coaching.",
   "founder": { "@type": "Person", "name": "Dean Castro" },
   "makesOffer": [
@@ -415,10 +415,10 @@
 <meta name="application-name" content="Athlevo Coaching">
 
 <!-- Athlevo brand icon: favicon + Apple touch icon (existing branding). -->
-<link rel="icon" type="image/png" sizes="32x32" href="/assets/pwa/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/assets/pwa/favicon-16.png">
-<link rel="icon" type="image/png" href="/assets/athlevo-icon.png">
-<link rel="apple-touch-icon" href="/assets/pwa/apple-touch-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/pwa/favicon-32.png?v=ae1">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/pwa/favicon-16.png?v=ae1">
+<link rel="icon" type="image/png" href="/assets/athlevo-ae-icon.png">
+<link rel="apple-touch-icon" href="/assets/pwa/apple-touch-180.png?v=ae1">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -704,24 +704,24 @@ html[data-theme="dark"]{
   }
 }
 /* ── Dark-mode Athlevo brand mark ─────────────────────────────────────
-   The primary mark ships as a black+red PNG (assets/athlevo-icon*.png)
+   The primary mark ships as a black+red PNG (assets/athlevo-ae-*.png)
    whose black portions vanish against dark surfaces. Rather than
    duplicating <img> markup per call site, a single canonical CSS rule
    swaps every occurrence of the primary mark's image for a pre-rendered
-   white+red variant (assets/athlevo-icon-transparent-dark.png) whenever
+   white+red variant (assets/athlevo-ae-mark-dark.png) whenever
    dark is active — explicit dark, or system while the OS resolves dark.
    The red accent is byte-identical between the two PNGs (no filter/
    hue-rotate is used, so there is no hue shift). Partner/provider logos
    (Google, Apple, Garmin, etc.) are untouched — this only targets the
    Athlevo mark's own image filenames. */
-html[data-theme="dark"] img[src$="athlevo-icon-transparent.png"],
-html[data-theme="dark"] img[src$="athlevo-icon.png"]{
-  content:url(assets/athlevo-icon-transparent-dark.png);
+html[data-theme="dark"] img[src$="athlevo-ae-mark.png"],
+html[data-theme="dark"] img[src$="athlevo-ae-icon.png"]{
+  content:url(assets/athlevo-ae-mark-dark.png);
 }
 @media (prefers-color-scheme: dark){
-  html[data-theme="system"] img[src$="athlevo-icon-transparent.png"],
-  html[data-theme="system"] img[src$="athlevo-icon.png"]{
-    content:url(assets/athlevo-icon-transparent-dark.png);
+  html[data-theme="system"] img[src$="athlevo-ae-mark.png"],
+  html[data-theme="system"] img[src$="athlevo-ae-icon.png"]{
+    content:url(assets/athlevo-ae-mark-dark.png);
   }
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -4709,7 +4709,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   <nav class="lp-nav">
     <div class="lp-wrap lp-nav-in">
-      <a class="lp-brand" href="#lp-top"><img src="/assets/athlevo-icon.png" alt="Athlevo logo" width="30" height="30"><span>Athlevo<i>.</i></span></a>
+      <a class="lp-brand" href="#lp-top"><img src="/assets/athlevo-ae-icon.png" alt="Athlevo logo" width="30" height="30"><span>Athlevo<i>.</i></span></a>
       <div class="lp-nav-links">
         <a href="#coaching">Coaching</a>
         <a href="#ai">AI</a>
@@ -4979,7 +4979,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <!-- FOOTER -->
   <footer class="lp-footer">
     <div class="lp-wrap lp-footer-in">
-      <div class="lp-brand"><img src="/assets/athlevo-icon.png" alt="Athlevo logo" width="24" height="24"><span>Athlevo<i>.</i></span></div>
+      <div class="lp-brand"><img src="/assets/athlevo-ae-icon.png" alt="Athlevo logo" width="24" height="24"><span>Athlevo<i>.</i></span></div>
       <div class="lp-footer-links">
         <a href="#coaching">Coaching</a>
         <a href="#ai">AI</a>
@@ -5037,7 +5037,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
 <section class="screen" id="screen-auth-setup" aria-live="polite" aria-busy="true">
   <div class="auth-setup-lockup">
-    <img class="w-icon" src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="104" height="104">
+    <img class="w-icon" src="assets/athlevo-ae-mark.png" alt="Athlevo" width="104" height="104">
   </div>
   <p class="auth-setup-copy">Setting up your account…</p>
   <div class="auth-setup-loader" aria-hidden="true"></div>
@@ -5094,7 +5094,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
         </svg>
       </button>
       <div class="diagnostic-paywall-brand">
-        <img src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="32" height="32">
+        <img src="assets/athlevo-ae-mark.png" alt="Athlevo" width="32" height="32">
       </div>
     </div>
     <div class="diagnostic-paywall-hero">
@@ -5409,7 +5409,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
   <div class="today-brand-mark">
-    <img src="assets/athlevo-icon-transparent.png" alt="Athlevo" width="28" height="28">
+    <img src="assets/athlevo-ae-mark.png" alt="Athlevo" width="28" height="28">
   </div>
   <header class="today-header">
     <div class="today-header-copy">
@@ -5856,7 +5856,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
 
   <div class="today-install" id="todayInstallCard">
-    <div class="ti-icon"><img src="assets/athlevo-icon-transparent.png" alt="" width="30" height="30"></div>
+    <div class="ti-icon"><img src="assets/athlevo-ae-mark.png" alt="" width="30" height="30"></div>
     <div class="ti-copy">
       <b>Install Athlevo</b>
       <small>Keep your coach one tap away.</small>
@@ -5882,7 +5882,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       </button>
     </div>
     <div class="coach-logo-bubble" aria-label="Athlevo Coaching">
-      <img src="assets/athlevo-icon-transparent.png" alt="Athlevo Coaching" />
+      <img src="assets/athlevo-ae-mark.png" alt="Athlevo Coaching" />
     </div>
     <div class="coach-head-side coach-head-side--end" id="coachHeaderAuthAction" data-auth-state="pending" aria-live="polite">
       <div class="coach-header-authenticated" id="coachHeaderSignedIn" hidden>
@@ -7479,7 +7479,7 @@ html.coach-led #athlevoTrialIndicator{display:none!important}
          aria-labelledby="coachSidePanelTitle" tabindex="-1">
     <div class="coach-side-panel-header">
       <div class="coach-side-panel-brand" id="coachSidePanelTitle">
-        <img src="assets/athlevo-icon-transparent.png" alt="" />
+        <img src="assets/athlevo-ae-mark.png" alt="" />
         <span>Athlevo Coaching</span>
       </div>
       <button class="coach-side-panel-close" type="button" onclick="closeCoachMenu()" aria-label="Close Coach menu">×</button>

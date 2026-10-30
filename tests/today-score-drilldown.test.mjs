@@ -138,7 +138,7 @@ test("score mount is in the Today header, before primary training state",
   /<header class="today-header">[\s\S]*?id="athlevoScoreCard"[\s\S]*?id="todayPlanLoadingState"/.test(today));
 test("Today contains only one score mount", (today.match(/id="athlevoScoreCard"/g) || []).length === 1);
 test("the existing Athlevo mark is a centered 28px row with a 25px narrow-phone treatment",
-  /<div class="today-brand-mark">[\s\S]*?athlevo-icon-transparent\.png[\s\S]*?width="28" height="28"/.test(today) &&
+  /<div class="today-brand-mark">[\s\S]*?athlevo-ae-mark\.png[\s\S]*?width="28" height="28"/.test(today) &&
   today.indexOf("today-brand-mark") < today.indexOf("today-header") &&
   /\.today-brand-mark\{[^}]*justify-content:center[^}]*height:28px[^}]*padding:12px 22px 16px/.test(html) &&
   /@media \(max-width:380px\)[\s\S]*?\.today-brand-mark\{height:25px;padding:12px 22px 14px\}/.test(html));
