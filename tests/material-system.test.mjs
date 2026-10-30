@@ -191,7 +191,7 @@ section("No product/behavior regressions");
   test("Settings Plan upgrade CTA and its paid-tier hide rule are unchanged",
     /\[data-tier="paid"\] \.settings-plan-cta\{display:none\}/.test(html));
   test("responsive capsule sizing math is unchanged (390/430/narrow viewport margins)",
-    /width:\s*min\(328px,\s*calc\(100% - 28px\)\)/.test(html));
+    /width:\s*min\(352px,\s*calc\(100% - 20px\)\)/.test(html));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

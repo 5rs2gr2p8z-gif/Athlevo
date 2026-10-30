@@ -307,7 +307,7 @@
   // guided, never trapped.
   function notNow() {
     dismissedThisSession = true;
-    if (typeof showScreen === "function") showScreen("screen-train");
+    if (typeof showScreen === "function") showScreen("screen-today");
     refreshTodayCta();
   }
 
@@ -821,7 +821,7 @@
     if (has === false) {
       await start(); return true;
     }
-    if (typeof showScreen === "function") showScreen("screen-train");
+    if (typeof showScreen === "function") showScreen("screen-today");
     return false;
   }
 
@@ -881,7 +881,7 @@
   async function autoBuildFirstPlan() {
     if (!AUTO_FIRST_PLAN) {
       // Manual for now. Show the dashboard with the plan CTA visible.
-      if (typeof showScreen === "function") showScreen("screen-train");
+      if (typeof showScreen === "function") showScreen("screen-today");
       refreshTodayCta();
       return { skipped: "auto_disabled" };
     }
@@ -901,7 +901,7 @@
     // gated client-side here so the free "aha" moment can happen at all.
     if (existing === null) {
       // Couldn't tell (offline, auth hiccup). Do NOT gamble on generating.
-      if (typeof showScreen === "function") showScreen("screen-train");
+      if (typeof showScreen === "function") showScreen("screen-today");
       refreshTodayCta();
       return { skipped: "unknown" };
     }

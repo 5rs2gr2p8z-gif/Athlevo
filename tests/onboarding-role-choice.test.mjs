@@ -562,8 +562,8 @@ describe("Pending approval screen", () => {
   it("'Continue to My Training' clears intent and shows athlete workspace", () => {
     assert.ok(
       onboardingSource.includes("obClearIntent()") &&
-      onboardingSource.includes('showScreen("screen-train")'),
-      "Continue button must clear intent and show Train"
+      onboardingSource.includes('showScreen("screen-today")'),
+      "Continue button must clear intent and show Home"
     );
   });
 });

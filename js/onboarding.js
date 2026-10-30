@@ -1576,7 +1576,7 @@ async function obFinish() {
     try { await window.AthlevoConnect.start(); return; }
     catch (e) { console.warn("Training-data setup failed:", e); }
   }
-  showScreen("screen-train");
+  showScreen("screen-today");
 }
 
 async function obOfferIfUnpaid() {
@@ -2261,7 +2261,7 @@ function obRenderCoachPending() {
     const tabbar = document.getElementById("tabbar");
     if (tabbar) tabbar.style.display = "flex";
     try { await AthlevoBrain.refreshAthleteUI(); } catch (e) {}
-    showScreen("screen-train");
+    showScreen("screen-today");
   });
 }
 
@@ -2317,7 +2317,7 @@ async function startAthlevoOnboarding() {
       const tabbar = document.getElementById("tabbar");
       if (tabbar) tabbar.style.display = "flex";
       await AthlevoBrain.refreshAthleteUI();
-      showScreen("screen-train");
+      showScreen("screen-today");
       return;
     }
 
@@ -2338,7 +2338,7 @@ async function startAthlevoOnboarding() {
       const tabbar = document.getElementById("tabbar");
       if (tabbar) tabbar.style.display = "flex";
       await AthlevoBrain.refreshAthleteUI();
-      showScreen("screen-train");
+      showScreen("screen-today");
       return;
     }
 

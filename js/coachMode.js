@@ -518,8 +518,9 @@
   function restoreAthleteNavigation() {
     var tabbar = document.getElementById("tabbar");
     if (!tabbar) return;
-    // Athlete navigation: 3-tab floating capsule (Calendar / Coach / You)
+    // Athlete navigation: 4-tab floating capsule (Home / Calendar / Coach / You)
     var ATHLETE_TABS = [
+      { screen: "screen-today",    label: "Home",  icon: '<svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/></svg>' },
       { screen: "screen-train",    label: "Calendar",  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' },
       { screen: "screen-coachai",  label: "Coach",  icon: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>' },
       { screen: "screen-trends",   label: "You", icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>' }
@@ -653,7 +654,7 @@
   function activateCoachWorkspace() {
     if (!canAccessCoachWorkspace()) {
       enforceAthleteWorkspaceFallback();
-      if (typeof window.showScreen === "function") window.showScreen("screen-train");
+      if (typeof window.showScreen === "function") window.showScreen("screen-today");
       return false;
     }
     document.body.classList.add("coach-workspace-active");
@@ -727,14 +728,18 @@
     restoreAthleteToday();
     restoreAthleteNavigation();
 
-    // Show athlete Train (default athlete home)
+    // Show athlete Home (default athlete landing)
     var hasImmediateMotion = window.AthlevoAppMotion && typeof window.AthlevoAppMotion.showImmediately === "function";
-    var trainEl = hasImmediateMotion
-      ? window.AthlevoAppMotion.showImmediately("screen-train")
-      : document.getElementById("screen-train");
+    var homeEl = hasImmediateMotion
+      ? window.AthlevoAppMotion.showImmediately("screen-today")
+      : document.getElementById("screen-today");
     if (!hasImmediateMotion) {
       document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
-      if (trainEl) trainEl.classList.add("active");
+      if (homeEl) homeEl.classList.add("active");
+    }
+    // The restored Home markup is a static snapshot — reload today's plan into it.
+    if (typeof window.refreshTodayAfterPlanChange === "function") {
+      window.refreshTodayAfterPlanChange("screen-enter").catch(function () {});
     }
 
     // Initialize athlete UI data if not already done

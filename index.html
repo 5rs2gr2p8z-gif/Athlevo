@@ -887,6 +887,10 @@ body{
   body.layout-tablet [data-coach-auth="signed-in"] [onclick="runCoachMenuAction('settings')"],
   body.layout-desktop [data-coach-auth="signed-in"] [onclick="runCoachMenuAction('settings')"]{display:none}
 
+  /* Home is the landing screen: keep its greeting clear of the floating rail toggle. */
+  body.layout-tablet #screen-today .today-header,
+  body.layout-desktop #screen-today .today-header{margin-top:44px}
+
   /* Readable centered Coach conversation column. */
   body.layout-tablet #screen-coachai #chatlog,
   body.layout-desktop #screen-coachai #chatlog,
@@ -978,7 +982,7 @@ body{
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(10px + var(--athlevo-safe-bottom, env(safe-area-inset-bottom, 0px)));
-  width: min(328px, calc(100% - 28px));
+  width: min(352px, calc(100% - 20px));
   min-height: 70px;
   box-sizing: border-box;
 
@@ -1001,6 +1005,9 @@ body{
 .tab{position:relative;z-index:1;flex:1 1 0;min-width:0;min-height:56px;background:none;border:none;font-family:var(--sans);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink3);padding:5px 10px;opacity:.58;transition:color .22s var(--ease-standard),opacity .22s var(--ease-standard),background .25s var(--ease-standard);border-radius:var(--radius-surface-inner)}
 .tab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tab span{font-size:11px;font-weight:650;letter-spacing:.025em}
+/* Four primary sections: tighter side padding + no wrapping keeps every label inside its tab at 320px. */
+.tabbar--capsule .tab{padding:5px 4px}
+.tabbar--capsule .tab span{white-space:nowrap;max-width:100%}
 .tab.on{color:var(--text);opacity:1}
 .tabbar--capsule .tab.on{color:var(--text);opacity:1;background:var(--nav-tab-active-bg, color-mix(in srgb, var(--ink3) 9%, transparent));box-shadow:0 1px 3px color-mix(in srgb, var(--ink) 12%, transparent);transform:translateY(-1px);transition:transform var(--motion-fast) var(--ease-standard),box-shadow var(--motion-fast) var(--ease-standard)}
 .tab.on span{font-weight:750}
@@ -5364,40 +5371,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     </div>
   </header>
 
-  <!-- ===== PRO UPGRADE CARD (free users only) ===== -->
-  <style>
-    .today-pro-card{display:none;margin:14px 22px 0;padding:20px;background:var(--paper);
-      border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--elev-2);
-      box-sizing:border-box;cursor:pointer;transition:box-shadow var(--dur-fast) var(--ease-standard)}
-    .today-pro-card.is-visible{display:block}
-    @media (hover:hover) and (pointer:fine){
-      .today-pro-card:hover{box-shadow:var(--elev-3)}
-    }
-    .today-pro-eyebrow{display:block;font-size:var(--fs-micro);font-weight:750;
-      letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
-    .today-pro-card h2{margin:0 0 8px;font-family:var(--serif);font-size:var(--fs-h2);
-      font-weight:500;line-height:var(--lh-heading);color:var(--text)}
-    .today-pro-card p{margin:0 0 16px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
-    .today-pro-btn{width:100%;min-height:48px;border:1px solid var(--red);border-radius:var(--r-pill);
-      background:var(--red);color:#fff;font-family:var(--sans);font-size:var(--fs-body-sm);
-      font-weight:750;cursor:pointer;transition:opacity var(--dur-fast) var(--ease-standard)}
-    .today-pro-btn:active{opacity:.85}
-    .today-pro-price{display:block;margin-top:8px;text-align:center;font-size:var(--fs-caption);
-      color:var(--ink3);font-weight:600}
-    @media (min-width:700px){
-      .today-pro-card{margin-left:auto;margin-right:auto;width:min(100% - 44px,620px)}
-    }
-  </style>
-  <article class="today-pro-card" id="todayProUpgradeCard"
-    onclick="AthlevoAccessGuard.openPaywall('general-upgrade')"
-    role="button" tabindex="0" aria-label="Unlock Athlevo Pro">
-    <span class="today-pro-eyebrow">Athlevo Pro</span>
-    <h2>Unlock Athlevo Pro</h2>
-    <p>Your complete AI endurance coach. Get personalized training, performance analytics, recovery insights, and full AI coaching access.</p>
-    <button type="button" class="today-pro-btn"
-      onclick="event.stopPropagation();AthlevoAccessGuard.openPaywall('general-upgrade')">Unlock Full Access</button>
-    <span class="today-pro-price">₱597/month</span>
-  </article>
 
   <!-- ===== INSTALL ATHLEVO (only while not installed) ===== -->
   <style>
@@ -5445,6 +5418,25 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       padding:17px 18px 18px;box-shadow:var(--elev-2);box-sizing:border-box}
     .today-training-topline{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3)}
     .today-adjusted-label{font-size:var(--fs-micro);font-weight:700;color:var(--red)}
+    .today-status-chip{font-size:var(--fs-micro);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+    .today-status-chip[data-status="completed"]{color:var(--text)}
+    .today-status-chip[data-status="missed"]{color:var(--red)}
+    /* Home: Next / Coach / Fuel — restrained cards, no hero */
+    .home-next,.home-coach,.home-fuel{margin:14px 22px 0;box-sizing:border-box}
+    .home-next{padding:16px 18px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--paper);box-shadow:var(--elev-1)}
+    .home-next .today-section-eyebrow{margin-bottom:10px}
+    .home-coach .today-section-eyebrow{margin:0 2px 8px}
+    .home-next-row{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-3)}
+    .home-next-row+.home-next-row{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+    .home-next-copy{min-width:0}
+    .home-next-copy b{display:block;font-size:var(--fs-body);font-weight:700;letter-spacing:-.01em;color:var(--text)}
+    .home-next-copy small{display:block;margin-top:2px;font-size:var(--fs-caption);color:var(--ink3)}
+    .home-next-when{flex-shrink:0;font-size:var(--fs-caption);font-weight:650;color:var(--ink2)}
+    .home-coach-context{margin:0 2px 10px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
+    .home-coach .rowlink,.home-fuel .rowlink{width:100%;margin:0}
+    @media (min-width:700px){
+      .home-next,.home-coach,.home-fuel{margin-left:auto;margin-right:auto;width:min(100% - 44px,620px)}
+    }
     .today-workout-title{margin:11px 0 2px;font-family:var(--serif);font-size:clamp(27px,7vw,34px);
       font-weight:500;line-height:1.08;color:var(--text);overflow-wrap:anywhere}
     .today-workout-type{margin:0;font-size:var(--fs-caption);font-weight:700;
@@ -5650,6 +5642,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="today-training-topline">
         <span class="today-section-eyebrow">Today</span>
         <span class="today-adjusted-label" id="todayWorkoutAdjusted" hidden>Adjusted today</span>
+        <span class="today-status-chip" id="todayWorkoutStatus" data-status="" hidden></span>
       </div>
       <h2 class="today-workout-title" id="todayWorkoutTitle">Checking your training plan…</h2>
       <p class="today-workout-type" id="todayWorkoutType" hidden></p>
@@ -5725,6 +5718,28 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       </div>
     </details>
 
+  <!-- ═══════ HOME · NEXT (tomorrow / next session, race if the plan carries a date) ═══════ -->
+  <section class="home-next" id="homeNextCard" aria-labelledby="homeNextHeading" hidden>
+    <span class="today-section-eyebrow" id="homeNextHeading">Next</span>
+    <div class="home-next-row" id="homeNextWorkout" hidden>
+      <div class="home-next-copy"><b id="homeNextWorkoutTitle"></b><small id="homeNextWorkoutMeta" hidden></small></div>
+      <span class="home-next-when" id="homeNextWorkoutWhen"></span>
+    </div>
+    <div class="home-next-row" id="homeNextRace" hidden>
+      <div class="home-next-copy"><b id="homeNextRaceTitle"></b><small id="homeNextRaceMeta" hidden></small></div>
+      <span class="home-next-when" id="homeNextRaceWhen"></span>
+    </div>
+  </section>
+
+  <!-- ═══════ HOME · COACH (training context + one tap into Coach) ═══════ -->
+  <section class="home-coach" id="homeCoachCard" aria-labelledby="homeCoachHeading">
+    <span class="today-section-eyebrow" id="homeCoachHeading">Coach</span>
+    <p class="home-coach-context" id="homeCoachContext" hidden></p>
+    <button class="rowlink" type="button" onclick="openCoachFromHome()">
+      <div><b>Ask about your training</b><small>Your training, in context.</small></div><span class="arr" aria-hidden="true">→</span>
+    </button>
+  </section>
+
   <section class="today-week" id="todayWeekSnapshot" aria-labelledby="todayWeekHeading" hidden>
     <h2 id="todayWeekHeading">Last 7 days</h2>
     <div class="today-week-grid">
@@ -5742,6 +5757,49 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       </div>
     </div>
   </section>
+
+  <!-- ═══════ HOME · FUEL (small link; hidden unless Fuel is enabled — js/fuel.js syncEntryPoints) ═══════ -->
+  <div class="home-fuel" id="homeFuelEntry" hidden>
+    <button class="rowlink" type="button" onclick="AthlevoFuel.open('home_card')">
+      <div><b>Fuel</b><small>Log meals and see them alongside your training.</small></div><span class="arr" aria-hidden="true">→</span>
+    </button>
+  </div>
+
+  <!-- ===== PRO UPGRADE CARD (free users only) ===== -->
+  <style>
+    .today-pro-card{display:none;margin:14px 22px 0;padding:20px;background:var(--paper);
+      border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--elev-2);
+      box-sizing:border-box;cursor:pointer;transition:box-shadow var(--dur-fast) var(--ease-standard)}
+    .today-pro-card.is-visible{display:block}
+    @media (hover:hover) and (pointer:fine){
+      .today-pro-card:hover{box-shadow:var(--elev-3)}
+    }
+    .today-pro-eyebrow{display:block;font-size:var(--fs-micro);font-weight:750;
+      letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
+    .today-pro-card h2{margin:0 0 8px;font-family:var(--serif);font-size:var(--fs-h2);
+      font-weight:500;line-height:var(--lh-heading);color:var(--text)}
+    .today-pro-card p{margin:0 0 16px;font-size:var(--fs-body-sm);line-height:var(--lh-body);color:var(--ink2)}
+    .today-pro-btn{width:100%;min-height:48px;border:1px solid var(--red);border-radius:var(--r-pill);
+      background:var(--red);color:#fff;font-family:var(--sans);font-size:var(--fs-body-sm);
+      font-weight:750;cursor:pointer;transition:opacity var(--dur-fast) var(--ease-standard)}
+    .today-pro-btn:active{opacity:.85}
+    .today-pro-price{display:block;margin-top:8px;text-align:center;font-size:var(--fs-caption);
+      color:var(--ink3);font-weight:600}
+    @media (min-width:700px){
+      .today-pro-card{margin-left:auto;margin-right:auto;width:min(100% - 44px,620px)}
+    }
+  </style>
+  <article class="today-pro-card" id="todayProUpgradeCard"
+    onclick="AthlevoAccessGuard.openPaywall('general-upgrade')"
+    role="button" tabindex="0" aria-label="Unlock Athlevo Pro">
+    <span class="today-pro-eyebrow">Athlevo Pro</span>
+    <h2>Unlock Athlevo Pro</h2>
+    <p>Your complete AI endurance coach. Get personalized training, performance analytics, recovery insights, and full AI coaching access.</p>
+    <button type="button" class="today-pro-btn"
+      onclick="event.stopPropagation();AthlevoAccessGuard.openPaywall('general-upgrade')">Unlock Full Access</button>
+    <span class="today-pro-price">₱597/month</span>
+  </article>
+
 
   <div class="today-install" id="todayInstallCard">
     <div class="ti-icon"><img src="assets/athlevo-icon-transparent.png" alt="" width="30" height="30"></div>
@@ -7298,14 +7356,18 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
     <nav class="coach-side-panel-nav" aria-label="Coach menu">
       <!-- Desktop/tablet primary nav rail: always visible (auth-agnostic),
-           reuses the canonical go(btn) tab-navigation function so Calendar/
+           reuses the canonical go(btn) tab-navigation function so Home/Calendar/
            Coach/You behave identically to the mobile tabbar. -->
       <div class="coach-side-panel-section coach-rail-nav" aria-label="Primary navigation">
+        <button class="coach-menu-action on" type="button" data-screen="screen-today" onclick="go(this)">
+          <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/></svg>
+          <span>Home</span>
+        </button>
         <button class="coach-menu-action" type="button" data-screen="screen-train" onclick="go(this)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
           <span>Calendar</span>
         </button>
-        <button class="coach-menu-action on" type="button" data-screen="screen-coachai" onclick="go(this)">
+        <button class="coach-menu-action" type="button" data-screen="screen-coachai" onclick="go(this)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>
           <span>Coach</span>
         </button>
@@ -7372,13 +7434,17 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   <span id="profileAvatarInitial">A</span>
 </button>
 
-<!-- ══════════════ TAB BAR (floating capsule — 3 athlete tabs) ══════════════ -->
+<!-- ══════════════ TAB BAR (floating capsule — 4 athlete tabs: Home / Calendar / Coach / You) ══════════════ -->
 <nav class="tabbar tabbar--capsule" id="tabbar" role="tablist" style="display:none">
+  <button class="tab on" data-screen="screen-today" onclick="go(this)" role="tab" aria-selected="true" aria-label="Home">
+    <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/></svg>
+    <span>Home</span>
+  </button>
   <button class="tab" data-screen="screen-train" onclick="go(this)" role="tab" aria-selected="false" aria-label="Calendar">
     <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
     <span>Calendar</span>
   </button>
-  <button class="tab on" data-screen="screen-coachai" onclick="go(this)" role="tab" aria-selected="true">
+  <button class="tab" data-screen="screen-coachai" onclick="go(this)" role="tab" aria-selected="false" aria-label="Coach">
     <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>
     <span>Coach</span>
   </button>
@@ -9708,7 +9774,7 @@ function _handleAndroidBackForProfileSettings() {
 function closeProfileScreen() {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   var activeTab = document.querySelector('#tabbar .tab.on');
-  var screenId = activeTab ? activeTab.dataset.screen : 'screen-train';
+  var screenId = activeTab ? activeTab.dataset.screen : 'screen-today';
   var target = document.getElementById(screenId);
   if (target) target.classList.add('active');
 }
@@ -10689,6 +10755,7 @@ async function renderTodayTrainingContext(profile){
   if (!context) return;
   todayTrainingContextProfile = profile || null;
   context.textContent = buildTodayTrainingContext(null, todayTrainingContextProfile);
+  applyHomeCoachContext(context.textContent);
   await refreshTodayAfterPlanChange("training-context");
 }
 
@@ -10699,7 +10766,136 @@ function applyTodayTrainingContext(snapshot){
     snapshot && snapshot.hasPlan ? snapshot.plan : null,
     todayTrainingContextProfile
   );
+  applyHomeCoachContext(context.textContent);
 }
+
+
+/* ─── Home — Next / Coach rows ───
+   Projections of the SAME week snapshot Today already loads
+   (/api/training/get-week). No new backend and no invented data: each row
+   stays hidden when its source value is absent. */
+function homeDateKeyPlusDays(days){
+  var d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.getFullYear() + "-"
+    + String(d.getMonth() + 1).padStart(2, "0") + "-"
+    + String(d.getDate()).padStart(2, "0");
+}
+
+function homeKeyToDate(key){
+  var parts = String(key || "").slice(0, 10).split("-");
+  var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function homeNextWhenLabel(key){
+  if (String(key).slice(0, 10) === homeDateKeyPlusDays(1)) return "Tomorrow";
+  var d = homeKeyToDate(key);
+  return d ? d.toLocaleDateString(undefined, { weekday: "long" }) : "";
+}
+
+function buildHomeNextView(snapshot){
+  var out = { workout: null, race: null };
+  if (!snapshot || !snapshot.hasPlan) return out;
+  var today = todayLocalKey();
+  var tomorrow = homeDateKeyPlusDays(1);
+  var sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
+  var upcoming = sessions.filter(function(item){
+    return String(item && item.session_date || "").slice(0, 10) > today;
+  }).sort(function(a, b){
+    return String(a.session_date).localeCompare(String(b.session_date));
+  });
+  var next = upcoming.find(function(item){
+    return String(item.session_date).slice(0, 10) === tomorrow;
+  }) || upcoming[0] || null;
+
+  if (next){
+    var key = classifyPlannedSessionType(next.session_type);
+    var title;
+    var meta = [];
+    if (key === "rest"){
+      title = "Rest day";
+    } else {
+      var typeLabel = (typeof formatSessionType === "function"
+        ? formatSessionType(next.session_type)
+        : String(next.session_type || "")).trim();
+      title = (next.title && String(next.title).trim())
+        || (key && TODAY_REC_HEADLINES[key]) || typeLabel || "Planned session";
+      var minutes = Number(next.duration_minutes);
+      var km = Number(next.distance_km);
+      if (Number.isFinite(minutes) && minutes > 0) meta.push(Math.round(minutes) + " min");
+      if (Number.isFinite(km) && km > 0) meta.push(String(Math.round(km * 10) / 10) + " km");
+    }
+    out.workout = {
+      title: title,
+      meta: meta.join(" · "),
+      when: homeNextWhenLabel(next.session_date)
+    };
+  }
+
+  // Race only when the plan itself carries a future race date.
+  var plan = snapshot.plan && typeof snapshot.plan === "object" ? snapshot.plan : {};
+  var raceKey = String(plan.race_date || "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raceKey) && raceKey >= today){
+    var raceDay = homeKeyToDate(raceKey);
+    var todayDay = homeKeyToDate(today);
+    if (raceDay && todayDay){
+      var days = Math.round((raceDay.getTime() - todayDay.getTime()) / 86400000);
+      var when = days === 0 ? "Today"
+        : days === 1 ? "Tomorrow"
+        : days <= 14 ? days + " days"
+        : Math.floor(days / 7) + " weeks";
+      out.race = {
+        title: String(plan.target_race || "").trim() || "Race day",
+        meta: raceDay.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+        when: when
+      };
+    }
+  }
+  return out;
+}
+
+function applyHomeNext(snapshot){
+  var card = document.getElementById("homeNextCard");
+  if (!card) return;
+  var view = buildHomeNextView(snapshot);
+
+  function setRow(rowId, titleId, metaId, whenId, row){
+    var el = document.getElementById(rowId);
+    if (!el) return;
+    el.hidden = !row;
+    if (!row) return;
+    document.getElementById(titleId).textContent = row.title;
+    var meta = document.getElementById(metaId);
+    meta.textContent = row.meta || "";
+    meta.hidden = !row.meta;
+    document.getElementById(whenId).textContent = row.when || "";
+  }
+  setRow("homeNextWorkout", "homeNextWorkoutTitle", "homeNextWorkoutMeta", "homeNextWorkoutWhen", view.workout);
+  setRow("homeNextRace", "homeNextRaceTitle", "homeNextRaceMeta", "homeNextRaceWhen", view.race);
+  card.hidden = !view.workout && !view.race;
+}
+
+function applyHomeCoachContext(text){
+  var el = document.getElementById("homeCoachContext");
+  if (!el) return;
+  var value = String(text || "").trim();
+  // Placeholder copy is not a training status; keep the card to its CTA.
+  var placeholder = !value
+    || value === "Training plan not available yet."
+    || value === "Your athlete profile is loading.";
+  el.textContent = placeholder ? "" : value;
+  el.hidden = placeholder;
+}
+
+/* Home → Coach: same canonical go() path as the tab, so entitlement
+   gating, Coach entry and the active-tab state all behave identically. */
+function openCoachFromHome(){
+  var tab = document.querySelector('#tabbar .tab[data-screen="screen-coachai"]');
+  if (tab && typeof go === "function") return go(tab);
+  if (typeof showScreen === "function") showScreen("screen-coachai");
+}
+window.openCoachFromHome = openCoachFromHome;
 
 async function loadTodaysPlannedSession(){
   var snapshot = await loadTodayPlanSnapshot();
@@ -10797,6 +10993,7 @@ function buildTodayWorkoutCardView(snapshot){
       state: "no-workout",
       action: "view",
       actionLabel: "View plan",
+      status: "",
       title: key === "rest" ? "Recovery Day" : "No session scheduled",
       workoutType: key === "rest" ? "Rest day" : "Current plan",
       meta: key === "rest" ? "No running today." : "",
@@ -10832,8 +11029,19 @@ function buildTodayWorkoutCardView(snapshot){
   if (targetRpe) summaryParts.push("RPE " + targetRpe);
   else if (intensity) summaryParts.push(intensity);
 
+  // Status comes only from data the week endpoint already merged onto the
+  // session (execution record / matched activity). Nothing is inferred.
+  var executionStatus = session.execution && session.execution.status;
+  var workoutStatus = "upcoming";
+  if (executionStatus === "completed" || executionStatus === "modified" || session.matched_activity){
+    workoutStatus = "completed";
+  } else if (executionStatus === "skipped"){
+    workoutStatus = "missed";
+  }
+
   return {
     state: "workout",
+    status: workoutStatus,
     action: "workout",
     actionLabel: "Open workout",
     title: headline,
@@ -10934,6 +11142,14 @@ function applyTodayPlanSnapshot(snapshot, requestFailed){
     instruction.textContent = view.instruction;
     instruction.hidden = !view.instruction;
     adjusted.hidden = view.adjusted !== true;
+    var statusChip = document.getElementById("todayWorkoutStatus");
+    if (statusChip){
+      var statusLabels = { upcoming: "Upcoming", completed: "Completed", missed: "Not completed" };
+      var statusKey = statusLabels[view.status] ? view.status : "";
+      statusChip.dataset.status = statusKey;
+      statusChip.textContent = statusKey ? statusLabels[statusKey] : "";
+      statusChip.hidden = !statusKey;
+    }
     card.setAttribute(
       "aria-label",
       "Today’s training. " + view.title +
@@ -10941,7 +11157,12 @@ function applyTodayPlanSnapshot(snapshot, requestFailed){
         (view.instruction ? ". " + view.instruction : "")
     );
   }
+  if (view.state !== "workout"){
+    var idleChip = document.getElementById("todayWorkoutStatus");
+    if (idleChip){ idleChip.hidden = true; idleChip.textContent = ""; idleChip.dataset.status = ""; }
+  }
   applyTodayTrainingContext(safeSnapshot);
+  applyHomeNext(view.state === "workout" || view.state === "no-workout" ? safeSnapshot : null);
 }
 
 async function renderTodayRecommendation(forceRefresh){
@@ -11763,6 +11984,31 @@ function quizPick(btn,correct){
 }
 
 // ---- Session restore on page load ----
+var ATHLEVO_DEEP_LINK_SCREENS = {
+  home: "screen-today", today: "screen-today",
+  calendar: "screen-train", train: "screen-train",
+  coach: "screen-coachai",
+  you: "screen-trends"
+};
+
+async function applyAppDeepLink() {
+  var params;
+  try { params = new URLSearchParams(location.search); } catch (e) { return false; }
+  var raw = params.get("screen");
+  if (raw === null) return false;
+  var screenId = ATHLEVO_DEEP_LINK_SCREENS[String(raw).toLowerCase()];
+  try {
+    params.delete("screen");
+    var rest = params.toString();
+    history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash);
+  } catch (e) {}
+  if (!screenId) return false;
+  var tab = document.querySelector('#tabbar .tab[data-screen="' + screenId + '"]');
+  if (!tab) return false;
+  await go(tab);
+  return true;
+}
+
 async function routeAfterAuth(userId) {
   const previousUserId = athlevoSessionUserId;
   const routeContext = window.AthlevoAuthRoute
@@ -12059,7 +12305,9 @@ async function routeAfterAuth(userId) {
     // the You screen after athlete data loads.
   }
 
-  showScreen("screen-coachai");
+  // Home is the authenticated landing. Coach initialises when the athlete
+  // opens it (go() → enterCoachScreen), exactly as for any other tab.
+  showScreen("screen-today");
   if (window.AthlevoDiagnosticAcquisition) {
     window.AthlevoDiagnosticAcquisition.markAppEntered();
   }
@@ -12110,8 +12358,9 @@ async function routeAfterAuth(userId) {
     try { await athleteModePromise; } catch (e) {}
     if (!routeIsCurrent()) return;
   }
-  /* Coach is now the default home — initialise its screen state */
-  await enterCoachScreen();
+  /* Home is the default landing. Its data load already ran: showScreen() starts
+     Today's refresh and AthlevoBrain.refreshAthleteUI() re-runs it once the
+     profile is in (renderTodayTrainingContext), so no extra fetch is needed. */
   if (!routeIsCurrent()) return;
 
   if (!window.AthlevoAthleteMode || window.AthlevoAthleteMode.mode() === "self_guided") {
@@ -12148,6 +12397,12 @@ async function routeAfterAuth(userId) {
       window.AthlevoCoachDashboard.init();
     }
   } catch (e) {}
+
+  // PWA shortcuts / links may name a primary section (?screen=coach). Honour
+  // it once, after the normal authenticated landing, then drop the param.
+  if (routeIsCurrent()) {
+    try { await applyAppDeepLink(); } catch (e) {}
+  }
 
   // The boot gate is lifted immediately after authenticated routing returns.
   // Evaluate on the next task so Today is populated and visible first.

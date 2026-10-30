@@ -1,6 +1,6 @@
 /*
- * Focused contract for the athlete Calendar / Coach / You shell
- * (screen IDs remain screen-train / screen-coachai / screen-trends).
+ * Focused contract for the athlete Home / Calendar / Coach / You shell
+ * (screen IDs: screen-today / screen-train / screen-coachai / screen-trends).
  * Run: node tests/athlete-primary-navigation.test.mjs
  */
 import { readFileSync } from "node:fs";
@@ -48,17 +48,17 @@ const staticTabs = [...staticNav.matchAll(
 }));
 
 console.log("\n──── Athlete navigation DOM ────");
-test("athlete navigation has exactly three tabs", staticTabs.length === 3,
+test("athlete navigation has exactly four tabs", staticTabs.length === 4,
   staticTabs.map(tab => tab.screen).join(", "));
-test("athlete tab order is Calendar / Coach / You",
-  staticTabs.map(tab => tab.label).join(" / ") === "Calendar / Coach / You");
+test("athlete tab order is Home / Calendar / Coach / You",
+  staticTabs.map(tab => tab.label).join(" / ") === "Home / Calendar / Coach / You");
 test("athlete tab targets use the existing screen IDs",
   staticTabs.map(tab => tab.screen).join(" / ") ===
-    "screen-train / screen-coachai / screen-trends");
-test("Coach alone is selected by default",
-  staticTabs[1]?.classes.split(/\s+/).includes("on") === true &&
-  staticTabs[1]?.selected === "true" &&
-  staticTabs.filter((_,i) => i !== 1).every(tab => tab.selected === "false"));
+    "screen-today / screen-train / screen-coachai / screen-trends");
+test("Home alone is selected by default",
+  staticTabs[0]?.classes.split(/\s+/).includes("on") === true &&
+  staticTabs[0]?.selected === "true" &&
+  staticTabs.filter((_,i) => i !== 0).every(tab => tab.selected === "false"));
 
 const tabBlocks = staticNav.split(/(?=<button)/).filter(block => block.trim().startsWith("<button"));
 const calendarTabBlock = tabBlocks.find(block => block.includes('data-screen="screen-train"')) || "";
@@ -75,8 +75,8 @@ test("Today and You screens remain in the DOM",
   /<section[^>]+id="screen-you"/.test(html));
 test("tabbar has tabbar--capsule class in markup",
   /class="tabbar tabbar--capsule"/.test(html));
-test("all three athlete tabs retain their go() click handler",
-  (staticNav.match(/onclick="go\(this\)"/g) || []).length === 3);
+test("all four athlete tabs retain their go() click handler",
+  (staticNav.match(/onclick="go\(this\)"/g) || []).length === 4);
 
 console.log("\n──── Floating capsule CSS ────");
 const capsuleCss = between(html, ".tabbar {", "/* ----------");
@@ -86,16 +86,16 @@ test("athlete capsule geometry has a single generic CSS owner",
 test("capsule is centered and detached from edges",
   /left:\s*50%/.test(capsuleCss) &&
   /transform:\s*translateX\(-50%\)/.test(capsuleCss));
-test("capsule uses the enlarged responsive 328px width",
-  /width:\s*min\(328px,\s*calc\(100% - 28px\)\)/.test(capsuleCss));
+test("capsule uses the responsive 352px width sized for four tabs",
+  /width:\s*min\(352px,\s*calc\(100% - 20px\)\)/.test(capsuleCss));
 test("capsule height is enlarged while retaining responsive side margins",
   /min-height:\s*70px/.test(capsuleCss) &&
   /box-sizing:\s*border-box/.test(capsuleCss));
-const responsiveCapsuleWidth = viewport => Math.min(328, viewport - 28);
+const responsiveCapsuleWidth = viewport => Math.min(352, viewport - 20);
 test("390px, 430px, and narrow shells keep visible symmetric capsule margins",
-  responsiveCapsuleWidth(390) === 328 && (390 - responsiveCapsuleWidth(390)) / 2 === 31 &&
-  responsiveCapsuleWidth(430) === 328 && (430 - responsiveCapsuleWidth(430)) / 2 === 51 &&
-  responsiveCapsuleWidth(320) === 292 && (320 - responsiveCapsuleWidth(320)) / 2 === 14);
+  responsiveCapsuleWidth(390) === 352 && (390 - responsiveCapsuleWidth(390)) / 2 === 19 &&
+  responsiveCapsuleWidth(430) === 352 && (430 - responsiveCapsuleWidth(430)) / 2 === 39 &&
+  responsiveCapsuleWidth(320) === 300 && (320 - responsiveCapsuleWidth(320)) / 2 === 10);
 test("capsule respects the bottom safe area",
   /bottom:\s*calc\(10px \+ var\(--athlevo-safe-bottom/.test(capsuleCss));
 test("capsule uses backdrop-filter blur material",
@@ -141,10 +141,10 @@ const closeSettings = between(html, "function closeSettings()", "window.closeSet
 test("openProfileScreen shows screen-you",
   /getElementById\('screen-you'\)/.test(openProfile) &&
   /classList\.add\('active'\)/.test(openProfile));
-test("closeProfileScreen returns to active tab's screen, defaulting to screen-train",
+test("closeProfileScreen returns to active tab's screen, defaulting to screen-today (Home)",
   /querySelector\('#tabbar \.tab\.on'\)/.test(closeProfile) &&
   /dataset\.screen/.test(closeProfile) &&
-  /'screen-train'/.test(closeProfile));
+  /'screen-today'/.test(closeProfile));
 test("closeSettings returns to screen-you by default (no source recorded)",
   /getElementById\('screen-you'\)/.test(closeSettings));
 test("Settings is now also reachable from the Coach header, so closeSettings returns to whichever screen it was opened from",
@@ -157,28 +157,29 @@ test("hardware back handles both Settings and Profile back navigation",
 
 console.log("\n──── Athlete home routing ────");
 const routeAfterAuth = between(html, "async function routeAfterAuth", "function isStandaloneMode");
-test("completed authenticated users enter Coach",
-  /showScreen\("screen-coachai"\)/.test(routeAfterAuth));
-test("Coach-first routing reveals the athlete capsule before Coach workspace resolution",
+test("completed authenticated users enter Home",
+  /showScreen\("screen-today"\)/.test(routeAfterAuth) &&
+  !/showScreen\("screen-coachai"\)/.test(routeAfterAuth));
+test("Home-first routing reveals the athlete capsule before Coach workspace resolution",
   routeAfterAuth.indexOf('tabbar").style.display = "flex"') >= 0 &&
   routeAfterAuth.indexOf('tabbar").style.display = "flex"') <
     routeAfterAuth.indexOf("window.AthlevoCoachMode.init(routeContext)"));
-test("Coach-first routing reveals the athlete capsule before entering Coach",
+test("Home-first routing reveals the athlete capsule before entering Home",
   routeAfterAuth.indexOf('tabbar").style.display = "flex"') <
-    routeAfterAuth.indexOf('showScreen("screen-coachai")') &&
+    routeAfterAuth.indexOf('showScreen("screen-today")') &&
   routeAfterAuth.indexOf('tabbar").style.display = "flex"') <
-    routeAfterAuth.indexOf("window.AthlevoAthleteMode.init()") &&
-  routeAfterAuth.indexOf('tabbar").style.display = "flex"') <
-    routeAfterAuth.indexOf("await enterCoachScreen()"));
-test("onboarding completion enters Train",
-  /showScreen\("screen-train"\)/.test(onboarding) &&
-  !/showScreen\("screen-today"\)/.test(onboarding));
-test("plan setup returns athletes to Train",
-  /showScreen\("screen-train"\)/.test(planSetup) &&
-  !/showScreen\("screen-today"\)/.test(planSetup));
-test("connection and Coach Dashboard exits enter Train",
-  /showScreen\("screen-train"\)/.test(onboardingConnect) &&
-  /showScreen\("screen-train"\)/.test(coachDashboard));
+    routeAfterAuth.indexOf("window.AthlevoAthleteMode.init()"));
+test("authenticated landing no longer pre-enters Coach (Coach initialises when opened)",
+  !/await enterCoachScreen\(\)/.test(routeAfterAuth));
+test("onboarding completion for onboarded/returning athletes enters Home",
+  /showScreen\("screen-today"\)/.test(onboarding) &&
+  !/showScreen\("screen-train"\)/.test(onboarding));
+test("plan setup fallbacks return athletes to Home; viewing the generated plan still opens Calendar",
+  /showScreen\("screen-today"\)/.test(planSetup) &&
+  /async function enterTrain\(\)[\s\S]*?\.tab\[data-screen="screen-train"\]/.test(planSetup));
+test("connection fallback and Coach Dashboard exits enter Home",
+  /showScreen\("screen-today"\)/.test(onboardingConnect) &&
+  /showScreen\("screen-today"\)/.test(coachDashboard));
 test("Train still opens with today selected",
   /selected = todayISO\(\)/.test(trainCalendar));
 
@@ -191,11 +192,12 @@ test("Coach Mode still includes its own Today tab",
   /screen-today/.test(coachTabs) && /label: "Today"/.test(coachTabs));
 test("Coach Mode still activates screen-today for Coach Today",
   /showImmediately\("screen-today"\)/.test(activateCoach));
-test("leaving Coach Mode restores exactly Calendar / Coach / You (screen-train / screen-coachai / screen-trends)",
-  (restoredAthleteTabs.match(/screen:/g) || []).length === 3 &&
-  /screen-train[\s\S]*screen-coachai[\s\S]*screen-trends/.test(restoredAthleteTabs));
-test("leaving Coach Mode shows screen-train",
-  /showImmediately\("screen-train"\)/.test(activateAthlete));
+test("leaving Coach Mode restores exactly Home / Calendar / Coach / You (screen-today / screen-train / screen-coachai / screen-trends)",
+  (restoredAthleteTabs.match(/screen:/g) || []).length === 4 &&
+  /screen-today[\s\S]*screen-train[\s\S]*screen-coachai[\s\S]*screen-trends/.test(restoredAthleteTabs));
+test("leaving Coach Mode shows Home (screen-today) and reloads today's plan",
+  /showImmediately\("screen-today"\)/.test(activateAthlete) &&
+  /refreshTodayAfterPlanChange\("screen-enter"\)/.test(activateAthlete));
 test("Coach Workspace overrides the capsule with its full-width five-tab layout",
   /body\.coach-workspace-active #tabbar\{[^}]*left:0;right:0;bottom:0;width:100%/.test(html) &&
   /body\.coach-workspace-active #tabbar \.tab\{[^}]*width:64px/.test(html));
@@ -204,16 +206,17 @@ test("Coach Workspace restores its shared moving indicator",
 
 console.log("\n──── Navigation behavior and preserved flows ────");
 const directionSource = between(html, "function appTabIndexForScreen", "function clearAppScreenMotion");
-const navButtons = ["screen-train", "screen-coachai", "screen-trends"].map(screen => ({
+const navButtons = ["screen-today", "screen-train", "screen-coachai", "screen-trends"].map(screen => ({
   getAttribute: name => name === "data-screen" ? screen : null
 }));
 const directionApi = new Function("document", `${directionSource}; return { appScreenDirection };`)({
   querySelectorAll: selector => selector === "#tabbar .tab" ? navButtons : []
 });
-test("tab transition direction follows Train → Coach → Trends",
+test("tab transition direction follows Home → Calendar → Coach → You",
+  directionApi.appScreenDirection("screen-today", "screen-train") === 1 &&
   directionApi.appScreenDirection("screen-train", "screen-coachai") === 1 &&
   directionApi.appScreenDirection("screen-coachai", "screen-trends") === 1 &&
-  directionApi.appScreenDirection("screen-trends", "screen-train") === -1);
+  directionApi.appScreenDirection("screen-trends", "screen-today") === -1);
 const goSource = between(html, "async function go(btn)", "/*\n * Canonical Coach-screen entry");
 const clickedScreens = [];
 const selectedScreens = [];
@@ -236,12 +239,13 @@ const goApi = new Function(
   async () => { coachEntries += 1; },
   async () => {}, () => {}, () => {}
 );
+await goApi({ dataset: { screen: "screen-today" } });
 await goApi({ dataset: { screen: "screen-train" } });
 await goApi({ dataset: { screen: "screen-coachai" } });
 await goApi({ dataset: { screen: "screen-trends" } });
-test("Train, Coach, and Trends clicks select and navigate to their own screen",
-  selectedScreens.join(" / ") === "screen-train / screen-coachai / screen-trends" &&
-  clickedScreens.join(" / ") === "screen-train / screen-coachai / screen-trends");
+test("Home, Calendar, Coach, and You clicks select and navigate to their own screen",
+  selectedScreens.join(" / ") === "screen-today / screen-train / screen-coachai / screen-trends" &&
+  clickedScreens.join(" / ") === "screen-today / screen-train / screen-coachai / screen-trends");
 test("Train and Coach clicks retain their screen-specific initialization",
   trainLoads === 1 && coachEntries === 1);
 test("morning readiness accepts Train while retaining Today compatibility",

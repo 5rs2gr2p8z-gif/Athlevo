@@ -65,6 +65,13 @@ const stateSource = [
   extractFunction(html, "loadTodayPlanSnapshot"),
   extractFunction(html, "buildTodayTrainingContext"),
   extractFunction(html, "applyTodayTrainingContext"),
+  // Home rows project the same snapshot; the world must carry the real code.
+  extractFunction(html, "homeDateKeyPlusDays"),
+  extractFunction(html, "homeKeyToDate"),
+  extractFunction(html, "homeNextWhenLabel"),
+  extractFunction(html, "buildHomeNextView"),
+  extractFunction(html, "applyHomeNext"),
+  extractFunction(html, "applyHomeCoachContext"),
   extractFunction(html, "firstSentence"),
   extractFunction(html, "firstTodayInstruction"),
   extractFunction(html, "todaySessionWasAdjusted"),

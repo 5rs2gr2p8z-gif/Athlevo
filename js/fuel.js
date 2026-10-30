@@ -1334,8 +1334,11 @@
   }
 
   function syncEntryPoints() {
-    var entry = $("youFuelEntry");
-    if (entry) entry.hidden = !isEnabled();
+    // Two entry points share one flag: You (youFuelEntry) and Home (homeFuelEntry).
+    ["youFuelEntry", "homeFuelEntry"].forEach(function (id) {
+      var entry = $(id);
+      if (entry) entry.hidden = !isEnabled();
+    });
   }
 
   function init() {
