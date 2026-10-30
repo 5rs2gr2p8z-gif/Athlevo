@@ -757,11 +757,11 @@
     if (typeof window === "undefined" || window.ATHLEVO_COACH_LED !== true) return;
     var coached = _mode === "human_coached";
     if (document.body && document.body.classList) document.body.classList.toggle("athlete-coached", coached);
-    var title = document.querySelector("#todayNoPlanState h2");
-    if (title) {
-      if (!title.hasAttribute("data-default-title")) title.setAttribute("data-default-title", title.textContent);
-      title.textContent = coached ? "Your coach is building your plan." : title.getAttribute("data-default-title");
-    }
+    // Home's first card shows the athlete's workouts. With none, its button goes
+    // to the coach: "Message coach", or "Connect with your coach" when they have none.
+    var notConnected = _mode === "self_guided" || _mode === "anonymous";
+    var action = document.getElementById("todayNoPlanAction");
+    if (action) action.textContent = notConnected ? "Connect with your coach" : "Message coach";
     if (typeof window.updateTodayNoPlanCopy === "function") {
       try { window.updateTodayNoPlanCopy(); } catch (e) {}
     }

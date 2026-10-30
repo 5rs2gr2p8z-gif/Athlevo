@@ -230,10 +230,13 @@ test("the brand mark on Home is sized for the wide AE logo, not clipped, and hid
 test("a real favicon.ico (AE mark) ships at the site root and is linked first", existsSync("./favicon.ico") && read("./index.html").indexOf('href="/favicon.ico?v=ae1"') > 0 && read("./index.html").indexOf('href="/favicon.ico?v=ae1"') < read("./index.html").indexOf('favicon-32.png'));
 
 section("Coached athlete's Home");
-test("a coached athlete is not offered the AI plan builder: title, copy and buttons change",
-  /document\.body\.classList\.toggle\("athlete-coached", coached\)/.test(am) && /Your coach is building your plan\./.test(am) &&
-  /Your coach will add your workouts here/.test(html) &&
-  /body\.athlete-coached #todayNoPlanAction,\s*body\.athlete-coached #todayNoPlanState \.today-state-note,\s*body\.athlete-coached \.train-empty \.primary-btn\{display:none!important\}/.test(html));
+test("Home's first card: with no workouts it says so and its button goes to the coach (not the AI plan builder)",
+  /noPlanTitle\.textContent = "No workouts yet\."/.test(html) && /noPlanAction\.textContent = "Message coach"/.test(html) &&
+  /setAttribute\("onclick", "openCoachFromHome\(\)"\)/.test(html));
+test("an athlete with no coach sees 'Connect with your coach' instead; everyone else 'Message coach'",
+  /action\.textContent = notConnected \? "Connect with your coach" : "Message coach"/.test(am) && /Connect with your coach and their workouts will show up here/.test(html) && /Your coach adds your workouts here/.test(html));
+test("the AI plan-builder note is hidden on Home; Calendar's builder button is hidden for coached athletes",
+  /html\.coach-led #todayNoPlanState \.today-state-note,\s*body\.athlete-coached \.train-empty \.primary-btn\{display:none!important\}/.test(html));
 test("the desktop Home greeting clears the rail toggle", /body\.layout-desktop #screen-today \.today-header\{margin-top:72px\}/.test(html));
 
 section("Packaged for Android");

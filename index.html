@@ -6914,9 +6914,8 @@ html.coach-led .coach-side-panel-section:has([onclick*="new-chat"]),
 html.coach-led .af-card-analyze,
 html.coach-led #todayProUpgradeCard,
 html.coach-led #athlevoTrialIndicator{display:none!important}
-/* A coached athlete's plan comes from the coach: no AI plan-builder calls to action. */
-body.athlete-coached #todayNoPlanAction,
-body.athlete-coached #todayNoPlanState .today-state-note,
+/* The plan comes from the coach: no AI plan-builder calls to action on Home or, for coached athletes, Calendar. */
+html.coach-led #todayNoPlanState .today-state-note,
 body.athlete-coached .train-empty .primary-btn{display:none!important}
 #screen-coachai .am-no-coach{padding:calc(56px + env(safe-area-inset-top,0px)) 24px 24px;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
 #screen-coachai .am-no-coach-title{margin:0;font:600 28px/1.15 var(--font-serif,Georgia,serif);color:var(--ink)}
@@ -11068,6 +11067,14 @@ function applyHomeCoachContext(text){
   // Neutral until the athlete's coaching mode is known (js/athleteMode.js applyHomeCoachRow).
   if (t) t.textContent = "Your coach";
   if (s) s.textContent = "Messages and workouts from your coach.";
+  // Home's first card: the athlete's workouts; with none, it points to the coach.
+  var noPlanTitle = document.querySelector("#todayNoPlanState h2");
+  var noPlanAction = document.getElementById("todayNoPlanAction");
+  if (noPlanTitle) noPlanTitle.textContent = "No workouts yet.";
+  if (noPlanAction) {
+    noPlanAction.textContent = "Message coach";
+    noPlanAction.setAttribute("onclick", "openCoachFromHome()");
+  }
 
 })();
 
@@ -12074,9 +12081,13 @@ function updateTodayNoPlanCopy(){
   var copy = document.getElementById("todayNoPlanCopy");
   var distance = document.getElementById("todaySevenDayDistance");
   if (!copy) return;
-  if (typeof window !== "undefined" && window.AthlevoAthleteMode && typeof window.AthlevoAthleteMode.isManaged === "function" &&
-      window.AthlevoAthleteMode.isManaged()) {
-    copy.textContent = "Your coach will add your workouts here. Message them if you have questions about your training.";
+  // Coach-led app: this card is where the coach workouts appear, so with none yet it says so.
+  if (typeof window !== "undefined" && window.ATHLEVO_COACH_LED === true) {
+    var athleteMode = window.AthlevoAthleteMode && typeof window.AthlevoAthleteMode.mode === "function"
+      ? window.AthlevoAthleteMode.mode() : "unknown";
+    copy.textContent = athleteMode === "self_guided" || athleteMode === "anonymous"
+      ? "Connect with your coach and their workouts will show up here."
+      : "Your coach adds your workouts here. Message them if you have questions about your training.";
     return;
   }
   var distanceText = String(distance && distance.textContent || "").trim();
