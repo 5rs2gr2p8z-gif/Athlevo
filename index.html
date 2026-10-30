@@ -1525,6 +1525,43 @@ input,textarea,select{color:var(--text)}
 .w-signup-link a:hover{text-decoration:underline}
 .w-skip{background:none;border:none;font-family:var(--sans);font-size:var(--fs-body-sm);color:var(--ink3);padding:10px;cursor:pointer}
 
+/* ---------- welcome: full-bleed photo hero (Athlevo Coaching) ----------
+   Photo behind everything, a dark scrim only where the copy and buttons sit,
+   the transparent logo small at the top-left over the pale sky. The rules
+   above stay as the base; this block restyles the same elements. */
+#screen-welcome{--w-band:min(128px,16vh);position:relative;isolation:isolate;color:#fff;justify-content:flex-end;
+  /* the sky tones along the photo's top edge, so the band above the photo is seamless */
+  background:linear-gradient(90deg,#e9d9c9,#feedde)}
+/* On phones the photo starts below a clear band of sky, so the logo never sits on the runner's face. */
+#screen-welcome .w-photo{position:absolute;inset:var(--w-band) 0 0 0;z-index:-2;display:block}
+#screen-welcome .w-photo::after{content:"";position:absolute;left:0;right:0;top:0;height:72px;background:linear-gradient(90deg,#e9d9c9,#feedde);
+  -webkit-mask-image:linear-gradient(180deg,#000,transparent);mask-image:linear-gradient(180deg,#000,transparent)}
+#screen-welcome .w-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 10%;display:block}
+#screen-welcome .w-scrim{position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(20,20,22,0) 0%,rgba(20,20,22,0) 36%,rgba(20,20,22,.6) 64%,rgba(14,14,16,.93) 100%)}
+#screen-welcome .w-logo{position:absolute;z-index:1;top:calc(14px + var(--athlevo-safe-top,env(safe-area-inset-top,0px)));left:22px;width:128px;height:auto;display:block}
+@media(max-height:640px){#screen-welcome .w-logo{width:104px}}
+#screen-welcome .w-top,#screen-welcome.is-ai-signup .w-top{padding:0 26px 20px;text-align:left}
+#screen-welcome .w-tag{margin:0;max-width:340px;font-size:clamp(1.4rem,5.8vw,1.8rem);font-weight:700;line-height:1.2;letter-spacing:-.02em;color:#fff}
+#screen-welcome .w-ai-title{margin:0;max-width:340px;color:#fff}
+#screen-welcome .w-ai-sub,#screen-welcome .w-continue-note{margin:10px 0 0;max-width:340px;color:rgba(255,255,255,.88)}
+#screen-welcome .w-ai-trust,#screen-welcome .w-google-note,#screen-welcome .w-legal,#screen-welcome .w-signup-link{color:rgba(255,255,255,.78)}
+#screen-welcome .w-ai-trust{margin:8px 0 0}
+#screen-welcome .w-legal a,#screen-welcome .w-signup-link a{color:#fff}
+#screen-welcome .w-btns{padding:0 26px calc(30px + var(--athlevo-safe-bottom,env(safe-area-inset-bottom,0px)))}
+#screen-welcome .w-btn.google{border-color:transparent}
+@media(min-width:900px){
+  #screen-welcome{--w-band:0px;background:#141416}
+  #screen-welcome .w-photo::after{display:none}
+  #screen-welcome .w-photo img{object-position:50% 6%}
+  #screen-welcome .w-scrim{background:linear-gradient(180deg,rgba(20,20,22,.16) 0%,rgba(20,20,22,.3) 30%,rgba(20,20,22,.74) 62%,rgba(14,14,16,.95) 100%)}
+  #screen-welcome .w-logo{top:28px;left:96px;width:188px}
+  #screen-welcome .w-top,#screen-welcome.is-ai-signup .w-top,#screen-welcome .w-btns{width:min(100%,520px);margin-inline:auto;box-sizing:border-box}
+  #screen-welcome .w-top,#screen-welcome.is-ai-signup .w-top{padding:0 0 20px}
+  #screen-welcome .w-btns{padding:0 0 56px}
+  #screen-welcome .w-tag{max-width:none;font-size:2rem}
+}
+
 /* Post-auth transition: auth succeeded, destination not yet known. */
 #screen-auth-setup{justify-content:center;align-items:center;padding:48px 30px;text-align:center}
 .auth-setup-lockup{display:flex;flex-direction:column;align-items:center;gap:var(--s-6)}
@@ -4947,12 +4984,14 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
 <!-- ══════════════ WELCOME ══════════════ -->
 <section class="screen welcome" id="screen-welcome">
+  <picture class="w-photo" aria-hidden="true">
+    <source type="image/webp" srcset="assets/welcome/hero-720.webp 720w, assets/welcome/hero-1080.webp 1080w" sizes="100vw">
+    <img src="assets/welcome/hero-720.jpg" alt="" width="720" height="1280" loading="lazy" decoding="async">
+  </picture>
+  <div class="w-scrim" aria-hidden="true"></div>
+  <img class="w-logo" src="assets/brand/athlevo-coaching-logo.png" alt="Athlevo Coaching" width="704" height="502">
   <div class="w-top">
-    <div class="w-lockup">
-      <img class="w-icon" src="assets/athlevo-icon-transparent.png" alt="" width="72" height="72">
-      <div class="w-mark">Athlevo<i>.</i></div>
-    </div>
-    <p class="w-tag">Athlevo Coaching: endurance coaching built on the Athlevo Method.</p>
+    <p class="w-tag">Endurance coaching built on the Athlevo Method.</p>
     <h1 class="w-ai-title" id="wAiSignupTitle" hidden>Your running, understood.</h1>
     <p class="w-ai-sub" id="wAiSignupSub" hidden>Get training guidance built around your schedule, recent training, and goals.</p>
     <p class="w-ai-trust" id="wAiSignupTrust" hidden>Create your account in about a minute.</p>

@@ -57,7 +57,8 @@ const MARKERS = [
   ["manifest.webmanifest", '"name": "Athlevo Coaching"', "Athlevo Coaching PWA name"],
   ["index.html", 'data-screen="screen-today" onclick="go(this)" role="tab"', "Home tab in the athlete nav"],
   ["index.html", 'id="homeNextCard"', "Home dashboard (Next)"],
-  ["index.html", 'id="homeFuelEntry"', "Home → Fuel entry"]
+  ["index.html", 'id="homeFuelEntry"', "Home → Fuel entry"],
+  ["index.html", 'class="w-logo" src="assets/brand/athlevo-coaching-logo.png"', "Athlevo Coaching welcome logo and photo hero"]
 ];
 
 async function exists(path) {
