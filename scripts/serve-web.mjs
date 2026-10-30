@@ -47,12 +47,11 @@ const types = {
 const LEGACY_OFFERS = {
   "first-5k": "athlevo-plan",
   "faster-5k": "athlevo-coaching",
-  "half-marathon": "hybrid-programming",
-  "marathon": "elite-coaching"
+  "marathon": "athlevo-vip-coaching"
 };
 
 // Short links to send to a client: /athlevo-plan -> /programs/athlevo-plan (temporary, like vercel.json).
-const SHORT_LINKS = new Set(["athlevo-plan", "athlevo-coaching", "hybrid-programming", "elite-coaching"]);
+const SHORT_LINKS = new Set(["athlevo-plan", "athlevo-guided", "athlevo-coaching", "athlevo-vip-coaching"]);
 
 function shortLinkFor(pathname) {
   const m = pathname.match(/^\/([a-z0-9-]+)\/?$/);
@@ -64,8 +63,17 @@ const PROGRAMS_HOST = "programs.athlevo.org";
 const PROGRAMS_ORIGIN = "https://" + PROGRAMS_HOST;
 const APP_HOST = "athlevo.org";
 const APP_ORIGIN = "https://" + APP_HOST;
+
+// Addresses that no longer have a page, on every host (vercel.json has the same redirects). Elite
+// Coaching was renamed Athlevo VIP Coaching; Hybrid Programming was dropped from the lineup.
+const RETIRED_PATHS = new Map([
+  ["/elite-coaching", [308, PROGRAMS_ORIGIN + "/athlevo-vip-coaching"]],
+  ["/programs/elite-coaching", [308, PROGRAMS_ORIGIN + "/athlevo-vip-coaching"]],
+  ["/hybrid-programming", [307, PROGRAMS_ORIGIN + "/programs"]],
+  ["/programs/hybrid-programming", [307, PROGRAMS_ORIGIN + "/programs"]]
+]);
 // Paths the programs host serves itself; everything else is the app, which stays on athlevo.org.
-const PROGRAMS_HOST_KEEPS = /^\/(?:(?:programs|athlevo-plan|athlevo-coaching|hybrid-programming|elite-coaching|webinar)(?:\/|$)|(?:api|assets|athlevo-assets|js)\/|(?:store\.css|webinar\.css|robots\.txt|sitemap\.xml|sitemap-programs\.xml)$)/;
+const PROGRAMS_HOST_KEEPS = /^\/(?:(?:programs|athlevo-plan|athlevo-guided|athlevo-coaching|athlevo-vip-coaching|webinar)(?:\/|$)|(?:api|assets|athlevo-assets|js)\/|(?:store\.css|webinar\.css|robots\.txt|sitemap\.xml|sitemap-programs\.xml)$)/;
 
 // The programs host's own redirects: [status, location], or null.
 function programsHostRedirect(pathname, search) {
@@ -94,6 +102,7 @@ function redirectFor(pathname) {
   const legacy = pathname.match(/^\/store(?:\/([^/]+))?\/?$/);
   if (!legacy) return null;
   if (!legacy[1]) return "/programs";
+  if (legacy[1] === "half-marathon") return "/programs"; // Hybrid Programming was dropped
   return "/programs/" + (LEGACY_OFFERS[legacy[1]] || legacy[1]);
 }
 
@@ -131,6 +140,12 @@ function safePath(urlPath) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", "http://127.0.0.1");
   const host = String(req.headers.host || "").split(":")[0].toLowerCase();
+  const retired = RETIRED_PATHS.get(url.pathname.replace(/\/+$/, ""));
+  if (retired) {
+    res.writeHead(retired[0], { location: retired[1] + url.search });
+    res.end();
+    return;
+  }
   if (host === PROGRAMS_HOST) {
     const hop = programsHostRedirect(url.pathname, url.search);
     if (hop) {

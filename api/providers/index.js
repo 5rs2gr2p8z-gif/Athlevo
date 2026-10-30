@@ -30,8 +30,9 @@ import crypto from "node:crypto";
 import paymongoCheckoutHandler from "../../lib/server/paymongoCheckoutEndpoint.js";
 import {
   coachingSignupCheckoutHandler, coachingSignupStatusHandler,
-  eliteSignupCheckoutHandler, eliteSignupStatusHandler,
-  planSignupCheckoutHandler, planSignupStatusHandler
+  guidedSignupCheckoutHandler, guidedSignupStatusHandler,
+  planSignupCheckoutHandler, planSignupStatusHandler,
+  vipSignupCheckoutHandler, vipSignupStatusHandler
 } from "../../lib/server/planSignup.js";
 import webinarRegisterHandler from "../../lib/server/webinarRegistration.js";
 import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
@@ -4305,12 +4306,19 @@ export default async function handler(request, response) {
       return paymongoCheckoutHandler(request, response);
     }
 
-    // Athlevo Plan sign-up on the public /programs page (no Athlevo account).
+    // Athlevo Plan (the ₱999 one-time plan) sign-up on the public /programs page (no Athlevo account).
     if (action === "plan_signup_checkout") {
       return planSignupCheckoutHandler(request, response);
     }
     if (action === "plan_signup_status") {
       return planSignupStatusHandler(request, response);
+    }
+    // Athlevo Guided sign-up, same flow with its own product, price and switch.
+    if (action === "guided_signup_checkout") {
+      return guidedSignupCheckoutHandler(request, response);
+    }
+    if (action === "guided_signup_status") {
+      return guidedSignupStatusHandler(request, response);
     }
     // Athlevo Coaching sign-up, same flow with its own product, price and switch.
     if (action === "coaching_signup_checkout") {
@@ -4319,12 +4327,12 @@ export default async function handler(request, response) {
     if (action === "coaching_signup_status") {
       return coachingSignupStatusHandler(request, response);
     }
-    // Elite Coaching sign-up, same flow again with its own product, price and switch.
-    if (action === "elite_signup_checkout") {
-      return eliteSignupCheckoutHandler(request, response);
+    // Athlevo VIP Coaching sign-up, same flow again with its own product, price and switch.
+    if (action === "vip_signup_checkout") {
+      return vipSignupCheckoutHandler(request, response);
     }
-    if (action === "elite_signup_status") {
-      return eliteSignupStatusHandler(request, response);
+    if (action === "vip_signup_status") {
+      return vipSignupStatusHandler(request, response);
     }
     // Free webinar registration on the public /webinar page (no Athlevo account).
     if (action === "webinar_register") {

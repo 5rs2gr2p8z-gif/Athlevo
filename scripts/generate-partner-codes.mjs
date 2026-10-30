@@ -9,8 +9,11 @@
  *                       Lower-case letters, digits, dots, dashes and underscores.
  *   --count <n>         how many codes to make, 1 to 1000 (required)
  *   --percent <n>       percent off, 1 to 50 (default 10)
- *   --products <list>   leave out for Athlevo Plan and Athlevo Coaching (the default). Elite Coaching
- *                       takes a code only when named: any of plan, coaching, elite (comma separated)
+ *   --products <list>   leave out for Athlevo Guided and Athlevo Coaching (the default). The ₱999
+ *                       Athlevo Plan and VIP Coaching take a code only when named: any of
+ *                       training-plan, guided, coaching, vip (comma separated). "plan" is refused,
+ *                       because it used to mean the ₱1,998 offer, which is now "guided"; the new ₱999
+ *                       Athlevo Plan is "training-plan". The old name "elite" still works and means vip.
  *   --expires <date>    last day a code works, YYYY-MM-DD in Philippine time (default: no expiry)
  *   --note <text>       free text stored with each code
  *   --out <folder>      where to write the files (default: partner-codes/, which git ignores)
@@ -29,7 +32,12 @@ import {
   DEFAULT_CODE_PRODUCT_IDS, MAX_DISCOUNT_PERCENT, PARTNER_CODE_ALPHABET, PARTNER_CODE_LENGTH, formatPartnerCode
 } from "../lib/server/partnerCodes.js";
 
-const PRODUCT_IDS = { plan: "ATHLEVO_PLAN_MONTHLY", coaching: "ATHLEVO_COACHING_MONTHLY", elite: "ATHLEVO_ELITE_MONTHLY" };
+// ATHLEVO_PLAN_MONTHLY is Guided (the offer that used to be called Athlevo Plan) and
+// ATHLEVO_ELITE_MONTHLY is VIP Coaching (formerly Elite Coaching): product ids never change on a rename.
+const PRODUCT_IDS = {
+  "training-plan": "ATHLEVO_TRAINING_PLAN", guided: "ATHLEVO_PLAN_MONTHLY", coaching: "ATHLEVO_COACHING_MONTHLY",
+  vip: "ATHLEVO_ELITE_MONTHLY", elite: "ATHLEVO_ELITE_MONTHLY"
+};
 const MAX_COUNT = 1000;
 
 /** `count` distinct codes. `randomInt` is injectable so a test can force collisions. */
@@ -76,9 +84,12 @@ export function parseOptions(argv) {
   let productIds = null;
   if (raw.products !== undefined) {
     const names = String(raw.products).toLowerCase().trim().split(",").map(item => item.trim()).filter(Boolean);
-    if (!names.length || names.some(name => !PRODUCT_IDS[name])) throw new Error("--products must be plan, coaching and/or elite");
+    // "plan" used to mean the ₱1,998 offer, which is now Guided. It is refused so an old command fails
+    // loudly instead of quietly making codes for a different offer.
+    if (names.includes("plan")) throw new Error('--products plan is ambiguous since the offers were renamed: use "guided" for the offer that used to be called Athlevo Plan, or "training-plan" for the new ₱999 Athlevo Plan');
+    if (!names.length || names.some(name => !PRODUCT_IDS[name])) throw new Error("--products must be training-plan, guided, coaching and/or vip");
     productIds = [...new Set(names)].map(name => PRODUCT_IDS[name]);
-    // Exactly Plan and Coaching is what a code with no list already means, so store no list.
+    // Exactly Guided and Coaching is what a code with no list already means, so store no list.
     if (productIds.length === DEFAULT_CODE_PRODUCT_IDS.length && DEFAULT_CODE_PRODUCT_IDS.every(id => productIds.includes(id))) productIds = null;
   }
   let expiresAt = null;
@@ -124,7 +135,7 @@ function main() {
   try {
     options = parseOptions(process.argv.slice(2));
   } catch (error) {
-    console.error(`${error.message}\n\nUsage: node scripts/generate-partner-codes.mjs --partner <label> --count <n> [--percent 10] [--products all|plan,coaching] [--expires YYYY-MM-DD] [--note text] [--out folder]`);
+    console.error(`${error.message}\n\nUsage: node scripts/generate-partner-codes.mjs --partner <label> --count <n> [--percent 10] [--products training-plan,guided,coaching,vip] [--expires YYYY-MM-DD] [--note text] [--out folder]`);
     process.exit(1);
   }
   const codes = generateCodes(options.count);

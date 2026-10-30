@@ -1,7 +1,7 @@
 /*
  * Athlevo program storefront.
  * Renders /programs and /programs/:slug from AthlevoStoreCatalog.
- * The only purchase flow is the sign-up on the Athlevo Plan and Athlevo Coaching
+ * The only purchase flow is the sign-up on the four offer
  * pages (page.signUp), which stays closed per offer until signUp.open is true. It
  * starts a hosted PayMongo checkout through
  * Athlevo's own API. This file never handles payment details, prices or payment
@@ -62,8 +62,9 @@
     return pic;
   }
 
-  // PL = Athlevo Plan, CO = Athlevo Coaching (lib/server/planSignup.js builds these).
-  var SIGNUP_REF = /^ATH-(PL|CO|EL)-[0-9A-F]{8,16}-[0-9A-F]{24}$/i;
+  // TP = Athlevo Plan, PL = Athlevo Guided, CO = Athlevo Coaching, EL = Athlevo VIP Coaching
+  // (lib/server/planSignup.js builds these; each offer's signUp.refCode says which is its own).
+  var SIGNUP_REF = /^ATH-(TP|PL|CO|EL)-[0-9A-F]{8,16}-[0-9A-F]{24}$/i;
 
   // The public path is /programs. /store was the first path, and Vercel redirects it
   // permanently (vercel.json); the client also accepts it, and rewrites the address bar
@@ -214,7 +215,7 @@
   }
 
   // Credentials, when the coach record has them. Shared by the
-  // catalog's coach cards and the Plan page's "Meet the Coach" block.
+  // catalog's coach cards and an offer page's "Meet the Coach" block.
   function appendCoachCredentials(body, coach) {
     if (coach.certifications && coach.certifications.length) {
       var creds = $("div", "coach-card-creds");
@@ -400,7 +401,7 @@
     }
   }
 
-  // ---- Built offer page (a product with `page` data: Athlevo Plan and Athlevo Coaching) ----
+  // ---- Built offer page (a product with `page` data: all four offers) ----
 
   function bindAnchor(a, id) {
     a.addEventListener("click", function (event) {
@@ -472,7 +473,7 @@
     copy.appendChild($("p", "offer-description", data.description));
     var price = $("p", "offer-price");
     price.appendChild($("span", "offer-price-amount", data.price.amount));
-    price.appendChild($("span", "offer-price-period", data.price.period));
+    if (data.price.period) price.appendChild($("span", "offer-price-period", data.price.period));
     copy.appendChild(price);
     copy.appendChild(offerSignUp(data));
     copy.appendChild($("p", "offer-supporting", data.supporting));
@@ -513,7 +514,7 @@
     var card = $("div", "offer-pricing-card");
     var cardPrice = $("p", "offer-price");
     cardPrice.appendChild($("span", "offer-price-amount", data.price.amount));
-    cardPrice.appendChild($("span", "offer-price-period", data.price.period));
+    if (data.price.period) cardPrice.appendChild($("span", "offer-price-period", data.price.period));
     card.appendChild(cardPrice);
     card.appendChild(offerList(data.pricing.includes));
     card.appendChild($("p", "offer-terms", data.pricing.terms));
@@ -749,7 +750,7 @@
       startCheckout(button, status, cfg);
     });
     wrap.appendChild(button);
-    // An offer that takes no codes (Elite Coaching) shows no code box.
+    // An offer that takes no codes (Athlevo VIP Coaching) shows no code box.
     if (cfg.takesCodes !== false) wrap.appendChild(codeControl(cfg));
     wrap.appendChild(status);
     return wrap;
@@ -875,9 +876,15 @@
       if (questionnaire) one.appendChild(externalLink(questionnaire, "Open the questionnaire", "btn btn-red"));
       steps.appendChild(one);
       var two = $("li");
-      two.appendChild($("strong", "", "Schedule a call."));
-      two.appendChild($("p", "", "After you submit the questionnaire, you will be asked to schedule a call."));
-      if (schedule) two.appendChild(externalLink(schedule, "Schedule your call", "btn btn-ink"));
+      if (cfg.call === false) {
+        // The Athlevo Plan has no call: after the questionnaire the coach builds the plan.
+        two.appendChild($("strong", "", "Your coach builds your plan."));
+        two.appendChild($("p", "", "An Athlevo coach uses your answers to build your personalized training plan."));
+      } else {
+        two.appendChild($("strong", "", "Schedule a call."));
+        two.appendChild($("p", "", "After you submit the questionnaire, you will be asked to schedule a call."));
+        if (schedule) two.appendChild(externalLink(schedule, "Schedule your call", "btn btn-ink"));
+      }
       steps.appendChild(two);
       var parts = [
         $("h1", "", "Payment received."),
@@ -976,13 +983,30 @@
     history.replaceState({ athlevoStore: true }, "", target + (loc.search || "") + (loc.hash || ""));
   }
 
+  // The offer a payment reference belongs to. A returning buyer's link (in an email, or saved) names
+  // the offer's page, but the reference code (ATH-<code>-...) is what says which offer was paid
+  // for. When the two disagree, for instance a link saved from before an offer was renamed, the
+  // reference wins, so the buyer sees their own offer's next steps and the right status check.
+  function confirmationProduct(route) {
+    var named = catalog.getProduct(catalog.resolveSlug(route.slug));
+    var code = String(route.ref || "").split("-")[1];
+    var own = named && named.page && named.page.signUp && named.page.signUp.refCode;
+    if (!code || !own || own === code.toUpperCase()) return named;
+    for (var i = 0; i < catalog.products.length; i++) {
+      var item = catalog.products[i];
+      var cfg = item.page && item.page.signUp;
+      if (cfg && cfg.refCode === code.toUpperCase()) return item;
+    }
+    return named;
+  }
+
   function renderView() {
     closeMenu();
     canonicalizeLegacyPath();
     stopConfirmation();
     var route = parseRoute();
     if (route.view === "confirmation") {
-      var paidFor = catalog.getProduct(catalog.resolveSlug(route.slug));
+      var paidFor = confirmationProduct(route);
       if (paidFor && paidFor.page && paidFor.page.signUp) {
         renderConfirmation(paidFor, route.ref);
         window.scrollTo(0, 0);

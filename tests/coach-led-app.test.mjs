@@ -181,14 +181,16 @@ t.P.openWelcome("u1", () => {});
 const root = t.byId.programsRoot;
 const allText = root.textContent;
 test("welcome mode shows the screen and the post-signup heading", t.shown.includes("screen-programs") && /Pick how you want to train/.test(allText));
-test("all three priced programs render with their prices", ["Athlevo Plan", "Athlevo Coaching", "Elite Coaching", "₱1,998", "₱4,998", "₱7,998"].every(x => allText.includes(x)));
-test("Hybrid Programming is listed as not available, not sellable", /Hybrid Programming/.test(allText) && /Not available yet/.test(allText));
+test("all four priced programs render with their prices", ["Athlevo Plan", "Athlevo Guided", "Athlevo Coaching", "Athlevo VIP Coaching", "₱999", "₱2,997", "₱4,998", "₱7,998"].every(x => allText.includes(x)));
+test("the retired offers are gone: no Elite, no Hybrid Programming, no ₱1,998, nothing 'not available yet'",
+  !/Elite/.test(allText) && !/Hybrid Programming/.test(allText) && !/1,998/.test(allText) && !/Not available yet/.test(allText));
 test("athlete feedback, the three coaches and the FAQs are on the screen",
   /From Athlevo athletes/.test(allText) && ["Dean Vincent Castro", "Christian Francia", "Louie Agawa"].every(x => allText.includes(x)) && /Can I buy a program today\?/.test(allText) && /Do you coach runners outside Pampanga\?/.test(allText));
-test("payment, renewal and non-refundable terms are shown with each Sign Up", (allText.match(/non-refundable/g) || []).length === 3);
+test("payment, renewal and non-refundable terms are shown with each Sign Up", (allText.match(/non-refundable/g) || []).length === 4);
 test("no internal coach-support terms leak onto the screen", !/Support terms for this offer are not decided/.test(allText));
 const buttons = root.all(n => n.tag === "button" && n.textContent === "Sign Up");
-test("three Sign Up buttons, and Elite has no discount-code box", buttons.length === 3 && root.all(n => n.className === "prg-code").length === 2);
+test("four Sign Up buttons; discount-code boxes only on Guided and Coaching, none on Plan or VIP Coaching",
+  buttons.length === 4 && root.all(n => n.className === "prg-code").length === 2);
 await buttons[0].listeners.click[0]();
 await new Promise(r => setTimeout(r, 10));
 test("Sign Up posts to the same checkout endpoint as the website and opens the hosted checkout externally",

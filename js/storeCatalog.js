@@ -16,9 +16,9 @@
  * never add credentials or achievements of your own. Coach cards show credentials
  * only, not personal bests.
  *
- * Athlevo Plan is the only offer with a built page (`page`). Its price and offer
- * details were confirmed by the owner; the other offers stay bare until theirs
- * are supplied.
+ * All four offers have a built page (`page`): Athlevo Plan, Athlevo Guided, Athlevo Coaching and
+ * Athlevo VIP Coaching. Their prices and what each includes were confirmed by the owner on
+ * 2026-10-31. Each tier builds on the one before it, and the copy says no more than that.
  */
 (function storeCatalogModule(global) {
   "use strict";
@@ -90,7 +90,7 @@
   // Only answers backed by confirmed information. Intake, coach review, delivery,
   // support, pricing, and per-offer details are not confirmed yet; do not add FAQs
   // about them until they are.
-  // Shared coach record: used by the Athlevo Plan page and the catalog's coaches section.
+  // Shared coach record: used by the Athlevo VIP Coaching page and the catalog's coaches section.
   // Role and certifications supplied by the owner. Do not add to them.
   var DEAN = {
     name: "Dean Vincent Castro",
@@ -133,7 +133,7 @@
   };
 
   // Approved athlete feedback about Athlevo coaching in general. It is not specific to
-  // any one offer, so the Plan and Coaching pages share it. Quotes are copied verbatim
+  // any one offer, so every offer page shares it. Quotes are copied verbatim
   // from the cited source file; a test enforces that.
   var ATHLETE_FEEDBACK = {
     label: "From Athlevo athletes.",
@@ -170,6 +170,8 @@
   var SIGNUP_COPY = {
     payment: "Pay securely through PayMongo with QRPh, Maya, or GrabPay.",
     renewal: "There is no automatic renewal. We will remind you when your next payment is due.",
+    // For an offer that is paid once (Athlevo Plan): there is no next payment to remind about.
+    oneTimeRenewal: "This is a one-time payment. Nothing renews automatically.",
     // Wording from Section 6 of the Athlevo Coaching Agreement v2.0.
     terms: "All payments to Athlevo are final and non-refundable, to the fullest extent allowed under Philippine law."
   };
@@ -215,51 +217,125 @@
     }
   ];
 
+  // The four offers, in the order they are sold. Prices are owned by the server
+  // (lib/server/planSignup.js) and a test checks the two agree. Each `signUp.refCode` is the
+  // code the server puts in that offer's payment reference (ATH-<code>-...); the browser uses it to
+  // open a returning buyer's confirmation under the right offer.
+  //   Athlevo Plan          one-time payment, no call step
+  //   Athlevo Guided        the plan plus a coach to answer questions (was "Athlevo Plan")
+  //   Athlevo Coaching      everything in Guided, with a hands-on coach
+  //   Athlevo VIP Coaching  everything in Coaching, with Dean as your coach (was "Elite Coaching")
   var products = [
     {
       slug: "athlevo-plan",
       name: "Athlevo Plan",
       hero: PHOTO.track,
       page: {
-        seoTitle: "Athlevo Plan — Personalized Running and Strength Training",
-        headline: "A clear plan for your next goal.",
-        description: "Personalized running and strength training built around your fitness, schedule, and goals.",
-        price: { amount: "₱1,998", period: "/month" },
+        seoTitle: "Athlevo Plan — A Training Plan Built by a Coach",
+        headline: "A training plan built for you.",
+        description: "A personalized training plan, built by an Athlevo coach around your schedule, fitness level, and goals.",
+        // Paid once, so there is no period. The page and the search description leave it out.
+        price: { amount: "₱999", period: "" },
         cta: { label: "Sign Up", target: "how-to-get-started" },
-        supporting: "Monthly coaching plan. No lock-in.",
+        supporting: "One-time payment.",
         overview: {
-          intro: "Athlevo Plan is for runners who can train independently and want a clear, personalized structure to follow.",
+          intro: "Athlevo Plan is a personalized training plan, built by an Athlevo coach. It is built for your own schedule, fitness level, and goals.",
           includesTitle: "What is included",
           includes: [
-            "A personalized running plan.",
-            "Strength training matched to your schedule and equipment.",
-            "Planning around your current fitness, goals, race calendar, and other training.",
-            "Basic coach support.",
-            "A monthly coach review and plan adjustment."
+            "A personalized training plan, built by an Athlevo coach.",
+            "Built around your schedule, your fitness level, and your goals."
           ],
-          note: "Athlevo Plan includes a monthly review. More frequent reviews are part of Athlevo Coaching."
+          note: "Athlevo Plan is the plan only. If you want a coach to answer your questions, see Athlevo Guided."
         },
         athleteFeedback: ATHLETE_FEEDBACK,
         pricing: {
           includes: [
-            "Personalized running plan",
-            "Strength training matched to your schedule and equipment",
-            "Basic coach support",
-            "Monthly coach review and plan adjustment"
+            "Personalized training plan",
+            "Built by an Athlevo coach",
+            "Built around your schedule, fitness level, and goals"
           ],
-          terms: "Month-to-month, no lock-in."
+          terms: "One-time payment."
         },
-        coach: DEAN,
+        // No coach profile on purpose: the page says "an Athlevo coach" and names no one.
         // Athlevo Plan sign-up. `open` shows the Sign Up button; it needs the checkout, the
         // sign-ups table and the questionnaire link set up (docs/plan-signup.md), and
         // PLAN_SIGNUP_ENABLED on the server. Set it back to false to hide the button. A test
         // keeps the store notice and FAQ in step with it. The price itself is owned
         // by the server (lib/server/planSignup.js); a test checks the two agree.
+        // `call: false`: after the questionnaire there is no call to schedule. `takesCodes: false`
+        // keeps the code box off this page: codes cover Guided and Coaching only.
         signUp: {
           open: true,
           label: "Sign Up",
+          refCode: "TP",
+          call: false,
           checkoutEndpoint: "/api/plan-signup/checkout",
           statusEndpoint: "/api/plan-signup/status",
+          takesCodes: false,
+          payment: SIGNUP_COPY.payment,
+          renewal: SIGNUP_COPY.oneTimeRenewal,
+          terms: SIGNUP_COPY.terms
+        },
+        getStarted: {
+          steps: [
+            "Sign up and complete payment.",
+            "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
+            "An Athlevo coach builds your personalized training plan from your answers.",
+            "Receive your plan."
+          ],
+          notice: "Registration opening soon"
+        }
+      },
+      // INTERNAL ONLY: undecided terms. Never render these on the storefront.
+      coachSupport: {
+        status: "pending",
+        detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
+      },
+      related: ["athlevo-guided", "athlevo-coaching", "athlevo-vip-coaching"]
+    },
+    {
+      slug: "athlevo-guided",
+      name: "Athlevo Guided",
+      hero: PHOTO.hybrid,
+      page: {
+        seoTitle: "Athlevo Guided — Training Plan and a Coach to Ask",
+        headline: "Your plan, and a coach to answer your questions.",
+        description: "A personalized running and strength training plan, built by an Athlevo coach, plus a coach to answer your questions.",
+        price: { amount: "₱2,997", period: "/month" },
+        cta: { label: "Sign Up", target: "how-to-get-started" },
+        supporting: "Month-to-month. No lock-in.",
+        overview: {
+          intro: "Athlevo Guided is the Athlevo Plan with a coach to answer your questions. It is for runners who can train independently and want a coach to ask along the way.",
+          includesTitle: "What is included",
+          includes: [
+            "A personalized training plan, built by an Athlevo coach.",
+            "Running and strength training.",
+            "Built around your schedule, your fitness level, and your goals.",
+            "A coach to answer your questions."
+          ],
+          note: "Athlevo Guided is the plan plus a coach to answer your questions. Frequent training adjustments, nutrition, recovery protocols, and a hands-on coach are part of Athlevo Coaching."
+        },
+        athleteFeedback: ATHLETE_FEEDBACK,
+        pricing: {
+          includes: [
+            "Personalized training plan, built by an Athlevo coach",
+            "Running and strength training",
+            "A coach to answer your questions"
+          ],
+          terms: "Month-to-month, no lock-in."
+        },
+        // No coach profile on purpose: the page says "a coach" and names no one.
+        // Athlevo Guided is the offer that used to be called Athlevo Plan. Its sign-up works the
+        // same way, with its own switch (GUIDED_SIGNUP_ENABLED on the server; see
+        // docs/plan-signup.md). Set `open` back to false to hide the button. The price is owned by
+        // the server (lib/server/planSignup.js); a test checks the two agree.
+        signUp: {
+          open: true,
+          label: "Sign Up",
+          refCode: "PL",
+          call: true,
+          checkoutEndpoint: "/api/guided-signup/checkout",
+          statusEndpoint: "/api/guided-signup/status",
           payment: SIGNUP_COPY.payment,
           renewal: SIGNUP_COPY.renewal,
           terms: SIGNUP_COPY.terms
@@ -270,7 +346,7 @@
             "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
             "Schedule a call with the Athlevo team.",
             "Receive your personalized plan and coach contact instructions.",
-            "Follow the plan, with a monthly review and adjustment."
+            "Follow your plan and ask your coach when you have questions."
           ],
           notice: "Registration opening soon"
         }
@@ -280,7 +356,7 @@
         status: "pending",
         detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
       },
-      related: ["athlevo-coaching", "hybrid-programming", "elite-coaching"]
+      related: ["athlevo-plan", "athlevo-coaching", "athlevo-vip-coaching"]
     },
     {
       slug: "athlevo-coaching",
@@ -288,42 +364,44 @@
       hero: PHOTO.road,
       page: {
         seoTitle: "Athlevo Coaching — Online Running and Strength Coaching",
-        headline: "Your training, reviewed and adjusted regularly.",
-        description: "Personalized online running coaching with regular reviews and direct coach communication.",
+        headline: "A hands-on coach for your training, nutrition, and recovery.",
+        description: "Everything in Athlevo Guided, plus frequent training adjustments, nutrition, recovery protocols, and a hands-on coach.",
         price: { amount: "₱4,998", period: "/month" },
         cta: { label: "Sign Up", target: "how-to-get-started" },
-        supporting: "Month-to-month coaching. No lock-in.",
+        supporting: "Month-to-month. No lock-in.",
         overview: {
-          intro: "Athlevo Coaching is for runners who want more than a plan. Your coach reviews and adjusts your training regularly, and you can communicate with your coach directly.",
+          intro: "Athlevo Coaching is Athlevo Guided with a hands-on coach. Your training is adjusted frequently, based on how it is actually going.",
           includesTitle: "What is included",
           includes: [
-            "An onboarding call to understand your training history, current fitness, schedule, equipment, limitations, and goals.",
-            "A personalized running plan.",
-            "Strength and conditioning guidance where appropriate.",
-            "Regular coach reviews and assessments of your progress.",
-            "Direct coach communication.",
-            "Frequent adjustments based on how training is actually going."
+            "Everything in Athlevo Guided.",
+            "Frequent training adjustments, based on how your training is going.",
+            "Running and strength training.",
+            "Nutrition.",
+            "Recovery protocols.",
+            "A hands-on coach."
           ],
-          note: "Coaching is delivered online. Athlevo Coaching includes more frequent reviews than Athlevo Plan, which includes a monthly review."
+          note: "Coaching is delivered online. Athlevo Coaching includes everything in Athlevo Guided."
         },
         athleteFeedback: ATHLETE_FEEDBACK,
         pricing: {
           includes: [
-            "Personalized running plan",
-            "Strength and conditioning guidance where appropriate",
-            "Regular coach reviews and assessments",
-            "Direct coach communication"
+            "Everything in Athlevo Guided",
+            "Frequent training adjustments",
+            "Running, strength, nutrition, and recovery protocols",
+            "A hands-on coach"
           ],
           terms: "Month-to-month, no lock-in."
         },
         // No coach profile on purpose: the page does not name or imply a coach.
-        // Athlevo Coaching sign-up works exactly like Athlevo Plan's, with its own switch
+        // Athlevo Coaching sign-up works exactly like Athlevo Guided's, with its own switch
         // (COACHING_SIGNUP_ENABLED on the server; see docs/plan-signup.md). Set `open` back to
         // false to hide the button. The price is owned by the server
         // (lib/server/planSignup.js); a test checks the two agree.
         signUp: {
           open: true,
           label: "Sign Up",
+          refCode: "CO",
+          call: true,
           checkoutEndpoint: "/api/coaching-signup/checkout",
           statusEndpoint: "/api/coaching-signup/status",
           payment: SIGNUP_COPY.payment,
@@ -335,8 +413,8 @@
             "Sign up and complete payment.",
             "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
             "Schedule your onboarding call.",
-            "Receive your personalized running plan, with strength and conditioning guidance where appropriate.",
-            "Train with regular coach reviews, frequent adjustments, and direct coach communication."
+            "Receive your personalized training plan.",
+            "Train with frequent adjustments from your hands-on coach."
           ],
           notice: "Registration opening soon"
         }
@@ -346,66 +424,51 @@
         status: "pending",
         detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
       },
-      related: ["athlevo-plan", "hybrid-programming", "elite-coaching"]
+      related: ["athlevo-plan", "athlevo-guided", "athlevo-vip-coaching"]
     },
     {
-      slug: "hybrid-programming",
-      name: "Hybrid Programming",
-      hero: PHOTO.hybrid,
-      // INTERNAL ONLY: undecided terms. Never render these on the storefront.
-      coachSupport: {
-        status: "pending",
-        detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
-      },
-      related: ["athlevo-plan", "athlevo-coaching", "elite-coaching"]
-    },
-    {
-      slug: "elite-coaching",
-      name: "Elite Coaching",
+      slug: "athlevo-vip-coaching",
+      name: "Athlevo VIP Coaching",
       hero: PHOTO.pack,
       page: {
-        seoTitle: "Elite Coaching — Online Running Coaching with Dean Castro",
-        headline: "Your training, coached directly by Dean.",
-        description: "Personalized online running coaching with Head Coach Dean Castro, with regular reviews and direct coach communication.",
+        seoTitle: "Athlevo VIP Coaching — Online Coaching with Dean Castro",
+        headline: "Coached directly by Dean, with priority responses.",
+        description: "Everything in Athlevo Coaching, with Head Coach Dean Castro as your coach and priority responses.",
         price: { amount: "₱7,998", period: "/month" },
         cta: { label: "Sign Up", target: "how-to-get-started" },
-        supporting: "Month-to-month coaching. No lock-in.",
+        supporting: "Month-to-month. No lock-in.",
         overview: {
-          intro: "Elite Coaching is Athlevo Coaching with Dean Castro as your coach. Dean reviews and adjusts your training regularly, and you communicate with him directly.",
+          intro: "Athlevo VIP Coaching is the top tier. It includes everything in Athlevo Coaching, with Dean Castro as your coach and priority responses.",
           includesTitle: "What is included",
           includes: [
+            "Everything in Athlevo Coaching.",
             "Dean Castro, Head Coach of Athlevo, as your coach.",
-            "An onboarding call to understand your training history, current fitness, schedule, equipment, limitations, and goals.",
-            "A personalized running plan.",
-            "Strength and conditioning guidance where appropriate.",
-            "Regular coach reviews and assessments of your progress.",
-            "Direct coach communication.",
-            "Frequent adjustments based on how training is actually going."
+            "Priority responses."
           ],
-          note: "Coaching is delivered online. Elite Coaching has the same reviews and coach communication as Athlevo Coaching, with Dean as your coach."
+          note: "Coaching is delivered online. Athlevo VIP Coaching is Athlevo Coaching with Dean as your coach and priority responses."
         },
         athleteFeedback: ATHLETE_FEEDBACK,
         pricing: {
           includes: [
+            "Everything in Athlevo Coaching",
             "Dean Castro as your coach",
-            "Personalized running plan",
-            "Strength and conditioning guidance where appropriate",
-            "Regular coach reviews and assessments",
-            "Direct coach communication"
+            "Priority responses"
           ],
           terms: "Month-to-month, no lock-in."
         },
         coach: DEAN,
-        // Elite Coaching sign-up works exactly like Athlevo Coaching's, with its own switch
-        // (ELITE_SIGNUP_ENABLED on the server; see docs/plan-signup.md). Set `open` back to false
-        // to hide the button. `takesCodes: false` keeps the code box off this page: codes cover
-        // Plan and Coaching only. The price is owned by the server
-        // (lib/server/planSignup.js); a test checks the two agree.
+        // Athlevo VIP Coaching is the offer that used to be called Elite Coaching. Its sign-up works
+        // exactly like Athlevo Coaching's, with its own switch (VIP_SIGNUP_ENABLED on the server;
+        // see docs/plan-signup.md). Set `open` back to false to hide the button. `takesCodes: false`
+        // keeps the code box off this page: codes cover Guided and Coaching only. The price is
+        // owned by the server (lib/server/planSignup.js); a test checks the two agree.
         signUp: {
           open: true,
           label: "Sign Up",
-          checkoutEndpoint: "/api/elite-signup/checkout",
-          statusEndpoint: "/api/elite-signup/status",
+          refCode: "EL",
+          call: true,
+          checkoutEndpoint: "/api/vip-signup/checkout",
+          statusEndpoint: "/api/vip-signup/status",
           takesCodes: false,
           payment: SIGNUP_COPY.payment,
           renewal: SIGNUP_COPY.renewal,
@@ -416,8 +479,8 @@
             "Sign up and complete payment.",
             "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
             "Schedule your onboarding call.",
-            "Receive your personalized running plan, with strength and conditioning guidance where appropriate.",
-            "Train with Dean: regular coach reviews, frequent adjustments, and direct coach communication."
+            "Receive your personalized training plan.",
+            "Train with Dean as your coach, with priority responses."
           ],
           notice: "Registration opening soon"
         }
@@ -427,17 +490,19 @@
         status: "pending",
         detail: "Support terms for this offer are not decided yet. They will be published before purchasing opens."
       },
-      related: ["athlevo-plan", "athlevo-coaching", "hybrid-programming"]
+      related: ["athlevo-plan", "athlevo-guided", "athlevo-coaching"]
     }
   ];
 
-  // Pre-rename URLs. Old links resolve to the renamed offer. First 10K was
-  // removed from the storefront and intentionally has no entry.
+  // Pre-rename URLs. Old links resolve to the renamed offer. First 10K was removed from the
+  // storefront and intentionally has no entry. Hybrid Programming (and /store/half-marathon, which
+  // pointed at it) was dropped from the lineup and has no entry either; Vercel sends those
+  // addresses to /programs (vercel.json).
   var legacySlugs = {
     "first-5k": "athlevo-plan",
     "faster-5k": "athlevo-coaching",
-    "half-marathon": "hybrid-programming",
-    "marathon": "elite-coaching"
+    "marathon": "athlevo-vip-coaching",
+    "elite-coaching": "athlevo-vip-coaching"
   };
 
   function getProduct(slug) {
@@ -522,6 +587,7 @@
   }
 
   function openOffersPhrase(names) {
+    if (names.length > 2 && names.length === products.length) return "All programs are open for sign-up";
     var list = names.length > 2 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names.join(" and ");
     return list + (names.length === 1 ? " is" : " are") + " open for sign-up";
   }
@@ -537,10 +603,11 @@
   function getFaqs() {
     var names = openOfferNames();
     if (!names.length) return sharedFaqs;
+    var rest = products.length - names.length;
     return [{
       question: sharedFaqs[0].question,
-      answer: openOffersPhrase(names) + (names.length === products.length - 1
-        ? ". The other program is not available to buy yet."
+      answer: openOffersPhrase(names) + (rest === 0 ? "."
+        : rest === 1 ? ". The other program is not available to buy yet."
         : ". The other programs are not available to buy yet.")
     }].concat(sharedFaqs.slice(1));
   }

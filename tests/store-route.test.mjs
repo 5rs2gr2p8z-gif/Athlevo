@@ -49,8 +49,8 @@ section("1. Route wiring");
 
 section("2. Catalog data");
 {
-  const ORDER = ["Athlevo Plan", "Athlevo Coaching", "Hybrid Programming", "Elite Coaching"];
-  t("catalog exposes four draft programs", catalog.products.length === 4);
+  const ORDER = ["Athlevo Plan", "Athlevo Guided", "Athlevo Coaching", "Athlevo VIP Coaching"];
+  t("catalog exposes the four offers", catalog.products.length === 4);
   const names = catalog.products.map(p => p.name).join("|");
   t("card names and order match the approved list", names === ORDER.join("|"), names);
   t("First 10K is removed from the catalog",
@@ -61,12 +61,12 @@ section("2. Catalog data");
     catalog.products.every(p => /^[a-z0-9-]+$/.test(p.slug)) &&
     new Set(catalog.products.map(p => p.slug)).size === 4);
   t("slugs follow the new names",
-    catalog.products.map(p => p.slug).join(",") === "athlevo-plan,athlevo-coaching,hybrid-programming,elite-coaching");
+    catalog.products.map(p => p.slug).join(",") === "athlevo-plan,athlevo-guided,athlevo-coaching,athlevo-vip-coaching");
   t("each card uses its assigned photo",
     [["athlevo-plan", "/assets/store/track-1280.webp"],
+     ["athlevo-guided", "/assets/store/hybrid-1023.webp"],
      ["athlevo-coaching", "/assets/store/road-1280.webp"],
-     ["hybrid-programming", "/assets/store/hybrid-1023.webp"],
-     ["elite-coaching", "/assets/store/pack-1206.webp"]]
+     ["athlevo-vip-coaching", "/assets/store/pack-1206.webp"]]
       .every(([slug, src]) => catalog.getProduct(slug).hero.src === src));
   t("offers carry no old race-specific copy or durations",
     catalog.products.every(p =>
@@ -77,17 +77,19 @@ section("2. Catalog data");
     !/\b(5k|10k|half[- ]marathon|marathon|\d+[- ]weeks?)\b/i.test(
       JSON.stringify(catalog.products.map(({ coachSupport, hero, page, ...rest }) =>
         ({ ...rest, page: page && { ...page, athleteFeedback: undefined } })))));
-  t("Athlevo Plan, Athlevo Coaching and Elite Coaching have built pages; Hybrid Programming stays bare",
-    !!catalog.getProduct("athlevo-plan").page && !!catalog.getProduct("athlevo-coaching").page && !!catalog.getProduct("elite-coaching").page &&
-    catalog.products.filter(p => !["athlevo-plan", "athlevo-coaching", "elite-coaching"].includes(p.slug)).every(p =>
-      !("page" in p) && Object.keys(p).sort().join(",") === "coachSupport,hero,name,related,slug"));
+  t("all four offers have built pages, so none is left on the bare layout",
+    catalog.products.every(p => !!p.page) &&
+    catalog.getProduct("hybrid-programming") === null && catalog.getProduct("elite-coaching") === null);
   t("race-based collections are gone",
     !("collections" in catalog) && !("getCollection" in catalog) && !("filterProducts" in catalog));
-  t("old race URLs resolve to the renamed offers",
+  t("old race URLs and the old Elite address resolve to the renamed offers; the dropped Hybrid Programming has no page to resolve to",
     catalog.resolveSlug("first-5k") === "athlevo-plan" &&
     catalog.resolveSlug("faster-5k") === "athlevo-coaching" &&
-    catalog.resolveSlug("half-marathon") === "hybrid-programming" &&
-    catalog.resolveSlug("marathon") === "elite-coaching");
+    catalog.resolveSlug("marathon") === "athlevo-vip-coaching" &&
+    catalog.resolveSlug("elite-coaching") === "athlevo-vip-coaching" &&
+    !("half-marathon" in catalog.legacySlugs) && !("hybrid-programming" in catalog.legacySlugs) &&
+    catalog.getProduct(catalog.resolveSlug("half-marathon")) === null &&
+    catalog.getProduct(catalog.resolveSlug("hybrid-programming")) === null);
   t("current slugs resolve to themselves",
     catalog.products.every(p => catalog.resolveSlug(p.slug) === p.slug && catalog.getProduct(p.slug) === p));
   t("related programs are the other three offers and never include self",
@@ -102,28 +104,22 @@ section("2. Catalog data");
 section("3. No invented commercial claims");
 {
   const blob = catalogSrc + storeHtml + storefrontSrc;
-  const withoutConfirmedPrice = blob.split("₱1,998").join("").split("₱4,998").join("").split("₱7,998").join("");
-  t("no prices, currency, or fake discounts beyond the confirmed ₱1,998, ₱4,998 and ₱7,998",
+  const PRICES = { "athlevo-plan": "₱999", "athlevo-guided": "₱2,997", "athlevo-coaching": "₱4,998", "athlevo-vip-coaching": "₱7,998" };
+  const withoutConfirmedPrice = Object.values(PRICES).reduce((acc, price) => acc.split(price).join(""), blob);
+  t("no prices, currency, or fake discounts beyond the confirmed ₱999, ₱2,997, ₱4,998 and ₱7,998",
     !/\$\d|₱\d|€\d|£\d|was\s*₱|sale price|\bfees?\b|free trial/i.test(withoutConfirmedPrice) &&
     !/%\s*off|discount|coupon/i.test(catalogSrc + storeHtml));
   t("the only discount wording is the code box: the storefront hard-codes no percentage and no amount",
     !/\d\s*%\s*(off|discount)/i.test(storefrontSrc) && !/₱\s*\d/.test(storefrontSrc) && !/\b(jcir|partner)\b/i.test(catalogSrc + storeHtml + storefrontSrc));
+  const dataOf = (slug) => JSON.stringify(catalog.getProduct(slug));
   t("each confirmed price lives only in its own offer's page data",
-    catalogSrc.split("₱1,998").length - 1 === 1 && catalogSrc.split("₱4,998").length - 1 === 1 && catalogSrc.split("₱7,998").length - 1 === 1 &&
+    Object.values(PRICES).every(price => catalogSrc.split(price).length - 1 === 1) &&
     !storeHtml.includes("₱") && !storefrontSrc.includes("₱") &&
-    catalog.getProduct("athlevo-plan").page.price.amount === "₱1,998" &&
-    catalog.getProduct("athlevo-coaching").page.price.amount === "₱4,998" &&
-    catalog.getProduct("elite-coaching").page.price.amount === "₱7,998" &&
-    !JSON.stringify(catalog.getProduct("athlevo-plan")).includes("₱4,998") &&
-    !JSON.stringify(catalog.getProduct("athlevo-plan")).includes("₱7,998") &&
-    !JSON.stringify(catalog.getProduct("athlevo-coaching")).includes("₱1,998") &&
-    !JSON.stringify(catalog.getProduct("athlevo-coaching")).includes("₱7,998") &&
-    !JSON.stringify(catalog.getProduct("elite-coaching")).includes("₱1,998") &&
-    !JSON.stringify(catalog.getProduct("elite-coaching")).includes("₱4,998") &&
-    catalog.products.filter(p => !["athlevo-plan", "athlevo-coaching", "elite-coaching"].includes(p.slug)).every(p => !JSON.stringify(p).includes("₱")));
-  t("the Elite price is published only on the Elite page, and nothing is shown for Hybrid Programming",
-    /7,998/.test(JSON.stringify(catalog.getProduct("elite-coaching"))) && !/7,998/.test(storeHtml) &&
-    !/7,998/.test(JSON.stringify(catalog.getProduct("hybrid-programming"))));
+    Object.entries(PRICES).every(([slug, price]) => catalog.getProduct(slug).page.price.amount === price &&
+      Object.values(PRICES).filter(other => other !== price).every(other => !dataOf(slug).includes(other))));
+  t("the VIP price is published only on the VIP page, and the /programs page shows no price",
+    /7,998/.test(dataOf("athlevo-vip-coaching")) && !/7,998/.test(storeHtml) &&
+    ["athlevo-plan", "athlevo-guided", "athlevo-coaching"].every(slug => !/7,998/.test(dataOf(slug))));
   t("no testimonials or invented athlete results on the storefront",
     !/testimonial|guaranteed pr|sub-\d+|i improved my/i.test(storeHtml + storefrontSrc) &&
     !/athleteStories/.test(catalogSrc));
@@ -201,7 +197,7 @@ section("4b. Catalog page structure");
   t("coaches list holds only verified people: Dean Vincent Castro, Christian Francia, Louie Agawa",
     catalog.coaches.map(c => c.name).join("|") === "Dean Vincent Castro|Christian Francia|Louie Agawa" &&
     catalog.coaches[0].role === "Founder & Head Coach, Athlevo" &&
-    catalog.coaches[0] === catalog.getProduct("athlevo-plan").page.coach &&
+    catalog.coaches[0] === catalog.getProduct("athlevo-vip-coaching").page.coach &&
     catalog.coaches[1].role === "Strength & Conditioning Coach, Assistant Running Coach, Athlevo" &&
     catalog.coaches[1].intro === "Christian is an assistant coach at Athlevo. He specializes in strength and conditioning.");
   t("only the owner-supplied certifications appear, on Dean's, Christian's and Louie's cards, exactly as supplied",
@@ -213,7 +209,7 @@ section("4b. Catalog page structure");
       ["Functional training", "Fitness body anatomy", "Movement analysis and corrective exercise", "Basic nutrition", "OCR"]) &&
     !("credentialsLabel" in catalog.coaches[1]) &&
     /"Certified in"/.test(storefrontSrc) &&
-    catalog.getProduct("athlevo-plan").page.coach === catalog.coaches[0]);
+    catalog.getProduct("athlevo-vip-coaching").page.coach === catalog.coaches[0]);
   const louie = catalog.coaches[2];
   t("Louie Agawa: role, intro and credentials exactly as supplied",
     louie.role === "Running Coach, Athlevo" &&
@@ -377,10 +373,32 @@ section("4e. Search copy for /programs (\"online running coach in the Philippine
     programsSitemap.includes("<loc>https://programs.athlevo.org/programs</loc>"));
 }
 
-section("4d. Athlevo Plan page");
+// ---------------------------------------------------------------------------------------------
+// Helpers for the offer-page sections below.
+// ---------------------------------------------------------------------------------------------
+const offerHtml = (slug) => readFileSync("./store-pages/" + slug + ".html", "utf8");
+const textOf = (html) => html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<style[\s\S]*?<\/style>/g, " ")
+  .replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ");
+const mainOf = (html) => (html.match(/<!-- prerender:main -->([\s\S]*?)<!-- \/prerender:main -->/) || ["", ""])[1];
+const SIGN_UP_BUTTON = /<button class="btn btn-red btn-lg" type="button">Sign Up<\/button>/g;
+// What the prerendered page of one offer shows, for the per-offer checks.
+const prerendered = (slug) => {
+  const page = catalog.getProduct(slug).page, html = offerHtml(slug), text = textOf(mainOf(html));
+  return {
+    page, html, text,
+    holdsContent: text.includes(page.price.amount) && page.overview.includes.every(i => text.includes(i)) &&
+      page.getStarted.steps.every(i => text.includes(i)) &&
+      page.athleteFeedback.items.every(i => text.includes(i.quote) && text.includes(i.name)) &&
+      text.includes(page.getStarted.notice) === !page.signUp.open && !text.includes("Purchasing not available"),
+    buttons: (html.match(SIGN_UP_BUTTON) || []).length,
+    codeBoxes: (html.match(/<input\b[^>]*name="discount-code"[^>]*>/g) || []).length,
+    inputs: (html.match(/<input\b/g) || []).length
+  };
+};
+
+section("4d. Offer pages: what the four offers share");
 {
-  const plan = catalog.getProduct("athlevo-plan");
-  const page = plan.page;
+  const offers = catalog.products;
   const flat = css.replace(/\/\*[\s\S]*?\*\//g, "");
   const rule = (sel) => {
     const m = flat.match(new RegExp("(?:^|\\})\\s*" + sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\{([^}]*)\\}"));
@@ -389,16 +407,10 @@ section("4d. Athlevo Plan page");
   const tabletCss = (flat.match(/@media \(max-width: 980px\) \{([\s\S]*?)\n\}/) || [])[1] || "";
   const mobileCss = (flat.match(/@media \(max-width: 640px\) \{([\s\S]*?)\n\}/) || [])[1] || "";
   const landingSrc = readFileSync("./js/landingContent.js", "utf8");
-  const pageJson = JSON.stringify({ ...page, athleteFeedback: undefined });
+  const jsonOf = (o) => JSON.stringify({ ...o.page, athleteFeedback: undefined });
 
-  t("first screen: title, headline, description, supporting text",
-    plan.name === "Athlevo Plan" &&
-    page.headline === "A clear plan for your next goal." &&
-    page.description === "Personalized running and strength training built around your fitness, schedule, and goals." &&
-    page.supporting === "Monthly coaching plan. No lock-in.");
-  t("price is ₱1,998/month", page.price.amount + page.price.period === "₱1,998/month");
-  t("Sign Up is an in-page link to How to Get Started, not a purchase",
-    page.cta.label === "Sign Up" && page.cta.target === "how-to-get-started" &&
+  t("every offer's Sign Up is an in-page link to How to Get Started until its switch is on, not a purchase",
+    offers.every(o => o.page.cta.label === "Sign Up" && o.page.cta.target === "how-to-get-started") &&
     /a\.href = "#" \+ data\.cta\.target/.test(storefrontSrc) &&
     /bindAnchor\(a, data\.cta\.target\)/.test(storefrontSrc));
   t("Sign Up scrolls, moves focus, and keeps the header clear",
@@ -417,24 +429,13 @@ section("4d. Athlevo Plan page");
   t("mobile Sign Up buttons are full width and quotes stack",
     /\.pdp-hero--offer \.btn-lg\s*\{\s*width:\s*100%/.test(mobileCss) &&
     /\.offer-quotes\s*\{\s*grid-template-columns:\s*1fr/.test(mobileCss));
+  t("a price with no period (Athlevo Plan, paid once) draws no empty period label",
+    (storefrontSrc.match(/if \(data\.price\.period\) /g) || []).length === 2);
 
-  t("overview explains who it suits and lists the confirmed inclusions",
-    /train independently/.test(page.overview.intro) && /clear, personalized structure/.test(page.overview.intro) &&
-    JSON.stringify(page.overview.includes) === JSON.stringify([
-      "A personalized running plan.",
-      "Strength training matched to your schedule and equipment.",
-      "Planning around your current fitness, goals, race calendar, and other training.",
-      "Basic coach support.",
-      "A monthly coach review and plan adjustment."
-    ]));
-  t("monthly reviews belong to Plan; more frequent reviews belong to Athlevo Coaching, and nothing says 'weekly'",
-    /includes a monthly review/.test(page.overview.note) &&
-    /More frequent reviews are part of Athlevo Coaching/.test(page.overview.note) &&
-    !/weekly|every week/i.test(JSON.stringify(page)));
-
-  const fb = page.athleteFeedback;
-  t("athlete feedback is labelled 'From Athlevo athletes.' and never attributed to Plan customers",
-    fb.label === "From Athlevo athletes." && !/plan (customer|member|client|athlete)/i.test(JSON.stringify(fb)));
+  const fb = offers[0].page.athleteFeedback;
+  t("all four offers show the same approved athlete feedback, labelled 'From Athlevo athletes.' and never attributed to a plan's customers",
+    offers.every(o => o.page.athleteFeedback === fb) && fb.label === "From Athlevo athletes." &&
+    !/plan (customer|member|client|athlete)/i.test(JSON.stringify(fb)));
   t("every quote, name, and context is verbatim from the approved landing content",
     fb.items.length > 0 && fb.items.every(i => i.source === "js/landingContent.js" &&
       landingSrc.includes('name: "' + i.name + '"') &&
@@ -444,44 +445,23 @@ section("4d. Athlevo Plan page");
   t("the feedback section is omitted when no approved items exist",
     /feedback && feedback\.items && feedback\.items\.length/.test(storefrontSrc));
 
-  t("pricing: confirmed inclusions, month-to-month, no lock-in",
-    page.pricing.terms === "Month-to-month, no lock-in." &&
-    JSON.stringify(page.pricing.includes) === JSON.stringify([
-      "Personalized running plan",
-      "Strength training matched to your schedule and equipment",
-      "Basic coach support",
-      "Monthly coach review and plan adjustment"
-    ]));
-  t("page data has no discounts, fees, or promotions",
-    !/\b(discounts?|fees?|free|trial|coupons?|promos?|refunds?)\b|% off/i.test(pageJson));
-
-  t("coach: name, role, and an existing optimized photo of Dean",
-    page.coach.name === "Dean Vincent Castro" &&
-    page.coach.role === "Founder & Head Coach, Athlevo" &&
-    page.coach.photo.src === "/assets/store/founder-920.webp" &&
-    page.coach.photo.original === "/assets/landing/dean-castro-coach.jpg" &&
-    existsSync("." + page.coach.photo.original) &&
-    page.coach.photo.webp.length === 2 && page.coach.photo.avif.length === 2);
-  t("coach intro invents no credentials and does not promise Dean coaches every customer",
-    /structured running and strength training/.test(page.coach.intro) &&
-    !/\b(certif\w*|usatf|licen[sc]\w*|degree|champion\w*|records?|awards?|years|olympi\w*|podium|winner|won)\b/i.test(page.coach.intro) &&
-    !/personally|every (plan )?(customer|athlete|client|member)|each (customer|athlete|client)/i.test(page.coach.intro));
-
-  t("how to get started: payment, questionnaire, call, plan, monthly review; registration-opening-soon notice",
-    JSON.stringify(page.getStarted.steps) === JSON.stringify([
-      "Sign up and complete payment.",
-      "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
-      "Schedule a call with the Athlevo team.",
-      "Receive your personalized plan and coach contact instructions.",
-      "Follow the plan, with a monthly review and adjustment."
-    ]) && page.getStarted.notice === "Registration opening soon");
-  t("the only registration notice is 'Registration opening soon' (no extra sentence)",
-    !("noticeDetail" in page.getStarted) &&
-    !/not available yet/i.test(JSON.stringify(page)) &&
-    !/noticeDetail/.test(storefrontSrc));
-  t("no invented delivery timelines, support channels, or response times",
-    !/\b(messenger|whatsapp|facebook|email|viber|telegram|within|hours?|business days?|24\/7|response|reply|replies)\b/i.test(pageJson) &&
-    !/\d+\s*(minutes?|hours?|days?|weeks?)/i.test(pageJson));
+  t("page data has no discounts, fees, or promotions on any offer",
+    offers.every(o => !/\b(discounts?|fees?|free|trial|coupons?|promos?|refunds?)\b|% off/i.test(jsonOf(o))));
+  t("no invented delivery timelines, support channels, response times or guarantees on any offer",
+    offers.every(o => !/\b(messenger|whatsapp|facebook|email|viber|telegram|within|hours?|business days?|24\/7|reply|replies|respond|guarantee\w*)\b|\bresponse times?\b/i.test(jsonOf(o)) &&
+      !/\d+\s*(minutes?|hours?|days?|weeks?)/i.test(jsonOf(o))));
+  t("nobody is promised weekly reviews or a fixed schedule",
+    offers.every(o => !/weekly|every week|daily|biweekly|fortnight/i.test(JSON.stringify(o.page) + o.name)));
+  t("no offer page talks about face-to-face sessions, medical care, or a named platform",
+    offers.every(o => !/\b(face-to-face|in-person|gym|medical|physio\w*|trainingpeaks|strava|garmin|google|calendar|spreadsheet)\b/i.test(jsonOf(o))));
+  t("coach-support terms stay in internal data, not on the pages",
+    offers.every(o => o.coachSupport.status === "pending" && !/coachSupport/.test(jsonOf(o))));
+  t("the tiers build on each other: Guided is the plan plus a coach, Coaching includes everything in Guided, VIP everything in Coaching",
+    /Athlevo Plan with a coach/.test(catalog.getProduct("athlevo-guided").page.overview.intro) &&
+    catalog.getProduct("athlevo-coaching").page.overview.includes[0] === "Everything in Athlevo Guided." &&
+    catalog.getProduct("athlevo-vip-coaching").page.overview.includes[0] === "Everything in Athlevo Coaching.");
+  t("the old ₱1,998 Athlevo Plan is gone from the catalog: no ₱1,998 price and none of its monthly-review wording",
+    !/1,998|monthly review|Basic coach support/.test(JSON.stringify(catalog.products)));
 
   const order = ['offerSection("overview"', 'offerSection("athlete-feedback"', 'offerSection("plan-pricing"',
     'offerSection("coach"', 'offerSection("how-to-get-started"'].map(k => storefrontSrc.indexOf(k));
@@ -498,96 +478,229 @@ section("4d. Athlevo Plan page");
     /function appendFaqAndRelated/.test(storefrontSrc));
 }
 
-section("4e. Athlevo Coaching page");
+section("4e. Athlevo Plan page (₱999, paid once)");
+{
+  const plan = catalog.getProduct("athlevo-plan");
+  const page = plan.page, su = page.signUp;
+  const pageJson = JSON.stringify({ ...page, athleteFeedback: undefined });
+  const pre = prerendered("athlevo-plan");
+
+  t("first screen: title, headline, description, supporting text",
+    plan.name === "Athlevo Plan" &&
+    page.seoTitle === "Athlevo Plan — A Training Plan Built by a Coach" &&
+    page.headline === "A training plan built for you." &&
+    page.description === "A personalized training plan, built by an Athlevo coach around your schedule, fitness level, and goals." &&
+    page.supporting === "One-time payment.");
+  t("price is ₱999, paid once: no monthly period anywhere on the page",
+    page.price.amount === "₱999" && page.price.period === "" && page.pricing.terms === "One-time payment." &&
+    !/month/i.test(pageJson));
+  t("what is included is the plan and nothing more",
+    JSON.stringify(page.overview.includes) === JSON.stringify([
+      "A personalized training plan, built by an Athlevo coach.",
+      "Built around your schedule, your fitness level, and your goals."
+    ]) &&
+    JSON.stringify(page.pricing.includes) === JSON.stringify([
+      "Personalized training plan",
+      "Built by an Athlevo coach",
+      "Built around your schedule, fitness level, and goals"
+    ]));
+  t("no coach contact, reviews, adjustments, nutrition, recovery or strength work is promised; Athlevo Guided is named as the step up",
+    !/answer your questions|review|adjust|nutrition|recovery|strength|hands-on|priority/i.test(JSON.stringify([
+      page.headline, page.description, page.supporting, page.overview.includes, page.pricing.includes, page.getStarted.steps])) &&
+    /see Athlevo Guided/.test(page.overview.note));
+  t("no coach is named or implied: no coach profile and no Meet the Coach section",
+    !("coach" in page) && !/\b(Dean|Castro|Louie|Christian|Francia|founder|head coach)\b/i.test(pageJson) &&
+    !/id="coach"|Meet the Coach/.test(pre.html));
+  t("sign-up wiring: its own endpoints and reference code, no call to schedule, no discount code box, and a one-time renewal line",
+    typeof su.open === "boolean" && su.refCode === "TP" && su.call === false && su.takesCodes === false &&
+    su.checkoutEndpoint === "/api/plan-signup/checkout" && su.statusEndpoint === "/api/plan-signup/status" &&
+    su.renewal === "This is a one-time payment. Nothing renews automatically." && !/remind/i.test(su.renewal) &&
+    page.getStarted.notice === "Registration opening soon");
+  t("how to get started: payment, questionnaire, the coach builds the plan, receive it; no call",
+    JSON.stringify(page.getStarted.steps) === JSON.stringify([
+      "Sign up and complete payment.",
+      "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
+      "An Athlevo coach builds your personalized training plan from your answers.",
+      "Receive your plan."
+    ]) && !/\bcall\b/i.test(page.getStarted.steps.join(" ")));
+  t("the prerendered Plan page holds the price, inclusions, steps and quotes, with no monthly wording and no coach block",
+    pre.holdsContent && !/\/month|per month|month-to-month|monthly/i.test(pre.text) && !pre.text.includes("Meet the Coach"));
+  t("the prerendered Plan page has Sign Up buttons exactly when its switch is on, and never a code box, form field or card input",
+    pre.buttons === (su.open ? 2 : 0) && pre.codeBoxes === 0 && pre.inputs === 0 &&
+    !/Have a discount code\?/.test(pre.html) && !/<(form|textarea|select)\b/i.test(pre.html) && !/cc-|cvv|cvc|card-?number/i.test(pre.html) &&
+    (su.open || !/checkout|paymongo|payment=/i.test(pre.html.replace(/<script[\s\S]*?<\/script>/g, ""))));
+}
+
+section("4f. Athlevo Guided page (₱2,997/month)");
+{
+  const guided = catalog.getProduct("athlevo-guided");
+  const page = guided.page, su = page.signUp;
+  const pageJson = JSON.stringify({ ...page, athleteFeedback: undefined });
+  const pre = prerendered("athlevo-guided");
+
+  t("first screen: title, headline, description, supporting text",
+    guided.name === "Athlevo Guided" &&
+    page.seoTitle === "Athlevo Guided — Training Plan and a Coach to Ask" &&
+    page.headline === "Your plan, and a coach to answer your questions." &&
+    page.description === "A personalized running and strength training plan, built by an Athlevo coach, plus a coach to answer your questions." &&
+    page.supporting === "Month-to-month. No lock-in.");
+  t("price is ₱2,997/month, month-to-month with no lock-in",
+    page.price.amount + page.price.period === "₱2,997/month" && page.pricing.terms === "Month-to-month, no lock-in.");
+  t("what is included: the plan, running and strength training, and a coach to answer questions",
+    JSON.stringify(page.overview.includes) === JSON.stringify([
+      "A personalized training plan, built by an Athlevo coach.",
+      "Running and strength training.",
+      "Built around your schedule, your fitness level, and your goals.",
+      "A coach to answer your questions."
+    ]) &&
+    JSON.stringify(page.pricing.includes) === JSON.stringify([
+      "Personalized training plan, built by an Athlevo coach",
+      "Running and strength training",
+      "A coach to answer your questions"
+    ]));
+  t("Guided promises answers to questions, not reviews: adjustments, nutrition, recovery protocols and a hands-on coach are named as Athlevo Coaching",
+    !/review|adjust|nutrition|recovery|hands-on|priority/i.test(JSON.stringify([
+      page.headline, page.description, page.supporting, page.overview.includes, page.pricing.includes, page.getStarted.steps])) &&
+    /Frequent training adjustments, nutrition, recovery protocols, and a hands-on coach are part of Athlevo Coaching/.test(page.overview.note));
+  t("no coach is named or implied: no coach profile and no Meet the Coach section",
+    !("coach" in page) && !/\b(Dean|Castro|Louie|Christian|Francia|founder|head coach)\b/i.test(pageJson) &&
+    !/id="coach"|Meet the Coach/.test(pre.html));
+  t("sign-up wiring: its own endpoints and reference code, a call to schedule, the code box, and the monthly renewal line",
+    typeof su.open === "boolean" && su.refCode === "PL" && su.call === true && su.takesCodes !== false &&
+    su.checkoutEndpoint === "/api/guided-signup/checkout" && su.statusEndpoint === "/api/guided-signup/status" &&
+    su.renewal === "There is no automatic renewal. We will remind you when your next payment is due." &&
+    page.getStarted.notice === "Registration opening soon");
+  t("how to get started: payment, questionnaire, call, plan and coach contact, follow the plan and ask the coach",
+    JSON.stringify(page.getStarted.steps) === JSON.stringify([
+      "Sign up and complete payment.",
+      "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
+      "Schedule a call with the Athlevo team.",
+      "Receive your personalized plan and coach contact instructions.",
+      "Follow your plan and ask your coach when you have questions."
+    ]));
+  t("the prerendered Guided page holds the price, inclusions, steps and quotes, and no coach block",
+    pre.holdsContent && /\/month/.test(pre.text) && !pre.text.includes("Meet the Coach"));
+  t("the prerendered Guided page has Sign Up buttons and the discount code box exactly when its switch is on, and no card field",
+    pre.buttons === (su.open ? 2 : 0) && pre.codeBoxes === (su.open ? 2 : 0) && pre.inputs === pre.codeBoxes &&
+    pre.html.includes("Have a discount code?") === su.open &&
+    !/<(form|textarea|select)\b/i.test(pre.html) && !/cc-|cvv|cvc|card-?number/i.test(pre.html) &&
+    (su.open || !/checkout|paymongo|payment=/i.test(pre.html.replace(/<script[\s\S]*?<\/script>/g, ""))));
+}
+
+section("4g. Athlevo Coaching page (₱4,998/month)");
 {
   const coaching = catalog.getProduct("athlevo-coaching");
-  const plan = catalog.getProduct("athlevo-plan");
-  const page = coaching.page;
-  const landingSrc = readFileSync("./js/landingContent.js", "utf8");
+  const page = coaching.page, su = page.signUp;
   const pageJson = JSON.stringify({ ...page, athleteFeedback: undefined });
+  const pre = prerendered("athlevo-coaching");
 
   t("first screen: title, headline, description, supporting text",
     coaching.name === "Athlevo Coaching" &&
-    page.headline === "Your training, reviewed and adjusted regularly." &&
-    page.description === "Personalized online running coaching with regular reviews and direct coach communication." &&
-    page.supporting === "Month-to-month coaching. No lock-in.");
-  t("price is ₱4,998/month", page.price.amount + page.price.period === "₱4,998/month");
-  t("Coaching sign-up wiring: Sign Up falls back to an in-page link while its switch is off, and the endpoints are Coaching's",
-    page.signUp && typeof page.signUp.open === "boolean" && page.cta.label === "Sign Up" && page.cta.target === "how-to-get-started" &&
-    page.getStarted.notice === "Registration opening soon" &&
-    page.signUp.checkoutEndpoint === "/api/coaching-signup/checkout" && page.signUp.statusEndpoint === "/api/coaching-signup/status");
-  t("reviews are described as regular and frequent, never as weekly or on a fixed schedule",
-    !/weekly|every week|daily|biweekly|fortnight/i.test(JSON.stringify(page) + coaching.name) &&
-    /reviews and adjusts your training regularly/.test(page.overview.intro) &&
-    /communicate with your coach directly/.test(page.overview.intro) &&
-    /more frequent reviews than Athlevo Plan, which includes a monthly review/.test(page.overview.note));
-  t("Coaching checkout copy is the Plan's: same methods, renewal and no-refund wording",
-    page.signUp.payment === plan.page.signUp.payment && page.signUp.renewal === plan.page.signUp.renewal &&
-    page.signUp.terms === plan.page.signUp.terms);
-  t("what is included is exactly what the agreement promises for this plan",
+    page.seoTitle === "Athlevo Coaching — Online Running and Strength Coaching" &&
+    page.headline === "A hands-on coach for your training, nutrition, and recovery." &&
+    page.description === "Everything in Athlevo Guided, plus frequent training adjustments, nutrition, recovery protocols, and a hands-on coach." &&
+    page.supporting === "Month-to-month. No lock-in.");
+  t("price is ₱4,998/month, month-to-month with no lock-in",
+    page.price.amount + page.price.period === "₱4,998/month" && page.pricing.terms === "Month-to-month, no lock-in.");
+  t("what is included: everything in Guided, frequent adjustments, running, strength, nutrition, recovery protocols and a hands-on coach",
     JSON.stringify(page.overview.includes) === JSON.stringify([
-      "An onboarding call to understand your training history, current fitness, schedule, equipment, limitations, and goals.",
-      "A personalized running plan.",
-      "Strength and conditioning guidance where appropriate.",
-      "Regular coach reviews and assessments of your progress.",
-      "Direct coach communication.",
-      "Frequent adjustments based on how training is actually going."
-    ]));
-  t("pricing: confirmed inclusions, month-to-month, no lock-in",
-    page.pricing.terms === "Month-to-month, no lock-in." &&
+      "Everything in Athlevo Guided.",
+      "Frequent training adjustments, based on how your training is going.",
+      "Running and strength training.",
+      "Nutrition.",
+      "Recovery protocols.",
+      "A hands-on coach."
+    ]) &&
     JSON.stringify(page.pricing.includes) === JSON.stringify([
-      "Personalized running plan",
-      "Strength and conditioning guidance where appropriate",
-      "Regular coach reviews and assessments",
-      "Direct coach communication"
+      "Everything in Athlevo Guided",
+      "Frequent training adjustments",
+      "Running, strength, nutrition, and recovery protocols",
+      "A hands-on coach"
     ]));
-  t("how to get started follows the Plan's flow: payment, questionnaire, onboarding call, plan, regular reviews",
+  t("adjustments are described as frequent and based on training, never as weekly",
+    /Frequent training adjustments/.test(page.overview.includes[1]) && /how your training is going/.test(page.overview.includes[1]) &&
+    !/weekly|every week/i.test(JSON.stringify(page)));
+  t("no coach is named or implied: no coach profile and no Meet the Coach section; Dean and priority responses belong to VIP",
+    !("coach" in page) && !/\b(Dean|Castro|Louie|Christian|Francia|founder|head coach)\b/i.test(pageJson) &&
+    !/priority/i.test(pageJson) && !/id="coach"|Meet the Coach/.test(pre.html));
+  t("sign-up wiring: its own endpoints and reference code, a call to schedule, the code box, and the monthly renewal line",
+    typeof su.open === "boolean" && su.refCode === "CO" && su.call === true && su.takesCodes !== false &&
+    su.checkoutEndpoint === "/api/coaching-signup/checkout" && su.statusEndpoint === "/api/coaching-signup/status" &&
+    su.renewal === "There is no automatic renewal. We will remind you when your next payment is due." &&
+    page.getStarted.notice === "Registration opening soon");
+  t("how to get started: payment, questionnaire, onboarding call, plan, frequent adjustments from the coach",
     JSON.stringify(page.getStarted.steps) === JSON.stringify([
       "Sign up and complete payment.",
       "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
       "Schedule your onboarding call.",
-      "Receive your personalized running plan, with strength and conditioning guidance where appropriate.",
-      "Train with regular coach reviews, frequent adjustments, and direct coach communication."
+      "Receive your personalized training plan.",
+      "Train with frequent adjustments from your hands-on coach."
     ]));
-  t("athlete feedback is the same approved set the Plan page uses, verbatim from the landing content",
-    page.athleteFeedback === plan.page.athleteFeedback &&
-    page.athleteFeedback.label === "From Athlevo athletes." &&
-    page.athleteFeedback.items.length > 0 && page.athleteFeedback.items.every(i => i.source === "js/landingContent.js" &&
-      landingSrc.includes('name: "' + i.name + '"') &&
-      landingSrc.includes('context: "' + i.context + '"') &&
-      landingSrc.includes('quote: "' + i.quote + '"')));
-  t("no coach is named or implied: no coach profile, and no 'Meet the Coach' section on the page",
-    !("coach" in page) && !/\b(Dean|Castro|Louie|Christian|Francia|founder|head coach)\b/i.test(pageJson) &&
-    /if \(data\.coach\)/.test(storefrontSrc) &&
-    !/id="coach"/.test(readFileSync("./store-pages/athlevo-coaching.html", "utf8")) &&
-    /id="coach"/.test(readFileSync("./store-pages/athlevo-plan.html", "utf8")));
-  t("no invented response times, support channels, timelines, discounts, fees, or outcomes",
-    !/\b(messenger|whatsapp|facebook|email|viber|telegram|within|hours?|business days?|24\/7|response|respond|reply|replies|priority|guarantee\w*|free|trial|discounts?|fees?|refunds?|promos?|coupons?)\b|% off/i.test(pageJson) &&
-    !/\d+\s*(minutes?|hours?|days?|weeks?)/i.test(pageJson));
-  t("the page says nothing about face-to-face sessions, medical care, or a named platform",
-    !/\b(face-to-face|in-person|gym|medical|nutrition|physio\w*|trainingpeaks|strava|garmin|google|calendar|spreadsheet)\b/i.test(pageJson));
-  t("coach-support terms stay in internal data, not on the page",
-    coaching.coachSupport.status === "pending" && !/coachSupport/.test(pageJson));
+  t("the prerendered Coaching page holds the price, inclusions, steps and quotes, and no coach block",
+    pre.holdsContent && /\/month/.test(pre.text) && !pre.text.includes("Meet the Coach"));
+  t("the prerendered Coaching page has Sign Up buttons and the discount code box exactly when its switch is on, and no card field",
+    pre.buttons === (su.open ? 2 : 0) && pre.codeBoxes === (su.open ? 2 : 0) && pre.inputs === pre.codeBoxes &&
+    pre.html.includes("Have a discount code?") === su.open &&
+    !/<(form|textarea|select)\b/i.test(pre.html) && !/cc-|cvv|cvc|card-?number/i.test(pre.html) &&
+    (su.open || !/checkout|paymongo|payment=/i.test(pre.html.replace(/<script[\s\S]*?<\/script>/g, ""))));
+}
 
-  // The prerendered page carries the same text for crawlers.
-  const html = readFileSync("./store-pages/athlevo-coaching.html", "utf8");
-  const text = html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<style[\s\S]*?<\/style>/g, " ")
-    .replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ");
-  t("the prerendered Coaching page holds the price, inclusions, steps and quotes (and the opening-soon notice only while closed)",
-    text.includes("₱4,998") && text.includes("/month") &&
-    text.includes(page.getStarted.notice) === !page.signUp.open &&
-    page.overview.includes.every(i => text.includes(i)) &&
-    page.getStarted.steps.every(i => text.includes(i)) &&
-    page.athleteFeedback.items.every(i => text.includes(i.quote) && text.includes(i.name)) &&
-    !text.includes("Meet the Coach") && !text.includes("Purchasing not available"));
-  t("the prerendered Coaching page has Sign Up buttons exactly when its switch is on, and never a form field or card input",
-    (html.match(/<button class="btn btn-red btn-lg" type="button">Sign Up<\/button>/g) || []).length === (page.signUp.open ? 2 : 0) &&
-    !/<(form|textarea|select)\b/i.test(html) &&
-    (page.signUp.open || !/checkout|paymongo|payment=/i.test(html.replace(/<script[\s\S]*?<\/script>/g, ""))));
-  t("the prerendered Coaching page has the discount code box exactly when sign-up is open, and no card field",
-    (html.match(/<input\b[^>]*name="discount-code"[^>]*>/g) || []).length === (page.signUp.open ? 2 : 0) &&
-    (html.match(/<input\b/g) || []).length === (page.signUp.open ? 2 : 0) && !/cc-|cvv|cvc|card-?number/i.test(html) &&
-    (html.includes("Have a discount code?") === page.signUp.open));
+section("4h. Athlevo VIP Coaching page (₱7,998/month)");
+{
+  const vip = catalog.getProduct("athlevo-vip-coaching");
+  const page = vip.page, su = page.signUp;
+  const pre = prerendered("athlevo-vip-coaching");
+
+  t("first screen: title, headline, description, supporting text",
+    vip.name === "Athlevo VIP Coaching" &&
+    page.seoTitle === "Athlevo VIP Coaching — Online Coaching with Dean Castro" &&
+    page.headline === "Coached directly by Dean, with priority responses." &&
+    page.description === "Everything in Athlevo Coaching, with Head Coach Dean Castro as your coach and priority responses." &&
+    page.supporting === "Month-to-month. No lock-in.");
+  t("price is ₱7,998/month, month-to-month with no lock-in",
+    page.price.amount + page.price.period === "₱7,998/month" && page.pricing.terms === "Month-to-month, no lock-in.");
+  t("what is included: everything in Coaching, Dean as your coach, priority responses",
+    JSON.stringify(page.overview.includes) === JSON.stringify([
+      "Everything in Athlevo Coaching.",
+      "Dean Castro, Head Coach of Athlevo, as your coach.",
+      "Priority responses."
+    ]) &&
+    JSON.stringify(page.pricing.includes) === JSON.stringify([
+      "Everything in Athlevo Coaching",
+      "Dean Castro as your coach",
+      "Priority responses"
+    ]));
+  t("coach: Dean's catalog record, with an existing optimized photo",
+    page.coach === catalog.coaches[0] &&
+    page.coach.name === "Dean Vincent Castro" &&
+    page.coach.role === "Founder & Head Coach, Athlevo" &&
+    page.coach.photo.src === "/assets/store/founder-920.webp" &&
+    page.coach.photo.original === "/assets/landing/dean-castro-coach.jpg" &&
+    existsSync("." + page.coach.photo.original) &&
+    page.coach.photo.webp.length === 2 && page.coach.photo.avif.length === 2);
+  t("coach intro invents no credentials and does not promise Dean coaches every customer",
+    /structured running and strength training/.test(page.coach.intro) &&
+    !/\b(certif\w*|usatf|licen[sc]\w*|degree|champion\w*|records?|awards?|years|olympi\w*|podium|winner|won)\b/i.test(page.coach.intro) &&
+    !/personally|every (plan )?(customer|athlete|client|member)|each (customer|athlete|client)/i.test(page.coach.intro));
+  t("sign-up wiring: its own endpoints and reference code, a call to schedule, no code box, and the monthly renewal line",
+    typeof su.open === "boolean" && su.refCode === "EL" && su.call === true && su.takesCodes === false &&
+    su.checkoutEndpoint === "/api/vip-signup/checkout" && su.statusEndpoint === "/api/vip-signup/status" &&
+    su.renewal === "There is no automatic renewal. We will remind you when your next payment is due." &&
+    page.getStarted.notice === "Registration opening soon");
+  t("how to get started: payment, questionnaire, onboarding call, plan, train with Dean with priority responses",
+    JSON.stringify(page.getStarted.steps) === JSON.stringify([
+      "Sign up and complete payment.",
+      "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
+      "Schedule your onboarding call.",
+      "Receive your personalized training plan.",
+      "Train with Dean as your coach, with priority responses."
+    ]));
+  t("the prerendered VIP page holds the price, inclusions, steps and quotes, and Dean's Meet the Coach block with his credentials",
+    pre.holdsContent && /\/month/.test(pre.text) && pre.text.includes("Meet the Coach") && pre.text.includes("Dean Vincent Castro") &&
+    catalog.coaches[0].certifications.every(x => pre.html.includes("<li>" + x + "</li>")));
+  t("the prerendered VIP page has Sign Up buttons exactly when its switch is on, never a code box, and no other offer's price",
+    pre.buttons === (su.open ? 2 : 0) && pre.codeBoxes === 0 && pre.inputs === 0 && !/Have a discount code\?/.test(pre.html) &&
+    !/₱999|₱2,997|₱4,998/.test(pre.text) && !/<(form|textarea|select)\b/i.test(pre.html) && !/cc-|cvv|cvc|card-?number/i.test(pre.html));
 }
 
 section("5. Client routing");
@@ -679,23 +792,23 @@ section("7. Responsive storefront images");
     catalog.coaches[1].photo.width === 880 && catalog.coaches[1].photo.height === 1100 &&
     ["640", "880"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/christian-" + w + "." + ext))));
   const hybridWebp = statSync("./assets/store/hybrid-1023.webp").size;
-  const hybrid = catalog.getProduct("hybrid-programming").hero;
-  t("Hybrid Programming uses the supplied athlete photo, cropped 4:5, with the original kept",
+  const hybrid = catalog.getProduct("athlevo-guided").hero;
+  t("Athlevo Guided uses the supplied athlete photo, cropped 4:5, with the original kept",
     hybrid.original === "/assets/landing/hybrid-programming-athlete.png" &&
     existsSync("./assets/landing/hybrid-programming-athlete.png") &&
     hybrid.width === 1023 && hybrid.height === 1279 &&
     ["640", "1023"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/hybrid-" + w + "." + ext))));
-  t("Hybrid Programming no longer uses the founder photo, which stays on Dean's coach card only",
+  t("No offer card uses the founder photo, which stays on Dean's coach card only",
     hybrid.src !== catalog.coaches[0].photo.src &&
     catalog.coaches[0].photo.src === "/assets/store/founder-920.webp" &&
     catalog.products.filter(p => p.hero.src === catalog.coaches[0].photo.src).length === 0);
-  t("Hybrid photo alt text describes the scene without naming a person or race number",
+  t("Guided photo alt text describes the scene without naming a person or race number",
     hybrid.alt.length > 20 && !/dean|castro|founder|christian|francia|\d{4,}/i.test(hybrid.alt));
-  t("Hybrid photo has a top-anchored focus so the head stays in the square mobile card",
+  t("Guided photo has a top-anchored focus so the head stays in the square mobile card",
     hybrid.focus === "50% 0%" &&
     /if \(photo\.focus\) node\.style\.objectPosition = photo\.focus/.test(storefrontSrc) &&
     catalog.products.filter(p => p.hero.focus).length === 1);
-  t("Hybrid WebP is under 500KB", hybridWebp < 500 * 1024, String(hybridWebp));
+  t("Guided WebP is under 500KB", hybridWebp < 500 * 1024, String(hybridWebp));
   t("hero crop keeps the shirt lettering and hands in the wide banner",
     /\.hero img\s*\{[^}]*object-position:\s*center 16%/.test(css));
   t("derived store photos are WebP/AVIF under assets/store",
@@ -767,25 +880,27 @@ section("8. Crawler-readable pages");
     catalog.coaches.every(c => home.includes(c.role)) &&
     home.includes("Strength & Conditioning Coach, Assistant Running Coach, Athlevo") &&
     home.includes("Running Coach, Athlevo"));
-  t("the Plan page's Meet the Coach block shows Dean's credentials too; the Coaching page names no coach",
-    catalog.coaches[0].certifications.every(x => bySlug("athlevo-plan").html.includes("<li>" + x + "</li>")) &&
-    /<p class="coach-card-creds-label">Credentials<\/p>/.test(bySlug("athlevo-plan").html) &&
-    !/id="coach"|USATF|STRYD/.test(bySlug("athlevo-coaching").html));
+  t("the VIP page's Meet the Coach block shows Dean's credentials; the Plan, Guided and Coaching pages name no coach",
+    catalog.coaches[0].certifications.every(x => bySlug("athlevo-vip-coaching").html.includes("<li>" + x + "</li>")) &&
+    /<p class="coach-card-creds-label">Credentials<\/p>/.test(bySlug("athlevo-vip-coaching").html) &&
+    ["athlevo-plan", "athlevo-guided", "athlevo-coaching"].every(slug => !/id="coach"|USATF|STRYD/.test(bySlug(slug).html)));
 
-  const plan = visible(bySlug("athlevo-plan").html);
-  const planData = catalog.getProduct("athlevo-plan").page;
-  t("Athlevo Plan text is in the HTML: price, what is included, athlete quotes and how to get started (opening-soon notice only while closed)",
-    plan.includes("₱1,998") && plan.includes("/month") &&
-    plan.includes(planData.getStarted.notice) === !planData.signUp.open &&
-    planData.overview.includes.every(i => plan.includes(i)) &&
-    planData.getStarted.steps.every(i => plan.includes(i)) &&
-    planData.athleteFeedback.items.every(i => plan.includes(i.quote) && plan.includes(i.name)) &&
-    plan.includes(planData.coach.name));
-  t("offers without confirmed details show no price and no invented copy",
-    ["hybrid-programming"].every(slug => {
-      const v = visible(bySlug(slug).html);
-      return !/₱|\bper month\b|\/month/i.test(v) && v.includes(catalog.getProduct(slug).name) && v.includes("Purchasing not available");
+  t("every offer's text is in the HTML: price, what is included, athlete quotes and how to get started (opening-soon notice only while closed)",
+    catalog.products.every(o => {
+      const v = visible(bySlug(o.slug).html), d = o.page;
+      return v.includes(d.price.amount) && (!d.price.period || v.includes(d.price.period)) &&
+        v.includes(d.getStarted.notice) === !d.signUp.open &&
+        d.overview.includes.every(i => v.includes(i)) && d.getStarted.steps.every(i => v.includes(i)) &&
+        d.athleteFeedback.items.every(i => v.includes(i.quote) && v.includes(i.name)) &&
+        !v.includes("Purchasing not available");
     }));
+  t("the VIP page names Dean as the coach and the other three name no one",
+    visible(bySlug("athlevo-vip-coaching").html).includes(catalog.getProduct("athlevo-vip-coaching").page.coach.name) &&
+    ["athlevo-plan", "athlevo-guided", "athlevo-coaching"].every(slug => !visible(bySlug(slug).html).includes("Dean Vincent Castro")));
+  t("the dropped and renamed pages are gone: no Hybrid Programming or Elite Coaching page or rewrite",
+    !existsSync("./store-pages/hybrid-programming.html") && !existsSync("./store-pages/elite-coaching.html") &&
+    !existsSync("./hybrid-programming.html") && !existsSync("./elite-coaching.html") &&
+    !vercel.rewrites.some(r => /hybrid-programming|elite-coaching/.test(r.source + r.destination)));
 
   t("pages load only the two storefront scripts, and contain no form fields beyond the discount code box",
     pages.every(p => {
@@ -809,13 +924,30 @@ section("8. Crawler-readable pages");
         i < rewrites.indexOf("/programs/:slug") && existsSync("./store-pages/" + p.slug + ".html");
     }));
   const legacy = Object.entries(catalog.legacySlugs);
-  t("pre-rename offer URLs redirect permanently, in one hop, to the new /programs page; removed offers have no redirect",
-    legacy.length === 4 &&
-    legacy.every(([from, to]) => vercel.redirects.some(r => r.source === "/store/" + from && r.destination === "/programs/" + to && r.permanent === true) &&
-      catalog.getProduct(to)) &&
+  const storeEra = ["first-5k", "faster-5k", "marathon", "half-marathon"]; // the addresses that were ever under /store
+  t("pre-rename /store offer URLs redirect permanently, in one hop, to the new /programs page; Hybrid Programming's old address goes to the hub; First 10K has none",
+    legacy.length === 4 && legacy.every(([, to]) => catalog.getProduct(to)) &&
+    ["first-5k", "faster-5k", "marathon"].every(from => vercel.redirects.some(r => r.source === "/store/" + from &&
+      r.destination === "/programs/" + catalog.legacySlugs[from] && r.permanent === true)) &&
+    vercel.redirects.some(r => r.source === "/store/half-marathon" && r.destination === "/programs" && r.permanent === true) &&
     !vercel.redirects.some(r => r.source === "/store/first-10k"));
+  const retired = (source) => vercel.redirects.find(r => r.source === source);
+  const hostCatchAll = vercel.redirects.findIndex(r => r.destination === "https://athlevo.org/:path");
+  const apexSlug = vercel.redirects.findIndex(r => r.source === "/programs/:slug" && (r.has || []).length === 1);
+  t("the retired addresses redirect on every host, ahead of every rule that could catch them: Elite Coaching goes permanently to Athlevo VIP Coaching, Hybrid Programming goes to the hub",
+    [["/elite-coaching", "https://programs.athlevo.org/athlevo-vip-coaching", true],
+     ["/programs/elite-coaching", "https://programs.athlevo.org/athlevo-vip-coaching", true],
+     ["/hybrid-programming", "https://programs.athlevo.org/programs", false],
+     ["/programs/hybrid-programming", "https://programs.athlevo.org/programs", false]]
+      .every(([source, destination, permanent]) => {
+        const r = retired(source);
+        const at = vercel.redirects.indexOf(r);
+        return !!r && r.destination === destination && r.permanent === permanent && !r.has && !r.missing &&
+          at < hostCatchAll && at < apexSlug && at < vercel.redirects.findIndex(x => x.source === "/store/:slug");
+      }) &&
+    hostCatchAll > -1 && apexSlug > -1);
   const redirectSources = vercel.redirects.map(r => r.source);
-  const SHORT = ["athlevo-plan", "athlevo-coaching", "hybrid-programming", "elite-coaching"];
+  const SHORT = catalog.products.map(p => p.slug);
   t("short links (athlevo.org/athlevo-plan and the other three) redirect, temporarily and in one hop, to the offer page on programs.athlevo.org; other hosts (previews) go to /programs/<slug>",
     SHORT.every(slug => catalog.getProduct(slug) &&
       vercel.redirects.filter(r => r.source === "/" + slug).length === 2 &&
@@ -828,12 +960,12 @@ section("8. Crawler-readable pages");
         !(r.has && r.has.length === 1 && r.has[0].type === "host" && r.has[0].value === "programs.athlevo.org")) &&
       !existsSync("./" + slug) && !existsSync("./" + slug + ".html")));
   t("the local preview server mirrors the short links and keeps the query string (a ?code= link survives)",
-    /const SHORT_LINKS = new Set\(\["athlevo-plan", "athlevo-coaching", "hybrid-programming", "elite-coaching"\]\)/.test(readFileSync("./scripts/serve-web.mjs", "utf8")) &&
+    /const SHORT_LINKS = new Set\(\["athlevo-plan", "athlevo-guided", "athlevo-coaching", "athlevo-vip-coaching"\]\)/.test(readFileSync("./scripts/serve-web.mjs", "utf8")) &&
     /res\.writeHead\(307, \{ location: shortLink \+ url\.search \}\)/.test(readFileSync("./scripts/serve-web.mjs", "utf8")));
   t("the old /store and /store/:slug paths redirect permanently to /programs, after the specific legacy-slug rules",
     vercel.redirects.some(r => r.source === "/store" && r.destination === "/programs" && r.permanent === true) &&
     vercel.redirects.some(r => r.source === "/store/:slug" && r.destination === "/programs/:slug" && r.permanent === true) &&
-    legacy.every(([from]) => redirectSources.indexOf("/store/" + from) > -1 && redirectSources.indexOf("/store/" + from) < redirectSources.indexOf("/store/:slug")) &&
+    storeEra.every(from => redirectSources.indexOf("/store/" + from) > -1 && redirectSources.indexOf("/store/" + from) < redirectSources.indexOf("/store/:slug")) &&
     vercel.redirects.filter(r => r.source.startsWith("/store")).every(r => r.permanent === true && r.destination.startsWith("/programs")));
 
   const sitemap = read("sitemap.xml");
@@ -862,44 +994,88 @@ section("8. Crawler-readable pages");
     /pathname === "\/programs"/.test(serveSrc) && /function redirectFor/.test(serveSrc) && /res\.writeHead\(308/.test(serveSrc));
 }
 
-section("10. Sign-up on Athlevo Plan, Athlevo Coaching and Elite Coaching (client)");
+section("10. Sign-up on the four offers (client)");
 {
-  const signUp = catalog.getProduct("athlevo-plan").page.signUp;
+  const offers = catalog.products;
+  const signUps = offers.map(o => o.page.signUp);
   const { DEFAULT_PAYMONGO_PAYMENT_METHODS } = await import("../lib/server/paymongoClient.js");
-  const { SIGNUP_REFERENCE_PATTERN, PLAN_PAGE_PATH, COACHING_PAGE_PATH, ELITE_PAGE_PATH } = await import("../lib/server/planSignup.js");
-  const coSignUp = catalog.getProduct("athlevo-coaching").page.signUp;
-  const elSignUp = catalog.getProduct("elite-coaching").page.signUp;
+  const srv = await import("../lib/server/planSignup.js");
+  const { SIGNUP_REFERENCE_PATTERN } = srv;
+  const SERVER = {
+    "athlevo-plan": { product: srv.ATHLEVO_PLAN_PRODUCT, path: srv.PLAN_PAGE_PATH, ref: srv.newPlanReference, steps: srv.planNextSteps, key: "plan" },
+    "athlevo-guided": { product: srv.ATHLEVO_GUIDED_PRODUCT, path: srv.GUIDED_PAGE_PATH, ref: srv.newGuidedReference, steps: srv.guidedNextSteps, key: "guided" },
+    "athlevo-coaching": { product: srv.ATHLEVO_COACHING_PRODUCT, path: srv.COACHING_PAGE_PATH, ref: srv.newCoachingReference, steps: srv.coachingNextSteps, key: "coaching" },
+    "athlevo-vip-coaching": { product: srv.ATHLEVO_VIP_PRODUCT, path: srv.VIP_PAGE_PATH, ref: srv.newVipReference, steps: srv.vipNextSteps, key: "vip" }
+  };
+  const monthly = offers.filter(o => o.slug !== "athlevo-plan").map(o => o.page.signUp);
 
   t("each offer has a boolean sign-up switch, and the store-wide purchasing flag stays false (offers open one by one)",
-    typeof signUp.open === "boolean" && typeof coSignUp.open === "boolean" && typeof elSignUp.open === "boolean" && catalog.purchasingAvailable === false);
-  t("only the three built offers have a sign-up object",
-    catalog.products.filter(p => p.page && p.page.signUp).map(p => p.slug).join(",") === "athlevo-plan,athlevo-coaching,elite-coaching");
-  t("the store notice and FAQ agree with the switch (the banner is written by the build)",
-    (signUp.open || coSignUp.open || elSignUp.open) === !/Purchasing is not yet available/.test(storeHtml) &&
+    signUps.every(su => typeof su.open === "boolean") && catalog.purchasingAvailable === false);
+  t("all four offers have a sign-up object, in the order they are sold",
+    offers.filter(p => p.page && p.page.signUp).map(p => p.slug).join(",") === "athlevo-plan,athlevo-guided,athlevo-coaching,athlevo-vip-coaching");
+  const anyOpen = signUps.some(su => su.open);
+  t("the store notice and FAQ agree with the switches (the banner is written by the build)",
+    anyOpen === !/Purchasing is not yet available/.test(storeHtml) &&
     storeHtml.includes('<div class="notice">' + catalog.notice() + "</div>") &&
     storeHtml.includes(catalog.getFaqs()[0].answer) &&
-    ((signUp.open || coSignUp.open || elSignUp.open) ? !/Not yet\. Purchasing is not open/.test(catalog.getFaqs()[0].answer) : catalog.getFaqs()[0].answer === catalog.faqs[0].answer));
-  t("the page endpoints are the rewrites the server answers, one pair per offer",
-    [signUp, coSignUp, elSignUp].every(su => ["checkoutEndpoint", "statusEndpoint"].every(k => vercel.rewrites.some(r => r.source === su[k]))) &&
-    new Set([signUp, coSignUp, elSignUp].map(su => su.checkoutEndpoint)).size === 3 &&
-    new Set([signUp, coSignUp, elSignUp].map(su => su.statusEndpoint)).size === 3);
+    (anyOpen ? !/Not yet\. Purchasing is not open/.test(catalog.getFaqs()[0].answer) : catalog.getFaqs()[0].answer === catalog.faqs[0].answer));
+  t("the page endpoints are the rewrites the server answers, one distinct pair per offer",
+    offers.every(o => {
+      const su = o.page.signUp, key = SERVER[o.slug].key;
+      const rewriteTo = (src) => (vercel.rewrites.find(r => r.source === src) || {}).destination;
+      return rewriteTo(su.checkoutEndpoint) === "/api/providers?action=" + key + "_signup_checkout" &&
+        rewriteTo(su.statusEndpoint) === "/api/providers?action=" + key + "_signup_status";
+    }) &&
+    new Set(signUps.map(su => su.checkoutEndpoint)).size === 4 && new Set(signUps.map(su => su.statusEndpoint)).size === 4);
   t("payment copy names exactly the methods the server offers, and never GCash",
     (() => {
       const label = { qrph: "QRPh", grab_pay: "GrabPay", maya: "Maya" };
-      return [signUp, coSignUp, elSignUp].every(su =>
+      return signUps.every(su =>
         DEFAULT_PAYMONGO_PAYMENT_METHODS.every(m => label[m] && su.payment.includes(label[m])) &&
         DEFAULT_PAYMONGO_PAYMENT_METHODS.length === 3 && !/gcash/i.test(su.payment));
     })());
-  t("renewal copy states there is no automatic renewal and promises a reminder",
-    [signUp, coSignUp, elSignUp].every(su => /no automatic renewal/.test(su.renewal) && /remind you/.test(su.renewal)));
-  t("the no-refund line is the agreement's Section 6 wording, shown before payment",
-    [signUp, coSignUp, elSignUp].every(su => su.terms === "All payments to Athlevo are final and non-refundable, to the fullest extent allowed under Philippine law.") &&
+  t("the three monthly offers say there is no automatic renewal and promise a reminder; Athlevo Plan says it is paid once and nothing renews",
+    monthly.every(su => /no automatic renewal/.test(su.renewal) && /remind you/.test(su.renewal)) &&
+    /one-time payment/.test(catalog.getProduct("athlevo-plan").page.signUp.renewal) &&
+    /Nothing renews automatically/.test(catalog.getProduct("athlevo-plan").page.signUp.renewal));
+  t("the no-refund line is the agreement's Section 6 wording, shown before payment, on all four",
+    signUps.every(su => su.terms === "All payments to Athlevo are final and non-refundable, to the fullest extent allowed under Philippine law.") &&
     /\[data\.signUp\.payment, data\.signUp\.renewal, data\.signUp\.terms\]/.test(storefrontSrc));
   t("the browser and the server agree on the reference format and the return pages",
     new RegExp(storefrontSrc.match(/var SIGNUP_REF = \/(.+)\/i;/)[1]).source === SIGNUP_REFERENCE_PATTERN.source &&
-    PLAN_PAGE_PATH === "/athlevo-plan" && catalog.getProduct("athlevo-plan").slug === "athlevo-plan" &&
-    COACHING_PAGE_PATH === "/athlevo-coaching" && catalog.getProduct("athlevo-coaching").slug === "athlevo-coaching" &&
-    ELITE_PAGE_PATH === "/elite-coaching" && catalog.getProduct("elite-coaching").slug === "elite-coaching");
+    offers.every(o => SERVER[o.slug].path === "/" + o.slug));
+  const env = { PLAN_QUESTIONNAIRE_URL: "https://example.com/q", PLAN_SCHEDULE_URL: "https://example.com/s" };
+  t("the catalog and the server agree on each offer: name, price, reference code and whether there is a call step",
+    offers.every(o => {
+      const s = SERVER[o.slug], su = o.page.signUp;
+      return s.product.name === o.name &&
+        o.page.price.amount === "₱" + (s.product.priceCents / 100).toLocaleString("en-US") &&
+        s.ref().split("-")[1] === su.refCode &&
+        s.steps(env).call === su.call;
+    }) && new Set(signUps.map(su => su.refCode)).size === 4);
+  t("only Athlevo Plan is paid once: the page has no price period exactly where the server marks the offer one-time",
+    offers.every(o => (o.page.price.period === "") === (SERVER[o.slug].product.oneTime === true)) &&
+    offers.filter(o => SERVER[o.slug].product.oneTime === true).map(o => o.slug).join(",") === "athlevo-plan");
+  t("the browser skips the call step and the code box only where the catalog says so",
+    /cfg\.call === false/.test(storefrontSrc) && /cfg\.takesCodes !== false/.test(storefrontSrc) &&
+    offers.filter(o => o.page.signUp.call === false).map(o => o.slug).join(",") === "athlevo-plan" &&
+    offers.filter(o => o.page.signUp.takesCodes === false).map(o => o.slug).join(",") === "athlevo-plan,athlevo-vip-coaching");
+  // A returning buyer's link is for one offer, but the reference in it says which offer was paid for.
+  const confirmationProduct = vm.runInNewContext(
+    "(function (catalog) { " + storefrontSrc.match(/function confirmationProduct\(route\) \{[\s\S]*?\n  \}\n/)[0] + " return confirmationProduct; })", {})(catalog);
+  const refFor = (code) => code ? "ATH-" + code + "-FEEDFACE01-" + "A".repeat(24) : "";
+  const opens = (slug, code) => { const r = confirmationProduct({ slug, ref: refFor(code) }); return r && r.slug; };
+  t("a returning buyer's confirmation opens under the offer named in the payment reference, whichever page the link is on",
+    opens("athlevo-plan", "TP") === "athlevo-plan" &&
+    opens("athlevo-plan", "PL") === "athlevo-guided" &&          // a link saved when Guided was the Plan
+    opens("athlevo-guided", "PL") === "athlevo-guided" &&
+    opens("athlevo-coaching", "CO") === "athlevo-coaching" &&
+    opens("athlevo-vip-coaching", "EL") === "athlevo-vip-coaching" &&
+    opens("elite-coaching", "EL") === "athlevo-vip-coaching" &&  // a link saved when VIP was Elite
+    opens("athlevo-coaching", "el") === "athlevo-vip-coaching" &&
+    opens("athlevo-guided", "") === "athlevo-guided" &&
+    opens("not-an-offer", "PL") === null);
+
   t("the confirmation names the offer from the catalog instead of hard-coding the Plan",
     /"Thank you for signing up for " \+ product\.name/.test(storefrontSrc) &&
     /"Confirmation of your " \+ product\.name \+ " payment\."/.test(storefrontSrc) &&
@@ -942,109 +1118,99 @@ section("10. Sign-up on Athlevo Plan, Athlevo Coaching and Elite Coaching (clien
     mkdirSync(join(tmp, "js"));
     writeFileSync(join(tmp, "store.html"), storeHtml);
     writeFileSync(join(tmp, "js/storefront.js"), storefrontSrc);
-    // The catalog has exactly one switch per built offer; the fixtures set them explicitly so these
-    // tests hold whichever way the shipped catalog has them.
+    // The catalog has exactly one switch per offer; the fixtures set them explicitly so these
+    // tests hold whichever way the shipped catalog has them. [plan, guided, coaching, vip]
     const SWITCH = /\bopen: (?:true|false),/g;
-    t("the catalog has exactly one switch per built offer", (catalogSrc.match(SWITCH) || []).length === 3);
-    const setSwitches = (src, planOpen, coachingOpen, eliteOpen = false) => {
-      const want = [planOpen, coachingOpen, eliteOpen]; let i = 0;
-      return src.replace(SWITCH, () => "open: " + want[i++] + ",");
+    t("the catalog has exactly one switch per offer", (catalogSrc.match(SWITCH) || []).length === 4);
+    const build = (flags) => {
+      let i = 0;
+      writeFileSync(join(tmp, "js/storeCatalog.js"), catalogSrc.replace(SWITCH, () => "open: " + flags[i++] + ","));
+      return Object.fromEntries(buildStorePages(tmp).map(f => [f.path, f.content]));
     };
+    const PLAN = "athlevo-plan", GUIDED = "athlevo-guided", COACHING = "athlevo-coaching", VIP = "athlevo-vip-coaching";
+    const SU = Object.fromEntries(catalog.products.map(o => [o.slug, o.page.signUp]));
+    const pageOf = (files, slug) => files["store-pages/" + slug + ".html"];
+    const bannersOf = (files) => Object.values(files).filter(c => c.startsWith("<!DOCTYPE")).map(c => (c.match(/<div class="notice">([^<]*)<\/div>/) || [])[1]);
+    const everyBanner = (files, text) => bannersOf(files).length === 5 && bannersOf(files).every(b => b === text);
+    const buttonsIn = (html) => (html.match(SIGN_UP_BUTTON) || []).length;
+    const codeBoxesIn = (html) => (html.match(/name="discount-code"/g) || []).length;
+    // Closed: the registration notice and an in-page link, no buttons, no code box, no payment note.
+    const shut = (html) => buttonsIn(html) === 0 && codeBoxesIn(html) === 0 && /Registration opening soon/.test(html) &&
+      /href="#how-to-get-started"/.test(html) && !/signup-note/.test(html);
+    // Open: two Sign Up buttons and live regions, no in-page link or notice, and the payment, renewal and no-refund lines once.
+    const live = (html, slug) => buttonsIn(html) === 2 && !/href="#how-to-get-started"/.test(html) && !/Registration opening soon/.test(html) &&
+      (html.match(/class="signup-status" role="status" aria-live="polite"/g) || []).length === 2 &&
+      (html.match(/class="signup-note"/g) || []).length === 1 &&
+      html.includes(SU[slug].payment) && html.includes(SU[slug].renewal) && html.includes(SU[slug].terms);
 
-    // Closed: nothing can be bought, and Sign Up is only an in-page link.
-    writeFileSync(join(tmp, "js/storeCatalog.js"), setSwitches(catalogSrc, false, false));
-    const closed = Object.fromEntries(buildStorePages(tmp).map(f => [f.path, f.content]));
-    t("closed (neither): every page's banner says purchasing is not yet available",
-      Object.values(closed).filter(c => c.startsWith("<!DOCTYPE")).every(c =>
-        c.includes('<div class="notice">Purchasing is not yet available</div>')));
-    t("closed (neither): Plan and Coaching show the registration notice and an in-page Sign Up link, with no buttons",
-      ["athlevo-plan", "athlevo-coaching"].every(slug => {
-        const html = closed["store-pages/" + slug + ".html"];
-        return !/<button class="btn/.test(html) && /Registration opening soon/.test(html) && /href="#how-to-get-started"/.test(html);
-      }));
-    t("closed (neither): the FAQ still says purchasing is not open", /Not yet\. Purchasing is not open/.test(closed["store-pages/athlevo-plan.html"]));
+    // Nothing open: nothing can be bought, and Sign Up is only an in-page link.
+    const none = build([false, false, false, false]);
+    t("closed (none): every page's banner says purchasing is not yet available", everyBanner(none, "Purchasing is not yet available"));
+    t("closed (none): all four offers show the registration notice and an in-page Sign Up link, with no buttons and no code box",
+      catalog.products.every(o => shut(pageOf(none, o.slug))));
+    t("closed (none): the FAQ still says purchasing is not open", /Not yet\. Purchasing is not open/.test(pageOf(none, PLAN)));
 
-    const openSrc = setSwitches(catalogSrc, true, false);
-    t("the Plan-only fixture opens exactly one switch", (openSrc.match(/\bopen: true,/g) || []).length === 1);
-    writeFileSync(join(tmp, "js/storeCatalog.js"), openSrc);
-    const files = Object.fromEntries(buildStorePages(tmp).map(f => [f.path, f.content]));
-    const plan = files["store-pages/athlevo-plan.html"];
-    const buttons = plan.match(/<button class="btn btn-red btn-lg" type="button">Sign Up<\/button>/g) || [];
-    t("open: the Plan page has a Sign Up button in the hero and in the pricing card, and no in-page link",
-      buttons.length === 2 && !/href="#how-to-get-started"/.test(plan));
-    t("open: every page's banner announces the Plan instead of 'purchasing is not yet available'",
-      Object.values(files).filter(c => c.startsWith("<!DOCTYPE")).every(c =>
-        c.includes('<div class="notice">Athlevo Plan is open for sign-up</div>') && !c.includes('<div class="notice">Purchasing is not yet available</div>')));
-    t("open: the registration-opening-soon notice is gone and the payment and renewal note is shown once",
-      !/Registration opening soon/.test(plan) && (plan.match(/class="signup-note"/g) || []).length === 1 &&
-      plan.includes(signUp.payment) && plan.includes(signUp.renewal) && plan.includes(signUp.terms));
-    t("open: the FAQ no longer says purchasing is closed, and other offers are unchanged",
-      !/Not yet\. Purchasing is not open/.test(plan) && /Athlevo Plan is open for sign-up/.test(plan) &&
-      !/<button class="btn/.test(files["store-pages/athlevo-coaching.html"]) &&
-      /Registration opening soon/.test(files["store-pages/athlevo-coaching.html"]) &&
-      /href="#how-to-get-started"/.test(files["store-pages/athlevo-coaching.html"]) &&
-      /Purchasing not available/.test(files["store-pages/hybrid-programming.html"]));
-    t("open: the live regions are in place for progress and errors",
-      (plan.match(/class="signup-status" role="status" aria-live="polite"/g) || []).length === 2);
-    t("open (Plan only): the Coaching page stays closed and says why",
-      !/<button class="btn/.test(files["store-pages/athlevo-coaching.html"]) && !/signup-note/.test(files["store-pages/athlevo-coaching.html"]));
+    // Athlevo Plan alone.
+    const planFlags = [true, false, false, false];
+    t("the Plan-only fixture opens exactly one switch", planFlags.filter(Boolean).length === 1);
+    const planOnly = build(planFlags);
+    const planPage = pageOf(planOnly, PLAN);
+    t("open (Plan only): every page's banner announces the Plan",
+      everyBanner(planOnly, "Athlevo Plan is open for sign-up") && !planOnly["store.html"].includes("Purchasing is not yet available"));
+    t("open (Plan only): the Plan page has Sign Up in the hero and the pricing card, the payment, one-time and no-refund lines once, and no code box",
+      live(planPage, PLAN) && codeBoxesIn(planPage) === 0 && !/Have a discount code\?/.test(planPage));
+    t("open (Plan only): the Plan page shows ₱999 with no monthly wording and names no coach",
+      textOf(mainOf(planPage)).includes("₱999") && !/\/month|per month|month-to-month|monthly/i.test(textOf(mainOf(planPage))) &&
+      !/id="coach"|Meet the Coach/.test(planPage));
+    t("open (Plan only): the FAQ names the Plan and says the other programs are not available yet",
+      /Athlevo Plan is open for sign-up\. The other programs are not available to buy yet\./.test(planPage) && !/Not yet\. Purchasing is not open/.test(planPage));
+    t("open (Plan only): Guided, Coaching and VIP stay closed", [GUIDED, COACHING, VIP].every(s => shut(pageOf(planOnly, s))));
 
-    // Coaching open as well: both pages take sign-ups, the banner names both.
-    const bothSrc = setSwitches(catalogSrc, true, true);
-    writeFileSync(join(tmp, "js/storeCatalog.js"), bothSrc);
-    const both = Object.fromEntries(buildStorePages(tmp).map(f => [f.path, f.content]));
-    const coaching = both["store-pages/athlevo-coaching.html"];
-    const coButtons = coaching.match(/<button class="btn btn-red btn-lg" type="button">Sign Up<\/button>/g) || [];
-    t("open (both): the Coaching page has a Sign Up button in the hero and in the pricing card, and no in-page link",
-      coButtons.length === 2 && !/href="#how-to-get-started"/.test(coaching) &&
-      (coaching.match(/class="signup-status" role="status" aria-live="polite"/g) || []).length === 2);
-    t("open (both): the registration-opening-soon notice is gone and the payment note is shown once, with the no-refund line",
-      !/Registration opening soon/.test(coaching) && (coaching.match(/class="signup-note"/g) || []).length === 1 &&
-      coaching.includes(coSignUp.payment) && coaching.includes(coSignUp.renewal) && coaching.includes(coSignUp.terms));
-    t("open (both): every page's banner names both offers",
-      Object.values(both).filter(c => c.startsWith("<!DOCTYPE")).every(c =>
-        c.includes('<div class="notice">Athlevo Plan and Athlevo Coaching are open for sign-up</div>') &&
-        !c.includes("Purchasing is not yet available</div>")));
-    t("open (both): the FAQ names both, and Hybrid Programming and Elite Coaching (switch off) stay closed",
-      /Athlevo Plan and Athlevo Coaching are open for sign-up\. The other programs are not available to buy yet\./.test(coaching) &&
-      !/<button class="btn/.test(both["store-pages/hybrid-programming.html"]) &&
-      !/<button class="btn/.test(both["store-pages/elite-coaching.html"]) &&
-      /Purchasing not available/.test(both["store-pages/hybrid-programming.html"]) &&
-      /Registration opening soon/.test(both["store-pages/elite-coaching.html"]));
-    t("open (both): still no coach named on the Coaching page", !/id="coach"|Meet the Coach/.test(coaching));
+    // Guided and Coaching: both take the discount code.
+    const gcFlags = [false, true, true, false];
+    const gc = build(gcFlags);
+    t("open (Guided and Coaching): every page's banner names both",
+      everyBanner(gc, "Athlevo Guided and Athlevo Coaching are open for sign-up"));
+    t("open (Guided and Coaching): each page has Sign Up in the hero and the pricing card, the payment, renewal and no-refund lines once, and a code box per button",
+      [GUIDED, COACHING].every(s => live(pageOf(gc, s), s) && codeBoxesIn(pageOf(gc, s)) === 2 &&
+        pageOf(gc, s).includes("Have a discount code?") && !/id="coach"|Meet the Coach/.test(pageOf(gc, s))));
+    t("open (Guided and Coaching): the FAQ names both, and Plan and VIP stay closed",
+      /Athlevo Guided and Athlevo Coaching are open for sign-up\. The other programs are not available to buy yet\./.test(pageOf(gc, COACHING)) &&
+      [PLAN, VIP].every(s => shut(pageOf(gc, s))));
 
-    // All three open: the banner and FAQ name all three; Elite takes sign-ups but no code box.
-    writeFileSync(join(tmp, "js/storeCatalog.js"), setSwitches(catalogSrc, true, true, true));
-    const all3 = Object.fromEntries(buildStorePages(tmp).map(f => [f.path, f.content]));
-    const elite = all3["store-pages/elite-coaching.html"];
-    t("open (all three): every page's banner names the three offers",
-      Object.values(all3).filter(c => c.startsWith("<!DOCTYPE")).every(c =>
-        c.includes('<div class="notice">Athlevo Plan, Athlevo Coaching and Elite Coaching are open for sign-up</div>')));
-    t("open (all three): the FAQ names the three and says the other program is not available",
-      /Athlevo Plan, Athlevo Coaching and Elite Coaching are open for sign-up\. The other program is not available to buy yet\./.test(elite));
-    t("open (all three): the Elite page has Sign Up in the hero and the pricing card, shows the price, and has no code box",
-      (elite.match(/<button class="btn btn-red btn-lg" type="button">Sign Up<\/button>/g) || []).length === 2 &&
-      /₱7,998/.test(elite) && !/name="discount-code"/.test(elite) && !/Have a discount code\?/.test(elite) && !/Registration opening soon/.test(elite) &&
-      (elite.match(/class="signup-note"/g) || []).length === 1);
-    t("open (all three): Plan and Coaching keep their code box, once per Sign Up button",
-      ["athlevo-plan", "athlevo-coaching"].every(slug => (all3["store-pages/" + slug + ".html"].match(/name="discount-code"/g) || []).length === 2));
-    t("open (all three): the Elite page names Dean as the coach, with his credentials, and no other price appears on it",
-      /Meet the Coach/.test(elite) && elite.includes("Dean Vincent Castro") &&
-      catalog.coaches[0].certifications.every(x => elite.includes("<li>" + x + "</li>")) &&
-      !/₱1,998|₱4,998/.test(elite.replace(/<[^>]+>/g, " ")));
-    t("open (all three): Hybrid Programming is still closed",
-      !/<button class="btn/.test(all3["store-pages/hybrid-programming.html"]) && /Purchasing not available/.test(all3["store-pages/hybrid-programming.html"]));
+    // Three open, VIP closed: the FAQ says "program" for the one left.
+    const three = build([true, true, true, false]);
+    t("open (all but VIP): banner and FAQ name the three and say the other program is not available",
+      everyBanner(three, "Athlevo Plan, Athlevo Guided and Athlevo Coaching are open for sign-up") &&
+      /Athlevo Plan, Athlevo Guided and Athlevo Coaching are open for sign-up\. The other program is not available to buy yet\./.test(pageOf(three, VIP)) &&
+      shut(pageOf(three, VIP)));
 
-    // Coaching alone (Plan closed): the banner and FAQ name only Coaching.
-    const coOnlySrc = setSwitches(catalogSrc, false, true);
-    writeFileSync(join(tmp, "js/storeCatalog.js"), coOnlySrc);
-    const coOnly = Object.fromEntries(buildStorePages(tmp).map(f => [f.path, f.content]));
-    t("open (Coaching only): banner and FAQ name only Coaching, and the Plan page stays closed",
+    // Coaching alone.
+    const coOnly = build([false, false, true, false]);
+    t("open (Coaching only): banner and FAQ name only Coaching, and the other three pages stay closed",
       coOnly["store.html"].includes('<div class="notice">Athlevo Coaching is open for sign-up</div>') &&
-      /Athlevo Coaching is open for sign-up\. The other programs/.test(coOnly["store-pages/athlevo-coaching.html"]) &&
-      !/<button class="btn/.test(coOnly["store-pages/athlevo-plan.html"]) &&
-      /Registration opening soon/.test(coOnly["store-pages/athlevo-plan.html"]) &&
-      /<button class="btn btn-red btn-lg"/.test(coOnly["store-pages/athlevo-coaching.html"]));
+      /Athlevo Coaching is open for sign-up\. The other programs are not available to buy yet\./.test(pageOf(coOnly, COACHING)) &&
+      live(pageOf(coOnly, COACHING), COACHING) && [PLAN, GUIDED, VIP].every(s => shut(pageOf(coOnly, s))));
+
+    // All four open, as shipped.
+    const all4 = build([true, true, true, true]);
+    t("open (all four): every page's banner says all programs are open, and the FAQ agrees with nothing left closed",
+      everyBanner(all4, "All programs are open for sign-up") &&
+      /All programs are open for sign-up\./.test(pageOf(all4, VIP)) && !/not available to buy yet/.test(pageOf(all4, VIP)) &&
+      !/Not yet\. Purchasing is not open/.test(pageOf(all4, VIP)));
+    t("open (all four): every offer has its Sign Up buttons and payment note, and none still shows the opening-soon notice",
+      catalog.products.every(o => live(pageOf(all4, o.slug), o.slug)));
+    t("open (all four): the code box is on Guided and Coaching (once per Sign Up button), and not on Plan or VIP",
+      [GUIDED, COACHING].every(s => codeBoxesIn(pageOf(all4, s)) === 2) &&
+      [PLAN, VIP].every(s => codeBoxesIn(pageOf(all4, s)) === 0 && !/Have a discount code\?/.test(pageOf(all4, s))));
+    const vipText = textOf(mainOf(pageOf(all4, VIP)));
+    t("open (all four): the VIP page shows ₱7,998 and no other price, and names Dean as the coach, with his credentials",
+      vipText.includes("₱7,998") && !/₱999|₱2,997|₱4,998/.test(vipText) &&
+      /Meet the Coach/.test(vipText) && vipText.includes("Dean Vincent Castro") &&
+      catalog.coaches[0].certifications.every(x => pageOf(all4, VIP).includes("<li>" + x + "</li>")));
+    t("open (all four): each monthly page shows its price with /month, and Plan alone has none",
+      [[GUIDED, "₱2,997"], [COACHING, "₱4,998"], [VIP, "₱7,998"]].every(([s, p]) => textOf(mainOf(pageOf(all4, s))).includes(p) && /\/month/.test(textOf(mainOf(pageOf(all4, s))))) &&
+      !/\/month/.test(textOf(mainOf(pageOf(all4, PLAN)))));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -1122,8 +1288,19 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
       [PREVIEW, "/" + s, { status: 307, location: "/programs/" + s }],
       [PREVIEW, "/programs/" + s, { status: 200, rewrite: "/store-pages/" + s + ".html" }]
     ]),
+    // Retired addresses: Elite Coaching was renamed Athlevo VIP Coaching and Hybrid Programming was dropped.
+    // They answer the same on every host, in one hop.
+    ...[HOST, "athlevo.org", PREVIEW].flatMap(h => [
+      [h, "/elite-coaching", { status: 308, location: PROGRAMS + "/athlevo-vip-coaching" }],
+      [h, "/programs/elite-coaching", { status: 308, location: PROGRAMS + "/athlevo-vip-coaching" }],
+      [h, "/hybrid-programming", { status: 307, location: PROGRAMS + "/programs" }],
+      [h, "/programs/hybrid-programming", { status: 307, location: PROGRAMS + "/programs" }]
+    ]),
     [HOST, "/programs/not-an-offer", { status: 200, rewrite: "/store.html" }],
     [HOST, "/api/plan-signup/checkout", { status: 200, rewrite: "/api/providers" }],
+    [HOST, "/api/guided-signup/checkout", { status: 200, rewrite: "/api/providers" }],
+    [HOST, "/api/coaching-signup/status", { status: 200, rewrite: "/api/providers" }],
+    [HOST, "/api/vip-signup/checkout", { status: 200, rewrite: "/api/providers" }],
     [HOST, "/assets/store/founder-920.webp", { status: 200, file: "/assets/store/founder-920.webp" }],
     [HOST, "/js/storefront.js", { status: 200, file: "/js/storefront.js" }],
     [HOST, "/store.css", { status: 200, file: "/store.css" }],
@@ -1154,6 +1331,10 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
     ["athlevo.org", "/store", { status: 308, location: "/programs" }],
     ["athlevo.org", "/store/first-5k", { status: 308, location: "/programs/athlevo-plan" }],
     ["athlevo.org", "/store/athlevo-plan", { status: 308, location: "/programs/athlevo-plan" }],
+    ["athlevo.org", "/store/faster-5k", { status: 308, location: "/programs/athlevo-coaching" }],
+    ["athlevo.org", "/store/marathon", { status: 308, location: "/programs/athlevo-vip-coaching" }],
+    ["athlevo.org", "/store/half-marathon", { status: 308, location: "/programs" }],
+    ["athlevo.org", "/store/elite-coaching", { status: 308, location: "/programs/elite-coaching" }],
     [PREVIEW, "/", { status: 200, file: "/index.html" }],
     [PREVIEW, "/programs", { status: 200, rewrite: "/store.html" }],
     // The free webinar pages (see docs/webinar.md): served on the programs host, moved there from athlevo.org.
@@ -1205,7 +1386,7 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
     apexRules.some(r => r.source === "/programs" && r.destination === PROGRAMS + "/programs") &&
     apexRules.some(r => r.source === "/programs/:slug" && r.destination === PROGRAMS + "/programs/:slug") &&
     vercel.redirects.indexOf(apexRules[0]) < vercel.redirects.findIndex(r => r.source === "/store/first-5k") &&
-    vercel.redirects.indexOf(apexRules.find(r => r.source === "/programs/:slug")) > vercel.redirects.indexOf(apexRules.find(r => r.source === "/programs/elite-coaching")));
+    vercel.redirects.indexOf(apexRules.find(r => r.source === "/programs/:slug")) > vercel.redirects.findIndex(r => r.source === "/programs/elite-coaching" && !r.has));
 
   // Everything the store pages load or link to must still work from this host: files and
   // API calls are served, the three legal pages go to athlevo.org, nothing else is needed.

@@ -10,9 +10,10 @@ The public program pages (the hub and the four offers) are served from their own
 |---|---|---|
 | Hub | `/programs` (`/` redirects there) | Vercel serves real files before it applies rewrites, and the app's `index.html` owns `/`, so the bare host cannot show the hub by itself. |
 | Athlevo Plan | `/athlevo-plan` | The same four paths are the short links to send to clients. |
+| Athlevo Guided | `/athlevo-guided` | |
 | Athlevo Coaching | `/athlevo-coaching` | |
-| Hybrid Programming | `/hybrid-programming` | |
-| Elite Coaching | `/elite-coaching` | |
+| Athlevo VIP Coaching | `/athlevo-vip-coaching` | |
+| Retired addresses | `/elite-coaching`, `/hybrid-programming` (also under `/programs/`) | Elite Coaching was renamed Athlevo VIP Coaching, so its old address redirects (308) to `/athlevo-vip-coaching`. Hybrid Programming was dropped, so its old address redirects (307) to `/programs`. Both work from any host. `/store/marathon` goes to the VIP page and `/store/half-marathon` to `/programs`. |
 | Free webinar | `/webinar` and `/webinar/thank-you` | A campaign page (see `docs/webinar.md`). Its stylesheet is `/webinar.css`; the same paths on `athlevo.org` redirect here (307). |
 | Anything else | redirected (307) to the same path on `athlevo.org` | Only program pages, the webinar pages, `/api/`, `/assets/`, `/athlevo-assets/`, `/js/`, `/store.css`, `/webinar.css`, `robots.txt` and the sitemaps are served here. |
 
@@ -33,8 +34,8 @@ checkout return links and the athlevo.org addresses are all unchanged; the new h
 1. Merge and deploy.
 2. Vercel project, Settings, Domains: add `programs.athlevo.org`.
 3. At the DNS provider (Name.com): add the record Vercel shows (a `CNAME` named `programs`).
-4. Check on the new host: `/` ends at `/programs`; each of `/athlevo-plan`, `/athlevo-coaching`,
-   `/hybrid-programming`, `/elite-coaching` opens; `/athlevo-plan?code=XXXX` keeps the code;
+4. Check on the new host: `/` ends at `/programs`; each of `/athlevo-plan`, `/athlevo-guided`,
+   `/athlevo-coaching`, `/athlevo-vip-coaching` opens; `/athlevo-guided?code=XXXX` keeps the code;
    `/privacy` lands on `https://athlevo.org/privacy`.
 
 **Step 2: switch over (done).** What now points at the new host, all in one commit:
@@ -44,7 +45,7 @@ checkout return links and the athlevo.org addresses are all unchanged; the new h
   canonicals, `og:url`, JSON-LD and the offer links from it, and two sitemaps: `sitemap.xml` (the home page, on
   athlevo.org) and `sitemap-programs.xml` (the hub and the four offers, on programs.athlevo.org). `robots.txt`
   names both. The store footer's Privacy, Terms and Support links are absolute `https://athlevo.org/...` links.
-- `PLAN_PAGE_PATH`, `COACHING_PAGE_PATH` and `ELITE_PAGE_PATH` in `lib/server/planSignup.js` are `/<slug>`, and the
+- `PLAN_PAGE_PATH`, `GUIDED_PAGE_PATH`, `COACHING_PAGE_PATH` and `VIP_PAGE_PATH` in `lib/server/planSignup.js` are `/<slug>`, and the
   default of `planSiteUrl()` is `https://programs.athlevo.org`, so PayMongo returns the buyer, and the emails link,
   to `programs.athlevo.org`. A Vercel preview deployment still returns to itself (its short links reach the page).
   `PLAN_SIGNUP_SITE_URL` is not set in Vercel; if it ever is, it overrides this.

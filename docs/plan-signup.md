@@ -1,26 +1,62 @@
-# Store sign-up: Athlevo Plan, Athlevo Coaching and Elite Coaching (programs.athlevo.org)
+# Store sign-up: Athlevo Plan, Athlevo Guided, Athlevo Coaching and Athlevo VIP Coaching (programs.athlevo.org)
 
-Lets a visitor pay for **Athlevo Plan** (₱1,998 per month) on `programs.athlevo.org/athlevo-plan`, **Athlevo Coaching**
-(₱4,998 per month) on `/athlevo-coaching` or **Elite Coaching** (₱7,998 per month, coached directly by Dean)
-on `/elite-coaching` without an Athlevo app account. Each offer is **off** until you turn it on, and you can
-open any of them without the others. These four paths on `programs.athlevo.org` are the links to send to clients;
-`athlevo.org/athlevo-plan`, `/athlevo-coaching` and `/elite-coaching` (and the old `athlevo.org/programs/...`
-addresses) redirect to them (set in `vercel.json`; see `docs/programs-domain.md`).
+Lets a visitor pay for one of four offers on `programs.athlevo.org` without an Athlevo app account:
 
-| | Athlevo Plan | Athlevo Coaching | Elite Coaching |
-|---|---|---|---|
-| Price (owned by the server) | ₱1,998 | ₱4,998 | ₱7,998 |
-| Page (on programs.athlevo.org) | `/athlevo-plan` | `/athlevo-coaching` | `/elite-coaching` |
-| Server switch | `PLAN_SIGNUP_ENABLED` | `COACHING_SIGNUP_ENABLED` | `ELITE_SIGNUP_ENABLED` |
-| Questionnaire link | `PLAN_QUESTIONNAIRE_URL` | `COACHING_QUESTIONNAIRE_URL`, or the Plan's when not set | `ELITE_QUESTIONNAIRE_URL`, or the Plan's when not set |
-| Call-scheduling link (optional) | `PLAN_SCHEDULE_URL` | `COACHING_SCHEDULE_URL` | `ELITE_SCHEDULE_URL` |
-| Agreement link (optional) | `PLAN_AGREEMENT_URL` | `COACHING_AGREEMENT_URL` | `ELITE_AGREEMENT_URL` |
-| Page switch | `signUp.open` on the Plan in `js/storeCatalog.js` | `signUp.open` on the Coaching entry | `signUp.open` on the Elite entry |
-| API paths | `/api/plan-signup/checkout`, `/status` | `/api/coaching-signup/checkout`, `/status` | `/api/elite-signup/checkout`, `/status` |
-| Reference on PayMongo | `ATH-PL-...` | `ATH-CO-...` | `ATH-EL-...` |
+- **Athlevo Plan** (₱999, paid once): a personalized training plan built by an Athlevo coach, on `/athlevo-plan`.
+- **Athlevo Guided** (₱2,997 per month): the plan plus a coach to answer your questions, on `/athlevo-guided`. This is the
+  offer that used to be called Athlevo Plan (₱1,998).
+- **Athlevo Coaching** (₱4,998 per month): everything in Guided, with frequent training adjustments, nutrition, recovery
+  protocols and a hands-on coach, on `/athlevo-coaching`.
+- **Athlevo VIP Coaching** (₱7,998 per month): everything in Coaching, with Dean as your coach and priority responses,
+  on `/athlevo-vip-coaching`. This is the offer that used to be called Elite Coaching.
 
-All offers write to the same table, `plan_signups`; the `product_id` column says which one
-(`ATHLEVO_PLAN_MONTHLY`, `ATHLEVO_COACHING_MONTHLY` or `ATHLEVO_ELITE_MONTHLY`).
+Each offer is **off** until you turn it on, and you can open any of them without the others. These four paths on
+`programs.athlevo.org` are the links to send to clients; the same paths on `athlevo.org` (and the old
+`athlevo.org/programs/...` addresses) redirect to them (set in `vercel.json`; see `docs/programs-domain.md`).
+**`/athlevo-plan` is now the ₱999 plan.** A link or ad that sent people there for the old ₱1,998 Plan should point at
+`/athlevo-guided` instead. The old `/elite-coaching` address redirects to `/athlevo-vip-coaching`, and `/hybrid-programming`
+(dropped) redirects to `/programs`.
+
+| | Athlevo Plan | Athlevo Guided | Athlevo Coaching | Athlevo VIP Coaching |
+|---|---|---|---|---|
+| Price (owned by the server) | ₱999, paid once | ₱2,997 | ₱4,998 | ₱7,998 |
+| Page (on programs.athlevo.org) | `/athlevo-plan` | `/athlevo-guided` | `/athlevo-coaching` | `/athlevo-vip-coaching` |
+| Server switch | `PLAN_SIGNUP_ENABLED` | `GUIDED_SIGNUP_ENABLED` | `COACHING_SIGNUP_ENABLED` | `VIP_SIGNUP_ENABLED` |
+| Questionnaire link | `PLAN_QUESTIONNAIRE_URL` | `GUIDED_QUESTIONNAIRE_URL`, or the Plan's when not set | `COACHING_QUESTIONNAIRE_URL`, or the Plan's when not set | `VIP_QUESTIONNAIRE_URL`, or the Plan's when not set |
+| Call-scheduling link (optional) | none: the Plan has no call | `GUIDED_SCHEDULE_URL`, or `PLAN_SCHEDULE_URL` when not set | `COACHING_SCHEDULE_URL` | `VIP_SCHEDULE_URL` |
+| Agreement link (optional) | `PLAN_AGREEMENT_URL` | `GUIDED_AGREEMENT_URL`, or `PLAN_AGREEMENT_URL` when not set | `COACHING_AGREEMENT_URL` | `VIP_AGREEMENT_URL` |
+| Page switch | `signUp.open` on the Plan in `js/storeCatalog.js` | `signUp.open` on the Guided entry | `signUp.open` on the Coaching entry | `signUp.open` on the VIP entry |
+| API paths | `/api/plan-signup/checkout`, `/status` | `/api/guided-signup/checkout`, `/status` | `/api/coaching-signup/checkout`, `/status` | `/api/vip-signup/checkout`, `/status` |
+| Reference on PayMongo | `ATH-TP-...` | `ATH-PL-...` | `ATH-CO-...` | `ATH-EL-...` |
+| `product_id` in `plan_signups` | `ATHLEVO_TRAINING_PLAN` | `ATHLEVO_PLAN_MONTHLY` | `ATHLEVO_COACHING_MONTHLY` | `ATHLEVO_ELITE_MONTHLY` |
+
+**Why Guided and VIP keep the old ids.** Guided is the old Athlevo Plan renamed and re-priced, and VIP Coaching is Elite Coaching
+renamed, so they keep `ATHLEVO_PLAN_MONTHLY` / `ATH-PL` and `ATHLEVO_ELITE_MONTHLY` / `ATH-EL`. That way every payment already
+recorded, every partner code made for "the Plan", and every confirmation link a buyer saved still belong to the right offer,
+with nothing to migrate. The new ₱999 Athlevo Plan has ids of its own. A confirmation link that names the wrong page (for
+example a saved `/athlevo-plan?payment=success&ref=ATH-PL-...`) opens under the offer its reference belongs to.
+
+**Switching over from the old lineup.** Guided is a new switch, so it stays closed on the server until `GUIDED_SIGNUP_ENABLED=true`
+is set; the existing `PLAN_SIGNUP_ENABLED=true` now opens the ₱999 Plan. VIP Coaching reads `VIP_*` (Elite read `ELITE_*`, so rename
+any `ELITE_*` variable you had set). Guided falls back to the matching `PLAN_*` questionnaire, scheduling and agreement links, so what
+you already set up for the old Plan keeps working for it. Deploy when no checkout is open: a checkout started at ₱1,998 and paid after
+the deploy is rejected by the webhook (see "Changing a price" below).
+
+**Settings to change in Vercel (Production) before the single deploy.** Environment variables only apply to a new deploy, so
+set these first and then deploy once:
+
+| Setting | Why |
+|---|---|
+| `GUIDED_SIGNUP_ENABLED=true` | Guided is a new switch. Until it is set, the Guided page shows Sign Up but the server answers "Sign-up is not open yet." |
+| `VIP_SIGNUP_ENABLED=true` | Same, for VIP Coaching. `ELITE_SIGNUP_ENABLED` is no longer read. |
+| `VIP_SCHEDULE_URL`, `VIP_AGREEMENT_URL` | Copy the values you had in `ELITE_SCHEDULE_URL` and `ELITE_AGREEMENT_URL`. VIP has no fallback for these two, so without them every VIP buyer's confirmation page and email arrive with no scheduling link and no agreement. |
+| `GUIDED_AGREEMENT_URL` (optional) | Guided and the ₱999 Plan both fall back to `PLAN_AGREEMENT_URL`. Set Guided's own if the two should show different documents. |
+| `PLAN_SIGNUP_ENABLED` | Already `true`? Then the **₱999 Plan opens the moment you deploy**, and any link or ad that still points at `/athlevo-plan` sells the ₱999 one-time Plan instead of the old monthly one. Point those at `/athlevo-guided`, or set this to `false` until you want the Plan on sale. |
+
+If a switch is missing, the server log says which one (`checkout refused: Athlevo VIP Coaching is closed on the server (needs
+VIP_SIGNUP_ENABLED=true ...)`), and it says so when old `ELITE_*` settings are still present.
+
+All offers write to the same table, `plan_signups`; the `product_id` column says which one.
 
 ## The flow
 
@@ -29,7 +65,7 @@ All offers write to the same table, `plan_signups`; the `product_id` column says
    endpoint that was called.
 2. They pay on PayMongo (QRPh, Maya or GrabPay, whatever `PAYMONGO_PAYMENT_METHODS` allows).
 3. PayMongo sends the signed webhook (`checkout_session.payment.paid`) to `/api/paymongo/webhook`.
-   If it is a Plan, Coaching or Elite payment, one row is written to `plan_signups`.
+   If it is a payment for one of the four offers, one row is written to `plan_signups`.
 4. When a payment is newly recorded, two emails go out (if you set them up, see step 3 under "Turn it on"): the
    buyer's next steps (reference, questionnaire link, scheduling link, agreement link if set, and a link back to the
    confirmation page) and an alert to you. A redelivered event never sends them again.
@@ -37,22 +73,30 @@ All offers write to the same table, `plan_signups`; the `product_id` column says
    offer's status endpoint whether the webhook has recorded the payment, and only then shows the
    questionnaire link and the call-scheduling step. Being redirected back proves nothing by itself.
 
-Payment is month to month with no automatic renewal. Month two is another checkout.
+Guided, Coaching and VIP Coaching are month to month with no automatic renewal. Month two is another checkout. The Athlevo Plan
+is paid once and has nothing to renew; its row still carries a `paid_through` of 30 days because the table needs one, and it is
+not a renewal date. Nothing reads `paid_through` today. When the monthly reminder is built it must skip `ATHLEVO_TRAINING_PLAN`
+rows, or Plan buyers will be reminded to pay again. The Plan has no call step: after the questionnaire the buyer's email and confirmation page say a coach builds
+the plan.
 
 ## Turn it on (in this order; repeat steps 2, 4 and 5 for each offer)
 
-1. **Database (once).** Run `migrations/2026-10-15_plan_signups.sql` in the Supabase SQL editor. It serves both offers.
+1. **Database (once).** Run `migrations/2026-10-15_plan_signups.sql` in the Supabase SQL editor. It serves all four offers.
 2. **Vercel environment variables** (Settings, Environment Variables). The PayMongo ones already exist for Athlevo Pro.
    - Questionnaire link, https, required. Current form:
      `https://docs.google.com/forms/d/e/1FAIpQLScnKgZvr86oITPSNEGEjSZTULQeIufXPUdiCIgO_AhqkUJFfg/viewform?usp=header`
-     Set `PLAN_QUESTIONNAIRE_URL`. Coaching and Elite use the same link unless you also set `COACHING_QUESTIONNAIRE_URL`
-     or `ELITE_QUESTIONNAIRE_URL` (if you set one it must be a valid https link, or that offer stays closed).
-   - Scheduling link (optional): `PLAN_SCHEDULE_URL`, `COACHING_SCHEDULE_URL` and/or `ELITE_SCHEDULE_URL`. Without one, the
-     page only says they will be asked to schedule a call. No offer borrows another's scheduling link.
-   - Agreement link (optional): `PLAN_AGREEMENT_URL`, `COACHING_AGREEMENT_URL` and/or `ELITE_AGREEMENT_URL`, an https link
-     to the agreement. When set, it appears on the confirmation page and in the buyer's email. No offer borrows another's.
-   - The switch: `PLAN_SIGNUP_ENABLED=true`, `COACHING_SIGNUP_ENABLED=true` and/or `ELITE_SIGNUP_ENABLED=true`. An offer stays
-     closed on the server unless its switch is `true` AND a questionnaire link is valid.
+     Set `PLAN_QUESTIONNAIRE_URL`. Guided, Coaching and VIP Coaching use the same link unless you also set
+     `GUIDED_QUESTIONNAIRE_URL`, `COACHING_QUESTIONNAIRE_URL` or `VIP_QUESTIONNAIRE_URL` (if you set one it must be a valid
+     https link, or that offer stays closed).
+   - Scheduling link (optional): `GUIDED_SCHEDULE_URL`, `COACHING_SCHEDULE_URL` and/or `VIP_SCHEDULE_URL`. Without one, the
+     page only says they will be asked to schedule a call. Only Guided borrows another's (it uses `PLAN_SCHEDULE_URL` when
+     `GUIDED_SCHEDULE_URL` is not set, because it is the old Plan); Coaching and VIP do not. The Athlevo Plan has no call.
+   - Agreement link (optional): `PLAN_AGREEMENT_URL`, `GUIDED_AGREEMENT_URL`, `COACHING_AGREEMENT_URL` and/or
+     `VIP_AGREEMENT_URL`, an https link to the agreement. When set, it appears on the confirmation page and in the buyer's
+     email. Guided uses `PLAN_AGREEMENT_URL` when its own is not set; Coaching and VIP do not borrow.
+   - The switch: `PLAN_SIGNUP_ENABLED=true`, `GUIDED_SIGNUP_ENABLED=true`, `COACHING_SIGNUP_ENABLED=true` and/or
+     `VIP_SIGNUP_ENABLED=true`. An offer stays closed on the server unless its own switch is `true` AND a questionnaire link
+     is valid. A switch is never inherited.
 3. **Emails (optional, once, recommended).** Uses the Resend account the coach invites already use. All of these are
    Vercel environment variables, and nothing is sent until `RESEND_API_KEY` is set.
    - `RESEND_API_KEY`: already set if coach invites work.
@@ -66,7 +110,7 @@ Payment is month to month with no automatic renewal. Month two is another checko
 4. **Test it before the public can see it.** The server switch and the page switch are separate: with the page switch
    still `false` there is no Sign Up button, so nobody finds it. Either use PayMongo test keys on a Vercel preview
    deployment (with a test-mode webhook pointed at that preview; never scan the test QR with a real app), or pay once
-   yourself with the live keys (₱1,998, ₱4,998 or ₱7,998) and refund it in the PayMongo dashboard (refunds mark the row
+   yourself with the live keys (₱999, ₱2,997, ₱4,998 or ₱7,998) and refund it in the PayMongo dashboard (refunds mark the row
    `refunded`). See "Test keys and live keys" below. Check that a `plan_signups` row appears with the right
    `product_id` and that the confirmation page shows your links.
 5. **Open it to the public.** In `js/storeCatalog.js` set that offer's `signUp.open` to `true`, then run
@@ -113,9 +157,10 @@ PayMongo collected at checkout and can be empty; the PayMongo dashboard always h
 ## Not built yet
 
 - No retry or "resend" for a failed email, and no way to resend the steps from the site.
-- No monthly reminder (deferred until the site is live). `paid_through` is there for it, and the page promises one.
+- No monthly reminder (deferred until the site is live). `paid_through` is there for it, and the Guided, Coaching and VIP pages
+  promise one. It must skip the one-time Athlevo Plan (`ATHLEVO_TRAINING_PLAN`).
 - No renewal link. Month two is another Sign Up checkout.
-- Nothing yet checks that a Coaching buyer's questionnaire or call happened; the confirmation page only shows the links.
+- Nothing yet checks that a buyer's questionnaire or call happened; the confirmation page only shows the links.
 
 ## Partner discount codes (one unique code per runner)
 
@@ -124,8 +169,8 @@ fixed percentage off **every** payment that runner makes with it, renewals inclu
 runner types the same code again; the welcome email reminds them). Nothing on the public site names a partner. Which
 batch a code belongs to is an internal label that only you see (in the database and in your sign-up alert).
 
-**How it works.** The Plan and Coaching pages have a small "Have a discount code?" link under each Sign Up button. The Elite
-page has none (see "Which offers a code works on" below).
+**How it works.** The Guided and Coaching pages have a small "Have a discount code?" link under each Sign Up button. The Plan and
+VIP Coaching pages have none (see "Which offers a code works on" below).
 A runner types the code (or opens a link ending in `?code=ABCD-EFGH`, which fills it in and applies it) and sees the new
 price before paying. The browser only ever sends the code text. The server looks the code up in `partner_codes`, works out
 the price itself, opens the PayMongo checkout at that price, and tags the checkout with the code. The webhook then accepts
@@ -137,11 +182,14 @@ alphabet, so they cannot be guessed.
 **Set up (once).** Run `migrations/2026-10-21_partner_codes.sql` in the Supabase SQL editor, before you give anyone a code.
 It adds the `partner_codes` table and a few columns on `plan_signups`, and is safe to run twice.
 
-**Which offers a code works on.** A code with no product list works on the Plan and Coaching only. Elite Coaching takes a code
-only when that code's row names it in `product_ids` (make the batch with `--products elite`, or `plan,coaching,elite`, below),
-so opening a new offer never quietly gives it a discount. The Elite page has no code box today, so the site cannot take an
-Elite code until that is switched on in the page code (`takesCodes` on the Elite entry in `js/storeCatalog.js`). An Elite
-checkout with a code that does not cover Elite is refused ("That code isn't valid"), never charged full price.
+**Which offers a code works on.** A code with no product list works on Guided and Coaching only (Guided is the offer that used to be
+the Plan, so codes made before the rename keep working on it, at Guided's higher price: a 10% code now takes ₱299.70 off ₱2,997,
+not ₱199.80 off ₱1,998. If an agreement with a partner was written against the old price, check it still says what you mean). The ₱999 Athlevo Plan and VIP Coaching take a code only when that
+code's row names them in `product_ids` (make the batch with `--products training-plan`, `--products vip`, or a list such as
+`guided,coaching,vip`, below), so opening a new offer never quietly gives it a discount. The Plan and VIP pages have no code box
+today, so the site cannot take a code for either until that is switched on in the page code (`takesCodes` on that entry in
+`js/storeCatalog.js`). A checkout with a code that does not cover the offer is refused ("That code isn't valid"), never charged
+full price.
 
 **Make a batch of codes.**
 
@@ -149,8 +197,10 @@ checkout with a code that does not cover Elite is refused ("That code isn't vali
 node scripts/generate-partner-codes.mjs --partner race-2026-11-24 --count 100
 ```
 
-Options: `--percent 10` (default 10, up to 50), `--products plan,coaching,elite` (any of the three, comma separated;
-default Plan and Coaching, which is also what naming exactly those two means), `--expires 2026-12-31`
+Options: `--percent 10` (default 10, up to 50), `--products guided,coaching` (any of `training-plan`, `guided`, `coaching`, `vip`, comma
+separated; default Guided and Coaching, which is also what naming exactly those two means. `plan` is refused on purpose: it used
+to mean the ₱1,998 offer, which is now `guided`, and the ₱999 Athlevo Plan is `training-plan`. The old name `elite` still works and
+means `vip`), `--expires 2026-12-31`
 (last day, Philippine time; default none), `--note "text"`, `--out folder` (default `partner-codes/`, which git ignores).
 It writes two files and changes nothing else. Run the `.sql` file in the Supabase SQL editor to switch the codes on, and hand
 out the codes in the `.csv` (written `ABCD-EFGH`; runners can type them in any case, with or without the hyphen). Make
@@ -202,12 +252,18 @@ the code in its `metadata`.
 
 ## Things to know
 
-- **Changing a price.** The price lives in `lib/server/planSignup.js` and on the page. Change both together, and only when no
-  checkout is open: a payment made at the old price is rejected by the webhook (it answers 400, so PayMongo keeps retrying
-  and nothing is recorded). If that ever happens, find the payment in the PayMongo dashboard and record or refund it by hand.
-- **One shared questionnaire link.** Coaching uses `PLAN_QUESTIONNAIRE_URL` unless `COACHING_QUESTIONNAIRE_URL` is set. If you
-  later remove or change the Plan's link, Coaching changes with it; set the Coaching one to keep them apart.
-- **A refund that arrives before its payment was recorded** (only possible if recording failed and PayMongo is still retrying)
+- **Changing a price.** The price lives in `lib/server/planSignup.js` and in `js/storeCatalog.js` (a test fails if they differ). Change both together, and only when no
+  checkout is open: a payment made at the old price is rejected by the webhook (it answers 400 and nothing is recorded). The
+  server logs `payment NOT recorded (wrong_amount)` with the reference and payment id, and emails `SIGNUP_ALERT_EMAIL` "Payment
+  received but NOT recorded". If that happens, find the payment in the PayMongo dashboard and record or refund it by hand.
+  PayMongo retries a failed delivery up to 12 times over about 2 hours and then stops; it does not resend missed events, and
+  if three events in a row use up all their retries it disables the webhook until someone re-enables it in the PayMongo
+  dashboard. So after any price change, check PayMongo's webhook page and compare its payments with `plan_signups`.
+- **Rows under `ATHLEVO_PLAN_MONTHLY` mix two prices.** Payments before the switch-over are ₱1,998 (the old Plan), payments after
+  are ₱2,997 (Guided). Tell them apart by `amount_cents` or `paid_at`.
+- **One shared questionnaire link.** Guided, Coaching and VIP Coaching use `PLAN_QUESTIONNAIRE_URL` unless their own
+  `*_QUESTIONNAIRE_URL` is set. If you later remove or change the Plan's link, they change with it; set their own to keep them apart.
+- **A refund that arrives before its payment was recorded** (only possible if recording failed and PayMongo is still retrying; it stops after about 2 hours)
   is not applied to the sign-up. The PayMongo dashboard is the source of truth for refunds; check it if a payment looks odd.
 
 ## Closing it again
