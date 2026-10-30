@@ -37,7 +37,7 @@ test("You does not receive a duplicate assigned-coach card", !/assigned_coach_vi
 console.log("\n──── Managed Today suppression ────");
 test("managed mode hides AI Daily Brief and Coach Memory", /setManagedAdviceHidden\(true\)/.test(athleteMode) && /dailyBriefFull/.test(dailyClient) && /coachMemorySection/.test(index) && !/id="todayCoachNoteSection"/.test(index));
 test("self-guided mode restores Coach Memory and AI advice surfaces", /_mode === "self_guided"[\s\S]*setManagedAdviceHidden\(false\)/.test(athleteMode));
-test("factual Today workout and direction markup remains present", /id="dailyBriefCard"/.test(index) && /id="todayReadinessSignal"/.test(index));
+test("factual Today workout and direction markup remains present", /id="dailyBriefCard"/.test(index) && /id="todayTrainingStatusSignal"/.test(index));
 test("client never requests a managed Daily Brief", /AthlevoAthleteMode\.isManaged\(\)/.test(dailyClient));
 test("server resolves coaching mode before entitlement and model generation", dailyServer.indexOf("await loadCoachingMode(user.id)") < dailyServer.indexOf('requirePaidAccess(user.id, "daily_brief")') && dailyServer.indexOf("await loadCoachingMode(user.id)") < dailyServer.indexOf("await generateBriefing"));
 

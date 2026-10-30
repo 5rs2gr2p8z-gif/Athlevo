@@ -208,14 +208,6 @@
     if (days < 30) return Math.floor(days / 7) + "w ago";
     return "30+ days ago";
   }
-  function fmtDateTime(iso) {
-    if (!iso) return "—";
-    try {
-      var d = new Date(iso);
-      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " +
-             d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    } catch (e) { return String(iso).slice(0, 16); }
-  }
   function rosterBand(n) {
     if (n === 0) return "0";
     if (n <= 5) return "1-5";
@@ -322,12 +314,6 @@
       ".cm-refresh{border:0;background:transparent;color:var(--ink3,#9a9da3);font:600 12px/1 var(--sans,sans-serif);padding:8px 0;cursor:pointer;flex:0 0 auto;}",
       ".cm-head-actions{display:flex;align-items:center;gap:12px;flex:0 0 auto}.cm-invite-trigger{min-height:36px;border:1px solid var(--line,#ebebe8);border-radius:999px;background:transparent;color:var(--ink1,#141416);font:700 11px/1 var(--sans,sans-serif);padding:9px 12px;cursor:pointer;white-space:nowrap}",
       ".cm-refresh:focus-visible,.cm-open-row:focus-visible,.cm-review:focus-visible{outline:2px solid var(--red,#C0272D);outline-offset:3px;}",
-      ".cm-summary-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:26px;}",
-      ".cm-summary-metric{min-width:0;min-height:66px;padding:12px 13px;background:var(--card2,var(--card,#f6f6f4));border-radius:10px;}",
-      ".cm-summary-metric strong{display:block;font-size:21px;line-height:1;font-weight:700;letter-spacing:-.025em;}",
-      ".cm-summary-metric span{display:block;margin-top:6px;color:var(--ink3,#9a9da3);font-size:10px;font-weight:700;line-height:1.25;letter-spacing:.055em;text-transform:uppercase;white-space:normal;overflow:visible;}",
-      ".cm-command-grid{display:grid;gap:26px;align-items:start;}",
-      ".cm-command-pair{display:grid;grid-template-columns:minmax(0,1fr);gap:26px;align-items:start;}",
       ".cm-section{min-width:0;}",
       ".cm-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0;padding-bottom:10px;border-bottom:1px solid var(--line,#ebebe8);}",
       ".cm-section-title{font-family:var(--sans,sans-serif);font-size:13px;font-weight:760;letter-spacing:.065em;text-transform:uppercase;margin:0;}",
@@ -363,10 +349,8 @@
       ".cm-skel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px;}",
       ".cm-skel-stack{display:grid;gap:8px;min-width:0;flex:1}.cm-skel-line{display:block;height:12px;border-radius:4px}.cm-skel-line--title{width:min(240px,70%);height:29px}.cm-skel-line--sub{width:min(360px,90%);}",
       ".cm-skel-refresh{display:block;width:48px;height:12px;margin-top:8px;border-radius:4px;flex:0 0 auto;}",
-      ".cm-skel-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:26px;}",
-      ".cm-skel-stat{display:grid;align-content:center;gap:8px;min-width:0;min-height:66px;padding:12px 13px;box-sizing:border-box;border-radius:10px;background:var(--card2,var(--card,#f6f6f4));}",
-      ".cm-skel-number{display:block;width:38px;height:20px;border-radius:4px}.cm-skel-stat-label{display:block;width:min(92px,82%);height:8px;border-radius:3px}",
-      ".cm-skel-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}.cm-skel-section{display:grid;gap:10px;min-width:0}.cm-skel-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line,#ebebe8)}.cm-skel-label{display:block;width:120px;height:11px;border-radius:4px}.cm-skel-count{display:block;width:18px;height:9px;border-radius:3px}.cm-skel-quiet{display:block;height:46px;border-radius:10px}",
+      "",
+      ".cm-skel-section{display:grid;gap:10px;min-width:0}",
       ".cm-skel-search{display:block;width:100%;height:34px;border-radius:6px}.cm-skel-roster{display:grid}.cm-skel-roster-row{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:14px 2px;border-bottom:1px solid var(--line,#ebebe8)}.cm-skel-avatar{display:block;width:40px;height:40px;border-radius:50%;flex:0 0 40px}.cm-skel-roster-copy{display:grid;gap:6px;min-width:0;flex:1;padding-top:1px}.cm-skel-name{display:block;width:min(180px,68%);height:13px;border-radius:4px}.cm-skel-context{display:block;width:min(250px,88%);height:10px;border-radius:3px}.cm-skel-status{display:block;width:min(150px,56%);height:9px;border-radius:3px}.cm-skel-chevron{display:block;width:8px;height:14px;margin-top:4px;border-radius:3px;flex:0 0 8px}",
       "body.coach-loading .boot-content{padding:0;overflow:hidden}body.coach-loading .boot-content .cm-command-skeleton{padding-top:calc(18px + env(safe-area-inset-top));}",
       ".cm-roster-item .cm-row{align-items:flex-start;padding:16px 2px;}",
@@ -375,9 +359,22 @@
       ".cm-roster-item .cm-row-primary{font-size:12px;line-height:1.45;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
       ".cm-roster-item .cm-row-meta{font-size:11px;line-height:1.45;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}",
       ".cm-roster-item .cm-chevron{margin-top:3px;}",
-      ".cm-command--small-roster .cm-command-grid{gap:26px}.cm-command--small-roster .cm-section--roster{padding-top:2px;}",
+      ".cm-command--small-roster .cm-section--roster{padding-top:2px;}",
       ".cm-filter-row{display:flex;gap:14px;overflow-x:auto;padding:12px 0 2px;scrollbar-width:none}.cm-filter-row::-webkit-scrollbar{display:none}.cm-filter{border:0;border-bottom:1px solid transparent;background:transparent;padding:3px 0 6px;color:var(--ink3,#9a9da3);font:700 11px/1 var(--sans,sans-serif);white-space:nowrap;cursor:pointer}.cm-filter.is-active{color:var(--ink1,#141416);border-bottom-color:var(--red,#C0272D)}",
       ".cm-roster-state{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--ink3,#9a9da3);max-width:92px;text-align:right}.cm-roster-state.attention{color:var(--bad,#c0272d)}",
+      /* My Athletes table (coach Home). Wide: a real table. Narrow: one card-like row per athlete. */
+      ".cm-command--roster{max-width:1180px}.cm-table-wrap{margin-top:6px;overflow-x:auto}.cm-roster-table{width:100%;border-collapse:collapse;table-layout:auto}",
+      ".cm-roster-table th{padding:12px 12px 10px;border-bottom:1px solid var(--line,#ebebe8);color:var(--ink3,#9a9da3);font-size:10px;font-weight:750;letter-spacing:.065em;text-align:left;text-transform:uppercase;white-space:nowrap}",
+      ".cm-roster-table td{padding:14px 12px;border-bottom:1px solid var(--line,#ebebe8);font-size:13px;line-height:1.35;vertical-align:middle}",
+      ".cm-roster-row{cursor:pointer;transition:background var(--dur-fast,140ms) var(--ease-standard,ease)}.cm-roster-row:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:-2px}",
+      ".cm-col-athlete{min-width:240px}.cm-athlete-cell{display:flex;align-items:flex-start;gap:12px}.cm-col-today,.cm-col-race{min-width:120px}.cm-col-status{min-width:130px}",
+      ".cm-roster-id{display:block;min-width:0}.cm-roster-id .cm-row-name{font-size:15px;white-space:normal;overflow:visible}.cm-roster-id .cm-row-primary{margin-top:3px;white-space:normal;overflow:visible}",
+      ".cm-roster-links{display:block;margin-top:5px;color:var(--ink3,#9a9da3);font-size:11px}.cm-roster-links button{border:0;background:transparent;padding:0;color:var(--red,#C0272D);font:600 11px/1.3 var(--sans,sans-serif);cursor:pointer}.cm-roster-links button:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:2px;border-radius:2px}",
+      ".cm-cell-main{display:block;font-weight:650}.cm-cell-sub{display:block;margin-top:3px;color:var(--ink3,#9a9da3);font-size:11px}.cm-cell-empty{color:var(--ink3,#9a9da3)}.cm-week-pct{display:block;font-weight:700}.cm-week-bar{display:block;width:86px;height:3px;margin-top:6px;border-radius:2px;background:var(--line,#ebebe8);overflow:hidden}.cm-week-bar i{display:block;height:100%;background:var(--red,#C0272D)}",
+      ".cm-roster-none td{padding:26px 14px;text-align:center;color:var(--ink3,#9a9da3);font-size:13px}",
+      "@media(hover:hover) and (pointer:fine){.cm-roster-row:hover{background:var(--card2,var(--card,#f6f6f4))}.cm-roster-links button:hover{text-decoration:underline}}",
+      "@media(max-width:1180px){.cm-col-active{display:none}}",
+      "@media(max-width:820px){.cm-roster-table thead{display:none}.cm-roster-table,.cm-roster-table tbody{display:block}.cm-roster-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:14px 2px;border-bottom:1px solid var(--line,#ebebe8)}.cm-roster-table td{display:block;padding:0;border:0}.cm-roster-table td.cm-col-athlete{grid-column:1;min-width:0}.cm-roster-table td.cm-col-status{grid-column:2;grid-row:1;max-width:120px;text-align:right}.cm-roster-table td.cm-col-today,.cm-roster-table td.cm-col-week{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;padding-left:52px;font-size:12px}.cm-roster-table td[data-label]:not(.cm-col-athlete):not(.cm-col-status)::before{content:attr(data-label);flex:0 0 66px;color:var(--ink3,#9a9da3);font-size:10px;font-weight:750;letter-spacing:.05em;text-transform:uppercase}.cm-roster-table td.cm-col-last,.cm-roster-table td.cm-col-race,.cm-roster-table td.cm-col-active{display:none}.cm-week-bar{display:none}.cm-week-pct{display:inline}.cm-cell-sub{display:inline;margin:0 0 0 6px}.cm-roster-none{display:block}.cm-roster-none td{display:block}}",
       ".cm-athlete-page{width:100%;max-width:920px;margin:0 auto;padding:16px 16px 108px;box-sizing:border-box;color:var(--ink1,var(--ink,#141416))}.cm-athlete-back{border:0;background:transparent;padding:7px 0;color:var(--ink2,#6d7075);font:700 12px/1 var(--sans,sans-serif);cursor:pointer}.cm-athlete-head{display:flex;align-items:flex-start;gap:12px;margin:14px 0 18px}.cm-athlete-head .cm-avatar{width:44px;height:44px;flex-basis:44px}.cm-athlete-head-copy{min-width:0;flex:1}.cm-athlete-name{font-family:var(--serif,serif);font-size:26px;font-weight:520;line-height:1.08;margin:0;overflow-wrap:anywhere}.cm-athlete-context{margin:5px 0 0;color:var(--ink3,#9a9da3);font-size:12px;line-height:1.4}.cm-athlete-tabs{display:flex;gap:18px;overflow-x:auto;border-bottom:1px solid var(--line,#ebebe8);scrollbar-width:none}.cm-athlete-tab{border:0;border-bottom:2px solid transparent;background:transparent;padding:10px 0 9px;color:var(--ink3,#9a9da3);font:700 12px/1 var(--sans,sans-serif);white-space:nowrap;cursor:pointer}.cm-athlete-tab.is-active{color:var(--ink1,#141416);border-bottom-color:var(--red,#C0272D)}.cm-athlete-panel{padding-top:20px}.cm-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line,#ebebe8);border:1px solid var(--line,#ebebe8)}.cm-detail-metric{min-height:82px;background:var(--bg,#fff);padding:14px}.cm-detail-label{display:block;color:var(--ink3,#9a9da3);font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}.cm-detail-value{display:block;margin-top:7px;font-size:14px;font-weight:700;line-height:1.35}.cm-detail-sub{display:block;margin-top:3px;color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}.cm-detail-section{margin-top:24px}.cm-detail-section h3{margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}.cm-detail-empty{padding:16px 0;border-block:1px solid var(--line,#ebebe8);color:var(--ink3,#9a9da3);font-size:13px}.cm-activity-list{margin:0;padding:0;list-style:none}.cm-activity-list li{padding:11px 0;border-bottom:1px solid var(--line,#ebebe8);font-size:13px}.cm-week-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.cm-week-title{font-size:14px;font-weight:750}.cm-week-actions{display:flex;gap:8px}.cm-week-btn{border:1px solid var(--line,#ebebe8);background:transparent;color:inherit;border-radius:999px;padding:8px 11px;font:700 11px/1 var(--sans,sans-serif);cursor:pointer}.cm-week-btn--primary{border-color:var(--red,#C0272D);color:var(--red,#C0272D)}.cm-workout-list{border-top:1px solid var(--line,#ebebe8)}.cm-workout-row{display:grid;grid-template-columns:45px minmax(0,1fr) auto;gap:11px;align-items:center;width:100%;padding:13px 0;border:0;border-bottom:1px solid var(--line,#ebebe8);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-workout-date{font-size:10px;color:var(--ink3,#9a9da3);text-transform:uppercase;line-height:1.35}.cm-workout-copy{min-width:0}.cm-workout-title{font-size:13px;font-weight:750;line-height:1.3}.cm-workout-meta{margin-top:4px;color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}.cm-workout-status{font-size:10px;font-weight:750;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-workout-status.completed{color:var(--good,#1f9d5b)}.cm-workout-status.modified{color:var(--warn,#c98a1e)}.cm-workout-status.skipped{color:var(--bad,#c0272d)}.cm-placeholder{padding:28px 0;color:var(--ink3,#9a9da3);font-size:13px;line-height:1.5}.cm-workout-overlay{position:fixed;inset:0;z-index:80;background:var(--backdrop,rgba(20,20,22,.45));display:flex;align-items:flex-end;justify-content:center}.cm-workout-dialog{width:100%;max-width:620px;max-height:90vh;overflow:auto;background:var(--surface-base,#fff);border-radius:var(--ui-radius-sheet,26px) var(--ui-radius-sheet,26px) 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));box-sizing:border-box}.cm-workout-dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.cm-workout-dialog h2{margin:0;font-family:var(--serif,serif);font-size:22px}.cm-dialog-close{border:0;background:transparent;font-size:22px;cursor:pointer}.cm-workout-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cm-field{display:grid;gap:5px;min-width:0}.cm-field--full{grid-column:1/-1}.cm-field label{font-size:10px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-field input,.cm-field textarea,.cm-field select{width:100%;box-sizing:border-box;border:1px solid var(--line,#ebebe8);border-radius:8px;background:var(--bg,#fff);color:inherit;padding:10px;font:13px/1.35 var(--sans,sans-serif)}.cm-field textarea{min-height:70px;resize:vertical}.cm-form-error{grid-column:1/-1;color:var(--bad,#c0272d);font-size:12px}.cm-form-actions{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;margin-top:4px}.cm-form-actions-right{display:flex;gap:8px;margin-left:auto}.cm-danger{color:var(--bad,#c0272d);border-color:#e5b7b9}.cm-readonly-note{padding:11px 0;color:var(--ink3,#9a9da3);font-size:12px}",
       ".cm-athlete-back{display:inline-flex;align-items:center;min-height:34px;margin-bottom:8px}.cm-athlete-head{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;margin:4px 0 18px}.cm-athlete-goal{margin:5px 0 0;color:var(--ink2,#6d7075);font-size:13px;line-height:1.35;overflow-wrap:anywhere}.cm-athlete-race{margin:3px 0 0;color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}.cm-athlete-head-status{max-width:82px;color:var(--ink2,#6d7075);font-size:10px;font-weight:750;line-height:1.3;text-align:right;text-transform:uppercase;letter-spacing:.04em}.cm-athlete-tabs{position:relative;gap:20px;scrollbar-width:none}.cm-athlete-tabs::-webkit-scrollbar{display:none}.cm-athlete-tab{position:relative;z-index:1;flex:0 0 auto;border-bottom:0}.cm-athlete-tab.is-active{border-bottom-color:transparent}.cm-athlete-tab-indicator{position:absolute;left:0;bottom:0;width:24px;height:2px;border-radius:999px;background:var(--red,#C0272D);transform:translate3d(0,0,0);transition:transform var(--motion-screen,240ms) var(--ease-standard,ease),width var(--motion-screen,240ms) var(--ease-standard,ease)}.cm-athlete-panel{display:grid}.cm-athlete-panel-content{grid-area:1/1;min-width:0;transition:opacity var(--motion-screen,240ms) var(--ease-standard,ease),transform var(--motion-screen,240ms) var(--ease-standard,ease);will-change:opacity,transform}.cm-athlete-panel-content.is-exiting{pointer-events:none;opacity:0;transform:translate3d(var(--athlete-panel-exit-x),0,0)}.cm-athlete-panel-content.is-entering{opacity:0;transform:translate3d(var(--athlete-panel-enter-x),0,0)}.cm-athlete-panel-content.is-entering-active{opacity:1;transform:translate3d(0,0,0)}",
       ".cm-overview{display:grid;gap:22px}.cm-overview-section{min-width:0;padding-top:15px;border-top:1px solid var(--line,#ebebe8)}.cm-overview-section:first-child{padding-top:0;border-top:0}.cm-overview-kicker{display:block;margin-bottom:8px;color:var(--ink3,#9a9da3);font-size:10px;font-weight:750;letter-spacing:.065em;text-transform:uppercase}.cm-overview-title{margin:0;font-family:var(--serif,serif);font-size:22px;font-weight:520;line-height:1.15}.cm-overview-copy{margin:6px 0 0;color:var(--ink2,#6d7075);font-size:12px;line-height:1.5}.cm-overview-status{border-block:1px solid var(--line,#ebebe8)}.cm-status-row{display:grid;grid-template-columns:minmax(86px,.8fr) minmax(0,1fr);align-items:baseline;gap:12px;min-height:42px;padding:9px 0;border-bottom:1px solid var(--line,#ebebe8)}.cm-status-row:last-child{border-bottom:0}.cm-status-label{color:var(--ink3,#9a9da3);font-size:11px;font-weight:650}.cm-status-reading{display:flex;align-items:baseline;justify-content:flex-end;gap:8px;min-width:0;text-align:right}.cm-status-value{font-size:14px;font-weight:750;line-height:1.25;overflow-wrap:anywhere}.cm-status-note{color:var(--ink3,#9a9da3);font-size:10px;line-height:1.3}.cm-week-snapshot{border-block:1px solid var(--line,#ebebe8);padding:13px 0}.cm-week-primary{font-size:15px;font-weight:750;line-height:1.35}.cm-week-detail{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px;color:var(--ink2,#6d7075);font-size:11px;line-height:1.4}.cm-week-progress{height:2px;margin-top:12px;background:var(--line,#ebebe8);overflow:hidden}.cm-week-progress span{display:block;height:100%;background:var(--red,#C0272D)}.cm-week-flags{display:flex;gap:18px;margin-top:10px;color:var(--ink3,#9a9da3);font-size:10px}.cm-latest{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}.cm-latest strong{display:block;font-size:14px}.cm-latest p{margin:4px 0 0;color:var(--ink2,#6d7075);font-size:11px;line-height:1.45}.cm-latest-status,.cm-latest time{color:var(--ink3,#9a9da3);font-size:10px;white-space:nowrap}.cm-latest-status{display:block;margin-top:5px;font-weight:700}.cm-attention-section{border-top-color:rgba(154,101,5,.32)}.cm-attention-list{margin:0;padding:0;list-style:none}.cm-attention-list li{padding:8px 0;border-bottom:1px solid var(--line,#ebebe8);font-size:12px;line-height:1.45}.cm-attention-list li:last-child{border-bottom:0}.cm-attention-action{margin-top:9px}.cm-attention-clear{color:var(--ink2,#6d7075);font-size:12px}.cm-race-line{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:14px}.cm-race-line strong{font-family:var(--serif,serif);font-size:19px;font-weight:520;line-height:1.2}.cm-race-meta{display:block;margin-top:5px;color:var(--ink3,#9a9da3);font-size:11px}.cm-race-countdown{color:var(--ink2,#6d7075);font-size:13px;font-weight:750;text-align:right}",
@@ -395,7 +392,7 @@
       ".cm-command,.cm-athlete-page,.cm-msg-directory,.cm-msg-thread,.cm-global-directory{color:var(--text-primary);font-family:var(--font-ui)}",
       ".cm-command-summary,.cm-row-meta,.cm-row-status,.cm-athlete-context,.cm-athlete-race,.cm-msg-item-meta,.cm-status-note,.cm-notes-private{color:var(--text-muted)}",
       ".cm-section-title,.cm-overview-kicker,.cm-detail-label,.cm-detail-section h3,.cm-analytics-kicker,.cm-note-group-title{font-family:var(--font-ui);font-size:var(--fs-micro);line-height:var(--lh-caption);font-weight:var(--fw-bold);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--text-muted)}",
-      ".cm-summary-metric,.cm-quiet-state,.cm-skel-stat{border-radius:var(--ui-radius-control);background:var(--surface-soft)}",
+      ".cm-quiet-state{border-radius:var(--ui-radius-control);background:var(--surface-soft)}",
       ".cm-status-attention,.cm-roster-state.attention,.cm-workout-status.skipped,.cm-day-status.skipped,.cm-form-error,.cm-danger,.cm-notes-error,.cm-note-action--danger{color:var(--danger)}",
       ".cm-status-monitor,.cm-workout-status.modified,.cm-day-status.modified{color:var(--warning)}",
       ".cm-workout-status.completed,.cm-day-status.completed{color:var(--success)}",
@@ -408,8 +405,8 @@
       "@media(min-width:760px){.cm-athlete-page{padding-inline:24px}.cm-detail-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.cm-workout-dialog{align-self:center;border-radius:var(--ui-radius-card)}.cm-athlete-panel{padding-top:24px}.cm-athlete-analytics{max-width:720px}}",
       "@media(min-width:760px){.cm-roster-item .cm-row{padding-block:17px}}",
       "@media(min-width:600px){.cm-invite-overlay{align-items:center;padding:20px}.cm-invite-dialog{border-radius:22px}}",
-      "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}.cm-command-pair{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-summary-strip,.cm-skel-summary{grid-template-columns:repeat(4,minmax(0,1fr))}}",
-      "@media(max-width:380px){.cm-command-head{gap:10px}.cm-command-head h1{font-size:24px}.cm-head-actions{gap:7px}.cm-invite-trigger{padding-inline:9px}.cm-invite-row{align-items:flex-start;display:grid;grid-template-columns:minmax(0,1fr) auto}.cm-summary-metric{padding-inline:11px}.cm-summary-metric span{font-size:10px;letter-spacing:.03em}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
+      "@media(min-width:900px){body.coach-workspace-active .device,body.coach-loading .boot-shell{width:calc(100% - 48px);max-width:980px;border-radius:24px}.cm-command,.cm-command-skeleton{max-width:920px;padding-inline:24px}}",
+      "@media(max-width:380px){.cm-command-head{gap:10px}.cm-command-head h1{font-size:24px}.cm-head-actions{gap:7px}.cm-invite-trigger{padding-inline:9px}.cm-invite-row{align-items:flex-start;display:grid;grid-template-columns:minmax(0,1fr) auto}.cm-row-status{max-width:78px}.cm-review{padding:8px 9px}.cm-athlete-page{padding-inline:14px}.cm-athlete-tabs{gap:17px}.cm-status-row{grid-template-columns:80px minmax(0,1fr)}.cm-day-row{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.cm-subjective-row{grid-template-columns:62px minmax(0,1fr)}.cm-checkin-timeline li{grid-template-columns:60px minmax(0,1fr)}.cm-note-item-head{display:grid;gap:3px}.cm-note-body{font-size:14px}.cm-athlete-head{grid-template-columns:40px minmax(0,1fr) auto}.cm-athlete-head .cm-avatar{width:40px;height:40px;flex-basis:40px}.cm-athlete-head-actions{gap:5px}.cm-msg-thread-head,.cm-msg-log,.cm-msg-composer{padding-inline:12px}}",
       ".cm-athlete-page--ready{animation:none}.cm-athlete-tabs{-webkit-overflow-scrolling:touch}",
       "@media(hover:hover) and (pointer:fine){.cm-refresh:hover{color:var(--ink1,var(--ink,#141416))}.cm-open-row:hover .cm-row-name{color:var(--red,#C0272D)}.cm-review:hover{border-color:var(--ink2,#6d7075)}.cm-note-action:hover,.cm-athlete-message:hover{color:var(--ink1,#141416);border-bottom-color:currentColor}}",
       "@media(prefers-reduced-motion:reduce){.cm-command--ready,.cm-athlete-page--ready,.cm-msg-thread,.cm-msg-bubble,.cm-workout-overlay,.cm-note-confirm,.cm-workout-dialog,.cm-note-confirm-dialog{animation:none}.cm-row-name,.cm-athlete-panel-content,.cm-athlete-tab-indicator,.cm-msg-log,.cm-note-compose textarea{transition:none;scroll-behavior:auto}.cm-athlete-panel-content{transform:none!important}}"
@@ -491,7 +488,6 @@
    */
   var COACH_SCREENS = [
     "screen-coach-messaging",
-    "screen-coach-train",
     "screen-coach-trends",
     "screen-coach-you"
   ];
@@ -526,9 +522,8 @@
   /* ═══════════════════════ NAVIGATION ══════════════════════════════ */
 
   var COACH_TABS = [
-    { screen: "screen-today",            label: "Today",  icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>' },
+    { screen: "screen-today",            label: "Home",  icon: '<svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/></svg>' },
     { screen: "screen-coach-messaging", label: "Messages",  icon: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></svg>' },
-    { screen: "screen-coach-train",     label: "Train",  icon: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>' },
     { screen: "screen-coach-trends",    label: "Analytics", icon: '<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>' },
     { screen: "screen-coach-you",       label: "You",    icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>' }
   ];
@@ -550,9 +545,33 @@
       tabbar.appendChild(btn);
     });
     tabbar.style.display = "flex";
+    rewriteRail();
     // Hide athlete profile avatar in coach workspace
     var avatarBtn = document.getElementById("profileAvatarBtn");
     if (avatarBtn) avatarBtn.style.display = "none";
+  }
+
+  /*
+   * The desktop/tablet sidebar is a static copy of the athlete tabs. For a coach
+   * it lists the same tabs as the phone bar (Home, Messages, Analytics, You) plus
+   * Settings, so no item points at an athlete-only screen such as Calendar.
+   */
+  var _athleteRailHTML = null;
+
+  function rewriteRail() {
+    var rail = document.querySelector(".coach-rail-nav");
+    if (!rail) return;
+    if (_athleteRailHTML === null) _athleteRailHTML = rail.innerHTML;
+    var settings = rail.querySelector('button[onclick="openSettings()"]');
+    rail.innerHTML = COACH_TABS.map(function (tab, i) {
+      return '<button class="coach-menu-action' + (i === 0 ? " on" : "") + '" type="button" data-screen="' + tab.screen +
+        '" onclick="AthlevoCoachMode.go(this)">' + tab.icon.replace("<svg ", '<svg aria-hidden="true" ') + '<span>' + tab.label + '</span></button>';
+    }).join("") + (settings ? settings.outerHTML : "");
+  }
+
+  function restoreAthleteRail() {
+    var rail = document.querySelector(".coach-rail-nav");
+    if (rail && _athleteRailHTML !== null) rail.innerHTML = _athleteRailHTML;
   }
 
   /* Restore the original athlete Today markup saved before coach render */
@@ -588,6 +607,7 @@
       btn.innerHTML = tab.icon + "<span>" + tab.label + "</span>";
       tabbar.appendChild(btn);
     });
+    restoreAthleteRail();
     // Re-show profile avatar
     var avatarBtn = document.getElementById("profileAvatarBtn");
     if (avatarBtn) avatarBtn.style.display = "";
@@ -840,7 +860,7 @@
       '</div>' +
       '<div class="spacer-md" style="height:8px"></div>' +
       '<div class="rowlink" id="cmOpenDashboard" style="cursor:pointer">' +
-        '<div><b>Open Coach Dashboard</b><small>View and manage your athletes.</small></div><span class="arr">→</span>' +
+        '<div><b>Open My Athletes</b><small>View and manage your athletes.</small></div><span class="arr">→</span>' +
       '</div>' +
       '<div class="spacer-md"></div>';
 
@@ -874,6 +894,9 @@
       _messageRequest += 1;
     }
     var screenEl = document.getElementById(screenId);
+    // The desktop rail and the phone tab bar both call this; the tab bar owns the
+    // sliding indicator and the rail follows it (selectAppTab keeps them in sync).
+    btn = document.querySelector('#tabbar .tab[data-screen="' + screenId + '"]') || btn;
     if (window.AthlevoAppMotion) {
       window.AthlevoAppMotion.selectTab(btn, true);
       window.AthlevoAppMotion.transitionTo(screenId);
@@ -889,14 +912,12 @@
     var TAB_EVENTS = {
       "screen-today": "coach_today_viewed",
       "screen-coach-messaging": "coach_tab_viewed",
-      "screen-coach-train": "coach_train_viewed",
       "screen-coach-trends": "coach_trends_viewed",
       "screen-coach-you": "coach_you_viewed"
     };
     var TAB_NAMES = {
       "screen-today": "today",
       "screen-coach-messaging": "coach",
-      "screen-coach-train": "train",
       "screen-coach-trends": "trends",
       "screen-coach-you": "you"
     };
@@ -912,7 +933,6 @@
     // Render content on demand
     if (screenId === "screen-today") renderCoachToday();
     if (screenId === "screen-coach-messaging") renderCoachMessaging();
-    if (screenId === "screen-coach-train") renderCoachTrain();
     if (screenId === "screen-coach-trends") renderCoachTrends();
     if (screenId === "screen-coach-you") renderCoachYou();
   }
@@ -944,30 +964,20 @@
     }
 
     var sorted = sortRoster(_roster);
-    var attention = sorted.filter(function (a) {
+    var needAttention = sorted.filter(function (a) {
       return a.attention_status === "needs_attention" || a.attention_status === "monitor";
-    });
-    var trainingToday = sorted.filter(function (a) { return Boolean(a.today_planned); });
-    var recentActs = sorted.filter(function (a) { return Boolean(a.latest_activity); })
-      .sort(function (a, b) {
-        return String((b.latest_activity || {}).date || "").localeCompare(String((a.latest_activity || {}).date || ""));
-      }).slice(0, 8);
-    var todayKey = new Date().toISOString().slice(0, 10);
-    var raceGoals = sorted.filter(function (a) {
-      return Boolean(a.target_event && a.target_date && String(a.target_date).slice(0, 10) >= todayKey);
-    }).sort(function (a, b) { return String(a.target_date).localeCompare(String(b.target_date)); });
-
-    var liveSummary = attention.length
-      ? attention.length + " athlete" + (attention.length === 1 ? " needs" : "s need") + " review today."
-      : trainingToday.length
-        ? trainingToday.length + " athlete" + (trainingToday.length === 1 ? " is" : "s are") + " training today."
-        : sorted.length ? "No athletes need attention right now." : "No athletes are currently assigned.";
+    }).length;
+    var trainingToday = sorted.filter(function (a) { return Boolean(a.today_planned); }).length;
+    var liveSummary = !sorted.length ? "No athletes are currently assigned."
+      : needAttention ? needAttention + " athlete" + (needAttention === 1 ? " needs" : "s need") + " review today."
+      : trainingToday ? trainingToday + " athlete" + (trainingToday === 1 ? " is" : "s are") + " training today."
+      : "No athletes need attention right now.";
     var rosterSizeClass = sorted.length > 0 && sorted.length <= 3 ? " cm-command--small-roster" : "";
 
     var content =
-      '<div class="cm-command cm-command--ready' + rosterSizeClass + '">' +
+      '<div class="cm-command cm-command--ready cm-command--roster' + rosterSizeClass + '">' +
         '<header class="cm-command-head">' +
-          '<div><h1>Coach Dashboard</h1><p class="cm-command-summary" aria-live="polite">' + esc(liveSummary) + '</p></div>' +
+          '<div><h1>My Athletes</h1><p class="cm-command-summary" aria-live="polite">' + esc(liveSummary) + '</p></div>' +
           '<div class="cm-head-actions">' +
             (_role === "admin" ? '<button type="button" class="cm-invite-trigger" id="cmAddCoach">Add Coach</button>' : '') +
             '<button type="button" class="cm-invite-trigger" id="cmInviteAthlete">Invite Athlete</button></div>' +
@@ -980,7 +990,6 @@
       return;
     }
 
-    content += renderSummaryStrip(sorted.length, attention.length, trainingToday.length, raceGoals.length);
     if (!sorted.length) {
       content += '<section class="cm-empty"><strong>No athletes assigned yet.</strong><p>Invite an athlete to connect them to your coaching roster.</p></section>' + renderPendingInvitations() + '</div>';
       el.innerHTML = content;
@@ -988,52 +997,20 @@
       return;
     }
 
-    content +=
-      '<div class="cm-command-grid">' +
-        '<div class="cm-command-pair">' +
-          renderAttentionSection(attention) +
-          renderTrainingTodaySection(trainingToday) +
-        '</div>' +
-        '<div class="cm-command-pair">' +
-          (recentActs.length ? renderRecentActivitySection(recentActs) : '') +
-          renderRaceGoalsSection(raceGoals) +
-        '</div>' +
-        renderRosterStatusSection(sorted) +
-      '</div>' + renderPendingInvitations() + '</div>';
+    content += renderRosterTable(sorted) + renderPendingInvitations() + '</div>';
 
     el.innerHTML = content;
     bindCoachTodayEvents(el);
   }
 
   function renderCoachSkeleton() {
-    var summary = [0, 1, 2, 3].map(function () {
-      return '<div class="cm-skel-stat"><span class="skel cm-skel-number"></span><span class="skel cm-skel-stat-label"></span></div>';
-    }).join("");
-    var compactSection = function () {
-      return '<section class="cm-skel-section"><div class="cm-skel-section-head"><span class="skel cm-skel-label"></span><span class="skel cm-skel-count"></span></div><span class="skel cm-skel-quiet"></span></section>';
-    };
-    var rosterRows = [0, 1].map(function () {
+    var rows = [0, 1, 2, 3].map(function () {
       return '<div class="cm-skel-roster-row"><span class="skel cm-skel-avatar"></span><span class="cm-skel-roster-copy"><span class="skel cm-skel-name"></span><span class="skel cm-skel-context"></span><span class="skel cm-skel-status"></span></span><span class="skel cm-skel-chevron"></span></div>';
     }).join("");
-    return '<div class="cm-command-skeleton" role="status" aria-label="Loading Coach Dashboard">' +
+    return '<div class="cm-command-skeleton cm-command-skeleton--roster" role="status" aria-label="Loading your athletes">' +
       '<div class="cm-skel-head"><div class="cm-skel-stack"><span class="skel cm-skel-line cm-skel-line--title"></span><span class="skel cm-skel-line cm-skel-line--sub"></span></div><span class="skel cm-skel-refresh"></span></div>' +
-      '<div class="cm-skel-summary">' + summary + '</div>' +
-      '<div class="cm-skel-grid">' + compactSection() + compactSection() +
-        '<section class="cm-skel-section cm-skel-section--roster"><div class="cm-skel-section-head"><span class="skel cm-skel-label"></span></div><span class="skel cm-skel-search"></span><div class="cm-skel-roster">' + rosterRows + '</div></section>' +
-      '</div>' +
+      '<section class="cm-skel-section cm-skel-section--roster"><span class="skel cm-skel-search"></span><div class="cm-skel-roster">' + rows + '</div></section>' +
     '</div>';
-  }
-
-  function renderSummaryStrip(total, attn, training, races) {
-    var metrics = [
-      { label: "Athletes", value: total },
-      { label: "Need attention", value: attn },
-      { label: "Training today", value: training },
-      { label: "Upcoming races", value: races }
-    ];
-    return '<div class="cm-summary-strip" aria-label="Roster summary">' + metrics.map(function (m) {
-      return '<div class="cm-summary-metric"><strong>' + esc(m.value) + '</strong><span>' + esc(m.label) + '</span></div>';
-    }).join("") + '</div>';
   }
 
   function sectionHeader(title, count) {
@@ -1054,88 +1031,102 @@
       }).join("") + '</div></section>';
   }
 
-  /* ─── Needs Attention ─── */
-  function renderAttentionSection(athletes) {
-    var html = '<section class="cm-section cm-section--attention">' + sectionHeader("Needs Attention", athletes.length);
-    if (!athletes.length) return html + '<div class="cm-quiet-state cm-quiet-state--clear">All clear.</div></section>';
-    html += '<div class="cm-list">';
-    athletes.forEach(function (a) {
-      var key = (a.attention_reason_keys || [])[0];
-      var status = a.readiness_status && a.readiness_status !== "No recent data"
-        ? a.readiness_status + " readiness"
-        : a.recovery_status && a.recovery_status !== "unknown" ? a.recovery_status + " recovery" : (STATUS_META[a.attention_status] || STATUS_META.monitor).label;
-      html += '<div class="cm-row">' +
-        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
-        '<div class="cm-row-copy"><div class="cm-row-name">' + esc(a.name) + '</div><div class="cm-row-primary">' + esc(attentionReasonLabel(key)) + '</div></div>' +
-        '<span class="cm-row-status ' + (a.attention_status === "needs_attention" ? "cm-status-attention" : "cm-status-monitor") + '">' + esc(status) + '</span>' +
-        '<button type="button" class="cm-review cm-view-athlete" data-athlete="' + esc(a.athlete_id) + '">Review</button>' +
-      '</div>';
-    });
-    return html + '</div></section>';
+  /* ─── My Athletes: the coach's Home. One row per athlete, V.O2-style. ─── */
+
+  var MANILA = "Asia/Manila";
+
+  function shortDate(iso) {
+    var t = Date.parse(iso || "");
+    if (!Number.isFinite(t)) return "";
+    try { return new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: MANILA }); }
+    catch (e) { return String(iso).slice(0, 10); }
   }
 
-  /* ─── Training Today ─── */
-  function renderTrainingTodaySection(athletes) {
-    var html = '<section class="cm-section cm-section--training">' + sectionHeader("Training Today", athletes.length);
-    if (!athletes.length) return html + '<div class="cm-quiet-state">No sessions planned today.</div></section>';
-    html += '<div class="cm-list">';
-    athletes.forEach(function (a) {
-      var s = a.today_planned || {};
-      var amount = s.duration_minutes != null ? s.duration_minutes + " min" : s.distance_km != null ? s.distance_km + " km" : null;
-      var details = [s.title || "Planned session", amount].filter(Boolean).join(" · ");
-      var status = s.execution_status || "pending";
-      html += '<button type="button" class="cm-open-row" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
-        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
-        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(details) + '</span></span>' +
-        '<span class="cm-row-status ' + (status === "skipped" ? "cm-status-attention" : status === "modified" ? "cm-status-monitor" : "") + '">' + esc(status.replace(/^./, function (c) { return c.toUpperCase(); })) + '</span><span class="cm-chevron" aria-hidden="true">›</span>' +
-      '</span></button>';
-    });
-    return html + '</div></section>';
+  function raceDaysAway(a) {
+    if (!a.target_date) return null;
+    var t = Date.parse(String(a.target_date).slice(0, 10) + "T00:00:00Z");
+    return Number.isFinite(t) ? Math.ceil((t - Date.now()) / 86400000) : null;
   }
 
-  /* ─── Recent Activity ─── */
-  function renderRecentActivitySection(athletes) {
-    var html = '<section class="cm-section cm-section--activity">' + sectionHeader("Recent Activity", athletes.length) + '<div class="cm-list">';
-    athletes.forEach(function (a) {
-      html += '<button type="button" class="cm-open-row" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
-        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
-        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(latestActivitySummary(a)) + '</span><span class="cm-row-meta">' + esc(fmtDateTime(a.latest_activity.date)) + '</span></span>' +
-        '<span class="cm-chevron" aria-hidden="true">›</span>' +
-      '</span></button>';
-    });
-    return html + '</div></section>';
+  function cell(label, className, inner) {
+    return '<td class="' + className + '" data-label="' + esc(label) + '">' + inner + '</td>';
   }
 
-  function renderRaceGoalsSection(athletes) {
-    var html = '<section class="cm-section cm-section--races">' + sectionHeader("Upcoming Races", athletes.length);
-    if (!athletes.length) return html + '<div class="cm-quiet-state">No upcoming races scheduled.</div></section>';
-    html += '<div class="cm-list">';
-    athletes.forEach(function (a) {
-      var days = Math.ceil((Date.parse(String(a.target_date).slice(0, 10) + "T00:00:00Z") - Date.now()) / 86400000);
-      html += '<button type="button" class="cm-open-row" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
-        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
-        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(a.target_event) + '</span><span class="cm-row-meta">' + esc(String(a.target_date).slice(0, 10)) + ' · ' + esc(days) + ' days</span></span>' +
-        '<span class="cm-chevron" aria-hidden="true">›</span>' +
-      '</span></button>';
-    });
-    return html + '</div></section>';
+  function dash() { return '<span class="cm-cell-empty">–</span>'; }
+
+  function rosterWeekCell(a) {
+    if (a.adherence_pct == null) return dash();
+    var pct = Math.max(0, Math.min(100, a.adherence_pct));
+    return '<span class="cm-week-pct">' + esc(a.adherence_pct) + '%</span>' +
+      '<span class="cm-week-bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' +
+      '<span class="cm-cell-sub">of planned time</span>';
   }
 
-  /* ─── Athlete Roster ─── */
-  function renderRosterStatusSection(sorted) {
-    return '<section class="cm-section cm-section--roster">' + sectionHeader("Athletes", sorted.length) +
+  function rosterLastWorkoutCell(a) {
+    var summary = latestActivitySummary(a);
+    if (!summary) return dash();
+    return '<span class="cm-cell-main">' + esc(summary) + '</span><span class="cm-cell-sub">' + esc(shortDate(a.latest_activity.date)) + '</span>';
+  }
+
+  function rosterTodayCell(a) {
+    var s = a.today_planned;
+    if (!s) return '<span class="cm-cell-empty">Nothing planned</span>';
+    var amount = s.duration_minutes != null ? s.duration_minutes + " min" : s.distance_km != null ? s.distance_km + " km" : "";
+    var status = s.execution_status && s.execution_status !== "pending" ? s.execution_status : "";
+    return '<span class="cm-cell-main">' + esc(s.title || "Planned session") + '</span>' +
+      (amount || status ? '<span class="cm-cell-sub' + (status === "skipped" ? " cm-status-attention" : status === "modified" ? " cm-status-monitor" : "") + '">' +
+        esc([amount, status ? status.replace(/^./, function (c) { return c.toUpperCase(); }) : ""].filter(Boolean).join(" · ")) + '</span>' : '');
+  }
+
+  function rosterRaceCell(a) {
+    var days = raceDaysAway(a);
+    if (!a.target_event || days == null || days < 0) return dash();
+    return '<span class="cm-cell-main">' + esc(a.target_event) + '</span><span class="cm-cell-sub">' + esc(shortDate(a.target_date)) + ' · ' + esc(days) + (days === 1 ? ' day' : ' days') + '</span>';
+  }
+
+  function rosterStatusCell(a) {
+    var reasons = a.attention_reason_keys || [];
+    var needs = a.attention_status === "needs_attention";
+    var monitor = a.attention_status === "monitor";
+    var label = needs ? "Needs attention" : monitor ? "Monitor" : a.attention_status === "on_track" ? "On track" : "No recent data";
+    var cls = needs ? "cm-status-attention" : monitor ? "cm-status-monitor" : "";
+    return '<span class="cm-cell-main ' + cls + '">' + esc(label) + '</span>' +
+      ((needs || monitor) && reasons.length ? '<span class="cm-cell-sub">' + esc(attentionReasonLabel(reasons[0])) + '</span>' : '');
+  }
+
+  function rosterRow(a) {
+    var id = esc(a.athlete_id);
+    return '<tr class="cm-roster-row cm-roster-item" data-open-athlete="' + id + '" tabindex="0" aria-label="Open ' + esc(a.name) + '\u2019s training calendar">' +
+      '<td class="cm-col-athlete"><div class="cm-athlete-cell"><span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
+        '<span class="cm-roster-id"><span class="cm-row-name">' + esc(a.name) + '</span>' +
+        '<span class="cm-row-primary">' + esc(athleteContext(a)) + '</span>' +
+        '<span class="cm-roster-links"><button type="button" data-athlete-calendar="' + id + '">calendar</button><span aria-hidden="true"> / </span><button type="button" data-athlete-message="' + id + '">message</button></span></span></div></td>' +
+      cell("This week", "cm-col-week", rosterWeekCell(a)) +
+      cell("Last workout", "cm-col-last", rosterLastWorkoutCell(a)) +
+      cell("Today", "cm-col-today", rosterTodayCell(a)) +
+      cell("Race", "cm-col-race", rosterRaceCell(a)) +
+      cell("Last active", "cm-col-active", a.last_active_at ? '<span class="cm-cell-main">' + esc(fmtLastActive(a.last_active_at)) + '</span>' : dash()) +
+      cell("Status", "cm-col-status", rosterStatusCell(a)) +
+    '</tr>';
+  }
+
+  function renderRosterTable(sorted) {
+    return '<section class="cm-section cm-section--roster">' +
       '<input class="cm-search" id="cmRosterSearch" type="search" placeholder="Search athletes" aria-label="Search athletes" value="' + esc(_search) + '" />' +
       '<div class="cm-filter-row" aria-label="Filter athletes">' + [
         ["all", "All"], ["attention", "Needs Attention"], ["training", "Training Today"], ["race", "Race Soon"]
       ].map(function (item) { return '<button type="button" class="cm-filter' + (_rosterFilter === item[0] ? ' is-active' : '') + '" data-roster-filter="' + item[0] + '">' + item[1] + '</button>'; }).join("") + '</div>' +
-      '<div id="cmRosterList" class="cm-list">' + renderRosterList(sorted, _search, _rosterFilter) + '</div></section>';
+      '<div class="cm-table-wrap"><table class="cm-roster-table"><thead><tr>' +
+        '<th class="cm-col-athlete" scope="col">Athlete</th><th class="cm-col-week" scope="col">This week</th><th class="cm-col-last" scope="col">Last workout</th>' +
+        '<th class="cm-col-today" scope="col">Today</th><th class="cm-col-race" scope="col">Race</th><th class="cm-col-active" scope="col">Last active</th><th class="cm-col-status" scope="col">Status</th>' +
+      '</tr></thead><tbody id="cmRosterList">' + renderRosterList(sorted, _search, _rosterFilter) + '</tbody></table></div></section>';
   }
 
   function renderRosterList(sorted, query, filter) {
     var q = (query || "").toLowerCase().trim();
     var visible = sorted.filter(function (a) {
       var textMatches = !q || String(a.name || "").toLowerCase().indexOf(q) !== -1;
-      var raceDays = a.target_date ? Math.ceil((Date.parse(String(a.target_date).slice(0, 10) + "T00:00:00Z") - Date.now()) / 86400000) : null;
+      var raceDays = raceDaysAway(a);
       var filterMatches = filter === "attention" ? (a.attention_status === "needs_attention" || a.attention_status === "monitor")
         : filter === "training" ? Boolean(a.today_planned)
         : filter === "race" ? (raceDays != null && raceDays >= 0 && raceDays <= 21)
@@ -1143,18 +1134,35 @@
       return textMatches && filterMatches;
     });
     if (!visible.length) {
-      return '<div style="padding:16px;text-align:center;color:var(--ink3,#9a9da3);font-size:13px;">' +
-        (q ? 'No athletes match "' + esc(q) + '".' : 'No athletes assigned yet.') + '</div>';
+      return '<tr class="cm-roster-none"><td colspan="7">' + (q ? 'No athletes match \u201c' + esc(q) + '\u201d.' : filter && filter !== "all" ? 'No athletes in this view.' : 'No athletes assigned yet.') + '</td></tr>';
     }
-    return visible.map(function (a) {
-      var raceDays = a.target_date ? Math.ceil((Date.parse(String(a.target_date).slice(0, 10) + "T00:00:00Z") - Date.now()) / 86400000) : null;
-      var state = a.attention_status === "needs_attention" ? "Needs review" : a.today_planned ? "Training today" : raceDays != null && raceDays >= 0 && raceDays <= 21 ? "Race soon" : a.attention_status === "on_track" ? "On track" : "No recent data";
-      return '<button type="button" class="cm-open-row cm-roster-item" data-open-athlete="' + esc(a.athlete_id) + '"><span class="cm-row">' +
-        '<span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span>' +
-        '<span class="cm-row-copy"><span class="cm-row-name">' + esc(a.name) + '</span><span class="cm-row-primary">' + esc(athleteContext(a)) + '</span><span class="cm-row-meta">' + esc(rosterStatusLine(a)) + '</span></span><span class="cm-roster-state' + (state === "Needs review" ? " attention" : "") + '">' + esc(state) + '</span>' +
-        '<span class="cm-chevron" aria-hidden="true">›</span>' +
-      '</span></button>';
-    }).join("");
+    return visible.map(rosterRow).join("");
+  }
+
+  /* Rows open the athlete's training calendar; the two small links skip to it or to messages. */
+  function bindRosterRows(container) {
+    container.querySelectorAll("[data-open-athlete]").forEach(function (row) {
+      function open() {
+        openCoachAthletePage(row.getAttribute("data-open-athlete"), "training");
+        trackCoach("coach_today_athlete_opened", { coach_mode: "coach_mode", source_surface: "coach_roster" });
+      }
+      row.addEventListener("click", open);
+      row.addEventListener("keydown", function (event) {
+        if (event.target === row && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); open(); }
+      });
+    });
+    container.querySelectorAll("[data-athlete-calendar]").forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        event.stopPropagation();
+        openCoachAthletePage(link.getAttribute("data-athlete-calendar"), "training");
+      });
+    });
+    container.querySelectorAll("[data-athlete-message]").forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        event.stopPropagation();
+        openAthleteMessaging(link.getAttribute("data-athlete-message"), "global", "overview");
+      });
+    });
   }
 
   function removeInviteOverlay(overlay) {
@@ -1440,36 +1448,16 @@
       button.addEventListener("click", function () { openRevokeInvite(button.getAttribute("data-revoke-invite")); });
     });
 
-    // View athlete buttons
-    container.querySelectorAll(".cm-view-athlete").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var id = btn.getAttribute("data-athlete");
-        openCoachAthletePage(id, "overview");
-        trackCoach("coach_today_athlete_opened", { coach_mode: "coach_mode", source_surface: "coach_today" });
-      });
-    });
-    // Training, activity, race-goal, and roster rows share the existing drawer.
-    container.querySelectorAll("[data-open-athlete]").forEach(function (item) {
-      item.addEventListener("click", function () {
-        var id = item.getAttribute("data-open-athlete");
-        openCoachAthletePage(id, item.closest(".cm-section--training") ? "training" : "overview");
-        trackCoach("coach_today_athlete_opened", { coach_mode: "coach_mode", source_surface: "coach_roster" });
-      });
-    });
+    bindRosterRows(container);
     // Roster search
     var searchInput = document.getElementById("cmRosterSearch");
     if (searchInput) {
       searchInput.addEventListener("input", function (e) {
         _search = e.target.value || "";
         var listEl = document.getElementById("cmRosterList");
-        if (listEl) listEl.innerHTML = renderRosterList(sortRoster(_roster), _search, _rosterFilter);
-        var rosterItems = listEl ? listEl.querySelectorAll("[data-open-athlete]") : [];
-        rosterItems.forEach(function (item) {
-          item.addEventListener("click", function () {
-            openCoachAthletePage(item.getAttribute("data-open-athlete"), "overview");
-          });
-        });
+        if (!listEl) return;
+        listEl.innerHTML = renderRosterList(sortRoster(_roster), _search, _rosterFilter);
+        bindRosterRows(listEl);
       });
     }
     container.querySelectorAll("[data-roster-filter]").forEach(function (btn) {
@@ -1567,7 +1555,7 @@
   function renderAthletePageError(message) {
     var el = document.getElementById("screen-today");
     if (!el) return;
-    el.innerHTML = '<div class="cm-athlete-page"><button class="cm-athlete-back" type="button">← Coach Dashboard</button><div class="cm-error">' + esc(message) + '<br><button type="button" class="cm-review" id="cmAthleteRetry">Try again</button></div></div>';
+    el.innerHTML = '<div class="cm-athlete-page"><button class="cm-athlete-back" type="button">← My Athletes</button><div class="cm-error">' + esc(message) + '<br><button type="button" class="cm-review" id="cmAthleteRetry">Try again</button></div></div>';
     el.querySelector(".cm-athlete-back").addEventListener("click", closeAthletePage);
     el.querySelector("#cmAthleteRetry").addEventListener("click", function () { openCoachAthletePage(_athleteDetailId, _athleteDetailTab, _athleteWeekStart); });
   }
@@ -1744,7 +1732,7 @@
     var labels = { overview: "Overview", training: "Training", analytics: "Analytics", "check-ins": "Check-ins", notes: "Notes" };
     var headerStatus = ath.readiness && ath.readiness.status && ath.readiness.status !== "No recent data" ? ath.readiness.status + " readiness" : "";
     el.innerHTML = '<div class="cm-athlete-page cm-athlete-page--ready">' +
-      '<button class="cm-athlete-back" type="button">← Coach Dashboard</button>' +
+      '<button class="cm-athlete-back" type="button">← My Athletes</button>' +
       '<header class="cm-athlete-head"><span class="cm-avatar" aria-hidden="true">' + esc(ath.initials || "A") + '</span><div class="cm-athlete-head-copy"><h1 class="cm-athlete-name">' + esc(ath.name || "Athlete") + '</h1><p class="cm-athlete-goal">' + esc(ath.goal || SPORT_LABEL[ath.primary_sport] || "Athlete") + '</p>' + (athleteRaceContext(ath) ? '<p class="cm-athlete-race">' + esc(athleteRaceContext(ath)) + '</p>' : '') + '</div><div class="cm-athlete-head-actions">' + (headerStatus ? '<span class="cm-athlete-head-status">' + esc(headerStatus) + '</span>' : '') + '<button type="button" class="cm-athlete-message" id="cmMessageAthlete">Message</button></div></header>' +
       '<nav class="cm-athlete-tabs" role="tablist" aria-label="Athlete workspace">' + tabs.map(function (tab) { var selected = _athleteDetailTab === tab; return '<button type="button" role="tab" class="cm-athlete-tab' + (selected ? ' is-active' : '') + '" id="cmAthleteTab-' + tab + '" aria-controls="cmAthletePanel" aria-selected="' + (selected ? 'true' : 'false') + '" tabindex="' + (selected ? '0' : '-1') + '" data-athlete-tab="' + tab + '">' + labels[tab] + '</button>'; }).join("") + '<span class="cm-athlete-tab-indicator" aria-hidden="true"></span></nav>' +
       '<div class="cm-athlete-panel" id="cmAthletePanel" role="tabpanel" aria-labelledby="cmAthleteTab-' + esc(_athleteDetailTab) + '"><div class="cm-athlete-panel-content">' + athletePanelContent(ath) + '</div></div></div>';
@@ -2643,34 +2631,6 @@
     });
   }
 
-  /* ─── Train Tab ─── */
-  function renderCoachTrain() {
-    var el = document.getElementById("screen-coach-train");
-    if (!el) return;
-    var sorted = sortRoster(_roster);
-    var html = '<div class="cm-global-directory"><header class="cm-global-head"><h1>Athlete Training</h1><p>Open an athlete’s current training week to inspect sessions and make permitted plan changes.</p></header>';
-    if (!sorted.length) {
-      html += '<div class="cm-global-empty">Assigned athletes will appear here.</div>';
-    } else {
-      html += '<div class="cm-global-list">';
-      sorted.forEach(function (a) {
-        var todayLabel = a.today_planned ? a.today_planned.title || "Planned session" : "No session planned today";
-        var context = [SPORT_LABEL[a.primary_sport] || "Athlete", a.goal].filter(Boolean).join(" · ");
-        var trainingMeta = [a.adherence_pct != null ? a.adherence_pct + "% adherence" : null, a.last_active_at ? "Active " + fmtLastActive(a.last_active_at).toLowerCase() : null].filter(Boolean).join(" · ");
-        html += '<button type="button" class="cm-global-athlete cm-train-item" data-athlete="' + esc(a.athlete_id) + '"><span class="cm-avatar" aria-hidden="true">' + esc(a.initials || "A") + '</span><span class="cm-global-copy"><span class="cm-global-name">' + esc(a.name) + '</span><span class="cm-global-primary">' + esc(todayLabel) + '</span><span class="cm-global-meta">' + esc([context, trainingMeta].filter(Boolean).join(" · ")) + '</span></span><span class="cm-chevron" aria-hidden="true">›</span></button>';
-      });
-      html += '</div>';
-    }
-    html += '</div>';
-    el.innerHTML = html;
-    // Bind clicks
-    el.querySelectorAll(".cm-train-item").forEach(function (item) {
-      item.addEventListener("click", function () {
-        openCoachAthletePage(item.getAttribute("data-athlete"), "training");
-      });
-    });
-  }
-
   /* ─── Trends Tab ─── */
   function renderCoachTrends() {
     var el = document.getElementById("screen-coach-trends");
@@ -2731,7 +2691,7 @@
       '</div>' +
       '<div class="spacer-md" style="height:8px"></div>' +
       '<div class="rowlink" id="cmOpenDashboardCoachYou" style="cursor:pointer">' +
-        '<div><b>Open Coach Dashboard</b><small>View and manage your athletes.</small></div><span class="arr">→</span>' +
+        '<div><b>Open My Athletes</b><small>View and manage your athletes.</small></div><span class="arr">→</span>' +
       '</div>' +
 
       '<div class="spacer-md"></div>' +

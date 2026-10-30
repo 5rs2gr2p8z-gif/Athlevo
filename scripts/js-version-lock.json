@@ -28,8 +28,8 @@
     "sha256": "e1e7afea17a7232fc5d989e70aa0186bfa7e506fbc222ab41d5e174648b046ed"
   },
   "js/brain.js": {
-    "v": 82,
-    "sha256": "4167ee7c712390545bbba2be993f9f459f1a8a41c016e1696ce56a4f70253f00"
+    "v": 83,
+    "sha256": "bdf3ed1c8d1d852145eacd5404738e49545bbcaf96a092a35ee1805c4a431e03"
   },
   "js/weather.js": {
     "v": 78,
@@ -90,6 +90,10 @@
   "js/trainingState.js": {
     "v": 1,
     "sha256": "bb1fd2d7b8822f3093c1747e8df64478856b11bef478c49d6a694829e187ffde"
+  },
+  "js/trainingStatus.js": {
+    "v": 3,
+    "sha256": "ac1ff53fa4ac9d3a5b52a04d54c3d1bd2fc114aa43c20e16870b10da9ec8b8d3"
   },
   "js/socialAuth.js": {
     "v": 75,
@@ -236,8 +240,8 @@
     "sha256": "f62999d9fc9eac62cbcd7b5f435014eda665d53a5338e02d726ac8625b71e1ee"
   },
   "js/coachMode.js": {
-    "v": 22,
-    "sha256": "5b84f5f44e460b744fdc9ddfd4de7552d20ae1bc4c6be1a1edecef543d2c2303"
+    "v": 25,
+    "sha256": "9e37d9a8de3210345e348a6c26256359688aedacbca9697a7cd7c1b2bf82ca41"
   },
   "js/adaptivePlan.js": {
     "v": 79,

@@ -769,7 +769,7 @@ test("status remains separate from controls and keeps only the explicit premium 
   !/role="(?:tab|slider)"|onpointer|tabindex=/.test(statusMarkup));
 test("all three compact signal indicators have dynamic mounts",
   /id="todayDirectionCoaching"/.test(today) &&
-  /id="todayReadinessSignalValue"/.test(today) &&
+  /id="todayTrainingStatusSignalValue"/.test(today) &&
   /id="todayLoadSignalValue"/.test(today) &&
   /id="todayRecoverySignalValue"/.test(today) &&
   (statusMarkup.match(/class="direction-signal-ring"/g) || []).length === 3);

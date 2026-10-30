@@ -242,7 +242,7 @@ test("decorative Today red top rules are removed",
   !/\.today-training-card\{[^}]*border-top/.test(html));
 test("missing Today rings remain compact, neutral, and dash-free",
   /\.direction-signal\[data-tone="missing"\] \.direction-signal-ring\{[^}]*background:var\(--card\)/.test(html) &&
-  /id="todayReadinessSignalValue"><\/strong>/.test(html) &&
+  /id="todayTrainingStatusSignalValue"><\/strong>/.test(html) &&
   /id="todayRecoverySignalValue"><\/strong>/.test(html));
 test("global reduced-motion protection disables shimmer and transitions",
   /prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\.001ms!important[\s\S]*?transition-duration:\.001ms!important/.test(html));

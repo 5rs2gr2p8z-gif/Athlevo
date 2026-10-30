@@ -229,7 +229,7 @@ test("appMode.js turns the morning prompt off", /ATHLEVO_MORNING_PROMPT = false/
   const out = await sb.AthlevoMorningCheckIn.evaluate({ reason: "today-open" });
   test("with the prompt off, evaluate() never opens the readiness form", out.shown === false && out.reason === "disabled" && !sb.opened);
 }
-test("the Readiness card on Home still offers a manual check-in", /id="todayReadinessSignal"/.test(html) && /Needs check-in/.test(html));
+test("Home's status card leads with Training status (from Intervals.icu), not the daily readiness check-in", /id="todayTrainingStatusSignal"/.test(html) && /<span class="direction-signal-name">Training status<\/span>/.test(html) && existsSync("./js/trainingStatus.js"));
 
 section("Home and favicon");
 test("the brand mark on Home is sized for the wide AE logo, not clipped, and hidden where the rail shows it",
@@ -268,7 +268,19 @@ test("incoming coach replies appear without reopening the tab (quiet polling, on
 
 section("Scripts are cache-busted");
 test("service-worker cache and script versions were raised together (stale JS can no longer pair with new HTML)",
-  /athlevo-shell-v92/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
+  /athlevo-shell-v93/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
+
+section("Coach Home and navigation");
+{
+  const cm = read("./js/coachMode.js");
+  const tabs = cm.slice(cm.indexOf("var COACH_TABS = ["), cm.indexOf("];", cm.indexOf("var COACH_TABS = [")));
+  test("a coach's tabs are Home, Messages, Analytics, You; no Calendar or Train", (tabs.match(/screen:/g) || []).length === 4 && /label: "Home"/.test(tabs) && !/Calendar|Train/.test(tabs));
+  test("the desktop sidebar is rewritten for coaches (same four, plus Settings) and restored for athletes",
+    /function rewriteRail\(\)/.test(cm) && /AthlevoCoachMode\.go\(this\)/.test(cm) && /openSettings\(\)/.test(cm) &&
+    /rewriteRail\(\);\s*\/\/ Hide athlete profile avatar/.test(cm) && /restoreAthleteRail\(\);\s*\/\/ Re-show profile avatar/.test(cm));
+  test("coach Home is the My Athletes table; a row opens that athlete's training calendar",
+    /<h1>My Athletes<\/h1>/.test(cm) && /openCoachAthletePage\(row\.getAttribute\("data-open-athlete"\), "training"\)/.test(cm));
+}
 
 section("Packaged for Android");
 const markers = read("./scripts/check-native-assets.mjs");

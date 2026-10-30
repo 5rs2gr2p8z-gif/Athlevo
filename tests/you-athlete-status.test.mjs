@@ -81,9 +81,9 @@ section("Compact score exposes the five canonical dimensions");
 
 section("Athlete Status lives on Home (same component, single mount)");
 {
-  test("Home holds Athlete Status with its original id, heading, and three signals (Readiness/Training Load/Recovery)",
+  test("Home holds Athlete Status with its original id, heading, and three signals (Training status/Training Load/Recovery)",
     /id="todayAthleteStatusCard"[\s\S]*?Athlete status/.test(home) &&
-    /id="todayReadinessSignal"/.test(home) &&
+    /id="todayTrainingStatusSignal"/.test(home) &&
     /id="todayLoadSignal"/.test(home) &&
     /id="todayRecoverySignal"/.test(home));
   test("it sits after Today's training and before Next/Coach on Home",
@@ -94,8 +94,8 @@ section("Athlete Status lives on Home (same component, single mount)");
   test("Home no longer renders the Training Paces card (it stays on You)",
     !/id="trainingPacesCard"/.test(home) && /id="youPacesCard"/.test(you));
   test("no duplicate DOM ids exist for any Athlete Status child element",
-    ["todayReadinessSignalValue", "todayLoadSignalValue", "todayRecoverySignalValue",
-     "todayReadinessSignalNote", "todayLoadSignalNote", "todayRecoverySignalNote",
+    ["todayTrainingStatusSignalValue", "todayLoadSignalValue", "todayRecoverySignalValue",
+     "todayTrainingStatusSignalNote", "todayLoadSignalNote", "todayRecoverySignalNote",
      "todayRecoverySignalQuality", "todayPremiumInsightTeaser", "todayStatusHeading"]
       .every(id => (html.match(new RegExp(`id="${id}"`, "g")) || []).length === 1));
   test("visibility is still driven by the single existing state machine (setTodayScreenState)",

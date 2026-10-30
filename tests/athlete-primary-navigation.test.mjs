@@ -188,8 +188,8 @@ const coachTabs = between(coachMode, "var COACH_TABS = [", "];");
 const restoredAthleteTabs = between(coachMode, "var ATHLETE_TABS = [", "];");
 const activateCoach = between(coachMode, "function activateCoachWorkspace()", "function activateAthleteWorkspace()");
 const activateAthlete = between(coachMode, "function activateAthleteWorkspace()", "function injectAthleteYouSwitcher");
-test("Coach Mode still includes its own Today tab",
-  /screen-today/.test(coachTabs) && /label: "Today"/.test(coachTabs));
+test("Coach Mode leads with a Home tab (the athlete list) and has no Calendar/Train tab",
+  /screen-today/.test(coachTabs) && /label: "Home"/.test(coachTabs) && !/Train|Calendar/.test(coachTabs));
 test("Coach Mode still activates screen-today for Coach Today",
   /showImmediately\("screen-today"\)/.test(activateCoach));
 test("leaving Coach Mode restores exactly Home / Calendar / Coach / You (screen-today / screen-train / screen-coachai / screen-trends)",

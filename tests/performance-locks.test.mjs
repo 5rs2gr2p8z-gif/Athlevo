@@ -69,9 +69,9 @@ section("Today free and paid presentation");
     html.indexOf("Unlock insights</button>", html.indexOf('<div class="today-status-card"')) +
       "Unlock insights</button>".length
   );
-  test("Readiness remains a normal visible signal",
-    /id="todayReadinessSignal"/.test(status) &&
-    !/id="todayReadinessSignal"[^>]*data-premium-state/.test(status));
+  test("Training status remains a normal visible signal",
+    /id="todayTrainingStatusSignal"/.test(status) &&
+    !/id="todayTrainingStatusSignal"[^>]*data-premium-state/.test(status));
   test("Training Load and Recovery fail closed while entitlement loads",
     /id="todayLoadSignal" data-premium-state="loading"/.test(status) &&
     /id="todayRecoverySignal" data-premium-state="loading"/.test(status));

@@ -837,8 +837,8 @@ function resetAthleteUI() {
   setText("todayContextLine", "Your athlete profile is loading.");
   setText("todayDirectionLabel", "Keep today controlled.");
   setText("todayDirectionCoaching", "Limited data means today should stay measured.");
-  setText("todayReadinessSignalValue", "—");
-  setText("todayReadinessSignalNote", "No check-in");
+  setText("todayTrainingStatusSignalValue", "");
+  setText("todayTrainingStatusSignalNote", "Building baseline");
   setText("todayLoadSignalValue", "—");
   setText("todayLoadSignalNote", "Unavailable");
   setText("todayPainSignalValue", "—");

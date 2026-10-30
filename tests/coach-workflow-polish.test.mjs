@@ -25,19 +25,17 @@ const workoutDialog = extractFunction("openWorkoutEditor", "saveWorkoutForm");
 const workoutSave = extractFunction("saveWorkoutForm", "removeWorkout");
 const noteDialog = extractFunction("openCoachNoteDeleteConfirm", "bindAthletePageActions");
 const bindDetail = extractFunction("bindAthletePageActions", "openWorkoutEditor");
-const globalTrainingStart = source.indexOf("function renderCoachTrain");
-const globalAnalyticsStart = source.indexOf("function renderCoachTrends", globalTrainingStart);
+const globalAnalyticsStart = source.indexOf("function renderCoachTrends");
 const globalYouStart = source.indexOf("function renderCoachYou", globalAnalyticsStart);
-const globalTraining = source.slice(globalTrainingStart, globalAnalyticsStart);
 const globalAnalytics = source.slice(globalAnalyticsStart, globalYouStart);
 
 console.log("\n──── Navigation and context continuity ────");
 test("bottom navigation names global directories by their actual purpose",
   /screen-coach-messaging", label: "Messages"/.test(source) &&
   /screen-coach-trends",\s+label: "Analytics"/.test(source));
-test("global Training opens the real athlete Training workspace",
-  /openCoachAthletePage\(item\.getAttribute\("data-athlete"\), "training"\)/.test(globalTraining) &&
-  !/Coming soon/.test(globalTraining));
+test("a coach reaches an athlete's real Training calendar from the Home roster, not a global Train tab",
+  /openCoachAthletePage\(row\.getAttribute\("data-open-athlete"\), "training"\)/.test(source) &&
+  !/function renderCoachTrain/.test(source));
 test("global Analytics opens the real athlete Analytics workspace",
   globalAnalytics.includes('openCoachAthletePage(item.getAttribute("data-athlete"), "analytics")') &&
   !/coming next|Choose athlete|cmTrendsSelect/i.test(globalAnalytics));

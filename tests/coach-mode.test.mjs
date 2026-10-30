@@ -407,13 +407,13 @@ describe("Coach Mode — client module structure", () => {
     assert.ok(coachModeSource.includes("isCoachMode:"));
   });
 
-  it("coachMode.js defines all five coach tab targets", () => {
-    // Coach Today reuses screen-today; the other four are dynamic
-    assert.ok(coachModeSource.includes('"screen-today"'),          "Today tab must target screen-today");
+  it("coachMode.js defines the four coach tab targets (no Train/Calendar tab)", () => {
+    // Coach Home reuses screen-today; the other three are dynamic
+    assert.ok(coachModeSource.includes('"screen-today"'),          "Home tab must target screen-today");
     assert.ok(coachModeSource.includes("screen-coach-messaging"));
-    assert.ok(coachModeSource.includes("screen-coach-train"));
     assert.ok(coachModeSource.includes("screen-coach-trends"));
     assert.ok(coachModeSource.includes("screen-coach-you"));
+    assert.ok(!coachModeSource.includes("screen-coach-train"), "a coach's calendar is only reached through an athlete");
   });
 
   it("coachMode.js tracks only categorical analytics events", () => {
@@ -422,7 +422,7 @@ describe("Coach Mode — client module structure", () => {
     assert.ok(coachModeSource.includes("coach_today_viewed"));
     assert.ok(coachModeSource.includes("coach_today_athlete_opened"));
     assert.ok(coachModeSource.includes("coach_tab_viewed"));
-    assert.ok(coachModeSource.includes("coach_train_viewed"));
+    assert.ok(!coachModeSource.includes("coach_train_viewed"));
     assert.ok(coachModeSource.includes("coach_trends_viewed"));
     assert.ok(coachModeSource.includes("coach_you_viewed"));
     assert.ok(coachModeSource.includes("coach_attention_item_reviewed"));
@@ -486,66 +486,65 @@ describe("Coach Mode — coaching command center UI", () => {
   const dashboardSource = readFileSync(resolve(import.meta.dirname, "..", "js", "coachDashboard.js"), "utf-8");
   const indexSource = readFileSync(resolve(import.meta.dirname, "..", "index.html"), "utf-8");
 
-  it("uses the approved command-center hierarchy with the roster last", () => {
+  it("coach Home is My Athletes: a header, then one roster table (no summary tiles or section panels)", () => {
     const renderStart = source.indexOf("function renderCoachToday");
     const renderEnd = source.indexOf("function renderCoachSkeleton", renderStart);
     const render = source.slice(renderStart, renderEnd);
-    assert.ok(render.includes("Coach Dashboard"));
-    assert.ok(render.indexOf("renderAttentionSection") < render.indexOf("renderTrainingTodaySection"));
-    assert.ok(render.indexOf("renderTrainingTodaySection") < render.indexOf("renderRecentActivitySection"));
-    assert.ok(render.indexOf("renderRecentActivitySection") < render.indexOf("renderRosterStatusSection"));
+    assert.ok(render.includes("<h1>My Athletes</h1>"));
+    assert.ok(!render.includes("Coach Dashboard"));
+    assert.ok(render.indexOf("cm-command-head") < render.indexOf("renderRosterTable"));
+    assert.ok(render.indexOf("renderRosterTable") < render.lastIndexOf("renderPendingInvitations"));
+    for (const gone of ["renderSummaryStrip", "renderAttentionSection", "renderTrainingTodaySection", "renderRecentActivitySection", "renderRaceGoalsSection"]) {
+      assert.ok(!source.includes(gone), gone + " was removed");
+    }
   });
 
-  it("derives all summary metrics from the returned roster", () => {
-    assert.ok(source.includes('sorted.filter(function (a) { return Boolean(a.today_planned); })'));
-    assert.ok(source.includes('Boolean(a.target_event && a.target_date'));
-    assert.ok(source.includes('{ label: "Athletes", value: total }'));
-    assert.ok(source.includes('{ label: "Need attention", value: attn }'));
-    assert.ok(source.includes('{ label: "Training today", value: training }'));
-    assert.ok(source.includes('{ label: "Upcoming races", value: races }'));
+  it("derives the header summary from the returned roster", () => {
+    assert.ok(source.includes('var trainingToday = sorted.filter(function (a) { return Boolean(a.today_planned); }).length'));
+    assert.ok(source.includes('a.attention_status === "needs_attention" || a.attention_status === "monitor"'));
+    assert.ok(source.includes("needAttention + \" athlete\""));
   });
 
-  it("renders a compact all-clear state instead of an empty attention panel", () => {
-    assert.ok(source.includes('<div class="cm-quiet-state cm-quiet-state--clear">All clear.</div>'));
+  it("says plainly when nobody needs attention", () => {
+    assert.ok(source.includes('"No athletes need attention right now."'));
     assert.ok(source.includes(".cm-quiet-state{display:flex"));
-    assert.ok(source.includes('<div class="cm-quiet-state">No sessions planned today.</div>'));
   });
 
-  it("shows execution-backed statuses for today's sessions", () => {
-    assert.ok(source.includes('var status = s.execution_status || "pending"'));
-    assert.ok(source.includes('status === "skipped"'));
-    assert.ok(source.includes('status === "modified"'));
+  it("the Today column shows execution-backed statuses", () => {
+    const start = source.indexOf("function rosterTodayCell");
+    const cellSrc = source.slice(start, source.indexOf("function rosterRaceCell", start));
+    assert.ok(cellSrc.includes('s.execution_status && s.execution_status !== "pending"'));
+    assert.ok(cellSrc.includes('status === "skipped"'));
+    assert.ok(cellSrc.includes('status === "modified"'));
+    assert.ok(cellSrc.includes("Nothing planned"));
   });
 
-  it("recent activity is a who/what/when feed without sync events", () => {
-    const start = source.indexOf("function renderRecentActivitySection");
-    const end = source.indexOf("function renderRaceGoalsSection", start);
-    const render = source.slice(start, end);
-    assert.ok(render.includes("a.name"));
+  it("the Last workout column is what and when, without sync events", () => {
+    const start = source.indexOf("function rosterLastWorkoutCell");
+    const render = source.slice(start, source.indexOf("function rosterTodayCell", start));
     assert.ok(render.includes("latestActivitySummary(a)"));
-    assert.ok(render.includes("fmtDateTime(a.latest_activity.date)"));
+    assert.ok(render.includes("shortDate(a.latest_activity.date)"));
     assert.ok(!/sync/i.test(render));
   });
 
-  it("collapses repeated missing metrics into one truthful roster status", () => {
-    const start = source.indexOf("function renderRosterList");
-    const end = source.indexOf("function bindCoachTodayEvents", start);
+  it("missing data is a single dash, and a status of its own, never fabricated numbers", () => {
+    const start = source.indexOf("function rosterRow");
+    const end = source.indexOf("function renderRosterTable", start);
     const render = source.slice(start, end);
-    assert.ok(render.includes("rosterStatusLine(a)"));
-    assert.ok(source.includes('return "No recent training data"'));
+    assert.ok(source.includes("function dash()"));
+    assert.ok(render.includes("rosterStatusCell(a)"));
+    assert.ok(source.includes('"No recent data"'));
+    assert.ok(source.includes("if (a.adherence_pct == null) return dash();"));
     assert.ok(!render.includes("Readiness:"));
-    assert.ok(!render.includes("Recovery:"));
     assert.ok(!render.includes("Adh:"));
   });
 
-  it("supports zero, small, and larger rosters inside the phone-width shell", () => {
+  it("supports zero, small, and larger rosters", () => {
     assert.ok(source.includes("No athletes assigned yet."));
     assert.ok(source.includes("Invite Athlete"));
     assert.ok(source.includes("Invite an athlete to connect them to your coaching roster."));
-    assert.ok(source.includes("width:100%;max-width:430px"));
-    assert.ok(source.includes("grid-template-columns:repeat(2,minmax(0,1fr))"));
     assert.ok(source.includes('sorted.length <= 3 ? " cm-command--small-roster"'));
-    assert.ok(source.includes(".cm-command--small-roster .cm-command-grid{gap:26px}"));
+    assert.ok(source.includes(".cm-command--small-roster .cm-section--roster{padding-top:2px;}"));
   });
 
   it("keeps Invite Athlete as the only dashboard header action while preserving internal refresh", () => {
@@ -558,14 +557,15 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes('retry.addEventListener("click", refreshRoster)'));
   });
 
-  it("keeps every summary label complete at 375, 390, and 430px", () => {
-    for (const label of ["Athletes", "Need attention", "Training today", "Upcoming races"]) {
-      assert.ok(source.includes(`label: "${label}"`));
+  it("is a wide table on desktop and one row per athlete on phones", () => {
+    assert.ok(source.includes(".cm-command--roster{max-width:1180px}"));
+    assert.ok(source.includes("<table class=\"cm-roster-table\">"));
+    for (const col of ["Athlete", "This week", "Last workout", "Today", "Race", "Last active", "Status"]) {
+      assert.ok(source.includes('scope="col">' + col + "</th>"), col + " column");
     }
-    assert.ok(source.includes("grid-template-columns:repeat(2,minmax(0,1fr))"));
-    assert.ok(source.includes("white-space:normal;overflow:visible"));
-    const metricRule = source.match(/\.cm-summary-metric span\{[^\"]+/)?.[0] || "";
-    assert.ok(metricRule && !metricRule.includes("text-overflow"));
+    const phone = source.match(/@media\(max-width:820px\)\{\.cm-roster-table thead\{display:none\}[^"]*/)?.[0] || "";
+    assert.ok(phone.includes(".cm-roster-row{display:grid"), "rows stack on phones");
+    assert.ok(phone.includes("attr(data-label)"), "stacked cells keep their labels");
   });
 
   it("renders roster name, context, and status as separate wrapping lines", () => {
@@ -578,23 +578,20 @@ describe("Coach Mode — coaching command center UI", () => {
 
   it("keeps mobile phone-first and expands only the coach workspace on desktop", () => {
     assert.ok(source.includes(".cm-command{width:100%;max-width:430px"));
-    assert.ok(source.includes(".cm-command-pair{display:grid;grid-template-columns:minmax(0,1fr)"));
     assert.ok(source.includes("body.coach-workspace-active .device"));
     assert.ok(source.includes("max-width:980px"));
     assert.ok(source.includes('document.body.classList.remove("coach-workspace-active")'));
   });
 
-  it("uses the shared shimmer for a dashboard-shaped loading hierarchy", () => {
+  it("uses the shared shimmer for a roster-shaped loading hierarchy", () => {
     assert.ok(source.includes('class="skel cm-skel-line'));
-    assert.ok(source.includes('class="skel cm-skel-number'));
-    assert.ok(source.includes('class="skel cm-skel-stat-label'));
-    assert.equal((source.match(/compactSection\(\)/g) || []).length, 2);
     assert.equal((source.match(/cm-skel-roster-row/g) || []).length >= 2, true);
     assert.ok(source.includes("cm-skel-avatar"));
     assert.ok(source.includes("cm-skel-name"));
     assert.ok(source.includes("cm-skel-context"));
     assert.ok(source.includes("cm-skel-status"));
     assert.ok(source.includes("cm-skel-search"));
+    assert.ok(!source.includes("compactSection"));
     assert.ok(source.includes("@media(prefers-reduced-motion:reduce)"));
     assert.ok(!source.includes("Loading roster…"));
   });
@@ -662,9 +659,11 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(refresh.indexOf("renderCoachToday()") < refresh.indexOf('api("roster",'));
   });
 
-  it("every command-center row opens the dedicated athlete page", () => {
+  it("every roster row opens that athlete's training calendar on the dedicated athlete page", () => {
     assert.ok(source.includes('container.querySelectorAll("[data-open-athlete]")'));
-    assert.ok(source.includes("openCoachAthletePage(id"));
+    assert.ok(source.includes('openCoachAthletePage(row.getAttribute("data-open-athlete"), "training")'));
+    assert.ok(source.includes("data-athlete-calendar"));
+    assert.ok(source.includes("data-athlete-message"));
     assert.ok(source.includes('var tabs = ["overview", "training", "analytics", "check-ins", "notes"]'));
     assert.ok(!source.includes("openCoachAthleteDrawer"));
     assert.ok(dashboardSource.includes("switchToCoachWorkspace"));

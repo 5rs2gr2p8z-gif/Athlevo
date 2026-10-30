@@ -5592,6 +5592,10 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       font-weight:700;line-height:1.2;color:var(--ink2)}
     .direction-signal-note{max-width:100%;margin-top:2px;font-size:var(--fs-micro);
       font-weight:550;line-height:1.2;color:var(--ink3)}
+    #todayTrainingStatusSignal .direction-signal-note{font-weight:600;color:var(--signal-color)}
+    #todayTrainingStatusSignal[data-tone="missing"] .direction-signal-note{color:var(--ink3)}
+    #todayTrainingStatusSignal[data-connect="true"]{cursor:pointer}
+    #todayTrainingStatusSignal[data-connect="true"] .direction-signal-note{color:var(--ink2);text-decoration:underline}
     .direction-signal-quality{max-width:100%;margin-top:2px;font-size:10px;
       font-weight:550;line-height:1.2;color:var(--ink3)}
     .direction-signal-lock{display:none;position:absolute;z-index:2;width:18px;height:18px;
@@ -5799,7 +5803,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       </div>
     </details>
 
-  <!-- ═══════ HOME · ATHLETE STATUS (Readiness / Training Load / Recovery). Same
+  <!-- ═══════ HOME · ATHLETE STATUS (Training status from Intervals.icu / Training Load / Recovery). Same
        #todayAthleteStatusCard element, renderer and data pipeline as before; it
        now lives on Home (it was on You) and this is still its only mount. ═══════ -->
   <div class="home-status-section" aria-label="Athlete status">
@@ -5808,17 +5812,19 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
       <div class="direction-topline">
         <span class="direction-eyebrow" id="todayStatusHeading">Athlete status</span>
       </div>
-      <div class="direction-signals" aria-label="Today’s readiness signals">
-        <div class="direction-signal" id="todayReadinessSignal" aria-label="Readiness: needs check-in">
+      <div class="direction-signals" aria-label="Today’s training signals">
+        <div class="direction-signal" id="todayTrainingStatusSignal" data-tone="missing" data-progress-kind="missing"
+          aria-label="Training status: building baseline">
           <span class="direction-signal-ring" aria-hidden="true">
             <svg viewBox="0 0 72 72" focusable="false">
               <circle class="direction-signal-track" cx="36" cy="36" r="31" pathLength="100"></circle>
               <circle class="direction-signal-progress" cx="36" cy="36" r="31" pathLength="100"></circle>
             </svg>
-            <strong class="direction-signal-value" id="todayReadinessSignalValue"></strong>
+            <strong class="direction-signal-value" id="todayTrainingStatusSignalValue"></strong>
           </span>
-          <span class="direction-signal-name">Readiness</span>
-          <span class="direction-signal-note" id="todayReadinessSignalNote">Needs check-in</span>
+          <span class="direction-signal-name">Training status</span>
+          <span class="direction-signal-note" id="todayTrainingStatusSignalNote">Building baseline</span>
+          <span class="direction-signal-quality" id="todayTrainingStatusSignalDetail"></span>
         </div>
         <div class="direction-signal" id="todayLoadSignal" data-premium-state="loading"
           aria-label="Training Load access is loading">
@@ -11867,9 +11873,6 @@ async function renderTodayPassiveStatus(profile){
   var coaching = document.getElementById("todayDirectionCoaching");
   var card = document.getElementById("dailyBriefCard");
   var statusCard = document.getElementById("todayAthleteStatusCard");
-  var readinessSignal = document.getElementById("todayReadinessSignal");
-  var readinessValue = document.getElementById("todayReadinessSignalValue");
-  var readinessNote = document.getElementById("todayReadinessSignalNote");
   var loadSignal = document.getElementById("todayLoadSignal");
   var loadValue = document.getElementById("todayLoadSignalValue");
   var loadNote = document.getElementById("todayLoadSignalNote");
@@ -11922,12 +11925,9 @@ async function renderTodayPassiveStatus(profile){
         ? signal.note.toLowerCase()
         : signal.value + (signal.note ? ", " + signal.note : "")));
     }
-    renderTodayReadinessSignal(
-      readinessSignal,
-      readinessValue,
-      readinessNote,
-      value.signals.readiness
-    );
+    /* Training status comes from Intervals.icu fitness/fatigue (js/trainingStatus.js),
+       not from the daily readiness score. It paints itself once its data arrives. */
+    if (window.AthlevoTrainingStatus) window.AthlevoTrainingStatus.render().catch(function(){});
     if (paid){
       loadSignal.dataset.premiumState = "unlocked";
       recoverySignal.dataset.premiumState = "unlocked";
@@ -13541,7 +13541,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/recoveryScore.js?v=69"></script>
 <script src="js/sportClassification.js?v=74"></script>
 <script src="js/loadingContinuity.js?v=81"></script>
-<script src="js/brain.js?v=82"></script>
+<script src="js/brain.js?v=83"></script>
 <script src="js/weather.js?v=78"></script>
 <script src="js/syncStatus.js?v=67"></script>
 <script src="js/performance.js?v=67"></script>
@@ -13563,6 +13563,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/trends.js?v=67"></script>
 <script src="js/trendsAnalytics.js?v=84"></script>
 <script src="js/trainingState.js?v=1"></script>
+<script src="js/trainingStatus.js?v=3"></script>
 <script src="js/socialAuth.js?v=75"></script>
 <script src="js/analyticsRegistry.js?v=75"></script>
 <script src="js/metaPixel.js?v=69"></script>
@@ -13603,7 +13604,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/structuredWorkout.js?v=2"></script>
 <script src="js/coachWorkoutBuilder.js?v=2"></script>
 <script src="js/coachDashboard.js?v=79"></script>
-<script src="js/coachMode.js?v=22"></script>
+<script src="js/coachMode.js?v=25"></script>
 <script src="js/adaptivePlan.js?v=79"></script>
 <script src="js/accessGuard.js?v=80"></script>
 <script src="js/programsScreen.js?v=2"></script>
