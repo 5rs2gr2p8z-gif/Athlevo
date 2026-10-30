@@ -114,9 +114,12 @@ test("Home has no separate Coach row; Fuel is marked Beta and You has no Fuel ca
 test("Coach tab names the coach with a photo: Coach Dean until real coach profiles exist",
   /function coachIdentity\(\)/.test(am) && /\/\^your\\s\+coach\$\/i\.test\(raw\)\) raw = "Dean"/.test(am) &&
   /dean: "assets\/store\/founder-640\.webp"/.test(am) && /coachAvatarHtml\(who, "am-human-coach-avatar"\)/.test(am));
-test("Coach tab looks like the old AI Coach: centered header, plain coach text, pill composer with arrow send",
-  /\.am-human-coach-head\{[^}]*flex-direction:column;align-items:center/.test(html) &&
-  /\.am-human-message\{align-self:stretch/.test(html) && /class="composer am-human-compose-box"/.test(am) && /type="submit" class="send" id="amHumanCoachSend"/.test(am));
+test("Coach tab is a chat: name and photo header, boxed bubbles for both sides with times inside, day pills, pill composer with arrow send",
+  /\.am-human-coach-head\{[^}]*grid-template-columns:40px minmax\(0,1fr\) 40px/.test(html) &&
+  /\.am-human-message \.am-bubble\{/.test(html) && /\.am-human-message\.is-athlete \.am-bubble\{/.test(html) &&
+  /\.am-bubble time\{float:right/.test(html) && /\.am-human-day\{align-self:center/.test(html) &&
+  /class="am-human-day" role="separator"/.test(am) && /humanDayLabel\(message\.created_at\)/.test(am) &&
+  /class="composer am-human-compose-box"/.test(am) && /type="submit" class="send" id="amHumanCoachSend"/.test(am));
 test("screen, root and both controls exist", ["screen-programs", "programsRoot", "programsBack", "programsSkip"].every(id => html.includes(`id="${id}"`)));
 test("the screen script is loaded; the store catalog is lazy-loaded on first open (the app shell never ships the storefront)",
   html.includes('<script src="js/programsScreen.js') && !html.includes("storeCatalog") && /tag\.src = "js\/storeCatalog\.js/.test(read("./js/programsScreen.js")));

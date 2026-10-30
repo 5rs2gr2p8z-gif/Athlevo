@@ -420,6 +420,29 @@
     return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
 
+  function humanClock(value) {
+    var date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return "";
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  function humanDayKey(value) {
+    var date = value ? new Date(value) : null;
+    return date && !Number.isNaN(date.getTime()) ? date.toDateString() : "";
+  }
+
+  function humanDayLabel(value) {
+    var date = new Date(value);
+    var today = new Date();
+    var yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    var sameYear = date.getFullYear() === today.getFullYear();
+    return date.toLocaleDateString([], sameYear
+      ? { month: "long", day: "numeric" }
+      : { month: "long", day: "numeric", year: "numeric" });
+  }
+
   function humanThreadNearBottom(log) {
     return !log || log.scrollHeight - log.clientHeight - log.scrollTop < 96;
   }
@@ -509,11 +532,26 @@
       });
       return;
     }
-    log.innerHTML = messages.map(function (message) {
+    // Chat bubbles for both sides, a day pill when the date changes, and the
+    // corner "tail" only on the last bubble of a run from the same sender.
+    var previousDay = "";
+    var previousRole = "";
+    log.innerHTML = messages.map(function (message, index) {
       var athlete = message.sender_role === "athlete";
-      return '<article class="am-human-message ' + (athlete ? "is-athlete" : "is-coach") + '">' +
-        '<p>' + esc(message.body) + '</p>' +
-        '<time datetime="' + esc(message.created_at || "") + '">' + esc(humanMessageTime(message.created_at)) + '</time>' +
+      var day = humanDayKey(message.created_at);
+      var separator = day && day !== previousDay
+        ? '<div class="am-human-day" role="separator"><span>' + esc(humanDayLabel(message.created_at)) + '</span></div>'
+        : "";
+      var next = messages[index + 1];
+      var sameRunAsNext = Boolean(next) && next.sender_role === message.sender_role &&
+        humanDayKey(next.created_at) === day;
+      var first = Boolean(separator) || previousRole !== message.sender_role;
+      previousDay = day || previousDay;
+      previousRole = message.sender_role;
+      return separator + '<article class="am-human-message ' + (athlete ? "is-athlete" : "is-coach") +
+        (first ? " is-first" : "") + (sameRunAsNext ? "" : " is-last") + '">' +
+        '<div class="am-bubble">' + esc(message.body) +
+        '<time datetime="' + esc(message.created_at || "") + '">' + esc(humanClock(message.created_at)) + '</time></div>' +
       '</article>';
     }).join("");
     var nextCount = messages.length;
@@ -635,8 +673,9 @@
     mount.className = "am-coach-mode-mount am-human-coach";
     mount.innerHTML =
       '<header class="am-human-coach-head">' +
+        '<span class="am-human-coach-spacer" aria-hidden="true"></span>' +
+        '<span class="am-human-coach-title"><strong>' + coachName + '</strong><small>Your coach</small></span>' +
         coachAvatarHtml(who, "am-human-coach-avatar") +
-        '<strong>' + coachName + '</strong><small>Your coach</small>' +
       '</header>' +
       '<div class="am-human-coach-thread" id="amHumanCoachThread" aria-label="Conversation with ' + coachName + '"></div>' +
       '<button class="am-human-coach-latest" id="amHumanCoachLatest" type="button" hidden>Jump to latest</button>' +

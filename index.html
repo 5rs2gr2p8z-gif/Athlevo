@@ -2906,20 +2906,24 @@ body.layout-tablet .am-coach-mode-mount,body.layout-desktop .am-coach-mode-mount
 .am-coach-surface-enter{animation:amCoachSurfaceIn 120ms var(--ease-standard) both}
 @keyframes amCoachSurfaceIn{from{opacity:0}to{opacity:1}}
 .am-human-coach{position:relative;display:flex;flex-direction:column;background:var(--paper)}
-/* Same feel as the old AI Coach: a quiet centered header, plain coach text, a pill composer. */
+/* Chat layout: a header with the coach's name and photo, boxed bubbles for both sides
+   (the coach's on the left, the athlete's tinted on the right), times inside the bubbles,
+   day pills, and the same pill composer as the old AI Coach. */
+.am-human-coach{background:var(--card)}
 .am-human-coach-head{
-  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 22px 10px;
-  background:var(--paper);text-align:center
+  flex:0 0 auto;display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:8px;
+  padding:10px 16px;background:var(--paper);border-bottom:1px solid var(--line);text-align:center
 }
+.am-human-coach-title{min-width:0}
 .am-human-coach-avatar{
-  width:44px;height:44px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;object-fit:cover;
-  background:var(--ink);color:var(--paper);font:600 var(--fs-body)/1 var(--serif);margin-bottom:4px
+  width:40px;height:40px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;object-fit:cover;
+  background:var(--ink);color:var(--paper);font:600 var(--fs-body-sm)/1 var(--serif)
 }
-.am-human-coach-head strong{display:block;font-size:var(--fs-body);font-weight:650;overflow-wrap:anywhere}
-.am-human-coach-head small{display:block;color:var(--text-muted);font-size:var(--fs-caption)}
+.am-human-coach-title strong{display:block;font-size:var(--fs-body);font-weight:650;line-height:1.2;overflow-wrap:anywhere}
+.am-human-coach-title small{display:block;margin-top:1px;color:var(--text-muted);font-size:var(--fs-caption)}
 .am-human-coach-thread{
-  flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--s-5) 22px 10px;
-  display:flex;flex-direction:column;gap:var(--s-5);-webkit-overflow-scrolling:touch
+  flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:14px 14px 10px;
+  display:flex;flex-direction:column;gap:3px;-webkit-overflow-scrolling:touch;background:var(--card)
 }
 .am-human-coach-thread>:first-child{margin-top:auto}
 .am-human-thread-state,.am-human-thread-empty{margin:auto;text-align:center;color:var(--text-muted);font-size:var(--fs-body-sm)}
@@ -2934,17 +2938,24 @@ body.layout-tablet .am-coach-mode-mount,body.layout-desktop .am-coach-mode-mount
 .am-human-thread-empty{display:flex;flex-direction:column;align-items:center;width:100%}
 .am-human-thread-empty strong{display:block;color:var(--text);font:500 var(--fs-h1)/1.15 var(--serif);letter-spacing:var(--ls-tight);margin-bottom:var(--s-2)}
 .am-human-thread-empty p{max-width:300px;margin:0;font-size:var(--fs-body);color:var(--ink2);line-height:var(--lh-body)}
-.am-human-message{align-self:stretch;max-width:100%;animation:msgIn var(--dur-base) var(--ease-emphasized)}
-.am-human-message p{
-  margin:0;padding:0;background:transparent;color:var(--text);
-  font-size:var(--fs-body);line-height:var(--lh-body);overflow-wrap:anywhere;white-space:pre-wrap
+.am-human-message{align-self:flex-start;max-width:82%;animation:msgIn var(--dur-base) var(--ease-emphasized)}
+.am-human-message.is-athlete{align-self:flex-end}
+.am-human-message.is-first{margin-top:9px}
+.am-human-message .am-bubble{
+  padding:8px 12px 6px;border-radius:18px;background:var(--paper);border:1px solid var(--line);color:var(--text);
+  font-size:var(--fs-body);line-height:1.4;overflow-wrap:anywhere;white-space:pre-wrap
 }
-.am-human-message.is-athlete{align-self:flex-end;width:auto;max-width:78%}
-.am-human-message.is-athlete p{
-  padding:9px 13px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-lg);color:var(--text)
+.am-human-message.is-athlete .am-bubble{
+  background:color-mix(in srgb,var(--red) 11%,var(--paper));border-color:color-mix(in srgb,var(--red) 24%,var(--line))
 }
-.am-human-message time{display:block;margin-top:4px;color:var(--text-muted);font-size:10px}
-.am-human-message.is-athlete time{text-align:right}
+.am-human-message.is-coach.is-last .am-bubble{border-bottom-left-radius:6px}
+.am-human-message.is-athlete.is-last .am-bubble{border-bottom-right-radius:6px}
+.am-bubble time{float:right;margin:8px 0 -2px 12px;color:var(--text-muted);font-size:var(--fs-micro);line-height:1;white-space:nowrap}
+.am-human-day{align-self:center;margin:12px 0 6px}
+.am-human-day span{
+  display:block;padding:3px 11px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,var(--card));
+  color:var(--ink2);font:600 var(--fs-micro)/1.5 var(--sans)
+}
 .am-human-empty-avatar{
   width:72px;height:72px;display:grid;place-items:center;border-radius:50%;object-fit:cover;margin:0 auto var(--s-4);
   background:var(--ink);color:var(--paper);font:600 28px/1 var(--serif)
@@ -2955,8 +2966,9 @@ body.layout-tablet .am-coach-mode-mount,body.layout-desktop .am-coach-mode-mount
   font:700 var(--fs-caption)/1 var(--sans);cursor:pointer}
 .am-human-coach-latest[hidden]{display:none}
 .am-human-coach-composer{
-  flex:0 0 auto;display:block;padding:var(--s-2) 22px var(--s-3);background:var(--paper);border-top:none
+  flex:0 0 auto;display:block;padding:var(--s-2) 14px var(--s-3);background:var(--paper);border-top:1px solid var(--line)
 }
+body.layout-tablet .am-human-coach-composer,body.layout-desktop .am-human-coach-composer{background:var(--card);border-top:0}
 .am-human-compose-box{margin:0}
 .am-human-compose-box label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .am-human-coach-composer .am-human-compose-box textarea{min-height:36px}
