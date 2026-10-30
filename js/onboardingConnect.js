@@ -320,7 +320,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
   // STEP 4 (import) — honest progress around the REAL pipeline calls.
   const IMPORT_STAGES = [
     "Connected", "Importing workouts", "Reading lap and interval data",
-    "Building your athlete profile", "Analyzing training history", "Preparing your AI coach"
+    "Building your athlete profile", "Analyzing training history", "Preparing your coaching"
   ];
   function stepImporting(activeIndex, counts) {
     const rows = IMPORT_STAGES.map((label, i) => {
@@ -347,7 +347,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
         ${ART.check}
         <span class="cf-confirm">${esc(wearableLabel())} connected</span>
         <h2 class="cf-title serif">Your training is connected.</h2>
-        <p class="cf-body">${esc(summary.headline)} Your AI coach is now ready.</p>
+        <p class="cf-body">${esc(summary.headline)} Your coaching is now ready.</p>
         <div class="cf-stats">
           ${stat("This week", summary.weeklyKm)}
           ${stat("Longest run", summary.longestKm)}

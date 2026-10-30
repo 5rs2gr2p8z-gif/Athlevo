@@ -167,7 +167,7 @@ section("Import success confirms the connection before the dashboard");
   t("celebrates with a strong 'Your training is connected.' headline", /Your training is connected\./.test(fn));
   t("shows the real activity count", /summary\.headline/.test(fn));
   t("shows real training stats", /This week/.test(fn) && /Longest run/.test(fn));
-  t("names what happens next — the AI coach is ready", /Your AI coach is now ready/.test(fn));
+  t("names what happens next — the coaching is ready", /Your coaching is now ready/.test(fn));
   t("does NOT start generation from this screen",
     !/build\(\)|generate/i.test(fn));
   t("the button continues to Athlevo", /AthlevoConnect\.finish\(\)/.test(fn) && /Continue to Athlevo/.test(fn));

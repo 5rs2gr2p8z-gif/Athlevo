@@ -39,7 +39,7 @@ test("Capacitor Android is pinned to the core/CLI version", () => {
 test("native identities and release versions are coherent", () => {
   assert.equal(pkg.version, "0.6.0");
   assert.equal(cap.appId, "org.athlevo.app");
-  assert.equal(cap.appName, "Athlevo");
+  assert.equal(cap.appName, "Athlevo Coaching");
   assert.match(appGradle, /applicationId "org\.athlevo\.app"/);
   assert.match(read("android/app/src/main/java/org/athlevo/app/MainActivity.java"), /package org\.athlevo\.app;/);
   assert.match(read("android/app/src/androidTest/java/org/athlevo/app/ExampleInstrumentedTest.java"), /org\.athlevo\.app/);

@@ -215,7 +215,7 @@ section("Activities returned → import success state");
   await wait(200);
   const seen = visible(dom.html);
   t("shows the imported count", /We found 10 workouts/.test(seen));
-  t("AI coach is ready", /Your AI coach is now ready/.test(seen));
+  t("coaching is ready", /Your coaching is now ready/.test(seen));
   t("sync was called", p.calls.sync === 1);
 }
 

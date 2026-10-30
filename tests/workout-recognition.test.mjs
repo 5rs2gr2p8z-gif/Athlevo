@@ -184,7 +184,7 @@ section("Part 1 — coach activation milestone");
 {
   const ps = readFileSync("./js/planSetup.js", "utf8");
   const fn = ps.slice(ps.indexOf("if (firstEver) {"), ps.indexOf("return;   // an intentional"));
-  t("title 'Your AI coach is ready.'", /Your AI coach is ready\./.test(fn));
+  t("title 'Your coaching plan is ready.'", /Your coaching plan is ready\./.test(fn));
   t("subtitle names the analysis", /analyzed your athlete profile and recent/.test(fn));
   ["Athlete profile analyzed", "Training history analyzed",
    "Current fitness estimated", "First training week created"].forEach(line =>

@@ -51,7 +51,13 @@ const MARKERS = [
   ["js/analytics.js", "signupContextProps", "signup analytics context"],
   ["index.html", 'id="premiumRedButtons"', "shared premium red CTA styling"],
   ["index.html", "@keyframes prbRing", "premium red CTA glow"],
-  ["index.html", "btn-premium-red", "shared premium red CTA class"]
+  ["index.html", "btn-premium-red", "shared premium red CTA class"],
+  // Athlevo Coaching rebrand + four-section navigation (Home / Calendar / Coach / You)
+  ["index.html", "<title>Athlevo Coaching", "Athlevo Coaching page title"],
+  ["manifest.webmanifest", '"name": "Athlevo Coaching"', "Athlevo Coaching PWA name"],
+  ["index.html", 'data-screen="screen-today" onclick="go(this)" role="tab"', "Home tab in the athlete nav"],
+  ["index.html", 'id="homeNextCard"', "Home dashboard (Next)"],
+  ["index.html", 'id="homeFuelEntry"', "Home → Fuel entry"]
 ];
 
 async function exists(path) {

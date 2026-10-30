@@ -153,7 +153,7 @@ section("9. First successful generation shows a clear milestone");
 {
   const ps = readFileSync("./js/planSetup.js", "utf8");
   const fn = ps.slice(ps.indexOf("function showSuccess"), ps.indexOf("if (!reduceMotion()) setTimeout"));
-  t("title 'Your AI coach is ready.'", /Your AI coach is ready\./.test(fn));
+  t("title 'Your coaching plan is ready.'", /Your coaching plan is ready\./.test(fn));
   t("copy names profile + recent training analysis",
     /analyzed your athlete profile and recent\s*training/.test(fn));
   t("CTA is 'Open My Coach'", /Open My Coach/.test(fn));

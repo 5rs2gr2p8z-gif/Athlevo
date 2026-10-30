@@ -53,7 +53,7 @@ section("1. Free first-plan generation reaches the server");
 section("2. VALUE → NEXT DESIRE → RELEVANT UPGRADE, not OPEN APP → PAYWALL");
 {
   t("the activation milestone (the plan itself) still renders first",
-    planSetupSrc.indexOf("Your AI coach is ready.") <
+    planSetupSrc.indexOf("Your coaching plan is ready.") <
     planSetupSrc.indexOf("renderFirstPlanAhaUpgrade(mount);"));
   t("the upgrade surface is appended, never replacing the plan/checklist",
     /wrap\.appendChild\(aha\)/.test(planSetupSrc));

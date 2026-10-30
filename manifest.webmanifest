@@ -1,7 +1,7 @@
 {
-  "name": "Athlevo — AI Endurance Coach",
-  "short_name": "Athlevo",
-  "description": "Train with an AI coach that evolves with you. Adaptive training, Coach Brain, Athlete Score, and workout analysis for endurance athletes.",
+  "name": "Athlevo Coaching",
+  "short_name": "Athlevo Coaching",
+  "description": "Personalized endurance coaching that adapts to you. Adaptive training, Coach Brain, Athlete Score, and workout analysis for endurance athletes.",
   "id": "/",
   "start_url": "/?source=pwa",
   "scope": "/",
@@ -21,23 +21,23 @@
   ],
   "shortcuts": [
     {
-      "name": "Today",
-      "short_name": "Today",
-      "description": "Your readiness, paces and coach insights",
-      "url": "/?screen=today&source=shortcut",
+      "name": "Home",
+      "short_name": "Home",
+      "description": "Today's training, what's next and your coaching context",
+      "url": "/?screen=home&source=shortcut",
       "icons": [{ "src": "/assets/pwa/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Train",
-      "short_name": "Train",
-      "description": "This week's training plan",
-      "url": "/?screen=train&source=shortcut",
+      "name": "Calendar",
+      "short_name": "Calendar",
+      "description": "Your training schedule and history",
+      "url": "/?screen=calendar&source=shortcut",
       "icons": [{ "src": "/assets/pwa/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Coach",
       "short_name": "Coach",
-      "description": "Ask your AI endurance coach",
+      "description": "Ask about your training",
       "url": "/?screen=coach&source=shortcut",
       "icons": [{ "src": "/assets/pwa/icon-192.png", "sizes": "192x192" }]
     }

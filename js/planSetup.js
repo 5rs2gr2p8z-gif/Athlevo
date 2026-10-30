@@ -432,14 +432,14 @@
     if (firstEver) {
       /*
        * The coach-activation milestone. Shown ONCE, on the first successful
-       * plan. It reframes generation as "your AI coach analyzed you", which is
+       * plan. It reframes generation as "your coaching plan is ready", which is
        * what the athlete actually values. After it is dismissed the Today card
        * is gone for good (a plan now exists), so this is never shown again.
        */
       mount.innerHTML = `
         <div class="pg-wrap success">
           <div class="pg-check">✓</div>
-          <h2 class="pg-title serif">Your AI coach is ready.</h2>
+          <h2 class="pg-title serif">Your coaching plan is ready.</h2>
           <p class="pg-sub">Athlevo has analyzed your athlete profile and recent
             training to build your first personalized training week.</p>
           <ul class="pg-activation">

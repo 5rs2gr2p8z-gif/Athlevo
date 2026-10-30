@@ -150,7 +150,7 @@ section("STEP 4–5 — waiting, then success in the athlete's own numbers");
   await wait(120);
   const seen = visible(dom.html);
   t("lands on success with the real count", /We found 274 workouts/.test(dom.html));
-  t("names the finish line — the AI coach is ready", /Your AI coach is now ready/.test(seen));
+  t("names the finish line — the coaching is ready", /Your coaching is now ready/.test(seen));
   t("the CTA is 'Continue to Athlevo'", /Continue to Athlevo/.test(seen));
   t("shows real weekly / longest / recent numbers",
     /This week/.test(seen) && /Longest run/.test(seen) && /Most recent/.test(seen) && !/\{|NaN|undefined/.test(dom.html));
@@ -223,7 +223,7 @@ section("Persona 4 — user who returns after Garmin is connected");
   await wait(120);
   t("detects and imports automatically", p.calls.detect >= 1 && p.calls.sync === 1);
   t("confirms with the real number", /We found 264 workouts/.test(dom.html));
-  t("tells them their coach is ready", /Your AI coach is now ready/.test(visible(dom.html)));
+  t("tells them their coaching is ready", /Your coaching is now ready/.test(visible(dom.html)));
 }
 
 section("Persona 5 — connected, but no workouts yet (watch not linked in Sync)");
