@@ -754,6 +754,13 @@
     const REST_TYPES = new Set(["rest", "rest_day", "off", "day_off"]);
     if (REST_TYPES.has(type.replace(/[\s-]+/g, "_"))) return [];
 
+    // Coach-built workouts carry exact steps: draw those, not a parse of the text.
+    if (session.structure && window.AthlevoStructuredWorkout) {
+      const built = window.AthlevoStructuredWorkout.toSegments(session.structure, null)
+        .filter(s => s.duration > 0);
+      if (built.length) return built;
+    }
+
     const warmup = Array.isArray(session.warmup) ? session.warmup.filter(Boolean) : [];
     const mainSet = Array.isArray(session.main_set) ? session.main_set.filter(Boolean) : [];
     const cooldown = Array.isArray(session.cooldown) ? session.cooldown.filter(Boolean) : [];
