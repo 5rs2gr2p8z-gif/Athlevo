@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { coachLed } from "../lib/server/appMode.js";
 import { handleCors } from "../lib/server/cors.js";
 import { buildAthlevoMethodPrompt } from "../lib/server/athlevoMethod.js";
 import { checkAiRateLimit, rateLimitResponse } from "../lib/server/rateLimit.js";
@@ -233,6 +234,13 @@ clean markdown.
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
+  // Coach-led app (lib/server/appMode.js): the AI Coach chat is retired.
+  if (coachLed()) {
+    return res.status(410).json({
+      error: "The AI Coach chat has been retired. Message your coach in the Athlevo app.",
+      code: "AI_COACH_RETIRED"
+    });
+  }
   if (req.method !== "POST") {
     return res.status(405).json({
       error: "Method not allowed"

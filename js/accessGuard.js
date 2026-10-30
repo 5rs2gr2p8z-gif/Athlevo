@@ -125,7 +125,11 @@
    * Opens the global upgrade modal with context-specific copy.
    * @param {string} contextKey — one of the PAYWALL_CONTEXTS keys
    */
+  function coachLed() { return window.ATHLEVO_COACH_LED === true; }
+
   function openPaywall(contextKey) {
+    // Coach-led app (js/appMode.js): no upgrade prompts anywhere.
+    if (coachLed()) return;
     const ctx = PAYWALL_CONTEXTS[contextKey] || PAYWALL_CONTEXTS["general-upgrade"];
     showUpgradeSheet(ctx.feature, ctx.surface, {
       title: ctx.title,
@@ -840,6 +844,7 @@
   }
 
   function showUpgradeSheet(feature, surface, copy, trigger) {
+    if (coachLed()) return;
     const modal = document.getElementById("performanceUpgradeModal");
     if (!modal) return;
     const wasOpen = modal.classList.contains("show") &&
@@ -1005,6 +1010,7 @@
     if (!window.AthlevoPlan || typeof window.AthlevoPlan.entitlement !== "function") return;
     const ent = window.AthlevoPlan.entitlement();
     const existing = document.getElementById("athlevoTrialIndicator");
+    if (coachLed()) { if (existing) existing.remove(); return; }
 
     if (!ent || !ent.isPerformanceTrial || !ent.trialExpiresAt) {
       if (existing) existing.remove();

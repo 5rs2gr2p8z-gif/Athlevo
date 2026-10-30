@@ -207,6 +207,7 @@
 })();
 </script>
 <script src="js/runtimeEnvironment.js?v=75"></script>
+<script src="js/appMode.js?v=1"></script>
 <script>
 (function(){
   try{
@@ -5788,7 +5789,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <span class="today-section-eyebrow" id="homeCoachHeading">Coach</span>
     <p class="home-coach-context" id="homeCoachContext" hidden></p>
     <button class="rowlink" type="button" onclick="openCoachFromHome()">
-      <div><b>Ask about your training</b><small>Your training, in context.</small></div><span class="arr" aria-hidden="true">→</span>
+      <div><b data-home-coach-title>Ask about your training</b><small data-home-coach-sub>Your training, in context.</small></div><span class="arr" aria-hidden="true">→</span>
     </button>
   </section>
 
@@ -6844,6 +6845,79 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
     <div id="fuelSheetBody"></div>
   </div>
 </div>
+
+<!-- ══════════════ PROGRAMS (in-app offer; js/programsScreen.js) ══════════════ -->
+<style>
+#screen-programs{position:relative;padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
+#screen-programs .prg-skip{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:18px;z-index:3;border:0;background:none;font:600 var(--fs-body-sm,14px)/1 var(--font-sans,inherit);color:var(--ink2);padding:10px 4px;cursor:pointer}
+#screen-programs .prg-wrap{width:100%;box-sizing:border-box;max-width:640px;margin:0 auto;padding:0 20px;text-align:left}
+#screen-programs .prg-head{padding:64px 0 8px}
+#screen-programs .prg-eyebrow{margin:0 0 8px;font:700 12px/1 var(--font-sans,inherit);letter-spacing:.08em;text-transform:uppercase;color:var(--red)}
+#screen-programs .prg-h1{margin:0 0 10px;font:600 28px/1.15 var(--font-serif,Georgia,serif);letter-spacing:-.01em;color:var(--ink)}
+#screen-programs .prg-lede{margin:0;color:var(--ink2);font-size:15px;line-height:1.5}
+#screen-programs .prg-section{margin-top:26px;display:flex;flex-direction:column;gap:14px}
+#screen-programs .prg-h2{margin:0;font:600 20px/1.2 var(--font-serif,Georgia,serif);color:var(--ink)}
+#screen-programs .prg-card{border-radius:18px;background:var(--paper,#fff);border:1px solid var(--material-surface-border,rgba(0,0,0,.08));box-shadow:var(--material-surface-shadow,0 1px 3px rgba(0,0,0,.06));overflow:hidden}
+#screen-programs .prg-card-photo{display:block;width:100%;height:170px;object-fit:cover}
+#screen-programs .prg-card-body{padding:16px 16px 18px;display:flex;flex-direction:column;gap:10px}
+#screen-programs .prg-card-name{margin:0;font:600 20px/1.2 var(--font-serif,Georgia,serif);color:var(--ink)}
+#screen-programs .prg-price{margin:0;display:flex;align-items:baseline;gap:4px}
+#screen-programs .prg-price-amount{font:700 24px/1 var(--font-sans,inherit);color:var(--ink)}
+#screen-programs .prg-price-period{font-size:14px;color:var(--ink2)}
+#screen-programs .prg-card-desc{margin:0;color:var(--ink2);font-size:14px;line-height:1.5}
+#screen-programs .prg-sub{margin:6px 0 0;font:700 12px/1 var(--font-sans,inherit);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+#screen-programs .prg-list{margin:0;padding-left:18px;color:var(--ink);font-size:14px;line-height:1.5;display:flex;flex-direction:column;gap:4px}
+#screen-programs .prg-note,#screen-programs .prg-fine p{margin:0;color:var(--ink2);font-size:12.5px;line-height:1.45}
+#screen-programs .prg-fine{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+#screen-programs .prg-signup{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+#screen-programs .prg-btn{appearance:none;border:0;border-radius:999px;font:700 15px/1 var(--font-sans,inherit);padding:13px 20px;cursor:pointer;min-height:46px}
+#screen-programs .prg-btn[disabled]{opacity:.6;cursor:default}
+#screen-programs .prg-btn-red{background:var(--red);color:#fff}
+#screen-programs .prg-btn-ink{background:var(--ink);color:var(--bg,#fff)}
+#screen-programs .prg-btn-lg{width:100%}
+#screen-programs .prg-signup-status,#screen-programs .prg-code-status{margin:0;min-height:0;font-size:13px;color:var(--ink2)}
+#screen-programs .prg-code-status.is-error{color:var(--bad)}
+#screen-programs .prg-code-status.is-ok{color:var(--good)}
+#screen-programs .prg-code-toggle{border:0;background:none;padding:2px 0;font:600 13.5px/1.2 var(--font-sans,inherit);color:var(--ink2);text-decoration:underline;text-underline-offset:3px;cursor:pointer;text-align:left}
+#screen-programs .prg-code-label{display:block;font-size:12.5px;color:var(--ink2);margin:6px 0 4px}
+#screen-programs .prg-code-row{display:flex;gap:8px}
+#screen-programs .prg-code-input{flex:1;min-width:0;border:1px solid var(--material-surface-border,rgba(0,0,0,.18));border-radius:12px;padding:11px 12px;font-size:15px;background:transparent;color:var(--ink);text-transform:uppercase}
+#screen-programs .prg-code-apply{padding:11px 18px;min-height:44px}
+#screen-programs .prg-code-form[hidden]{display:none}
+#screen-programs .prg-soon,#screen-programs .prg-soon-row span{color:var(--ink2);font-size:13.5px;margin:0}
+#screen-programs .prg-soon-row{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:14px;border:1px dashed var(--material-surface-border,rgba(0,0,0,.18));color:var(--ink)}
+#screen-programs .prg-quote{margin:0;padding:14px 16px;border-radius:14px;background:var(--paper,#fff);border:1px solid var(--material-surface-border,rgba(0,0,0,.08))}
+#screen-programs .prg-quote blockquote{margin:0 0 8px;font-size:14.5px;line-height:1.5;color:var(--ink)}
+#screen-programs .prg-quote figcaption{font-size:12.5px;color:var(--ink2)}
+#screen-programs .prg-coach{display:flex;gap:14px;padding:14px;border-radius:16px;background:var(--paper,#fff);border:1px solid var(--material-surface-border,rgba(0,0,0,.08))}
+#screen-programs .prg-coach-photo{width:84px;height:104px;border-radius:12px;object-fit:cover;flex:none}
+#screen-programs .prg-coach-body{min-width:0;display:flex;flex-direction:column;gap:6px}
+#screen-programs .prg-coach-name{margin:0;font:600 17px/1.2 var(--font-serif,Georgia,serif);color:var(--ink)}
+#screen-programs .prg-coach-role{margin:0;font-size:13px;color:var(--red);font-weight:600}
+#screen-programs .prg-coach-intro{margin:0;font-size:13.5px;line-height:1.45;color:var(--ink2)}
+#screen-programs .prg-faq{border-bottom:1px solid var(--material-surface-border,rgba(0,0,0,.1));padding:12px 0}
+#screen-programs .prg-faq summary{cursor:pointer;font-weight:600;font-size:15px;color:var(--ink)}
+#screen-programs .prg-faq p{margin:8px 0 0;color:var(--ink2);font-size:14px;line-height:1.5}
+#screen-programs .prg-foot{margin-top:28px;display:flex;flex-direction:column;gap:10px;text-align:center}
+body.layout-desktop #screen-programs .prg-head{padding-top:48px}
+/* Coach-led app (js/appMode.js): no AI chat, no upgrade or trial surfaces. */
+html.coach-led .coach-side-panel-chats,
+html.coach-led .coach-side-panel-section:has([onclick*="new-chat"]),
+html.coach-led .af-card-analyze,
+html.coach-led #todayProUpgradeCard,
+html.coach-led #athlevoTrialIndicator{display:none!important}
+#screen-coachai .am-no-coach{padding:calc(56px + env(safe-area-inset-top,0px)) 24px 24px;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+#screen-coachai .am-no-coach-title{margin:0;font:600 28px/1.15 var(--font-serif,Georgia,serif);color:var(--ink)}
+#screen-coachai .am-no-coach-body{margin:0;color:var(--ink2);font-size:15px;line-height:1.5}
+#screen-coachai .am-no-coach-cta{margin-top:6px;appearance:none;border:0;border-radius:999px;background:var(--red);color:#fff;font:700 15px/1 var(--font-sans,inherit);padding:14px 22px;min-height:46px;cursor:pointer}
+</style>
+<section class="screen" id="screen-programs" aria-label="Athlevo programs">
+  <button class="settings-back" type="button" id="programsBack" onclick="AthlevoPrograms.close()" aria-label="Back" hidden>
+    <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <button class="prg-skip" type="button" id="programsSkip" onclick="AthlevoPrograms.close()" hidden>Skip for now</button>
+  <div class="prg-wrap" id="programsRoot"></div>
+</section>
 
 <!-- ══════════════ SETTINGS (full settings surface) ══════════════ -->
 <section class="screen" id="screen-settings">
@@ -8520,7 +8594,7 @@ function renderNavState(state) {
   }
   try {
     var path = String(window.location.pathname || "").replace(/\/+$/, "");
-    if (path === "/pricing") {
+    if (path === "/pricing" && window.ATHLEVO_COACH_LED !== true) {
       if (athlevoSessionUserId) {
         if (window.AthlevoDiagnosticAcquisition &&
             typeof window.AthlevoDiagnosticAcquisition.showPaywall === "function") {
@@ -9391,6 +9465,22 @@ function renderSettingsPlanStatus() {
       entitlement = AthlevoPlan.entitlement();
     }
   } catch (e) { /* fall back to Free copy rather than guess paid */ }
+  if (window.ATHLEVO_COACH_LED === true) {
+    // Coach-led app: no plan tiers. This card is the way back to Programs.
+    var heading = card.previousElementSibling && card.previousElementSibling.querySelector('.section-title');
+    if (heading) heading.textContent = 'Programs';
+    nameEl.textContent = 'Athlevo programs';
+    detailEl.textContent = 'See the coaching programs and what is included.';
+    card.dataset.tier = 'free';
+    var programsCta = document.getElementById('settingsPlanUpgradeCta');
+    if (programsCta) {
+      programsCta.textContent = 'View programs';
+      programsCta.onclick = function () {
+        if (window.AthlevoPrograms) window.AthlevoPrograms.open('screen-settings');
+      };
+    }
+    return;
+  }
   var isPaid = entitlement.accessState === 'paid_active';
   card.dataset.tier = isPaid ? 'paid' : 'free';
   if (isPaid) {
@@ -10382,7 +10472,7 @@ async function enterCoachScreen() {
   if (window.AthlevoAthleteMode && typeof window.AthlevoAthleteMode.onCoachTabEnter === "function") {
     athleteCoachMode = await window.AthlevoAthleteMode.onCoachTabEnter();
   }
-  if (athleteCoachMode === "self_guided") {
+  if (athleteCoachMode === "self_guided" && window.ATHLEVO_COACH_LED !== true) {
     if (typeof renderConversationHistory === "function") {
       await renderConversationHistory();
     }
@@ -10411,6 +10501,12 @@ window.enterCoachScreen = enterCoachScreen;
 function showAnonymousCoachPreview() {
   var tb = document.getElementById('tabbar');
   if (tb) tb.style.display = 'none';
+  // Coach-led app (js/appMode.js): there is no AI Coach preview. /ai, the
+  // root URL and back/forward to either land on the Athlevo Coaching entry.
+  if (window.ATHLEVO_COACH_LED === true) {
+    showScreen('screen-welcome');
+    return;
+  }
   showScreen('screen-coachai');
   if (typeof renderCoachHeaderAuthState === "function") {
     renderCoachHeaderAuthState(null);
@@ -10942,6 +11038,20 @@ function applyHomeCoachContext(text){
 
 /* Home → Coach: same canonical go() path as the tab, so entitlement
    gating, Coach entry and the active-tab state all behave identically. */
+/* Coach-led app: the Home Coach row talks to the athlete's coach, not an AI. */
+(function applyCoachLedHomeCopy(){
+  if (window.ATHLEVO_COACH_LED !== true) return;
+  var t = document.querySelector("[data-home-coach-title]");
+  var s = document.querySelector("[data-home-coach-sub]");
+  if (t) t.textContent = "Message your coach";
+  if (s) s.textContent = "Questions about your training go to your coach.";
+  // Sign-up headline on the welcome screen: coaching, not AI guidance.
+  var h = document.getElementById("wAiSignupTitle");
+  var sub = document.getElementById("wAiSignupSub");
+  if (h) h.textContent = "Train with a real coach.";
+  if (sub) sub.textContent = "Your coach builds your training around your schedule and goals, and adjusts it as you go.";
+})();
+
 function openCoachFromHome(){
   var tab = document.querySelector('#tabbar .tab[data-screen="screen-coachai"]');
   if (tab && typeof go === "function") return go(tab);
@@ -12111,6 +12221,9 @@ async function routeAfterAuth(userId) {
   } catch (e) { fromAiSignup = false; }
   clearAppEntryIntent();
   if (typeof clearAiSignupHandoff === "function") clearAiSignupHandoff();
+  // Coach-led app (js/appMode.js): there is no AI sign-up funnel or paywall.
+  const coachLedApp = window.ATHLEVO_COACH_LED === true;
+  if (coachLedApp) fromAiSignup = false;
   const { data: profile, error } = await supabaseClient
     .from("profiles")
     .select("onboarding_complete, goal, device, role, free_tier_started_at")
@@ -12189,7 +12302,7 @@ async function routeAfterAuth(userId) {
   // paid access continues, otherwise the saved diagnostic paywall owns the
   // route. Unpaid athletes without an active diagnostic continue below and
   // are stopped before the app shell.
-  if (window.AthlevoDiagnosticAcquisition &&
+  if (window.AthlevoDiagnosticAcquisition && !coachLedApp &&
       !(profile && (profile.role === "coach" || profile.role === "admin"))) {
     try {
       var acquisitionRoute = await window.AthlevoDiagnosticAcquisition.resolveAfterAuth(
@@ -12237,6 +12350,17 @@ async function routeAfterAuth(userId) {
         return;
       }
     }
+  }
+
+  // Coach-led app: the Programs offer is shown once, right after sign-up and
+  // before onboarding. It stays in the app (no external browser); Continue or
+  // Skip records it as seen and re-runs this routing.
+  if (coachLedApp && window.AthlevoPrograms &&
+      window.AthlevoPrograms.shouldShowAfterSignup(userId, profile)) {
+    window.AthlevoPrograms.openWelcome(userId, function () {
+      if (window.athlevoSessionUserId === userId) routeAfterAuth(userId);
+    });
+    return;
   }
 
   // Use the authoritative onboarding_complete flag (the same signal
@@ -12861,7 +12985,7 @@ async function restoreSession(opts) {
   var pricingPath = false;
   try { pricingPath = typeof isPricingPath === "function" && isPricingPath(); }
   catch (pricingPathErr) { pricingPath = false; }
-  if (pricingPath) {
+  if (pricingPath && window.ATHLEVO_COACH_LED !== true) {
     document.getElementById("tabbar").style.display = "none";
     if (window.AthlevoDiagnosticAcquisition &&
         typeof window.AthlevoDiagnosticAcquisition.showPublicPricing === "function") {
@@ -12953,6 +13077,7 @@ async function restoreSession(opts) {
         }, 0);
       }
     } else if (!(typeof isLandingPath === "function" && isLandingPath()) &&
+               window.ATHLEVO_COACH_LED !== true &&
                window.AthlevoDiagnostic && window.AthlevoDiagnostic.hasPending &&
                window.AthlevoDiagnostic.hasPending() && window.AthlevoDiagnosticUI &&
                window.AthlevoDiagnosticUI.start && !athlevoSessionUserId &&
@@ -13433,6 +13558,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/coachMode.js?v=21"></script>
 <script src="js/adaptivePlan.js?v=79"></script>
 <script src="js/accessGuard.js?v=79"></script>
+<script src="js/programsScreen.js?v=1"></script>
 <script src="js/planSetup.js?v=69"></script>
 <script src="js/feedback.js?v=79"></script>
 <script src="js/readiness.js?v=79"></script>

@@ -357,7 +357,36 @@
     screen.appendChild(mount);
   }
 
+  function coachLedApp() { return window.ATHLEVO_COACH_LED === true; }
+
+  /*
+   * Coach-led app (js/appMode.js): an athlete with no assigned coach does not
+   * get the AI chat. The Coach tab says so and points at the Programs screen,
+   * which is where a coach comes from.
+   */
+  function renderNoCoachTab() {
+    var screen = coachScreen();
+    if (!screen) return;
+    setAiCoachVisible(false);
+    removeCoachModeMounts();
+    var mount = document.createElement("div");
+    mount.className = "am-coach-mode-mount am-no-coach";
+    mount.setAttribute("data-no-coach", "");
+    mount.innerHTML =
+      '<h1 class="am-no-coach-title">Your coach</h1>' +
+      '<p class="am-no-coach-body">Coaching happens here, with a real coach. ' +
+      'Once you join a program, your coach messages you in this tab and builds your training in Calendar.</p>' +
+      '<button type="button" class="am-no-coach-cta" data-am-see-programs>See programs</button>';
+    var cta = mount.querySelector("[data-am-see-programs]");
+    if (cta) cta.addEventListener("click", function () {
+      if (window.AthlevoPrograms) window.AthlevoPrograms.open("screen-coachai");
+    });
+    screen.appendChild(mount);
+    markCoachSurfaceReady(mount);
+  }
+
   function restoreSelfGuidedCoachTab() {
+    if (coachLedApp()) { renderNoCoachTab(); return; }
     removeCoachModeMounts();
     setAiCoachVisible(true);
     markCoachSurfaceReady();

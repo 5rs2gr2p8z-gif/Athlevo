@@ -1618,6 +1618,9 @@ function setCoachSendingState(isSending) {
 }
 
 async function askCoach(question) {
+  // Coach-led app (js/appMode.js): the AI Coach chat is off. Questions go to
+  // the athlete's human coach through the Coach tab.
+  if (window.ATHLEVO_COACH_LED === true) return;
   if (
     window.AthlevoAthleteMode &&
     (window.AthlevoAthleteMode.isManaged() || window.AthlevoAthleteMode.isUnknown())

@@ -321,6 +321,32 @@ async function loadSubscription() {
   }
 }
 
+/*
+ * Coach-led app (js/appMode.js): there is no paywall, so the app treats every
+ * signed-in athlete as Pro. resolveEntitlement itself stays byte-identical to
+ * the server; the override lives only in the stateful wrappers below.
+ */
+function coachLedActive() {
+  return window.ATHLEVO_COACH_LED === true;
+}
+
+function applyCoachLed(resolved) {
+  if (!coachLedActive()) return resolved;
+  if (resolved.accessState === ACCESS_STATES.PAID_ACTIVE && resolved.tier >= tierOf("performance")) {
+    return resolved;
+  }
+  return {
+    accessState: ACCESS_STATES.PAID_ACTIVE,
+    planId: "performance",
+    tier: tierOf("performance"),
+    status: "active",
+    entitled: true,
+    inGrace: false,
+    isFounder: resolved.isFounder === true,
+    reason: "coach_led"
+  };
+}
+
 window.AthlevoPlan = {
   ACCESS_STATES,
   PLAN_TIERS,
@@ -332,6 +358,10 @@ window.AthlevoPlan = {
   // canUse(feature) uses the cached subscription; pass an explicit
   // subscription as the 2nd arg to check against a specific one.
   canUse(featureName, subscription) {
+    if (coachLedActive()) {
+      const f = FEATURE_REGISTRY[featureName];
+      return !!f && f.available !== false;
+    }
     return canUseWith(
       featureName,
       subscription === undefined ? currentSubscription : subscription,
@@ -340,16 +370,18 @@ window.AthlevoPlan = {
   },
 
   entitlement(subscription) {
-    return resolveEntitlement(
+    return applyCoachLed(resolveEntitlement(
       subscription === undefined ? currentSubscription : subscription,
       Date.now()
-    );
+    ));
   },
 
   usableFeatures(subscription) {
     const sub = subscription === undefined ? currentSubscription : subscription;
     return Object.keys(FEATURE_REGISTRY).filter(key =>
-      canUseWith(key, sub, Date.now())
+      coachLedActive()
+        ? FEATURE_REGISTRY[key].available !== false
+        : canUseWith(key, sub, Date.now())
     );
   },
 

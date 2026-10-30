@@ -1,0 +1,199 @@
+/**
+ * Coach-led app: no paywall, no upgrade surfaces, no AI Coach chat, and the
+ * Programs offer rebuilt in-app and shown once after sign-up.
+ * Run: node tests/coach-led-app.test.mjs
+ */
+import { readFileSync, existsSync } from "node:fs";
+import vm from "node:vm";
+
+let passed = 0, failed = 0;
+const test = (name, condition, detail = "") => {
+  if (condition) { passed += 1; console.log("PASS — " + name); }
+  else { failed += 1; console.log("FAIL — " + name + (detail ? `  [${detail}]` : "")); }
+};
+const section = name => console.log(`\n──── ${name} ────`);
+const read = f => readFileSync(f, "utf8");
+const html = read("./index.html");
+
+section("Flag");
+const appMode = read("./js/appMode.js");
+test("js/appMode.js turns the mode on and marks <html>", /ATHLEVO_COACH_LED = true/.test(appMode) && /classList\.add\("coach-led"\)/.test(appMode));
+const firstScript = html.search(/<script src="js\/runtimeEnvironment\.js/);
+test("appMode.js loads right after runtimeEnvironment.js and before every other app script",
+  html.indexOf('<script src="js/appMode.js') > firstScript &&
+  html.indexOf('<script src="js/appMode.js') < html.indexOf('<script src="js/landingContent.js'));
+const srv = await import("../lib/server/appMode.js");
+test("server mirror: on in Vercel, off locally, overridable",
+  srv.coachLed({ VERCEL: "1" }) === true && srv.coachLed({}) === false &&
+  srv.coachLed({ VERCEL: "1", ATHLEVO_COACH_LED: "0" }) === false && srv.coachLed({ ATHLEVO_COACH_LED: "1" }) === true);
+
+section("Client entitlement (js/features.js)");
+function loadPlan(flag, subscription) {
+  const sandbox = {
+    console: { log() {}, warn() {}, error() {} },
+    supabaseClient: {
+      auth: { getUser: async () => ({ data: { user: { id: "u1" } } }) },
+      from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: subscription, error: null }) }) }) })
+    }
+  };
+  sandbox.window = sandbox;
+  if (flag) sandbox.ATHLEVO_COACH_LED = true;
+  new Function(...Object.keys(sandbox), read("./js/features.js"))(...Object.values(sandbox));
+  return sandbox.AthlevoPlan;
+}
+const freeOn = loadPlan(true, null);
+const freeOff = loadPlan(false, null);
+test("coach-led: a free athlete resolves to paid_active Pro", freeOn.entitlement().accessState === "paid_active" && freeOn.entitlement().planId === "performance");
+test("coach-led: every registered feature is usable", freeOn.canUse("daily_brief") && freeOn.canUse("weekly_analysis") && freeOn.canUse("adaptive_ai"));
+test("flag off: the old free tier is unchanged", freeOff.entitlement().accessState === "free" && freeOff.canUse("daily_brief") === false);
+test("the raw resolver stays untouched (server parity)", freeOn._resolveEntitlement(null).accessState === "free");
+const elite = loadPlan(true, { plan_id: "elite", provider: "paymongo", status: "active" });
+await elite.load();
+test("coach-led never downgrades a paid Pro+ athlete", elite.entitlement().planId === "elite");
+
+section("Acquisition gates (js/diagnosticAcquisition.js)");
+const acq = read("./js/diagnosticAcquisition.js");
+test("gateUnpaidAthlete lets everyone in under the flag", /gateUnpaidAthlete[\s\S]{0,600}ATHLEVO_COACH_LED === true[\s\S]{0,200}allowed: true/.test(acq));
+test("resolveAfterAuth skips the payment-first funnel under the flag", /resolveAfterAuth[\s\S]{0,400}ATHLEVO_COACH_LED === true[\s\S]{0,200}handled: false/.test(acq));
+test("showPaywall (as exported) does nothing under the flag", /function showPaywallUnlessCoachLed[\s\S]{0,120}ATHLEVO_COACH_LED === true\) return;/.test(acq) && !/showPaywall: showPaywall[,\s]/.test(acq));
+test("a stored 'exited the paywall' marker is ignored", /function hasPaywallExit[\s\S]{0,160}ATHLEVO_COACH_LED === true\) return false/.test(acq));
+const guard = read("./js/accessGuard.js");
+test("openPaywall and the upgrade sheet are no-ops", /function openPaywall[\s\S]{0,200}if \(coachLed\(\)\) return/.test(guard) && /function showUpgradeSheet[\s\S]{0,80}if \(coachLed\(\)\) return/.test(guard));
+test("the trial countdown is removed", /renderTrialIndicator[\s\S]{0,400}if \(coachLed\(\)\) \{ if \(existing\) existing\.remove\(\); return; \}/.test(guard));
+
+section("Server access (lib/server/freemium.js)");
+process.env.SUPABASE_URL = "https://example.supabase.co";
+process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
+const realFetch = globalThis.fetch;
+globalThis.fetch = async url => ({ ok: !String(url).includes("rpc"), json: async () => [] });
+const { checkAccess } = await import("../lib/server/freemium.js");
+process.env.ATHLEVO_COACH_LED = "1";
+const on = await checkAccess("user-1");
+process.env.ATHLEVO_COACH_LED = "0";
+const off = await checkAccess("user-1");
+globalThis.fetch = realFetch;
+test("coach-led: a user with no subscription row gets paid Pro access", on.ok && on.paid === true && on.entitlement.planId === "performance" && !on.isPerformanceTrial);
+test("flag off: the same user is free", off.ok && off.paid === false);
+
+section("AI Coach chat is retired");
+for (const f of ["api/coach.js", "lib/server/coachAnonymousEndpoint.js", "lib/server/diagnosticChatEndpoint.js"]) {
+  test(`${f} answers 410 under the flag`, /coachLed\(\)[\s\S]{0,120}410/.test(read(f)));
+}
+const res = () => { const r = { code: 0, body: null, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } }; return r; };
+process.env.ATHLEVO_COACH_LED = "1";
+const anon = (await import("../lib/server/coachAnonymousEndpoint.js")).default;
+const out = res();
+await anon({ method: "POST", body: { message: "hello" }, headers: {} }, out);
+test("the anonymous coach endpoint really returns 410 AI_COACH_RETIRED", out.code === 410 && out.body.code === "AI_COACH_RETIRED");
+process.env.ATHLEVO_COACH_LED = "0";
+test("askCoach() does nothing under the flag", /async function askCoach\(question\) \{\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*if \(window\.ATHLEVO_COACH_LED === true\) return;/.test(read("./js/coach.js")));
+const am = read("./js/athleteMode.js");
+test("Coach tab with no coach shows 'Your coach' + See programs, not the AI chat",
+  /function restoreSelfGuidedCoachTab\(\) \{\s*if \(coachLedApp\(\)\) \{ renderNoCoachTab\(\); return; \}/.test(am) && /data-am-see-programs/.test(am) && /AthlevoPrograms\.open\("screen-coachai"\)/.test(am));
+test("logged-out /ai and root land on the welcome screen, not an AI preview",
+  /function showAnonymousCoachPreview\(\) \{[\s\S]{0,400}ATHLEVO_COACH_LED === true\) \{\s*showScreen\('screen-welcome'\);/.test(html));
+test("AI chat history and 'New chat' are hidden from the side panel", /html\.coach-led \.coach-side-panel-chats,\s*html\.coach-led \.coach-side-panel-section:has\(\[onclick\*="new-chat"\]\)/.test(html));
+test("the pre-signup diagnostic does not start under the flag", /ATHLEVO_COACH_LED !== true &&\s*window\.AthlevoDiagnostic && window\.AthlevoDiagnostic\.hasPending/.test(html));
+test("the /pricing page is not shown under the flag", (html.match(/ATHLEVO_COACH_LED !== true\) \{/g) || []).length >= 1 && /path === "\/pricing" && window\.ATHLEVO_COACH_LED !== true/.test(html) && /pricingPath && window\.ATHLEVO_COACH_LED !== true/.test(html));
+
+section("Upgrade and plan UI");
+test("the Home Pro card, trial indicator and Analyze-with-Coach buttons are hidden",
+  /html\.coach-led \.af-card-analyze,\s*html\.coach-led #todayProUpgradeCard,\s*html\.coach-led #athlevoTrialIndicator\{display:none!important\}/.test(html));
+test("Settings 'Plan' becomes 'Programs' with a View programs button",
+  /heading\.textContent = 'Programs'/.test(html) && /programsCta\.textContent = 'View programs'/.test(html));
+test("Home Coach row says 'Message your coach'", /textContent = "Message your coach"/.test(html));
+
+section("Programs screen");
+test("screen, root and both controls exist", ["screen-programs", "programsRoot", "programsBack", "programsSkip"].every(id => html.includes(`id="${id}"`)));
+test("the screen script is loaded; the store catalog is lazy-loaded on first open (the app shell never ships the storefront)",
+  html.includes('<script src="js/programsScreen.js') && !html.includes("storeCatalog") && /tag\.src = "js\/storeCatalog\.js/.test(read("./js/programsScreen.js")));
+test("routeAfterAuth shows Programs once, before onboarding",
+  /coachLedApp && window\.AthlevoPrograms &&\s*window\.AthlevoPrograms\.shouldShowAfterSignup\(userId, profile\)[\s\S]{0,300}openWelcome[\s\S]{0,200}routeAfterAuth\(userId\)/.test(html) &&
+  html.indexOf("shouldShowAfterSignup(userId, profile)") < html.indexOf("const completed =\n    profile &&"));
+
+// Run the real module against the real catalog in a tiny DOM.
+function fakeDom() {
+  const byId = {};
+  class El {
+    constructor(tag) { this.tag = tag; this.children = []; this.style = {}; this.attrs = {}; this.listeners = {}; this._text = ""; this.className = ""; this.classList = { add() {}, remove() {}, toggle() {} }; }
+    set textContent(v) { this._text = String(v); if (v === "") this.children = []; }
+    get textContent() { return this._text + this.children.map(c => c.textContent).join(""); }
+    appendChild(c) { this.children.push(c); return c; }
+    setAttribute(k, v) { this.attrs[k] = v; }
+    removeAttribute(k) { delete this.attrs[k]; }
+    addEventListener(t, f) { (this.listeners[t] = this.listeners[t] || []).push(f); }
+    focus() {}
+    querySelectorAll() { return []; }
+    all(pred, out = []) { if (pred(this)) out.push(this); this.children.forEach(c => c.all(pred, out)); return out; }
+  }
+  const doc = {
+    createElement: t => new El(t),
+    getElementById: id => byId[id] || (byId[id] = new El("div")),
+    querySelector: () => null
+  };
+  return { doc, byId, El };
+}
+function loadPrograms(userStore = {}) {
+  const { doc, byId } = fakeDom();
+  const shown = [];
+  const posts = [];
+  const opened = [];
+  const sandbox = {
+    document: doc, console, URL, Promise, setTimeout, JSON,
+    localStorage: { getItem: k => userStore[k] ?? null, setItem: (k, v) => { userStore[k] = v; } },
+    showScreen: id => shown.push(id),
+    scrollTo() {},
+    AthlevoRuntime: { openExternal: async url => { opened.push(url); return { ok: true }; } },
+    fetch: async (url, init) => {
+      posts.push({ url, body: JSON.parse(init.body) });
+      return { ok: true, status: 200, json: async () => ({ checkout_url: "https://checkout.paymongo.com/abc" }) };
+    }
+  };
+  sandbox.window = sandbox;
+  vm.runInNewContext(read("./js/storeCatalog.js"), sandbox);
+  vm.runInNewContext(read("./js/programsScreen.js"), sandbox);
+  return { P: sandbox.AthlevoPrograms, byId, shown, posts, opened, store: userStore, El: fakeDom().El };
+}
+const t = loadPrograms();
+t.P.openWelcome("u1", () => {});
+const root = t.byId.programsRoot;
+const allText = root.textContent;
+test("welcome mode shows the screen and the post-signup heading", t.shown.includes("screen-programs") && /Pick how you want to train/.test(allText));
+test("all three priced programs render with their prices", ["Athlevo Plan", "Athlevo Coaching", "Elite Coaching", "₱1,998", "₱4,998", "₱7,998"].every(x => allText.includes(x)));
+test("Hybrid Programming is listed as not available, not sellable", /Hybrid Programming/.test(allText) && /Not available yet/.test(allText));
+test("athlete feedback, the three coaches and the FAQs are on the screen",
+  /From Athlevo athletes/.test(allText) && ["Dean Vincent Castro", "Christian Francia", "Louie Agawa"].every(x => allText.includes(x)) && /Can I buy a program today\?/.test(allText) && /Do you coach runners outside Pampanga\?/.test(allText));
+test("payment, renewal and non-refundable terms are shown with each Sign Up", (allText.match(/non-refundable/g) || []).length === 3);
+test("no internal coach-support terms leak onto the screen", !/Support terms for this offer are not decided/.test(allText));
+const buttons = root.all(n => n.tag === "button" && n.textContent === "Sign Up");
+test("three Sign Up buttons, and Elite has no discount-code box", buttons.length === 3 && root.all(n => n.className === "prg-code").length === 2);
+await buttons[0].listeners.click[0]();
+await new Promise(r => setTimeout(r, 10));
+test("Sign Up posts to the same checkout endpoint as the website and opens the hosted checkout externally",
+  t.posts[0] && t.posts[0].url === "/api/plan-signup/checkout" && t.opened[0] === "https://checkout.paymongo.com/abc");
+const cont = root.all(n => n.attrs && "data-programs-continue" in n.attrs)[0];
+test("Continue is offered in welcome mode", !!cont);
+let routed = 0;
+const t2 = loadPrograms();
+t2.P.openWelcome("u2", () => { routed += 1; });
+t2.byId.programsRoot.all(n => n.attrs && "data-programs-continue" in n.attrs)[0].listeners.click[0]();
+test("Continue records 'seen' for that user and re-runs routing", routed === 1 && t2.P.hasSeen("u2") && t2.store["athlevo_programs_seen:u2"] === "1");
+test("it is offered once: not again after being seen, not to coaches, not after onboarding",
+  t2.P.shouldShowAfterSignup("u2", { onboarding_complete: false }) === false &&
+  t.P.shouldShowAfterSignup("u3", { onboarding_complete: false }) === true &&
+  t.P.shouldShowAfterSignup("u3", { role: "coach" }) === false &&
+  t.P.shouldShowAfterSignup("u3", { onboarding_complete: true }) === false);
+const browse = loadPrograms();
+browse.P.open("screen-coachai");
+test("browse mode (from the Coach tab or Settings) has no Continue button and Back returns to the caller",
+  browse.byId.programsRoot.all(n => n.attrs && "data-programs-continue" in n.attrs).length === 0 &&
+  (browse.P.close(), browse.shown.at(-1) === "screen-coachai"));
+test("the screen uses textContent only (no innerHTML) for catalog data", !/innerHTML/.test(read("./js/programsScreen.js").replace(/\/\*[\s\S]*?\*\//g, "")));
+
+section("Packaged for Android");
+const markers = read("./scripts/check-native-assets.mjs");
+test("native asset check pins the Programs screen and the coach-led flag",
+  markers.includes('id="screen-programs"') && markers.includes("ATHLEVO_COACH_LED = true"));
+
+console.log(`\n${passed} passed, ${failed} failed`);
+if (failed) process.exit(1);

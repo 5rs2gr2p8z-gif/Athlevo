@@ -315,6 +315,11 @@ async function gateUnpaidAthlete(userId, supabase, profile) {
   if (profile && (profile.role === "coach" || profile.role === "admin")) {
     return { allowed: true, staff: true };
   }
+  // Coach-led app (js/appMode.js): authentication is the only gate.
+  if (root.ATHLEVO_COACH_LED === true) {
+    clearPaywallExit();
+    return { allowed: true, paid: false, coachLed: true };
+  }
   var paid = { paid: false };
   try {
     paid = await verifiedPaidAccess(supabase || acquisitionSupabase, userId);
@@ -331,6 +336,13 @@ async function gateUnpaidAthlete(userId, supabase, profile) {
   }
   showPaywall(bindAcquisitionUser(userId), false);
   return { allowed: false, route: "paywall" };
+}
+
+/* Coach-led app (js/appMode.js): there is no paywall to show. Every outside
+   caller goes through this wrapper. */
+function showPaywallUnlessCoachLed(state, unavailable, opts) {
+  if (root.ATHLEVO_COACH_LED === true) return;
+  return showPaywall(state, unavailable, opts);
 }
 
 function setPaywallStatus(message) {
@@ -664,6 +676,7 @@ function clearPaywallExit() {
 }
 
 function hasPaywallExit() {
+  if (root.ATHLEVO_COACH_LED === true) return false; // coach-led: no paywall to have exited
   try { return root.sessionStorage.getItem(PAYWALL_EXIT_KEY) === "1"; }
   catch (e) { return false; }
 }
@@ -893,6 +906,12 @@ function isAcquisitionGated(userId, attachOutcome, profile, fromAiSignup) {
 
 async function resolveAfterAuth(userId, supabase, attachOutcome, profile, routeOpts) {
   acquisitionSupabase = supabase;
+  // Coach-led app (js/appMode.js): no payment-first funnel. Fall through to
+  // the normal onboarding/app routing in routeAfterAuth.
+  if (root.ATHLEVO_COACH_LED === true) {
+    clearPaywallExit();
+    return { handled: false, route: "existing", coachLed: true };
+  }
   var fromAiSignup = !!(routeOpts && routeOpts.fromAiSignup);
   var returningFromCheckout = hasCheckoutReturn();
 
@@ -1099,7 +1118,7 @@ root.AthlevoDiagnosticAcquisition = {
   hasPricingHandoff: hasPricingHandoff,
   clearPricingHandoff: clearPricingHandoff,
   isPricingPath: isPricingPath,
-  showPaywall: showPaywall,
+  showPaywall: showPaywallUnlessCoachLed,
   showActivation: showActivation,
   showRecheck: showRecheck,
   recheckEntitlement: recheckEntitlement,

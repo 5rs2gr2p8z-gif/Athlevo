@@ -58,7 +58,11 @@ const MARKERS = [
   ["index.html", 'data-screen="screen-today" onclick="go(this)" role="tab"', "Home tab in the athlete nav"],
   ["index.html", 'id="homeNextCard"', "Home dashboard (Next)"],
   ["index.html", 'id="homeFuelEntry"', "Home → Fuel entry"],
-  ["index.html", 'class="w-logo" src="assets/brand/athlevo-coaching-logo.png"', "Athlevo Coaching welcome logo and photo hero"]
+  ["index.html", 'class="w-logo" src="assets/brand/athlevo-coaching-logo.png"', "Athlevo Coaching welcome logo and photo hero"],
+  // Coach-led app: no paywall or AI chat; Programs offer shown in-app after sign-up
+  ["index.html", 'id="screen-programs"', "in-app Programs screen"],
+  ["js/appMode.js", "ATHLEVO_COACH_LED = true", "coach-led app mode (no paywall)"],
+  ["js/programsScreen.js", "openWelcome", "Programs shown once after sign-up"]
 ];
 
 async function exists(path) {
