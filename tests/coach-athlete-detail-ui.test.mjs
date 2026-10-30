@@ -226,5 +226,25 @@ const sessions = [
     !/Coming soon/.test(html));
 }
 
+{
+  const week = { week_start: "2026-10-26", week_end: "2026-11-01", sessions: [] };
+  const html = context.renderAthleteTraining(baseAthlete({
+    has_active_plan: false, assignment_permission: "read_write", today_key: "2026-10-30", training_week: week
+  }));
+  test("an athlete with no plan still gets a calendar a coach can add to (the server opens the week)",
+    !/No active training plan\./.test(html) && /Tap a day to add the first one/.test(html) && /Nothing planned/.test(html));
+  test("today and later empty days are add buttons; earlier days are not",
+    /data-add-day="2026-10-30"/.test(html) && /data-add-day="2026-10-31"/.test(html) && /data-add-day="2026-11-01"/.test(html) &&
+    !/data-add-day="2026-10-29"/.test(html) && !/data-add-day="2026-10-26"/.test(html) && (html.match(/class="cm-day-add"/g) || []).length === 3);
+  const readOnly = context.renderAthleteTraining(baseAthlete({
+    has_active_plan: false, assignment_permission: "read", today_key: "2026-10-30", training_week: week
+  }));
+  test("a view-only coach gets no add buttons", !/data-add-day/.test(readOnly));
+  const planned = context.renderAthleteTraining(baseAthlete({
+    has_active_plan: true, assignment_permission: "read_write", today_key: "2026-10-30", training_week: week
+  }));
+  test("with a plan, empty days read Rest and are still add buttons", /cm-day-title">Rest</.test(planned) && /data-add-day="2026-10-31"/.test(planned) && !/Nothing planned/.test(planned));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

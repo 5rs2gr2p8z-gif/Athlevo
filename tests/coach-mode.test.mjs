@@ -669,6 +669,19 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(dashboardSource.includes("switchToCoachWorkspace"));
   });
 
+  it("adding a workout works like V.O2: tap a day, Add Activity or Add Rest Day, then four activity types", () => {
+    assert.ok(source.includes("function openAddDayMenu(dateKey, returnFocus)"));
+    assert.ok(source.includes("data-add-day"));
+    for (const label of ["Add Activity", "Add Rest Day", "Easy Run", "Quality Session", "Race", "Cross Training"]) {
+      assert.ok(source.includes('"' + label + '"') || source.includes("<b>" + label + "</b>") || source.includes("label: \"" + label + "\""), label);
+    }
+    assert.ok(source.includes('title: "Rest day", session_type: "Rest day", sport: "rest"'));
+    assert.ok(source.includes("openWorkoutEditor(null, activitySeed(kind, dateKey))"));
+    assert.ok(source.includes("function openWorkoutEditor(session, preset)"));
+    assert.ok(source.includes("seed && seed.structure"));
+    assert.ok(source.includes("(session ? 'Adjust session' : 'Save workout')"));
+  });
+
   it("provides a real current-week programming workspace", () => {
     assert.ok(source.includes("function renderAthleteTraining"));
     assert.ok(source.includes("Add workout"));

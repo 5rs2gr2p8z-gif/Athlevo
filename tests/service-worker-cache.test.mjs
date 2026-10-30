@@ -105,7 +105,7 @@ section("Cache activation");
   stores.set("unrelated-library-cache", new Map());
   await dispatchLifecycle("activate");
 
-  test("cache version was bumped to v93 (training status + coach roster scripts)", currentCacheName === "athlevo-shell-v93");
+  test("cache version was bumped to v94 (coach add-workout flow)", currentCacheName === "athlevo-shell-v94");
   test("every old Athlevo cache is deleted",
     deletedCaches.includes("athlevo-shell-v12") &&
     deletedCaches.includes("athlevo-runtime-v4"));

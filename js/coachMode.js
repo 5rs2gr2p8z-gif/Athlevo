@@ -361,6 +361,10 @@
       ".cm-roster-item .cm-chevron{margin-top:3px;}",
       ".cm-command--small-roster .cm-section--roster{padding-top:2px;}",
       ".cm-filter-row{display:flex;gap:14px;overflow-x:auto;padding:12px 0 2px;scrollbar-width:none}.cm-filter-row::-webkit-scrollbar{display:none}.cm-filter{border:0;border-bottom:1px solid transparent;background:transparent;padding:3px 0 6px;color:var(--ink3,#9a9da3);font:700 11px/1 var(--sans,sans-serif);white-space:nowrap;cursor:pointer}.cm-filter.is-active{color:var(--ink1,#141416);border-bottom-color:var(--red,#C0272D)}",
+      /* Adding to a day: empty days are buttons with a +, and a small two-step menu. */
+      ".cm-day-empty{cursor:pointer;width:100%}.cm-day-add{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--line,#ebebe8);border-radius:50%;color:var(--ink2,#6d7075);font-size:18px;line-height:1}.cm-day-empty:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:-2px}",
+      ".cm-add-menu{max-width:420px}.cm-add-list{display:grid;gap:8px}.cm-add-choice{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:10px 14px;border:1px solid var(--line,#ebebe8);border-radius:var(--ui-radius-control,12px);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.cm-add-choice b{display:block;font-size:15px}.cm-add-choice small{display:block;margin-top:2px;color:var(--ink3,#9a9da3);font-size:12px}.cm-add-choice i{color:var(--ink3,#9a9da3);font-style:normal;font-size:20px}.cm-add-choice:disabled{opacity:.5}.cm-add-choice:focus-visible,.cm-add-back:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:2px}.cm-add-back{justify-self:start;border:0;background:transparent;padding:6px 0;color:var(--ink2,#6d7075);font:700 12px/1 var(--sans,sans-serif);cursor:pointer}",
+      "@media(hover:hover) and (pointer:fine){.cm-day-empty:hover .cm-day-add{border-color:var(--red,#C0272D);color:var(--red,#C0272D)}.cm-add-choice:hover{border-color:var(--ink2,#6d7075)}}",
       ".cm-roster-state{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--ink3,#9a9da3);max-width:92px;text-align:right}.cm-roster-state.attention{color:var(--bad,#c0272d)}",
       /* My Athletes table (coach Home). Wide: a real table. Narrow: one card-like row per athlete. */
       ".cm-command--roster{max-width:1180px}.cm-table-wrap{margin-top:6px;overflow-x:auto}.cm-roster-table{width:100%;border-collapse:collapse;table-layout:auto}",
@@ -1849,8 +1853,12 @@
   function renderAthleteTraining(ath) {
     var week = ath.training_week || { sessions: [] };
     var canWrite = ath.assignment_permission === "read_write";
-    if (!ath.has_active_plan) {
-      return '<div class="cm-no-plan"><strong>No active training plan.</strong><p>Add workout becomes available when this athlete has an active or current plan.</p></div>' + (!canWrite ? '<div class="cm-readonly-note">This assignment is view-only.</div>' : '');
+    // A coach who can edit needs no existing plan: the server opens the week plan when the first
+    // workout is added. Someone who can only view has nothing to add, so say there is no plan.
+    var sessionsInWeek = week.sessions || [];
+    var hasPlan = Boolean(ath.has_active_plan) || sessionsInWeek.length > 0;
+    if (!hasPlan && !canWrite) {
+      return '<div class="cm-no-plan"><strong>No active training plan.</strong><p>This athlete has no workouts scheduled.</p></div><div class="cm-readonly-note">This assignment is view-only.</div>';
     }
     var sessions = week.sessions || [];
     var byDate = Object.create(null);
@@ -1864,7 +1872,12 @@
       var dateLabel = date ? date.toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" }) : "Day";
       var dayNumber = date ? date.getUTCDate() : "";
       if (!session) {
-        rows.push('<div class="cm-day-row cm-day-rest' + (key === ath.today_key ? ' is-today' : '') + '"><span class="cm-day-date">' + esc(dateLabel) + '<b>' + esc(dayNumber) + '</b></span><span class="cm-day-copy"><span class="cm-day-title">Rest</span></span><span class="cm-day-status">Rest</span></div>');
+        var todayKey = ath.today_key || new Date().toISOString().slice(0, 10);
+        if (canWrite && key && key >= todayKey) {
+          rows.push('<button type="button" class="cm-day-row cm-day-rest cm-day-empty' + (key === ath.today_key ? ' is-today' : '') + '" data-add-day="' + esc(key) + '" aria-label="Add to ' + esc(dateLabel + " " + dayNumber) + '"><span class="cm-day-date">' + esc(dateLabel) + '<b>' + esc(dayNumber) + '</b></span><span class="cm-day-copy"><span class="cm-day-title">' + (hasPlan ? "Rest" : "Nothing planned") + '</span></span><span class="cm-day-add" aria-hidden="true">+</span></button>');
+        } else {
+          rows.push('<div class="cm-day-row cm-day-rest' + (key === ath.today_key ? ' is-today' : '') + '"><span class="cm-day-date">' + esc(dateLabel) + '<b>' + esc(dayNumber) + '</b></span><span class="cm-day-copy"><span class="cm-day-title">Rest</span></span><span class="cm-day-status">Rest</span></div>');
+        }
         continue;
       }
       rows.push('<button type="button" class="cm-day-row' + (session.date === ath.today_key ? ' is-today' : '') + '" data-workout-id="' + esc(session.id) + '"><span class="cm-day-date">' + esc(dateLabel) + '<b>' + esc(dayNumber) + '</b></span><span class="cm-day-copy"><span class="cm-day-title">' + esc(session.title) + '</span><span class="cm-day-meta">' + esc(workoutMeta(session) || "Prescription details unavailable") + '</span></span><span class="cm-day-status ' + esc(session.execution_status) + '">' + esc(sessionStatusLabel(session.execution_status)) + '</span></button>');
@@ -1875,6 +1888,7 @@
     var plannedLabel = plannedDistance ? Math.round(plannedDistance * 10) / 10 + " km planned" : plannedMinutes ? plannedMinutes + " min planned" : "";
     return '<div class="cm-training-week"><div class="cm-week-nav"><button type="button" data-week-shift="-7" aria-label="Previous week">‹</button><div><div class="cm-week-range">' + esc(formatWeekRange(week.week_start, week.week_end)) + '</div><div class="cm-week-volume">' + esc(completed + " / " + sessions.length + " sessions complete" + (plannedLabel ? " · " + plannedLabel : "")) + '</div></div><button type="button" data-week-shift="7" aria-label="Next week">›</button></div>' +
       (!canWrite ? '<div class="cm-readonly-note">View-only assignment. Workout details are available, but plan changes are disabled.</div>' : '') +
+      (canWrite && !hasPlan ? '<div class="cm-readonly-note">No workouts yet. Tap a day to add the first one.</div>' : '') +
       '<div class="cm-day-list">' + rows.join("") + '</div>' +
       (canWrite ? '<button type="button" class="cm-add-workout" id="cmAddWorkout">+ Add workout</button>' : '') + '</div>';
   }
@@ -2214,22 +2228,115 @@
     }); });
     var add = el.querySelector("#cmAddWorkout");
     if (add) add.addEventListener("click", function () { openWorkoutEditor(null); });
+    el.querySelectorAll("[data-add-day]").forEach(function (row) { row.addEventListener("click", function () {
+      openAddDayMenu(row.getAttribute("data-add-day"), row);
+    }); });
     el.querySelectorAll("[data-workout-id]").forEach(function (row) { row.addEventListener("click", function () {
       var session = ((ath.training_week || {}).sessions || []).find(function (item) { return String(item.id) === String(row.getAttribute("data-workout-id")); });
       if (session) openWorkoutEditor(session);
     }); });
   }
 
-  function openWorkoutEditor(session) {
+  /* What each "Add Activity" choice pre-fills (same four choices V.O2 offers). */
+  var ACTIVITY_KINDS = [
+    { id: "easy", label: "Easy Run", hint: "Steady, comfortable running", type: "Easy run", sport: "run", template: "easy" },
+    { id: "quality", label: "Quality Session", hint: "Warm-up, hard efforts, cool-down", type: "Quality session", sport: "run", template: "tempo" },
+    { id: "race", label: "Race", hint: "Race day", type: "Race", sport: "run", template: null },
+    { id: "cross", label: "Cross Training", hint: "Bike, swim, strength or other", type: "Cross training", sport: "cross_training", template: null }
+  ];
+
+  function activitySeed(kind, dateKey) {
+    var seed = { date: dateKey, type: kind.type, sport: kind.sport, title: kind.type, structure: null };
+    var builder = window.AthlevoCoachWorkoutBuilder;
+    var tpl = kind.template && builder && builder.TEMPLATES && builder.TEMPLATES.filter(function (t) { return t.id === kind.template; })[0];
+    if (tpl) seed.structure = tpl.build();
+    return seed;
+  }
+
+  function dayHeading(dateKey) {
+    var d = new Date(dateKey + "T00:00:00Z");
+    return isNaN(d.getTime()) ? dateKey : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+  }
+
+  function refreshTrainingWeek() {
+    Object.keys(_athleteDetailCache).forEach(function (key) { if (key.indexOf(String(_athleteDetailId) + "|") === 0) delete _athleteDetailCache[key]; });
+    return openCoachAthletePage(_athleteDetailId, "training", _athleteWeekStart, true);
+  }
+
+  /* Tap an empty day: Add Activity / Add Rest Day, then the four activity types. */
+  function openAddDayMenu(dateKey, returnFocus) {
+    if (!_athleteDetail || document.getElementById("cmAddDayOverlay")) return;
+    var overlay = document.createElement("div");
+    overlay.className = "cm-workout-overlay";
+    overlay.id = "cmAddDayOverlay";
+    var heading = esc(dayHeading(dateKey));
+    function stepOne() {
+      return '<button type="button" class="cm-add-choice" data-add-step="activity"><span><b>Add Activity</b><small>Easy run, quality session, race or cross training</small></span><i aria-hidden="true">›</i></button>' +
+        '<button type="button" class="cm-add-choice" data-add-step="rest"><span><b>Add Rest Day</b><small>Tell the athlete to take the day off</small></span></button>';
+    }
+    function stepTwo() {
+      return '<button type="button" class="cm-add-back" data-add-step="back">‹ Back</button>' + ACTIVITY_KINDS.map(function (kind) {
+        return '<button type="button" class="cm-add-choice" data-add-kind="' + kind.id + '"><span><b>' + esc(kind.label) + '</b><small>' + esc(kind.hint) + '</small></span><i aria-hidden="true">›</i></button>';
+      }).join("");
+    }
+    overlay.innerHTML = '<div class="cm-workout-dialog cm-add-menu" role="dialog" aria-modal="true" aria-label="Add to ' + heading + '"><div class="cm-workout-dialog-head"><h2>' + heading + '</h2><button type="button" class="cm-dialog-close" aria-label="Close">×</button></div><div class="cm-add-list" id="cmAddList">' + stepOne() + '</div><div class="cm-form-error" id="cmAddError" aria-live="polite"></div></div>';
+    document.body.appendChild(overlay);
+    var previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    var list = overlay.querySelector("#cmAddList");
+    var error = overlay.querySelector("#cmAddError");
+    var onKey = function (event) { if (event.key === "Escape") close(); };
+    var close = function () {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      overlay.remove();
+      if (returnFocus && typeof returnFocus.focus === "function") returnFocus.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    overlay.addEventListener("click", function (event) { if (event.target === overlay) close(); });
+    overlay.querySelector(".cm-dialog-close").addEventListener("click", close);
+    function focusFirst() { var first = list.querySelector("button"); if (first) first.focus(); }
+    list.addEventListener("click", async function (event) {
+      var target = event.target.closest("button");
+      if (!target) return;
+      var step = target.getAttribute("data-add-step");
+      var kindId = target.getAttribute("data-add-kind");
+      if (step === "activity") { list.innerHTML = stepTwo(); focusFirst(); return; }
+      if (step === "back") { list.innerHTML = stepOne(); focusFirst(); return; }
+      if (kindId) {
+        var kind = ACTIVITY_KINDS.filter(function (item) { return item.id === kindId; })[0];
+        close();
+        openWorkoutEditor(null, activitySeed(kind, dateKey));
+        return;
+      }
+      if (step === "rest") {
+        list.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+        error.textContent = "";
+        var res = await api("workout", { method: "POST", body: { athlete_id: _athleteDetailId, workout: { session_date: dateKey, title: "Rest day", session_type: "Rest day", sport: "rest" } } });
+        if (!res.ok) {
+          list.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
+          error.textContent = res.body && res.body.error || "The rest day could not be added.";
+          return;
+        }
+        close();
+        if (typeof window.toast === "function") window.toast("Rest day added.");
+        refreshTrainingWeek();
+      }
+    });
+    focusFirst();
+  }
+
+  function openWorkoutEditor(session, preset) {
     var ath = _athleteDetail;
     if (!ath) return;
+    var seed = !session && preset ? preset : null;
     var canWrite = ath.assignment_permission === "read_write";
     var editable = canWrite && (!session || session.can_edit);
     var returnFocus = document.activeElement;
     var overlay = document.createElement("div");
     overlay.className = "cm-workout-overlay";
     overlay.id = "cmWorkoutOverlay";
-    var value = function (key) { return esc(session && session[key] != null ? session[key] : ""); };
+    var value = function (key) { var source = session || seed; return esc(source && source[key] != null ? source[key] : ""); };
     overlay.innerHTML = '<div class="cm-workout-dialog" role="dialog" aria-modal="true" aria-label="' + (session ? "Workout details" : "Add workout") + '"><div class="cm-workout-dialog-head"><h2>' + (session ? "Workout details" : "Add workout") + '</h2><button type="button" class="cm-dialog-close" aria-label="Close">×</button></div><form class="cm-workout-form" id="cmWorkoutForm">' +
       '<div class="cm-field"><label for="cmWorkoutDate">' + (session ? 'Move session to' : 'Date') + '</label><input id="cmWorkoutDate" name="session_date" type="date" required value="' + value("date") + '" ' + (!editable || session && !session.can_reschedule ? "disabled" : "") + '></div>' +
       '<div class="cm-field"><label for="cmWorkoutType">Type</label><input id="cmWorkoutType" name="session_type" value="' + value("type") + '" ' + (!editable ? "disabled" : "") + '></div>' +
@@ -2243,7 +2350,7 @@
       '<div class="cm-field cm-field--full" id="cmBuilderMount"></div>' +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutDescription">Description</label><textarea id="cmWorkoutDescription" name="description" ' + (!editable ? "disabled" : "") + '>' + value("description") + '</textarea></div>' +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutNotes">Coach notes</label><textarea id="cmWorkoutNotes" name="notes" ' + (!editable ? "disabled" : "") + '>' + value("notes") + '</textarea></div>' +
-      '<div class="cm-form-error" id="cmWorkoutError" aria-live="polite"></div><div class="cm-form-actions">' + (session && session.can_remove && canWrite ? '<button type="button" class="cm-week-btn cm-danger" id="cmRemoveWorkout">Remove from plan</button>' : '<span></span>') + '<div class="cm-form-actions-right"><button type="button" class="cm-week-btn cm-dialog-close">Close</button>' + (editable ? '<button type="submit" class="cm-week-btn cm-week-btn--primary">' + (session ? 'Adjust session' : 'Add workout') + '</button>' : '') + '</div></div></form></div>';
+      '<div class="cm-form-error" id="cmWorkoutError" aria-live="polite"></div><div class="cm-form-actions">' + (session && session.can_remove && canWrite ? '<button type="button" class="cm-week-btn cm-danger" id="cmRemoveWorkout">Remove from plan</button>' : '<span></span>') + '<div class="cm-form-actions-right"><button type="button" class="cm-week-btn cm-dialog-close">Close</button>' + (editable ? '<button type="submit" class="cm-week-btn cm-week-btn--primary">' + (session ? 'Adjust session' : 'Save workout') + '</button>' : '') + '</div></div></form></div>';
     document.body.appendChild(overlay);
 
     // Structured builder: shows the athlete's own paces, previews the shape,
@@ -2253,7 +2360,7 @@
     if (builderHost && window.AthlevoCoachWorkoutBuilder && (editable || (session && session.structure))) {
       var flatFieldIds = ["cmWorkoutDuration", "cmWorkoutDistance", "cmWorkoutIntensity", "cmWorkoutPace"];
       overlay._builder = window.AthlevoCoachWorkoutBuilder.mount(builderHost, {
-        structure: session && session.structure || null,
+        structure: session && session.structure || seed && seed.structure || null,
         paces: ath.training_paces || null,
         athleteName: String(ath.athlete_name || ath.name || ath.full_name || "").split(" ")[0],
         readOnly: !editable,
@@ -2339,8 +2446,7 @@
       var moved = session && workout.session_date && String(workout.session_date) !== String(session.date || "");
       window.toast(!session ? "Workout added." : moved ? "Workout rescheduled." : "Workout updated.");
     }
-    Object.keys(_athleteDetailCache).forEach(function (key) { if (key.indexOf(String(_athleteDetailId) + "|") === 0) delete _athleteDetailCache[key]; });
-    openCoachAthletePage(_athleteDetailId, "training", _athleteWeekStart, true);
+    refreshTrainingWeek();
   }
 
   async function removeWorkout(session, overlay) {
