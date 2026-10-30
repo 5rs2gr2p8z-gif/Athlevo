@@ -908,13 +908,8 @@ test("Last 7 days is one real-only section and precedes the install utility",
   ["Distance", "Training time", "Avg HR"].every(label => today.includes(`>${label}</span>`)) &&
   /function refreshTodayWeekSnapshot\(\)[\s\S]*?section\.hidden = visible === 0/.test(html) &&
   today.indexOf("todayWeekSnapshot") < today.indexOf("todayInstallCard"));
-test("Training Paces is the final Today content section", (() => {
-  const paces = today.indexOf('<div id="trainingPacesCard"></div>');
-  const close = today.indexOf("</section>", paces);
-  return paces > today.indexOf("todayWeekSnapshot") &&
-    close > paces &&
-    !/<[a-z]/i.test(today.slice(paces + '<div id="trainingPacesCard"></div>'.length, close));
-})());
+test("Home no longer carries the Training Paces card (it moved off Home; You keeps it)",
+  !/id="trainingPacesCard"/.test(today) && /id="youPacesCard"/.test(html));
 test("Today no longer renders analysis, development, journey, race countdown, or coach note",
   !/id="latestWorkoutAnalysis"|id="developmentCard"|id="todayRaceName"|id="todayRaceDays"|id="todayCoachNoteSection"|class="race"|class="coachnote"|compressLatestWorkoutAnalysis|Coach’s note|Your Development|Your journey/.test(today));
 test("seven-day presentation hides unavailable values and keeps real values", (() => {

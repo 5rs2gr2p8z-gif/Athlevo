@@ -1,7 +1,7 @@
 /**
  * Focused executable checks for the You screen: Athlevo Score →
- * Athlete Status → Training Paces → Trends, and removal of the old
- * Resting HR / HRV / Weekly Mileage strip.
+ * Training Paces → Trends (Athlete Status moved to Home), and removal of the
+ * old Resting HR / HRV / Weekly Mileage strip.
  * Run: node tests/you-athlete-status.test.mjs
  */
 
@@ -29,17 +29,20 @@ const you = html.slice(
   html.lastIndexOf("<section", trendsScreenStart),
   html.indexOf('<section class="screen"', trendsScreenStart)
 );
+const todayStart = html.indexOf('id="screen-today"');
+const home = html.slice(
+  html.lastIndexOf("<section", todayStart),
+  html.indexOf('<section class="screen', todayStart + 20)
+);
 
 section("You screen — section order");
 {
   const scorePos = you.indexOf('id="youScoreCard"');
-  const statusPos = you.indexOf('id="todayAthleteStatusCard"');
   const pacesPos = you.indexOf('id="youPacesCard"');
   const trendsPos = you.indexOf('id="trendsState"');
-  test("You screen contains Athlevo Score before Athlete Status",
-    scorePos >= 0 && statusPos >= 0 && scorePos < statusPos);
-  test("Athlete Status appears before Training Paces",
-    statusPos >= 0 && pacesPos >= 0 && statusPos < pacesPos);
+  test("You screen contains Athlevo Score before Training Paces",
+    scorePos >= 0 && pacesPos >= 0 && scorePos < pacesPos);
+  test("Athlete Status is no longer on the You screen", !/todayAthleteStatusCard/.test(you) && !/home-status-section|you-status-section/.test(you));
   test("Training Paces appears before Trends",
     pacesPos >= 0 && trendsPos >= 0 && pacesPos < trendsPos);
 }
@@ -76,15 +79,20 @@ section("Compact score exposes the five canonical dimensions");
     /mount\.innerHTML = mount\.id === "youScoreCard" \? cardHTML \+ youDetailHTML : cardHTML;/.test(scoreSource));
 }
 
-section("Athlete Status reuses the canonical Today component");
+section("Athlete Status lives on Home (same component, single mount)");
 {
-  test("Athlete Status keeps its original id, headings, and three signals (Readiness/Training Load/Recovery)",
-    /id="todayAthleteStatusCard"[\s\S]*?Athlete status/.test(you) &&
-    /id="todayReadinessSignal"/.test(you) &&
-    /id="todayLoadSignal"/.test(you) &&
-    /id="todayRecoverySignal"/.test(you));
-  test("Athlete Status is not duplicated — Today no longer contains its own copy",
+  test("Home holds Athlete Status with its original id, heading, and three signals (Readiness/Training Load/Recovery)",
+    /id="todayAthleteStatusCard"[\s\S]*?Athlete status/.test(home) &&
+    /id="todayReadinessSignal"/.test(home) &&
+    /id="todayLoadSignal"/.test(home) &&
+    /id="todayRecoverySignal"/.test(home));
+  test("it sits after Today's training and before Next/Coach on Home",
+    home.indexOf("todayActivePlanState") < home.indexOf('class="home-status-section"') &&
+    home.indexOf('class="home-status-section"') < home.indexOf('id="homeNextCard"'));
+  test("Athlete Status is not duplicated — exactly one mount in the whole app",
     (html.match(/id="todayAthleteStatusCard"/g) || []).length === 1);
+  test("Home no longer renders the Training Paces card (it stays on You)",
+    !/id="trainingPacesCard"/.test(home) && /id="youPacesCard"/.test(you));
   test("no duplicate DOM ids exist for any Athlete Status child element",
     ["todayReadinessSignalValue", "todayLoadSignalValue", "todayRecoverySignalValue",
      "todayReadinessSignalNote", "todayLoadSignalNote", "todayRecoverySignalNote",
@@ -98,8 +106,8 @@ section("Dark/light token inheritance");
 {
   test("the moved Athlete Status card uses only existing shared tokens, no new colors",
     /\.today-status-card\{margin-top:14px;padding:15px 16px;background:var\(--paper\);border:1px solid var\(--line\)/.test(html));
-  test("no new dark-mode-only color literals were introduced for the You status/score sections",
-    !/\.you-status-section\{[^}]*#[0-9a-fA-F]{3,6}/.test(html) &&
+  test("no new dark-mode-only color literals were introduced for the Home status / You score sections",
+    !/\.home-status-section\{[^}]*#[0-9a-fA-F]{3,6}/.test(html) &&
     !/\.you-score-de(tail|tail-line)?\{[^}]*#[0-9a-fA-F]{3,6}/.test(html) &&
     !/\.you-score-dim[^{]*\{[^}]*#[0-9a-fA-F]{3,6}/.test(html));
   test("light mode remains functional (no light-mode-only override removed for shared tokens)",

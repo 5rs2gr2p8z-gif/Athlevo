@@ -540,7 +540,6 @@ section("Training Status / Training Balance / Trends reorganization");
   );
   const idx = {
     youScore: trendsMarkup.indexOf('class="you-score-section"'),
-    youStatus: trendsMarkup.indexOf('class="you-status-section"'),
     youPaces: trendsMarkup.indexOf('class="you-paces-section"'),
     statusBlock: trendsMarkup.indexOf('class="trend-status-block"'),
     statusName: trendsMarkup.indexOf('id="trendStatusName"'),
@@ -552,10 +551,9 @@ section("Training Status / Training Balance / Trends reorganization");
     loadArticle: trendsMarkup.indexOf('data-trend-graph="training-load"')
   };
 
-  test("existing You sections (Score, Athlete Status, Paces) still render ahead of Training Status",
+  test("existing You sections (Score, Paces) still render ahead of Training Status",
     Object.values(idx).every(value => value !== -1) &&
-    idx.youScore < idx.youStatus &&
-    idx.youStatus < idx.youPaces &&
+    idx.youScore < idx.youPaces &&
     idx.youPaces < idx.statusBlock);
 
   test("Training Status (current state + key metrics) appears before Training Balance",
