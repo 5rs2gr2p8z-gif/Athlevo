@@ -1533,10 +1533,18 @@ input,textarea,select{color:var(--text)}
   /* the sky tones along the photo's top edge, so the band above the photo is seamless */
   background:linear-gradient(90deg,#e9d9c9,#feedde)}
 /* On phones the photo starts below a clear band of sky, so the logo never sits on the runner's face. */
-#screen-welcome .w-photo{position:absolute;inset:var(--w-band) 0 0 0;z-index:-2;display:block}
-#screen-welcome .w-photo::after{content:"";position:absolute;left:0;right:0;top:0;height:72px;background:linear-gradient(90deg,#e9d9c9,#feedde);
+#screen-welcome .w-photo{position:absolute;inset:var(--w-band) 0 0 0;z-index:-2;display:block;overflow:hidden}
+#screen-welcome .w-slide::before{content:"";position:absolute;left:0;right:0;top:0;height:var(--fade,72px);z-index:1;pointer-events:none;
+  background:linear-gradient(90deg,#e9d9c9,#feedde);
   -webkit-mask-image:linear-gradient(180deg,#000,transparent);mask-image:linear-gradient(180deg,#000,transparent)}
-#screen-welcome .w-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 10%;display:block}
+/* the night photo is near-black at the top: a hard edge under the logo band reads cleaner than a pale haze */
+#screen-welcome .w-slide:nth-child(3){--fade:0px}
+/* Slideshow: four photos, 3 seconds each, soft crossfade. Pure CSS, runs only while the screen is shown,
+   and prefers-reduced-motion (global rule) leaves just the first photo. */
+#screen-welcome .w-slide{position:absolute;inset:0;display:block;opacity:0;animation:wSlide 12s linear infinite both;animation-delay:calc(var(--i) * 3s);will-change:opacity}
+#screen-welcome .w-slide:first-child{opacity:1}
+#screen-welcome .w-slide img{width:100%;height:100%;object-fit:cover;object-position:var(--pos,50% 10%);display:block}
+@keyframes wSlide{0%{opacity:0}7%{opacity:1}25%{opacity:1}32%{opacity:0}100%{opacity:0}}
 #screen-welcome .w-scrim{position:absolute;inset:0;z-index:-1;pointer-events:none;
   background:linear-gradient(180deg,rgba(20,20,22,0) 0%,rgba(20,20,22,0) 36%,rgba(20,20,22,.6) 64%,rgba(14,14,16,.93) 100%)}
 #screen-welcome .w-logo{position:absolute;z-index:1;top:calc(14px + var(--athlevo-safe-top,env(safe-area-inset-top,0px)));left:22px;width:128px;height:auto;display:block}
@@ -1552,10 +1560,13 @@ input,textarea,select{color:var(--text)}
 #screen-welcome .w-btn.google{border-color:transparent}
 @media(min-width:900px){
   #screen-welcome{--w-band:0px;background:#141416}
-  #screen-welcome .w-photo::after{display:none}
-  #screen-welcome .w-photo img{object-position:50% 6%}
+  #screen-welcome .w-slide::before{display:none}
+  #screen-welcome .w-slide:nth-child(1){--pos:50% 6%}
+  #screen-welcome .w-slide:nth-child(2){--pos:50% 38%}
+  #screen-welcome .w-slide:nth-child(3){--pos:50% 8%}
+  #screen-welcome .w-slide:nth-child(4){--pos:50% 12%}
   #screen-welcome .w-scrim{background:linear-gradient(180deg,rgba(20,20,22,.16) 0%,rgba(20,20,22,.3) 30%,rgba(20,20,22,.74) 62%,rgba(14,14,16,.95) 100%)}
-  #screen-welcome .w-logo{top:28px;left:96px;width:188px}
+  #screen-welcome .w-logo{top:28px;left:96px;width:172px;padding:14px 18px;box-sizing:content-box;background:rgba(246,236,224,.95);border-radius:16px}
   #screen-welcome .w-top,#screen-welcome.is-ai-signup .w-top,#screen-welcome .w-btns{width:min(100%,520px);margin-inline:auto;box-sizing:border-box}
   #screen-welcome .w-top,#screen-welcome.is-ai-signup .w-top{padding:0 0 20px}
   #screen-welcome .w-btns{padding:0 0 56px}
@@ -4984,10 +4995,12 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
 <!-- ══════════════ WELCOME ══════════════ -->
 <section class="screen welcome" id="screen-welcome">
-  <picture class="w-photo" aria-hidden="true">
-    <source type="image/webp" srcset="assets/welcome/hero-720.webp 720w, assets/welcome/hero-1080.webp 1080w" sizes="100vw">
-    <img src="assets/welcome/hero-720.jpg" alt="" width="720" height="1280" loading="lazy" decoding="async">
-  </picture>
+  <div class="w-photo" aria-hidden="true">
+    <picture class="w-slide" style="--i:0"><source type="image/webp" srcset="assets/welcome/hero-1-720.webp 720w, assets/welcome/hero-1-1080.webp 1080w" sizes="100vw"><img src="assets/welcome/hero-1-720.jpg" alt="" width="720" height="1280" loading="lazy" decoding="async"></picture>
+    <picture class="w-slide" style="--i:1"><source type="image/webp" srcset="assets/welcome/hero-2-720.webp 720w, assets/welcome/hero-2-1080.webp 1080w" sizes="100vw"><img src="assets/welcome/hero-2-720.jpg" alt="" width="720" height="1280" loading="lazy" decoding="async"></picture>
+    <picture class="w-slide" style="--i:2"><source type="image/webp" srcset="assets/welcome/hero-3-720.webp 720w, assets/welcome/hero-3-1080.webp 1080w" sizes="100vw"><img src="assets/welcome/hero-3-720.jpg" alt="" width="720" height="1280" loading="lazy" decoding="async"></picture>
+    <picture class="w-slide" style="--i:3"><source type="image/webp" srcset="assets/welcome/hero-4-720.webp 720w, assets/welcome/hero-4-1080.webp 1080w" sizes="100vw"><img src="assets/welcome/hero-4-720.jpg" alt="" width="720" height="1280" loading="lazy" decoding="async"></picture>
+  </div>
   <div class="w-scrim" aria-hidden="true"></div>
   <img class="w-logo" src="assets/brand/athlevo-coaching-logo.png" alt="Athlevo Coaching" width="704" height="502">
   <div class="w-top">
