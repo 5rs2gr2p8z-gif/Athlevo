@@ -176,6 +176,23 @@
     }
   }
 
+  async function providerApi(action, body) {
+    var t = await token();
+    if (!t) return { ok: false, status: 401, body: { error: "No session" } };
+    try {
+      var res = await fetch("/api/providers?action=" + encodeURIComponent(action), {
+        method: "POST",
+        headers: { Authorization: "Bearer " + t, "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+      });
+      var parsed = {};
+      try { parsed = await res.json(); } catch (e) {}
+      return { ok: res.ok, status: res.status, body: parsed || {} };
+    } catch (e) {
+      return { ok: false, status: 0, body: { error: "network" } };
+    }
+  }
+
   function fmtVal(v, suffix) {
     if (v === null || v === undefined || v === "") return "—";
     return esc(v) + (suffix || "");
@@ -339,6 +356,7 @@
       ".cm-empty p{margin:5px 0 0;color:var(--ink3,#9a9da3);font-size:13px;line-height:1.45;}",
       ".cm-pending-invites{margin-top:26px}.cm-invite-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line,#ebebe8)}.cm-invite-copy{min-width:0;flex:1}.cm-invite-email{display:block;font-size:13px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}.cm-invite-sent{display:block;margin-top:3px;color:var(--ink3,#9a9da3);font-size:11px}.cm-invite-row-actions{display:flex;gap:10px;flex:0 0 auto}.cm-invite-row-actions button{min-height:34px;border:0;background:transparent;color:var(--ink2,#6d7075);font:700 11px/1 var(--sans,sans-serif);padding:7px 0;cursor:pointer}.cm-invite-row-actions .danger{color:var(--bad,#c0272d)}.cm-invite-row-actions button:disabled{opacity:.5}",
       ".cm-invite-overlay{position:fixed;inset:0;z-index:210;background:var(--backdrop,rgba(20,20,22,.48));display:flex;align-items:flex-end;justify-content:center}.cm-invite-dialog{width:100%;max-width:480px;max-height:90vh;overflow:auto;box-sizing:border-box;background:var(--surface-base,#fff);border-radius:26px 26px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--elev-3)}.cm-invite-dialog h2{margin:0;font-family:var(--serif,serif);font-size:24px;font-weight:520}.cm-invite-dialog>p{margin:8px 0 20px;color:var(--ink2,#6d7075);font-size:13px;line-height:1.5}.cm-invite-form{display:grid;gap:8px}.cm-invite-form label{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-invite-form input{width:100%;min-height:46px;box-sizing:border-box;border:1px solid var(--line,#ebebe8);border-radius:10px;background:var(--bg,#fff);color:inherit;padding:11px 12px;font:16px/1.35 var(--sans,sans-serif)}.cm-invite-form-error{min-height:18px;margin:1px 0 0;color:var(--bad,#c0272d);font-size:12px;line-height:1.45}.cm-invite-dialog-actions{display:grid;gap:9px;margin-top:12px}.cm-invite-dialog-actions button{min-height:46px;border:1px solid var(--line,#ebebe8);border-radius:999px;background:transparent;color:inherit;font:700 13px/1 var(--sans,sans-serif);padding:12px 16px;cursor:pointer}.cm-invite-dialog-actions .primary{border-color:var(--red,#c0272d);background:var(--red,#c0272d);color:#fff}.cm-invite-dialog-actions .danger{border-color:var(--bad,#c0272d);color:var(--bad,#c0272d)}.cm-invite-dialog-actions button:disabled{opacity:.52;cursor:default}",
+      ".cm-join{display:grid;gap:8px}.cm-join label{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-join input{width:100%;min-height:46px;box-sizing:border-box;border:1px solid var(--line,#ebebe8);border-radius:10px;background:var(--bg,#fff);color:inherit;padding:11px 12px;font:15px/1.35 var(--sans,sans-serif)}.cm-join-new{background:none!important;border:0!important;min-height:36px!important;font-weight:600!important;font-size:12.5px!important;color:var(--ink2,#6d7075)!important;text-decoration:underline}.cm-invite-or{margin:18px 0 8px!important;font-size:11px!important;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#9a9da3)!important}",
       ".cm-error{padding:18px 0;border-block:1px solid var(--line,#ebebe8);color:var(--ink2,#6d7075);font-size:13px;}",
       ".cm-error button{margin-top:10px;}",
       ".cm-command-skeleton{width:100%;max-width:430px;margin:0 auto;padding:18px 16px 104px;box-sizing:border-box;}",
@@ -950,7 +968,9 @@
       '<div class="cm-command cm-command--ready' + rosterSizeClass + '">' +
         '<header class="cm-command-head">' +
           '<div><h1>Coach Dashboard</h1><p class="cm-command-summary" aria-live="polite">' + esc(liveSummary) + '</p></div>' +
-          '<div class="cm-head-actions"><button type="button" class="cm-invite-trigger" id="cmInviteAthlete">Invite Athlete</button></div>' +
+          '<div class="cm-head-actions">' +
+            (_role === "admin" ? '<button type="button" class="cm-invite-trigger" id="cmAddCoach">Add Coach</button>' : '') +
+            '<button type="button" class="cm-invite-trigger" id="cmInviteAthlete">Invite Athlete</button></div>' +
         '</header>';
 
     if (_rosterError) {
@@ -1179,7 +1199,7 @@
     return overlay;
   }
 
-  function mountInviteSheet(html) {
+  function mountInviteSheet(html, focusSelector) {
     closeInviteDialog(false, true);
     var overlay = document.createElement("div");
     overlay.id = "cmInviteOverlay";
@@ -1191,7 +1211,7 @@
       root: overlay,
       sheet: ".cm-invite-dialog",
       draggable: true,
-      initialFocus: "#cmInviteEmail",
+      initialFocus: focusSelector || "#cmJoinLink",
       closeOnEscape: true,
       closeOnBackdrop: true,
       fallbackFocus: "#cmInviteAthlete",
@@ -1203,6 +1223,83 @@
       onAfterClose: function () { removeInviteOverlay(overlay); }
     });
     return overlay;
+  }
+
+  function bindJoinLink(overlay) {
+    var field = overlay.querySelector("#cmJoinLink");
+    var copy = overlay.querySelector("#cmJoinCopy");
+    var share = overlay.querySelector("#cmJoinShare");
+    var fresh = overlay.querySelector("#cmJoinNew");
+    var error = overlay.querySelector("#cmJoinError");
+    var url = "";
+    function show(body) {
+      url = body && body.url || "";
+      field.value = url || "Link unavailable";
+      copy.disabled = !url;
+      if (share && url && navigator.share) share.hidden = false;
+      error.textContent = url ? "" : (body && body.error || "Your invite link could not be loaded. Try again.");
+    }
+    async function load(rotate) {
+      copy.disabled = true;
+      var result = await providerApi("coaching_join_link", rotate ? { rotate: true } : {});
+      show(result.ok ? result.body : { error: result.body && result.body.error });
+    }
+    copy.addEventListener("click", async function () {
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch (e) {
+        field.focus(); field.select();
+        try { document.execCommand("copy"); } catch (e2) {}
+      }
+      copy.textContent = "Copied";
+      setTimeout(function () { copy.textContent = "Copy link"; }, 2000);
+    });
+    if (share) share.addEventListener("click", function () {
+      if (!url || !navigator.share) return;
+      navigator.share({ title: "Train with me on Athlevo", text: "Join my coaching roster on Athlevo:", url: url }).catch(function () {});
+    });
+    fresh.addEventListener("click", function () {
+      if (!window.confirm("Make a new link? The current link will stop working.")) return;
+      load(true);
+    });
+    field.addEventListener("focus", function () { field.select(); });
+    load(false);
+  }
+
+  function openAddCoachDialog() {
+    var overlay = mountInviteSheet(
+      '<h2 id="cmInviteTitle">Add Coach</h2>' +
+      '<p>Make someone a coach. They need to have signed up to Athlevo first, with this email.</p>' +
+      '<form class="cm-invite-form" id="cmCoachForm"><label for="cmCoachEmail">Coach email</label>' +
+      '<input id="cmCoachEmail" type="email" inputmode="email" autocomplete="off" placeholder="coach@email.com" required>' +
+      '<p class="cm-invite-form-error" id="cmCoachError" role="status" aria-live="polite"></p>' +
+      '<div class="cm-invite-dialog-actions"><button class="primary" id="cmCoachSave" type="submit">Make coach</button>' +
+      '<button id="cmCoachCancel" type="button">Cancel</button></div></form>',
+      "#cmCoachEmail"
+    );
+    var input = overlay.querySelector("#cmCoachEmail");
+    var error = overlay.querySelector("#cmCoachError");
+    overlay.querySelector("#cmCoachCancel").addEventListener("click", function () { closeInviteDialog(false); });
+    overlay.querySelector("#cmCoachForm").addEventListener("submit", async function (event) {
+      event.preventDefault();
+      var button = overlay.querySelector("#cmCoachSave");
+      if (!input.checkValidity()) { error.textContent = "Enter a valid email."; return; }
+      button.disabled = true;
+      button.textContent = "Saving…";
+      error.textContent = "";
+      var grantBody = { role: "coach" };
+      grantBody.email = String(input.value || "").trim();
+      var result = await providerApi("coaching_grant_coach", grantBody);
+      if (!result.ok) {
+        error.textContent = result.body && result.body.error || "Coach access could not be updated.";
+        button.disabled = false;
+        button.textContent = "Make coach";
+        return;
+      }
+      closeInviteDialog(false);
+      if (typeof window.toast === "function") window.toast("Coach access added. They can sign in as a coach now.");
+    });
   }
 
   function openInviteDialog() {
@@ -1217,13 +1314,22 @@
       }
     }
     var overlay = mountInviteSheet(
-      '<h2 id="cmInviteTitle">Invite Athlete</h2><p>Invite an athlete to connect with your coaching roster.</p>' +
+      '<h2 id="cmInviteTitle">Invite Athlete</h2>' +
+      '<p>Send this link to your athlete on Messenger, WhatsApp or text. When they sign up and confirm, they join your roster.</p>' +
+      '<div class="cm-join" id="cmJoin"><label for="cmJoinLink">Your invite link</label>' +
+      '<input id="cmJoinLink" type="text" readonly value="Getting your link…" aria-live="polite">' +
+      '<p class="cm-invite-form-error" id="cmJoinError" role="status" aria-live="polite"></p>' +
+      '<div class="cm-invite-dialog-actions"><button class="primary" id="cmJoinCopy" type="button" disabled>Copy link</button>' +
+      '<button id="cmJoinShare" type="button" hidden>Share…</button>' +
+      '<button id="cmJoinNew" type="button" class="cm-join-new">Make a new link (the old one stops working)</button></div></div>' +
+      '<p class="cm-invite-or">Or invite by email</p>' +
       '<form class="cm-invite-form" id="cmInviteForm"><label for="cmInviteEmail">Email</label>' +
       '<input id="cmInviteEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="athlete@email.com" value="' + esc(_inviteEmail) + '" required>' +
       '<p class="cm-invite-form-error" id="cmInviteError" role="status" aria-live="polite"></p>' +
       '<div class="cm-invite-dialog-actions"><button class="primary" id="cmInviteSend" type="submit">Send Invite</button><button id="cmInviteCancel" type="button">Cancel</button></div></form>'
     );
     var input = overlay.querySelector("#cmInviteEmail");
+    bindJoinLink(overlay);
     overlay.querySelector("#cmInviteCancel").addEventListener("click", function () {
       _inviteEmail = input.value;
       closeInviteDialog(false);
@@ -1323,6 +1429,8 @@
     if (refresh) refresh.addEventListener("click", refreshRoster);
     var retry = container.querySelector("#cmRetry");
     if (retry) retry.addEventListener("click", refreshRoster);
+    var addCoach = container.querySelector("#cmAddCoach");
+    if (addCoach) addCoach.addEventListener("click", openAddCoachDialog);
     var invite = container.querySelector("#cmInviteAthlete");
     if (invite) invite.addEventListener("click", openInviteDialog);
     container.querySelectorAll("[data-resend-invite]").forEach(function (button) {

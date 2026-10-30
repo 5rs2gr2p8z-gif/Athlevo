@@ -7,6 +7,7 @@
   "use strict";
 
   var STORAGE_KEY = "athlevo_pending_invite";
+  var JOIN_KEY = "athlevo_pending_join";
   var activeResume = null;
   var activeResolve = null;
   var previousFocus = null;
@@ -18,6 +19,34 @@
 
   function clearPendingToken() {
     try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  }
+
+  // Coach join link (?coach=<code>): not tied to an email, so there is no
+  // wrong-account step. The athlete still has to confirm before joining.
+  function pendingJoin() {
+    try { return String(sessionStorage.getItem(JOIN_KEY) || "").trim().toLowerCase(); }
+    catch (e) { return ""; }
+  }
+
+  function clearPendingJoin() {
+    try { sessionStorage.removeItem(JOIN_KEY); } catch (e) {}
+  }
+
+  async function joinRequest(code, intent) {
+    var bearer = await accessToken();
+    if (!bearer) return { ok: false, status: 401, body: { error: "Authentication is required." } };
+    try {
+      var response = await fetch("/api/providers?action=coaching_join_accept", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + bearer, "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code, intent: intent })
+      });
+      var body = {};
+      try { body = await response.json(); } catch (e) {}
+      return { ok: response.ok, status: response.status, body: body || {} };
+    } catch (e) {
+      return { ok: false, status: 0, body: { error: "The invite link could not be verified." } };
+    }
   }
 
   async function accessToken() {
@@ -206,10 +235,92 @@
     });
   }
 
+  function waitForJoinDecision(preview, code) {
+    return new Promise(function (resolve) {
+      activeResolve = resolve;
+      var state = preview.state;
+      var coach = esc(preview.coach_name || "Your coach");
+      function simple(title, body, outcome, clear) {
+        if (clear) clearPendingJoin();
+        showSheet(
+          '<h2 id="ciAcceptTitle">' + title + '</h2>' + (body ? '<p>' + body + '</p>' : '') +
+          '<div class="ci-accept-actions"><button class="primary" id="ciInviteOpen">Open Athlevo</button></div>',
+          function (root) { root.querySelector("#ciInviteOpen").addEventListener("click", function () { closeSheet({ outcome: outcome }); }); }
+        );
+      }
+      if (state === "already_on_roster") return simple("You are already with " + coach, "", "already_on_roster", true);
+      if (state === "has_other_coach") {
+        return simple("You already have a coach",
+          "Ask your current coach to end your coaching first, then open this link again.", "has_other_coach", true);
+      }
+      if (state === "conflict") return simple("This is your own invite link", "Send it to your athletes.", "own_link", true);
+      if (state !== "pending") return simple("Invite link unavailable", "This invite link is no longer valid. Ask your coach for a new one.", "invalid", true);
+
+      showSheet(
+        '<h2 id="ciAcceptTitle">Join your coach</h2><p><strong>' + coach + '</strong> invited you to train with them on Athlevo. ' +
+        'Your coach will be able to see your training and send you workouts and messages.</p>' +
+        '<p class="ci-accept-error" id="ciAcceptError" aria-live="polite"></p>' +
+        '<div class="ci-accept-actions"><button class="primary" id="ciAcceptInvite">Join ' + coach + '</button><button id="ciNotNow">Not now</button></div>',
+        function (root) {
+          root.querySelector("#ciNotNow").addEventListener("click", function () {
+            clearPendingJoin();
+            closeSheet({ outcome: "not_now" });
+          });
+          root.querySelector("#ciAcceptInvite").addEventListener("click", async function () {
+            var button = root.querySelector("#ciAcceptInvite");
+            var error = root.querySelector("#ciAcceptError");
+            var label = button.textContent;
+            button.disabled = true;
+            button.textContent = "Joining…";
+            error.textContent = "";
+            var result = await joinRequest(code, "accept");
+            if (result.ok && (result.body.accepted || result.body.already_on_roster)) {
+              clearPendingJoin();
+              if (window.AthlevoAthleteMode && typeof window.AthlevoAthleteMode.retry === "function") {
+                try { await window.AthlevoAthleteMode.retry(); } catch (e) {}
+              }
+              if (window.AthlevoBrain && typeof window.AthlevoBrain.refreshAthleteUI === "function") {
+                try { await window.AthlevoBrain.refreshAthleteUI(); } catch (e) {}
+              }
+              if (typeof window.toast === "function") window.toast("You joined " + (preview.coach_name || "your coach"));
+              closeSheet({ outcome: "accepted" });
+              return;
+            }
+            if (result.body && result.body.state === "has_other_coach") {
+              clearPendingJoin();
+              error.textContent = "You already have a coach. Ask them to end your coaching first.";
+            } else if (result.body && result.body.state === "invalid") {
+              clearPendingJoin();
+              error.textContent = "This invite link is no longer valid. Ask your coach for a new one.";
+            } else {
+              error.textContent = result.body && result.body.error || "You could not be added. Please try again.";
+            }
+            button.disabled = false;
+            button.textContent = label;
+          });
+        }
+      );
+    });
+  }
+
+  function resumeJoinAfterAuth(code) {
+    return (async function () {
+      var previewResult = await joinRequest(code, "preview");
+      var preview = previewResult.body || {};
+      if (!previewResult.ok && !preview.state) preview.state = "invalid";
+      return waitForJoinDecision(preview, code);
+    })();
+  }
+
   function resumeAfterAuth() {
     if (activeResume) return activeResume;
     var token = pendingToken();
-    if (!token) return Promise.resolve({ outcome: "none" });
+    if (!token) {
+      var joinCode = pendingJoin();
+      if (!joinCode) return Promise.resolve({ outcome: "none" });
+      activeResume = resumeJoinAfterAuth(joinCode);
+      return activeResume.finally(function () { activeResume = null; });
+    }
     activeResume = (async function () {
       var previewResult = await inviteRequest(token, "preview");
       var preview = previewResult.body || {};
@@ -221,8 +332,8 @@
 
   window.AthlevoCoachInvites = {
     resumeAfterAuth: resumeAfterAuth,
-    hasPendingInvite: function () { return Boolean(pendingToken()); },
-    clearPendingInvite: clearPendingToken,
+    hasPendingInvite: function () { return Boolean(pendingToken() || pendingJoin()); },
+    clearPendingInvite: function () { clearPendingToken(); clearPendingJoin(); },
     _pendingToken: pendingToken
   };
 })();

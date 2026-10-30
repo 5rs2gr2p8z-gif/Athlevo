@@ -77,6 +77,9 @@ import {
 import { buildCoachThread, validateCoachMessage } from "../../lib/server/coachMessaging.js";
 import {
   INVITE_TTL_MS,
+  generateJoinCode,
+  normalizeJoinCode,
+  validateJoinCode,
   generateInviteToken,
   hashInviteToken,
   isInviteExpired,
@@ -2917,6 +2920,125 @@ async function actionCoachingInviteAccept(request, response) {
   });
 }
 
+/* ─────────────── Coach join links (shareable, no email service) ─────────────── */
+
+function joinLinkUrl(code) {
+  const link = new URL(inviteAppOrigin() + "/");
+  link.searchParams.set("coach", code);
+  return link.toString();
+}
+
+async function actionCoachingJoinLink(request, response) {
+  const actor = await loadInviteActor(request);
+  if (!actor.ok) return sendJson(response, actor.status, { error: actor.error });
+  if (!canManageOwnCoachInvites(actor.profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(actor.profile) });
+  }
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const existing = await sbCoachRead(
+    `coach_join_links?coach_id=eq.${enc(actor.user.id)}&active=eq.true&select=id,code&limit=1`
+  );
+  if (!existing.ok) return sendJson(response, 503, { error: "Your invite link is unavailable right now." });
+  const current = existing.rows[0];
+  if (current && body.rotate !== true) {
+    return sendJson(response, 200, { code: current.code, url: joinLinkUrl(current.code), created: false });
+  }
+  if (current) {
+    const retired = await sbCoachWrite(
+      `coach_join_links?id=eq.${enc(current.id)}&coach_id=eq.${enc(actor.user.id)}&active=eq.true`,
+      "PATCH",
+      { active: false, rotated_at: new Date().toISOString() }
+    );
+    if (!retired.ok) return sendJson(response, 503, { error: "Your invite link could not be replaced." });
+  }
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = generateJoinCode();
+    const saved = await sbCoachWrite("coach_join_links", "POST", { coach_id: actor.user.id, code, active: true });
+    if (saved.ok && saved.rows[0]) {
+      return sendJson(response, 201, { code, url: joinLinkUrl(code), created: true, rotated: Boolean(current) });
+    }
+    if (saved.status !== 409) break; // 409 = code collision; anything else is a real failure
+  }
+  return sendJson(response, 500, { error: "Your invite link could not be created." });
+}
+
+async function actionCoachingJoinAccept(request, response) {
+  const actor = await loadInviteActor(request);
+  if (!actor.ok) return sendJson(response, actor.status, { error: actor.error });
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const code = normalizeJoinCode(body.code);
+  if (!validateJoinCode(code)) {
+    return sendJson(response, 400, { state: "invalid", error: "This invite link is not valid." });
+  }
+  if (body.intent !== "preview" && body.intent !== "accept") {
+    return sendJson(response, 400, { error: "Intent must be preview or accept." });
+  }
+  const link = await sbCoachRead(`coach_join_links?code=eq.${enc(code)}&active=eq.true&select=id,coach_id&limit=1`);
+  if (!link.ok) return sendJson(response, 503, { error: "The invite link could not be verified." });
+  const row = link.rows[0];
+  if (!row) return sendJson(response, 404, { state: "invalid", error: "This invite link is no longer valid." });
+
+  const coachRows = await sbSelect(`profiles?id=eq.${enc(row.coach_id)}&select=full_name,role&limit=1`);
+  const coachName = String(coachRows[0] && coachRows[0].full_name || "Your coach");
+
+  if (body.intent === "preview") {
+    let state = "pending";
+    if (row.coach_id === actor.user.id) {
+      state = "conflict";
+    } else {
+      const mine = await sbCoachRead(
+        `coach_athlete_assignments?athlete_id=eq.${enc(actor.user.id)}&status=in.(invited,active,paused)` +
+          `&select=coach_id,status&limit=10`
+      );
+      if (!mine.ok) return sendJson(response, 503, { error: "The invite link could not be verified." });
+      if (mine.rows.some(item => item.coach_id === row.coach_id)) state = "already_on_roster";
+      else if (mine.rows.some(item => item.status === "active")) state = "has_other_coach";
+    }
+    return sendJson(response, 200, { state, coach_name: coachName });
+  }
+
+  const joined = await sbCoachRpc("athlevo_join_coach_by_code", { p_code: code, p_athlete_id: actor.user.id });
+  if (!joined.ok) return sendJson(response, 503, { error: "You could not be added right now." });
+  const result = Array.isArray(joined.data) ? joined.data[0] : joined.data;
+  const resultState = result && result.result_state || "invalid";
+  const success = resultState === "accepted_now";
+  return sendJson(response, success || resultState === "already_on_roster" ? 200 : 409, {
+    state: success ? "accepted" : resultState,
+    accepted: success,
+    already_on_roster: resultState === "already_on_roster",
+    coach_name: coachName
+  });
+}
+
+/* Admin only: make a signed-up user a coach, or take coach access away. */
+async function actionCoachingGrantCoach(request, response) {
+  const actor = await loadInviteActor(request);
+  if (!actor.ok) return sendJson(response, actor.status, { error: actor.error });
+  if (resolveRole(actor.profile) !== "admin") {
+    return sendJson(response, 403, { error: "Admin access is required.", role: resolveRole(actor.profile) });
+  }
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const email = normalizeInviteEmail(body.email);
+  if (!validateInviteEmail(email)) {
+    return sendJson(response, 400, { code: "INVALID_EMAIL", error: "Enter a valid email address." });
+  }
+  const role = body.role === "athlete" ? "athlete" : "coach";
+  if (normalizeInviteEmail(actor.user.email) === email) {
+    return sendJson(response, 400, { code: "SELF", error: "You cannot change your own access." });
+  }
+  const changed = await sbCoachRpc("athlevo_set_role_by_email", { p_email: email, p_role: role });
+  if (!changed.ok) return sendJson(response, 503, { error: "Coach access could not be updated right now." });
+  const result = Array.isArray(changed.data) ? changed.data[0] : changed.data;
+  const state = result && result.result_state || "failed";
+  if (state === "updated") return sendJson(response, 200, { state, role });
+  const message = state === "not_found"
+    ? "No Athlevo account uses that email yet. Ask them to sign up first, then try again."
+    : state === "is_admin" ? "That account is an admin; its access is not changed here."
+    : state === "no_profile" ? "That account has not finished signing up yet."
+    : "Coach access could not be updated.";
+  return sendJson(response, state === "not_found" ? 404 : 409, { state, error: message });
+}
+
 async function actionCoachingDashboardRoster(request, response) {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -4152,6 +4274,18 @@ export default async function handler(request, response) {
       if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionCoachingInviteAccept(request, response);
     }
+    if (action === "coaching_join_link") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingJoinLink(request, response);
+    }
+    if (action === "coaching_join_accept") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingJoinAccept(request, response);
+    }
+    if (action === "coaching_grant_coach") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingGrantCoach(request, response);
+    }
     if (action === "coaching_invite_resend") {
       if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionCoachingInviteResend(request, response);
@@ -4226,6 +4360,7 @@ export default async function handler(request, response) {
         "coaching_dashboard_review", "coaching_dashboard_workout", "athlete_coaching_mode",
         "coaching_invite_create", "coaching_invite_list", "coaching_invite_accept",
         "coaching_invite_resend", "coaching_invite_revoke",
+        "coaching_join_link", "coaching_join_accept", "coaching_grant_coach",
         "athlete_messages", "athlete_request_adjustment", "delete_account",
         "fuel_analyze_meal", "fuel_meals"
       ].includes(action) ? action : "unsupported"

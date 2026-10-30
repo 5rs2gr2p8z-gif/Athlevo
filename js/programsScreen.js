@@ -27,6 +27,9 @@
 
   function catalog() { return root.AthlevoStoreCatalog || null; }
 
+  // Off while the app is free (js/appMode.js ATHLEVO_PROGRAMS_OFFER).
+  function offerOn() { return root.ATHLEVO_PROGRAMS_OFFER === true; }
+
   // The catalog is the same data module the programs site uses. It is only
   // needed here, so it is loaded the first time Programs opens.
   var catalogLoading = null;
@@ -446,6 +449,7 @@
 
   /** Right after sign-up: show once, before onboarding. */
   function openWelcome(userId, onDone) {
+    if (!offerOn()) { if (typeof onDone === "function") onDone(); return; }
     mode = "welcome";
     afterWelcome = { userId: userId, onDone: onDone };
     applyChrome();
@@ -465,7 +469,7 @@
 
   /** From Coach tab / Settings: browse, then Back returns to where it came from. */
   function open(fromScreenId) {
-    if (mode === "welcome") return;
+    if (!offerOn() || mode === "welcome") return;
     var active = document.querySelector(".screen.active");
     returnScreen = fromScreenId || (active && active.id !== SCREEN_ID ? active.id : "screen-today");
     var bar = document.getElementById("tabbar");
@@ -485,7 +489,7 @@
 
   /** Should this athlete see the post-signup Programs screen now? */
   function shouldShowAfterSignup(userId, profile) {
-    if (!userId) return false;
+    if (!userId || !offerOn()) return false;
     if (profile && (profile.role === "coach" || profile.role === "admin")) return false;
     if (profile && profile.onboarding_complete === true) return false;
     return !hasSeen(userId);
@@ -493,6 +497,7 @@
 
   root.AthlevoPrograms = {
     SCREEN_ID: SCREEN_ID,
+    isOn: offerOn,
     open: open,
     close: close,
     openWelcome: openWelcome,

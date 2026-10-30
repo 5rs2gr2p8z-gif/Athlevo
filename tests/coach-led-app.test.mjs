@@ -141,7 +141,7 @@ function fakeDom() {
   };
   return { doc, byId, El };
 }
-function loadPrograms(userStore = {}) {
+function loadPrograms(userStore = {}, offer = true) {
   const { doc, byId } = fakeDom();
   const shown = [];
   const posts = [];
@@ -158,6 +158,7 @@ function loadPrograms(userStore = {}) {
     }
   };
   sandbox.window = sandbox;
+  if (offer) sandbox.ATHLEVO_PROGRAMS_OFFER = true;
   vm.runInNewContext(read("./js/storeCatalog.js"), sandbox);
   vm.runInNewContext(read("./js/programsScreen.js"), sandbox);
   return { P: sandbox.AthlevoPrograms, byId, shown, posts, opened, store: userStore, El: fakeDom().El };
@@ -197,6 +198,18 @@ test("browse mode (from the Coach tab or Settings) has no Continue button and Ba
   browse.byId.programsRoot.all(n => n.attrs && "data-programs-continue" in n.attrs).length === 0 &&
   (browse.P.close(), browse.shown.at(-1) === "screen-coachai"));
 test("the screen uses textContent only (no innerHTML) for catalog data", !/innerHTML/.test(read("./js/programsScreen.js").replace(/\/\*[\s\S]*?\*\//g, "")));
+
+section("The app is free: Programs offer is off");
+test("appMode.js turns the offer off", /ATHLEVO_PROGRAMS_OFFER = false/.test(appMode));
+const freeApp = loadPrograms({}, false);
+let ranOnDone = 0;
+freeApp.P.openWelcome("u9", () => { ranOnDone += 1; });
+test("with the offer off, nothing is shown after sign-up: routing just continues", ranOnDone === 1 && !freeApp.shown.includes("screen-programs"));
+freeApp.P.open("screen-coachai");
+test("with the offer off, Programs cannot be opened from anywhere", !freeApp.shown.includes("screen-programs") && freeApp.P.shouldShowAfterSignup("u9", { onboarding_complete: false }) === false && freeApp.P.isOn() === false);
+test("no-coach Coach tab offers no purchase: it points to the coach's invite link",
+  /You are not connected to a coach yet\. Ask your coach for their Athlevo invite link/.test(am) && /var offer = !!\(window\.AthlevoPrograms/.test(am));
+test("Settings hides the Plan/Programs section entirely while the app is free", /Free app: no plan or programs section at all/.test(html) && /card\.hidden = true/.test(html));
 
 section("Packaged for Android");
 const markers = read("./scripts/check-native-assets.mjs");

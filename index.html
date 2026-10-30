@@ -61,6 +61,14 @@
       url.searchParams.delete("invite");
       try { history.replaceState(history.state, "", url.pathname + (url.search || "") + (url.hash || "")); } catch (e) {}
     }
+    // Coach join link: athlevo.org/?coach=<code>. Kept for this session only,
+    // like an invite token; the athlete confirms after sign-up or sign-in.
+    var joinCode = String(url.searchParams.get("coach") || "").trim().toLowerCase();
+    if (/^[a-z0-9]{8}$/.test(joinCode)) {
+      try { sessionStorage.setItem("athlevo_pending_join", joinCode); } catch (e) {}
+      url.searchParams.delete("coach");
+      try { history.replaceState(history.state, "", url.pathname + (url.search || "") + (url.hash || "")); } catch (e) {}
+    }
   } catch (e) {}
 })();
 /*
@@ -9463,6 +9471,16 @@ function renderSettingsPlanStatus() {
     }
   } catch (e) { /* fall back to Free copy rather than guess paid */ }
   if (window.ATHLEVO_COACH_LED === true) {
+    var offerOn = !!(window.AthlevoPrograms && window.AthlevoPrograms.isOn && window.AthlevoPrograms.isOn());
+    if (!offerOn) {
+      // Free app: no plan or programs section at all.
+      var gap = card.nextElementSibling;
+      var head = card.previousElementSibling;
+      card.hidden = true;
+      if (head && head.querySelector('.section-title')) head.hidden = true;
+      if (gap && gap.classList.contains('settings-spacer')) gap.hidden = true;
+      return;
+    }
     // Coach-led app: no plan tiers. This card is the way back to Programs.
     var heading = card.previousElementSibling && card.previousElementSibling.querySelector('.section-title');
     if (heading) heading.textContent = 'Programs';
@@ -12521,6 +12539,15 @@ async function routeAfterAuth(userId) {
   if (window.AthlevoCoachMode && window.AthlevoCoachMode.isAthleteWorkspace &&
       window.AthlevoCoachMode.isAthleteWorkspace()) {
     try { window.AthlevoCoachMode.injectAthleteYouSwitcher(); } catch (e) {}
+  }
+
+  // Coach-led app: coaches and admins land in the Coach Workspace (roster,
+  // invites, workout builder). Their own athlete view stays one tap away.
+  if (window.ATHLEVO_COACH_LED === true && window.AthlevoCoachMode &&
+      typeof window.AthlevoCoachMode.canAccessCoachWorkspace === "function" &&
+      window.AthlevoCoachMode.canAccessCoachWorkspace() &&
+      window.AthlevoCoachMode.isAthleteWorkspace()) {
+    try { window.AthlevoCoachMode.switchToCoachWorkspace(); } catch (e) {}
   }
 
   if (athleteModePromise) {

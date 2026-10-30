@@ -366,7 +366,7 @@ console.log("\n──── Shared surface migrations and drag boundaries ──
 }
 test("Invite Athlete delegates scrim, Escape, backdrop, focus, and cleanup to the engine",
   /function mountInviteSheet/.test(coach) &&
-  /initialFocus: "#cmInviteEmail"/.test(coach) &&
+  /initialFocus: focusSelector \|\| "#cmJoinLink"/.test(coach) &&
   /closeOnEscape: true/.test(coach) && /closeOnBackdrop: true/.test(coach) &&
   /data-athlevo-sheet/.test(coach));
 test("Invite business logic remains intact while revoke stays deliberately unmigrated",
