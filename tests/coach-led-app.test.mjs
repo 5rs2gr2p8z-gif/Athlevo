@@ -109,7 +109,8 @@ test("the Home Pro card, trial indicator and Analyze-with-Coach buttons are hidd
   /html\.coach-led \.af-card-analyze,\s*html\.coach-led #todayProUpgradeCard,\s*html\.coach-led #athlevoTrialIndicator\{display:none!important\}/.test(html));
 test("Settings 'Plan' becomes 'Programs' with a View programs button",
   /heading\.textContent = 'Programs'/.test(html) && /programsCta\.textContent = 'View programs'/.test(html));
-test("Home Coach row says 'Message your coach'", /textContent = "Message your coach"/.test(html));
+test("Home Coach row starts neutral and is set per athlete once the mode is known",
+  /textContent = "Your coach"/.test(html) && /function applyHomeCoachRow/.test(read("./js/athleteMode.js")) && /applyModeUi\(\) \{\s*applyHomeCoachRow\(\);/.test(read("./js/athleteMode.js")));
 
 section("Programs screen");
 test("screen, root and both controls exist", ["screen-programs", "programsRoot", "programsBack", "programsSkip"].every(id => html.includes(`id="${id}"`)));
@@ -222,6 +223,18 @@ test("appMode.js turns the morning prompt off", /ATHLEVO_MORNING_PROMPT = false/
   test("with the prompt off, evaluate() never opens the readiness form", out.shown === false && out.reason === "disabled" && !sb.opened);
 }
 test("the Readiness card on Home still offers a manual check-in", /id="todayReadinessSignal"/.test(html) && /Needs check-in/.test(html));
+
+section("Home and favicon");
+test("the brand mark on Home is sized for the wide AE logo, not clipped, and hidden where the rail shows it",
+  /\.today-brand-mark\{display:flex;align-items:center;justify-content:center;\s*padding:14px 22px 8px\}/.test(html) && /\.today-brand-mark img\{display:block;width:auto;height:22px/.test(html) && /body\.layout-tablet \.today-brand-mark,body\.layout-desktop \.today-brand-mark\{display:none\}/.test(html));
+test("a real favicon.ico (AE mark) ships at the site root and is linked first", existsSync("./favicon.ico") && read("./index.html").indexOf('href="/favicon.ico?v=ae1"') > 0 && read("./index.html").indexOf('href="/favicon.ico?v=ae1"') < read("./index.html").indexOf('favicon-32.png'));
+
+section("Coached athlete's Home");
+test("a coached athlete is not offered the AI plan builder: title, copy and buttons change",
+  /document\.body\.classList\.toggle\("athlete-coached", coached\)/.test(am) && /Your coach is building your plan\./.test(am) &&
+  /Your coach will add your workouts here/.test(html) &&
+  /body\.athlete-coached #todayNoPlanAction,\s*body\.athlete-coached #todayNoPlanState \.today-state-note,\s*body\.athlete-coached \.train-empty \.primary-btn\{display:none!important\}/.test(html));
+test("the desktop Home greeting clears the rail toggle", /body\.layout-desktop #screen-today \.today-header\{margin-top:72px\}/.test(html));
 
 section("Packaged for Android");
 const markers = read("./scripts/check-native-assets.mjs");

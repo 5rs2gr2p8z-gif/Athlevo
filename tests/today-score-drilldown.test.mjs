@@ -137,11 +137,12 @@ const today = html.slice(todayStart, todayEnd);
 test("score mount is in the Today header, before primary training state",
   /<header class="today-header">[\s\S]*?id="athlevoScoreCard"[\s\S]*?id="todayPlanLoadingState"/.test(today));
 test("Today contains only one score mount", (today.match(/id="athlevoScoreCard"/g) || []).length === 1);
-test("the existing Athlevo mark is a centered 28px row with a 25px narrow-phone treatment",
-  /<div class="today-brand-mark">[\s\S]*?athlevo-ae-mark\.png[\s\S]*?width="28" height="28"/.test(today) &&
+test("the AE mark is a centered row sized for the wide logo (22px tall, 20px on narrow phones), hidden where the rail shows it",
+  /<div class="today-brand-mark">[\s\S]*?athlevo-ae-mark\.png[\s\S]*?width="38" height="22"/.test(today) &&
   today.indexOf("today-brand-mark") < today.indexOf("today-header") &&
-  /\.today-brand-mark\{[^}]*justify-content:center[^}]*height:28px[^}]*padding:12px 22px 16px/.test(html) &&
-  /@media \(max-width:380px\)[\s\S]*?\.today-brand-mark\{height:25px;padding:12px 22px 14px\}/.test(html));
+  /\.today-brand-mark\{[^}]*justify-content:center[^}]*padding:14px 22px 8px/.test(html) &&
+  /\.today-brand-mark img\{display:block;width:auto;height:22px/.test(html) &&
+  /@media \(max-width:380px\)[\s\S]*?\.today-brand-mark\{padding:12px 22px 6px\}[\s\S]*?\.today-brand-mark img\{height:20px\}/.test(html));
 test("radar summary is 90px square and narrows safely on the smallest phones",
   /\.today-score-mount\{width:90px;height:90px/.test(html) &&
   /\.asc-radar-summary\{[\s\S]*?width:90px;height:90px/.test(html) &&

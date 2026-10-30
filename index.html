@@ -415,6 +415,7 @@
 <meta name="application-name" content="Athlevo Coaching">
 
 <!-- Athlevo brand icon: favicon + Apple touch icon (existing branding). -->
+<link rel="icon" href="/favicon.ico?v=ae1" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/pwa/favicon-32.png?v=ae1">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/pwa/favicon-16.png?v=ae1">
 <link rel="icon" type="image/png" href="/assets/athlevo-ae-icon.png">
@@ -900,7 +901,7 @@ body{
 
   /* Home is the landing screen: keep its greeting clear of the floating rail toggle. */
   body.layout-tablet #screen-today .today-header,
-  body.layout-desktop #screen-today .today-header{margin-top:44px}
+  body.layout-desktop #screen-today .today-header{margin-top:72px}
 
   /* Readable centered Coach conversation column. */
   body.layout-tablet #screen-coachai #chatlog,
@@ -3236,9 +3237,11 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 
 /* The compact score IS the radar: no panel, border, radius or shadow. The
    full labeled model remains in #scoreDetailModal. */
-.today-brand-mark{display:flex;align-items:center;justify-content:center;height:28px;
-  padding:12px 22px 16px}
-.today-brand-mark img{display:block;width:28px;height:28px;object-fit:contain}
+.today-brand-mark{display:flex;align-items:center;justify-content:center;
+  padding:14px 22px 8px}
+.today-brand-mark img{display:block;width:auto;height:22px;object-fit:contain}
+/* tablet/desktop already show the AE mark in the left rail */
+body.layout-tablet .today-brand-mark,body.layout-desktop .today-brand-mark{display:none}
 .today-header{display:grid;grid-template-columns:minmax(0,1fr) 90px;align-items:start;
   gap:var(--s-3);padding:0 22px 6px;min-width:0}
 .today-header-copy{min-width:0}
@@ -3268,8 +3271,8 @@ body:not(.coach-workspace-active) #screen-coachai.active ~ #profileAvatarBtn{dis
 .today-score-skeleton{display:block;width:82px;height:82px;margin:0 auto;
   clip-path:polygon(50% 2%,98% 37%,80% 96%,20% 96%,2% 37%)}
 @media (max-width:380px){
-  .today-brand-mark{height:25px;padding:12px 22px 14px}
-  .today-brand-mark img{width:25px;height:25px}
+  .today-brand-mark{padding:12px 22px 6px}
+  .today-brand-mark img{height:20px}
   .today-header{grid-template-columns:minmax(0,1fr) 78px;gap:10px}
   .today-score-mount,.asc-radar-summary{width:78px;height:78px}
   .asc-radar-graphic,.today-score-skeleton{width:72px;height:72px}
@@ -5409,7 +5412,7 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 <!-- ══════════════ TODAY ══════════════ -->
 <section class="screen" id="screen-today">
   <div class="today-brand-mark">
-    <img src="assets/athlevo-ae-mark.png" alt="Athlevo" width="28" height="28">
+    <img src="assets/athlevo-ae-mark.png" alt="Athlevo" width="38" height="22">
   </div>
   <header class="today-header">
     <div class="today-header-copy">
@@ -6911,6 +6914,10 @@ html.coach-led .coach-side-panel-section:has([onclick*="new-chat"]),
 html.coach-led .af-card-analyze,
 html.coach-led #todayProUpgradeCard,
 html.coach-led #athlevoTrialIndicator{display:none!important}
+/* A coached athlete's plan comes from the coach: no AI plan-builder calls to action. */
+body.athlete-coached #todayNoPlanAction,
+body.athlete-coached #todayNoPlanState .today-state-note,
+body.athlete-coached .train-empty .primary-btn{display:none!important}
 #screen-coachai .am-no-coach{padding:calc(56px + env(safe-area-inset-top,0px)) 24px 24px;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
 #screen-coachai .am-no-coach-title{margin:0;font:600 28px/1.15 var(--font-serif,Georgia,serif);color:var(--ink)}
 #screen-coachai .am-no-coach-body{margin:0;color:var(--ink2);font-size:15px;line-height:1.5}
@@ -11058,8 +11065,9 @@ function applyHomeCoachContext(text){
   if (window.ATHLEVO_COACH_LED !== true) return;
   var t = document.querySelector("[data-home-coach-title]");
   var s = document.querySelector("[data-home-coach-sub]");
-  if (t) t.textContent = "Message your coach";
-  if (s) s.textContent = "Questions about your training go to your coach.";
+  // Neutral until the athlete's coaching mode is known (js/athleteMode.js applyHomeCoachRow).
+  if (t) t.textContent = "Your coach";
+  if (s) s.textContent = "Messages and workouts from your coach.";
 
 })();
 
@@ -12066,6 +12074,11 @@ function updateTodayNoPlanCopy(){
   var copy = document.getElementById("todayNoPlanCopy");
   var distance = document.getElementById("todaySevenDayDistance");
   if (!copy) return;
+  if (typeof window !== "undefined" && window.AthlevoAthleteMode && typeof window.AthlevoAthleteMode.isManaged === "function" &&
+      window.AthlevoAthleteMode.isManaged()) {
+    copy.textContent = "Your coach will add your workouts here. Message them if you have questions about your training.";
+    return;
+  }
   var distanceText = String(distance && distance.textContent || "").trim();
   var distanceValue = Number.parseFloat(distanceText.replace(/,/g, ""));
   var hasRecentDistance = Boolean(

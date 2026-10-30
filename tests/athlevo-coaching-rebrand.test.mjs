@@ -134,7 +134,7 @@ for (const viewport of [320, 360, 390, 412]) {
   test(`${viewport}px: capsule stays inside the viewport`, cap <= viewport - sideGap && cap > 0);
 }
 test("desktop/tablet Home greeting is kept clear of the floating rail toggle",
-  /body\.layout-desktop #screen-today \.today-header\{margin-top:44px\}/.test(html));
+  /body\.layout-desktop #screen-today \.today-header\{margin-top:72px\}/.test(html));
 test("tab labels never wrap", /\.tabbar--capsule \.tab span\{white-space:nowrap/.test(html));
 test("capsule respects the bottom safe area", /bottom:\s*calc\(10px \+ var\(--athlevo-safe-bottom/.test(capsule));
 test("every tab keeps a ≥48px tap target", /\.tab\{[^}]*min-height:56px/.test(html));

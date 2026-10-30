@@ -722,7 +722,54 @@
     }
   }
 
+  /*
+   * Coach-led app: the Home "Coach" row says what is true for this athlete.
+   * Coached athletes message their coach; everyone else is told how to get
+   * connected. While the mode is still resolving it makes no claim.
+   */
+  function applyHomeCoachRow() {
+    if (typeof window === "undefined" || window.ATHLEVO_COACH_LED !== true) return;
+    var eyebrow = document.getElementById("homeCoachHeading");
+    var title = document.querySelector("[data-home-coach-title]");
+    var sub = document.querySelector("[data-home-coach-sub]");
+    if (!title || !sub) return;
+    if (_mode === "human_coached") {
+      var first = _coach && _coach.display_name ? String(_coach.display_name).trim().split(/\s+/)[0] : "";
+      if (eyebrow) eyebrow.textContent = "Your coach";
+      title.textContent = first ? "Message " + first : "Message your coach";
+      sub.textContent = "Your coach reviews your training and sends your workouts.";
+    } else if (_mode === "self_guided" || _mode === "anonymous") {
+      if (eyebrow) eyebrow.textContent = "Coach";
+      title.textContent = "Connect with your coach";
+      sub.textContent = "Ask your coach for their invite link and open it on this device.";
+    } else {
+      if (eyebrow) eyebrow.textContent = "Coach";
+      title.textContent = "Your coach";
+      sub.textContent = "Messages and workouts from your coach.";
+    }
+  }
+
+  /*
+   * A coached athlete's plan comes from their coach, so the AI plan-builder
+   * call to action steps aside on Home and Calendar until the coach adds work.
+   */
+  function applyCoachedHome() {
+    if (typeof window === "undefined" || window.ATHLEVO_COACH_LED !== true) return;
+    var coached = _mode === "human_coached";
+    if (document.body && document.body.classList) document.body.classList.toggle("athlete-coached", coached);
+    var title = document.querySelector("#todayNoPlanState h2");
+    if (title) {
+      if (!title.hasAttribute("data-default-title")) title.setAttribute("data-default-title", title.textContent);
+      title.textContent = coached ? "Your coach is building your plan." : title.getAttribute("data-default-title");
+    }
+    if (typeof window.updateTodayNoPlanCopy === "function") {
+      try { window.updateTodayNoPlanCopy(); } catch (e) {}
+    }
+  }
+
   function applyModeUi() {
+    applyHomeCoachRow();
+    applyCoachedHome();
     renderAssignedCoach();
     renderCoachTab();
     if (_mode === "anonymous") {
