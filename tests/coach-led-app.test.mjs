@@ -96,6 +96,14 @@ test("AI chat history and 'New chat' are hidden from the side panel", /html\.coa
 test("the pre-signup diagnostic does not start under the flag", /ATHLEVO_COACH_LED !== true &&\s*window\.AthlevoDiagnostic && window\.AthlevoDiagnostic\.hasPending/.test(html));
 test("the /pricing page is not shown under the flag", (html.match(/ATHLEVO_COACH_LED !== true\) \{/g) || []).length >= 1 && /path === "\/pricing" && window\.ATHLEVO_COACH_LED !== true/.test(html) && /pricingPath && window\.ATHLEVO_COACH_LED !== true/.test(html));
 
+section("Welcome / sign-up screen");
+test("/signup shows the same welcome screen: tagline visible, AI sign-up headline and value lines hidden",
+  /html\.coach-led #screen-welcome\.is-ai-signup \.w-tag\{display:block\}/.test(html) &&
+  /html\.coach-led #wAiSignupTitle,html\.coach-led #wAiSignupSub,html\.coach-led #wAiSignupTrust\{display:none!important\}/.test(html) &&
+  /id="wAiSignupLegal"/.test(html));
+test("the rail toggle is hidden below tablet width (it showed as a grey strip on phones)",
+  /\.coach-rail-toggle\{display:none\}\n@media\(min-width:768px\)\{\s*:root\{--athlevo-rail-w:248px\}/.test(html));
+
 section("Upgrade and plan UI");
 test("the Home Pro card, trial indicator and Analyze-with-Coach buttons are hidden",
   /html\.coach-led \.af-card-analyze,\s*html\.coach-led #todayProUpgradeCard,\s*html\.coach-led #athlevoTrialIndicator\{display:none!important\}/.test(html));

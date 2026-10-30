@@ -812,6 +812,8 @@ body{
    real thread system (loadThreadList/renderCoachHistoryList/
    selectThread) — no second thread model. Added for the
    responsive desktop workspace task. */
+/* The rail toggle belongs to tablet/desktop only: it is shown by the layout rules inside this query. */
+.coach-rail-toggle{display:none}
 @media(min-width:768px){
   :root{--athlevo-rail-w:248px}
   body.layout-tablet:not(.landing-active) .device,
@@ -6891,6 +6893,10 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 #screen-programs .prg-faq p{margin:8px 0 0;color:var(--ink2);font-size:14px;line-height:1.5}
 #screen-programs .prg-foot{margin-top:28px;display:flex;flex-direction:column;gap:10px;text-align:center}
 body.layout-desktop #screen-programs .prg-head{padding-top:48px}
+/* Coach-led app: /signup is the same welcome screen as the entry (photo, wordmark, tagline);
+   the old AI sign-up headline and value-prop lines stay hidden. */
+html.coach-led #screen-welcome.is-ai-signup .w-tag{display:block}
+html.coach-led #wAiSignupTitle,html.coach-led #wAiSignupSub,html.coach-led #wAiSignupTrust{display:none!important}
 /* Coach-led app (js/appMode.js): no AI chat, no upgrade or trial surfaces. */
 html.coach-led .coach-side-panel-chats,
 html.coach-led .coach-side-panel-section:has([onclick*="new-chat"]),
@@ -11036,11 +11042,7 @@ function applyHomeCoachContext(text){
   var s = document.querySelector("[data-home-coach-sub]");
   if (t) t.textContent = "Message your coach";
   if (s) s.textContent = "Questions about your training go to your coach.";
-  // Sign-up headline on the welcome screen: coaching, not AI guidance.
-  var h = document.getElementById("wAiSignupTitle");
-  var sub = document.getElementById("wAiSignupSub");
-  if (h) h.textContent = "Train with a real coach.";
-  if (sub) sub.textContent = "Your coach builds your training around your schedule and goals, and adjusts it as you go.";
+
 })();
 
 function openCoachFromHome(){
