@@ -456,11 +456,15 @@
         coach: DEAN,
         // Athlevo VIP Coaching is the offer that used to be called Elite Coaching. Its sign-up works
         // exactly like Athlevo Coaching's, with its own switch (VIP_SIGNUP_ENABLED on the server;
-        // see docs/plan-signup.md). Set `open` back to false to hide the button. `takesCodes: false`
-        // keeps the code box off this page: codes cover Guided and Coaching only. The price is
-        // owned by the server (lib/server/planSignup.js); a test checks the two agree.
+        // see docs/plan-signup.md). `takesCodes: false` keeps the code box off this page: codes
+        // cover Guided and Coaching only. The price is owned by the server
+        // (lib/server/planSignup.js); a test checks the two agree.
+        // LOCKED FOR NOW (owner, 2026-10-31): `open` is false, so the page and the in-app Programs
+        // screen show VIP Coaching as not open and the banner and FAQ leave it out. To open it again:
+        // set `open` to true, rebuild (node scripts/build-store-pages.mjs), and on the server set
+        // VIP_SIGNUP_ENABLED=true plus VIP_SCHEDULE_URL and VIP_AGREEMENT_URL.
         signUp: {
-          open: true,
+          open: false,
           label: "Sign Up",
           refCode: "EL",
           call: true,

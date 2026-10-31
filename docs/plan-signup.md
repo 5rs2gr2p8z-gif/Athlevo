@@ -36,6 +36,11 @@ recorded, every partner code made for "the Plan", and every confirmation link a 
 with nothing to migrate. The new ₱999 Athlevo Plan has ids of its own. A confirmation link that names the wrong page (for
 example a saved `/athlevo-plan?payment=success&ref=ATH-PL-...`) opens under the offer its reference belongs to.
 
+**VIP Coaching is locked for now (2026-10-31).** In `js/storeCatalog.js` its `signUp.open` is `false`, so its page and the in-app
+Programs screen show it as not open, and the banner and FAQ leave it out. Keep `VIP_SIGNUP_ENABLED` at `false` (or unset) on the
+server until it reopens, so the checkout endpoint refuses it too. To reopen: set `open` to `true`, run
+`node scripts/build-store-pages.mjs`, then set `VIP_SIGNUP_ENABLED=true`, `VIP_SCHEDULE_URL` and `VIP_AGREEMENT_URL` and deploy.
+
 **Switching over from the old lineup.** Guided is a new switch, so it stays closed on the server until `GUIDED_SIGNUP_ENABLED=true`
 is set; the existing `PLAN_SIGNUP_ENABLED=true` now opens the ₱999 Plan. VIP Coaching reads `VIP_*` (Elite read `ELITE_*`, so rename
 any `ELITE_*` variable you had set). Guided falls back to the matching `PLAN_*` questionnaire, scheduling and agreement links, so what
@@ -48,8 +53,8 @@ set these first and then deploy once:
 | Setting | Why |
 |---|---|
 | `GUIDED_SIGNUP_ENABLED=true` | Guided is a new switch. Until it is set, the Guided page shows Sign Up but the server answers "Sign-up is not open yet." |
-| `VIP_SIGNUP_ENABLED=true` | Same, for VIP Coaching. `ELITE_SIGNUP_ENABLED` is no longer read. |
-| `VIP_SCHEDULE_URL`, `VIP_AGREEMENT_URL` | Copy the values you had in `ELITE_SCHEDULE_URL` and `ELITE_AGREEMENT_URL`. VIP has no fallback for these two, so without them every VIP buyer's confirmation page and email arrive with no scheduling link and no agreement. |
+| `VIP_SIGNUP_ENABLED` | Leave at `false` while VIP Coaching is locked (see above). Set it to `true` only when it reopens. `ELITE_SIGNUP_ENABLED` is no longer read. |
+| `VIP_SCHEDULE_URL`, `VIP_AGREEMENT_URL` | Needed when VIP reopens. Production had no `ELITE_*` values to copy (checked 2026-10-31), so these need the real links. VIP has no fallback for these two, so without them every VIP buyer's confirmation page and email arrive with no scheduling link and no agreement. |
 | `GUIDED_AGREEMENT_URL` (optional) | Guided and the ₱999 Plan both fall back to `PLAN_AGREEMENT_URL`. Set Guided's own if the two should show different documents. |
 | `PLAN_SIGNUP_ENABLED` | Already `true`? Then the **₱999 Plan opens the moment you deploy**, and any link or ad that still points at `/athlevo-plan` sells the ₱999 Plan instead of the old ₱1,998 one. Point those at `/athlevo-guided`, or set this to `false` until you want the Plan on sale. |
 

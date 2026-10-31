@@ -186,11 +186,12 @@ test("the retired offers are gone: no Elite, no Hybrid Programming, no ₱1,998,
   !/Elite/.test(allText) && !/Hybrid Programming/.test(allText) && !/1,998/.test(allText) && !/Not available yet/.test(allText));
 test("athlete feedback, the three coaches and the FAQs are on the screen",
   /From Athlevo athletes/.test(allText) && ["Dean Vincent Castro", "Christian Francia", "Louie Agawa"].every(x => allText.includes(x)) && /Can I buy a program today\?/.test(allText) && /Do you coach runners outside Pampanga\?/.test(allText));
-test("payment, renewal and non-refundable terms are shown with each Sign Up", (allText.match(/non-refundable/g) || []).length === 4);
+test("payment, renewal and non-refundable terms are shown with each Sign Up", (allText.match(/non-refundable/g) || []).length === 3);
 test("no internal coach-support terms leak onto the screen", !/Support terms for this offer are not decided/.test(allText));
 const buttons = root.all(n => n.tag === "button" && n.textContent === "Sign Up");
-test("four Sign Up buttons; discount-code boxes only on Guided and Coaching, none on Plan or VIP Coaching",
-  buttons.length === 4 && root.all(n => n.className === "prg-code").length === 2);
+test("three Sign Up buttons (Plan, Guided, Coaching); VIP Coaching is locked for now and says it is not open; codes only on Guided and Coaching",
+  buttons.length === 3 && root.all(n => n.className === "prg-code").length === 2 &&
+  root.all(n => n.className === "prg-soon").length === 1 && /Not open for sign-up yet\./.test(allText));
 await buttons[0].listeners.click[0]();
 await new Promise(r => setTimeout(r, 10));
 test("Sign Up posts to the same checkout endpoint as the website and opens the hosted checkout externally",
