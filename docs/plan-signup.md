@@ -2,9 +2,11 @@
 
 Lets a visitor pay for one of four offers on `programs.athlevo.org` without an Athlevo app account:
 
-- **Athlevo Plan** (₱999 per month): a personalized 4-week training plan built by an Athlevo coach, with no coaching call, on `/athlevo-plan`.
+- **Athlevo Plan** (₱999 per month): a personalized 4-week training plan built by an Athlevo coach, with no coaching call, on `/athlevo-plan`. Right after paying, the buyer is sent to the Athlevo app sign-up,
+  `https://athlevo.org/signup`, to onboard and receive their plan there.
 - **Athlevo Guided** (₱2,997 per month): the plan plus a coach to answer your questions, on `/athlevo-guided`. This is the
-  offer that used to be called Athlevo Plan (₱1,998).
+  offer that used to be called Athlevo Plan (₱1,998). Right after paying, the buyer is sent to the questionnaire (so are
+  Coaching and VIP Coaching buyers).
 - **Athlevo Coaching** (₱4,998 per month): everything in Guided, with frequent training adjustments, nutrition, recovery
   protocols and a hands-on coach, on `/athlevo-coaching`.
 - **Athlevo VIP Coaching** (₱7,998 per month): everything in Coaching, with Dean as your coach and priority responses,
@@ -22,7 +24,7 @@ Each offer is **off** until you turn it on, and you can open any of them without
 | Price (owned by the server) | ₱999 per month | ₱2,997 | ₱4,998 | ₱7,998 |
 | Page (on programs.athlevo.org) | `/athlevo-plan` | `/athlevo-guided` | `/athlevo-coaching` | `/athlevo-vip-coaching` |
 | Server switch | `PLAN_SIGNUP_ENABLED` | `GUIDED_SIGNUP_ENABLED` | `COACHING_SIGNUP_ENABLED` | `VIP_SIGNUP_ENABLED` |
-| Questionnaire link | `PLAN_QUESTIONNAIRE_URL` | `GUIDED_QUESTIONNAIRE_URL`, or the Plan's when not set | `COACHING_QUESTIONNAIRE_URL`, or the Plan's when not set | `VIP_QUESTIONNAIRE_URL`, or the Plan's when not set |
+| Where the buyer goes after paying | `https://athlevo.org/signup` (a constant in `lib/server/planSignup.js`; no questionnaire) | the questionnaire: `GUIDED_QUESTIONNAIRE_URL`, or `PLAN_QUESTIONNAIRE_URL` when not set | the questionnaire: `COACHING_QUESTIONNAIRE_URL`, or `PLAN_QUESTIONNAIRE_URL` when not set | the questionnaire: `VIP_QUESTIONNAIRE_URL`, or `PLAN_QUESTIONNAIRE_URL` when not set |
 | Call-scheduling link (optional) | none: the Plan has no call | `GUIDED_SCHEDULE_URL`, or `PLAN_SCHEDULE_URL` when not set | `COACHING_SCHEDULE_URL` | `VIP_SCHEDULE_URL` |
 | Agreement link (optional) | `PLAN_AGREEMENT_URL` | `GUIDED_AGREEMENT_URL`, or `PLAN_AGREEMENT_URL` when not set | `COACHING_AGREEMENT_URL` | `VIP_AGREEMENT_URL` |
 | Page switch | `signUp.open` on the Plan in `js/storeCatalog.js` | `signUp.open` on the Guided entry | `signUp.open` on the Coaching entry | `signUp.open` on the VIP entry |
@@ -72,11 +74,14 @@ All offers write to the same table, `plan_signups`; the `product_id` column says
 3. PayMongo sends the signed webhook (`checkout_session.payment.paid`) to `/api/paymongo/webhook`.
    If it is a payment for one of the four offers, one row is written to `plan_signups`.
 4. When a payment is newly recorded, two emails go out (if you set them up, see step 3 under "Turn it on"): the
-   buyer's next steps (reference, questionnaire link, scheduling link, agreement link if set, and a link back to the
-   confirmation page) and an alert to you. A redelivered event never sends them again.
+   buyer's next steps (reference, the app sign-up link for the Plan or the questionnaire link for the others,
+   scheduling link, agreement link if set, and a link back to the confirmation page) and an alert to you. A redelivered
+   event never sends them again.
 5. PayMongo returns the visitor to the offer's page with `?payment=success&ref=...`. That page asks the
-   offer's status endpoint whether the webhook has recorded the payment, and only then shows the
-   questionnaire link and the call-scheduling step. Being redirected back proves nothing by itself.
+   offer's status endpoint whether the webhook has recorded the payment. Only once it has, the page sends the buyer
+   straight on (`redirect_url` in the status answer): the Plan to `https://athlevo.org/signup`, Guided, Coaching and VIP to
+   their questionnaire. A "Continue" button stays on the page in case the browser blocks the redirect. Being redirected
+   back from PayMongo proves nothing by itself, so nobody is sent on before the webhook has recorded the payment.
 
 All four offers are month to month with no automatic renewal. Month two is another checkout. The Athlevo Plan works like the
 others (each payment covers 30 days and its row carries a `paid_through` date), but it has no call step: after the questionnaire
@@ -88,9 +93,10 @@ the buyer's email and confirmation page say a coach builds the plan.
 2. **Vercel environment variables** (Settings, Environment Variables). The PayMongo ones already exist for Athlevo Pro.
    - Questionnaire link, https, required. Current form:
      `https://docs.google.com/forms/d/e/1FAIpQLScnKgZvr86oITPSNEGEjSZTULQeIufXPUdiCIgO_AhqkUJFfg/viewform?usp=header`
-     Set `PLAN_QUESTIONNAIRE_URL`. Guided, Coaching and VIP Coaching use the same link unless you also set
-     `GUIDED_QUESTIONNAIRE_URL`, `COACHING_QUESTIONNAIRE_URL` or `VIP_QUESTIONNAIRE_URL` (if you set one it must be a valid
-     https link, or that offer stays closed).
+     The Plan does not use it (its buyers go to the Athlevo app sign-up). Guided, Coaching and VIP Coaching send buyers to it:
+     set `GUIDED_QUESTIONNAIRE_URL`, `COACHING_QUESTIONNAIRE_URL` and `VIP_QUESTIONNAIRE_URL` (set in Production on 2026-10-31
+     to the form's plain `/viewform` link), or leave them unset and they use `PLAN_QUESTIONNAIRE_URL`. It must be a valid
+     https link, or that offer stays closed.
    - Scheduling link (optional): `GUIDED_SCHEDULE_URL`, `COACHING_SCHEDULE_URL` and/or `VIP_SCHEDULE_URL`. Without one, the
      page only says they will be asked to schedule a call. Only Guided borrows another's (it uses `PLAN_SCHEDULE_URL` when
      `GUIDED_SCHEDULE_URL` is not set, because it is the old Plan); Coaching and VIP do not. The Athlevo Plan has no call.
@@ -263,8 +269,10 @@ the code in its `metadata`.
   dashboard. So after any price change, check PayMongo's webhook page and compare its payments with `plan_signups`.
 - **Rows under `ATHLEVO_PLAN_MONTHLY` mix two prices.** Payments before the switch-over are ₱1,998 (the old Plan), payments after
   are ₱2,997 (Guided). Tell them apart by `amount_cents` or `paid_at`.
-- **One shared questionnaire link.** Guided, Coaching and VIP Coaching use `PLAN_QUESTIONNAIRE_URL` unless their own
-  `*_QUESTIONNAIRE_URL` is set. If you later remove or change the Plan's link, they change with it; set their own to keep them apart.
+- **The questionnaire link.** Guided, Coaching and VIP Coaching use their own `*_QUESTIONNAIRE_URL` (set in Production on
+  2026-10-31), falling back to `PLAN_QUESTIONNAIRE_URL`, which the Plan itself no longer uses.
+- **Redirect after payment.** The confirmation page sends the buyer on immediately, so for Guided, Coaching and VIP the scheduling
+  and agreement links reach the buyer by email (and through the form's own end screen), not on a page they linger on.
 - **A refund that arrives before its payment was recorded** (only possible if recording failed and PayMongo is still retrying; it stops after about 2 hours)
   is not applied to the sign-up. The PayMongo dashboard is the source of truth for refunds; check it if a payment looks odd.
 

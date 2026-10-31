@@ -520,13 +520,13 @@ section("4e. Athlevo Plan page (₱999/month, a 4-week plan)");
     su.checkoutEndpoint === "/api/plan-signup/checkout" && su.statusEndpoint === "/api/plan-signup/status" &&
     su.renewal === "There is no automatic renewal. We will remind you when your next payment is due." &&
     page.getStarted.notice === "Registration opening soon");
-  t("how to get started: payment, questionnaire, the coach builds the plan, receive it; no call",
+  t("how to get started: payment, straight to Athlevo to create your account, onboarding in the app, receive the plan there; no questionnaire, no call",
     JSON.stringify(page.getStarted.steps) === JSON.stringify([
       "Sign up and complete payment.",
-      "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
-      "An Athlevo coach builds your personalized 4-week training plan from your answers.",
-      "Receive your plan."
-    ]) && !/\bcall\b/i.test(page.getStarted.steps.join(" ")));
+      "You are taken straight to Athlevo to create your account.",
+      "Complete your onboarding in the Athlevo app.",
+      "Receive your 4-week training plan in the app."
+    ]) && !/\bcall\b|questionnaire/i.test(page.getStarted.steps.join(" ")));
   t("the prerendered Plan page holds the price (₱999/month), inclusions, steps and quotes, with no coach block",
     pre.holdsContent && /₱999/.test(pre.text) && /\/month/.test(pre.text) && /4-week/.test(pre.text) && !pre.text.includes("Meet the Coach"));
   t("the prerendered Plan page has Sign Up buttons exactly when its switch is on, and never a code box, form field or card input",
@@ -1105,6 +1105,13 @@ section("10. Sign-up on the four offers (client)");
       return !/\b(within|hours?|business days?|24\/7|whatsapp|messenger|viber|telegram|email you|call you|contact you)\b/i.test(block);
     })());
 
+  t("after a confirmed payment the page sends the buyer on at once: to the https redirect_url the server gives (the app sign-up for the Plan, the questionnaire for the others), with a button as the fallback",
+    (() => {
+      const block = storefrontSrc.slice(storefrontSrc.indexOf("function showRedirect"), storefrontSrc.indexOf("function showSlow"));
+      return /var redirect = secureUrl\(body\.redirect_url\)/.test(storefrontSrc) && /if \(redirect\) \{ showRedirect\(body, redirect\); return; \}/.test(storefrontSrc) &&
+        /global\.location\.replace\(url\)/.test(block) && /go\.href = url/.test(block) &&
+        /Continue to Athlevo/.test(block) && /Open the questionnaire/.test(block) && /secureUrl\(body\.app_signup_url\)/.test(block);
+    })());
   t("the confirmation page shows an agreement link only when the server returns an https one",
     /var agreement = secureUrl\(body\.agreement_url\)/.test(storefrontSrc) && /if \(agreement\) \{/.test(storefrontSrc) &&
     /externalLink\(agreement, "Read the Athlevo agreement"\)/.test(storefrontSrc));

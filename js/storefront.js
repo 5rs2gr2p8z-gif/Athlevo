@@ -865,7 +865,32 @@
         $("p", "signup-confirm-lede", "This usually takes a few seconds. Please keep this page open.")
       );
     }
+    // The buyer is sent on at once: the Athlevo Plan to the Athlevo app's sign-up, the coached offers to
+    // the questionnaire. The button is the way on if the browser blocks the redirect.
+    function showRedirect(body, url) {
+      var toApp = !!secureUrl(body.app_signup_url);
+      var go = $("a", "btn btn-red", toApp ? "Continue to Athlevo" : "Open the questionnaire");
+      go.href = url;
+      var parts = [
+        $("h1", "", "Payment received."),
+        $("p", "signup-confirm-lede", "Thank you for signing up for " + product.name + ". " +
+          (toApp ? "Taking you to Athlevo to create your account now." : "Taking you to your questionnaire now.")),
+        go
+      ];
+      var agreement = secureUrl(body.agreement_url);
+      if (agreement) {
+        var agree = $("p", "signup-confirm-agreement", "Your agreement: ");
+        agree.appendChild(externalLink(agreement, "Read the Athlevo agreement"));
+        parts.push(agree);
+      }
+      parts.push($("p", "offer-supporting", "PayMongo emails your receipt."));
+      show.apply(null, parts);
+      // replace, not assign: the back button must not return to this page and redirect again.
+      try { global.location.replace(url); } catch (error) { /* the button above still works */ }
+    }
     function showPaid(body) {
+      var redirect = secureUrl(body.redirect_url);
+      if (redirect) { showRedirect(body, redirect); return; }
       var questionnaire = secureUrl(body.questionnaire_url);
       var schedule = secureUrl(body.schedule_url);
       var agreement = secureUrl(body.agreement_url);

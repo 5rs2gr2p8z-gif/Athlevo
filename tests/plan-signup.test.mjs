@@ -344,8 +344,9 @@ log.tables.length = 0;
 section("5. Status after payment");
 {
   const r = res(); await status(post({ ref: reference }), r);
-  t("paid: returns the questionnaire and scheduling links, and no personal data",
+  t("paid: returns the questionnaire and scheduling links, the questionnaire as the redirect, and no personal data",
     r.statusCode === 200 && r.body.status === "paid" && r.body.questionnaire_url === QUESTIONNAIRE &&
+    r.body.redirect_url === QUESTIONNAIRE && r.body.app_signup_url === null &&
     r.body.schedule_url === SCHEDULE && !JSON.stringify(r.body).match(/maria|santos|@|\+63/i));
   t("lower-case reference still resolves", (await (async () => { const x = res(); await status(post({ ref: reference.toLowerCase() }), x); return x.body.status; })()) === "paid");
   env({ GUIDED_SCHEDULE_URL: undefined });
@@ -1038,8 +1039,9 @@ section("9d. Athlevo Plan (₱999/month, a 4-week plan, no call) and the setting
   {
     env({ PLAN_SCHEDULE_URL: SCHEDULE, PLAN_AGREEMENT_URL: "https://docs.example.com/plan-agreement" });
     const r = res(); await planStatus(post({ ref: tpRef }), r);
-    t("paid: the questionnaire and agreement links, and never a scheduling link even when PLAN_SCHEDULE_URL is set",
-      r.statusCode === 200 && r.body.status === "paid" && r.body.questionnaire_url === PLAN_QUESTIONNAIRE &&
+    t("paid: the Athlevo app sign-up to redirect to, never a questionnaire or a scheduling link (even with PLAN_SCHEDULE_URL and PLAN_QUESTIONNAIRE_URL set), and the agreement link if set",
+      r.statusCode === 200 && r.body.status === "paid" && r.body.redirect_url === "https://athlevo.org/signup" &&
+      r.body.app_signup_url === "https://athlevo.org/signup" && r.body.questionnaire_url === null &&
       r.body.agreement_url === "https://docs.example.com/plan-agreement" && r.body.schedule_url === null &&
       !JSON.stringify(r.body).match(/maria|santos|@|\+63/i));
     const urls = log.urls.filter(u => u.includes(encodeURIComponent(tpRef))).slice(-1)[0] || "";
@@ -1085,7 +1087,7 @@ section("9d. Athlevo Plan (₱999/month, a 4-week plan, no call) and the setting
     env({ GUIDED_SIGNUP_ENABLED: "true", PLAN_QUESTIONNAIRE_URL: QUESTIONNAIRE, PLAN_SCHEDULE_URL: SCHEDULE, PLAN_AGREEMENT_URL: AGREEMENT });
     t("Guided with only PLAN_* links set uses all three, and has a call",
       JSON.stringify(planMod.guidedNextSteps(process.env)) ===
-        JSON.stringify({ questionnaireUrl: QUESTIONNAIRE, scheduleUrl: SCHEDULE, agreementUrl: AGREEMENT, call: true }));
+        JSON.stringify({ questionnaireUrl: QUESTIONNAIRE, appSignupUrl: null, scheduleUrl: SCHEDULE, agreementUrl: AGREEMENT, call: true, redirectUrl: QUESTIONNAIRE }));
     t("so the links already set for the old Plan keep working: Guided is open", planMod.guidedSignupEnabled(process.env) === true);
     const gRef = (() => { const x = "ATH-PL-1234567890A-" + "9".repeat(24); db.plan_signups.push({ id: "row_g9", reference_number: x, product_id: ATHLEVO_GUIDED_PRODUCT.id, status: "paid" }); return x; })();
     const gs = res(); await status(post({ ref: gRef }), gs);
@@ -1105,7 +1107,17 @@ section("9d. Athlevo Plan (₱999/month, a 4-week plan, no call) and the setting
       co.questionnaireUrl === QUESTIONNAIRE && co.scheduleUrl === null && co.agreementUrl === null &&
       vp.questionnaireUrl === QUESTIONNAIRE && vp.scheduleUrl === null && vp.agreementUrl === null);
     const pl = planMod.planNextSteps({ PLAN_SIGNUP_ENABLED: "true", PLAN_QUESTIONNAIRE_URL: QUESTIONNAIRE, PLAN_SCHEDULE_URL: SCHEDULE });
-    t("the Plan has no call, so it never has a scheduling link", pl.call === false && pl.scheduleUrl === null && pl.questionnaireUrl === QUESTIONNAIRE);
+    t("the Plan has no call and no questionnaire: it never has a scheduling link, and sends buyers to the Athlevo app sign-up",
+      pl.call === false && pl.scheduleUrl === null && pl.questionnaireUrl === null &&
+      pl.appSignupUrl === "https://athlevo.org/signup" && pl.redirectUrl === "https://athlevo.org/signup");
+    t("the Plan opens with only PLAN_SIGNUP_ENABLED (no questionnaire link needed), while the coached offers still need theirs",
+      planMod.planSignupEnabled({ PLAN_SIGNUP_ENABLED: "true" }) === true && planMod.planSignupEnabled({}) === false &&
+      planMod.guidedSignupEnabled({ GUIDED_SIGNUP_ENABLED: "true" }) === false &&
+      planMod.coachingSignupEnabled({ COACHING_SIGNUP_ENABLED: "true" }) === false &&
+      planMod.vipSignupEnabled({ VIP_SIGNUP_ENABLED: "true" }) === false);
+    t("the coached offers redirect to their questionnaire after payment",
+      co.redirectUrl === QUESTIONNAIRE && vp.redirectUrl === QUESTIONNAIRE && co.appSignupUrl === null && vp.appSignupUrl === null &&
+      planMod.guidedNextSteps({ GUIDED_QUESTIONNAIRE_URL: "https://docs.google.com/forms/d/e/abc/viewform" }).redirectUrl === "https://docs.google.com/forms/d/e/abc/viewform");
     closed();
   }
 
@@ -1118,10 +1130,13 @@ section("9d. Athlevo Plan (₱999/month, a 4-week plan, no call) and the setting
     await deliver(planPaid({ reference: TP_REF("8"), paymentId: "pay_tp9", checkoutId: "cs_tp9", id: "evt_tp9" }));
     const buyer = log.emails.find(e => e.body.to.join(",").includes("maria@example.com"));
     const owner = log.emails.find(e => e.body.to.join(",").includes("dean@athlevo.example"));
-    t("the Plan's buyer email: questionnaire, then 'your coach builds your plan'; no call; covers one month",
+    t("the Plan's buyer email: create your Athlevo account (athlevo.org/signup), then onboarding and the plan in the app; no questionnaire, no call; covers one month",
       buyer && buyer.body.subject === "Welcome to Athlevo Plan: your next steps" &&
-      buyer.body.text.includes("₱999") && buyer.body.text.includes(PLAN_QUESTIONNAIRE) &&
-      buyer.body.text.includes("2. Your coach builds your plan.") && !/schedule your call|scheduled to schedule|schedule a call/i.test(buyer.body.text + buyer.body.html) &&
+      buyer.body.text.includes("₱999") && buyer.body.text.includes("1. Create your Athlevo account.") &&
+      buyer.body.text.includes("https://athlevo.org/signup") && buyer.body.html.includes('href="https://athlevo.org/signup"') &&
+      buyer.body.text.includes("2. Complete your onboarding and receive your plan.") &&
+      !buyer.body.text.includes(PLAN_QUESTIONNAIRE) && !/questionnaire/i.test(buyer.body.text + buyer.body.html) &&
+      !/schedule your call|scheduled to schedule|schedule a call/i.test(buyer.body.text + buyer.body.html) &&
       buyer.body.text.includes("Your payment covers one month and does not renew automatically.") &&
       !/one-time/i.test(buyer.body.text + buyer.body.html), buyer && buyer.body.text);
     t("the Plan's owner alert shows the month and the paid-through date",

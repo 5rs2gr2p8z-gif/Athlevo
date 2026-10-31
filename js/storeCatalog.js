@@ -254,12 +254,12 @@
           terms: "Month-to-month, no lock-in."
         },
         // No coach profile on purpose: the page says "an Athlevo coach" and names no one.
-        // Athlevo Plan sign-up. `open` shows the Sign Up button; it needs the checkout, the
-        // sign-ups table and the questionnaire link set up (docs/plan-signup.md), and
-        // PLAN_SIGNUP_ENABLED on the server. Set it back to false to hide the button. A test
-        // keeps the store notice and FAQ in step with it. The price itself is owned
-        // by the server (lib/server/planSignup.js); a test checks the two agree.
-        // `call: false`: after the questionnaire there is no call to schedule. `takesCodes: false`
+        // Athlevo Plan sign-up. `open` shows the Sign Up button; it needs the checkout and the
+        // sign-ups table set up (docs/plan-signup.md), and PLAN_SIGNUP_ENABLED on the server. Set it
+        // back to false to hide the button. A test keeps the store notice and FAQ in step with it.
+        // The price itself is owned by the server (lib/server/planSignup.js); a test checks the two
+        // agree. `call: false`: there is no call to schedule. After payment the buyer is sent to the
+        // Athlevo app sign-up (https://athlevo.org/signup), not a questionnaire. `takesCodes: false`
         // keeps the code box off this page: codes cover Guided and Coaching only.
         signUp: {
           open: true,
@@ -276,9 +276,9 @@
         getStarted: {
           steps: [
             "Sign up and complete payment.",
-            "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
-            "An Athlevo coach builds your personalized 4-week training plan from your answers.",
-            "Receive your plan."
+            "You are taken straight to Athlevo to create your account.",
+            "Complete your onboarding in the Athlevo app.",
+            "Receive your 4-week training plan in the app."
           ],
           notice: "Registration opening soon"
         }
