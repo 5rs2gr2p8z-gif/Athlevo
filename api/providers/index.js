@@ -3414,7 +3414,7 @@ async function resolveCoachPlanForWeek(athleteId, weekStart, nowIso) {
     week_start: weekStart,
     week_end: addDateDays(weekStart, 6),
     target_race: null, race_date: null, weeks_until_race: null,
-    phase: "Coach-planned", phase_week: 1, phase_length_weeks: 1,
+    phase: "maintenance", phase_week: 1, phase_length_weeks: 1,
     week_focus: "Planned by your coach", weekly_intent: "Planned by your coach",
     planned_distance_km: 0, planned_hours: 0,
     ground_percentage: 100, control_percentage: 0, threshold_percentage: 0, edge_percentage: 0,
