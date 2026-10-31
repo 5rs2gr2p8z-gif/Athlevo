@@ -220,8 +220,8 @@
     "sha256": "b3a4e78c04235604bec5ac10a4084082b815bfcab953d07fcea7bdeceb67f6a7"
   },
   "js/athleteMode.js": {
-    "v": 83,
-    "sha256": "7386d965444e0e053ae94e86b211d88ffbbbd25d192fcd94df756c87a117f225"
+    "v": 84,
+    "sha256": "caf9db866762a6ae2cbc41d87cb4259c6c687a1e4bdb678a1fc52351312d2c65"
   },
   "js/authRouteGuard.js": {
     "v": 1,

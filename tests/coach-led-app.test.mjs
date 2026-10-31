@@ -88,8 +88,8 @@ test("the anonymous coach endpoint really returns 410 AI_COACH_RETIRED", out.cod
 process.env.ATHLEVO_COACH_LED = "0";
 test("askCoach() does nothing under the flag", /async function askCoach\(question\) \{\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*if \(window\.ATHLEVO_COACH_LED === true\) return;/.test(read("./js/coach.js")));
 const am = read("./js/athleteMode.js");
-test("Coach tab with no coach shows 'Your coach' + See programs, not the AI chat",
-  /function restoreSelfGuidedCoachTab\(\) \{\s*if \(coachLedApp\(\)\) \{ renderNoCoachTab\(\); return; \}/.test(am) && /data-am-see-programs/.test(am) && /AthlevoPrograms\.open\("screen-coachai"\)/.test(am));
+test("Coach tab with no coach shows 'Your coach' + Upgrade to coaching, not the AI chat",
+  /function restoreSelfGuidedCoachTab\(\) \{\s*if \(coachLedApp\(\)\) \{ renderNoCoachTab\(\); return; \}/.test(am) && /data-am-upgrade-coaching/.test(am) && /openProgramsSite\("coach-upgrade"\)/.test(am));
 test("logged-out /ai and root land on the welcome screen, not an AI preview",
   /function showAnonymousCoachPreview\(\) \{[\s\S]{0,400}ATHLEVO_COACH_LED === true\) \{\s*showScreen\('screen-welcome'\);/.test(html));
 test("AI chat history and 'New chat' are hidden from the side panel", /html\.coach-led \.coach-side-panel-chats,\s*html\.coach-led \.coach-side-panel-section:has\(\[onclick\*="new-chat"\]\)/.test(html));
@@ -223,8 +223,8 @@ freeApp.P.openWelcome("u9", () => { ranOnDone += 1; });
 test("with the offer off, nothing is shown after sign-up: routing just continues", ranOnDone === 1 && !freeApp.shown.includes("screen-programs"));
 freeApp.P.open("screen-coachai");
 test("with the offer off, Programs cannot be opened from anywhere", !freeApp.shown.includes("screen-programs") && freeApp.P.shouldShowAfterSignup("u9", { onboarding_complete: false }) === false && freeApp.P.isOn() === false);
-test("no-coach Coach tab offers no purchase: it points to the coach's invite link",
-  /You are not connected to a coach yet\. Ask your coach for their Athlevo invite link/.test(am) && /var offer = !!\(window\.AthlevoPrograms/.test(am));
+test("no-coach Coach tab upsells coaching: points to programs.athlevo.org",
+  /Your current plan[\s\S]{0,40}include coach support/.test(am) && /Upgrade to coaching/.test(am) && /openProgramsSite\("coach-upgrade"\)/.test(am));
 test("the legacy freemium Settings upsell still exists behind the flag", /Legacy freemium app \(ATHLEVO_COACH_LED off\)/.test(html) && /proCta\.textContent = 'Upgrade to Pro'/.test(html));
 
 section("No daily check-in pop-up");
@@ -276,7 +276,7 @@ test("incoming coach replies appear without reopening the tab (quiet polling, on
 
 section("Scripts are cache-busted");
 test("service-worker cache and script versions were raised together (stale JS can no longer pair with new HTML)",
-  /athlevo-shell-v101/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
+  /athlevo-shell-v102/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
 
 section("Coach Home and navigation");
 {

@@ -364,8 +364,8 @@
 
   /*
    * Coach-led app (js/appMode.js): an athlete with no assigned coach does not
-   * get the AI chat. The Coach tab says so and points at the Programs screen,
-   * which is where a coach comes from.
+   * get the AI chat. The Coach tab says the plan has no coach support and
+   * points at the programs site (programs.athlevo.org), where coaching is bought.
    */
   function renderNoCoachTab() {
     var screen = coachScreen();
@@ -375,18 +375,15 @@
     var mount = document.createElement("div");
     mount.className = "am-coach-mode-mount am-no-coach";
     mount.setAttribute("data-no-coach", "");
-    var offer = !!(window.AthlevoPrograms && window.AthlevoPrograms.isOn && window.AthlevoPrograms.isOn());
-    mount.innerHTML = offer
-      ? '<h1 class="am-no-coach-title">Your coach</h1>' +
-        '<p class="am-no-coach-body">Coaching happens here, with a real coach. ' +
-        'Once you join a program, your coach messages you in this tab and builds your training in Calendar.</p>' +
-        '<button type="button" class="am-no-coach-cta" data-am-see-programs>See programs</button>'
-      : '<h1 class="am-no-coach-title">Your coach</h1>' +
-        '<p class="am-no-coach-body">You are not connected to a coach yet. Ask your coach for their Athlevo invite link and open it on this device. ' +
-        'Once you join, your coach messages you in this tab and builds your training in Calendar.</p>';
-    var cta = mount.querySelector("[data-am-see-programs]");
+    mount.innerHTML =
+      '<h1 class="am-no-coach-title">Your coach</h1>' +
+      '<p class="am-no-coach-body">Your current plan doesn\'t include coach support. ' +
+      'Upgrade to coaching to get a real coach who builds your training and guides you week to week.</p>' +
+      '<button type="button" class="am-no-coach-cta" data-am-upgrade-coaching>Upgrade to coaching</button>';
+    var cta = mount.querySelector("[data-am-upgrade-coaching]");
     if (cta) cta.addEventListener("click", function () {
-      if (window.AthlevoPrograms) window.AthlevoPrograms.open("screen-coachai");
+      if (typeof window.openProgramsSite === "function") window.openProgramsSite("coach-upgrade");
+      else window.open(window.ATHLEVO_PROGRAMS_URL || "https://programs.athlevo.org", "_blank", "noopener");
     });
     screen.appendChild(mount);
     markCoachSurfaceReady(mount);
