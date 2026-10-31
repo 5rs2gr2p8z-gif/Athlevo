@@ -68,8 +68,8 @@
     "sha256": "485534d19bc1cbc00a9040975a98c15d528a568509af6d650333f8e90c16750c"
   },
   "js/athleteModel.js": {
-    "v": 67,
-    "sha256": "eebee06ff0da00c2232aa9627c8a746be2ac6d9caa21161a1cb4a4b8da56f6c2"
+    "v": 68,
+    "sha256": "5245c9f7fe08212041f37302ddddf12405eb325c9a1c32a2a701437ab2f068ef"
   },
   "js/calendarWeeks.js": {
     "v": 67,
@@ -240,8 +240,8 @@
     "sha256": "f62999d9fc9eac62cbcd7b5f435014eda665d53a5338e02d726ac8625b71e1ee"
   },
   "js/coachMode.js": {
-    "v": 33,
-    "sha256": "ff3d70b6faa342badfe5d97f2feed6a7b64632708e868c148cc816545a4a1995"
+    "v": 36,
+    "sha256": "a0611401b60102846bb34dd09e290000de68f6c1e653eaf582c5bfc0f0e73a8c"
   },
   "js/adaptivePlan.js": {
     "v": 79,
@@ -308,8 +308,8 @@
     "sha256": "849fd1f42bc392f9de7a77008fbef586f9b2b795a957ecbad5708299fcba229d"
   },
   "js/fuel.js": {
-    "v": 7,
-    "sha256": "bf28de156a7d0b7273f7d49e934ead20566f2d2980e8779c6664892311e59ec9"
+    "v": 8,
+    "sha256": "5be6ac66ea6fc38236d0169ab03012aa6d05c4d4237e6951b622ad6397614406"
   },
   "js/authenticatedOnboarding.js": {
     "v": 1,

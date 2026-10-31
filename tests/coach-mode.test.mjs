@@ -679,7 +679,8 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(source.includes("openWorkoutEditor(null, activitySeed(kind, dateKey))"));
     assert.ok(source.includes("function openWorkoutEditor(session, preset)"));
     assert.ok(source.includes("seed && seed.structure"));
-    assert.ok(source.includes("(session ? 'Save changes' : 'Save workout')"));
+    assert.ok(source.includes('id="cmSaveWorkout"') && source.includes('id="cmPublishWorkout"'), "the editor pairs Save with Publish, V.O2-style");
+    assert.ok(source.includes('var saveLabel = session ? (session.published === false ? "Save draft" : "Save changes") : "Save draft"'));
   });
 
   it("the day menu also offers Add Note, and the add sheet sits above the tab bar", () => {
@@ -703,6 +704,17 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(editor.includes("has no pace zones yet"), "an athlete without pace data is told why the pace is blank");
     assert.ok(editor.includes("Build it in steps"));
     assert.ok(source.includes(".cm-editor .cm-form-actions{position:sticky;bottom:0"));
+  });
+
+  it("coach workouts are drafts that publish to the athlete, V.O2-style", () => {
+    // Draft badge + week-level publish/discard banner.
+    assert.ok(source.includes('session.published === false ? \'<span class="cm-day-draft">Draft</span>\''), "draft rows are badged");
+    assert.ok(source.includes("data-publish-week=") && source.includes("Publish week") && source.includes("Discard drafts"), "a week banner offers Publish week / Discard drafts");
+    assert.ok(source.includes("function publishWeek(ath, discard, btn)"));
+    assert.ok(source.includes('api("publish"'), "it calls the publish gateway action");
+    // Save sends the draft flag; Publish releases it.
+    assert.ok(source.includes("saveWorkoutForm(form, session, overlay, { publish: false") && source.includes("saveWorkoutForm(form, session, overlay, { publish: true"));
+    assert.ok(source.includes("workout: workout, publish: publish"), "the publish intent reaches the server");
   });
 
   it("a workout has one target, distance or time, like V.O2: only the chosen one is saved", () => {

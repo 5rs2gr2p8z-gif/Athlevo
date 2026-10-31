@@ -215,19 +215,32 @@ async function loadCurrentPlans(
   return Array.isArray(rows) ? rows : [];
 }
 
+// The athlete only ever sees PUBLISHED workouts. Coach drafts (coach_draft = true)
+// stay hidden until the coach publishes them. If the publishing migration has not run
+// yet, the column is absent and the request would 400 — we then retry without the filter
+// so the week still loads (the old "everything visible" behaviour).
+async function requestVisibleSessions(baseParts) {
+  try {
+    return await supabaseRequest(baseParts.concat(["&coach_draft=is.false"]).join(""));
+  } catch (error) {
+    if (/\b(42703|coach_draft)\b/.test(String(error && error.message))) {
+      return await supabaseRequest(baseParts.join(""));
+    }
+    throw error;
+  }
+}
+
 async function loadPlanSessions(
   userId,
   trainingPlanId
 ) {
-  const rows = await supabaseRequest(
-    [
-      "training_sessions",
-      `?user_id=eq.${encodeURIComponent(userId)}`,
-      `&training_plan_id=eq.${encodeURIComponent(trainingPlanId)}`,
-      "&select=*",
-      "&order=session_date.asc"
-    ].join("")
-  );
+  const rows = await requestVisibleSessions([
+    "training_sessions",
+    `?user_id=eq.${encodeURIComponent(userId)}`,
+    `&training_plan_id=eq.${encodeURIComponent(trainingPlanId)}`,
+    "&select=*",
+    "&order=session_date.asc"
+  ]);
 
   return Array.isArray(rows)
     ? rows
@@ -238,18 +251,16 @@ async function loadPlanSessionsForPlans(userId, trainingPlanIds) {
   if (!Array.isArray(trainingPlanIds) || trainingPlanIds.length === 0) {
     return [];
   }
-  const rows = await supabaseRequest(
-    [
-      "training_sessions",
-      `?user_id=eq.${encodeURIComponent(userId)}`,
-      `&training_plan_id=in.(${trainingPlanIds
-        .map(id => encodeURIComponent(id))
-        .join(",")})`,
-      "&select=*",
-      "&order=session_date.asc",
-      "&limit=500"
-    ].join("")
-  );
+  const rows = await requestVisibleSessions([
+    "training_sessions",
+    `?user_id=eq.${encodeURIComponent(userId)}`,
+    `&training_plan_id=in.(${trainingPlanIds
+      .map(id => encodeURIComponent(id))
+      .join(",")})`,
+    "&select=*",
+    "&order=session_date.asc",
+    "&limit=500"
+  ]);
   return Array.isArray(rows) ? rows : [];
 }
 

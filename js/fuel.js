@@ -470,9 +470,19 @@
       .then(function (r) { return r; }, function (e) { return { error: e }; });
     var prefP = c.from("fuel_preferences").select("goal_mode").eq("user_id", uid).maybeSingle()
       .then(function (r) { return r; }, function (e) { return { error: e }; });
-    var planP = c.from("training_sessions").select("session_type,title,session_date,distance_km,duration_minutes,intensity")
-      .eq("user_id", uid).gte("session_date", today).lte("session_date", tomorrow).order("session_date", { ascending: true })
-      .then(function (r) { return r; }, function () { return { data: null }; });
+    // Fuel only for published workouts; a coach's draft is not the athlete's session yet.
+    var planCols = "session_type,title,session_date,distance_km,duration_minutes,intensity";
+    var planQuery = function (hideDrafts) {
+      var q = c.from("training_sessions").select(planCols)
+        .eq("user_id", uid).gte("session_date", today).lte("session_date", tomorrow);
+      if (hideDrafts) q = q.eq("coach_draft", false);
+      return q.order("session_date", { ascending: true });
+    };
+    var planP = planQuery(true)
+      .then(function (r) {
+        if (r && r.error && /coach_draft/.test(String(r.error.message || r.error))) return planQuery(false);
+        return r;
+      }, function () { return planQuery(false).then(function (r) { return r; }, function () { return { data: null }; }); });
     var d0 = parseDateKey(addDaysKey(today, -1)).toISOString();
     var d1 = parseDateKey(tomorrow).toISOString();
     var actP = c.from("activities").select("start_date,raw_data")

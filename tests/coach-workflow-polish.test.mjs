@@ -75,8 +75,8 @@ test("workout sheet traps focus, supports Escape, and restores invoking focus",
   /event\.key !== "Tab"/.test(workoutDialog) && /event\.key === "Escape"/.test(workoutDialog) &&
   /returnFocus\.focus\(\)/.test(workoutDialog));
 test("workout save failures restore the contextual action label",
-  /var submitLabel = submit \? submit\.textContent/.test(workoutSave) &&
-  /submit\.textContent = submitLabel/.test(workoutSave));
+  /var actingLabel = acting \? acting\.textContent/.test(workoutSave) &&
+  /acting\.textContent = actingLabel/.test(workoutSave));
 test("note deletion traps and restores focus",
   /event\.key === "Tab"/.test(noteDialog) && /returnFocus\.focus\(\)/.test(noteDialog));
 test("quick-note Save is disabled until the note contains meaningful text",

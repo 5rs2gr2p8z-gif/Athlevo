@@ -404,12 +404,23 @@
       const { data: { user } } = await supabaseClient.auth.getUser();
       if (!user) return null;
       const day = todayKeyLocal();
-      const { data } = await supabaseClient
+      // Only published workouts count; a coach's draft is not the athlete's session yet.
+      let data = null, error = null;
+      ({ data, error } = await supabaseClient
         .from("training_sessions")
         .select("session_type,title,session_date")
         .eq("user_id", user.id)
         .eq("session_date", day)
-        .limit(1);
+        .eq("coach_draft", false)
+        .limit(1));
+      if (error && /coach_draft/.test(String(error.message || error))) {
+        ({ data } = await supabaseClient
+          .from("training_sessions")
+          .select("session_type,title,session_date")
+          .eq("user_id", user.id)
+          .eq("session_date", day)
+          .limit(1));
+      }
       const s = Array.isArray(data) && data.length ? data[0] : null;
       return s ? String(s.session_type || s.title || "") : null;
     } catch (e) {

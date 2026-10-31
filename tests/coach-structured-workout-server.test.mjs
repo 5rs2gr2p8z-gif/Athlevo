@@ -82,7 +82,9 @@ test("saving falls back cleanly when the structure column does not exist yet",
   /withoutStructureColumn\(row\)/.test(api) && /withoutStructureColumn\(patch\)/.test(api));
 test("a missing library table is reported as unavailable, not as an empty library", /unavailable: true/.test(api));
 test("a coach can schedule for an athlete who has no AI plan (insert-if-absent, never overwrite)",
-  /resolution=ignore-duplicates/.test(api) && !/resolution=merge-duplicates[^\n]*training_plans/.test(api));
+  /on_conflict=user_id,week_start/.test(api) &&
+  /if \(sameWeek\.rows\[0\] && sameWeek\.rows\[0\]\.id\) return \{ ok: true/.test(api) &&
+  /if \(active\.rows\[0\] && active\.rows\[0\]\.id\) return \{ ok: true/.test(api));
 test("coach-owned sessions keep the existing ownership stamp and edit guards",
   /stampOwnership\(\{[\s\S]{0,120}mode: "human_coached"/.test(api) && /canSafelyMutateCoachSession\(session, execution, todayKey\)/.test(api));
 test("one workout per day is still enforced (the athlete screens assume it)", /A workout is already scheduled on that date\./.test(api));

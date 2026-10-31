@@ -103,7 +103,8 @@ import {
   executionForSession,
   recentSkippedCount,
   sanitizeCoachWorkoutInput,
-  withoutStructureColumn
+  withoutStructureColumn,
+  withoutPublishColumns
 } from "../../lib/server/coachTraining.js";
 import { resolveAthletePaces } from "../../lib/server/coachPaces.js";
 import { sanitizeLibraryItem, shapeLibraryRow } from "../../lib/server/coachWorkoutLibrary.js";
@@ -3395,45 +3396,68 @@ async function loadAthletePaces(athleteId) {
 async function resolveCoachPlanForWeek(athleteId, weekStart, nowIso) {
   const userFilter = `user_id=eq.${enc(athleteId)}`;
   const sameWeek = await sbCoachRead(`training_plans?${userFilter}&week_start=eq.${enc(weekStart)}&select=id&limit=1`);
-  if (!sameWeek.ok) return { ok: false, reason: "read_plan_failed" };
+  if (!sameWeek.ok) return { ok: false, reason: "read_plan_failed", detail: sameWeek.error || null };
   if (sameWeek.rows[0] && sameWeek.rows[0].id) return { ok: true, id: sameWeek.rows[0].id };
   const active = await sbCoachRead(`training_plans?${userFilter}&status=in.(active,current)&select=id&order=updated_at.desc&limit=1`);
-  if (!active.ok) return { ok: false, reason: "read_active_plan_failed" };
+  if (!active.ok) return { ok: false, reason: "read_active_plan_failed", detail: active.error || null };
   if (active.rows[0] && active.rows[0].id) return { ok: true, id: active.rows[0].id };
 
-  const insert = body => sbCoachWrite(
-    "training_plans?on_conflict=user_id,week_start",
-    "POST",
-    body,
-    "resolution=ignore-duplicates,return=representation"
-  );
-  const minimal = { user_id: athleteId, week_start: weekStart, week_end: addDateDays(weekStart, 6), status: "active", generated_at: nowIso, updated_at: nowIso };
-  // Some deployments require the descriptive columns the AI planner always fills in. Retry with the
-  // same column set and neutral, truthful values for a coach-planned week (second try leaves the
-  // race fields empty, the third fills every text column in case any of them is NOT NULL).
-  const descriptive = {
-    ...minimal,
+  // Open a weekly plan row to hang the workout on. We mirror the exact shape the AI planner
+  // already writes successfully (same table, same on_conflict), but with neutral, truthful
+  // values for a coach-planned week. If a deployment's schema differs, the loop below reads the
+  // database's own error and adds a column it says is required (NOT NULL) or drops one it says
+  // does not exist, so a coach can always open a week without us knowing the schema in advance.
+  const base = {
+    user_id: athleteId,
+    week_start: weekStart,
+    week_end: addDateDays(weekStart, 6),
     target_race: null, race_date: null, weeks_until_race: null,
     phase: "Coach-planned", phase_week: 1, phase_length_weeks: 1,
     week_focus: "Planned by your coach", weekly_intent: "Planned by your coach",
     planned_distance_km: 0, planned_hours: 0,
     ground_percentage: 100, control_percentage: 0, threshold_percentage: 0, edge_percentage: 0,
-    coach_summary: "Planned by your coach.", progression_reasoning: "Coach-planned week."
+    coach_summary: "Planned by your coach.", progression_reasoning: "Coach-planned week.",
+    adaptation: { what_changed: "", why_it_changed: "", kept_stable: "" },
+    status: "active", generated_at: nowIso, updated_at: nowIso
   };
-  let created = await insert(minimal);
-  if (!created.ok) created = await insert(descriptive);
-  if (!created.ok) {
-    created = await insert({
-      ...descriptive,
-      target_race: "Coach-planned", weeks_until_race: 0,
-      adaptation: { what_changed: "", why_it_changed: "", kept_stable: "" }
-    });
+  const defaultFor = name => {
+    if (/_at$/.test(name)) return nowIso;
+    if (/date$/.test(name)) return null;
+    if (/(percentage|distance|hours|count|number|weeks_until|phase_week|phase_length|_km|_minutes|_hours)/.test(name)) return 0;
+    return "Coach-planned";
+  };
+
+  let body = { ...base };
+  const handled = new Set();
+  let created = null;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    created = await sbCoachWrite(
+      "training_plans?on_conflict=user_id,week_start",
+      "POST",
+      body,
+      "resolution=merge-duplicates,return=representation"
+    );
+    if (created.ok && created.rows[0] && created.rows[0].id) {
+      return { ok: true, id: created.rows[0].id, created: true };
+    }
+    const err = String(created.error || "");
+    const col = (err.match(/column "([^"]+)"/) || [])[1];
+    if (!col || handled.has(col)) break;
+    handled.add(col);
+    if (/does not exist/.test(err)) {
+      if (!(col in body)) break;
+      delete body[col];
+    } else if (/null value|not-null|not null/.test(err)) {
+      body = { ...body, [col]: defaultFor(col) };
+    } else {
+      break;
+    }
   }
-  if (created.ok && created.rows[0] && created.rows[0].id) return { ok: true, id: created.rows[0].id, created: true };
+  // A concurrent request may have created the row between our checks — read once more.
   const reread = await sbCoachRead(`training_plans?${userFilter}&week_start=eq.${enc(weekStart)}&select=id&limit=1`);
   if (reread.ok && reread.rows[0] && reread.rows[0].id) return { ok: true, id: reread.rows[0].id };
-  console.error("coach_plan_week_create_failed", { status: created.status, error: created.error });
-  return { ok: false, reason: "create_plan_failed", detail: created.error || null };
+  console.error("coach_plan_week_create_failed", { status: created && created.status, error: created && created.error });
+  return { ok: false, reason: "create_plan_failed", detail: (created && created.error) || null };
 }
 
 async function actionCoachingDashboardWorkout(request, response) {
@@ -3500,21 +3524,32 @@ async function actionCoachingDashboardWorkout(request, response) {
         });
       }
 
+      // New workouts are drafts (hidden from the athlete) unless the coach chose Publish.
+      const publishNow = body.publish === true;
       const row = {
         ...validated.value,
         user_id: athleteId,
         training_plan_id: planForWeek.id,
+        coach_draft: !publishNow,
+        published_at: publishNow ? nowIso : null,
         ...ownership,
         created_by: user.id,
         updated_at: nowIso
       };
       let saved = await sbCoachWrite("training_sessions", "POST", row);
       let structureSaved = Boolean(row.structure);
+      let publishTracked = true;
+      if (!saved.ok && saved.status === 400) {
+        // The draft/publish columns are not in this database yet: save without them
+        // (the workout is simply visible at once, the old behaviour).
+        saved = await sbCoachWrite("training_sessions", "POST", withoutPublishColumns(row));
+        publishTracked = false;
+      }
       if (!saved.ok && row.structure && saved.status === 400) {
-        // The additive migration (training_sessions.structure) is not applied yet:
-        // still save the readable workout; it just cannot be re-opened in the builder.
-        saved = await sbCoachWrite("training_sessions", "POST", withoutStructureColumn(row));
+        // The structured-workout column is not applied yet: still save the readable workout.
+        saved = await sbCoachWrite("training_sessions", "POST", withoutPublishColumns(withoutStructureColumn(row)));
         structureSaved = false;
+        publishTracked = false;
       }
       if (!saved.ok || !saved.rows[0]) {
         return sendJson(response, saved.status === 409 ? 409 : 500, {
@@ -3522,7 +3557,9 @@ async function actionCoachingDashboardWorkout(request, response) {
           detail: saved.error || null
         });
       }
-      return sendJson(response, 201, { saved: true, workout_id: saved.rows[0].id, structure_saved: structureSaved });
+      // Without the columns we cannot keep a workout hidden, so report it as published.
+      const isPublished = publishNow || !publishTracked;
+      return sendJson(response, 201, { saved: true, workout_id: saved.rows[0].id, structure_saved: structureSaved, published: isPublished });
     }
 
     const sessionId = body.session_id;
@@ -3569,23 +3606,27 @@ async function actionCoachingDashboardWorkout(request, response) {
           return sendJson(response, 409, { error: "A workout is already scheduled on that date." });
         }
       }
+      // Editing leaves the draft/published state as it was; only an explicit Publish releases it.
+      const publishNow = body.publish === true;
       const patch = { ...validated.value, ...ownership, updated_at: nowIso };
-      let saved = await sbCoachWrite(
-        `training_sessions?${userFilter}&id=eq.${enc(sessionId)}`,
-        "PATCH",
-        patch
-      );
+      if (publishNow) { patch.coach_draft = false; patch.published_at = session.published_at || nowIso; }
+      const writePatch = part => sbCoachWrite(`training_sessions?${userFilter}&id=eq.${enc(sessionId)}`, "PATCH", part);
+      let saved = await writePatch(patch);
       let structureSaved = Boolean(patch.structure);
-      if (!saved.ok && "structure" in patch && saved.status === 400) {
-        saved = await sbCoachWrite(
-          `training_sessions?${userFilter}&id=eq.${enc(sessionId)}`,
-          "PATCH",
-          withoutStructureColumn(patch)
-        );
-        structureSaved = false;
+      let publishTracked = publishNow;
+      if (!saved.ok && publishNow && saved.status === 400) {
+        // No draft/publish columns in this database: the workout is already visible.
+        saved = await writePatch(withoutPublishColumns(patch));
+        publishTracked = false;
       }
-      if (!saved.ok || !saved.rows[0]) return sendJson(response, 500, { error: "The workout could not be saved." });
-      return sendJson(response, 200, { saved: true, workout_id: saved.rows[0].id, structure_saved: structureSaved });
+      if (!saved.ok && "structure" in patch && saved.status === 400) {
+        saved = await writePatch(withoutPublishColumns(withoutStructureColumn(patch)));
+        structureSaved = false;
+        publishTracked = false;
+      }
+      if (!saved.ok || !saved.rows[0]) return sendJson(response, 500, { error: "The workout could not be saved.", detail: saved.error || null });
+      const isPublished = publishNow || !publishTracked ? true : session.coach_draft !== true;
+      return sendJson(response, 200, { saved: true, workout_id: saved.rows[0].id, structure_saved: structureSaved, published: isPublished });
     }
 
     return sendJson(response, 405, { error: "Method not allowed." });
@@ -3594,6 +3635,75 @@ async function actionCoachingDashboardWorkout(request, response) {
   }
 }
 
+
+/*
+ * Publish coach-drafted workouts to the athlete. A workout the coach builds stays a draft
+ * (hidden from the athlete) until it is published — one workout, a whole week, or discarded.
+ * Mirrors V.O2's Publish Week / Publish / Clear Unpublished Workouts.
+ */
+async function actionCoachingDashboardPublish(request, response) {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return sendJson(response, 500, { error: "Server is not configured." });
+  const tok = bearer(request);
+  if (!tok) return sendJson(response, 401, { error: "Authentication is required." });
+  const user = await getCoachingUser(tok);
+  if (!user || !user.id) return sendJson(response, 401, { error: "Your session is invalid or expired." });
+  const profile = await loadCoachProfile(user.id);
+  if (!canAccessCoachDashboard(profile)) {
+    return sendJson(response, 403, { error: "Coach access is required.", role: resolveRole(profile) });
+  }
+  const body = stripClientAuthorityFields(request.body || {});
+  const athleteId = body && body.athlete_id;
+  if (!athleteId) return sendJson(response, 400, { error: "athlete_id is required." });
+  const assignments = await loadActiveAssignments(user.id);
+  if (!canCoachAccessAthlete(assignments, user.id, athleteId)) {
+    return sendJson(response, 403, { error: "You are not assigned to this athlete." });
+  }
+  if (!canCoachManageAthlete(assignments, user.id, athleteId)) {
+    return sendJson(response, 403, { error: "This assignment does not allow plan changes." });
+  }
+
+  const nowIso = new Date().toISOString();
+  const userFilter = `user_id=eq.${enc(athleteId)}`;
+  const isDraft = "coach_draft=is.true";
+  try {
+    // Scope: a single workout, or every draft in a calendar week.
+    let scope;
+    if (body.session_id) {
+      scope = `${userFilter}&id=eq.${enc(body.session_id)}&${isDraft}`;
+    } else if (body.week_start && /^\d{4}-\d{2}-\d{2}$/.test(String(body.week_start))) {
+      const end = addDateDays(body.week_start, 6);
+      scope = `${userFilter}&session_date=gte.${enc(body.week_start)}&session_date=lte.${enc(end)}&${isDraft}`;
+    } else {
+      return sendJson(response, 400, { error: "A workout or a week is required." });
+    }
+
+    if (body.discard === true) {
+      const removed = await sbCoachWrite(`training_sessions?${scope}`, "DELETE");
+      if (!removed.ok) {
+        // No draft column yet means there are no drafts to discard.
+        if (removed.status === 400) return sendJson(response, 200, { discarded: 0, unsupported: true });
+        return sendJson(response, 500, { error: "The drafts could not be discarded.", detail: removed.error || null });
+      }
+      return sendJson(response, 200, { discarded: removed.rows.length });
+    }
+
+    const published = await sbCoachWrite(
+      `training_sessions?${scope}`,
+      "PATCH",
+      { coach_draft: false, published_at: nowIso }
+    );
+    if (!published.ok) {
+      // No draft/publish columns in this database: everything is already visible to the athlete.
+      if (published.status === 400) return sendJson(response, 200, { published: 0, already_visible: true });
+      return sendJson(response, 500, { error: "The workouts could not be published.", detail: published.error || null });
+    }
+    return sendJson(response, 200, { published: published.rows.length });
+  } catch {
+    return sendJson(response, 500, { error: "The workouts could not be published." });
+  }
+}
 
 /* ═══════════════════ COACH WORKOUT LIBRARY ═════════════════════ */
 
@@ -4279,6 +4389,10 @@ export default async function handler(request, response) {
       }
       return actionCoachingDashboardWorkout(request, response);
     }
+    if (action === "coaching_dashboard_publish") {
+      if (request.method !== "POST") { response.setHeader("Allow", "POST"); return response.status(405).json({ error: "Method not allowed." }); }
+      return actionCoachingDashboardPublish(request, response);
+    }
     if (action === "coaching_library_list") {
       if (request.method !== "GET") { response.setHeader("Allow", "GET"); return response.status(405).json({ error: "Method not allowed." }); }
       return actionCoachingLibraryList(request, response);
@@ -4392,7 +4506,7 @@ export default async function handler(request, response) {
         "reanalyze", "status", "disconnect", "admin_analytics",
         "weather_context", "activity_streams",
         "coaching_dashboard_roster", "coaching_dashboard_athlete",
-        "coaching_dashboard_review", "coaching_dashboard_workout", "athlete_coaching_mode",
+        "coaching_dashboard_review", "coaching_dashboard_workout", "coaching_dashboard_publish", "athlete_coaching_mode",
         "coaching_invite_create", "coaching_invite_list", "coaching_invite_accept",
         "coaching_invite_resend", "coaching_invite_revoke",
         "coaching_join_link", "coaching_join_accept", "coaching_grant_coach",

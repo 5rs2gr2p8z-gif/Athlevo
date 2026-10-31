@@ -370,6 +370,8 @@
       ".cm-editor{display:flex;flex-direction:column;padding-bottom:0}.cm-editor .cm-workout-form{display:grid;grid-template-columns:1fr;gap:12px;min-height:0}.cm-editor .cm-field--full{grid-column:1/-1}.cm-field-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.cm-field-hint{color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}",
       ".cm-editor .cm-form-actions{position:sticky;bottom:0;margin:4px -16px 0;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:var(--surface-base,#fff);border-top:1px solid var(--line,#ebebe8)}",
       ".cm-field-label{font-size:10px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-target{display:grid;gap:6px}.cm-target-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:center}.cm-seg{display:inline-flex;padding:3px;gap:2px;border:1px solid var(--border-default,var(--line,#ebebe8));border-radius:var(--r-pill);background:var(--surface-raised,#fff)}.cm-seg-btn{min-height:36px;padding:0 14px;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink2,#5b5e65);font:700 13px/1 var(--sans,sans-serif);cursor:pointer}.cm-seg-btn[aria-pressed=true]{background:var(--ink1,#141416);color:var(--surface-base,#fff)}.cm-seg-btn:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:2px}.cm-seg-btn:disabled{opacity:.6;cursor:default}.cm-target-input{position:relative}.cm-target-input input{padding-right:44px;appearance:textfield;-moz-appearance:textfield}.cm-target-input input::-webkit-outer-spin-button,.cm-target-input input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.cm-target-unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--ink3,#9a9da3);font-size:13px;pointer-events:none}",
+      ".cm-day-draft{display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--r-pill);background:color-mix(in srgb,var(--athlevo-red,#C0272D) 12%,transparent);color:var(--athlevo-red,#C0272D);font:750 9px/1 var(--sans,sans-serif);letter-spacing:.04em;text-transform:uppercase}",
+      ".cm-publish-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--athlevo-red,#C0272D) 7%,var(--surface-raised,#fff));border:1px solid color-mix(in srgb,var(--athlevo-red,#C0272D) 22%,transparent)}.cm-publish-copy{display:grid;gap:2px}.cm-publish-copy strong{font:750 13px/1.2 var(--sans,sans-serif);color:var(--ink1,#141416)}.cm-publish-copy span{font-size:12px;color:var(--ink2,#5b5e65)}.cm-publish-actions{display:flex;gap:8px;flex-wrap:wrap}.cm-publish-discard{color:var(--ink2,#5b5e65)}",
       ".cm-add-steps{justify-self:start;border:0;background:transparent;padding:4px 0;color:var(--red,#C0272D);font:700 12px/1.3 var(--sans,sans-serif);cursor:pointer}.cm-add-steps:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:2px}",
       ".cm-add-menu textarea{width:100%;box-sizing:border-box;border:1px solid var(--line,#ebebe8);border-radius:var(--ui-radius-control,10px);background:var(--surface-raised,#fff);color:inherit;padding:10px;font:14px/1.4 var(--sans,sans-serif);resize:vertical}.cm-add-save{justify-self:end;min-height:44px;padding-inline:22px}.cm-add-menu .cm-field{margin-top:4px}",
       ".cm-day-right{display:flex;align-items:center;gap:8px}.cm-day-grip{color:var(--ink3,#9a9da3);font-size:14px;letter-spacing:-3px;line-height:1;padding:8px 4px;touch-action:none;cursor:grab;user-select:none}",
@@ -1844,7 +1846,7 @@
   }
 
   function workoutMeta(session) {
-    return [session.duration_minutes != null ? session.duration_minutes + " min" : null, session.distance_km != null ? session.distance_km + " km" : null, session.target_rpe ? "RPE " + session.target_rpe : session.intensity, session.pace_guidance].filter(Boolean).join(" · ");
+    return [Number(session.duration_minutes) > 0 ? session.duration_minutes + " min" : null, Number(session.distance_km) > 0 ? session.distance_km + " km" : null, session.target_rpe ? "RPE " + session.target_rpe : session.intensity, session.pace_guidance].filter(Boolean).join(" · ");
   }
 
   function formatWeekRange(start, end) {
@@ -1893,8 +1895,10 @@
         }
         continue;
       }
-      rows.push('<button type="button" class="cm-day-row' + (session.date === ath.today_key ? ' is-today' : '') + '" data-workout-id="' + esc(session.id) + '"><span class="cm-day-date">' + esc(dateLabel) + '<b>' + esc(dayNumber) + '</b></span><span class="cm-day-copy"><span class="cm-day-title">' + esc(session.title) + '</span><span class="cm-day-meta">' + esc(workoutMeta(session) || "Prescription details unavailable") + '</span></span><span class="cm-day-right"><span class="cm-day-status ' + esc(session.execution_status) + '">' + esc(sessionStatusLabel(session.execution_status)) + '</span>' + (canWrite && session.can_reschedule ? '<span class="cm-day-grip" aria-hidden="true" title="Drag to another day">\u22ee\u22ee</span>' : '') + '</span></button>');
+      rows.push('<button type="button" class="cm-day-row' + (session.date === ath.today_key ? ' is-today' : '') + '" data-workout-id="' + esc(session.id) + '"><span class="cm-day-date">' + esc(dateLabel) + '<b>' + esc(dayNumber) + '</b></span><span class="cm-day-copy"><span class="cm-day-title">' + esc(session.title) + '</span><span class="cm-day-meta">' + esc(workoutMeta(session) || "Prescription details unavailable") + '</span></span><span class="cm-day-right">' + (session.published === false ? '<span class="cm-day-draft">Draft</span>' : '') + '<span class="cm-day-status ' + esc(session.execution_status) + '">' + esc(sessionStatusLabel(session.execution_status)) + '</span>' + (canWrite && session.can_reschedule ? '<span class="cm-day-grip" aria-hidden="true" title="Drag to another day">\u22ee\u22ee</span>' : '') + '</span></button>');
     }
+    var draftCount = sessions.filter(function (s) { return s.published === false; }).length;
+    var publishBanner = canWrite && draftCount ? '<div class="cm-publish-bar"><div class="cm-publish-copy"><strong>' + draftCount + (draftCount === 1 ? ' workout' : ' workouts') + ' not published</strong><span>Your athlete can\u2019t see ' + (draftCount === 1 ? 'it' : 'them') + ' until you publish.</span></div><div class="cm-publish-actions"><button type="button" class="cm-week-btn cm-publish-discard" data-publish-week="discard">Discard drafts</button><button type="button" class="cm-week-btn cm-week-btn--primary" data-publish-week="publish">Publish week</button></div></div>' : '';
     var completed = sessions.filter(function (s) { return s.execution_status === "completed" || s.execution_status === "modified"; }).length;
     var plannedDistance = sessions.reduce(function (sum, s) { return sum + (Number(s.distance_km) || 0); }, 0);
     var plannedMinutes = sessions.reduce(function (sum, s) { return sum + (Number(s.duration_minutes) || 0); }, 0);
@@ -1902,6 +1906,7 @@
     return '<div class="cm-training-week"><div class="cm-week-nav"><button type="button" data-week-shift="-7" aria-label="Previous week">‹</button><div><div class="cm-week-range">' + esc(formatWeekRange(week.week_start, week.week_end)) + '</div><div class="cm-week-volume">' + esc(completed + " / " + sessions.length + " sessions complete" + (plannedLabel ? " · " + plannedLabel : "")) + '</div></div><button type="button" data-week-shift="7" aria-label="Next week">›</button></div>' +
       (!canWrite ? '<div class="cm-readonly-note">View-only assignment. Workout details are available, but plan changes are disabled.</div>' : '') +
       (canWrite && !hasPlan ? '<div class="cm-readonly-note">No workouts yet. Tap a day to add the first one.</div>' : '') +
+      publishBanner +
       '<div class="cm-day-list">' + rows.join("") + '</div>' +
       '</div>';
   }
@@ -2239,6 +2244,9 @@
       base.setUTCDate(base.getUTCDate() + Number(btn.getAttribute("data-week-shift")));
       openCoachAthletePage(ath.athlete_id, "training", base.toISOString().slice(0, 10));
     }); });
+    el.querySelectorAll("[data-publish-week]").forEach(function (btn) { btn.addEventListener("click", function () {
+      publishWeek(ath, btn.getAttribute("data-publish-week") === "discard", btn);
+    }); });
     bindWorkoutDrag(el, ath);
     el.querySelectorAll("[data-add-day]").forEach(function (row) { row.addEventListener("click", function () {
       openAddDayMenu(row.getAttribute("data-add-day"), row);
@@ -2290,6 +2298,26 @@
   function dayHeading(dateKey) {
     var d = new Date(dateKey + "T00:00:00Z");
     return isNaN(d.getTime()) ? dateKey : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+  }
+
+  async function publishWeek(ath, discard, btn) {
+    var week = ath.training_week || {};
+    var weekStart = week.week_start || _athleteWeekStart;
+    if (!weekStart) return;
+    if (discard && !window.confirm("Discard all unpublished drafts this week? This can\u2019t be undone.")) return;
+    var label = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = discard ? "Discarding\u2026" : "Publishing\u2026"; }
+    var res = await api("publish", { method: "POST", body: { athlete_id: ath.athlete_id, week_start: weekStart, discard: discard } });
+    if (!res.ok) {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+      if (typeof window.toast === "function") window.toast(saveErrorText(res, discard ? "Could not discard drafts." : "Could not publish."));
+      return;
+    }
+    if (typeof window.toast === "function") {
+      var n = res.body && (discard ? res.body.discarded : res.body.published);
+      window.toast(discard ? "Drafts discarded." : (n ? n + (n === 1 ? " workout published." : " workouts published.") : "Week published."));
+    }
+    refreshTrainingWeek();
   }
 
   function refreshTrainingWeek() {
@@ -2501,6 +2529,15 @@
     var targetKind = targetKindFor(session);
     var targetValue = session ? (targetKind === "distance" ? session.distance_km : session.duration_minutes) : "";
     if (targetValue == null || Number(targetValue) <= 0) targetValue = "";
+    // V.O2-style: a workout is a draft until published. New workouts and existing drafts show
+    // Publish alongside Save; an already-published workout just saves its changes.
+    var showPublish = editable && (!session || session.published === false);
+    var saveLabel = session ? (session.published === false ? "Save draft" : "Save changes") : "Save draft";
+    var footerButtons = !editable
+      ? '<button type="button" class="cm-week-btn cm-dialog-close">Close</button>'
+      : '<button type="button" class="cm-week-btn cm-dialog-close">Cancel</button>'
+        + '<button type="submit" class="cm-week-btn' + (showPublish ? '' : ' cm-week-btn--primary') + '" id="cmSaveWorkout">' + saveLabel + '</button>'
+        + (showPublish ? '<button type="button" class="cm-week-btn cm-week-btn--primary" id="cmPublishWorkout">Publish</button>' : '');
     overlay.innerHTML = '<div class="cm-workout-dialog cm-editor" role="dialog" aria-modal="true" aria-label="' + esc(session ? "Workout details" : "Add workout") + '"><div class="cm-workout-dialog-head"><h2>' + esc(heading) + '</h2><button type="button" class="cm-dialog-close" aria-label="Close">\u00d7</button></div><form class="cm-workout-form" id="cmWorkoutForm">' +
       (session
         ? '<div class="cm-field cm-field--full"><label for="cmWorkoutDate">Move to</label><input id="cmWorkoutDate" name="session_date" type="date" required value="' + value("date") + '" ' + (!editable || !session.can_reschedule ? "disabled" : "") + '></div>'
@@ -2519,7 +2556,7 @@
       (editable && !showBuilder ? '<button type="button" class="cm-add-steps cm-field--full" id="cmAddSteps">+ Build it in steps (warm-up, intervals, cool-down)</button>' : '') +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutDescription">Description</label><textarea id="cmWorkoutDescription" name="description" rows="2" ' + off + '>' + value("description") + '</textarea></div>' +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutNotes">Workout notes</label><textarea id="cmWorkoutNotes" name="notes" rows="3" placeholder="Add workout notes, suggestions or tips\u2026" ' + off + '>' + value("notes") + '</textarea></div>' +
-      '<div class="cm-form-error" id="cmWorkoutError" aria-live="polite"></div><div class="cm-form-actions">' + (session && session.can_remove && canWrite ? '<button type="button" class="cm-week-btn cm-danger" id="cmRemoveWorkout">Remove from plan</button>' : '<span></span>') + '<div class="cm-form-actions-right"><button type="button" class="cm-week-btn cm-dialog-close">' + (editable ? "Cancel" : "Close") + '</button>' + (editable ? '<button type="submit" class="cm-week-btn cm-week-btn--primary">' + (session ? 'Save changes' : 'Save workout') + '</button>' : '') + '</div></div></form></div>';
+      '<div class="cm-form-error" id="cmWorkoutError" aria-live="polite"></div><div class="cm-form-actions">' + (session && session.can_remove && canWrite ? '<button type="button" class="cm-week-btn cm-danger" id="cmRemoveWorkout">Remove from plan</button>' : '<span></span>') + '<div class="cm-form-actions-right">' + footerButtons + '</div></div></form></div>';
     document.body.appendChild(overlay);
 
     // Structured builder: shows the athlete's own paces, previews the shape,
@@ -2616,7 +2653,9 @@
     overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
     overlay.querySelectorAll(".cm-dialog-close").forEach(function (btn) { btn.addEventListener("click", close); });
     var form = overlay.querySelector("#cmWorkoutForm");
-    if (form) form.addEventListener("submit", function (e) { e.preventDefault(); saveWorkoutForm(form, session, overlay); });
+    if (form) form.addEventListener("submit", function (e) { e.preventDefault(); saveWorkoutForm(form, session, overlay, { publish: false, button: overlay.querySelector("#cmSaveWorkout") }); });
+    var publishBtn = overlay.querySelector("#cmPublishWorkout");
+    if (publishBtn) publishBtn.addEventListener("click", function () { saveWorkoutForm(form, session, overlay, { publish: true, button: publishBtn }); });
     var remove = overlay.querySelector("#cmRemoveWorkout");
     if (remove) remove.addEventListener("click", function () { removeWorkout(session, overlay); });
     var initialFocus = dialog.querySelector("input:not([disabled]):not([type=hidden]), textarea:not([disabled])") || dialog.querySelector("button");
@@ -2631,10 +2670,13 @@
     return text;
   }
 
-  async function saveWorkoutForm(form, session, overlay) {
+  async function saveWorkoutForm(form, session, overlay, opts) {
+    opts = opts || {};
+    var publish = opts.publish === true;
     var error = form.querySelector("#cmWorkoutError");
-    var submit = form.querySelector('[type="submit"]');
-    var submitLabel = submit ? submit.textContent : "Save";
+    var acting = opts.button || form.querySelector('[type="submit"]');
+    var actionButtons = Array.prototype.slice.call(form.querySelectorAll(".cm-form-actions button"));
+    var actingLabel = acting ? acting.textContent : "Save";
     var data = new FormData(form);
     var workout = {};
     data.forEach(function (value, key) { workout[key] = value; });
@@ -2661,17 +2703,27 @@
       workout.clear_structure = true;
     }
     if (error) error.textContent = "";
-    if (submit) { submit.disabled = true; submit.textContent = "Saving…"; }
-    var res = await api("workout", { method: session ? "PATCH" : "POST", body: { athlete_id: _athleteDetailId, session_id: session && session.id, workout: workout } });
+    actionButtons.forEach(function (b) { b.disabled = true; });
+    if (acting) acting.textContent = publish ? "Publishing…" : "Saving…";
+    var res = await api("workout", { method: session ? "PATCH" : "POST", body: { athlete_id: _athleteDetailId, session_id: session && session.id, workout: workout, publish: publish } });
     if (!res.ok) {
       if (error) error.textContent = saveErrorText(res, "The workout could not be saved.");
-      if (submit) { submit.disabled = false; submit.textContent = submitLabel; }
+      actionButtons.forEach(function (b) { b.disabled = false; });
+      if (acting) acting.textContent = actingLabel;
       return;
     }
     if (overlay._closeCoachWorkout) overlay._closeCoachWorkout(); else overlay.remove();
     if (typeof window.toast === "function") {
       var moved = session && workout.session_date && String(workout.session_date) !== String(session.date || "");
-      window.toast(!session ? "Workout added." : moved ? "Workout rescheduled." : "Workout updated.");
+      var name = String((_athleteDetail && (_athleteDetail.athlete_name || _athleteDetail.name || _athleteDetail.full_name)) || "").split(" ")[0];
+      var published = res.body && res.body.published === true;
+      window.toast(
+        publish ? (published ? "Published" + (name ? " to " + name : "") + "." : "Workout saved.")
+        : moved ? "Workout rescheduled."
+        : !session ? (res.body && res.body.published === true ? "Workout added." : "Saved as draft \u2014 publish it when you\u2019re ready.")
+        : session.published === false ? "Draft saved."
+        : "Workout updated."
+      );
     }
     refreshTrainingWeek();
   }

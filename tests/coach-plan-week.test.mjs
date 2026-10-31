@@ -26,11 +26,13 @@ function makeDatabase(mode) {
       if (method === "GET") return json(state.plans);
       state.planAttempts.push(body);
       if (mode === "always-fails") return json({ message: "permission denied for table training_plans" }, 403);
-      if (mode === "needs-descriptive" && !(body.phase && body.week_focus && body.coach_summary)) {
-        return json({ message: 'null value in column "phase" violates not-null constraint' }, 400);
+      // Older schema: the adaptation column has not been added yet.
+      if (mode === "rejects-adaptation" && "adaptation" in body) {
+        return json({ message: 'column "adaptation" of relation "training_plans" does not exist' }, 400);
       }
-      if (mode === "needs-race-label" && body.target_race == null) {
-        return json({ message: 'null value in column "target_race" violates not-null constraint' }, 400);
+      // Stricter schema: a NOT NULL column the AI planner fills but our base does not carry.
+      if (mode === "needs-extra" && body.intensity_focus == null) {
+        return json({ message: 'null value in column "intensity_focus" of relation "training_plans" violates not-null constraint' }, 400);
       }
       const row = { id: "plan" + (state.plans.length + 1), ...body };
       state.plans.push(row);
@@ -62,13 +64,13 @@ let r = await call({ athlete_id: "a1", workout });
 test("a plain insert opens the week and saves the workout", r.code === 201 && db.sessions.length === 1 && db.plans.length === 1 && db.planAttempts.length === 1, JSON.stringify(r.body));
 test("only the chosen target is stored (distance, no time)", db.sessions[0].distance_km === 8 && db.sessions[0].duration_minutes == null, JSON.stringify(db.sessions[0]));
 
-db = makeDatabase("needs-descriptive");
+db = makeDatabase("rejects-adaptation");
 r = await call({ athlete_id: "a1", workout });
-test("when the table needs descriptive columns, the second try supplies them", r.code === 201 && db.plans.length === 1 && db.planAttempts.length === 2 && db.plans[0].phase === "Coach-planned", JSON.stringify(r.body));
+test("when the adaptation column is missing, it is dropped and the week still opens", r.code === 201 && db.plans.length === 1 && !("adaptation" in db.plans[0]) && db.planAttempts.length === 2, JSON.stringify(r.body));
 
-db = makeDatabase("needs-race-label");
+db = makeDatabase("needs-extra");
 r = await call({ athlete_id: "a1", workout });
-test("when target_race must be filled in, the third try supplies it", r.code === 201 && db.planAttempts.length === 3 && db.plans[0].target_race === "Coach-planned", JSON.stringify(r.body));
+test("a NOT NULL column our base doesn't carry is read from the error and filled in", r.code === 201 && db.plans.length === 1 && db.plans[0].intensity_focus != null && db.planAttempts.length === 2, JSON.stringify(r.body));
 
 db = makeDatabase("always-fails");
 r = await call({ athlete_id: "a1", workout });
