@@ -29,8 +29,9 @@ test("the old top-left logo is gone", !/w-logo|athlevo-coaching-logo/.test(welco
 test("the old icon + 'Athlevo.' text lockup is gone from the welcome screen", !/w-lockup|w-mark|athlevo-ae-mark/.test(welcome));
 test("four slides, each responsive (webp 720/1080 with jpg fallback), decorative, and lazy so signed-in users never download them",
   (welcome.match(/<picture class="w-slide"/g) || []).length === 4 &&
-  [1, 2, 3, 4].every(i => welcome.includes(`style="--i:${i - 1}"><source type="image/webp" srcset="assets/welcome/hero-${i}-720.webp 720w, assets/welcome/hero-${i}-1080.webp 1080w"`) &&
-    new RegExp(`<img src="assets/welcome/hero-${i}-720\\.jpg" alt="" [^>]*loading="lazy"`).test(welcome)) &&
+  [1, 2, 3, 4].every(i =>
+    new RegExp(`style="--i:${i - 1}"><source type="image/webp" srcset="assets/welcome/hero-${i}-720\\.webp(?:\\?v=\\d+)? 720w, assets/welcome/hero-${i}-1080\\.webp(?:\\?v=\\d+)? 1080w"`).test(welcome) &&
+    new RegExp(`<img src="assets/welcome/hero-${i}-720\\.jpg(?:\\?v=\\d+)?" alt="" [^>]*loading="lazy"`).test(welcome)) &&
   /<div class="w-photo" aria-hidden="true">/.test(welcome));
 test("a scrim sits between the photo and the copy", /<div class="w-scrim" aria-hidden="true"><\/div>/.test(welcome));
 test("every sign-in control and variant element is still there",
