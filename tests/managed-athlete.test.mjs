@@ -268,7 +268,7 @@ t("stampOwnership derives from server actorRole, not client input", (() => {
   const s1 = stampOwnership({ mode: "human_coached", actorRole: "coach", actorId: "c1" });
   const s2 = stampOwnership({ mode: "human_coached", actorRole: "athlete", actorId: "a1" });
   const s3 = stampOwnership({ mode: "self_guided", actorRole: "athlete", actorId: "a1" });
-  return s1.owner_type === "human_coach" && s1.source === "human_coach" &&
+  return s1.owner_type === "human_coach" && s1.source === "coach" &&
          s2.owner_type === "athlete" && s2.source === "ai_generated" &&
          s3.owner_type === "athlete_ai";
 })());
