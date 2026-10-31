@@ -1805,41 +1805,51 @@
 
   /* ── Detail: Plan-only view ────────────────────────────────────── */
   function renderPlanDetail(s, dISO, ex) {
-    const title = typeof formatSessionType === "function" ? formatSessionType(s.session_type) : (s.title || "Workout");
-    let html = `<div class="ad-header"><div class="ad-header-top"><div class="ad-header-info">
-      <h2 class="ad-title">${esc(title)}</h2>
-      <span class="ad-source">Planned Session</span>
-    </div></div>
-    <div class="ad-header-meta"><span>${esc(fmtDayHeader(dISO))}</span></div></div>`;
+    var zoneKey = plannedZone(s);
+    var zm = PW_ZONES[zoneKey] || PW_ZONES.easy;
+    var typeLabel = (typeof formatSessionType === "function" && formatSessionType(s.session_type)) || zm.label;
+    var title = (s.title && String(s.title).trim()) || typeLabel;
+    var intentText = (s.description && String(s.description).trim()) || zm.intent;
+    var sameName = title.toLowerCase().replace(/[^a-z0-9]/g, "") === String(typeLabel).toLowerCase().replace(/[^a-z0-9]/g, "");
+    var headline = sameName ? intentText : title;
+    var subline = sameName ? "" : intentText;
+    var dur = num(s.duration_minutes), dist = num(s.distance_km);
+    var heroVal = "", heroUnit = "", heroSub = "";
+    if (dur > 0) { heroVal = String(Math.round(dur)); heroUnit = "min"; if (dist > 0) heroSub = "\u2248 " + trimKm(dist) + " km"; }
+    else if (dist > 0) { heroVal = trimKm(dist); heroUnit = "km"; }
+    var pace = s.pace_guidance ? String(s.pace_guidance).replace(/\s*\/\s*km\s*$/i, "") : "";
+    var rpe = s.target_rpe ? String(s.target_rpe) : "";
+    var segs = "";
+    for (var i = 1; i <= 5; i++) segs += '<span class="af-pw-seg"' + (i <= zm.effort ? ' style="background:' + zm.accent + '"' : '') + '></span>';
+    var tiles = "";
+    if (pace) tiles += pwTile("Pace", pace, "/km");
+    if (dur > 0 && dist > 0) tiles += pwTile("Distance", trimKm(dist), "km");
+    if (rpe) tiles += pwTile("Feel", feelWord(rpe), "RPE " + rpe);
 
-    // Plan summary
-    const items = [];
-    if (num(s.duration_minutes) > 0) items.push({ label: "Duration", value: Math.round(s.duration_minutes) + "m" });
-    if (num(s.distance_km) > 0) items.push({ label: "Distance", value: s.distance_km + " km" });
-    if (s.pace_guidance) items.push({ label: "Target Pace", value: s.pace_guidance });
-    if (s.target_rpe) items.push({ label: "Target RPE", value: s.target_rpe });
-    if (items.length) {
-      html += `<p class="ad-metrics">${esc(items.map(i => i.value).join(" · "))}</p>`;
+    var html = '<div class="ad-pw">' +
+      '<div class="af-pw-head"><span class="af-pw-dot" style="background:' + zm.accent + '"></span><span class="af-pw-zone" style="color:' + zm.accent + '">' + esc(typeLabel) + '</span><span class="ad-pw-date">' + esc(fmtDayHeader(dISO)) + '</span></div>' +
+      '<div class="af-pw-intent">' + esc(headline) + '</div>' +
+      (subline ? '<div class="af-pw-sub">' + esc(subline) + '</div>' : '') +
+      (heroVal !== "" ? '<div class="af-pw-hero"><span class="af-pw-hero-val">' + esc(heroVal) + '</span><span class="af-pw-hero-unit">' + esc(heroUnit) + '</span>' + (heroSub ? '<span class="af-pw-hero-sub">' + esc(heroSub) + '</span>' : '') + '</div>' : '') +
+      plannedWorkoutStrip(s) +
+      (zm.effort ? '<div class="af-pw-effort"><div class="af-pw-ladder">' + segs + '</div><div class="af-pw-ladder-tags"><span>Easy</span><span>Hard</span></div></div>' : '') +
+      (tiles ? '<div class="af-pw-tiles">' + tiles + '</div>' : '');
+
+    var warmup = Array.isArray(s.warmup) ? s.warmup.filter(Boolean) : [];
+    var mainSet = Array.isArray(s.main_set) ? s.main_set.filter(Boolean) : [];
+    var cooldown = Array.isArray(s.cooldown) ? s.cooldown.filter(Boolean) : [];
+    function stepBlock(label, arr) {
+      if (!arr.length) return "";
+      return '<div class="ad-pw-step"><div class="ad-pw-step-h">' + esc(label) + '</div><ul class="ad-pw-step-list">' + arr.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join("") + '</ul></div>';
     }
-
-    if (s.purpose) html += `<div class="ad-section"><div class="ad-section-h">Purpose</div><p class="ad-plan-text">${esc(s.purpose)}</p></div>`;
-
-    const warmup = Array.isArray(s.warmup) ? s.warmup.filter(Boolean) : [];
-    const mainSet = Array.isArray(s.main_set) ? s.main_set.filter(Boolean) : [];
-    const cooldown = Array.isArray(s.cooldown) ? s.cooldown.filter(Boolean) : [];
-
-    if (warmup.length) html += `<div class="ad-section"><div class="ad-section-h">Warm-up</div><ul class="ad-plan-list">${warmup.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>`;
-    if (mainSet.length) html += `<div class="ad-section"><div class="ad-section-h">Main Set</div><ul class="ad-plan-list">${mainSet.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>`;
-    if (cooldown.length) html += `<div class="ad-section"><div class="ad-section-h">Cooldown</div><ul class="ad-plan-list">${cooldown.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>`;
-
-    if (s.coach_reasoning) html += `<div class="ad-section"><div class="ad-section-h">Coach Reasoning</div><p class="ad-plan-text ad-coach-text">${esc(s.coach_reasoning)}</p></div>`;
-
-    if (ex && ex.status === "skipped") {
-      html += `<div class="ad-section"><div class="ad-section-h">Status</div><p class="ad-plan-text">Skipped${ex.skip_reason ? " — " + esc(ex.skip_reason) : ""}</p></div>`;
-    }
-
+    var steps = stepBlock("Warm-up", warmup) + stepBlock("Main set", mainSet) + stepBlock("Cool-down", cooldown);
+    if (steps) html += '<div class="ad-pw-steps">' + steps + '</div>';
+    if (s.coach_reasoning) html += '<div class="ad-pw-note"><div class="ad-pw-note-h">From your coach</div><p>' + esc(s.coach_reasoning) + '</p></div>';
+    if (ex && ex.status === "skipped") html += '<div class="ad-pw-note"><div class="ad-pw-note-h">Status</div><p>Skipped' + (ex.skip_reason ? " \u2014 " + esc(ex.skip_reason) : "") + '</p></div>';
+    html += '</div>';
     return html;
   }
+
 
   /* ── Workout structure normalization (unchanged logic) ──────────── */
   let _wsvSegments = [];

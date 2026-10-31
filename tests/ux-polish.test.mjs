@@ -56,9 +56,15 @@ section("P3. The modal covers the required fields, degrading gracefully");
 {
   const fn = calendar.slice(calendar.indexOf("function openModal"),
                             calendar.indexOf("function closeModal"));
-  ["Session type", "Duration", "Distance", "Target pace", "Target RPE"]
+  ["Session type", "Duration", "Distance", "Target pace"]
     .forEach(f => t(`shows ${f}`, fn.includes(f)));
-  t("shows purpose", /s\.purpose/.test(fn));
+  // The planned view (renderPlanDetail) now shows the Apple-style card: intent headline,
+  // hero metric, effort ladder and an RPE "feel" tile.
+  const plan = calendar.slice(calendar.indexOf("function renderPlanDetail"),
+                              calendar.indexOf("function renderPlanDetail") + 2600);
+  t("planned view leads with intent and a hero metric", /af-pw-intent/.test(plan) && /af-pw-hero-val/.test(plan));
+  t("shows RPE as a feel tile", /pwTile\("Feel", feelWord\(rpe\)/.test(plan));
+  t("shows the effort ladder", /af-pw-ladder/.test(plan));
   t("shows warm-up, main set and cooldown",
     /ul\("Warm-up", s\.warmup\)/.test(fn) && /ul\("Main set", s\.main_set\)/.test(fn) &&
     /ul\("Cooldown", s\.cooldown\)/.test(fn));
