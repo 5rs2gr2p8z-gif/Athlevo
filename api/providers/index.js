@@ -4306,7 +4306,7 @@ export default async function handler(request, response) {
       return paymongoCheckoutHandler(request, response);
     }
 
-    // Athlevo Plan (the ₱999 one-time plan) sign-up on the public /programs page (no Athlevo account).
+    // Athlevo Plan (the ₱999 monthly plan) sign-up on the public /programs page (no Athlevo account).
     if (action === "plan_signup_checkout") {
       return planSignupCheckoutHandler(request, response);
     }

@@ -937,7 +937,7 @@ section("9c. Test keys never open a checkout on the production site");
   closed(); closedCoaching(); closedVIP();
 }
 
-section("9d. Athlevo Plan (₱999, paid once) and the settings Guided borrows");
+section("9d. Athlevo Plan (₱999/month, a 4-week plan, no call) and the settings Guided borrows");
 {
   const TP_REF = (c) => "ATH-TP-1234567890A-" + c.repeat(24);
   const planPaid = (o = {}) => paidEvent({ productId: ATHLEVO_PLAN_PRODUCT.id, amount: 99900, ...o });
@@ -973,16 +973,16 @@ section("9d. Athlevo Plan (₱999, paid once) and the settings Guided borrows");
     const a = log.paymongo[log.paymongo.length - 1].attributes;
     tpRef = a.reference_number;
     t("returns only a checkout URL", r.statusCode === 200 && JSON.stringify(Object.keys(r.body)) === '["checkout_url"]');
-    t("amount is the server-owned ₱999 whatever the browser sends, and it is not described as monthly",
+    t("amount is the server-owned ₱999 whatever the browser sends, described as one month like the other offers",
       a.line_items.length === 1 && a.line_items[0].amount === 99900 && a.line_items[0].currency === "PHP" &&
       a.line_items[0].quantity === 1 && a.line_items[0].name === "Athlevo Plan" &&
-      a.line_items[0].description === "Athlevo Plan — one-time" && !/month/i.test(JSON.stringify(a)));
-    t("the Plan price matches the price shown on the page, and the page shows no monthly period",
+      a.line_items[0].description === "Athlevo Plan — 1 month");
+    t("the Plan price matches the price shown on the page, per month",
       (() => {
         const sandbox = {}; sandbox.window = sandbox; sandbox.globalThis = sandbox;
         vm.runInNewContext(readFileSync("js/storeCatalog.js", "utf8"), sandbox);
         const shown = sandbox.AthlevoStoreCatalog.getProduct("athlevo-plan").page.price;
-        return shown.amount === "₱" + (ATHLEVO_PLAN_PRODUCT.priceCents / 100).toLocaleString("en-US") && shown.period === "";
+        return shown.amount === "₱" + (ATHLEVO_PLAN_PRODUCT.priceCents / 100).toLocaleString("en-US") && shown.period === "/month";
       })());
     t("reference number has the Plan format (TP), never Guided's (PL)",
       /^ATH-TP-[0-9A-F]{8,16}-[0-9A-F]{24}$/.test(tpRef) && !/^ATH-PL-/.test(tpRef), tpRef);
@@ -1109,7 +1109,7 @@ section("9d. Athlevo Plan (₱999, paid once) and the settings Guided borrows");
     closed();
   }
 
-  // the emails: the Plan says a coach builds the plan and that it is one-time; Guided still says "schedule a call"
+  // the emails: the Plan says a coach builds the plan (no call) and the same one-month wording as Guided; Guided still says "schedule a call"
   {
     env({ RESEND_API_KEY: "re_test_key", SIGNUP_ALERT_EMAIL: "dean@athlevo.example", SIGNUP_FROM_EMAIL: undefined,
       ATHLEVO_INVITE_FROM_EMAIL: undefined, SIGNUP_REPLY_TO_EMAIL: undefined });
@@ -1118,14 +1118,14 @@ section("9d. Athlevo Plan (₱999, paid once) and the settings Guided borrows");
     await deliver(planPaid({ reference: TP_REF("8"), paymentId: "pay_tp9", checkoutId: "cs_tp9", id: "evt_tp9" }));
     const buyer = log.emails.find(e => e.body.to.join(",").includes("maria@example.com"));
     const owner = log.emails.find(e => e.body.to.join(",").includes("dean@athlevo.example"));
-    t("the Plan's buyer email: questionnaire, then 'your coach builds your plan'; no call; says it is one-time",
+    t("the Plan's buyer email: questionnaire, then 'your coach builds your plan'; no call; covers one month",
       buyer && buyer.body.subject === "Welcome to Athlevo Plan: your next steps" &&
       buyer.body.text.includes("₱999") && buyer.body.text.includes(PLAN_QUESTIONNAIRE) &&
       buyer.body.text.includes("2. Your coach builds your plan.") && !/schedule your call|scheduled to schedule|schedule a call/i.test(buyer.body.text + buyer.body.html) &&
-      buyer.body.text.includes("This is a one-time payment and nothing renews automatically.") &&
-      !/covers one month/i.test(buyer.body.text + buyer.body.html), buyer && buyer.body.text);
-    t("the Plan's owner alert says one-time and shows no paid-through date",
-      owner && owner.body.text.includes("Offer: Athlevo Plan (one-time)") && !/Paid through/.test(owner.body.text) &&
+      buyer.body.text.includes("Your payment covers one month and does not renew automatically.") &&
+      !/one-time/i.test(buyer.body.text + buyer.body.html), buyer && buyer.body.text);
+    t("the Plan's owner alert shows the month and the paid-through date",
+      owner && owner.body.text.includes("Offer: Athlevo Plan (1 month)") && /Paid through/.test(owner.body.text) &&
       owner.body.text.includes("Amount: ₱999"), owner && owner.body.text);
     log.emails.length = 0;
     const gRef2 = "ATH-PL-FEEDFACE09-" + "9".repeat(24);
@@ -1668,9 +1668,9 @@ section("12. Partner discount codes (unique per runner, 10% off every payment)")
       guided.statusCode === 200 && guided.body.price_cents === 269730 && guided.body.list_price_cents === 299700);
     const paid = res(); await planCheckout(post({ code: PLAN_ONLY }, "198.51.100.71"), paid);
     const a = log.paymongo[log.paymongo.length - 1].attributes;
-    t("a coded Plan checkout is priced by the server and says it is one-time",
+    t("a coded Plan checkout is priced by the server and says it covers one month",
       paid.statusCode === 200 && a.line_items[0].amount === 89910 && a.metadata.list_price_cents === "99900" &&
-      a.metadata.athlevo_product === "ATHLEVO_TRAINING_PLAN" && /10% discount applied/.test(a.description) && /one-time/.test(a.description));
+      a.metadata.athlevo_product === "ATHLEVO_TRAINING_PLAN" && /10% discount applied/.test(a.description) && /1 month/.test(a.description));
     const okPay = await deliver(paidEvent({ reference: a.reference_number, productId: ATHLEVO_PLAN_PRODUCT.id, amount: 89910, partnerCode: PLAN_ONLY, discountPercent: 10, paymentId: "pay_tpc1", checkoutId: "cs_tpc1", id: "evt_tpc1" }));
     t("and the webhook accepts exactly that amount for the Plan", okPay.statusCode === 200 && okPay.body.result.applied === true);
     const badPay = await deliver(paidEvent({ reference: "ATH-TP-1234567890A-" + "A".repeat(24), productId: ATHLEVO_PLAN_PRODUCT.id, amount: 99900, partnerCode: PLAN_ONLY, discountPercent: 10, paymentId: "pay_tpc2", id: "evt_tpc2" }));

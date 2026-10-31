@@ -2,7 +2,7 @@
 
 Lets a visitor pay for one of four offers on `programs.athlevo.org` without an Athlevo app account:
 
-- **Athlevo Plan** (₱999, paid once): a personalized training plan built by an Athlevo coach, on `/athlevo-plan`.
+- **Athlevo Plan** (₱999 per month): a personalized 4-week training plan built by an Athlevo coach, with no coaching call, on `/athlevo-plan`.
 - **Athlevo Guided** (₱2,997 per month): the plan plus a coach to answer your questions, on `/athlevo-guided`. This is the
   offer that used to be called Athlevo Plan (₱1,998).
 - **Athlevo Coaching** (₱4,998 per month): everything in Guided, with frequent training adjustments, nutrition, recovery
@@ -19,7 +19,7 @@ Each offer is **off** until you turn it on, and you can open any of them without
 
 | | Athlevo Plan | Athlevo Guided | Athlevo Coaching | Athlevo VIP Coaching |
 |---|---|---|---|---|
-| Price (owned by the server) | ₱999, paid once | ₱2,997 | ₱4,998 | ₱7,998 |
+| Price (owned by the server) | ₱999 per month | ₱2,997 | ₱4,998 | ₱7,998 |
 | Page (on programs.athlevo.org) | `/athlevo-plan` | `/athlevo-guided` | `/athlevo-coaching` | `/athlevo-vip-coaching` |
 | Server switch | `PLAN_SIGNUP_ENABLED` | `GUIDED_SIGNUP_ENABLED` | `COACHING_SIGNUP_ENABLED` | `VIP_SIGNUP_ENABLED` |
 | Questionnaire link | `PLAN_QUESTIONNAIRE_URL` | `GUIDED_QUESTIONNAIRE_URL`, or the Plan's when not set | `COACHING_QUESTIONNAIRE_URL`, or the Plan's when not set | `VIP_QUESTIONNAIRE_URL`, or the Plan's when not set |
@@ -51,7 +51,7 @@ set these first and then deploy once:
 | `VIP_SIGNUP_ENABLED=true` | Same, for VIP Coaching. `ELITE_SIGNUP_ENABLED` is no longer read. |
 | `VIP_SCHEDULE_URL`, `VIP_AGREEMENT_URL` | Copy the values you had in `ELITE_SCHEDULE_URL` and `ELITE_AGREEMENT_URL`. VIP has no fallback for these two, so without them every VIP buyer's confirmation page and email arrive with no scheduling link and no agreement. |
 | `GUIDED_AGREEMENT_URL` (optional) | Guided and the ₱999 Plan both fall back to `PLAN_AGREEMENT_URL`. Set Guided's own if the two should show different documents. |
-| `PLAN_SIGNUP_ENABLED` | Already `true`? Then the **₱999 Plan opens the moment you deploy**, and any link or ad that still points at `/athlevo-plan` sells the ₱999 one-time Plan instead of the old monthly one. Point those at `/athlevo-guided`, or set this to `false` until you want the Plan on sale. |
+| `PLAN_SIGNUP_ENABLED` | Already `true`? Then the **₱999 Plan opens the moment you deploy**, and any link or ad that still points at `/athlevo-plan` sells the ₱999 Plan instead of the old ₱1,998 one. Point those at `/athlevo-guided`, or set this to `false` until you want the Plan on sale. |
 
 If a switch is missing, the server log says which one (`checkout refused: Athlevo VIP Coaching is closed on the server (needs
 VIP_SIGNUP_ENABLED=true ...)`), and it says so when old `ELITE_*` settings are still present.
@@ -73,11 +73,9 @@ All offers write to the same table, `plan_signups`; the `product_id` column says
    offer's status endpoint whether the webhook has recorded the payment, and only then shows the
    questionnaire link and the call-scheduling step. Being redirected back proves nothing by itself.
 
-Guided, Coaching and VIP Coaching are month to month with no automatic renewal. Month two is another checkout. The Athlevo Plan
-is paid once and has nothing to renew; its row still carries a `paid_through` of 30 days because the table needs one, and it is
-not a renewal date. Nothing reads `paid_through` today. When the monthly reminder is built it must skip `ATHLEVO_TRAINING_PLAN`
-rows, or Plan buyers will be reminded to pay again. The Plan has no call step: after the questionnaire the buyer's email and confirmation page say a coach builds
-the plan.
+All four offers are month to month with no automatic renewal. Month two is another checkout. The Athlevo Plan works like the
+others (each payment covers 30 days and its row carries a `paid_through` date), but it has no call step: after the questionnaire
+the buyer's email and confirmation page say a coach builds the plan.
 
 ## Turn it on (in this order; repeat steps 2, 4 and 5 for each offer)
 
@@ -157,8 +155,7 @@ PayMongo collected at checkout and can be empty; the PayMongo dashboard always h
 ## Not built yet
 
 - No retry or "resend" for a failed email, and no way to resend the steps from the site.
-- No monthly reminder (deferred until the site is live). `paid_through` is there for it, and the Guided, Coaching and VIP pages
-  promise one. It must skip the one-time Athlevo Plan (`ATHLEVO_TRAINING_PLAN`).
+- No monthly reminder (deferred until the site is live). `paid_through` is there for it, and all four pages promise one.
 - No renewal link. Month two is another Sign Up checkout.
 - Nothing yet checks that a buyer's questionnaire or call happened; the confirmation page only shows the links.
 

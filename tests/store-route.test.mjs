@@ -73,10 +73,14 @@ section("2. Catalog data");
       ["durationWeeks", "durationLabel", "intendedRunner", "summary", "description",
        "whoFor", "startingFitness", "receives", "intakeAndDelivery", "collection"]
         .every(k => !(k in p))));
-  t("offer data mentions no race distances or week counts (approved athlete quotes excepted)",
-    !/\b(5k|10k|half[- ]marathon|marathon|\d+[- ]weeks?)\b/i.test(
-      JSON.stringify(catalog.products.map(({ coachSupport, hero, page, ...rest }) =>
-        ({ ...rest, page: page && { ...page, athleteFeedback: undefined } })))));
+  // The one exception is the Athlevo Plan, which is a 4-week plan (owner, 2026-10-31).
+  const offerJson = (list) => JSON.stringify(list.map(({ coachSupport, hero, page, ...rest }) =>
+    ({ ...rest, page: page && { ...page, athleteFeedback: undefined } })));
+  const raceOrWeeks = /\b(5k|10k|half[- ]marathon|marathon|\d+[- ]weeks?)\b/i;
+  t("offer data mentions no race distances or week counts, except the Athlevo Plan's 4-week plan (approved athlete quotes excepted)",
+    !raceOrWeeks.test(offerJson(catalog.products.filter(p => p.slug !== "athlevo-plan"))) &&
+    !raceOrWeeks.test(offerJson(catalog.products.filter(p => p.slug === "athlevo-plan")).replace(/\b4-week\b/g, "")) &&
+    /4-week/.test(offerJson(catalog.products.filter(p => p.slug === "athlevo-plan"))));
   t("all four offers have built pages, so none is left on the bare layout",
     catalog.products.every(p => !!p.page) &&
     catalog.getProduct("hybrid-programming") === null && catalog.getProduct("elite-coaching") === null);
@@ -429,7 +433,7 @@ section("4d. Offer pages: what the four offers share");
   t("mobile Sign Up buttons are full width and quotes stack",
     /\.pdp-hero--offer \.btn-lg\s*\{\s*width:\s*100%/.test(mobileCss) &&
     /\.offer-quotes\s*\{\s*grid-template-columns:\s*1fr/.test(mobileCss));
-  t("a price with no period (Athlevo Plan, paid once) draws no empty period label",
+  t("a price with no period would draw no empty period label (no offer needs that today; the guard stays)",
     (storefrontSrc.match(/if \(data\.price\.period\) /g) || []).length === 2);
 
   const fb = offers[0].page.athleteFeedback;
@@ -478,7 +482,7 @@ section("4d. Offer pages: what the four offers share");
     /function appendFaqAndRelated/.test(storefrontSrc));
 }
 
-section("4e. Athlevo Plan page (₱999, paid once)");
+section("4e. Athlevo Plan page (₱999/month, a 4-week plan)");
 {
   const plan = catalog.getProduct("athlevo-plan");
   const page = plan.page, su = page.signUp;
@@ -489,18 +493,18 @@ section("4e. Athlevo Plan page (₱999, paid once)");
     plan.name === "Athlevo Plan" &&
     page.seoTitle === "Athlevo Plan — A Training Plan Built by a Coach" &&
     page.headline === "A training plan built for you." &&
-    page.description === "A personalized training plan, built by an Athlevo coach around your schedule, fitness level, and goals." &&
-    page.supporting === "One-time payment.");
-  t("price is ₱999, paid once: no monthly period anywhere on the page",
-    page.price.amount === "₱999" && page.price.period === "" && page.pricing.terms === "One-time payment." &&
-    !/month/i.test(pageJson));
+    page.description === "A personalized 4-week training plan, built by an Athlevo coach around your schedule, fitness level, and goals." &&
+    page.supporting === "Month-to-month. No lock-in.");
+  t("price is ₱999 a month, month-to-month, and the plan is described as a 4-week plan",
+    page.price.amount === "₱999" && page.price.period === "/month" && page.pricing.terms === "Month-to-month, no lock-in." &&
+    /4-week/.test(page.overview.intro) && /4-week/.test(page.overview.includes[0]) && /4-week/.test(page.pricing.includes[0]));
   t("what is included is the plan and nothing more",
     JSON.stringify(page.overview.includes) === JSON.stringify([
-      "A personalized training plan, built by an Athlevo coach.",
+      "A personalized 4-week training plan, built by an Athlevo coach.",
       "Built around your schedule, your fitness level, and your goals."
     ]) &&
     JSON.stringify(page.pricing.includes) === JSON.stringify([
-      "Personalized training plan",
+      "Personalized 4-week training plan",
       "Built by an Athlevo coach",
       "Built around your schedule, fitness level, and goals"
     ]));
@@ -511,20 +515,20 @@ section("4e. Athlevo Plan page (₱999, paid once)");
   t("no coach is named or implied: no coach profile and no Meet the Coach section",
     !("coach" in page) && !/\b(Dean|Castro|Louie|Christian|Francia|founder|head coach)\b/i.test(pageJson) &&
     !/id="coach"|Meet the Coach/.test(pre.html));
-  t("sign-up wiring: its own endpoints and reference code, no call to schedule, no discount code box, and a one-time renewal line",
+  t("sign-up wiring: its own endpoints and reference code, no call to schedule, no discount code box, and the same renewal line as the other offers",
     typeof su.open === "boolean" && su.refCode === "TP" && su.call === false && su.takesCodes === false &&
     su.checkoutEndpoint === "/api/plan-signup/checkout" && su.statusEndpoint === "/api/plan-signup/status" &&
-    su.renewal === "This is a one-time payment. Nothing renews automatically." && !/remind/i.test(su.renewal) &&
+    su.renewal === "There is no automatic renewal. We will remind you when your next payment is due." &&
     page.getStarted.notice === "Registration opening soon");
   t("how to get started: payment, questionnaire, the coach builds the plan, receive it; no call",
     JSON.stringify(page.getStarted.steps) === JSON.stringify([
       "Sign up and complete payment.",
       "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
-      "An Athlevo coach builds your personalized training plan from your answers.",
+      "An Athlevo coach builds your personalized 4-week training plan from your answers.",
       "Receive your plan."
     ]) && !/\bcall\b/i.test(page.getStarted.steps.join(" ")));
-  t("the prerendered Plan page holds the price, inclusions, steps and quotes, with no monthly wording and no coach block",
-    pre.holdsContent && !/\/month|per month|month-to-month|monthly/i.test(pre.text) && !pre.text.includes("Meet the Coach"));
+  t("the prerendered Plan page holds the price (₱999/month), inclusions, steps and quotes, with no coach block",
+    pre.holdsContent && /₱999/.test(pre.text) && /\/month/.test(pre.text) && /4-week/.test(pre.text) && !pre.text.includes("Meet the Coach"));
   t("the prerendered Plan page has Sign Up buttons exactly when its switch is on, and never a code box, form field or card input",
     pre.buttons === (su.open ? 2 : 0) && pre.codeBoxes === 0 && pre.inputs === 0 &&
     !/Have a discount code\?/.test(pre.html) && !/<(form|textarea|select)\b/i.test(pre.html) && !/cc-|cvv|cvc|card-?number/i.test(pre.html) &&
@@ -1034,10 +1038,8 @@ section("10. Sign-up on the four offers (client)");
         DEFAULT_PAYMONGO_PAYMENT_METHODS.every(m => label[m] && su.payment.includes(label[m])) &&
         DEFAULT_PAYMONGO_PAYMENT_METHODS.length === 3 && !/gcash/i.test(su.payment));
     })());
-  t("the three monthly offers say there is no automatic renewal and promise a reminder; Athlevo Plan says it is paid once and nothing renews",
-    monthly.every(su => /no automatic renewal/.test(su.renewal) && /remind you/.test(su.renewal)) &&
-    /one-time payment/.test(catalog.getProduct("athlevo-plan").page.signUp.renewal) &&
-    /Nothing renews automatically/.test(catalog.getProduct("athlevo-plan").page.signUp.renewal));
+  t("all four offers say there is no automatic renewal and promise a reminder",
+    signUps.every(su => /no automatic renewal/.test(su.renewal) && /remind you/.test(su.renewal)));
   t("the no-refund line is the agreement's Section 6 wording, shown before payment, on all four",
     signUps.every(su => su.terms === "All payments to Athlevo are final and non-refundable, to the fullest extent allowed under Philippine law.") &&
     /\[data\.signUp\.payment, data\.signUp\.renewal, data\.signUp\.terms\]/.test(storefrontSrc));
@@ -1053,9 +1055,8 @@ section("10. Sign-up on the four offers (client)");
         s.ref().split("-")[1] === su.refCode &&
         s.steps(env).call === su.call;
     }) && new Set(signUps.map(su => su.refCode)).size === 4);
-  t("only Athlevo Plan is paid once: the page has no price period exactly where the server marks the offer one-time",
-    offers.every(o => (o.page.price.period === "") === (SERVER[o.slug].product.oneTime === true)) &&
-    offers.filter(o => SERVER[o.slug].product.oneTime === true).map(o => o.slug).join(",") === "athlevo-plan");
+  t("every offer is monthly: each page shows /month and the server product covers 30 days",
+    offers.every(o => o.page.price.period === "/month" && SERVER[o.slug].product.entitlementDays === 30 && !("oneTime" in SERVER[o.slug].product)));
   t("the browser skips the call step and the code box only where the catalog says so",
     /cfg\.call === false/.test(storefrontSrc) && /cfg\.takesCodes !== false/.test(storefrontSrc) &&
     offers.filter(o => o.page.signUp.call === false).map(o => o.slug).join(",") === "athlevo-plan" &&
@@ -1157,10 +1158,10 @@ section("10. Sign-up on the four offers (client)");
     const planPage = pageOf(planOnly, PLAN);
     t("open (Plan only): every page's banner announces the Plan",
       everyBanner(planOnly, "Athlevo Plan is open for sign-up") && !planOnly["store.html"].includes("Purchasing is not yet available"));
-    t("open (Plan only): the Plan page has Sign Up in the hero and the pricing card, the payment, one-time and no-refund lines once, and no code box",
+    t("open (Plan only): the Plan page has Sign Up in the hero and the pricing card, the payment, renewal and no-refund lines once, and no code box",
       live(planPage, PLAN) && codeBoxesIn(planPage) === 0 && !/Have a discount code\?/.test(planPage));
-    t("open (Plan only): the Plan page shows ₱999 with no monthly wording and names no coach",
-      textOf(mainOf(planPage)).includes("₱999") && !/\/month|per month|month-to-month|monthly/i.test(textOf(mainOf(planPage))) &&
+    t("open (Plan only): the Plan page shows ₱999/month and names no coach",
+      textOf(mainOf(planPage)).includes("₱999") && /\/month/.test(textOf(mainOf(planPage))) &&
       !/id="coach"|Meet the Coach/.test(planPage));
     t("open (Plan only): the FAQ names the Plan and says the other programs are not available yet",
       /Athlevo Plan is open for sign-up\. The other programs are not available to buy yet\./.test(planPage) && !/Not yet\. Purchasing is not open/.test(planPage));
@@ -1208,9 +1209,8 @@ section("10. Sign-up on the four offers (client)");
       vipText.includes("₱7,998") && !/₱999|₱2,997|₱4,998/.test(vipText) &&
       /Meet the Coach/.test(vipText) && vipText.includes("Dean Vincent Castro") &&
       catalog.coaches[0].certifications.every(x => pageOf(all4, VIP).includes("<li>" + x + "</li>")));
-    t("open (all four): each monthly page shows its price with /month, and Plan alone has none",
-      [[GUIDED, "₱2,997"], [COACHING, "₱4,998"], [VIP, "₱7,998"]].every(([s, p]) => textOf(mainOf(pageOf(all4, s))).includes(p) && /\/month/.test(textOf(mainOf(pageOf(all4, s))))) &&
-      !/\/month/.test(textOf(mainOf(pageOf(all4, PLAN)))));
+    t("open (all four): each page shows its price with /month",
+      [[PLAN, "₱999"], [GUIDED, "₱2,997"], [COACHING, "₱4,998"], [VIP, "₱7,998"]].every(([s, p]) => textOf(mainOf(pageOf(all4, s))).includes(p) && /\/month/.test(textOf(mainOf(pageOf(all4, s))))));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

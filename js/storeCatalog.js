@@ -170,8 +170,6 @@
   var SIGNUP_COPY = {
     payment: "Pay securely through PayMongo with QRPh, Maya, or GrabPay.",
     renewal: "There is no automatic renewal. We will remind you when your next payment is due.",
-    // For an offer that is paid once (Athlevo Plan): there is no next payment to remind about.
-    oneTimeRenewal: "This is a one-time payment. Nothing renews automatically.",
     // Wording from Section 6 of the Athlevo Coaching Agreement v2.0.
     terms: "All payments to Athlevo are final and non-refundable, to the fullest extent allowed under Philippine law."
   };
@@ -221,7 +219,7 @@
   // (lib/server/planSignup.js) and a test checks the two agree. Each `signUp.refCode` is the
   // code the server puts in that offer's payment reference (ATH-<code>-...); the browser uses it to
   // open a returning buyer's confirmation under the right offer.
-  //   Athlevo Plan          one-time payment, no call step
+  //   Athlevo Plan          a 4-week plan, month-to-month, no call step
   //   Athlevo Guided        the plan plus a coach to answer questions (was "Athlevo Plan")
   //   Athlevo Coaching      everything in Guided, with a hands-on coach
   //   Athlevo VIP Coaching  everything in Coaching, with Dean as your coach (was "Elite Coaching")
@@ -233,16 +231,15 @@
       page: {
         seoTitle: "Athlevo Plan — A Training Plan Built by a Coach",
         headline: "A training plan built for you.",
-        description: "A personalized training plan, built by an Athlevo coach around your schedule, fitness level, and goals.",
-        // Paid once, so there is no period. The page and the search description leave it out.
-        price: { amount: "₱999", period: "" },
+        description: "A personalized 4-week training plan, built by an Athlevo coach around your schedule, fitness level, and goals.",
+        price: { amount: "₱999", period: "/month" },
         cta: { label: "Sign Up", target: "how-to-get-started" },
-        supporting: "One-time payment.",
+        supporting: "Month-to-month. No lock-in.",
         overview: {
-          intro: "Athlevo Plan is a personalized training plan, built by an Athlevo coach. It is built for your own schedule, fitness level, and goals.",
+          intro: "Athlevo Plan is a personalized 4-week training plan, built by an Athlevo coach. It is built for your own schedule, fitness level, and goals.",
           includesTitle: "What is included",
           includes: [
-            "A personalized training plan, built by an Athlevo coach.",
+            "A personalized 4-week training plan, built by an Athlevo coach.",
             "Built around your schedule, your fitness level, and your goals."
           ],
           note: "Athlevo Plan is the plan only. If you want a coach to answer your questions, see Athlevo Guided."
@@ -250,11 +247,11 @@
         athleteFeedback: ATHLETE_FEEDBACK,
         pricing: {
           includes: [
-            "Personalized training plan",
+            "Personalized 4-week training plan",
             "Built by an Athlevo coach",
             "Built around your schedule, fitness level, and goals"
           ],
-          terms: "One-time payment."
+          terms: "Month-to-month, no lock-in."
         },
         // No coach profile on purpose: the page says "an Athlevo coach" and names no one.
         // Athlevo Plan sign-up. `open` shows the Sign Up button; it needs the checkout, the
@@ -273,14 +270,14 @@
           statusEndpoint: "/api/plan-signup/status",
           takesCodes: false,
           payment: SIGNUP_COPY.payment,
-          renewal: SIGNUP_COPY.oneTimeRenewal,
+          renewal: SIGNUP_COPY.renewal,
           terms: SIGNUP_COPY.terms
         },
         getStarted: {
           steps: [
             "Sign up and complete payment.",
             "Complete the Athlevo questionnaire about your fitness, goals, schedule, and equipment.",
-            "An Athlevo coach builds your personalized training plan from your answers.",
+            "An Athlevo coach builds your personalized 4-week training plan from your answers.",
             "Receive your plan."
           ],
           notice: "Registration opening soon"
