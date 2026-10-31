@@ -179,8 +179,8 @@ const OB_PHASES = [
 
 /* Field specs — identical ids/types/options/validation to v2. */
 const F = {
-  name:    { id: "name", type: "text", label: "Your name", placeholder: "e.g. Dean", required: true },
-  age:     { id: "age", type: "number", label: "Age", unit: "yrs", min: 13, max: 100, integer: true, required: true, placeholder: "28", half: true },
+  name:    { id: "name", type: "text", label: "Your nickname", placeholder: "What should we call you?", required: true },
+  birthday: { id: "birthday", type: "date", label: "Birthday", required: true },
   sex:     { id: "sex", type: "chips", label: "Sex", required: true,
              options: [{ label: "Male", value: "Male" }, { label: "Female", value: "Female" }] },
   location:{ id: "location", type: "text", label: "Where you train", optional: true,
@@ -200,11 +200,10 @@ const F = {
              min: 0, max: 100, optional: true, placeholder: "5", half: true },
   status:  { id: "status", bare: true, type: "chips", label: "Current training status", required: true, layout: "cards",
              options: [
-               { label: "Just starting", value: "Just starting" },
-               { label: "Building base", value: "Building base" },
-               { label: "In a training block", value: "In a training block" },
-               { label: "Returning from a break", value: "Returning from a break" },
-               { label: "Maintaining fitness", value: "Maintaining fitness" }
+               { label: "Beginner — still building consistency", value: "Beginner" },
+               { label: "Recreational runner", value: "Recreational runner" },
+               { label: "Training for a specific race", value: "Training for a race" },
+               { label: "Returning after injury or a long break", value: "Returning" }
              ] },
   injuries:{ id: "injuries", type: "text", label: "Injuries or recurring niggles", optional: true,
              placeholder: "Anything nagging? Leave blank if none" },
@@ -274,7 +273,44 @@ const F = {
   diet:    { id: "diet", type: "text", label: "Diet, allergies or fuelling needs", optional: true,
              placeholder: "e.g. vegetarian, lactose intolerant" },
   notes:   { id: "notes", type: "textarea", label: "Anything else your coach should know", optional: true,
-             placeholder: "Motivation, health context, responsibilities…" }
+             placeholder: "Motivation, health context, responsibilities…" },
+  jogNonstop: { id: "jogNonstop", type: "text", label: "How long can you jog non-stop?", optional: true,
+             placeholder: "e.g. 20 min", half: true },
+  longestRun: { id: "longestRun", type: "text", label: "Longest run so far", required: true,
+             placeholder: "e.g. 10 km or 1h", half: true },
+  safeRoads: { id: "safeRoads", bare: true, type: "chips", label: "Safe roads to run on?", required: true,
+             options: [{ label: "Yes", value: "Yes" }, { label: "No", value: "No" }] },
+  inclines: { id: "inclines", bare: true, type: "chips", label: "Uphills or inclines nearby? (200–300 m)", required: true,
+             options: [{ label: "Yes", value: "Yes" }, { label: "No", value: "No" }] },
+  shoes: { id: "shoes", type: "text", label: "Your running shoes (model / brand)", optional: true,
+             placeholder: "e.g. Nike Pegasus 40" },
+  primaryGoal: { id: "primaryGoal", type: "text", label: "Main goal for the next 3–6 months", optional: true,
+             placeholder: "e.g. finish my first 10K, build endurance" },
+  goalWhy: { id: "goalWhy", type: "textarea", label: "Why does this goal matter right now?", optional: true,
+             placeholder: "What’s driving it?" },
+  fallOff: { id: "fallOff", bare: true, type: "chips", label: "What usually makes you fall off training?", optional: true, layout: "cards",
+             options: [
+               { label: "Lack of time", value: "Lack of time" },
+               { label: "Loss of motivation", value: "Loss of motivation" },
+               { label: "Injury or pain", value: "Injury or pain" },
+               { label: "Not knowing what to do", value: "Confusion" },
+               { label: "Doing too much too soon", value: "Too much too soon" }
+             ] },
+  consistency: { id: "consistency", bare: true, type: "chips", label: "Willing to prioritize consistency over intensity?", optional: true, layout: "cards",
+             options: [
+               { label: "Yes", value: "Yes" },
+               { label: "Not sure", value: "Not sure" },
+               { label: "No", value: "No" }
+             ] },
+  hearAbout: { id: "hearAbout", bare: true, type: "chips", label: "Where did you hear about us?", optional: true, layout: "cards",
+             options: [
+               { label: "Facebook / Instagram", value: "Facebook/Instagram" },
+               { label: "Ads", value: "Ads" },
+               { label: "YouTube", value: "YouTube" },
+               { label: "Referral", value: "Referral" },
+               { label: "Google", value: "Google" },
+               { label: "Other", value: "Other" }
+             ] }
 };
 
 /*
@@ -311,7 +347,7 @@ const OB_SCREENS = [
     eyebrow: "About you",
     title: "The basics",
     sub: "A few details so your coaching is truly yours.",
-    fields: [F.name, F.age, F.sex, F.location] },
+    fields: [F.name, F.birthday, F.sex, F.location] },
   { key: "body", phase: "ability",
     eyebrow: "About you",
     title: "Your body metrics",
@@ -324,6 +360,11 @@ const OB_SCREENS = [
     sub: "Your current week — roughly is fine.",
     fields: [F.mileage, F.hours],
     insightAfter: "Your recent mileage helps Athlevo set a safe starting load and avoid progressing too aggressively." },
+  { key: "capacity", phase: "ability",
+    eyebrow: "Current ability",
+    title: "Your running right now",
+    sub: "Two quick markers of where your endurance is today.",
+    fields: [F.jogNonstop, F.longestRun] },
   { key: "recent", phase: "ability",
     eyebrow: "Current ability",
     title: "Your latest result",
@@ -345,15 +386,39 @@ const OB_SCREENS = [
     eyebrow: "Your week",
     title: "When do you usually train?",
     sub: "And what you use to track it.",
-    fields: [F.trainTime, F.schedule, F.devices],
+    fields: [F.trainTime, F.schedule, F.devices, F.shoes],
     insightAfter: "Your schedule shapes how Athlevo places quality sessions and recovery days." },
 
-  // ── Phase 4 · Personalization ──
+  { key: "terrain", phase: "reality",
+    eyebrow: "Where you run",
+    title: "Your running environment",
+    sub: "So your plan fits your roads, not a generic map.",
+    fields: [F.safeRoads, F.inclines] },
+  { key: "motivation", phase: "personal",
+    eyebrow: "Your why",
+    title: "What are you working toward?",
+    sub: "Your goal for the next few months, and what’s behind it.",
+    fields: [F.primaryGoal, F.goalWhy] },
+  { key: "adherence", phase: "personal",
+    eyebrow: "Your why",
+    title: "What usually trips you up?",
+    sub: "Knowing this helps your coach keep you consistent.",
+    fields: [F.fallOff], autoAdvance: true },
+  { key: "commitment", phase: "personal",
+    eyebrow: "Our approach",
+    title: "Athlevo is built on long-term progress, not quick wins.",
+    sub: "Consistency over intensity — are you in?",
+    fields: [F.consistency], autoAdvance: true },
   { key: "personal", phase: "personal",
     eyebrow: "Personalise",
-    title: "Anything Athlevo should know?",
+    title: "Anything else your coach should know?",
     sub: "All optional — it helps tailor your plan and keep you healthy.",
-    fields: [F.injuries, F.diet, F.notes] }
+    fields: [F.injuries, F.diet, F.notes] },
+  { key: "source", phase: "personal",
+    eyebrow: "Last thing",
+    title: "Where did you hear about us?",
+    sub: "Helps us reach more runners like you.",
+    fields: [F.hearAbout], autoAdvance: true }
 ];
 
 /* ───────────────────────────── state ────────────────────────────────── */
@@ -594,7 +659,13 @@ function obBuildUpdates() {
   };
 
   if (obClean(d.name)) updates.full_name = obClean(d.name);
-  if (d.age != null && d.age !== "") updates.age = num(d.age);
+  if (d.birthday) {
+    const _b = new Date(d.birthday);
+    if (!isNaN(_b.getTime())) {
+      const _a = Math.floor((Date.now() - _b.getTime()) / 31557600000);
+      if (_a > 0 && _a < 120) updates.age = _a;
+    }
+  }
   if (d.sex) updates.sex = d.sex;
   updates.location = obClean(d.location) || null;
 
@@ -661,7 +732,18 @@ function obBuildUpdates() {
   // Training status + preferred long run day fold into coach_notes,
   // which the coaching context already reads.
   const noteParts = [];
-  if (d.status) noteParts.push(`Training status: ${d.status}.`);
+  if (d.birthday) noteParts.push(`Birthday: ${obClean(d.birthday)}.`);
+  if (d.status) noteParts.push(`Level: ${d.status}.`);
+  if (d.jogNonstop) noteParts.push(`Can jog non-stop: ${obClean(d.jogNonstop)}.`);
+  if (d.longestRun) noteParts.push(`Longest run so far: ${obClean(d.longestRun)}.`);
+  if (d.inclines) noteParts.push(`Hills nearby: ${d.inclines}.`);
+  if (d.safeRoads) noteParts.push(`Safe roads: ${d.safeRoads}.`);
+  if (d.shoes) noteParts.push(`Shoes: ${obClean(d.shoes)}.`);
+  if (d.primaryGoal) noteParts.push(`3–6 month goal: ${obClean(d.primaryGoal)}.`);
+  if (d.goalWhy) noteParts.push(`Why it matters: ${obClean(d.goalWhy)}.`);
+  if (d.fallOff) noteParts.push(`Usually falls off due to: ${d.fallOff}.`);
+  if (d.consistency) noteParts.push(`Consistency over intensity: ${d.consistency}.`);
+  if (d.hearAbout) noteParts.push(`Heard about us via: ${d.hearAbout}.`);
   if (d.longRun) noteParts.push(`Preferred long run day: ${d.longRun}.`);
   const free = obClean(d.notes);
   if (free) noteParts.push(free);

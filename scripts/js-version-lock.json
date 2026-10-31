@@ -280,8 +280,8 @@
     "sha256": "913805b98165685ddd0eb6d2b12e0cd4093609553839bf6ee7af35d46500e331"
   },
   "js/onboarding.js": {
-    "v": 72,
-    "sha256": "ac575a65bc5aefd0e113ea92da6d60cf0a0841af8b2660bdf2a53df0cb068160"
+    "v": 74,
+    "sha256": "63b1519bbacf060b85c43ba293b18eb12bf66e7e93cd6841708ce73fdcda44ba"
   },
   "js/diagnostic.js": {
     "v": 10,
