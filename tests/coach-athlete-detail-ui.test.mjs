@@ -253,8 +253,8 @@ const sessions = [
   const sandbox = { window: win, SW: win.AthlevoStructuredWorkout };
   vm.runInNewContext(extractFunction("autoPaceText") + "\nthis.autoPaceText = autoPaceText;", sandbox);
   const ath = { training_paces: { zones: { easy: { secPerKm: 356 }, threshold: { secPerKm: 300 } } } };
-  test("easy pace guidance is a band either side of the athlete's easy pace", sandbox.autoPaceText(ath, "easy") === "5:38\u20136:14 /km", sandbox.autoPaceText(ath, "easy"));
-  test("quality sessions use the threshold pace", sandbox.autoPaceText(ath, "threshold") === "4:45\u20135:15 /km", sandbox.autoPaceText(ath, "threshold"));
+  test("easy pace guidance is the same band the athlete's Pace Zones screen shows for easy", sandbox.autoPaceText(ath, "easy") === "5:40\u20136:12 /km", sandbox.autoPaceText(ath, "easy"));
+  test("quality sessions use the threshold zone and its tighter band", sandbox.autoPaceText(ath, "threshold") === "4:55\u20135:05 /km", sandbox.autoPaceText(ath, "threshold"));
   test("no paces, no zone, or no pace maths means a blank field, never an invented number",
     sandbox.autoPaceText({}, "easy") === "" && sandbox.autoPaceText(ath, null) === "" && sandbox.autoPaceText(ath, "vo2") === "" && sandbox.autoPaceText(null, "easy") === "");
 }

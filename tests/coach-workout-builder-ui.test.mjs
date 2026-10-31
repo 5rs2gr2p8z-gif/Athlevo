@@ -44,8 +44,8 @@ test("the editor has a builder mount and passes the athlete's paces and existing
   /id="cmBuilderMount"/.test(editor) && /paces: ath\.training_paces/.test(editor) && /mountBuilder\(session && session\.structure/.test(editor));
 test("read-only sessions render the builder read-only; the library is offered only to editors",
   /readOnly: !editable/.test(editor) && /library: editable \? workoutLibrary : null/.test(editor));
-test("the simple duration/distance/pace fields hide while steps exist (the server derives them)",
-  /flatFieldIds = \["cmWorkoutDuration", "cmWorkoutDistance", "cmWorkoutPace"\]/.test(editor) && /field\.hidden = state\.hasSteps/.test(editor));
+test("the simple target/pace fields hide while steps exist (the server derives them)",
+  /flatFieldIds = \["cmTargetField", "cmWorkoutPace"\]/.test(editor) && /field\.hidden = state\.hasSteps/.test(editor));
 test("saving validates the steps client-side and sends the structure",
   /builder\.validate\(\)/.test(save) && /workout\.structure = checked\.value/.test(save));
 test("derived fields are not sent back stale when the coach edits a built workout",

@@ -696,11 +696,24 @@ describe("Coach Mode — coaching command center UI", () => {
     assert.ok(!editor.includes('name="intensity"'));
     assert.ok(!editor.includes('<label for="cmWorkoutSport">'));
     assert.ok(!editor.includes('<label for="cmWorkoutType">'));
-    for (const label of ["Duration (min)", "Distance (km)", "Target RPE", "Pace guidance", "Workout notes"]) assert.ok(editor.includes(label), label);
+    for (const label of ["Target RPE", "Pace guidance", "Workout notes"]) assert.ok(editor.includes(label), label);
+    assert.ok(!editor.includes("Duration (min)") && !editor.includes("Distance (km)"), "distance and time are one target, not two boxes");
     assert.ok(editor.includes("autoPaceText(ath, seed.paceZone)"));
     assert.ok(editor.includes("Set automatically from"));
+    assert.ok(editor.includes("has no pace zones yet"), "an athlete without pace data is told why the pace is blank");
     assert.ok(editor.includes("Build it in steps"));
     assert.ok(source.includes(".cm-editor .cm-form-actions{position:sticky;bottom:0"));
+  });
+
+  it("a workout has one target, distance or time, like V.O2: only the chosen one is saved", () => {
+    const start = source.indexOf("function openWorkoutEditor");
+    const editor = source.slice(start, source.indexOf("async function removeWorkout", start));
+    assert.ok(editor.includes('data-target-kind="distance"') && editor.includes('data-target-kind="time"'));
+    assert.ok(editor.includes('id="cmTargetValue"') && editor.includes('id="cmTargetUnit"'));
+    assert.ok(editor.includes('workout.distance_km = target.kind === "distance" ? target.value : ""'));
+    assert.ok(editor.includes('workout.duration_minutes = target.kind === "time" ? target.value : ""'));
+    assert.ok(editor.includes("function targetKindFor") || source.includes("function targetKindFor(source)"));
+    assert.ok(editor.includes("saveErrorText(res,"), "the server detail is shown when saving fails");
   });
 
   it("workouts can be dragged onto an empty day (mouse on the row, touch on the grip) and are moved with all their fields", () => {

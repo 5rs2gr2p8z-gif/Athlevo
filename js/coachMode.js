@@ -369,6 +369,7 @@
       "body .cm-workout-overlay,body .cm-invite-overlay,body .cm-note-confirm{z-index:1200}",
       ".cm-editor{display:flex;flex-direction:column;padding-bottom:0}.cm-editor .cm-workout-form{display:grid;grid-template-columns:1fr;gap:12px;min-height:0}.cm-editor .cm-field--full{grid-column:1/-1}.cm-field-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.cm-field-hint{color:var(--ink3,#9a9da3);font-size:11px;line-height:1.4}",
       ".cm-editor .cm-form-actions{position:sticky;bottom:0;margin:4px -16px 0;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:var(--surface-base,#fff);border-top:1px solid var(--line,#ebebe8)}",
+      ".cm-field-label{font-size:10px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3,#9a9da3)}.cm-target{display:grid;gap:6px}.cm-target-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:center}.cm-seg{display:inline-flex;padding:3px;gap:2px;border:1px solid var(--border-default,var(--line,#ebebe8));border-radius:var(--r-pill);background:var(--surface-raised,#fff)}.cm-seg-btn{min-height:36px;padding:0 14px;border:0;border-radius:var(--r-pill);background:transparent;color:var(--ink2,#5b5e65);font:700 13px/1 var(--sans,sans-serif);cursor:pointer}.cm-seg-btn[aria-pressed=true]{background:var(--ink1,#141416);color:var(--surface-base,#fff)}.cm-seg-btn:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:2px}.cm-seg-btn:disabled{opacity:.6;cursor:default}.cm-target-input{position:relative}.cm-target-input input{padding-right:44px;appearance:textfield;-moz-appearance:textfield}.cm-target-input input::-webkit-outer-spin-button,.cm-target-input input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.cm-target-unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--ink3,#9a9da3);font-size:13px;pointer-events:none}",
       ".cm-add-steps{justify-self:start;border:0;background:transparent;padding:4px 0;color:var(--red,#C0272D);font:700 12px/1.3 var(--sans,sans-serif);cursor:pointer}.cm-add-steps:focus-visible{outline:2px solid var(--focus-ring,#C0272D);outline-offset:2px}",
       ".cm-add-menu textarea{width:100%;box-sizing:border-box;border:1px solid var(--line,#ebebe8);border-radius:var(--ui-radius-control,10px);background:var(--surface-raised,#fff);color:inherit;padding:10px;font:14px/1.4 var(--sans,sans-serif);resize:vertical}.cm-add-save{justify-self:end;min-height:44px;padding-inline:22px}.cm-add-menu .cm-field{margin-top:4px}",
       ".cm-day-right{display:flex;align-items:center;gap:8px}.cm-day-grip{color:var(--ink3,#9a9da3);font-size:14px;letter-spacing:-3px;line-height:1;padding:8px 4px;touch-action:none;cursor:grab;user-select:none}",
@@ -2266,15 +2267,24 @@
 
   /*
    * Pace guidance filled in from the athlete's own fitness (their VDOT paces from a confirmed
-   * race or a recent run, the same source the builder uses). Shown as a band of 5% either
-   * side of the zone pace. Blank when the athlete has no usable race or run yet.
+   * race or a recent run, the same source the builder uses). The band for each zone matches the
+   * athlete's Pace Zones screen. Blank when the athlete has no usable race or run yet.
    */
   function autoPaceText(ath, zone) {
+    var ZONE_BANDS = { recovery: 0.05, easy: 0.045, long: 0.045, marathon: 0.022, tempo: 0.022, threshold: 0.018, vo2: 0.02, repetition: 0.025 };
     var zones = ath && ath.training_paces && ath.training_paces.zones;
     var centre = zone && zones && zones[zone] && zones[zone].secPerKm;
+    var band = ZONE_BANDS[zone];
     var SW = window.AthlevoStructuredWorkout;
-    if (!centre || !SW || typeof SW.fmtPace !== "function") return "";
-    return SW.fmtPace(centre * 0.95) + "\u2013" + SW.fmtPace(centre * 1.05) + " /km";
+    if (!centre || !band || !SW || typeof SW.fmtPace !== "function") return "";
+    return SW.fmtPace(centre * (1 - band)) + "\u2013" + SW.fmtPace(centre * (1 + band)) + " /km";
+  }
+
+  /* The one target a coach sets: a distance or a time, never both. */
+  function targetKindFor(source) {
+    if (source && Number(source.distance_km) > 0) return "distance";
+    if (source && Number(source.duration_minutes) > 0) return "time";
+    return "distance";
   }
 
   function dayHeading(dateKey) {
@@ -2440,7 +2450,7 @@
         var saved = await api("workout", { method: "POST", body: { athlete_id: _athleteDetailId, workout: { session_date: dateKey, title: "Coach note", session_type: "Note", sport: "other", description: text } } });
         if (!saved.ok) {
           list.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
-          error.textContent = saved.body && saved.body.error || "The note could not be saved.";
+          error.textContent = saveErrorText(saved, "The note could not be saved.");
           return;
         }
         close();
@@ -2461,7 +2471,7 @@
         var res = await api("workout", { method: "POST", body: { athlete_id: _athleteDetailId, workout: { session_date: dateKey, title: "Rest day", session_type: "Rest day", sport: "rest" } } });
         if (!res.ok) {
           list.querySelectorAll("button").forEach(function (b) { b.disabled = false; });
-          error.textContent = res.body && res.body.error || "The rest day could not be added.";
+          error.textContent = saveErrorText(res, "The rest day could not be added.");
           return;
         }
         close();
@@ -2488,19 +2498,23 @@
     var athleteFirstName = String(ath.athlete_name || ath.name || ath.full_name || "").split(" ")[0];
     var paceAuto = seed ? autoPaceText(ath, seed.paceZone) : "";
     var showBuilder = Boolean(session && session.structure || seed && seed.structure);
+    var targetKind = targetKindFor(session);
+    var targetValue = session ? (targetKind === "distance" ? session.distance_km : session.duration_minutes) : "";
+    if (targetValue == null || Number(targetValue) <= 0) targetValue = "";
     overlay.innerHTML = '<div class="cm-workout-dialog cm-editor" role="dialog" aria-modal="true" aria-label="' + esc(session ? "Workout details" : "Add workout") + '"><div class="cm-workout-dialog-head"><h2>' + esc(heading) + '</h2><button type="button" class="cm-dialog-close" aria-label="Close">\u00d7</button></div><form class="cm-workout-form" id="cmWorkoutForm">' +
       (session
         ? '<div class="cm-field cm-field--full"><label for="cmWorkoutDate">Move to</label><input id="cmWorkoutDate" name="session_date" type="date" required value="' + value("date") + '" ' + (!editable || !session.can_reschedule ? "disabled" : "") + '></div>'
         : '<input type="hidden" name="session_date" value="' + value("date") + '">') +
       '<input type="hidden" name="session_type" value="' + value("type") + '"><input type="hidden" name="sport" value="' + value("sport") + '">' +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutTitle">Title</label><input id="cmWorkoutTitle" name="title" required value="' + value("title") + '" ' + off + '></div>' +
-      '<div class="cm-field-row cm-field--full">' +
-        '<div class="cm-field"><label for="cmWorkoutDuration">Duration (min)</label><input id="cmWorkoutDuration" name="duration_minutes" type="number" min="0" max="1440" inputmode="numeric" value="' + value("duration_minutes") + '" ' + off + '></div>' +
-        '<div class="cm-field"><label for="cmWorkoutDistance">Distance (km)</label><input id="cmWorkoutDistance" name="distance_km" type="number" min="0" max="1000" step="0.1" inputmode="decimal" value="' + value("distance_km") + '" ' + off + '></div>' +
-        '<div class="cm-field"><label for="cmWorkoutRpe">Target RPE</label><input id="cmWorkoutRpe" name="target_rpe" inputmode="numeric" placeholder="1\u201310" value="' + value("target_rpe") + '" ' + off + '></div>' +
-      '</div>' +
+      '<div class="cm-field cm-field--full cm-target" id="cmTargetField"><span class="cm-field-label" id="cmTargetLabel">Target</span>' +
+        '<div class="cm-target-row"><div class="cm-seg" role="group" aria-labelledby="cmTargetLabel"><button type="button" class="cm-seg-btn" data-target-kind="distance" aria-pressed="' + (targetKind === "distance") + '" ' + off + '>Distance</button><button type="button" class="cm-seg-btn" data-target-kind="time" aria-pressed="' + (targetKind === "time") + '" ' + off + '>Time</button></div>' +
+        '<div class="cm-target-input"><input id="cmTargetValue" type="number" min="0" step="any" inputmode="decimal" aria-labelledby="cmTargetLabel" value="' + esc(targetValue) + '" ' + off + '><span class="cm-target-unit" id="cmTargetUnit">' + (targetKind === "distance" ? "km" : "min") + '</span></div></div>' +
+        '<small class="cm-field-hint" id="cmTargetHint">Set a distance or a time, not both.</small></div>' +
+      '<div class="cm-field cm-field--full"><label for="cmWorkoutRpe">Target RPE</label><input id="cmWorkoutRpe" name="target_rpe" inputmode="numeric" placeholder="1\u201310" value="' + value("target_rpe") + '" ' + off + '></div>' +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutPace">Pace guidance</label><input id="cmWorkoutPace" name="pace_guidance" placeholder="e.g. 5:30\u20136:00 /km" value="' + (session ? value("pace_guidance") : esc(paceAuto)) + '" ' + off + '>' +
-        (seed && paceAuto ? '<small class="cm-field-hint">Set automatically from ' + esc(athleteFirstName || "the athlete") + '\u2019s fitness. Edit it if you want.</small>' : '') + '</div>' +
+        (seed && paceAuto ? '<small class="cm-field-hint">Set automatically from ' + esc(athleteFirstName || "the athlete") + '\u2019s pace zones. Edit it if you want.</small>' : '') +
+        (seed && !paceAuto && seed.paceZone ? '<small class="cm-field-hint">' + esc(athleteFirstName || "This athlete") + ' has no pace zones yet (they need a recent run or race). Type a pace if you want one.</small>' : '') + '</div>' +
       '<div class="cm-field cm-field--full" id="cmBuilderMount"' + (showBuilder ? '' : ' hidden') + '></div>' +
       (editable && !showBuilder ? '<button type="button" class="cm-add-steps cm-field--full" id="cmAddSteps">+ Build it in steps (warm-up, intervals, cool-down)</button>' : '') +
       '<div class="cm-field cm-field--full"><label for="cmWorkoutDescription">Description</label><textarea id="cmWorkoutDescription" name="description" rows="2" ' + off + '>' + value("description") + '</textarea></div>' +
@@ -2516,7 +2530,7 @@
     function mountBuilder(structure) {
       if (!builderHost || !window.AthlevoCoachWorkoutBuilder || overlay._builder) return;
       builderHost.hidden = false;
-      var flatFieldIds = ["cmWorkoutDuration", "cmWorkoutDistance", "cmWorkoutPace"];
+      var flatFieldIds = ["cmTargetField", "cmWorkoutPace"];
       overlay._builder = window.AthlevoCoachWorkoutBuilder.mount(builderHost, {
         structure: structure,
         paces: ath.training_paces || null,
@@ -2525,8 +2539,8 @@
         library: editable ? workoutLibrary : null,
         onChange: function (state) {
           flatFieldIds.forEach(function (id) {
-            var input = overlay.querySelector("#" + id);
-            var field = input && input.closest(".cm-field");
+            var field = overlay.querySelector("#" + id);
+            field = field && field.closest(".cm-field");
             if (field) field.hidden = state.hasSteps;
           });
         },
@@ -2539,6 +2553,43 @@
     if (showBuilder && (editable || session && session.structure)) mountBuilder(session && session.structure || seed && seed.structure || null);
     var addSteps = overlay.querySelector("#cmAddSteps");
     if (addSteps) addSteps.addEventListener("click", function () { addSteps.hidden = true; mountBuilder(null); });
+    // One target: distance or time. Switching clears the number so 8 km never turns into 8 minutes by accident.
+    var targetField = overlay.querySelector("#cmTargetField");
+    if (targetField) {
+      var targetInput = targetField.querySelector("#cmTargetValue");
+      var targetUnit = targetField.querySelector("#cmTargetUnit");
+      var targetHint = targetField.querySelector("#cmTargetHint");
+      var currentKind = targetKind;
+      var paceInput = overlay.querySelector("#cmWorkoutPace");
+      var refreshTargetHint = function () {
+        if (!targetHint) return;
+        var amount = Number(targetInput.value);
+        var centre = ath && ath.training_paces && ath.training_paces.zones && seed && seed.paceZone && ath.training_paces.zones[seed.paceZone] && ath.training_paces.zones[seed.paceZone].secPerKm;
+        if (!(amount > 0) || !centre) { targetHint.textContent = "Set a distance or a time, not both."; return; }
+        if (currentKind === "distance") {
+          var mins = Math.round(amount * centre / 60);
+          targetHint.textContent = "About " + mins + " min at " + (athleteFirstName || "their") + (athleteFirstName ? "\u2019s" : "") + " pace.";
+        } else {
+          var km = Math.round(amount * 60 / centre * 10) / 10;
+          targetHint.textContent = "About " + km + " km at " + (athleteFirstName || "their") + (athleteFirstName ? "\u2019s" : "") + " pace.";
+        }
+      };
+      targetField.querySelectorAll("[data-target-kind]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var nextKind = btn.getAttribute("data-target-kind");
+          if (nextKind !== currentKind) targetInput.value = "";
+          currentKind = nextKind;
+          targetField.querySelectorAll("[data-target-kind]").forEach(function (other) { other.setAttribute("aria-pressed", String(other === btn)); });
+          if (targetUnit) targetUnit.textContent = currentKind === "distance" ? "km" : "min";
+          targetInput.step = "any";
+          refreshTargetHint();
+          targetInput.focus();
+        });
+      });
+      targetInput.addEventListener("input", refreshTargetHint);
+      targetField._getTarget = function () { return { kind: currentKind, value: targetInput.value }; };
+      refreshTargetHint();
+    }
     var previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     var onKey = function (event) { if (event.key === "Escape") close(); };
@@ -2572,6 +2623,14 @@
     if (initialFocus) initialFocus.focus();
   }
 
+  /* The server's message, plus its technical detail when it sends one, so a failure can be reported and fixed. */
+  function saveErrorText(res, fallback) {
+    var body = res && res.body || {};
+    var text = body.error || fallback;
+    if (body.detail) text += " (" + String(body.detail).slice(0, 160) + ")";
+    return text;
+  }
+
   async function saveWorkoutForm(form, session, overlay) {
     var error = form.querySelector("#cmWorkoutError");
     var submit = form.querySelector('[type="submit"]');
@@ -2579,6 +2638,13 @@
     var data = new FormData(form);
     var workout = {};
     data.forEach(function (value, key) { workout[key] = value; });
+    var targetFieldEl = form.querySelector("#cmTargetField");
+    var target = targetFieldEl && targetFieldEl._getTarget ? targetFieldEl._getTarget() : null;
+    if (target) {
+      // Only the chosen target is saved; the other one is cleared.
+      workout.distance_km = target.kind === "distance" ? target.value : "";
+      workout.duration_minutes = target.kind === "time" ? target.value : "";
+    }
     var builder = overlay._builder;
     if (builder && builder.hasSteps()) {
       var checked = builder.validate();
@@ -2598,7 +2664,7 @@
     if (submit) { submit.disabled = true; submit.textContent = "Saving…"; }
     var res = await api("workout", { method: session ? "PATCH" : "POST", body: { athlete_id: _athleteDetailId, session_id: session && session.id, workout: workout } });
     if (!res.ok) {
-      if (error) error.textContent = res.body && res.body.error || "The workout could not be saved.";
+      if (error) error.textContent = saveErrorText(res, "The workout could not be saved.");
       if (submit) { submit.disabled = false; submit.textContent = submitLabel; }
       return;
     }

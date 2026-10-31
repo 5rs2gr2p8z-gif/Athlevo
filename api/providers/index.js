@@ -1954,7 +1954,11 @@ async function sbCoachWrite(path, method, body, preferOverride) {
       },
       body: body == null ? undefined : JSON.stringify(body)
     });
-    if (!r.ok) return { ok: false, status: r.status, rows: [] };
+    if (!r.ok) {
+      const detail = await r.json().catch(() => null);
+      const message = detail && (detail.message || detail.hint || detail.details || detail.code);
+      return { ok: false, status: r.status, rows: [], error: message ? String(message).slice(0, 240) : null };
+    }
     const data = await r.json().catch(() => []);
     return { ok: true, status: r.status, rows: Array.isArray(data) ? data : [] };
   } catch {
@@ -3391,21 +3395,45 @@ async function loadAthletePaces(athleteId) {
 async function resolveCoachPlanForWeek(athleteId, weekStart, nowIso) {
   const userFilter = `user_id=eq.${enc(athleteId)}`;
   const sameWeek = await sbCoachRead(`training_plans?${userFilter}&week_start=eq.${enc(weekStart)}&select=id&limit=1`);
-  if (!sameWeek.ok) return { ok: false };
+  if (!sameWeek.ok) return { ok: false, reason: "read_plan_failed" };
   if (sameWeek.rows[0] && sameWeek.rows[0].id) return { ok: true, id: sameWeek.rows[0].id };
   const active = await sbCoachRead(`training_plans?${userFilter}&status=in.(active,current)&select=id&order=updated_at.desc&limit=1`);
-  if (!active.ok) return { ok: false };
+  if (!active.ok) return { ok: false, reason: "read_active_plan_failed" };
   if (active.rows[0] && active.rows[0].id) return { ok: true, id: active.rows[0].id };
-  const created = await sbCoachWrite(
+
+  const insert = body => sbCoachWrite(
     "training_plans?on_conflict=user_id,week_start",
     "POST",
-    { user_id: athleteId, week_start: weekStart, week_end: addDateDays(weekStart, 6), status: "active", generated_at: nowIso, updated_at: nowIso },
+    body,
     "resolution=ignore-duplicates,return=representation"
   );
+  const minimal = { user_id: athleteId, week_start: weekStart, week_end: addDateDays(weekStart, 6), status: "active", generated_at: nowIso, updated_at: nowIso };
+  // Some deployments require the descriptive columns the AI planner always fills in. Retry with the
+  // same column set and neutral, truthful values for a coach-planned week (second try leaves the
+  // race fields empty, the third fills every text column in case any of them is NOT NULL).
+  const descriptive = {
+    ...minimal,
+    target_race: null, race_date: null, weeks_until_race: null,
+    phase: "Coach-planned", phase_week: 1, phase_length_weeks: 1,
+    week_focus: "Planned by your coach", weekly_intent: "Planned by your coach",
+    planned_distance_km: 0, planned_hours: 0,
+    ground_percentage: 100, control_percentage: 0, threshold_percentage: 0, edge_percentage: 0,
+    coach_summary: "Planned by your coach.", progression_reasoning: "Coach-planned week."
+  };
+  let created = await insert(minimal);
+  if (!created.ok) created = await insert(descriptive);
+  if (!created.ok) {
+    created = await insert({
+      ...descriptive,
+      target_race: "Coach-planned", weeks_until_race: 0,
+      adaptation: { what_changed: "", why_it_changed: "", kept_stable: "" }
+    });
+  }
   if (created.ok && created.rows[0] && created.rows[0].id) return { ok: true, id: created.rows[0].id, created: true };
   const reread = await sbCoachRead(`training_plans?${userFilter}&week_start=eq.${enc(weekStart)}&select=id&limit=1`);
   if (reread.ok && reread.rows[0] && reread.rows[0].id) return { ok: true, id: reread.rows[0].id };
-  return { ok: false };
+  console.error("coach_plan_week_create_failed", { status: created.status, error: created.error });
+  return { ok: false, reason: "create_plan_failed", detail: created.error || null };
 }
 
 async function actionCoachingDashboardWorkout(request, response) {
@@ -3465,7 +3493,11 @@ async function actionCoachingDashboardWorkout(request, response) {
       }
       const planForWeek = await resolveCoachPlanForWeek(athleteId, validated.value.plan_week_start, nowIso);
       if (!planForWeek.ok) {
-        return sendJson(response, 409, { error: "A training week could not be opened for this athlete. Please try again." });
+        return sendJson(response, 409, {
+          error: "A training week could not be opened for this athlete. Please try again.",
+          reason: planForWeek.reason || null,
+          detail: planForWeek.detail || null
+        });
       }
 
       const row = {
@@ -3486,7 +3518,8 @@ async function actionCoachingDashboardWorkout(request, response) {
       }
       if (!saved.ok || !saved.rows[0]) {
         return sendJson(response, saved.status === 409 ? 409 : 500, {
-          error: saved.status === 409 ? "A workout is already scheduled on that date." : "The workout could not be saved."
+          error: saved.status === 409 ? "A workout is already scheduled on that date." : "The workout could not be saved.",
+          detail: saved.error || null
         });
       }
       return sendJson(response, 201, { saved: true, workout_id: saved.rows[0].id, structure_saved: structureSaved });
