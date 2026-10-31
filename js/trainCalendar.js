@@ -988,47 +988,89 @@
 
 
 
+  /* ── Apple-style planned workout card ─────────────────────────────
+   * Leads with the session's intent and one hero metric; effort is shown as a
+   * coloured ladder, the raw numbers become quiet tiles. Zone drives the accent. */
+  var PW_ZONES = {
+    recovery:   { label: "Recovery",       accent: "#1d9e75", effort: 1, intent: "Flush out fatigue. Stay very relaxed." },
+    easy:       { label: "Easy run",       accent: "#1d9e75", effort: 2, intent: "Build your aerobic base. Keep it conversational." },
+    long:       { label: "Long run",       accent: "#1d9e75", effort: 2, intent: "Steady endurance. Settle into a rhythm you can hold." },
+    marathon:   { label: "Marathon",       accent: "#ba7517", effort: 3, intent: "Lock into goal effort \u2014 comfortably hard." },
+    threshold:  { label: "Threshold",      accent: "#ba7517", effort: 4, intent: "Controlled and strong. Never a sprint." },
+    vo2:        { label: "VO2 \u00b7 intervals", accent: "#e24b4a", effort: 5, intent: "Sharpen your top end. Hard but repeatable." },
+    repetition: { label: "Reps",           accent: "#e24b4a", effort: 5, intent: "Fast and smooth, with full recovery." },
+    race:       { label: "Race",           accent: "#e24b4a", effort: 5, intent: "Race day. Trust your training." },
+    cross:      { label: "Cross-training", accent: "#888780", effort: 2, intent: "Easy cross-training to support your running." }
+  };
+  function plannedZone(s) {
+    var t = String(s && (s.session_type || s.title) || "").toLowerCase();
+    if (/recovery|shakeout/.test(t)) return "recovery";
+    if (/long/.test(t)) return "long";
+    if (/marathon|goal.?pace/.test(t)) return "marathon";
+    if (/threshold|tempo|control|fartlek|progress|quality/.test(t)) return "threshold";
+    if (/vo2|interval|speed/.test(t)) return "vo2";
+    if (/repet|\brep\b|sprint|stride/.test(t)) return "repetition";
+    if (/race|time.?trial/.test(t)) return "race";
+    if (/cross|bike|cycl|swim|strength|mobility/.test(t)) return "cross";
+    return "easy";
+  }
+  function trimKm(k) { var n = Number(k); return Number.isInteger(n) ? String(n) : (Math.round(n * 10) / 10).toString(); }
+  function feelWord(rpe) {
+    var m = String(rpe).match(/\d+/); var n = m ? Number(m[0]) : 0;
+    if (!n) return "Planned";
+    if (n <= 3) return "Relaxed";
+    if (n <= 6) return "Moderate";
+    if (n <= 8) return "Hard";
+    return "Max effort";
+  }
+  function pwTile(label, val, unit) {
+    return '<div class="af-pw-tile"><span class="af-pw-tile-label">' + esc(label) + '</span><span class="af-pw-tile-val">' + esc(val) + '</span>' +
+      (unit ? '<span class="af-pw-tile-unit">' + esc(unit) + '</span>' : '') + '</div>';
+  }
+
   function plannedCardHtml(model) {
-    const s = model.session;
-    const sType = typeof formatSessionType === "function"
-      ? formatSessionType(s.session_type)
-      : String(s.session_type || "Workout").replace(/[_-]+/g, " ");
-    const title = (s.title && String(s.title).trim()) || sType;
-    const intensity = s.intensity
-      ? String(s.intensity).replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-      : "";
-    const sub = [title !== sType ? sType : null, intensity].filter(Boolean).join(" · ");
-    const meta = [];
-    if (num(s.duration_minutes) > 0) meta.push(Math.round(s.duration_minutes) + " min");
-    if (num(s.distance_km) > 0) {
-      const km = Number(s.distance_km);
-      meta.push((Number.isInteger(km) ? String(km) : String(km)) + " km");
-    }
-    if (s.target_rpe) meta.push("RPE " + s.target_rpe);
-    else if (s.pace_guidance) meta.push(s.pace_guidance);
-    const badge = model.missed
-      ? `<span class="af-card-status af-card-status--missed">Missed</span>`
+    var s = model.session;
+    var zoneKey = plannedZone(s);
+    var zm = PW_ZONES[zoneKey] || PW_ZONES.easy;
+    var typeLabel = (typeof formatSessionType === "function" && formatSessionType(s.session_type)) || zm.label;
+    var title = (s.title && String(s.title).trim()) || typeLabel;
+    var intentText = (s.description && String(s.description).trim()) || zm.intent;
+    var sameName = title.toLowerCase().replace(/[^a-z0-9]/g, "") === String(typeLabel).toLowerCase().replace(/[^a-z0-9]/g, "");
+    var headline = sameName ? intentText : title;
+    var subline = sameName ? "" : intentText;
+
+    var dur = num(s.duration_minutes), dist = num(s.distance_km);
+    var heroVal = "", heroUnit = "", heroSub = "";
+    if (dur > 0) { heroVal = String(Math.round(dur)); heroUnit = "min"; if (dist > 0) heroSub = "\u2248 " + trimKm(dist) + " km"; }
+    else if (dist > 0) { heroVal = trimKm(dist); heroUnit = "km"; }
+
+    var pace = s.pace_guidance ? String(s.pace_guidance).replace(/\s*\/\s*km\s*$/i, "") : "";
+    var rpe = s.target_rpe ? String(s.target_rpe) : "";
+    var segs = "";
+    for (var i = 1; i <= 5; i++) segs += '<span class="af-pw-seg"' + (i <= zm.effort ? ' style="background:' + zm.accent + '"' : '') + '></span>';
+
+    var tiles = "";
+    if (pace) tiles += pwTile("Pace", pace, "/km");
+    if (dur > 0 && dist > 0) tiles += pwTile("Distance", trimKm(dist), "km");
+    if (rpe) tiles += pwTile("Feel", feelWord(rpe), "RPE " + rpe);
+
+    var badge = model.missed
+      ? '<span class="af-pw-badge af-pw-badge--missed">Missed</span>'
       : model.skipped
-        ? `<span class="af-card-status af-card-status--missed">Not completed</span>`
-        : `<span class="af-card-cta">View plan</span>`;
-    const cls = ["af-card", "af-card--planned"];
+        ? '<span class="af-pw-badge af-pw-badge--missed">Not completed</span>'
+        : '<span class="af-pw-cta">View plan <i>\u203a</i></span>';
+    var strip = plannedWorkoutStrip(s);
+    var cls = ["af-card", "af-card--planned", "af-pw"];
     if (model.missed || model.skipped) cls.push("af-card--missed");
-    const strip = plannedWorkoutStrip(s);
-    return `<button type="button" class="${cls.join(" ")}" data-train-item="plan" onclick="AthlevoTrainCalendar.openModal('${model.date}')">
-      <div class="af-card-main">
-        <div class="af-card-top">
-          ${plannedCardSportIcon(s)}
-          <div class="af-card-titles">
-            <span class="af-card-sport af-card-sport--planned">Planned</span>
-            <span class="af-card-name">${esc(title)}</span>
-            ${sub ? `<span class="af-card-source">${esc(sub)}</span>` : ""}
-          </div>
-          ${badge}
-        </div>
-        ${strip}
-        ${meta.length ? `<span class="af-card-meta">${esc(meta.join(" · "))}</span>` : ""}
-      </div>
-    </button>`;
+    return '<button type="button" class="' + cls.join(" ") + '" data-train-item="plan" onclick="AthlevoTrainCalendar.openModal(\'' + model.date + '\')">' +
+      '<div class="af-pw-head"><span class="af-pw-dot" style="background:' + zm.accent + '"></span><span class="af-pw-zone" style="color:' + zm.accent + '">' + esc(typeLabel) + '</span>' + badge + '</div>' +
+      '<div class="af-pw-intent">' + esc(headline) + '</div>' +
+      (subline ? '<div class="af-pw-sub">' + esc(subline) + '</div>' : '') +
+      (heroVal !== "" ? '<div class="af-pw-hero"><span class="af-pw-hero-val">' + esc(heroVal) + '</span><span class="af-pw-hero-unit">' + esc(heroUnit) + '</span>' + (heroSub ? '<span class="af-pw-hero-sub">' + esc(heroSub) + '</span>' : '') + '</div>' : '') +
+      strip +
+      (zm.effort ? '<div class="af-pw-effort"><div class="af-pw-ladder">' + segs + '</div><div class="af-pw-ladder-tags"><span>Easy</span><span>Hard</span></div></div>' : '') +
+      (tiles ? '<div class="af-pw-tiles">' + tiles + '</div>' : '') +
+      '</button>';
   }
 
   function figHtml(value, unit) {

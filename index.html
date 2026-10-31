@@ -6180,6 +6180,31 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-card--planned{border-style:dashed;border-color:var(--ink3);background:var(--paper);box-shadow:none}
   .af-card--planned .af-card-accent{display:none}
   .af-card--planned .af-card-main{padding:12px 14px}
+  .af-card.af-pw{display:flex;flex-direction:column;align-items:stretch;gap:0;text-align:left;width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:16px;background:var(--card,var(--paper));box-shadow:var(--elev-1);padding:18px;cursor:pointer}
+  .af-pw .af-card-main{padding:0}
+  .af-pw-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .af-pw-dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .af-pw-zone{font-size:var(--fs-body-sm);font-weight:650}
+  .af-pw-cta{margin-left:auto;font-size:var(--fs-body-sm);font-weight:650;color:var(--ink3);white-space:nowrap}
+  .af-pw-cta i{font-style:normal}
+  .af-pw-badge{margin-left:auto;font-size:var(--fs-micro);font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink3)}
+  .af-pw-badge--missed{color:var(--red)}
+  .af-pw-intent{font-size:var(--fs-h2);font-weight:650;line-height:1.25;letter-spacing:-.01em;color:var(--text)}
+  .af-pw-sub{font-size:14px;color:var(--ink2);margin-top:6px;line-height:1.5}
+  .af-pw-hero{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:16px 0 2px}
+  .af-pw-hero-val{font-size:var(--fs-display);font-weight:650;letter-spacing:-.02em;line-height:1;color:var(--text)}
+  .af-pw-hero-unit{font-size:17px;color:var(--ink2)}
+  .af-pw-hero-sub{font-size:14px;color:var(--ink3);margin-left:4px}
+  .af-pw .af-pstrip{margin:16px 0 0}
+  .af-pw-effort{margin-top:16px}
+  .af-pw-ladder{display:flex;gap:4px}
+  .af-pw-seg{flex:1;height:6px;border-radius:3px;background:var(--line)}
+  .af-pw-ladder-tags{display:flex;justify-content:space-between;margin-top:6px;font-size:var(--fs-micro);color:var(--ink3)}
+  .af-pw-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:10px;margin-top:16px}
+  .af-pw-tile{background:var(--paper);border-radius:12px;padding:11px 12px;min-width:0}
+  .af-pw-tile-label{display:block;font-size:var(--fs-caption);color:var(--ink3)}
+  .af-pw-tile-val{display:block;font-size:15px;font-weight:650;color:var(--text);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .af-pw-tile-unit{display:block;font-size:var(--fs-micro);color:var(--ink3)}
   .af-card--activity{overflow:hidden;background:var(--paper)}
   .af-card--has-profile .af-card-main{padding-bottom:0}
   .af-card--run{--sport-accent:var(--sport-run);border-color:color-mix(in srgb,var(--sport-run) 32%,var(--line))}
@@ -13697,7 +13722,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=5"></script>
-<script src="js/trainCalendar.js?v=106"></script>
+<script src="js/trainCalendar.js?v=107"></script>
 <script src="js/coachInvites.js?v=2"></script>
 <script src="js/athleteMode.js?v=83"></script>
 <script src="js/authRouteGuard.js?v=1"></script>
