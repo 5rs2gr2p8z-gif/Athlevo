@@ -71,7 +71,7 @@ section("2. Every PAYWALL_CONTEXTS entry maps to a canonical trigger");
 section("3. Settings upgrade CTA is distinguishable from a direct/pricing open");
 {
   t("the Settings plan-status CTA opens the settings-upgrade context",
-    /id="settingsPlanUpgradeCta"[\s\S]{0,60}onclick="AthlevoAccessGuard\.openPaywall\('settings-upgrade'\)"/.test(indexSrc));
+    /proCta\.onclick = function \(\) \{ AthlevoAccessGuard\.openPaywall\('settings-upgrade'\); \}/.test(indexSrc));
   t("settings-upgrade is a distinct PAYWALL_CONTEXTS key from general-upgrade",
     /"settings-upgrade":\s*Object\.freeze\(\{/.test(guardSrc) &&
     /"general-upgrade":\s*Object\.freeze\(\{/.test(guardSrc));

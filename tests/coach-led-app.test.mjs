@@ -107,8 +107,13 @@ test("the rail toggle is hidden below tablet width (it showed as a grey strip on
 section("Upgrade and plan UI");
 test("the Home Pro card, trial indicator and Analyze-with-Coach buttons are hidden",
   /html\.coach-led \.af-card-analyze,\s*html\.coach-led #todayProUpgradeCard,\s*html\.coach-led #athlevoTrialIndicator\{display:none!important\}/.test(html));
-test("Settings 'Plan' becomes 'Programs' with a View programs button",
-  /heading\.textContent = 'Programs'/.test(html) && /programsCta\.textContent = 'View programs'/.test(html));
+test("Settings Plan card offers 'Upgrade to coaching', which opens programs.athlevo.org (not a Pro paywall)",
+  /id="settingsPlanUpgradeCta"[\s\S]{0,80}onclick="openProgramsSite\('settings-upgrade'\)">Upgrade to coaching</.test(html) &&
+  /cta\.textContent = 'Upgrade to coaching'/.test(html) && /ATHLEVO_PROGRAMS_URL = "https:\/\/programs\.athlevo\.org"/.test(appMode) &&
+  /function openProgramsSite\(source\)[\s\S]{0,500}AthlevoRuntime\.openExternal\(url\)/.test(html));
+test("an athlete who already has a coach sees who coaches them and no upgrade button",
+  /nameEl\.textContent = 'Athlevo Coaching'/.test(html) && /You are coached by ' \+ coachName/.test(html) && /if \(cta\) cta\.hidden = true/.test(html));
+test("the plan card's hidden attribute really hides it (the class used to override it)", /\.settings-plan-card\[hidden\]\{display:none\}/.test(html));
 test("Home has no separate Coach row; Fuel is marked Beta and You has no Fuel card",
   !/id="homeCoachCard"/.test(html) && /<b>Fuel <span class="beta-tag">Beta<\/span><\/b>/.test(html) && !/id="youFuelEntry"/.test(html));
 test("Coach tab names the coach with a photo: Coach Dean until real coach profiles exist",
@@ -217,7 +222,7 @@ freeApp.P.open("screen-coachai");
 test("with the offer off, Programs cannot be opened from anywhere", !freeApp.shown.includes("screen-programs") && freeApp.P.shouldShowAfterSignup("u9", { onboarding_complete: false }) === false && freeApp.P.isOn() === false);
 test("no-coach Coach tab offers no purchase: it points to the coach's invite link",
   /You are not connected to a coach yet\. Ask your coach for their Athlevo invite link/.test(am) && /var offer = !!\(window\.AthlevoPrograms/.test(am));
-test("Settings hides the Plan/Programs section entirely while the app is free", /Free app: no plan or programs section at all/.test(html) && /card\.hidden = true/.test(html));
+test("the legacy freemium Settings upsell still exists behind the flag", /Legacy freemium app \(ATHLEVO_COACH_LED off\)/.test(html) && /proCta\.textContent = 'Upgrade to Pro'/.test(html));
 
 section("No daily check-in pop-up");
 test("appMode.js turns the morning prompt off", /ATHLEVO_MORNING_PROMPT = false/.test(appMode));
@@ -268,7 +273,7 @@ test("incoming coach replies appear without reopening the tab (quiet polling, on
 
 section("Scripts are cache-busted");
 test("service-worker cache and script versions were raised together (stale JS can no longer pair with new HTML)",
-  /athlevo-shell-v96/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
+  /athlevo-shell-v97/.test(read("./service-worker.js")) && existsSync("./tests/js-version-lock.test.mjs") && existsSync("./scripts/js-version-lock.json"));
 
 section("Coach Home and navigation");
 {

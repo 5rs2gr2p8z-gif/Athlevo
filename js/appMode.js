@@ -20,6 +20,8 @@
   // No automatic daily check-in pop-up on Home. The Readiness card still lets an
   // athlete log a check-in on purpose. Set to true to bring the pop-up back.
   root.ATHLEVO_MORNING_PROMPT = false;
+  // Where free athletes pick a coaching program (Settings > Upgrade to coaching).
+  root.ATHLEVO_PROGRAMS_URL = "https://programs.athlevo.org";
   // TEMPORARY: Fuel shows a "locked, coaching clients only" notice instead of opening.
   // Set to false to open Fuel again. (js/fuel.js reads this; index.html styles the sheet.)
   root.ATHLEVO_FUEL_LOCKED = true;

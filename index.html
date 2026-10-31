@@ -215,7 +215,7 @@
 })();
 </script>
 <script src="js/runtimeEnvironment.js?v=76"></script>
-<script src="js/appMode.js?v=3"></script>
+<script src="js/appMode.js?v=4"></script>
 <script>
 (function(){
   try{
@@ -2209,6 +2209,7 @@ body.athlevo-sheet-locked{overflow:hidden}
 .settings-plan-row small{display:block;margin-top:2px;color:var(--ink2);font-size:var(--fs-small,13px)}
 .settings-plan-cta{align-self:flex-start;border:none;border-radius:var(--r-pill,999px);background:var(--ink);color:#fff;font-family:var(--sans);font-weight:600;font-size:var(--fs-small,13px);padding:10px 18px;cursor:pointer}
 .settings-plan-card[data-tier="paid"] .settings-plan-cta{display:none}
+.settings-plan-card[hidden]{display:none}.settings-plan-cta[hidden]{display:none}
 .delete-account-sheet{background:var(--surface-base);border-radius:var(--ui-radius-sheet) var(--ui-radius-sheet) 0 0;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 24px calc(28px + env(safe-area-inset-bottom));animation:slideUp var(--motion-sheet) var(--ease-emphasized)}
 .delete-account-btn:disabled{opacity:.4;cursor:not-allowed}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -6155,7 +6156,6 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
 
   /* ── selected-day panel ──────────────────────────────────────── */
   .tc-panel{margin:0 22px 12px}
-  .af-day{margin:0}
   .af-day-head{display:flex;align-items:baseline;justify-content:space-between;padding:10px 2px 6px}
   .af-day-label{font-size:var(--fs-body-sm);font-weight:700;color:var(--text)}
   .af-day-label.af-today{color:var(--red)}
@@ -6242,37 +6242,67 @@ html.athlevo-native-android .skel-circle{background:var(--skeleton-base);animati
   .af-pstrip-seg--cool{background:color-mix(in srgb,var(--ink3) 14%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 20%,transparent)}
   .af-pstrip-seg--steady{background:color-mix(in srgb,var(--ink3) 12%,var(--paper));border:1px dashed color-mix(in srgb,var(--ink3) 18%,transparent)}
 
-  /* ── Intervals.icu-style activity card ───────────────────────── */
-  .af-card--icu{--af-hr:#c2306b;--af-pace:#7a45c9;--af-z1:#2f9aa0;--af-z2:#3fa86a;--af-z3:#d2b126;--af-z4:#e8862b;--af-z5:#d4432e;
-    padding:0;overflow:hidden;gap:0;background:var(--paper);border-radius:16px;
-    border:1px solid color-mix(in srgb,var(--sport-accent,var(--ink3)) 22%,var(--line));box-shadow:var(--elev-1)}
-  html[data-theme="dark"] .af-card--icu{--af-hr:#ff7aa9;--af-pace:#b79bff}
-  @media (prefers-color-scheme:dark){html[data-theme="system"] .af-card--icu{--af-hr:#ff7aa9;--af-pace:#b79bff}}
-  .af-icu-head{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 14px;
-    background:var(--sport-accent,var(--ink3));color:#fff;font-size:var(--fs-body);font-weight:700;font-variant-numeric:tabular-nums}
-  .af-icu-head .af-sport-icon{width:20px;height:20px;color:#fff;margin:0}
-  .af-icu-dur{text-align:center}.af-icu-dist{text-align:right;min-width:3.5em}
-  .af-icu-body{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 14px 12px;text-align:center}
-  .af-icu-stats,.af-icu-effort{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:2px 12px;font-variant-numeric:tabular-nums}
-  .af-icu-stats{font-size:var(--fs-body-sm);font-weight:600}
-  .af-icu-hr{color:var(--af-hr)}.af-icu-pace{color:var(--af-pace)}.af-icu-pwr,.af-icu-vol{color:var(--ink2)}
-  .af-icu-effort{font-size:var(--fs-caption);color:var(--ink2)}.af-icu-effort b{font-weight:700;color:var(--text)}
-  .af-icu-rpe--easy b{color:var(--good)}.af-icu-rpe--mid b{color:var(--warn)}.af-icu-rpe--hard b{color:var(--bad)}
+  /* ── Activity card: headline figures, one-hue effort graph, split readout ──
+     Hierarchy comes from size and weight; the sport accent is the only colour.
+     Secondary text uses --ink2 (>= 4.5:1); --ink3 is decoration only. */
+  .af-card--icu{--af-hr:#c2306b;
+    padding:16px 18px 14px;gap:14px;overflow:hidden;background:var(--paper);border-radius:var(--r-lg);text-align:left;
+    border:1px solid color-mix(in srgb,var(--sport-accent,var(--ink3)) 14%,var(--line));box-shadow:var(--elev-1);
+    transition:transform var(--dur-fast) var(--ease-standard),box-shadow var(--dur-base) var(--ease-standard)}
+  html[data-theme="dark"] .af-card--icu{--af-hr:#ff7aa9}
+  @media (prefers-color-scheme:dark){html[data-theme="system"] .af-card--icu{--af-hr:#ff7aa9}}
+  @media (hover:hover) and (pointer:fine){.af-card--icu:hover{box-shadow:var(--elev-2)}}
+  .af-card--icu:active{transform:scale(.992)}
+  .af-card--icu:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+  .af-icu-top{display:flex;align-items:center;gap:12px}
+  .af-icu-chip{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;
+    background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 14%,var(--paper))}
+  .af-icu-chip .af-sport-icon{width:20px;height:20px;margin:0;color:var(--sport-accent,var(--ink2))}
+  .af-icu-ident{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .af-icu-sport{font-size:var(--fs-micro);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+  .af-icu-title{font-size:var(--fs-h3);font-weight:650;letter-spacing:-.01em;line-height:1.2;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .af-icu-chev{flex:none;color:var(--ink3);font-size:22px;line-height:1}
+  .af-icu-figs{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 26px}
+  .af-icu-fig{display:inline-flex;align-items:baseline;gap:3px;font-variant-numeric:tabular-nums}
+  .af-icu-fig b{font-size:var(--fs-h1);font-weight:650;letter-spacing:-.025em;line-height:1;color:var(--text)}
+  .af-icu-fig small{font-size:var(--fs-caption);font-weight:600;color:var(--ink2);margin-right:5px}
+  .af-icu-fig small:last-child{margin-right:0}
+  .af-icu-chart{display:flex;flex-direction:column;gap:6px}
+  .af-icu-graph{position:relative;display:flex;align-items:flex-end;gap:2px;width:100%;height:56px;
+    border-bottom:1px solid color-mix(in srgb,var(--ink3) 35%,var(--paper))}
+  .af-icu-graph i{flex:1 1 0;min-width:0;border-radius:3px 3px 1px 1px;background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 50%,var(--paper))}
+  .af-icu-graph i.z0{background:transparent}
+  .af-icu-graph i.z1{background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 32%,var(--paper))}
+  .af-icu-graph i.z3{background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 74%,var(--paper))}
+  .af-icu-graph i.z4{background:var(--sport-accent,var(--ink3))}
+  .af-icu-graph i.z5{background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 78%,var(--text))}
+  .af-icu-graph--flat{height:8px;margin:24px 0 0;border-bottom:0}
+  .af-icu-graph--flat i{height:100%;border-radius:var(--r-pill);background:color-mix(in srgb,var(--sport-accent,var(--ink3)) 22%,var(--paper))}
+  .af-icu-chart.has-split .af-icu-graph::after{content:"";position:absolute;left:50%;top:-2px;bottom:0;border-left:1px dashed color-mix(in srgb,var(--ink3) 70%,var(--paper))}
+  .af-icu-axis{display:flex;justify-content:space-between;font-size:var(--fs-micro);font-variant-numeric:tabular-nums;color:var(--ink2)}
+  .af-icu-halves{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-top:2px}
+  .af-half{display:flex;flex-direction:column;gap:1px;font-variant-numeric:tabular-nums}
+  .af-half small{font-size:var(--fs-micro);color:var(--ink2);font-weight:600}
+  .af-half b{font-size:var(--fs-body);font-weight:650;color:var(--text)}
+  .af-half--end{text-align:right;align-items:flex-end}
+  .af-split{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r-pill);white-space:nowrap;
+    font-size:var(--fs-caption);font-weight:650;color:var(--text);background:color-mix(in srgb,var(--ink3) 14%,var(--paper))}
+  .af-split svg{width:11px;height:11px;flex:none}
+  .af-split--negative svg{color:var(--good)}.af-split--positive svg{color:var(--warn)}.af-split--even svg{color:var(--ink2)}
+  .af-icu-foot{margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding-top:12px;border-top:1px solid var(--line);
+    font-size:var(--fs-caption);color:var(--ink2);font-variant-numeric:tabular-nums}
+  .af-icu-foot b{font-weight:650;color:var(--text)}
+  .af-icu-hr{display:inline-flex;align-items:center;gap:5px}.af-icu-hr svg{width:12px;height:12px;color:var(--af-hr)}
+  .af-icu-rpe{display:inline-flex;align-items:center;gap:6px}
+  .af-rpe-dot{width:8px;height:8px;border-radius:50%;background:var(--good)}
+  .af-rpe-dot--mid{background:color-mix(in srgb,var(--warn) 85%,var(--text))}.af-rpe-dot--hard{background:var(--bad)}
   .af-icu-feel{font-size:var(--fs-body);line-height:1}
-  .af-icu-graph{display:flex;align-items:flex-end;gap:1px;width:100%;height:48px;margin-top:2px;border-radius:6px;overflow:hidden;
-    background:color-mix(in srgb,var(--ink3) 7%,var(--paper))}
-  .af-icu-graph i{flex:1 1 0;min-width:0;border-radius:1px 1px 0 0;background:var(--af-z2)}
-  .af-icu-graph i.z0{background:transparent}.af-icu-graph i.z1{background:var(--af-z1)}.af-icu-graph i.z3{background:var(--af-z3)}
-  .af-icu-graph i.z4{background:var(--af-z4)}.af-icu-graph i.z5{background:var(--af-z5)}
-  .af-icu-graph--flat i{height:55%;background:var(--ink3);opacity:.22}
-  .af-icu-title{font-size:var(--fs-body-sm);font-weight:650;color:var(--text);line-height:1.3;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .af-split{display:inline-flex;flex-wrap:wrap;justify-content:center;gap:2px 6px;padding:3px 10px;border-radius:var(--r-pill);font-size:var(--fs-caption);
-    font-variant-numeric:tabular-nums;color:var(--ink2);background:color-mix(in srgb,var(--ink3) 12%,var(--paper))}
-  .af-split b{font-weight:700}
-  .af-split--negative{color:var(--good);background:color-mix(in srgb,var(--good) 12%,var(--paper))}
-  .af-split--positive{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--paper))}
-  .af-card--icu .af-card-plan{margin:0}
-  .af-card--icu .af-card-analyze{margin-top:2px;padding:4px 0 0}
+  .af-card--icu .af-card-plan{margin:0;color:var(--ink2)}
+  .af-card--icu .af-card-analyze{margin:0;padding:0}
+  /* Wide screens: cards sit side by side, like the Intervals.icu feed. */
+  .af-day{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:14px}
+  .af-day>.af-day-head,.af-day>.af-section-label,.af-day>.af-day-empty{grid-column:1/-1;margin:0}
+  @media (prefers-reduced-motion:reduce){.af-card--icu{transition:none}.af-card--icu:active{transform:none}}
 
   /* ── Fuel: temporary lock ────────────────────────────────────── */
   .fuel-lock-glyph{display:none;flex:none;width:18px;height:18px;color:var(--ink3)}
@@ -7028,11 +7058,11 @@ body.athlete-coached .train-empty .primary-btn{display:none!important}
     <div class="settings-plan-row">
       <div>
         <b id="settingsPlanName">Athlevo Free</b>
-        <small id="settingsPlanDetail">1-week personalized plan · 10 Coach messages/month</small>
+        <small id="settingsPlanDetail">Work with a coach for a plan built around you and direct messaging.</small>
       </div>
     </div>
     <button type="button" class="settings-plan-cta" id="settingsPlanUpgradeCta"
-      onclick="AthlevoAccessGuard.openPaywall('settings-upgrade')">Upgrade to Pro</button>
+      onclick="openProgramsSite('settings-upgrade')">Upgrade to coaching</button>
   </div>
   <div class="settings-spacer"></div>
 
@@ -9537,29 +9567,31 @@ function renderSettingsPlanStatus() {
     }
   } catch (e) { /* fall back to Free copy rather than guess paid */ }
   if (window.ATHLEVO_COACH_LED === true) {
-    var offerOn = !!(window.AthlevoPrograms && window.AthlevoPrograms.isOn && window.AthlevoPrograms.isOn());
-    if (!offerOn) {
-      // Free app: no plan or programs section at all.
-      var gap = card.nextElementSibling;
-      var head = card.previousElementSibling;
-      card.hidden = true;
-      if (head && head.querySelector('.section-title')) head.hidden = true;
-      if (gap && gap.classList.contains('settings-spacer')) gap.hidden = true;
-      return;
-    }
-    // Coach-led app: no plan tiers. This card is the way back to Programs.
+    // Coach-led app: there are no Pro tiers. Free athletes are offered coaching, which
+    // is chosen on programs.athlevo.org; athletes who already have a coach see who it is.
     var heading = card.previousElementSibling && card.previousElementSibling.querySelector('.section-title');
-    if (heading) heading.textContent = 'Programs';
-    nameEl.textContent = 'Athlevo programs';
-    detailEl.textContent = 'See the coaching programs and what is included.';
-    card.dataset.tier = 'free';
-    var programsCta = document.getElementById('settingsPlanUpgradeCta');
-    if (programsCta) {
-      programsCta.textContent = 'View programs';
-      programsCta.onclick = function () {
-        if (window.AthlevoPrograms) window.AthlevoPrograms.open('screen-settings');
-      };
+    var cta = document.getElementById('settingsPlanUpgradeCta');
+    var managed = !!(window.AthlevoAthleteMode && typeof AthlevoAthleteMode.isManaged === 'function' && AthlevoAthleteMode.isManaged());
+    if (managed) {
+      var coachInfo = typeof AthlevoAthleteMode.coach === 'function' ? AthlevoAthleteMode.coach() : null;
+      var coachName = coachInfo && coachInfo.display_name && coachInfo.display_name !== 'Your coach' ? coachInfo.display_name : 'Coach Dean';
+      if (heading) heading.textContent = 'Coaching';
+      nameEl.textContent = 'Athlevo Coaching';
+      detailEl.textContent = 'You are coached by ' + coachName + '.';
+      card.dataset.tier = 'paid';
+      if (cta) cta.hidden = true;
+    } else {
+      if (heading) heading.textContent = 'Plan';
+      nameEl.textContent = 'Athlevo Free';
+      detailEl.textContent = 'Work with a coach for a plan built around you and direct messaging.';
+      card.dataset.tier = 'free';
+      if (cta) { cta.hidden = false; cta.textContent = 'Upgrade to coaching'; cta.onclick = function () { openProgramsSite('settings-upgrade'); }; }
     }
+    card.hidden = false;
+    var cardHead = card.previousElementSibling;
+    if (cardHead && cardHead.hidden) cardHead.hidden = false;
+    var gapEl = card.nextElementSibling;
+    if (gapEl && gapEl.classList.contains('settings-spacer')) gapEl.hidden = false;
     return;
   }
   var isPaid = entitlement.accessState === 'paid_active';
@@ -9570,11 +9602,32 @@ function renderSettingsPlanStatus() {
       ? 'Unlimited plan, Coach messages, and analysis'
       : '1-month personalized plan · 30 Coach messages/month';
   } else {
+    // Legacy freemium app (ATHLEVO_COACH_LED off): the old Pro upsell.
     nameEl.textContent = 'Athlevo Free';
     detailEl.textContent = '1-week personalized plan · 10 Coach messages/month';
+    var proCta = document.getElementById('settingsPlanUpgradeCta');
+    if (proCta) {
+      proCta.textContent = 'Upgrade to Pro';
+      proCta.onclick = function () { AthlevoAccessGuard.openPaywall('settings-upgrade'); };
+    }
   }
 }
 window.renderSettingsPlanStatus = renderSettingsPlanStatus;
+
+/* Coaching programs are picked on the programs site (the one hand-off out of the app). */
+function openProgramsSite(source) {
+  var url = window.ATHLEVO_PROGRAMS_URL || 'https://programs.athlevo.org';
+  try {
+    if (window.AthlevoProductAnalytics && AthlevoProductAnalytics.trackAthlevoEvent) {
+      AthlevoProductAnalytics.trackAthlevoEvent('programs_site_opened', { source_surface: source || 'settings' });
+    }
+  } catch (e) {}
+  if (window.AthlevoRuntime && typeof AthlevoRuntime.openExternal === 'function') {
+    return AthlevoRuntime.openExternal(url).catch(function () { window.open(url, '_blank', 'noopener'); });
+  }
+  window.open(url, '_blank', 'noopener');
+}
+window.openProgramsSite = openProgramsSite;
 
 // Kept for compatibility with any external deep link — the training-data
 // card now renders directly in Settings > Connections (js/syncStatus.js),
@@ -13644,7 +13697,7 @@ html[data-theme="dark"]{--prb-lift:2%}
 <script src="js/coachTimeline.js?v=67"></script>
 <script src="js/workoutStructure.js?v=67"></script>
 <script src="js/activityStreams.js?v=5"></script>
-<script src="js/trainCalendar.js?v=104"></script>
+<script src="js/trainCalendar.js?v=106"></script>
 <script src="js/coachInvites.js?v=2"></script>
 <script src="js/athleteMode.js?v=83"></script>
 <script src="js/authRouteGuard.js?v=1"></script>
