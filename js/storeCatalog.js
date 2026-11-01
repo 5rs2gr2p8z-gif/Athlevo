@@ -127,7 +127,7 @@
     intro: "Louie is a running coach at Athlevo and a competitive middle to long distance runner.",
     credentialsLabel: "Credentials",
     certifications: [
-      "World Athletics Certified Coach — CECS Level 1",
+      "World Athletics Certified Coach, CECS Level 1",
       "ISSA Certified Running Coach"
     ]
   };
@@ -229,7 +229,7 @@
       name: "Athlevo Plan",
       hero: PHOTO.track,
       page: {
-        seoTitle: "Athlevo Plan — A Training Plan Built by a Coach",
+        seoTitle: "Athlevo Plan: A Training Plan Built by a Coach",
         headline: "A training plan built for you.",
         description: "A personalized 4-week training plan, built by an Athlevo coach around your schedule, fitness level, and goals.",
         price: { amount: "₱999", period: "/month" },
@@ -295,7 +295,7 @@
       name: "Athlevo Guided",
       hero: PHOTO.hybrid,
       page: {
-        seoTitle: "Athlevo Guided — Training Plan and a Coach to Ask",
+        seoTitle: "Athlevo Guided: Training Plan and a Coach to Ask",
         headline: "Your plan, and a coach to answer your questions.",
         description: "A personalized running and strength training plan, built by an Athlevo coach, plus a coach to answer your questions.",
         price: { amount: "₱2,997", period: "/month" },
@@ -360,7 +360,7 @@
       name: "Athlevo Coaching",
       hero: PHOTO.road,
       page: {
-        seoTitle: "Athlevo Coaching — Online Running and Strength Coaching",
+        seoTitle: "Athlevo Coaching: Online Running and Strength Coaching",
         headline: "A hands-on coach for your training, nutrition, and recovery.",
         description: "Everything in Athlevo Guided, plus frequent training adjustments, nutrition, recovery protocols, and a hands-on coach.",
         price: { amount: "₱4,998", period: "/month" },
@@ -428,7 +428,7 @@
       name: "Athlevo VIP Coaching",
       hero: PHOTO.pack,
       page: {
-        seoTitle: "Athlevo VIP Coaching — Online Coaching with Dean Castro",
+        seoTitle: "Athlevo VIP Coaching: Online Coaching with Dean Castro",
         headline: "Coached directly by Dean, with priority responses.",
         description: "Everything in Athlevo Coaching, with Head Coach Dean Castro as your coach and priority responses.",
         price: { amount: "₱7,998", period: "/month" },
@@ -574,7 +574,7 @@
       meta.title = page.seoTitle;
       meta.description = page.description + " " + page.price.amount + page.price.period + ". " + page.pricing.terms;
     } else {
-      meta.title = product.name + " — Athlevo Programs";
+      meta.title = product.name + " | Athlevo Programs";
       meta.description = product.name + " from Athlevo. Purchasing is not yet available.";
     }
     return meta;

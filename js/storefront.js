@@ -964,7 +964,7 @@
   }
 
   function renderMissing() {
-    setTitle("Program not found — Athlevo");
+    setTitle("Program not found | Athlevo");
     root.replaceChildren();
     var box = $("div", "missing");
     box.appendChild($("h1", "", "This program is not in the catalog."));

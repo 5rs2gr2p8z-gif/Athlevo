@@ -977,7 +977,7 @@ section("9d. Athlevo Plan (₱999/month, a 4-week plan, no call) and the setting
     t("amount is the server-owned ₱999 whatever the browser sends, described as one month like the other offers",
       a.line_items.length === 1 && a.line_items[0].amount === 99900 && a.line_items[0].currency === "PHP" &&
       a.line_items[0].quantity === 1 && a.line_items[0].name === "Athlevo Plan" &&
-      a.line_items[0].description === "Athlevo Plan — 1 month");
+      a.line_items[0].description === "Athlevo Plan, 1 month");
     t("the Plan price matches the price shown on the page, per month",
       (() => {
         const sandbox = {}; sandbox.window = sandbox; sandbox.globalThis = sandbox;
@@ -1768,7 +1768,7 @@ section("12. Partner discount codes (unique per runner, 10% off every payment)")
     const none = res(); await checkout(post({}, "198.51.100.24"), none);
     const noneAttrs = log.paymongo[log.paymongo.length - 1].attributes;
     t("with no code the checkout is exactly as before", none.statusCode === 200 && noneAttrs.line_items[0].amount === 299700 &&
-      JSON.stringify(Object.keys(noneAttrs.metadata)) === '["athlevo_product","athlevo_source"]' && noneAttrs.description === "Athlevo Guided — 1 month");
+      JSON.stringify(Object.keys(noneAttrs.metadata)) === '["athlevo_product","athlevo_source"]' && noneAttrs.description === "Athlevo Guided, 1 month");
   }
   {
     partnerTableMissing = true;

@@ -72,7 +72,7 @@ const HEAD_COMMON =
   '  <link rel="icon" type="image/png" href="/assets/athlevo-ae-icon.png">\n' +
   '  <link rel="preconnect" href="https://fonts.googleapis.com">\n' +
   '  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
-  '  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">\n' +
+  '  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Inter:wght@400..700&display=swap" rel="stylesheet">\n' +
   '  <link rel="stylesheet" href="/store.css">\n' +
   '  <link rel="stylesheet" href="/webinar.css">';
 

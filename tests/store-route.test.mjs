@@ -156,7 +156,7 @@ section("4. Storefront chrome");
     /<a class="wordmark" href="\/programs">Athlevo<i aria-hidden="true">\.<\/i><\/a>/.test(storeHtml) &&
     /<a class="footer-mark" href="\/programs">Athlevo<i aria-hidden="true">\.<\/i><\/a>/.test(storeHtml) &&
     /\.wordmark i,\s*\.footer-mark i\s*\{[^}]*color:\s*var\(--red-on-dark\)[^}]*font-style:\s*normal/.test(css) &&
-    /--red-on-dark:\s*#e5484d/.test(css));
+    /--red-on-dark:\s*#ff4650/.test(css));
   t("the storefront chrome carries no logo image",
     !/athlevo-coaching-logo|brand-logo/.test(storeHtml) && !/brand-logo/.test(css));
   t("hero headline is in the catalog source",
@@ -220,7 +220,7 @@ section("4b. Catalog page structure");
     louie.intro === "Louie is a running coach at Athlevo and a competitive middle to long distance runner." &&
     louie.credentialsLabel === "Credentials" &&
     JSON.stringify(louie.certifications) === JSON.stringify(
-      ["World Athletics Certified Coach — CECS Level 1", "ISSA Certified Running Coach"]) &&
+      ["World Athletics Certified Coach, CECS Level 1", "ISSA Certified Running Coach"]) &&
     /coach\.credentialsLabel \|\| "Certified in"/.test(storefrontSrc));
   t("coach cards show credentials only: no coach has personal bests and none render",
     catalog.coaches.every(c => !("personalBests" in c)) &&
@@ -270,7 +270,7 @@ section("4b. Catalog page structure");
     /border-radius:\s*var\(--radius\)/.test(ruleBody(".program-card")) &&
     /box-shadow/.test(ruleBody(".program-card")) &&
     /aspect-ratio:\s*4 \/ 5/.test(ruleBody(".program-card")) &&
-    /rgba\(10, 11, 14, 0\.38\)/.test(cssFlat));
+    /rgba\(10, 10, 11, 0\.38\)/.test(cssFlat));
   t("related cards no longer show duration or runner meta",
     !/product-meta/.test(storefrontSrc) && !/durationLabel \+/.test(storefrontSrc));
   t("product pages resolve legacy slugs to the canonical URL",
@@ -491,7 +491,7 @@ section("4e. Athlevo Plan page (₱999/month, a 4-week plan)");
 
   t("first screen: title, headline, description, supporting text",
     plan.name === "Athlevo Plan" &&
-    page.seoTitle === "Athlevo Plan — A Training Plan Built by a Coach" &&
+    page.seoTitle === "Athlevo Plan: A Training Plan Built by a Coach" &&
     page.headline === "A training plan built for you." &&
     page.description === "A personalized 4-week training plan, built by an Athlevo coach around your schedule, fitness level, and goals." &&
     page.supporting === "Month-to-month. No lock-in.");
@@ -544,7 +544,7 @@ section("4f. Athlevo Guided page (₱2,997/month)");
 
   t("first screen: title, headline, description, supporting text",
     guided.name === "Athlevo Guided" &&
-    page.seoTitle === "Athlevo Guided — Training Plan and a Coach to Ask" &&
+    page.seoTitle === "Athlevo Guided: Training Plan and a Coach to Ask" &&
     page.headline === "Your plan, and a coach to answer your questions." &&
     page.description === "A personalized running and strength training plan, built by an Athlevo coach, plus a coach to answer your questions." &&
     page.supporting === "Month-to-month. No lock-in.");
@@ -600,7 +600,7 @@ section("4g. Athlevo Coaching page (₱4,998/month)");
 
   t("first screen: title, headline, description, supporting text",
     coaching.name === "Athlevo Coaching" &&
-    page.seoTitle === "Athlevo Coaching — Online Running and Strength Coaching" &&
+    page.seoTitle === "Athlevo Coaching: Online Running and Strength Coaching" &&
     page.headline === "A hands-on coach for your training, nutrition, and recovery." &&
     page.description === "Everything in Athlevo Guided, plus frequent training adjustments, nutrition, recovery protocols, and a hands-on coach." &&
     page.supporting === "Month-to-month. No lock-in.");
@@ -657,7 +657,7 @@ section("4h. Athlevo VIP Coaching page (₱7,998/month)");
 
   t("first screen: title, headline, description, supporting text",
     vip.name === "Athlevo VIP Coaching" &&
-    page.seoTitle === "Athlevo VIP Coaching — Online Coaching with Dean Castro" &&
+    page.seoTitle === "Athlevo VIP Coaching: Online Coaching with Dean Castro" &&
     page.headline === "Coached directly by Dean, with priority responses." &&
     page.description === "Everything in Athlevo Coaching, with Head Coach Dean Castro as your coach and priority responses." &&
     page.supporting === "Month-to-month. No lock-in.");
@@ -739,21 +739,31 @@ section("6. App shell and service worker isolation");
   t("store navigations are not written into the app-shell cache",
     /isAppShellNav/.test(sw) &&
     /\/\(programs\|store\|landing-preview\)/.test(sw));
-  t("storefront uses the site's Fraunces display type and the Athlevo red accent",
-    /family=Fraunces:opsz,wght@9\.\.144,400;9\.\.144,500;9\.\.144,600/.test(storeHtml) &&
-    /--display:\s*"Fraunces", Georgia/.test(css) && /--red: #c0272d/.test(css));
-  t("typography is consistent: one serif for headings, the system sans for body, nothing else",
-    !/Space[ +]Grotesk/.test(storeHtml + css) &&
+  t("storefront loads the Brand DNA fonts (Barlow Condensed bold + Inter) and uses the Brand DNA red and black",
+    /family=Barlow\+Condensed:wght@700&(amp;)?family=Inter:wght@400\.\.700/.test(storeHtml) &&
+    /--display:\s*"Barlow Condensed"/.test(css) && /--sans:\s*"Inter"/.test(css) &&
+    /--red: #cc0010/.test(css) && /--red-deep: #8f000b/.test(css) && /--red-on-dark: #ff4650/.test(css) &&
+    /--ink: #0a0a0b/.test(css) && /--card-black: #1c1c1c/.test(css) && /--white: #ffffff/.test(css));
+  t("none of the old store colours or fonts are left (Fraunces, #c0272d, #e5484d, #a82026, #2a2c31, #101114)",
+    !/Fraunces|#c0272d|#e5484d|#a82026|#2a2c31|#101114|#ff6b70/i.test(storeHtml + css));
+  t("typography is consistent: Barlow Condensed for headings, Inter for body, nothing else",
+    !/Space[ +]Grotesk|Fraunces/.test(storeHtml + css) &&
     (css.match(/font-family:\s*[^;]+;/g) || []).every(d => /^font-family:\s*var\(--(display|wordmark|sans)\);$/.test(d)) &&
     /--wordmark:\s*var\(--display\)/.test(css) &&
     /body\s*\{[^}]*font-family:\s*var\(--sans\)/.test(css));
-  t("every heading and name uses the display serif at weight 500 or 600 (no bold sans-style 700)",
+  t("every heading, name and the wordmark use Barlow Condensed at bold 700",
     [".intro h1", ".section-title", ".pdp h1", ".offer-section > h2", ".coach-card-name", ".offer-coach-name", ".wordmark"]
       .every(sel => {
         const m = css.match(new RegExp(sel.replace(/[.>]/g, c => "\\" + c).replace(/ /g, "\\s*") + "\\s*\\{([^}]*)\\}"));
-        return m && /font-family:\s*var\(--(display|wordmark)\)/.test(m[1]) && /font-weight:\s*(500|600)\b/.test(m[1]);
+        return m && /font-family:\s*var\(--(display|wordmark)\)/.test(m[1]) && /font-weight:\s*700\b/.test(m[1]);
       }) &&
-    !/(var\(--display\)|var\(--wordmark\))[^}]*font-weight:\s*700|font-weight:\s*700[^}]*(var\(--display\)|var\(--wordmark\))/.test(css));
+    !/(var\(--display\)|var\(--wordmark\))[^}]*font-weight:\s*[1-6]00|font-weight:\s*[1-6]00[^}]*(var\(--display\)|var\(--wordmark\))/.test(css));
+  t("buttons use Barlow Condensed bold, 15px or larger so they read on a phone",
+    /\.btn\s*\{[^}]*font:\s*700 15px\/1 var\(--display\)/.test(css));
+  t("Brand DNA writing rule: no em dashes anywhere a visitor reads on the storefront or in the checkout line item",
+    !/\u2014/.test(catalogSrc) && !/\u2014/.test(readFileSync("./js/storefront.js", "utf8")) &&
+    !/\u2014/.test(storeHtml) && catalog.products.every(p => !/\u2014/.test(readFileSync("./store-pages/" + p.slug + ".html", "utf8"))) &&
+    !/description:\s*"[^"]*\u2014/.test(readFileSync("./lib/server/planSignup.js", "utf8")));
   t("scroll reveal is an enhancement: needs IntersectionObserver, skips reduced motion, never touches the first screen",
     /typeof global\.IntersectionObserver !== "function" \|\| prefersReducedMotion\(\)/.test(storefrontSrc) &&
     /prefers-reduced-motion: reduce/.test(storefrontSrc.slice(storefrontSrc.indexOf("function prefersReducedMotion"))) &&
@@ -771,8 +781,8 @@ section("6. App shell and service worker isolation");
     /@media \(prefers-reduced-motion: reduce\), print \{[\s\S]*\[data-reveal="pending"\]\s*\{\s*opacity:\s*1;\s*transform:\s*none;/.test(css) &&
     !/data-reveal|data-img/.test(storeHtml) &&
     ![".program-card", ".coach-card", ".offer-section", ".section-title", ".faq"].some(sel => new RegExp("\\" + sel + "\\s*\\{[^}]*opacity:\\s*0").test(css)));
-  t("hero intro text uses the body font at 18-22px and the headline at 38-64px, in the same section",
-    /\.intro h1\s*\{[^}]*font-size:\s*clamp\(38px, 6vw, 64px\)/.test(css) &&
+  t("hero intro text uses the body font at 18-22px and the headline at 44-74px, in the same section",
+    /\.intro h1\s*\{[^}]*font-size:\s*clamp\(44px, 6\.9vw, 74px\)/.test(css) &&
     /\.intro-text\s*\{[^}]*font-size:\s*clamp\(18px, 2\.2vw, 22px\)/.test(css) &&
     !/\.intro-text\s*\{[^}]*font-family/.test(css));
 }

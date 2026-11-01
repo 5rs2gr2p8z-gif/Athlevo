@@ -282,7 +282,7 @@ section("6. Styling");
   t("the new CSS adds no fonts (no @font-face, @import or literal font families)", !/@font-face|@import/.test(css) && !/font-family:(?!\s*var\()/.test(css));
   t("both pages load the site's own stylesheet first, then the small webinar one",
     [landing, thanks].every(h => h.indexOf('href="/store.css"') > -1 && h.indexOf('href="/webinar.css"') > h.indexOf('href="/store.css"')));
-  t("the page loads the same Fraunces font link as the storefront", has(landing, "family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600") && has(readFileSync("store.html", "utf8"), "family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600"));
+  t("the page loads the same Brand DNA font link as the storefront", has(landing, "family=Barlow+Condensed:wght@700&family=Inter:wght@400..700") && has(readFileSync("store.html", "utf8"), "family=Barlow+Condensed:wght@700&family=Inter:wght@400..700"));
   t("it reuses the storefront's own components", ["pdp-hero--offer", "offer-description", "pdp-facts", "faq", "offer-coach-row", "coach-card-creds", "site-footer", "signup-confirm", "offer-steps", "btn btn-red btn-lg"].every(c => has(landing + thanks, c) && storeCss.includes("." + c.split(" ")[0])));
   t("visible focus on every field, summary and the skip link", /\.field input:focus-visible[\s\S]*?\.faq summary:focus-visible[\s\S]*?\.skip:focus-visible[\s\S]*?outline:\s*2px solid var\(--red\)/.test(css));
   t("no rule removes focus outlines except on the programmatic scroll targets", [...css.matchAll(/([^{}]+)\{[^}]*outline:\s*none/g)].every(m => /#main:focus|\.webinar-form:focus/.test(m[1])));
