@@ -79,7 +79,9 @@ section("2. Catalog data");
   const raceOrWeeks = /\b(5k|10k|half[- ]marathon|marathon|\d+[- ]weeks?)\b/i;
   t("offer data mentions no race distances or week counts, except the Athlevo Plan's 4-week plan (approved athlete quotes excepted)",
     !raceOrWeeks.test(offerJson(catalog.products.filter(p => p.slug !== "athlevo-plan"))) &&
-    !raceOrWeeks.test(offerJson(catalog.products.filter(p => p.slug === "athlevo-plan")).replace(/\b4-week\b/g, "")) &&
+    !raceOrWeeks.test(offerJson(catalog.products.filter(p => p.slug === "athlevo-plan"))
+      .replace(/\b4-week\b/g, "")
+      .replace(/5K, 10K, half marathon (or|and) marathon|5K to marathon/g, "")) &&
     /4-week/.test(offerJson(catalog.products.filter(p => p.slug === "athlevo-plan"))));
   t("all four offers have built pages, so none is left on the bare layout",
     catalog.products.every(p => !!p.page) &&
@@ -451,9 +453,17 @@ section("4d. Offer pages: what the four offers share");
 
   t("page data has no discounts, fees, or promotions on any offer",
     offers.every(o => !/\b(discounts?|fees?|free|trial|coupons?|promos?|refunds?)\b|% off/i.test(jsonOf(o))));
+  // Dean confirmed on 2026-11-01 that an Athlevo Plan buyer gets the plan in the app within 24 hours of
+  // finishing onboarding. That one promise is allowed on the Plan page; nothing else on any offer.
+  const confirmedTiming = /within 24 hours of finishing onboarding|within 24 hours/g;
   t("no invented delivery timelines, support channels, response times or guarantees on any offer",
-    offers.every(o => !/\b(messenger|whatsapp|facebook|email|viber|telegram|within|hours?|business days?|24\/7|reply|replies|respond|guarantee\w*)\b|\bresponse times?\b/i.test(jsonOf(o)) &&
-      !/\d+\s*(minutes?|hours?|days?|weeks?)/i.test(jsonOf(o))));
+    offers.every(o => { const j = jsonOf(o).replace(o.slug === "athlevo-plan" ? confirmedTiming : /(?!)/g, "");
+      return !/\b(messenger|whatsapp|facebook|email|viber|telegram|within|hours?|business days?|24\/7|reply|replies|respond|guarantee\w*)\b|\bresponse times?\b/i.test(j) &&
+        !/\d+\s*(minutes?|hours?|days?|weeks?)/i.test(j.replace(/\b4-week\b/g, "")); }));
+  t("the 24-hour delivery is promised on the Plan page only, under Sign Up and in the steps, and only after onboarding",
+    offers.every(o => o.slug === "athlevo-plan"
+      ? /within 24 hours/.test(o.page.afterSignUp) && /finish/.test(o.page.afterSignUp) && /within 24 hours of finishing onboarding/.test(o.page.getStarted.steps[3])
+      : !/24 hours/.test(jsonOf(o))));
   t("nobody is promised weekly reviews or a fixed schedule",
     offers.every(o => !/weekly|every week|daily|biweekly|fortnight/i.test(JSON.stringify(o.page) + o.name)));
   t("no offer page talks about face-to-face sessions, medical care, or a named platform",
@@ -492,8 +502,10 @@ section("4e. Athlevo Plan page (₱999/month, a 4-week plan)");
   t("first screen: title, headline, description, supporting text",
     plan.name === "Athlevo Plan" &&
     page.seoTitle === "Athlevo Plan: A Training Plan Built by a Coach" &&
-    page.headline === "A training plan built for you." &&
-    page.description === "A personalized 4-week training plan, built by an Athlevo coach around your schedule, fitness level, and goals." &&
+    page.headline === "Get a running plan for your next race." &&
+    page.description === "A personalized 4-week plan for your next 5K, 10K, half marathon or marathon, built by an Athlevo coach around your schedule, fitness level, and goals." &&
+    page.cadence === "A new 4-week plan every month, built from how your last month went." &&
+    page.afterSignUp === "Sign up and pay, create your Athlevo account, and answer a few questions. Once you finish, your plan arrives in the app within 24 hours." &&
     page.supporting === "Month-to-month. No lock-in.");
   t("price is ₱999 a month, month-to-month, and the plan is described as a 4-week plan",
     page.price.amount === "₱999" && page.price.period === "/month" && page.pricing.terms === "Month-to-month, no lock-in." &&
@@ -501,12 +513,15 @@ section("4e. Athlevo Plan page (₱999/month, a 4-week plan)");
   t("what is included is the plan and nothing more",
     JSON.stringify(page.overview.includes) === JSON.stringify([
       "A personalized 4-week training plan, built by an Athlevo coach.",
-      "Built around your schedule, your fitness level, and your goals."
+      "For 5K, 10K, half marathon and marathon training.",
+      "Built around your schedule, your fitness level, and your goals.",
+      "A new plan every month, built from how your last month went."
     ]) &&
     JSON.stringify(page.pricing.includes) === JSON.stringify([
       "Personalized 4-week training plan",
       "Built by an Athlevo coach",
-      "Built around your schedule, fitness level, and goals"
+      "Built around your schedule, fitness level, and goals",
+      "A new plan every month, built from how your last month went"
     ]));
   t("no coach contact, reviews, adjustments, nutrition, recovery or strength work is promised; Athlevo Guided is named as the step up",
     !/answer your questions|review|adjust|nutrition|recovery|strength|hands-on|priority/i.test(JSON.stringify([
@@ -525,8 +540,16 @@ section("4e. Athlevo Plan page (₱999/month, a 4-week plan)");
       "Sign up and complete payment.",
       "You are taken straight to Athlevo to create your account.",
       "Complete your onboarding in the Athlevo app.",
-      "Receive your 4-week training plan in the app."
+      "Your 4-week training plan arrives in the app within 24 hours of finishing onboarding."
     ]) && !/\bcall\b|questionnaire/i.test(page.getStarted.steps.join(" ")));
+  t("the prerendered Plan page shows the monthly line under the price and the what-happens-next line under Sign Up, and no other offer does",
+    /A new 4-week plan every month, built from how your last month went\./.test(pre.text) &&
+    /Sign up and pay, create your Athlevo account, and answer a few questions\. Once you finish, your plan arrives in the app within 24 hours\./.test(pre.text) &&
+    /class="offer-cadence"/.test(offerHtml("athlevo-plan")) && /class="offer-after"/.test(offerHtml("athlevo-plan")) &&
+    ["athlevo-guided", "athlevo-coaching", "athlevo-vip-coaching"].every(s => !/offer-cadence|offer-after/.test(offerHtml(s))));
+  t("the Plan's search description is the short one and stays within a snippet",
+    catalog.seo("athlevo-plan").description === "A personalized 4-week plan for your next 5K to marathon, built by an Athlevo coach around your schedule and goals. ₱999/month. Month-to-month, no lock-in." &&
+    catalog.seo("athlevo-plan").description.length <= 160);
   t("the prerendered Plan page holds the price (₱999/month), inclusions, steps and quotes, with no coach block",
     pre.holdsContent && /₱999/.test(pre.text) && /\/month/.test(pre.text) && /4-week/.test(pre.text) && !pre.text.includes("Meet the Coach"));
   t("the prerendered Plan page has Sign Up buttons exactly when its switch is on, and never a code box, form field or card input",
@@ -758,6 +781,10 @@ section("6. App shell and service worker isolation");
         return m && /font-family:\s*var\(--(display|wordmark)\)/.test(m[1]) && /font-weight:\s*700\b/.test(m[1]);
       }) &&
     !/(var\(--display\)|var\(--wordmark\))[^}]*font-weight:\s*[1-6]00|font-weight:\s*[1-6]00[^}]*(var\(--display\)|var\(--wordmark\))/.test(css));
+  t("the FAQ and Related programs headings use the Barlow Condensed display style like every other heading",
+    catalog.products.every(p => /<h2 class="pdp-more-title">FAQ<\/h2>/.test(readFileSync("./store-pages/" + p.slug + ".html", "utf8")) &&
+      /<h2 class="pdp-more-title">Related programs<\/h2>/.test(readFileSync("./store-pages/" + p.slug + ".html", "utf8"))) &&
+    /\.pdp-more-title\s*\{[^}]*font-family:\s*var\(--display\)[^}]*font-weight:\s*700/.test(css));
   t("buttons use Barlow Condensed bold, 15px or larger so they read on a phone",
     /\.btn\s*\{[^}]*font:\s*700 15px\/1 var\(--display\)/.test(css));
   t("Brand DNA writing rule: no em dashes anywhere a visitor reads on the storefront or in the checkout line item",

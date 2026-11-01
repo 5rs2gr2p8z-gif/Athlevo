@@ -383,7 +383,7 @@
   function appendFaqAndRelated(page, product) {
     var faq = $("section");
     faq.style.marginTop = "64px";
-    faq.appendChild($("h2", "", "FAQ"));
+    faq.appendChild($("h2", "pdp-more-title", "FAQ"));
     renderFaqs(faq, catalog.getFaqs());
     page.appendChild(faq);
 
@@ -391,7 +391,7 @@
     if (related.length) {
       var rel = $("section");
       rel.style.marginTop = "64px";
-      rel.appendChild($("h2", "", "Related programs"));
+      rel.appendChild($("h2", "pdp-more-title", "Related programs"));
       var relGrid = $("div", "related-grid");
       related.forEach(function (item) {
         relGrid.appendChild(renderProductCard(item, "related-card"));
@@ -475,7 +475,10 @@
     price.appendChild($("span", "offer-price-amount", data.price.amount));
     if (data.price.period) price.appendChild($("span", "offer-price-period", data.price.period));
     copy.appendChild(price);
+    // Optional: what the monthly price buys (under the price) and what happens after Sign Up (under the button).
+    if (data.cadence) copy.appendChild($("p", "offer-cadence", data.cadence));
     copy.appendChild(offerSignUp(data));
+    if (data.afterSignUp) copy.appendChild($("p", "offer-after", data.afterSignUp));
     copy.appendChild($("p", "offer-supporting", data.supporting));
     hero.appendChild(figure);
     hero.appendChild(copy);

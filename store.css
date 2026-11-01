@@ -525,6 +525,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.2;
   letter-spacing: 0;
   margin: 0 0 14px;
+  text-wrap: balance;
 }
 
 .offer-description { margin: 0 0 20px; color: var(--muted); }
@@ -536,18 +537,34 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .offer-price-amount {
-  font-weight: 500;
-  font-size: 36px;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  font-size: 44px;
+  letter-spacing: 0;
 }
 
 .offer-price-period {
-  font-weight: 500;
-  font-size: 18px;
+  font-weight: 700;
+  font-size: 22px;
   color: var(--muted);
 }
 
 .offer-supporting { margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+
+/* The FAQ and Related programs headings that close every program page. */
+.pdp-more-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(32px, 4.1vw, 46px);
+  line-height: 1.1;
+  letter-spacing: 0;
+  margin: 0 0 20px;
+}
+
+/* What the monthly price buys, directly under the price. */
+.offer-cadence { margin: -6px 0 22px; font-size: 17px; line-height: 1.45; color: var(--ink); }
+
+/* What happens after Sign Up, directly under the button. */
+.offer-after { margin: 14px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
 
 .offer-section { margin-top: 88px; }
 
@@ -639,7 +656,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 12px 32px rgba(10, 10, 11, 0.08);
 }
 
-.offer-pricing-card .offer-price-amount { font-size: 48px; }
+.offer-pricing-card .offer-price-amount { font-size: 56px; }
 .offer-pricing-card .offer-price { margin-bottom: 20px; }
 .offer-terms { margin: 0 0 24px; font-weight: 650; }
 

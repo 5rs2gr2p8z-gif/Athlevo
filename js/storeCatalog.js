@@ -230,17 +230,22 @@
       hero: PHOTO.track,
       page: {
         seoTitle: "Athlevo Plan: A Training Plan Built by a Coach",
-        headline: "A training plan built for you.",
-        description: "A personalized 4-week training plan, built by an Athlevo coach around your schedule, fitness level, and goals.",
+        headline: "Get a running plan for your next race.",
+        description: "A personalized 4-week plan for your next 5K, 10K, half marathon or marathon, built by an Athlevo coach around your schedule, fitness level, and goals.",
         price: { amount: "₱999", period: "/month" },
+        seoDescription: "A personalized 4-week plan for your next 5K to marathon, built by an Athlevo coach around your schedule and goals.",
+        cadence: "A new 4-week plan every month, built from how your last month went.",
         cta: { label: "Sign Up", target: "how-to-get-started" },
+        afterSignUp: "Sign up and pay, create your Athlevo account, and answer a few questions. Once you finish, your plan arrives in the app within 24 hours.",
         supporting: "Month-to-month. No lock-in.",
         overview: {
-          intro: "Athlevo Plan is a personalized 4-week training plan, built by an Athlevo coach. It is built for your own schedule, fitness level, and goals.",
+          intro: "Athlevo Plan is a personalized 4-week training plan for your next race, built by an Athlevo coach around your schedule, fitness level, and goals. You get a new plan every month, built from how your last month went.",
           includesTitle: "What is included",
           includes: [
             "A personalized 4-week training plan, built by an Athlevo coach.",
-            "Built around your schedule, your fitness level, and your goals."
+            "For 5K, 10K, half marathon and marathon training.",
+            "Built around your schedule, your fitness level, and your goals.",
+            "A new plan every month, built from how your last month went."
           ],
           note: "Athlevo Plan is the plan only. If you want a coach to answer your questions, see Athlevo Guided."
         },
@@ -249,7 +254,8 @@
           includes: [
             "Personalized 4-week training plan",
             "Built by an Athlevo coach",
-            "Built around your schedule, fitness level, and goals"
+            "Built around your schedule, fitness level, and goals",
+            "A new plan every month, built from how your last month went"
           ],
           terms: "Month-to-month, no lock-in."
         },
@@ -278,7 +284,7 @@
             "Sign up and complete payment.",
             "You are taken straight to Athlevo to create your account.",
             "Complete your onboarding in the Athlevo app.",
-            "Receive your 4-week training plan in the app."
+            "Your 4-week training plan arrives in the app within 24 hours of finishing onboarding."
           ],
           notice: "Registration opening soon"
         }
@@ -572,7 +578,8 @@
     if (product.page) {
       var page = product.page;
       meta.title = page.seoTitle;
-      meta.description = page.description + " " + page.price.amount + page.price.period + ". " + page.pricing.terms;
+      // `seoDescription` (optional) is the short form for search snippets when the on-page description is longer.
+      meta.description = (page.seoDescription || page.description) + " " + page.price.amount + page.price.period + ". " + page.pricing.terms;
     } else {
       meta.title = product.name + " | Athlevo Programs";
       meta.description = product.name + " from Athlevo. Purchasing is not yet available.";
