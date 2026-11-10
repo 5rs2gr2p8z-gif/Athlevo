@@ -48,12 +48,11 @@
       "/assets/landing/hero-athlevo.png",
       "Athlevo athletes gathered together after a training session."
     ),
-    // First frame of the front-page video that shows the Athlevo shirt: the still behind the clip,
-    // and what visitors see when the clip does not play.
-    shakeout: storePhoto(
-      "shakeout", 1080, 1920,
-      "/assets/landing/store-hero-shakeout.jpg",
-      "A runner in a white Athlevo shirt checks a phone at an Athlevo group shakeout run."
+    // The front-page hero. (The earlier stretching photo is still used by the webinar pages.)
+    stairs: storePhoto(
+      "stairs", 1440, 2160,
+      "/assets/landing/store-hero-stairs.jpg",
+      "A runner in a grey and black Athlete Evolution singlet sits on stadium steps, looking off to the side."
     ),
     founder: storePhoto(
       "founder", 920, 1150,
@@ -676,9 +675,7 @@
     productPath: productPath,
     purchasingAvailable: false,
     hero: {
-      image: PHOTO.shakeout,
-      // Silent looping clip (540x960, no audio track) that plays over the photo once the page has loaded.
-      video: { src: "/assets/store/hero-shakeout.mp4", type: "video/mp4", width: 540, height: 960 },
+      image: PHOTO.stairs,
       headline: "Online Running Coach in the Philippines"
     },
     intro: "Athlevo Coaching is an online running coach service based in Pampanga and open to runners anywhere in the Philippines. Coach Dean Castro is a USATF Level 1 and STRYD certified coach. Your plan follows your schedule, your recovery and your race goal, from first 5K to marathon. You also learn why each workout is there, so you can train smarter on your own.",

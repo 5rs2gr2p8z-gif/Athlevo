@@ -19,7 +19,7 @@ Live at `https://programs.athlevo.org/webinar/` (the same paths on athlevo.org r
 | `tests/webinar-pages.test.mjs`, `tests/webinar-registration.test.mjs` | Checks for the pages and the endpoint. |
 
 The look is the storefront's: `store.css` first, then `webinar.css`. The hero uses the stretching
-photo (the /programs hero was that photo until it became the shakeout clip) and the coach section uses the same photo of Dean as /programs.
+photo (the /programs hero is now a different photo) and the coach section uses the same photo of Dean as /programs.
 
 ## Set the date and time
 
