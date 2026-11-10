@@ -18,8 +18,8 @@ Live at `https://programs.athlevo.org/webinar/` (the same paths on athlevo.org r
 | `migrations/2026-10-27_webinar_registrations.sql` | The table registrations are saved in. |
 | `tests/webinar-pages.test.mjs`, `tests/webinar-registration.test.mjs` | Checks for the pages and the endpoint. |
 
-The look is the storefront's: `store.css` first, then `webinar.css`. The hero uses the same stretching
-photo as /programs and the coach section uses the same photo of Dean.
+The look is the storefront's: `store.css` first, then `webinar.css`. The hero uses the stretching
+photo (the /programs hero was that photo until it became the shakeout clip) and the coach section uses the same photo of Dean as /programs.
 
 ## Set the date and time
 

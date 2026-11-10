@@ -239,6 +239,145 @@
     return card;
   }
 
+  // ---- Hero video -------------------------------------------------------------------
+  // The hero photo is the poster. Once the page has loaded, a muted clip is added over it and
+  // fades in on its first frame. The photo simply stays when the browser blocks autoplay, when
+  // the visitor prefers reduced motion or has Data Saver on, or when the clip cannot load, so
+  // the first screen never depends on the video. The prerendered HTML holds the photo only;
+  // the clip is added here, in the browser. setupHeroVideo returns a function that removes it.
+  var heroVideoStop = null;
+  var HERO_ICON = {
+    pause: "M6 5h4v14H6zM14 5h4v14h-4z",
+    play: "M8 5v14l11-7z"
+  };
+
+  function dataSaverOn() {
+    var conn = global.navigator && (global.navigator.connection || global.navigator.mozConnection);
+    return !!(conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || "")));
+  }
+
+  function setupHeroVideo(hero, spec) {
+    // The prerender has no matchMedia, so the static page keeps the photo alone.
+    if (!spec || !spec.src || typeof global.matchMedia !== "function") return null;
+    if (prefersReducedMotion() || dataSaverOn()) return null;
+
+    var stage = null;
+    var video = null;
+    var watcher = null;
+    var userPaused = false;
+    var gone = false;
+
+    function stop() {
+      gone = true;
+      global.removeEventListener("load", start);
+      if (watcher) {
+        watcher.disconnect();
+        watcher = null;
+      }
+      if (video) {
+        // Let go of the download as well as the element.
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      }
+      if (stage && stage.parentNode) stage.parentNode.removeChild(stage);
+      hero.classList.remove("hero--playing");
+    }
+
+    function play() {
+      var attempt = video.play();
+      // Autoplay can be refused (Low Power Mode, data saving): the photo stays and the button offers Play.
+      if (attempt && typeof attempt.catch === "function") attempt.catch(function () {});
+    }
+
+    function start() {
+      global.removeEventListener("load", start);
+      if (gone || !hero.isConnected) return;
+      video = document.createElement("video");
+      if (spec.type && typeof video.canPlayType === "function" && !video.canPlayType(spec.type)) {
+        video = null;
+        return;
+      }
+      video.className = "hero-video";
+      video.muted = true;
+      video.defaultMuted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.disablePictureInPicture = true;
+      video.setAttribute("muted", "");
+      video.setAttribute("playsinline", "");
+      video.setAttribute("aria-hidden", "true");
+      video.src = spec.src;
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "hero-toggle";
+      var svgNs = "http://www.w3.org/2000/svg";
+      var icon = document.createElementNS(svgNs, "svg");
+      icon.setAttribute("viewBox", "0 0 24 24");
+      icon.setAttribute("aria-hidden", "true");
+      var shape = document.createElementNS(svgNs, "path");
+      icon.appendChild(shape);
+      button.appendChild(icon);
+
+      function sync() {
+        var running = !video.paused;
+        shape.setAttribute("d", running ? HERO_ICON.pause : HERO_ICON.play);
+        button.setAttribute("aria-label", running ? "Pause the video" : "Play the video");
+      }
+      video.addEventListener("playing", function () {
+        hero.classList.add("hero--playing");
+        sync();
+      });
+      video.addEventListener("play", sync);
+      video.addEventListener("pause", sync);
+      video.addEventListener("error", stop);
+      button.addEventListener("click", function () {
+        if (video.paused) {
+          userPaused = false;
+          play();
+        } else {
+          userPaused = true;
+          video.pause();
+        }
+      });
+
+      stage = document.createElement("div");
+      stage.className = "hero-stage";
+      stage.appendChild(video);
+      stage.appendChild(button);
+      hero.appendChild(stage);
+      sync();
+
+      // Play while the hero is on screen and rest while it is not, unless the visitor paused it.
+      if (typeof global.IntersectionObserver === "function") {
+        watcher = new global.IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            // The visitor has moved on to another page: let the clip go.
+            if (!hero.isConnected) {
+              stop();
+              return;
+            }
+            if (entry.isIntersecting) {
+              if (!userPaused && video.paused) play();
+            } else if (!video.paused) {
+              video.pause();
+            }
+          });
+        }, { threshold: 0.1 });
+        watcher.observe(hero);
+      } else {
+        play();
+      }
+    }
+
+    // Wait for the page (and the photo) to finish loading, so the clip never competes with them.
+    if (document.readyState === "complete") start();
+    else global.addEventListener("load", start);
+    return stop;
+  }
+
   function renderCatalog(route) {
     applySeo(catalog.seo());
     markNav("catalog");
@@ -247,6 +386,8 @@
     var hero = $("section", "hero");
     hero.appendChild(picture(catalog.hero.image, { eager: true, sizes: SIZES.hero }));
     root.appendChild(hero);
+    if (heroVideoStop) heroVideoStop();
+    heroVideoStop = setupHeroVideo(hero, catalog.hero.video);
 
     var intro = $("section", "intro");
     var iWrap = $("div", "wrap");

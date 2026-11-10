@@ -816,17 +816,47 @@ section("6. App shell and service worker isolation");
 
 section("7. Responsive storefront images");
 {
-  const heroWebp = statSync("./assets/store/stretch-1080.webp").size;
+  const heroWebp = statSync("./assets/store/shakeout-1080.webp").size;
   t("catalog photos keep original sources on disk",
-    existsSync("./assets/landing/store-hero-stretch.jpg") &&
+    existsSync("./assets/landing/store-hero-shakeout.jpg") &&
+    existsSync("./assets/landing/store-hero-stretch.jpg") && // still the webinar hero
     existsSync("./assets/landing/hero-athlevo.png") &&
     existsSync("./assets/landing/dean-founder.png") &&
     existsSync("./assets/landing/dean-castro-coach.jpg"));
-  t("catalog hero is the stretch photo with 640w and 1080w WebP and AVIF files on disk",
-    catalog.hero.image.original === "/assets/landing/store-hero-stretch.jpg" &&
-    catalog.hero.image.width === 1080 && catalog.hero.image.height === 1616 &&
+  t("catalog hero is the shakeout still with 640w and 1080w WebP and AVIF files on disk",
+    catalog.hero.image.original === "/assets/landing/store-hero-shakeout.jpg" &&
+    catalog.hero.image.width === 1080 && catalog.hero.image.height === 1920 &&
     catalog.hero.image.alt.length > 20 &&
-    ["640", "1080"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/stretch-" + w + "." + ext))));
+    ["640", "1080"].every(w => ["webp", "avif"].every(ext => existsSync("./assets/store/shakeout-" + w + "." + ext))));
+  const heroVideo = catalog.hero.video;
+  const heroVideoBytes = heroVideo && existsSync("." + heroVideo.src) ? statSync("." + heroVideo.src).size : Infinity;
+  t("catalog hero also carries the shakeout clip: a vertical MP4 on disk, a few MB at most",
+    !!heroVideo && heroVideo.src === "/assets/store/hero-shakeout.mp4" && heroVideo.type === "video/mp4" &&
+    heroVideo.width === 540 && heroVideo.height === 960 &&
+    heroVideoBytes > 1024 * 1024 && heroVideoBytes < 4.5 * 1024 * 1024, String(heroVideoBytes));
+  t("the clip is added in the browser after load, silent, looping and inline, and the prerendered pages never carry it",
+    /function setupHeroVideo\(hero, spec\)/.test(storefrontSrc) &&
+    /typeof global\.matchMedia !== "function"\) return null/.test(storefrontSrc) &&
+    /document\.readyState === "complete"\) start\(\);\s*else global\.addEventListener\("load", start\)/.test(storefrontSrc) &&
+    /video\.muted = true;/.test(storefrontSrc) && /video\.loop = true;/.test(storefrontSrc) &&
+    /video\.playsInline = true;/.test(storefrontSrc) && /setAttribute\("muted", ""\)/.test(storefrontSrc) &&
+    !/video\.controls|\.autoplay\s*=/.test(storefrontSrc) &&
+    !/<video/i.test(storeHtml));
+  t("the clip stays off for reduced motion and Data Saver, and when the browser refuses it the photo stays",
+    /if \(prefersReducedMotion\(\) \|\| dataSaverOn\(\)\) return null;/.test(storefrontSrc) &&
+    /conn\.saveData/.test(storefrontSrc) &&
+    /video\.addEventListener\("error", stop\)/.test(storefrontSrc) &&
+    /attempt\.catch\(function \(\) \{\}\)/.test(storefrontSrc));
+  t("the clip plays only while the hero is on screen, and a Pause/Play button lets the visitor stop it",
+    /new global\.IntersectionObserver/.test(storefrontSrc) &&
+    /"Pause the video"/.test(storefrontSrc) && /"Play the video"/.test(storefrontSrc) &&
+    /button\.type = "button"/.test(storefrontSrc) &&
+    /\.hero-toggle\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/.test(css));
+  t("the clip fades in over the photo, and sits in a centred vertical column on the brand black from tablet width up",
+    /\.hero-video\s*\{[^}]*opacity:\s*0;/.test(css) &&
+    /\.hero--playing \.hero-video\s*\{\s*opacity:\s*1;/.test(css) &&
+    /@media \(min-width: 641px\) \{\s*\.hero-stage \{[^}]*aspect-ratio:\s*9 \/ 16;/.test(css) &&
+    /\.hero--playing \{ background: var\(--ink\); \}\s*\.hero--playing img \{ opacity: 0; \}/.test(css));
   t("Christian Francia's coach photo is cropped, optimized, and the original is kept",
     catalog.coaches[1].photo.original === "/assets/landing/christian-francia-coach.jpg" &&
     existsSync("./assets/landing/christian-francia-coach.jpg") &&
