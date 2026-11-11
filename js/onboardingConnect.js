@@ -298,6 +298,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
         </ol>
         <button class="cf-btn primary" onclick="AthlevoConnect.openConnections()">Open Sync Partner</button>
         <button class="cf-link" onclick="AthlevoConnect.handle('wait')">I've done this — check now</button>
+        <button class="cf-link" onclick="AthlevoConnect.skipConnection()">Continue without a watch</button>
         ${helpBlock()}
       </div>
     `);
@@ -313,6 +314,7 @@ try { (typeof window !== "undefined" ? window : globalThis).__ATHLEVO_CONNECT_TR
         <h2 class="cf-title serif">Checking for workouts…</h2>
         <p class="cf-body">We're importing your training history. This can take a minute right after connecting a watch — you don't need to do anything.</p>
         ${waited > 25 ? `<p class="cf-note small">Still checking… ${waited}s</p>` : ""}
+        ${waited > 12 ? `<button class="cf-link" onclick="AthlevoConnect.skipConnection()">Continue without a watch</button>` : ""}
       </div>
     `);
   }

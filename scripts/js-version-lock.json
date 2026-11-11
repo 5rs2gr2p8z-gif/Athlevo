@@ -128,8 +128,8 @@
     "sha256": "ccf8a28f36a8bc5d45b020d502fabea70d2c91420e855d8ffc25ac6f4cb1419e"
   },
   "js/onboardingConnect.js": {
-    "v": 70,
-    "sha256": "e26a32047cde3f2cc848b1d68a14179c2ae042bd4b65469e4cc952bf7e445489"
+    "v": 71,
+    "sha256": "dd5c5b3c108b0330c008f8981d9e27984c10234549442cd004b4957dc438902c"
   },
   "js/productionVerify.js": {
     "v": 67,
