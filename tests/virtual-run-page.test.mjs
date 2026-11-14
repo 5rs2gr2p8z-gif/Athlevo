@@ -10,6 +10,7 @@
  *   6  the browser script: markup it relies on, checks, same answers as the server
  *   7  the staff page
  *   8  routing, sitemap and local preview
+ *   9  registration opening soon, the priority list, and the event dates
  *
  * The lines marked CONTRACT are the copy exactly as supplied, repeated here on purpose. To change that
  * wording deliberately, change content/virtualRun.mjs, rebuild, and update the matching CONTRACT line.
@@ -74,8 +75,11 @@ section("2. The supplied copy, packages, prices and bullets");
   t("CONTRACT: headline 8 WEEKS. ONE GOAL. YOUR FASTEST 10K. (shown in capitals by the stylesheet)", h1.toLowerCase() === "8 weeks. one goal. your fastest 10k." && /\.vr-hero h1[\s\S]*?text-transform: uppercase/.test(css), h1);
   t("CONTRACT: supporting line", text.includes("A structured virtual running challenge designed to help you chase a sub-60-minute 10k."));
   t("CONTRACT: event name ATHLEVO SUB-1 10K CHALLENGE (eyebrow and title)", /Athlevo Sub-1 10k Challenge/i.test(text) && /<title>Athlevo Sub-1 10k Challenge/.test(html));
-  t("CONTRACT: the two calls to action, REGISTER NOW and HOW IT WORKS, in the hero",
-    /<a class="btn btn-red btn-lg" href="#register"[^>]*>Register now<\/a>/.test(html) && /<a class="btn btn-lg vr-btn-ghost" href="#how-it-works">How it works<\/a>/.test(html));
+  // The supplied copy had REGISTER NOW as the first button. Until registration opens the built page says "Join the
+  // priority list" there (section 9), and the script puts REGISTER NOW back, from the config, when the server says open.
+  t("CONTRACT: the two calls to action, REGISTER NOW (once registration is open) and HOW IT WORKS, in the hero",
+    c.HERO.primary === "Register now" && config.modes.register.cta === "Register now" && config.modes.register.href === "#register" &&
+    /<a class="btn btn-lg vr-btn-ghost" href="#how-it-works">How it works<\/a>/.test(html));
   t("CONTRACT: the five steps, in order",
     JSON.stringify(c.HOW.steps) === JSON.stringify([
       "Register and select your package.", "Complete your running assessment.", "Follow your 8-week training program.",
@@ -98,10 +102,10 @@ section("2. The supplied copy, packages, prices and bullets");
   const digitalCard = (html.match(/<article class="vr-pkg" data-package="digital">[\s\S]*?<\/article>/) || [""])[0];
   t("the Digital Challenge card does not promise a shirt or medal", digitalCard.length > 200 && !/shirt|medal/i.test(digitalCard));
   t("each card has a Choose button that stays disabled until the server says registration is open", (html.match(/type="button" disabled data-choose="/g) || []).length === 3);
-  t("the order of the sections is how it works, results, packages, rewards, register, questions",
-    ["how-it-works", "results", "packages", "rewards", "register", "faq"].map((id) => html.indexOf('id="' + id + '"')).every((pos, i, all) => pos > 0 && (i === 0 || pos > all[i - 1])));
-  t("dates and the deadline come from the config, and read 'To be announced' until they are confirmed",
-    c.EVENT.datesConfirmed === false ? /Challenge dates<\/dt><dd>To be announced/.test(html) && /Registration closes<\/dt><dd>To be announced/.test(html) : true);
+  t("the order of the sections is the priority list, how it works, results, packages, rewards, register, questions",
+    ["waitlist", "how-it-works", "results", "packages", "rewards", "register", "faq"].map((id) => html.indexOf('id="' + id + '"')).every((pos, i, all) => pos > 0 && (i === 0 || pos > all[i - 1])));
+  t("dates come from the config, and read 'Dates to Be Announced' until they are confirmed",
+    c.EVENT.datesConfirmed === false ? /Challenge dates<\/dt><dd>Dates to Be Announced<\/dd>/.test(html) : true);
 }
 
 // ---- 3 ----------------------------------------------------------------------------------------
@@ -302,6 +306,172 @@ section("8. Routing, sitemap and the local preview");
   t("the service worker does not treat /virtual-run as the app shell (it would overwrite the cached app with this page)", /!\/\^\\\/\(programs\|store\|landing-preview\|virtual-run\)\(\\\/\|\$\)\/\.test\(navPath\)/.test(worker));
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
   t("package.json has the build and test scripts", /build-virtual-run-page/.test(pkg.scripts["build:virtual-run"] || "") && /virtual-run-page\.test/.test(pkg.scripts["test:virtual-run"] || "") && /virtual-run-server\.test/.test(pkg.scripts["test:virtual-run"] || ""));
+}
+
+
+// ---- 9 ----------------------------------------------------------------------------------------
+section("9. Registration opening soon, the priority list, and the event dates");
+{
+  const wl = c.WAITLIST;
+  const wlSection = (html.match(/<section[^>]*id="waitlist"[\s\S]*?<\/section>/) || [""])[0];
+  const registerSection = (html.match(/<section[^>]*id="register"/) || [""])[0];
+
+  // ---- the state the page is built in
+  t("the page is built in its 'opening soon' state, which is what anyone without JavaScript sees", /<body class="vr" data-mode="soon">/.test(html));
+  t("the registration section is marked as registration-only and the priority list as soon-only", /vr-only-register/.test(registerSection) && /vr-only-soon/.test(wlSection));
+  t("the styles hide the registration section while the page is 'soon', and the priority list once it is not",
+    /\.vr\[data-mode="soon"\] \.vr-only-register \{ display: none !important; \}/.test(css) && /\.vr:not\(\[data-mode="soon"\]\) \.vr-only-soon \{ display: none !important; \}/.test(css));
+  t("a leave link keeps the priority list panel on screen in any state", /\.vr\[data-leave\] #waitlist \{ display: block !important; \}/.test(css));
+  t("the priority list comes straight after the hero, before 'How it works'", html.indexOf('id="waitlist"') > html.indexOf("</section>") && html.indexOf('id="waitlist"') < html.indexOf('id="how-it-works"'));
+  t("the hero says registration is opening soon and its button joins the priority list",
+    new RegExp('class="vr-soon-badge[^"]*"[^>]*>.*?' + c.HERO.soon.badge).test(html) &&
+    new RegExp('<a class="btn btn-red btn-lg" href="#waitlist" id="vr-hero-register">' + c.HERO.soon.primary + "</a>").test(html));
+  t("the header button is 'Join the list' and goes to the priority list", new RegExp('id="vr-nav-cta" href="#waitlist">' + c.HERO.soon.nav + "</a>").test(html));
+  t("the built page never says 'Register now' while registration is not open", !/Register now/i.test(text));
+  t("each package card offers the priority list instead of a dead button", (html.match(/class="btn btn-red vr-pkg-soon vr-only-soon" href="#waitlist"/g) || []).length === 3 &&
+    (html.match(/vr-choose vr-only-register/g) || []).length === 3);
+  t("the page can be found: indexable, canonical, in the sitemap, and the description holds no date",
+    /index, follow/.test(meta(html, "robots")) && !/noindex/i.test(head(html)) && !/\b20(26|27)\b/.test(meta(html, "description") + meta(html, "og:description", "property")));
+  t("the registration form and its payment button are in the page but start hidden", /<form class="vr-form" id="vr-form"[^>]*\bhidden\b/.test(html));
+
+  // ---- dates
+  const MONTHS = /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+\d{1,2}(,\s*\d{4})?\b/;
+  if (c.EVENT.datesConfirmed === false) {
+    t("with dates unconfirmed, the hero and the FAQ say 'Dates to Be Announced' and no calendar date appears anywhere on the page",
+      text.includes("Dates to Be Announced") && !MONTHS.test(text) && !/\b2027\b/.test(text) && /<summary>When is the challenge\?<\/summary><p>Dates to Be Announced\./.test(html));
+    t("the hero's second fact is 'Registration: Opening soon', not an invented closing date", /<dt>Registration<\/dt><dd>Opening soon<\/dd>/.test(html) && !/Registration closes/.test(text));
+    t("no search-engine event data is published until the dates are real", !/application\/ld\+json/.test(html) && !/startDate/.test(html));
+    t("nothing on the page says 'To be announced' in its old wording", !/To be announced|to be announced/.test(text));
+  }
+  t("the dates live in one block of one file: no other source file holds a challenge date",
+    ["scripts/build-virtual-run-page.mjs", "js/virtualRun.js", "js/virtualRunAdmin.js", "lib/server/virtualRun.js", "lib/server/virtualRunWaitlist.js", "lib/server/virtualRunPayments.js",
+      "lib/server/virtualRunAdmin.js", "lib/server/paymongoWebhookEndpoint.js", "virtual-run.css", "virtual-run.html"]
+      .every((f) => !/2026-12-01|2027-01-25|December 1\b|January 25\b|Dec 1\b|Jan 25\b/.test(readFileSync(f, "utf8"))));
+
+  const event = { ...c.EVENT, datesConfirmed: true, startDate: "2026-12-01", endDate: "2027-01-25" };
+  const registration = { ...c.REGISTRATION, opensAt: "2026-11-20T09:00:00+08:00", deadline: "2026-11-30T23:59:00+08:00" };
+  t("confirmed dates read as a range, and an incomplete set still reads 'Dates to Be Announced'",
+    c.eventDatesText(event) === "December 1, 2026 to January 25, 2027" && c.eventDatesText({ ...event, datesConfirmed: false }) === c.DATES_TBA &&
+    c.eventDatesText({ ...event, endDate: null }) === c.DATES_TBA && c.DATES_TBA === "Dates to Be Announced");
+  t("the deadline reads 'Date to Be Announced' until one is set", c.deadlineText({ deadline: null }) === "Date to Be Announced" && /November 30, 2026/.test(c.deadlineText(registration)));
+  t("the hero's second fact turns into the closing date only when the dates are confirmed and a deadline is set",
+    c.registrationFact(event, registration).label === "Registration closes" && /November 30, 2026/.test(c.registrationFact(event, registration).value) &&
+    c.registrationFact({ ...event, datesConfirmed: false }, registration).value === "Opening soon" && c.registrationFact(event, { ...registration, deadline: null }).value === "Opening soon");
+  t("the FAQ answer gives the dates once confirmed, and the honest answer before",
+    /December 1, 2026 to January 25, 2027/.test(c.startAnswer(event)) && /^Dates to Be Announced\./.test(c.startAnswer({ ...event, datesConfirmed: false })) && /priority list/.test(c.startAnswer({ ...event, datesConfirmed: false })));
+  t("nothing is checked while the dates are unconfirmed, and good dates have no problems", c.eventDateProblems({ ...event, datesConfirmed: false, startDate: "junk" }, registration).length === 0 && c.eventDateProblems(event, registration).length === 0);
+  const problem = (over, reg = registration) => c.eventDateProblems({ ...event, ...over }, reg).join(" | ");
+  t("dates that are not real days are refused", /startDate must be a real day/.test(problem({ startDate: "2026-02-30" })) && /endDate must be a real day/.test(problem({ endDate: "soon" })) && /startDate must be a real day/.test(problem({ startDate: null })));
+  t("an end before the start, or a span that is not exactly the number of weeks, is refused", /after EVENT\.startDate/.test(problem({ endDate: "2026-11-01" })) && /cover 49 days, but the page says 8 weeks \(56 days\)/.test(problem({ endDate: "2027-01-18" })));
+  t("a deadline after the challenge ends, or an opening time after the deadline, is refused",
+    /before the challenge ends/.test(problem({}, { ...registration, deadline: "2027-02-01T00:00:00+08:00" })) && /opensAt must be before/.test(problem({}, { ...registration, opensAt: "2026-12-05T00:00:00+08:00" })) &&
+    /not a date and time/.test(problem({}, { ...registration, deadline: "next week" })));
+
+  // Change the dates in the one place and everything follows; change them wrongly and the page will not build.
+  const keep = { event: { ...c.EVENT }, registration: { ...c.REGISTRATION } };
+  try {
+    Object.assign(c.EVENT, event);
+    Object.assign(c.REGISTRATION, registration);
+    const confirmed = buildPage(html);
+    const confirmedText = visible(confirmed);
+    t("confirm the dates in content/virtualRun.mjs and the hero shows them, with the closing date",
+      /Challenge dates<\/dt><dd>December 1, 2026 to January 25, 2027<\/dd>/.test(confirmed) && /Registration closes<\/dt><dd>November 30, 2026/.test(confirmed) && !/Dates to Be Announced<\/dd>/.test(confirmed));
+    const ld = JSON.parse(((confirmed.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [, "{}"])[1]).replace(/\\u003c/g, "<"));
+    t("...and the search-engine event data appears, with the same dates", ld["@type"] === "Event" && ld.startDate === "2026-12-01" && ld.endDate === "2027-01-25");
+    t("...with no leftover 'Dates to Be Announced' in the hero", !/Challenge dates<\/dt><dd>Dates to Be Announced/.test(confirmed) && /December 1, 2026/.test(confirmedText));
+    c.EVENT.endDate = "2027-01-18";
+    let message = "";
+    try { buildPage(html); } catch (error) { message = String(error && error.message); }
+    t("dates that do not add up stop the build, and the message says what to fix", /need fixing/.test(message) && /49 days/.test(message), message);
+  } finally {
+    Object.assign(c.EVENT, keep.event);
+    Object.assign(c.REGISTRATION, keep.registration);
+  }
+  t("and the shipped dates are back to what they were after that check", buildPage(html) === html);
+
+  // ---- the priority list form
+  const form = (wlSection.match(/<form[\s\S]*?<\/form>/) || [""])[0];
+  const names = [...form.matchAll(/<input[^>]*name="([^"]+)"/g)].map((m) => m[1]);
+  t("the form asks for a name and an email, and nothing else a person could mind giving (plus the consent box and the spam trap)",
+    JSON.stringify(names) === JSON.stringify(["fullName", "email", "consent", "contact_website"]), names.join(","));
+  t("the form posts to the priority list API and works through the script, not through a plain page post", new RegExp('action="' + c.SITE.waitlistApi + '"').test(form) && /novalidate/.test(form) && c.SITE.waitlistApi === "/api/virtual-run/waitlist");
+  t("the consent box starts unticked and says what the person agrees to, with the privacy policy linked",
+    !/id="vr-wl-consent"[^>]*checked/.test(form) && form.includes("Email me about the Athlevo Sub-1 10k Challenge, including when registration opens. I can unsubscribe at any time.") &&
+    new RegExp('<a href="' + c.LEGAL.privacyUrl + '"[^>]*>privacy policy</a>').test(form));
+  t("the name and email fields have the right autofill and input types", /name="fullName" type="text" autocomplete="name"/.test(form) && /name="email" type="email" inputmode="email" autocomplete="email"/.test(form));
+  t("the spam trap is a hidden, unlabelled-to-people field, and the form has an error line and a submit button",
+    /class="hp" aria-hidden="true"/.test(form) && /id="vr-wl-form-error" role="alert"/.test(form) && /type="submit" id="vr-wl-submit">Join the priority list</.test(form));
+  t("the sign-up says nothing is charged, and promises no place, price or date",
+    /Nothing to pay now/.test(wlSection) && !/guarantee|spots? (is|are) limited|hurry|last chance|only \d+/i.test(wlSection));
+  t("after joining, the person sees a confirmation panel and the leave panel exists for the e-mail link",
+    /id="vr-wl-done"/.test(wlSection) && /id="vr-wl-leave"/.test(wlSection) && /id="vr-wl-leave-confirm"/.test(wlSection) && /id="vr-wl-leave-cancel"/.test(wlSection));
+  t("without JavaScript the sign-up form says so and gives an email address", /<noscript>[^]*needs JavaScript[^]*support@athlevo\.org/.test(wlSection));
+  t("the priority list's wording has no dashes and no hype", !/[–—]/.test(JSON.stringify(wl) + JSON.stringify(c.WAITLIST_EMAIL) + JSON.stringify(c.HERO)) && !/!/.test(JSON.stringify(wl.points) + wl.text + wl.heading));
+  t("the page config carries the priority list's wording and the two button states",
+    config.waitlist && config.waitlist.api === c.SITE.waitlistApi && config.waitlist.errors.consent === wl.errors.consent && config.modes.soon.href === "#waitlist");
+
+  // ---- the browser script: the priority list checks, the campaign label, and the two secrets
+  const sandbox9 = { window: undefined };
+  vm.createContext(sandbox9);
+  vm.runInContext(script, sandbox9);
+  const api = sandbox9.AthlevoVirtualRun;
+  const server = await import("../lib/server/virtualRunWaitlist.js");
+  const cases = [
+    {}, { fullName: "M" }, { fullName: "  " }, { email: "nope" }, { email: "a@b" }, { email: "a b@c.com" }, { email: "x".repeat(260) + "@e.com" },
+    { consent: false }, { consent: "true" }, { consent: 1 }, { consent: undefined }, { fullName: "Maria  Santos" }
+  ];
+  const good = { fullName: "Maria Santos", email: "maria@example.com", consent: true };
+  const mismatches = [];
+  for (const over of cases) {
+    const values = { ...good, ...over };
+    const client = Object.keys(api.validateWaitlist(values)).sort().join(",");
+    const checked = server.validateWaitlist(values);
+    const serverFields = Object.keys(checked.fields).sort().join(",");
+    if (client !== serverFields) mismatches.push(JSON.stringify(over) + " client " + client + " server " + serverFields);
+  }
+  t("the browser and the server accept and refuse the same " + cases.length + " sign-ups", mismatches.length === 0, mismatches.slice(0, 3).join(" ; "));
+  t("the server also refuses a link or an address in the name box, which the browser has no reason to know about",
+    server.validateWaitlist({ ...good, fullName: "http://spam.example" }).ok === false && server.validateWaitlist({ ...good, fullName: "buy@now.example" }).ok === false);
+  t("a campaign label comes from ?src=, then utm_campaign, then utm_source, and only if it is a plain short label",
+    api.sourceFrom("?src=Meta-Launch") === "meta-launch" && api.sourceFrom("?utm_campaign=nov_sale&utm_source=fb") === "nov_sale" && api.sourceFrom("?utm_source=facebook") === "facebook" &&
+    api.sourceFrom("?src=a b%20c") === "" && api.sourceFrom("?src=" + "x".repeat(41)) === "" && api.sourceFrom("?src=%3Cscript%3E") === "" && api.sourceFrom("") === "");
+
+  // The e-mail leave link carries a secret token. Like the payment reference, it is moved out of the address first.
+  const LEAVE = "ATH-WL-" + "0123456789ABCDEF".repeat(2);
+  const firstScript = (head(html).match(/<script>([\s\S]*?)<\/script>/) || [, ""])[1];
+  function arrive(search) {
+    const stored = {};
+    const state = { search, hash: "", pathname: "/virtual-run" };
+    const box = {
+      location: state, sessionStorage: { setItem: (k, v) => { stored[k] = v; }, getItem: (k) => (k in stored ? stored[k] : null) },
+      history: { replaceState: (a, b, url) => { const q = String(url).indexOf("?"); state.search = q < 0 ? "" : String(url).slice(q); } }
+    };
+    vm.createContext(box);
+    vm.runInContext(firstScript, box);
+    return { search: state.search, stored };
+  }
+  const left = arrive("?leave=" + LEAVE);
+  t("a leave link: the token leaves the address (so no pixel can read it) and is kept for this tab, with a marker in its place",
+    left.search === "?leave=1" && left.stored["athlevo.vr.leave"] === LEAVE && !left.search.includes("ATH-WL"));
+  t("a leave link keeps the other parameters, and a campaign label still works after it", arrive("?src=meta&leave=" + LEAVE + "&x=1").search === "?src=meta&x=1&leave=1" && arrive("?leave=" + LEAVE + "&src=meta").search === "?src=meta&leave=1");
+  t("reloading a leave page does not overwrite the stored token with the marker", Object.keys(arrive("?leave=1").stored).length === 0 && arrive("?leave=1").search === "?leave=1");
+  t("a leave link and a payment return can both be handled, and an ordinary visit is left alone", arrive("?payment=success&ref=" + REF_FOR_TEST() + "&leave=" + LEAVE).search === "?payment=success&leave=1" && arrive("?src=meta").search === "?src=meta");
+  function REF_FOR_TEST() { return "ATH-VR-0123456789ABCDEF-" + "A1B2C3D4".repeat(3); }
+
+  t("opening the leave link removes nobody: the removal is sent only from the button's click", (script.match(/\{ leave: leaveToken \}/g) || []).length === 1 &&
+    /function confirmLeave\(\)[\s\S]*?postJson\(W\.api, \{ leave: leaveToken \}/.test(script) && /addEventListener\("click", confirmLeave\)/.test(script) && !/function startLeave[\s\S]*?postJson[\s\S]*?function confirmLeave/.test(script));
+  t("the pixel hears 'Lead' only after the server saved the sign-up, once per tab, and never gets a name or an email",
+    /trackLead\(\);/.test(script) && /handleWaitlistResult[\s\S]*?result\.status === 200 && data\.ok[\s\S]*?trackLead\(\)/.test(script) &&
+    !/fullName|email/.test((script.match(/function trackLead[\s\S]*?\n  \}/) || [""])[0]) && /"Lead"/.test(script));
+  t("the script picks the registration state only from the server's answer (open, closed or full) or a return from payment",
+    /setMode\(returning \|\| confirmMode \|\| state === "open" \|\| ended \? "register" : "soon"\)/.test(script) && /var ended = state === "closed" \|\| state === "sold_out"/.test(script));
+  t("an old #register link lands on the priority list while registration is not open", /mode === "soon" && global\.location\.hash === "#register"/.test(script));
+
+  // ---- the staff page
+  t("the staff page has a Registrations tab and a Priority list tab, and the export follows the tab",
+    /role="tablist"/.test(adminHtml) && /id="vra-tab-waitlist"/.test(adminHtml) && /id="vra-panel-waitlist"/.test(adminHtml) && /Export priority list CSV/.test(adminScript) && /view: "waitlist"/.test(adminScript));
+  t("the priority list tab is behind the same sign-in and shows the people who left as well as those who stayed",
+    /id="vra-wl-status"[^>]*>[\s\S]*?Left the list/.test(adminHtml) && /Consent version/.test(adminHtml));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

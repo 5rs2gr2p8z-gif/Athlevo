@@ -74,6 +74,16 @@
   var exportButton = doc.getElementById("vra-export");
   var refreshButton = doc.getElementById("vra-refresh");
   var packageSelect = doc.getElementById("vra-package");
+  var wlStatsNode = doc.getElementById("vra-wl-stats");
+  var wlRowsNode = doc.getElementById("vra-wl-rows");
+  var wlEmptyNode = doc.getElementById("vra-wl-empty");
+  var wlCountNode = doc.getElementById("vra-wl-count");
+  var wlFiltersForm = doc.getElementById("vra-wl-filters");
+  var wlStatus = doc.getElementById("vra-wl-status");
+  var wlSearch = doc.getElementById("vra-wl-search");
+  var TABS = ["registrations", "waitlist"];
+  var tab = "registrations";
+  var lastWaitlist = null;
 
   var packageNames = {};
   [].slice.call(packageSelect.options).forEach(function (option) { if (option.value !== "all") packageNames[option.value] = option.text; });
@@ -257,6 +267,50 @@
       (data.generatedAt ? " Updated " + formatMoment(data.generatedAt) + " (Manila)." : "");
   }
 
+  /** The priority list: who asked to hear first. Names and emails, shown to staff only, like everything here. */
+  function renderWaitlistStats(data) {
+    wlStatsNode.textContent = "";
+    var summary = (data && data.summary) || {};
+    [["On the list", summary.active || 0], ["Left the list", summary.unsubscribed || 0], ["Total", summary.total || 0]].forEach(function (pair) {
+      var box = el("div", "vra-stat");
+      box.appendChild(el("span", "", pair[0]));
+      box.appendChild(el("strong", "", String(pair[1])));
+      wlStatsNode.appendChild(box);
+    });
+    if (data && data.summaryComplete === false) wlStatsNode.appendChild(el("p", "vra-note vra-packagelines", "These counts may be low: the list is longer than could be counted at once."));
+  }
+
+  function renderWaitlistRows() {
+    var data = lastWaitlist || { rows: [] };
+    var term = String(wlSearch.value || "").trim().toLowerCase();
+    var rows = (Array.isArray(data.rows) ? data.rows : []).filter(function (row) {
+      return !term || String(row.fullName || "").toLowerCase().indexOf(term) !== -1 || String(row.email || "").toLowerCase().indexOf(term) !== -1;
+    });
+    wlRowsNode.textContent = "";
+    rows.forEach(function (row) {
+      var tr = el("tr");
+      tr.appendChild(el("td", "", row.fullName || ""));
+      tr.appendChild(el("td", "", row.email || ""));
+      tr.appendChild(el("td", "", formatMoment(row.joinedAt)));
+      var status = el("td");
+      status.appendChild(el("span", "vra-pill vra-pill--" + String(row.status || "").replace(/[^a-z]/g, ""), row.status === "unsubscribed" ? "Left" : String(row.status || "")));
+      tr.appendChild(status);
+      tr.appendChild(el("td", "", row.source || ""));
+      tr.appendChild(el("td", "", row.consentVersion || ""));
+      wlRowsNode.appendChild(tr);
+    });
+    wlEmptyNode.hidden = rows.length > 0;
+    wlCountNode.textContent = rows.length + (rows.length === 1 ? " person" : " people") + " shown." +
+      (data.truncated ? " This is the latest part of the list. Export the CSV for everyone." : "") +
+      (data.generatedAt ? " Updated " + formatMoment(data.generatedAt) + " (Manila)." : "");
+  }
+
+  function renderWaitlist(data) {
+    lastWaitlist = data;
+    renderWaitlistStats(data);
+    renderWaitlistRows();
+  }
+
   /* ----- loading ----- */
 
   function readFilters() {
@@ -301,28 +355,59 @@
     return false;
   }
 
+  function waitlistParams(extra) {
+    return queryString({ status: wlStatus.value }, Object.assign({ view: "waitlist" }, extra || {}));
+  }
+
   var loading = false;
   function load() {
     if (loading) return Promise.resolve();
     loading = true;
-    setStatus("Loading registrations.");
+    var loadingTab = tab;
+    var noun = loadingTab === "waitlist" ? "the priority list" : "registrations";
+    setStatus("Loading " + noun + ".");
     return currentSession().then(function (session) {
       if (!session) { showSignIn(""); return null; }
-      return authorised(queryString(readFilters()), session, false).then(function (response) {
+      var query = loadingTab === "waitlist" ? waitlistParams() : queryString(readFilters());
+      return authorised(query, session, false).then(function (response) {
         if (handleDenied(response, session)) return null;
-        if (!response.ok) { showApp(session); setStatus("Registrations could not be loaded. Try Refresh in a moment."); return null; }
-        return response.json().then(function (data) { showApp(session); setStatus(""); render(data); });
+        if (!response.ok) { showApp(session); setStatus(noun.charAt(0).toUpperCase() + noun.slice(1) + " could not be loaded. Try Refresh in a moment."); return null; }
+        return response.json().then(function (data) {
+          showApp(session);
+          setStatus("");
+          if (loadingTab === "waitlist") renderWaitlist(data); else render(data);
+        });
       });
     }).catch(function () {
-      setStatus("Registrations could not be loaded. Check your connection and try Refresh.");
-    }).then(function () { loading = false; });
+      setStatus("The list could not be loaded. Check your connection and try Refresh.");
+    }).then(function () {
+      loading = false;
+      // The tab was switched while this was loading: load the one now showing.
+      if (loadingTab !== tab) load();
+    });
+  }
+
+  function setTab(next, focus) {
+    if (TABS.indexOf(next) === -1) return;
+    tab = next;
+    TABS.forEach(function (name) {
+      var selected = name === next;
+      var button = doc.getElementById("vra-tab-" + name);
+      button.setAttribute("aria-selected", selected ? "true" : "false");
+      button.tabIndex = selected ? 0 : -1;
+      doc.getElementById("vra-panel-" + name).hidden = !selected;
+      if (selected && focus) button.focus();
+    });
+    exportButton.textContent = next === "waitlist" ? "Export priority list CSV" : "Export CSV";
+    load();
   }
 
   function downloadCsv() {
     exportButton.disabled = true;
     currentSession().then(function (session) {
       if (!session) { showSignIn("Sign in to export."); return null; }
-      return authorised(queryString(readFilters(), { format: "csv" }), session, false).then(function (response) {
+      var query = tab === "waitlist" ? waitlistParams({ format: "csv" }) : queryString(readFilters(), { format: "csv" });
+      return authorised(query, session, false).then(function (response) {
         if (handleDenied(response, session)) return null;
         if (!response.ok) { setStatus("The export did not work. Try again in a moment."); return null; }
         var disposition = response.headers.get("content-disposition") || "";
@@ -367,12 +452,27 @@
   });
 
   filtersForm.addEventListener("submit", function (event) { event.preventDefault(); load(); });
+  wlFiltersForm.addEventListener("submit", function (event) { event.preventDefault(); load(); });
+  wlSearch.addEventListener("input", renderWaitlistRows);
+  TABS.forEach(function (name, index) {
+    var button = doc.getElementById("vra-tab-" + name);
+    button.addEventListener("click", function () { setTab(name, false); });
+    button.addEventListener("keydown", function (event) {
+      var step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+      if (!step) return;
+      event.preventDefault();
+      setTab(TABS[(index + step + TABS.length) % TABS.length], true);
+    });
+  });
   refreshButton.addEventListener("click", load);
   exportButton.addEventListener("click", downloadCsv);
   signoutButton.addEventListener("click", function () {
     clearOwnSession();
     rowsNode.textContent = "";
     statsNode.textContent = "";
+    wlRowsNode.textContent = "";
+    wlStatsNode.textContent = "";
+    lastWaitlist = null;
     showSignIn("You are signed out.");
   });
 

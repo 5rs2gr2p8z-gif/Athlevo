@@ -41,6 +41,7 @@ import {
   statusHandler as virtualRunStatusHandler
 } from "../../lib/server/virtualRun.js";
 import { adminHandler as virtualRunAdminHandler } from "../../lib/server/virtualRunAdmin.js";
+import { waitlistHandler as virtualRunWaitlistHandler } from "../../lib/server/virtualRunWaitlist.js";
 import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
 import coachAnonymousHandler from "../../lib/server/coachAnonymousEndpoint.js";
 import anonymousHandoffHandler from "../../lib/server/anonymousHandoffEndpoint.js";
@@ -4355,6 +4356,9 @@ export default async function handler(request, response) {
     }
     if (action === "virtual_run_availability") {
       return virtualRunAvailabilityHandler(request, response);
+    }
+    if (action === "virtual_run_waitlist") {
+      return virtualRunWaitlistHandler(request, response);
     }
     if (action === "virtual_run_admin") {
       return virtualRunAdminHandler(request, response, { authenticate: requireUser });

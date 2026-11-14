@@ -494,6 +494,10 @@
       "destination": "/api/providers?action=virtual_run_availability"
     },
     {
+      "source": "/api/virtual-run/waitlist",
+      "destination": "/api/providers?action=virtual_run_waitlist"
+    },
+    {
       "source": "/api/virtual-run/admin",
       "destination": "/api/providers?action=virtual_run_admin"
     },

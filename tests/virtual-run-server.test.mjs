@@ -10,6 +10,7 @@
  *   6  refunds and the store sign-ups still working
  *   7  the staff admin: who gets in, filters, CSV
  *   8  the gateway wiring
+ *   9  the priority list, and registration staying shut while it runs
  *
  * Run: node tests/virtual-run-server.test.mjs
  */
@@ -33,7 +34,7 @@ const section = (title) => console.log(`\n── ${title}`);
 
 // ---- in-memory Supabase + Resend ---------------------------------------------
 
-const db = { virtual_run_registrations: [], plan_signups: [], rates: new Map() };
+const db = { virtual_run_registrations: [], virtual_run_waitlist: [], plan_signups: [], rates: new Map() };
 const log = { emails: [], requests: [] };
 let dbMode = "ok"; // "ok" | "down" (500) | "missing" (404) | "reject" (400) | "throw"
 
@@ -106,18 +107,22 @@ globalThis.fetch = async (input, init = {}) => {
     }
     return json(db.plan_signups.filter((r) => matches(r, params)));
   }
-  if (table !== "virtual_run_registrations") return json([]);
+  if (table !== "virtual_run_registrations" && table !== "virtual_run_waitlist") return json([]);
   if (dbMode === "throw") throw new TypeError("network down");
   if (dbMode === "down") return json({ message: "boom service-secret" }, 500);
   if (dbMode === "missing") return json({ code: "PGRST205", message: "Could not find the table" }, 404);
   if (dbMode === "reject") return json({ code: "42703", message: "column does not exist" }, 400);
 
-  const rows = db.virtual_run_registrations;
+  const rows = db[table];
   if (method === "POST") {
     const row = JSON.parse(init.body);
-    if (rows.some((r) => r.registration_id === row.registration_id || r.reference_number === row.reference_number)) return json({ code: "23505" }, 409);
+    if (table === "virtual_run_waitlist") {
+      // The table's unique indexes: one row per (event, email), and tokens never repeat.
+      if (rows.some((r) => (r.event === row.event && r.email === row.email) || r.unsubscribe_token === row.unsubscribe_token)) return json({ code: "23505" }, 409);
+    } else if (rows.some((r) => r.registration_id === row.registration_id || r.reference_number === row.reference_number)) return json({ code: "23505" }, 409);
     const now = new Date().toISOString();
-    rows.push({ id: crypto.randomUUID(), livemode: false, result_status: "not_submitted", metadata: {}, created_at: now, updated_at: now, ...row });
+    const defaults = table === "virtual_run_waitlist" ? { id: crypto.randomUUID(), created_at: now, updated_at: now } : { id: crypto.randomUUID(), livemode: false, result_status: "not_submitted", metadata: {}, created_at: now, updated_at: now };
+    rows.push({ ...defaults, ...row });
     return new Response(null, { status: 201 });
   }
   if (method === "PATCH") {
@@ -163,6 +168,7 @@ const content = await import("../content/virtualRun.mjs");
 const server = await import("../lib/server/virtualRun.js");
 const payments = await import("../lib/server/virtualRunPayments.js");
 const admin = await import("../lib/server/virtualRunAdmin.js");
+const waitlist = await import("../lib/server/virtualRunWaitlist.js");
 const { default: webhook } = await import("../lib/server/paymongoWebhookEndpoint.js");
 const { AI_LIMITS } = await import("../lib/server/rateLimit.js");
 
@@ -170,7 +176,7 @@ const NOW = new Date("2026-11-20T04:00:00Z");
 // A config that is fully ready to sell. The shipped one is closed on purpose (section 1 checks that).
 const READY = {
   ...content,
-  EVENT: { ...content.EVENT, datesConfirmed: true },
+  EVENT: { ...content.EVENT, datesConfirmed: true, startDate: "2026-12-01", endDate: "2027-01-25" },
   REGISTRATION: { ...content.REGISTRATION, deadline: "2026-11-30T23:59:00+08:00", opensAt: null, limit: null },
   LEGAL: { ...content.LEGAL, version: "2026-11-a", rulesUrl: "/virtual-run/rules", waiverUrl: "https://athlevo.org/virtual-run/waiver" },
   DELIVERY: { ...content.DELIVERY, confirmed: true, coverage: "Philippines" }
@@ -209,7 +215,7 @@ const fakePaymongo = {
 };
 
 function reset() {
-  db.virtual_run_registrations.length = 0; db.plan_signups.length = 0; db.rates.clear();
+  db.virtual_run_registrations.length = 0; db.virtual_run_waitlist.length = 0; db.plan_signups.length = 0; db.rates.clear();
   log.emails.length = 0; log.requests.length = 0; checkouts.length = 0; errors.length = 0; warnings.length = 0;
   dbMode = "ok"; paymongoMode = "ok";
   setEnv(OPEN_ENV);
@@ -895,6 +901,216 @@ reset();
   t("/api/virtual-run/admin through the gateway refuses a request with no token", noToken.statusCode === 401 && noToken.body.rows === undefined);
   const badToken = await call("virtual_run_admin", { headers: { authorization: "Bearer not-a-real-token", "x-forwarded-for": nextIp() } });
   t("and a token Supabase does not accept", badToken.statusCode === 401 || badToken.statusCode === 503);
+}
+
+
+// ---- 9. the priority list ---------------------------------------------------------------
+section("9. The priority list, and registration staying shut while it runs");
+reset();
+{
+  const join = (body, opts = {}) => {
+    const r = res();
+    return waitlist.waitlistHandler(post(body, opts.ip), r, { env: process.env, now: NOW, ...opts }).then(() => r);
+  };
+  const PERSON = { fullName: "Ana Reyes", email: "Ana.Reyes@Example.com", consent: true, contact_website: "" };
+  const rowsFor = (email) => db.virtual_run_waitlist.filter((r) => r.email === email);
+
+  // ---- shut: marketing can start without registration being able to open
+  const shipped = server.registrationGate({ env: process.env, now: NOW });
+  t("with the switch on and every service set, the shipped config is still shut because the dates are not confirmed",
+    process.env.VIRTUAL_RUN_SIGNUP_ENABLED === "true" && shipped.open === false && shipped.reasons.some((r) => /datesConfirmed is false/.test(r)));
+  setEnv({ VERCEL_ENV: "production", PAYMONGO_SECRET_KEY: "sk_live_abc", VIRTUAL_RUN_SIGNUP_ENABLED: "true" });
+  const live = res();
+  await server.registerHandler(post(DIGITAL), live, { env: process.env, now: NOW, paymongo: fakePaymongo });
+  t("even on production with a live key and the switch on, the shipped config takes no registration and calls no PayMongo",
+    live.statusCode === 503 && live.body.error === "not_open" && db.virtual_run_registrations.length === 0 && checkouts.length === 0);
+  const liveAvail = res();
+  await server.availabilityHandler(get(), liveAvail, { env: process.env, now: NOW });
+  t("...and availability says not_open with the priority list on", liveAvail.body.state === "not_open" && liveAvail.body.waitlist === true && liveAvail.body.packages.every((p) => p.status === "closed"));
+  reset();
+  const noDeadline = server.registrationGate({ env: process.env, now: NOW, cfg: { ...READY, REGISTRATION: { ...READY.REGISTRATION, deadline: null } } });
+  const badSpan = server.registrationGate({ env: process.env, now: NOW, cfg: { ...READY, EVENT: { ...READY.EVENT, endDate: "2027-01-18" } } });
+  const lateDeadline = server.registrationGate({ env: process.env, now: NOW, cfg: { ...READY, REGISTRATION: { ...READY.REGISTRATION, deadline: "2027-02-10T00:00:00+08:00" } } });
+  t("confirmed dates that do not add up keep registration shut, and say why",
+    badSpan.open === false && badSpan.reasons.some((r) => /49 days/.test(r)) && lateDeadline.open === false && noDeadline.open === false);
+  t("joining the priority list needs none of the payment settings: it works with registration shut",
+    waitlist.WAITLIST_TABLE === "virtual_run_waitlist" && server.waitlistOpen({ env: { SUPABASE_URL: "https://db.test", SUPABASE_SERVICE_ROLE_KEY: "k" } }) === true &&
+    server.waitlistOpen({ env: { SUPABASE_URL: "https://db.test" } }) === false && server.waitlistOpen({ env: process.env, cfg: { ...content, WAITLIST: { ...content.WAITLIST, enabled: false } } }) === false);
+
+  // ---- joining
+  const first = await join(PERSON);
+  const row = db.virtual_run_waitlist[0];
+  t("joining saves one row and answers ok", first.statusCode === 200 && first.body.ok === true && db.virtual_run_waitlist.length === 1);
+  t("the email is stored lower-case, with the consent wording's version and the time, for this event, active",
+    row.email === "ana.reyes@example.com" && row.consent_version === content.WAITLIST.consentVersion && row.consented_at === NOW.toISOString() && row.event === content.EVENT.id && row.status === "active");
+  t("the row holds only what is needed: no IP address, no browser details, no phone, no birth date, no payment",
+    Object.keys(row).sort().join(",") === ["consent_version", "consented_at", "confirmation_email_status", "created_at", "email", "event", "full_name", "id", "source", "status", "unsubscribe_token", "updated_at"].sort().join(","));
+  t("a secret leave token is made for the person, in the shape the page expects", waitlist.LEAVE_TOKEN_PATTERN.test(row.unsubscribe_token));
+  t("the response never reveals the token or any stored data", JSON.stringify(first.body) === '{"ok":true}');
+  const mail = log.emails[0] && log.emails[0].body;
+  t("a confirmation email is sent to the person, with a leave link, no payment link and nothing charged",
+    log.emails.length === 1 && mail.to.includes("ana.reyes@example.com") && mail.subject === content.WAITLIST_EMAIL.subject &&
+    mail.html.includes(`/virtual-run?leave=${row.unsubscribe_token}`) && mail.text.includes(`?leave=${row.unsubscribe_token}`) &&
+    /Nothing has been charged/.test(mail.text) && !/checkout|paymongo|pay now/i.test(mail.html + mail.text));
+  t("while the dates are unconfirmed the email says so, in the same words as the page", /Dates to Be Announced|dates are still to be announced/i.test(mail.text));
+  t("the email outcome is noted on the row", row.confirmation_email_status === "sent");
+  t("the email send is de-duplicated by a key for that sign-up", /virtual-run-waitlist-/.test(String((log.emails[0].headers || {})["Idempotency-Key"] || "")));
+
+  // ---- the same person twice
+  const again = await join({ ...PERSON, email: "ANA.REYES@example.com", fullName: "Someone Else" });
+  t("joining again changes nothing, sends nothing, and looks identical to the first time",
+    JSON.stringify(again.body) === JSON.stringify(first.body) && again.statusCode === first.statusCode && db.virtual_run_waitlist.length === 1 && log.emails.length === 1 && row.full_name === "Ana Reyes");
+  t("(so the form cannot be used to find out who is on the list)", JSON.stringify(again.body) === '{"ok":true}');
+
+  // ---- consent and checks
+  reset();
+  const noConsent = await join({ ...PERSON, consent: false });
+  const textConsent = await join({ ...PERSON, consent: "true" });
+  const missingConsent = await join({ fullName: "Ana Reyes", email: "ana@example.com" });
+  t("without the consent box ticked nothing is saved and nothing is sent", [noConsent, textConsent, missingConsent].every((r) => r.statusCode === 400 && r.body.fields.consent === "consent") && db.virtual_run_waitlist.length === 0 && log.emails.length === 0);
+  const badEmail = await join({ ...PERSON, email: "nope" });
+  const badName = await join({ ...PERSON, fullName: "A" });
+  const linkName = await join({ ...PERSON, fullName: "visit http://spam.example now" });
+  t("a bad email, a one-letter name or a link in the name box is refused, with the field named",
+    badEmail.statusCode === 400 && badEmail.body.fields.email && badName.statusCode === 400 && badName.body.fields.fullName && linkName.statusCode === 400 && linkName.body.fields.fullName && db.virtual_run_waitlist.length === 0);
+  const notJson = await join(null);
+  t("a body that is not a sign-up is refused", notJson.statusCode === 400 && db.virtual_run_waitlist.length === 0);
+  const wrongMethod = res();
+  await waitlist.waitlistHandler({ method: "GET", headers: {}, query: {} }, wrongMethod, { env: process.env, now: NOW });
+  t("only POST is accepted", wrongMethod.statusCode === 405 && wrongMethod.headers.Allow === "POST");
+  const trap = await join({ ...PERSON, contact_website: "http://bot.example" });
+  t("the hidden spam-trap field fools a bot: it is told ok and nothing is saved or sent", trap.statusCode === 200 && trap.body.ok === true && db.virtual_run_waitlist.length === 0 && log.emails.length === 0);
+  const labelled = await join({ ...PERSON, source: "Meta-Launch" });
+  const odd = await join({ ...PERSON, email: "bo@example.com", fullName: "Bo Cruz", source: "<script>alert(1)</script>" });
+  t("a campaign label is kept when it is a plain short label, and dropped when it is anything else",
+    rowsFor("ana.reyes@example.com")[0].source === "meta-launch" && rowsFor("bo@example.com")[0].source === null && labelled.statusCode === 200 && odd.statusCode === 200);
+  t("a long name is cut to 120 characters, and extra spaces are squeezed", (await join({ ...PERSON, email: "cy@example.com", fullName: "  Cy   " + "x".repeat(200) })).statusCode === 200 && rowsFor("cy@example.com")[0].full_name.length === 120 && rowsFor("cy@example.com")[0].full_name.startsWith("Cy x"));
+
+  // ---- limits and failures
+  reset();
+  const results = [];
+  for (let i = 0; i < 12; i++) results.push(await join({ ...PERSON, email: `p${i}@example.com`, fullName: `Person ${i}` }, { ip: "198.51.100.7" }));
+  t("one address cannot flood the list: after 10 sign-ups an hour it is told to wait", results.slice(0, 10).every((r) => r.statusCode === 200) && results[10].statusCode === 429 && db.virtual_run_waitlist.length === 10);
+  t("the limit is its own: it does not use up the registration form's allowance", AI_LIMITS && AI_LIMITS["virtual-run-waitlist"] !== undefined && AI_LIMITS["virtual-run-waitlist"] !== AI_LIMITS["virtual-run-register"]);
+  reset();
+  setEnv({ SUPABASE_URL: undefined });
+  const noDb = await join(PERSON);
+  t("with no database configured it answers 503 and the page can say so", noDb.statusCode === 503 && noDb.body.error === "unavailable");
+  reset();
+  for (const mode of ["down", "throw", "missing", "reject"]) {
+    reset(); dbMode = mode;
+    const r = await join(PERSON);
+    t(`when the database is ${mode} it answers 503, not a false 'you are on the list'`, r.statusCode === 503 && r.body.error === "unavailable" && !JSON.stringify(r.body).includes("service-secret"));
+  }
+  reset(); dbMode = "missing";
+  await join(PERSON);
+  t("a missing table is reported in the server log with the file to run, and no secret", errors.some((e) => /2026-11-14_virtual_run_waitlist\.sql/.test(e)) && !errors.join(" ").includes("service-secret"));
+  reset();
+  const failingEmail = async () => { throw new Error("resend down"); };
+  const noMail = await join(PERSON, { email: failingEmail });
+  t("if the confirmation email cannot be sent the person is still on the list", noMail.statusCode === 200 && db.virtual_run_waitlist.length === 1 && db.virtual_run_waitlist[0].confirmation_email_status === "failed");
+  reset();
+  setEnv({ RESEND_API_KEY: undefined });
+  const unconfigured = await join(PERSON);
+  t("with no email service configured they are still saved", unconfigured.statusCode === 200 && db.virtual_run_waitlist.length === 1);
+
+  // ---- leaving
+  reset();
+  await join(PERSON);
+  const token = db.virtual_run_waitlist[0].unsubscribe_token;
+  log.emails.length = 0;
+  const bogus = await join({ leave: "ATH-WL-" + "F".repeat(32) });
+  const malformed = await join({ leave: "x' or 1=1" });
+  t("a token that belongs to nobody, or is not even shaped like one, gets the same answer and changes nothing",
+    bogus.statusCode === 200 && malformed.statusCode === 200 && db.virtual_run_waitlist[0].status === "active");
+  const gone = await join({ leave: token.toLowerCase() });
+  t("the person's own token removes them (whatever its letter case), and the row records when", gone.statusCode === 200 && db.virtual_run_waitlist[0].status === "unsubscribed" && db.virtual_run_waitlist[0].unsubscribed_at === NOW.toISOString());
+  t("leaving sends no email and does not delete the proof of consent", log.emails.length === 0 && db.virtual_run_waitlist[0].consented_at === NOW.toISOString());
+  const goneAgain = await join({ leave: token });
+  t("leaving twice is harmless", goneAgain.statusCode === 200 && db.virtual_run_waitlist.length === 1);
+  const back = await join({ ...PERSON, fullName: "Ana R. Reyes" });
+  t("someone who left and joins again has agreed again: they are put back, with fresh consent and a new confirmation email",
+    back.statusCode === 200 && db.virtual_run_waitlist.length === 1 && db.virtual_run_waitlist[0].status === "active" && db.virtual_run_waitlist[0].unsubscribed_at === null &&
+    db.virtual_run_waitlist[0].full_name === "Ana R. Reyes" && log.emails.length === 1 && db.virtual_run_waitlist[0].unsubscribe_token === token);
+  reset(); dbMode = "down";
+  const leaveDown = await join({ leave: "ATH-WL-" + "A".repeat(32) });
+  t("if the database fails while leaving, the person is told it did not work (never a false 'you have left')", leaveDown.statusCode === 503);
+
+  // ---- nothing in the registration code reads or writes the list, and the list never touches payment
+  const source = (await import("node:fs")).readFileSync("lib/server/virtualRunWaitlist.js", "utf8");
+  t("the priority list code has no payment or PayMongo in it", !/paymongo|checkout|createCheckoutSession/i.test(source.replace(/\/\*[\s\S]*?\*\//g, "")));
+  t("it logs no names and no emails", !/console\.(log|info|warn|error)\([^)]*(email|fullName|full_name)/.test(source.replace(/`[^`]*database status[^`]*`/g, "")));
+}
+
+// ---- the staff view of the priority list ----
+section("9b. Staff view of the priority list");
+reset();
+{
+  const STAFF = { id: "11111111-aaaa-bbbb-cccc-000000000001", email: "staff@athlevo.org", email_confirmed_at: "2026-10-01T00:00:00Z" };
+  const staffEnv = { VIRTUAL_RUN_STAFF_USER_IDS: STAFF.id };
+  const call = async (query, user = STAFF, env = staffEnv) => {
+    const r = res();
+    await admin.adminHandler(get(query, { authorization: "Bearer tok" }), r, { authenticate: async () => user, env: { ...process.env, ...env } });
+    return r;
+  };
+  const add = (i, over = {}) => db.virtual_run_waitlist.push({
+    id: `w${i}`, event: content.EVENT.id, full_name: `Runner ${i}`, email: `runner${i}@example.com`, consent_version: "2026-11-a",
+    consented_at: `2026-11-1${i}T01:00:00Z`, source: i % 2 ? "meta-launch" : null, unsubscribe_token: `ATH-WL-${String(i).repeat(32).slice(0, 32)}`,
+    status: "active", unsubscribed_at: null, confirmation_email_status: "sent", created_at: `2026-11-1${i}T01:00:00Z`, updated_at: `2026-11-1${i}T01:00:00Z`, ...over
+  });
+  add(1); add(2, { status: "unsubscribed", unsubscribed_at: "2026-11-13T00:00:00Z" }); add(3, { full_name: "=HYPERLINK(\"http://evil.example\",\"x\")" }); add(4, { source: "x,y" });
+  db.virtual_run_waitlist.push({ ...db.virtual_run_waitlist[0], id: "other", event: "some-other-event", email: "other@example.com", full_name: "Other Event", unsubscribe_token: "ATH-WL-" + "9".repeat(32) });
+
+  const anon = res();
+  await admin.adminHandler(get({ view: "waitlist" }), anon, { authenticate: async () => null, env: process.env });
+  const outsider = await call({ view: "waitlist" }, { id: "99999999-0000-0000-0000-000000000009", email: "runner@example.com", email_confirmed_at: "x" });
+  t("the priority list is as private as the registrations: no sign-in is 401, a non-staff account is 403, and neither reads the table",
+    anon.statusCode === 401 && outsider.statusCode === 403 && outsider.body.rows === undefined && !log.requests.some((q) => q.includes("virtual_run_waitlist")));
+  const all = await call({ view: "waitlist" });
+  t("staff see this event's list, newest first, and the counts", all.statusCode === 200 && all.body.rows.length === 4 && all.body.rows[0].fullName === "Runner 4" &&
+    all.body.summary.total === 4 && all.body.summary.active === 3 && all.body.summary.unsubscribed === 1);
+  t("the response is no-store and noindex, and never carries a leave token or another event's people",
+    all.headers["Cache-Control"] === "no-store" && /noindex/.test(all.headers["X-Robots-Tag"]) && !JSON.stringify(all.body).includes("ATH-WL-") && !JSON.stringify(all.body).includes("other@example.com"));
+  t("the row shows who, when, how they came, which consent wording, and whether they left",
+    all.body.rows.some((r) => r.email === "runner1@example.com" && r.source === "meta-launch" && r.consentVersion === "2026-11-a" && r.status === "active") && all.body.rows.some((r) => r.status === "unsubscribed"));
+  const active = await call({ view: "waitlist", status: "active" });
+  const left = await call({ view: "waitlist", status: "unsubscribed" });
+  const ignored = await call({ view: "waitlist", status: "x; drop table" });
+  t("the list can be filtered to those still on it or those who left, and an odd value is ignored", active.body.rows.length === 3 && active.body.rows.every((r) => r.status === "active") && left.body.rows.length === 1 && ignored.body.rows.length === 4);
+  const csv = await call({ view: "waitlist", format: "csv" });
+  const csvText = String(csv.sent || "");
+  t("the CSV is a download with a dated name, a byte-order mark, and a header", /text\/csv/.test(csv.headers["Content-Type"]) && /attachment; filename="athlevo-sub-1-10k-priority-list-active-\d{4}-\d{2}-\d{2}\.csv"/.test(csv.headers["Content-Disposition"]) && csvText.startsWith("﻿Full name,Email,Status,Source,Joined (Manila),Consent version"));
+  t("the CSV holds only people still on the list by default, so nobody who left gets mailed", !csvText.includes("runner2@example.com") && csvText.includes("runner1@example.com") && csvText.includes("runner4@example.com"));
+  t("text a spreadsheet would run as a formula is neutralised, and commas are quoted", !/^=HYPERLINK/m.test(csvText.replace(/\r/g, "")) && /"x,y"/.test(csvText) && /'=HYPERLINK/.test(csvText));
+  t("the CSV never carries a leave token", !csvText.includes("ATH-WL-"));
+  const leftCsv = await call({ view: "waitlist", format: "csv", status: "unsubscribed" });
+  t("staff can still export the people who left (for suppression), when they ask for it", String(leftCsv.sent).includes("runner2@example.com") && !String(leftCsv.sent).includes("runner1@example.com"));
+  for (let i = 5; i < 1105; i++) add(i % 10, { id: `bulk${i}`, email: `bulk${i}@example.com`, full_name: `Bulk ${i}`, unsubscribe_token: `ATH-WL-B${String(i).padStart(31, "0")}`, created_at: new Date(Date.parse("2026-11-01T00:00:00Z") + i * 1000).toISOString() });
+  const big = await call({ view: "waitlist", format: "csv" });
+  t("the CSV holds everyone on the list, not just the first thousand the database returns per request", String(big.sent).split("\r\n").filter(Boolean).length - 1 === db.virtual_run_waitlist.filter((r) => r.event === content.EVENT.id && r.status === "active").length);
+  const page = await call({ view: "waitlist" });
+  t("the on-screen list is the latest 200, with the true counts and a note that it is a part", page.body.rows.length === 200 && page.body.truncated === true && page.body.summary.total === db.virtual_run_waitlist.filter((r) => r.event === content.EVENT.id).length);
+  reset(); dbMode = "down";
+  const failed = await call({ view: "waitlist" });
+  t("if the table cannot be read, staff get an error, never an empty list that looks like nobody joined", failed.statusCode === 502 && failed.body.rows === undefined);
+  reset();
+  const registrations = await call({});
+  t("the registrations view is unchanged by the priority list", registrations.statusCode === 200 && Array.isArray(registrations.body.rows) && registrations.body.summary && !("waitlist" in registrations.body));
+}
+
+// ---- the gateway, for the new action ----
+section("9c. Gateway: the priority list");
+reset();
+{
+  const { default: gateway } = await import("../api/providers/index.js");
+  const r = res();
+  await gateway({ method: "POST", headers: { "x-forwarded-for": nextIp() }, query: { action: "virtual_run_waitlist" }, body: { fullName: "Gwen Tan", email: "gwen@example.com", consent: true } }, r);
+  t("/api/virtual-run/waitlist is served by the gateway and saves a sign-up while registration is shut", r.statusCode === 200 && r.body.ok === true && db.virtual_run_waitlist.length === 1 && db.virtual_run_registrations.length === 0 && checkouts.length === 0);
+  const g = res();
+  await gateway({ method: "GET", headers: { "x-forwarded-for": nextIp() }, query: { action: "virtual_run_availability" } }, g);
+  t("availability, through the gateway, says the priority list is open and registration is not", g.body.state === "not_open" && g.body.waitlist === true);
+  const vercel = JSON.parse((await import("node:fs")).readFileSync("vercel.json", "utf8"));
+  t("vercel.json routes the new path to the one gateway function (the host plan allows 12)", vercel.rewrites.some((x) => x.source === "/api/virtual-run/waitlist" && x.destination === "/api/providers?action=virtual_run_waitlist"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

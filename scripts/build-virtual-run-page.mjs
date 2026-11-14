@@ -46,7 +46,8 @@ const fill = (s, values) => String(s).replace(/\{(\w+)\}/g, (m, key) => (key in 
 const PIXEL_INSTRUCTIONS =
   "  <!-- ======================= META PIXEL =======================\n" +
   "       Paste your Meta Pixel base code here: the whole <script> block and the <noscript>\n" +
-  "       line from Events Manager. Keep the PageView line in. The page itself sends a Purchase\n" +
+  "       line from Events Manager. Keep the PageView line in. The page itself sends a Lead event\n" +
+  "       when someone joins the priority list (no name or email goes with it), and a Purchase\n" +
   "       event, with the package price, once a payment has been CONFIRMED by the server, so\n" +
   "       leave any Purchase or Lead line out of the snippet.\n" +
   "       Whatever sits between this comment and the closing marker below is kept when the\n" +
@@ -74,6 +75,10 @@ function legalLink(url, label) {
   return '<a href="' + attr(url) + '"' + (external ? ' target="_blank" rel="noopener"' : ' target="_blank"') + ">" + text(label) + "</a>";
 }
 
+/** The priority list can be switched off in the content file. Its buttons then stay out of sight. */
+const waitlistOn = Boolean(c.WAITLIST && c.WAITLIST.enabled !== false);
+const soonHidden = waitlistOn ? "" : " hidden";
+
 const HEADER =
   '  <a class="skip" href="#main">Skip to main content</a>\n' +
   '  <header class="site-header">\n' +
@@ -85,26 +90,30 @@ const HEADER =
   '        <li><a href="#rewards">Rewards</a></li>\n' +
   '        <li><a href="#faq">' + text(c.FAQ.eyebrow) + "</a></li>\n" +
   "      </ul>\n" +
-  '      <a class="btn btn-red vr-nav-cta" href="#register">' + text(c.HERO.primary) + "</a>\n" +
+  '      <a class="btn btn-red vr-nav-cta" id="vr-nav-cta" href="#waitlist"' + soonHidden + ">" + text(c.HERO.soon.nav) + "</a>\n" +
   "    </div>\n" +
   "  </header>";
 
 function hero() {
   const f = c.HERO.factLabels;
+  const registration = c.registrationFact();
+  // The page is built in its "opening soon" state: this is what a search engine, a link preview and a visitor
+  // without JavaScript see. js/virtualRun.js switches it to the registration state only when the server says open.
   return (
     '    <section class="vr-hero" aria-labelledby="vr-hero-title">\n' +
     '      <div class="wrap vr-hero-inner">\n' +
     '        <p class="vr-eyebrow">' + text(c.HERO.eyebrow) + "</p>\n" +
     '        <h1 id="vr-hero-title">' + rich(c.HERO.headline.replace("10k", "*10k*")) + "</h1>\n" +
     '        <p class="vr-hero-sub">' + text(c.HERO.supporting) + "</p>\n" +
+    '        <p class="vr-soon-badge vr-only-soon" id="vr-hero-badge"><span class="vr-soon-dot" aria-hidden="true"></span>' + text(c.HERO.soon.badge) + "</p>\n" +
     '        <div class="vr-hero-actions">\n' +
-    '          <a class="btn btn-red btn-lg" href="#register" id="vr-hero-register">' + text(c.HERO.primary) + "</a>\n" +
+    '          <a class="btn btn-red btn-lg" href="#waitlist" id="vr-hero-register"' + soonHidden + ">" + text(c.HERO.soon.primary) + "</a>\n" +
     '          <a class="btn btn-lg vr-btn-ghost" href="#how-it-works">' + text(c.HERO.secondary) + "</a>\n" +
     "        </div>\n" +
     '        <p class="vr-hero-state" id="vr-hero-state" role="status" aria-live="polite"></p>\n' +
     '        <dl class="vr-facts">\n' +
     "          <div><dt>" + text(f.dates) + "</dt><dd>" + text(c.eventDatesText()) + "</dd></div>\n" +
-    "          <div><dt>" + text(f.deadline) + "</dt><dd>" + text(c.deadlineText()) + "</dd></div>\n" +
+    "          <div><dt>" + text(registration.label) + "</dt><dd>" + text(registration.value) + "</dd></div>\n" +
     "          <div><dt>" + text(f.format) + "</dt><dd>" + text(c.HERO.format) + "</dd></div>\n" +
     "        </dl>\n" +
     '        <p class="vr-hero-note">' + text(c.HERO.note) + "</p>\n" +
@@ -165,7 +174,8 @@ function packages() {
       (pkg.physical
         ? '              <p class="vr-pkg-note">' + text(p.coverageLabel) + ": <strong>" + text(c.DELIVERY.coverage) + "</strong>. " + text(c.DELIVERY.timing) + "</p>\n"
         : "") +
-      '              <button class="btn btn-red vr-choose" type="button" disabled data-choose="' + attr(pkg.id) + '">' + text(p.choose + " " + pkg.name) + "</button>\n" +
+      '              <a class="btn btn-red vr-pkg-soon vr-only-soon" href="#waitlist"' + soonHidden + ">" + text(c.HERO.soon.primary) + "</a>\n" +
+      '              <button class="btn btn-red vr-choose vr-only-register" type="button" disabled data-choose="' + attr(pkg.id) + '">' + text(p.choose + " " + pkg.name) + "</button>\n" +
       '              <p class="vr-pkg-state" data-state-for="' + attr(pkg.id) + '" role="status"></p>\n' +
       "            </div>\n" +
       "          </article>\n"
@@ -221,6 +231,63 @@ function rewards() {
     '    <section class="vr-section vr-section--dark" id="rewards" aria-label="Official finisher shirt and medal">\n' +
     '      <div class="wrap vr-products">\n' +
     merch("shirt", false) + merch("medal", true) +
+    "      </div>\n" +
+    "    </section>"
+  );
+}
+
+// ---- The priority list ----
+
+/** A field of the priority list form. Its ids start with vr-wl-, so they never meet the registration form's. */
+function wlField(id, label, control) {
+  return (
+    '<div class="field" data-field="' + attr(id) + '">' +
+    '<label for="vr-wl-' + id + '">' + text(label) + "</label>" + control +
+    '<p class="field-error" id="vr-wl-' + id + '-error" hidden>' + text(c.WAITLIST.errors[id]) + "</p>" +
+    "</div>"
+  );
+}
+
+function waitlistSection() {
+  const W = c.WAITLIST;
+  if (!waitlistOn) return "";
+  const consent = fill(W.consent, { privacy: legalLink(c.LEGAL.privacyUrl, W.privacyLink) });
+  const L = W.leave;
+  const form =
+    '<form class="vr-wl-form" id="vr-wl-form" method="post" action="' + attr(c.SITE.waitlistApi) + '" novalidate aria-labelledby="waitlist-title">' +
+    wlField("fullName", W.labels.fullName, '<input id="vr-wl-fullName" name="fullName" type="text" autocomplete="name" maxlength="120" required>') +
+    wlField("email", W.labels.email, '<input id="vr-wl-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required>') +
+    '<div class="vr-consent field" data-field="consent"><label class="vr-check"><input type="checkbox" id="vr-wl-consent" name="consent"><span>' + consent + "</span></label>" +
+    '<p class="field-error" id="vr-wl-consent-error" hidden>' + text(W.errors.consent) + "</p></div>" +
+    '<div class="hp" aria-hidden="true"><label for="vr-wl-website">Leave this field empty</label><input id="vr-wl-website" name="contact_website" type="text" tabindex="-1" autocomplete="off"></div>' +
+    '<p class="form-error" id="vr-wl-form-error" role="alert"></p>' +
+    '<button class="btn btn-red btn-lg vr-wl-submit" type="submit" id="vr-wl-submit">' + text(W.submit) + "</button>" +
+    "</form>";
+  return (
+    '    <section class="vr-section vr-section--tint vr-wl vr-only-soon" id="waitlist" aria-labelledby="waitlist-title">\n' +
+    '      <div class="wrap vr-wl-grid" id="vr-wl-grid">\n' +
+    '        <div class="vr-wl-intro" id="vr-wl-intro">\n' +
+    '          <p class="vr-label">' + text(W.eyebrow) + "</p>\n" +
+    '          <h2 class="vr-title" id="waitlist-title">' + rich(W.heading) + "</h2>\n" +
+    '          <p class="vr-lede">' + text(W.text) + "</p>\n" +
+    '          <ul class="vr-wl-points">' + W.points.map((point) => "<li>" + text(point) + "</li>").join("") + "</ul>\n" +
+    "        </div>\n" +
+    '        <div class="vr-wl-card" id="vr-wl-card">\n' +
+    '          <noscript><p class="form-error" style="display:block">' + text(fill(W.noscript, { email: c.SITE.supportEmail })) + "</p></noscript>\n" +
+    "          " + form + "\n" +
+    '          <p class="vr-wl-off" id="vr-wl-off" hidden>' + text(fill(W.unavailable, { email: c.SITE.supportEmail })) + "</p>\n" +
+    '          <div class="vr-wl-done" id="vr-wl-done" tabindex="-1" hidden>\n' +
+    '            <h3 class="vr-confirm-title">' + rich(W.done.heading) + "</h3>\n" +
+    "            <p>" + text(W.done.text) + "</p>\n" +
+    '            <p class="vr-hint">' + text(W.done.note) + "</p>\n" +
+    "          </div>\n" +
+    '          <div class="vr-wl-leave" id="vr-wl-leave" tabindex="-1" hidden>\n' +
+    '            <h3 class="vr-confirm-title" id="vr-wl-leave-title">' + text(L.heading) + "</h3>\n" +
+    '            <p id="vr-wl-leave-text">' + text(L.text) + "</p>\n" +
+    '            <p class="form-error" id="vr-wl-leave-error" role="alert"></p>\n' +
+    '            <div class="vr-actions" id="vr-wl-leave-actions"><button class="btn btn-red" type="button" id="vr-wl-leave-confirm">' + text(L.confirm) + '</button><button class="btn" type="button" id="vr-wl-leave-cancel">' + text(L.cancel) + "</button></div>\n" +
+    "          </div>\n" +
+    "        </div>\n" +
     "      </div>\n" +
     "    </section>"
   );
@@ -340,7 +407,7 @@ function register() {
   const F = c.FORM;
   const K = c.CONFIRMATION;
   return (
-    '    <section class="vr-register" id="register" aria-labelledby="register-title">\n' +
+    '    <section class="vr-register vr-only-register" id="register" aria-labelledby="register-title">\n' +
     '      <div class="wrap vr-register-grid">\n' +
     '        <div class="vr-register-intro">\n' +
     '          <p class="vr-label vr-label--dark">' + text(F.eyebrow) + "</p>\n" +
@@ -407,6 +474,19 @@ function clientConfig() {
     frequencies: c.FREQUENCIES.map((f) => f.value),
     goals: c.GOALS.map((g) => g.value),
     states: c.STATES,
+    // How the two call-to-action links read in each state of the page.
+    modes: {
+      soon: { cta: c.HERO.soon.primary, nav: c.HERO.soon.nav, href: "#waitlist" },
+      register: { cta: c.HERO.primary, nav: c.HERO.primary, href: "#register" }
+    },
+    waitlist: c.WAITLIST && c.WAITLIST.enabled !== false ? {
+      api: c.SITE.waitlistApi,
+      errors: c.WAITLIST.errors,
+      sending: c.WAITLIST.sending,
+      submit: c.WAITLIST.submit,
+      leave: c.WAITLIST.leave,
+      unavailable: c.WAITLIST.unavailable
+    } : null,
     packageStates: c.PACKAGES_COPY.states,
     form: {
       stepTitles: c.FORM.stepTitles, stepLabel: c.FORM.stepLabel, of: c.FORM.of, labels: c.FORM.labels, errors: c.FORM.errors,
@@ -437,24 +517,36 @@ function structuredData() {
   return '  <script type="application/ld+json">' + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>\n";
 }
 
-// PayMongo sends the runner back with their secret registration reference in the address (?ref=...). Anything that
-// reads the address, an analytics pixel above all, would receive it. This runs first, before any pixel: it moves the
-// reference into this tab's session storage and takes it out of the address, leaving the other parameters alone.
-const KEEP_REF_OUT_OF_URL =
+// Two links bring a secret in the address: PayMongo sends the runner back with their registration reference
+// (?ref=...), and the priority list e-mail carries a leave token (?leave=...). Anything that reads the address,
+// an analytics pixel above all, would receive them. This runs first, before any pixel: it moves each into this
+// tab's session storage and takes it out of the address, leaving the other parameters alone. The leave token is
+// replaced by ?leave=1, which is not a secret and only tells the page to show its "leave the list" panel.
+const KEEP_SECRETS_OUT_OF_URL =
   "  <script>\n" +
   "    (function () {\n" +
   "      try {\n" +
-  "        var s = location.search;\n" +
-  "        var m = /[?&]ref=([^&#]*)/.exec(s);\n" +
-  "        if (!m) return;\n" +
-  "        if (/[?&]payment=success(&|#|$)/.test(s)) sessionStorage.setItem(\"athlevo.vr.ref\", decodeURIComponent(m[1]).toUpperCase());\n" +
-  "        var rest = s.replace(/([?&])ref=[^&#]*&?/, \"$1\").replace(/[?&]$/, \"\");\n" +
-  "        history.replaceState(null, \"\", location.pathname + rest + location.hash);\n" +
+  "        var s = location.search, changed = false;\n" +
+  "        function drop(name) { return s.replace(new RegExp(\"([?&])\" + name + \"=[^&#]*&?\"), \"$1\").replace(/[?&]$/, \"\"); }\n" +
+  "        var ref = /[?&]ref=([^&#]*)/.exec(s);\n" +
+  "        if (ref) {\n" +
+  "          if (/[?&]payment=success(&|#|$)/.test(s)) sessionStorage.setItem(\"athlevo.vr.ref\", decodeURIComponent(ref[1]).toUpperCase());\n" +
+  "          s = drop(\"ref\"); changed = true;\n" +
+  "        }\n" +
+  "        var leave = /[?&]leave=([^&#]*)/.exec(s);\n" +
+  "        if (leave && leave[1] !== \"1\") {\n" +
+  "          sessionStorage.setItem(\"athlevo.vr.leave\", decodeURIComponent(leave[1]).toUpperCase());\n" +
+  "          s = drop(\"leave\"); s += (s ? \"&\" : \"?\") + \"leave=1\"; changed = true;\n" +
+  "        }\n" +
+  "        if (changed) history.replaceState(null, \"\", location.pathname + s + location.hash);\n" +
   "      } catch (e) {}\n" +
   "    })();\n" +
   "  </script>\n";
 
 export function buildPage(existingHtml = "") {
+  // Dates that do not add up (a typo, an end date that is not `weeks` weeks after the start) never reach the page.
+  const problems = c.eventDateProblems();
+  if (problems.length) throw new Error("The event dates in content/virtualRun.mjs need fixing before the page can be built:\n  - " + problems.join("\n  - "));
   const head =
     '<!doctype html>\n<html lang="en">\n<head>\n' +
     '  <meta charset="utf-8">\n' +
@@ -478,15 +570,15 @@ export function buildPage(existingHtml = "") {
     '  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Inter:wght@400..700&display=swap" rel="stylesheet">\n' +
     '  <link rel="stylesheet" href="/store.css">\n' +
     '  <link rel="stylesheet" href="' + versioned("/virtual-run.css") + '">\n' +
-    KEEP_REF_OUT_OF_URL +
+    KEEP_SECRETS_OUT_OF_URL +
     PIXEL_INSTRUCTIONS + pastedPixel(existingHtml) + PIXEL_END + "\n" +
     structuredData() +
     "</head>\n";
   const body =
-    '<body class="vr">\n' +
+    '<body class="vr" data-mode="soon">\n' +
     HEADER + "\n" +
     '  <main id="main" tabindex="-1">\n' +
-    hero() + "\n" + how() + "\n" + results() + "\n" + packages() + "\n" + rewards() + "\n" + register() + "\n" + faq() + "\n" +
+    hero() + "\n" + (waitlistSection() ? waitlistSection() + "\n" : "") + how() + "\n" + results() + "\n" + packages() + "\n" + rewards() + "\n" + register() + "\n" + faq() + "\n" +
     "  </main>\n" +
     footer + "\n" +
     '  <script type="application/json" id="vr-config">' + clientConfig() + "</script>\n" +
@@ -513,7 +605,7 @@ export function buildAdminPage() {
     '<!doctype html>\n<html lang="en">\n<head>\n' +
     '  <meta charset="utf-8">\n' +
     '  <meta name="viewport" content="width=device-width, initial-scale=1">\n' +
-    "  <title>Sub-1 10k registrations | Athlevo staff</title>\n" +
+    "  <title>Sub-1 10k Challenge | Athlevo staff</title>\n" +
     '  <meta name="robots" content="noindex, nofollow, noarchive">\n' +
     '  <meta name="referrer" content="no-referrer">\n' +
     '  <meta name="theme-color" content="#0a0a0b">\n' +
@@ -551,9 +643,14 @@ export function buildAdminPage() {
     "      </section>\n" +
     '      <section id="vra-app" aria-labelledby="vra-title" hidden>\n' +
     '        <div class="vra-bar">\n' +
-    '          <h1 class="vra-title" id="vra-title">Sub-1 10k registrations</h1>\n' +
+    '          <h1 class="vra-title" id="vra-title">Sub-1 10k Challenge</h1>\n' +
     '          <div class="vra-buttons"><button class="btn" type="button" id="vra-refresh">Refresh</button><button class="btn btn-red" type="button" id="vra-export">Export CSV</button></div>\n' +
     "        </div>\n" +
+    '        <div class="vra-tabs" role="tablist" aria-label="Lists">\n' +
+    '          <button class="vra-tab" type="button" role="tab" id="vra-tab-registrations" aria-selected="true" aria-controls="vra-panel-registrations">Registrations</button>\n' +
+    '          <button class="vra-tab" type="button" role="tab" id="vra-tab-waitlist" aria-selected="false" aria-controls="vra-panel-waitlist" tabindex="-1">Priority list</button>\n' +
+    "        </div>\n" +
+    '        <div id="vra-panel-registrations" role="tabpanel" aria-labelledby="vra-tab-registrations">\n' +
     '        <div class="vra-stats" id="vra-stats" aria-label="Summary"></div>\n' +
     '        <form class="vra-filters" id="vra-filters" novalidate>\n' +
     '          <div class="field"><label for="vra-package">Package</label><select id="vra-package" name="package"><option value="all">All packages</option>' + packageOptions + "</select></div>\n" +
@@ -567,6 +664,21 @@ export function buildAdminPage() {
     "          <thead><tr><th scope=\"col\">Registration ID</th><th scope=\"col\">Name</th><th scope=\"col\">Package</th><th scope=\"col\">Payment</th><th scope=\"col\">Paid</th><th scope=\"col\">Registered</th><th scope=\"col\"><span class=\"sr-only\">Details</span></th></tr></thead>\n" +
     '          <tbody id="vra-rows"></tbody></table>\n' +
     '          <p class="vra-empty" id="vra-empty" hidden>No registrations match.</p></div>\n' +
+    "        </div>\n" +
+    '        <div id="vra-panel-waitlist" role="tabpanel" aria-labelledby="vra-tab-waitlist" hidden>\n' +
+    '          <div class="vra-stats" id="vra-wl-stats" aria-label="Priority list summary"></div>\n' +
+    '          <form class="vra-filters vra-filters--list" id="vra-wl-filters" novalidate>\n' +
+    '            <div class="field"><label for="vra-wl-status">Show</label><select id="vra-wl-status" name="status"><option value="all">Everyone</option><option value="active">On the list</option><option value="unsubscribed">Left the list</option></select></div>\n' +
+    '            <div class="field"><label for="vra-wl-search">Search name or email</label><input id="vra-wl-search" name="q" type="search" autocomplete="off" maxlength="80"></div>\n' +
+    '            <button class="btn btn-red" type="submit">Apply</button>\n' +
+    "          </form>\n" +
+    '          <p class="vra-note">These are people who asked to hear about the challenge. The CSV holds only people still on the list, unless you choose "Left the list".</p>\n' +
+    '          <p class="vra-note" id="vra-wl-count" aria-live="polite"></p>\n' +
+    '          <div class="vra-tablewrap"><table class="vra-table" id="vra-wl-table"><caption class="sr-only">Priority list</caption>\n' +
+    "            <thead><tr><th scope=\"col\">Name</th><th scope=\"col\">Email</th><th scope=\"col\">Joined</th><th scope=\"col\">Status</th><th scope=\"col\">Source</th><th scope=\"col\">Consent version</th></tr></thead>\n" +
+    '            <tbody id="vra-wl-rows"></tbody></table>\n' +
+    '            <p class="vra-empty" id="vra-wl-empty" hidden>No one matches.</p></div>\n' +
+    "        </div>\n" +
     "      </section>\n" +
     "    </div>\n" +
     "  </main>\n" +

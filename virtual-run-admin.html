@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sub-1 10k registrations | Athlevo staff</title>
+  <title>Sub-1 10k Challenge | Athlevo staff</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#0a0a0b">
@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Inter:wght@400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/store.css">
-  <link rel="stylesheet" href="/virtual-run.css?v=2a489c9b">
+  <link rel="stylesheet" href="/virtual-run.css?v=57b4a029">
 </head>
 <body class="vr vra" data-supabase-url="https://hqwdehqsllyvrcnlcytj.supabase.co" data-supabase-key="sb_publishable_KxbACTdnsHG_uFNAV01bfA_NGkW-PCt" data-storage-key="sb-hqwdehqsllyvrcnlcytj-auth-token" data-api="/api/virtual-run/admin">
   <a class="skip" href="#main">Skip to main content</a>
@@ -37,9 +37,14 @@
       </section>
       <section id="vra-app" aria-labelledby="vra-title" hidden>
         <div class="vra-bar">
-          <h1 class="vra-title" id="vra-title">Sub-1 10k registrations</h1>
+          <h1 class="vra-title" id="vra-title">Sub-1 10k Challenge</h1>
           <div class="vra-buttons"><button class="btn" type="button" id="vra-refresh">Refresh</button><button class="btn btn-red" type="button" id="vra-export">Export CSV</button></div>
         </div>
+        <div class="vra-tabs" role="tablist" aria-label="Lists">
+          <button class="vra-tab" type="button" role="tab" id="vra-tab-registrations" aria-selected="true" aria-controls="vra-panel-registrations">Registrations</button>
+          <button class="vra-tab" type="button" role="tab" id="vra-tab-waitlist" aria-selected="false" aria-controls="vra-panel-waitlist" tabindex="-1">Priority list</button>
+        </div>
+        <div id="vra-panel-registrations" role="tabpanel" aria-labelledby="vra-tab-registrations">
         <div class="vra-stats" id="vra-stats" aria-label="Summary"></div>
         <form class="vra-filters" id="vra-filters" novalidate>
           <div class="field"><label for="vra-package">Package</label><select id="vra-package" name="package"><option value="all">All packages</option><option value="digital">Digital Challenge</option><option value="finisher-kit">Finisher Kit</option><option value="performance-bundle">Performance Bundle</option></select></div>
@@ -53,9 +58,24 @@
           <thead><tr><th scope="col">Registration ID</th><th scope="col">Name</th><th scope="col">Package</th><th scope="col">Payment</th><th scope="col">Paid</th><th scope="col">Registered</th><th scope="col"><span class="sr-only">Details</span></th></tr></thead>
           <tbody id="vra-rows"></tbody></table>
           <p class="vra-empty" id="vra-empty" hidden>No registrations match.</p></div>
+        </div>
+        <div id="vra-panel-waitlist" role="tabpanel" aria-labelledby="vra-tab-waitlist" hidden>
+          <div class="vra-stats" id="vra-wl-stats" aria-label="Priority list summary"></div>
+          <form class="vra-filters vra-filters--list" id="vra-wl-filters" novalidate>
+            <div class="field"><label for="vra-wl-status">Show</label><select id="vra-wl-status" name="status"><option value="all">Everyone</option><option value="active">On the list</option><option value="unsubscribed">Left the list</option></select></div>
+            <div class="field"><label for="vra-wl-search">Search name or email</label><input id="vra-wl-search" name="q" type="search" autocomplete="off" maxlength="80"></div>
+            <button class="btn btn-red" type="submit">Apply</button>
+          </form>
+          <p class="vra-note">These are people who asked to hear about the challenge. The CSV holds only people still on the list, unless you choose "Left the list".</p>
+          <p class="vra-note" id="vra-wl-count" aria-live="polite"></p>
+          <div class="vra-tablewrap"><table class="vra-table" id="vra-wl-table"><caption class="sr-only">Priority list</caption>
+            <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Joined</th><th scope="col">Status</th><th scope="col">Source</th><th scope="col">Consent version</th></tr></thead>
+            <tbody id="vra-wl-rows"></tbody></table>
+            <p class="vra-empty" id="vra-wl-empty" hidden>No one matches.</p></div>
+        </div>
       </section>
     </div>
   </main>
-  <script src="/js/virtualRunAdmin.js?v=b2c914df" defer></script>
+  <script src="/js/virtualRunAdmin.js?v=f8883bb2" defer></script>
 </body>
 </html>

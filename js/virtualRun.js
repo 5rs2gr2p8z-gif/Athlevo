@@ -24,6 +24,9 @@
   var POLL_MS = 2500;
   var POLL_MAX = 24;
   var TOTAL_STEPS = 4;
+  var EMAIL_PATTERN = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
+  var LEAVE_TOKEN = /^ATH-WL-[0-9A-F]{32}$/;
+  var SOURCE_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,39}$/;
 
   /* ------------------------------------------------------------------ checks (pure, tested in node) */
 
@@ -79,7 +82,7 @@
     if (squash(v.fullName).length < 2) errors.fullName = "fullName";
 
     var email = squash(v.email);
-    if (!(email.length <= 254 && /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/.test(email))) errors.email = "email";
+    if (!(email.length <= 254 && EMAIL_PATTERN.test(email))) errors.email = "email";
 
     if (!/^\+?\d{7,15}$/.test(squash(v.mobile).replace(/[\s().\-]/g, ""))) errors.mobile = "mobile";
 
@@ -129,9 +132,37 @@
     return 0;
   }
 
+  /** The priority list's quick checks, { field: code } for each that is not acceptable. The server checks again. */
+  function validateWaitlist(values) {
+    var v = values || {};
+    var errors = {};
+    if (squash(v.fullName).length < 2) errors.fullName = "fullName";
+    var email = squash(v.email);
+    if (!(email.length <= 254 && EMAIL_PATTERN.test(email))) errors.email = "email";
+    // Consent is the box being ticked, nothing else.
+    if (v.consent !== true) errors.consent = "consent";
+    return errors;
+  }
+
+  /**
+   * The short label of the campaign link a visitor came from (?src=meta-launch), kept with their sign-up so the
+   * owner can see which marketing works. Not personal data. "" when the address has none worth keeping.
+   */
+  function sourceFrom(search) {
+    var names = ["src", "utm_campaign", "utm_source"];
+    for (var i = 0; i < names.length; i += 1) {
+      var match = new RegExp("[?&]" + names[i] + "=([^&#]*)").exec(String(search || ""));
+      if (!match) continue;
+      var value = "";
+      try { value = squash(decodeURIComponent(match[1].replace(/\+/g, " "))).toLowerCase(); } catch (error) { continue; }
+      if (SOURCE_PATTERN.test(value)) return value;
+    }
+    return "";
+  }
+
   global.AthlevoVirtualRun = {
     parseRaceTime: parseRaceTime, ageOn: ageOn, validate: validate, errorsForStep: errorsForStep,
-    stepOfField: stepOfField, fill: fill, STEP_FIELDS: STEP_FIELDS
+    stepOfField: stepOfField, fill: fill, STEP_FIELDS: STEP_FIELDS, validateWaitlist: validateWaitlist, sourceFrom: sourceFrom
   };
 
   /* ------------------------------------------------------------------ the page */
@@ -155,6 +186,8 @@
   var notice = doc.getElementById("vr-notice");
   var registerState = doc.getElementById("vr-register-state");
   var heroState = doc.getElementById("vr-hero-state");
+  var heroCta = doc.getElementById("vr-hero-register");
+  var navCta = doc.getElementById("vr-nav-cta");
   var formError = doc.getElementById("vr-form-error");
   var stepCount = doc.getElementById("vr-stepcount");
   var progressItems = [].slice.call(doc.querySelectorAll("#vr-progress li"));
@@ -173,7 +206,9 @@
   var busy = false;
   var confirmMode = false;
   var cancelledText = "";
-  var availability = { state: "checking", packages: {} };
+  var availability = { state: "checking", packages: {}, waitlist: true };
+  var mode = "soon";
+  var returning = false;
   var pollTimer = null;
   var preselect = "";
 
@@ -546,11 +581,34 @@
     notice.textContent = message;
   }
 
+  /**
+   * The page has two states. "soon" (how it is built, and what anyone without JavaScript sees) shows the priority
+   * list and keeps the registration form out of sight. "register" shows the form, and is only ever chosen when the
+   * server says registration is open (or closed or full, so the status line can say so) or a runner is coming back
+   * from payment. The server decides; nothing here opens registration.
+   */
+  function setMode(next) {
+    mode = next;
+    doc.body.setAttribute("data-mode", next);
+    var copy = config.modes[next];
+    [[heroCta, copy.cta], [navCta, copy.nav]].forEach(function (pair) {
+      if (!pair[0]) return;
+      pair[0].textContent = pair[1];
+      pair[0].setAttribute("href", copy.href);
+      pair[0].hidden = next === "soon" && !config.waitlist;
+    });
+  }
+
   function renderAvailability() {
     var state = availability.state;
     var message = config.states[state] || "";
+    var ended = state === "closed" || state === "sold_out";
+    setMode(returning || confirmMode || state === "open" || ended ? "register" : "soon");
+    // A closed or full challenge has nothing to register for, so the buttons go and the status line says why.
+    if (ended) [heroCta, navCta].forEach(function (node) { if (node) node.hidden = true; });
     setText(registerState, message);
-    setText(heroState, message);
+    setText(heroState, mode === "register" ? message : "");
+    renderWaitlist();
     if (!confirmMode) form.hidden = state !== "open";
 
     [].slice.call(doc.querySelectorAll("[data-choose]")).forEach(function (button) {
@@ -587,8 +645,16 @@
   function applyAvailability(data) {
     var packages = {};
     ((data && data.packages) || []).forEach(function (item) { if (item && item.id) packages[item.id] = item.status; });
-    availability = { state: data && typeof data.state === "string" ? data.state : "unavailable", packages: packages };
+    availability = {
+      state: data && typeof data.state === "string" ? data.state : "unavailable", packages: packages,
+      // The priority list can be switched off on the server. Anything but an explicit false means it is on.
+      waitlist: !(data && data.waitlist === false)
+    };
     renderAvailability();
+    // An old link to #register lands on the priority list while registration is not open.
+    if (mode === "soon" && global.location.hash === "#register" && wl.section && wl.section.scrollIntoView) {
+      wl.section.scrollIntoView({ block: "start", behavior: reducedMotion() ? "auto" : "smooth" });
+    }
   }
 
   function loadAvailability(attempt) {
@@ -599,10 +665,209 @@
       })
       .then(applyAvailability)
       .catch(function () {
-        availability = { state: "unavailable", packages: {} };
+        availability = { state: "unavailable", packages: {}, waitlist: availability.waitlist };
         renderAvailability();
         if (attempt < 3) global.setTimeout(function () { loadAvailability(attempt + 1); }, 8000 * (attempt + 1));
       });
+  }
+
+  /* ----- the priority list ----- */
+
+  var W = config.waitlist;
+  var wl = {
+    section: byId("waitlist"), intro: byId("vr-wl-intro"), form: byId("vr-wl-form"), off: byId("vr-wl-off"),
+    done: byId("vr-wl-done"), leave: byId("vr-wl-leave"), name: byId("vr-wl-fullName"), email: byId("vr-wl-email"),
+    consent: byId("vr-wl-consent"), trap: byId("vr-wl-website"), error: byId("vr-wl-form-error"), submit: byId("vr-wl-submit"),
+    leaveTitle: byId("vr-wl-leave-title"), leaveText: byId("vr-wl-leave-text"), leaveError: byId("vr-wl-leave-error"),
+    leaveActions: byId("vr-wl-leave-actions"), leaveConfirm: byId("vr-wl-leave-confirm"), leaveCancel: byId("vr-wl-leave-cancel")
+  };
+  var WL_FIELDS = ["fullName", "email", "consent"];
+  var wlView = "form";
+  var wlBusy = false;
+  var leaveToken = "";
+  var source = sourceFrom(global.location.search);
+
+  function renderWaitlist() {
+    if (!W || !wl.form) return;
+    var off = wlView === "form" && !availability.waitlist;
+    wl.form.hidden = wlView !== "form" || off;
+    wl.off.hidden = !off;
+    wl.done.hidden = wlView !== "done";
+    wl.leave.hidden = wlView !== "leave";
+    wl.intro.hidden = wlView === "leave";
+    wl.section.classList.toggle("is-leaving", wlView === "leave");
+  }
+
+  function showWaitlistView(view) {
+    wlView = view;
+    renderWaitlist();
+  }
+
+  function wlControl(field) { return byId("vr-wl-" + field); }
+
+  function wlClearError(field) {
+    var node = byId("vr-wl-" + field + "-error");
+    var target = wlControl(field);
+    if (node) node.hidden = true;
+    if (target) { target.removeAttribute("aria-invalid"); target.removeAttribute("aria-describedby"); }
+  }
+
+  function wlShowError(field) {
+    var node = byId("vr-wl-" + field + "-error");
+    var target = wlControl(field);
+    if (node) node.hidden = false;
+    if (target) {
+      target.setAttribute("aria-invalid", "true");
+      if (node) target.setAttribute("aria-describedby", node.id);
+    }
+  }
+
+  function setWaitlistBusy(on) {
+    wlBusy = on;
+    wl.submit.disabled = on;
+    if (on) wl.submit.setAttribute("aria-busy", "true"); else wl.submit.removeAttribute("aria-busy");
+    setText(wl.submit, on ? W.sending : W.submit);
+  }
+
+  /** Tells the ad pixel someone joined. No name, no email, once per tab. Only after the server has said it saved. */
+  function trackLead() {
+    if (typeof global.fbq !== "function") return;
+    try { if (global.sessionStorage.getItem("athlevo.vr.lead")) return; } catch (error) { /* storage blocked: send once */ }
+    try { global.fbq("track", "Lead", { content_name: config.event + " priority list" }); } catch (error) { return; }
+    try { global.sessionStorage.setItem("athlevo.vr.lead", "1"); } catch (error) { /* ignore */ }
+  }
+
+  function waitlistFailed(message) {
+    setText(wl.error, message);
+  }
+
+  function handleWaitlistResult(result) {
+    var data = result.data || {};
+    setWaitlistBusy(false);
+    if (result.status === 200 && data.ok) {
+      wl.name.value = "";
+      wl.email.value = "";
+      wl.consent.checked = false;
+      showWaitlistView("done");
+      wl.done.focus({ preventScroll: true });
+      trackLead();
+      return;
+    }
+    if (result.status === 400 && data.fields) {
+      var first = "";
+      WL_FIELDS.forEach(function (field) {
+        if (!data.fields[field]) return;
+        wlShowError(field);
+        if (!first) first = field;
+      });
+      if (first) { wlControl(first).focus(); return; }
+    }
+    if (result.status === 429) { waitlistFailed(W.errors.rate); return; }
+    waitlistFailed(fill(W.errors.failed, { email: support }));
+  }
+
+  function submitWaitlist(event) {
+    event.preventDefault();
+    if (wlBusy) return;
+    var values = { fullName: wl.name.value, email: wl.email.value, consent: wl.consent.checked };
+    var errors = validateWaitlist(values);
+    WL_FIELDS.forEach(wlClearError);
+    waitlistFailed("");
+    var bad = WL_FIELDS.filter(function (field) { return errors[field]; });
+    if (bad.length) {
+      bad.forEach(wlShowError);
+      wlControl(bad[0]).focus();
+      return;
+    }
+    setWaitlistBusy(true);
+    var body = { fullName: squash(values.fullName), email: squash(values.email), consent: true, contact_website: wl.trap ? wl.trap.value : "" };
+    if (source) body.source = source;
+    postJson(W.api, body, 20000).then(handleWaitlistResult, function () {
+      setWaitlistBusy(false);
+      waitlistFailed(fill(W.errors.failed, { email: support }));
+    });
+  }
+
+  /** The leave link in a priority list e-mail. It only asks: nothing is removed until the person presses the button. */
+  function readLeave() {
+    if (!/[?&]leave=1(&|#|$)/.test(String(global.location.search || ""))) return null;
+    var token = "";
+    try { token = String(global.sessionStorage.getItem("athlevo.vr.leave") || "").toUpperCase(); } catch (error) { token = ""; }
+    return { token: LEAVE_TOKEN.test(token) ? token : "" };
+  }
+
+  function endLeave() {
+    leaveToken = "";
+    try { global.sessionStorage.removeItem("athlevo.vr.leave"); } catch (error) { /* ignore */ }
+    try {
+      var rest = String(global.location.search || "").replace(/([?&])leave=1&?/, "$1").replace(/[?&]$/, "");
+      global.history.replaceState(null, "", global.location.pathname + rest + global.location.hash);
+    } catch (error) { /* ignore */ }
+    doc.body.removeAttribute("data-leave");
+  }
+
+  function startLeave(token) {
+    leaveToken = token;
+    var L = W.leave;
+    doc.body.setAttribute("data-leave", "");
+    setText(wl.leaveTitle, L.heading);
+    if (!token) {
+      setText(wl.leaveText, fill(L.invalid, { email: support }));
+      wl.leaveActions.hidden = true;
+    } else {
+      setText(wl.leaveText, L.text);
+      wl.leaveActions.hidden = false;
+    }
+    showWaitlistView("leave");
+    if (wl.section.scrollIntoView) wl.section.scrollIntoView({ block: "start" });
+    wl.leave.focus({ preventScroll: true });
+  }
+
+  function confirmLeave() {
+    if (wlBusy || !leaveToken) return;
+    var L = W.leave;
+    wlBusy = true;
+    wl.leaveConfirm.disabled = true;
+    wl.leaveConfirm.setAttribute("aria-busy", "true");
+    setText(wl.leaveError, "");
+    setText(wl.leaveConfirm, L.working);
+    function reset() {
+      wlBusy = false;
+      wl.leaveConfirm.disabled = false;
+      wl.leaveConfirm.removeAttribute("aria-busy");
+      setText(wl.leaveConfirm, L.confirm);
+    }
+    postJson(W.api, { leave: leaveToken }, 20000).then(function (result) {
+      if (result.status === 200 && result.data && result.data.ok) {
+        reset();
+        endLeave();
+        setText(wl.leaveTitle, L.doneHeading);
+        setText(wl.leaveText, L.doneText);
+        wl.leaveActions.hidden = true;
+        wl.leave.focus({ preventScroll: true });
+        return;
+      }
+      reset();
+      setText(wl.leaveError, fill(L.failed, { email: support }));
+    }, function () {
+      reset();
+      setText(wl.leaveError, fill(L.failed, { email: support }));
+    });
+  }
+
+  if (W && wl.form) {
+    wl.form.addEventListener("submit", submitWaitlist);
+    wl.form.addEventListener("input", function (event) {
+      var wrap = event.target && event.target.closest ? event.target.closest("[data-field]") : null;
+      if (wrap) wlClearError(wrap.getAttribute("data-field"));
+      if (wl.error && wl.error.textContent) waitlistFailed("");
+    });
+    wl.leaveConfirm.addEventListener("click", confirmLeave);
+    wl.leaveCancel.addEventListener("click", function () {
+      if (wlBusy) return;
+      endLeave();
+      showWaitlistView("form");
+    });
   }
 
   /* ----- coming back from PayMongo ----- */
@@ -812,6 +1077,8 @@
   global.addEventListener("pageshow", function (event) { if (event.persisted && busy) setBusy(false); });
 
   var returned = readReturn();
+  returning = returned.kind !== "";
+  var leaving = W && wl.form ? readLeave() : null;
   if (Array.isArray(config.deliveryProvinces)) {
     [].slice.call(byId("vr-province").options).forEach(function (option) {
       if (option.value && config.deliveryProvinces.indexOf(option.value) === -1) option.disabled = true;
@@ -832,5 +1099,6 @@
   } else {
     renderNotice();
   }
+  if (leaving) startLeave(leaving.token);
   loadAvailability(0);
 })(typeof window !== "undefined" ? window : globalThis);

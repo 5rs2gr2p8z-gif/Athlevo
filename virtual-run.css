@@ -327,6 +327,8 @@
 .vr-check input:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 .vr-check a { color: var(--ink); font-weight: 600; }
 .vr-consent { margin-bottom: 14px; }
+/* ".field > label" would otherwise win over ".vr-check": a block, bold, 13px label with the box floating above its text. */
+.vr-consent > label.vr-check { display: flex; margin: 0; font-size: 15px; font-weight: 400; }
 
 .vr-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .vr-actions .btn-red { flex: 1 1 200px; }
@@ -402,6 +404,73 @@
   .vr-pkg:hover { transform: none; }
 }
 
+/* ---------------------------------------------------------------- opening soon and the priority list */
+
+/* The page is built "soon" (data-mode on <body>): the priority list shows and the registration form does not.
+   js/virtualRun.js sets data-mode="register" only when the server says registration is open (or closed, or full),
+   or when a runner comes back from payment. Without JavaScript the page stays "soon", which is the safe state. */
+.vr[data-mode="soon"] .vr-only-register { display: none !important; }
+.vr:not([data-mode="soon"]) .vr-only-soon { display: none !important; }
+/* The leave link in an e-mail keeps the list's panel on screen whatever state registration is in. */
+.vr[data-leave] #waitlist { display: block !important; }
+
+.vr-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 28px 0 0;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--white);
+}
+.vr-soon-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--red-on-dark); }
+.vr-soon-badge + .vr-hero-actions { margin-top: 20px; }
+
+.vr-wl { scroll-margin-top: var(--nav-h); border-bottom: 1px solid var(--line); }
+.vr-wl-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: start; }
+.vr-wl-intro .vr-title { margin-bottom: 20px; }
+.vr-wl-intro .vr-lede { margin: 0 0 24px; }
+.vr-wl-points { list-style: none; margin: 0; padding: 0; max-width: 44ch; }
+.vr-wl-points li { position: relative; padding: 10px 0 10px 30px; border-top: 1px solid var(--line); font-size: 16px; }
+.vr-wl-points li:last-child { border-bottom: 1px solid var(--line); }
+.vr-wl-points li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 17px;
+  width: 12px;
+  height: 7px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+.vr-wl-card { padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); }
+.vr-wl-form .field { margin-bottom: 18px; }
+.vr-wl-submit { width: 100%; margin-top: 6px; }
+.vr-wl-submit[aria-busy="true"] { opacity: 0.7; cursor: progress; }
+.vr-wl-done, .vr-wl-leave { outline: none; }
+.vr-wl-done p, .vr-wl-leave p { margin: 0 0 12px; }
+.vr-wl-off { margin: 0; font-weight: 600; }
+.vr-wl-leave .vr-actions { margin-top: 20px; }
+.vr-wl.is-leaving .vr-wl-grid { grid-template-columns: minmax(0, 560px); justify-content: center; }
+
+@media (min-width: 640px) {
+  .vr-wl-card { padding: 36px; }
+}
+
+@media (min-width: 861px) {
+  .vr-wl-grid { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 72px; align-items: center; }
+  .vr-wl.is-leaving .vr-wl-grid { grid-template-columns: minmax(0, 560px); }
+}
+
+@media (max-width: 480px) {
+  .vr-pkg-soon { width: 100%; }
+}
+
 /* ---------------------------------------------------------------- staff page */
 
 .vra { background: #f5f5f5; }
@@ -446,4 +515,15 @@
 @media (min-width: 760px) {
   .vra-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .vra-filters { grid-template-columns: 1fr 1fr 2fr auto auto; align-items: end; }
+}
+
+/* staff page: registrations and priority list tabs */
+.vra-tabs { display: flex; gap: 8px; margin: 0 0 20px; border-bottom: 1px solid var(--line); }
+.vra-tab { min-height: 44px; padding: 10px 16px; border: 0; border-bottom: 3px solid transparent; background: none; font: 600 15px/1 var(--sans); color: var(--muted); cursor: pointer; }
+.vra-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--red); }
+.vra-tab:focus-visible { outline: 2px solid var(--red); outline-offset: -2px; }
+.vra-pill--active { background: var(--ink); color: var(--white); }
+.vra-pill--unsubscribed { color: var(--muted); border-color: var(--line); }
+@media (min-width: 760px) {
+  .vra-filters--list { grid-template-columns: 1fr 2fr auto; }
 }

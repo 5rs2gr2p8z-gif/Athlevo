@@ -15,19 +15,27 @@
  */
 
 /* ============================  EDIT THE DATES HERE  ============================ */
+/*
+ * Every date on the page, in the emails, in the search-engine data and in the server's rules comes from this
+ * block and nowhere else. To confirm the dates: fill in startDate, endDate and the deadline, set
+ * datesConfirmed to true, run `npm run build:virtual-run`, then `npm run test:virtual-run`, and deploy.
+ * Until datesConfirmed is true, every place that would show a date says "Dates to Be Announced" instead, and
+ * the server refuses registrations.
+ */
 export const EVENT = {
   /** Stored on every registration. Do not change once registrations exist. */
   id: "athlevo-sub-1-10k-2026",
   name: "Athlevo Sub-1 10k Challenge",
   weeks: 8,
   /**
-   * Flip to true only when the dates below are final. While false the page says "To be announced"
-   * and the server refuses registrations.
-   * startDate and endDate are the Dec 1 to Jan 25 plan (8 weeks) and are NOT confirmed.
+   * Flip to true only when the dates below are final. While false the page says "Dates to Be Announced".
+   * (The plan under discussion is Dec 1, 2026 to Jan 25, 2027, 8 weeks. It is not confirmed, so it is not entered.)
    */
   datesConfirmed: false,
-  startDate: "2026-12-01",
-  endDate: "2027-01-25"
+  /** First day of the challenge, as YYYY-MM-DD (Manila calendar day). null until confirmed. */
+  startDate: null,
+  /** Last day of the challenge, as YYYY-MM-DD. It must make the challenge exactly `weeks` weeks long. */
+  endDate: null
 };
 
 export const REGISTRATION = {
@@ -141,6 +149,7 @@ export const SITE = {
   registerApi: "/api/virtual-run/register",
   statusApi: "/api/virtual-run/status",
   availabilityApi: "/api/virtual-run/availability",
+  waitlistApi: "/api/virtual-run/waitlist",
   supportEmail: "support@athlevo.org"
 };
 
@@ -218,20 +227,72 @@ export function formatMoment(iso) {
   return get("month") + " " + get("day") + ", " + get("year") + ", " + get("hour") + ":" + get("minute") + " " + get("dayPeriod");
 }
 
-/** The challenge dates as the page shows them. "To be announced" until the dates are confirmed. */
+/** What every unconfirmed date says. */
+export const DATES_TBA = "Dates to Be Announced";
+const DEADLINE_TBA = "Date to Be Announced";
+
+/** The challenge dates as the page shows them. "Dates to Be Announced" until the dates are confirmed. */
 export function eventDatesText(event = EVENT) {
-  if (!event.datesConfirmed || !event.startDate || !event.endDate) return "To be announced";
+  if (!event.datesConfirmed || !event.startDate || !event.endDate) return DATES_TBA;
   return formatDay(event.startDate) + " to " + formatDay(event.endDate);
 }
 
-/** The registration deadline as the page shows it. "To be announced" until one is set. */
+/** The registration deadline as the page shows it. "Date to Be Announced" until one is set. */
 export function deadlineText(registration = REGISTRATION) {
-  return registration.deadline ? formatMoment(registration.deadline) : "To be announced";
+  return registration.deadline ? formatMoment(registration.deadline) : DEADLINE_TBA;
+}
+
+/**
+ * The second fact in the hero. Once the dates are confirmed and there is a deadline it says when registration
+ * closes. Before that it says registration is opening soon, never a date nobody has confirmed.
+ */
+export function registrationFact(event = EVENT, registration = REGISTRATION, hero = HERO) {
+  if (event.datesConfirmed && registration.deadline) return { label: hero.factLabels.deadline, value: deadlineText(registration) };
+  return { label: hero.factLabels.registration, value: hero.registrationSoon };
+}
+
+/** A YYYY-MM-DD calendar day as a day number, or null when it is not a real day (2026-02-31 is not). */
+function dayNumber(isoDate) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(isoDate || ""));
+  if (!match) return null;
+  const time = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const back = new Date(time);
+  if (back.getUTCFullYear() !== Number(match[1]) || back.getUTCMonth() !== Number(match[2]) - 1 || back.getUTCDate() !== Number(match[3])) return null;
+  return time / 86400000;
+}
+
+/**
+ * What is wrong with the dates, as plain sentences. Empty means they can be shown. Nothing is checked while
+ * datesConfirmed is false, because nothing is shown then. The page build and the server both refuse
+ * confirmed dates that fail this, so a typo cannot reach the public page.
+ */
+export function eventDateProblems(event = EVENT, registration = REGISTRATION) {
+  if (!event.datesConfirmed) return [];
+  const problems = [];
+  const start = dayNumber(event.startDate);
+  const end = dayNumber(event.endDate);
+  if (start === null) problems.push("EVENT.startDate must be a real day written YYYY-MM-DD");
+  if (end === null) problems.push("EVENT.endDate must be a real day written YYYY-MM-DD");
+  if (start !== null && end !== null) {
+    if (end <= start) problems.push("EVENT.endDate must be after EVENT.startDate");
+    else if (end - start + 1 !== Number(event.weeks) * 7) {
+      problems.push("the dates cover " + (end - start + 1) + " days, but the page says " + event.weeks + " weeks (" + Number(event.weeks) * 7 + " days)");
+    }
+  }
+  const opens = registration.opensAt ? Date.parse(registration.opensAt) : null;
+  const deadline = registration.deadline ? Date.parse(registration.deadline) : null;
+  if (registration.opensAt && !Number.isFinite(opens)) problems.push("REGISTRATION.opensAt is not a date and time with a time zone");
+  if (registration.deadline && !Number.isFinite(deadline)) problems.push("REGISTRATION.deadline is not a date and time with a time zone");
+  if (Number.isFinite(opens) && Number.isFinite(deadline) && opens >= deadline) problems.push("REGISTRATION.opensAt must be before REGISTRATION.deadline");
+  if (Number.isFinite(deadline) && end !== null && deadline >= Date.parse(event.endDate + "T23:59:59+08:00")) {
+    problems.push("REGISTRATION.deadline must be before the challenge ends");
+  }
+  return problems;
 }
 
 export const PAGE = {
   title: "Athlevo Sub-1 10k Challenge | 8-Week Virtual 10k Run",
-  description: "An 8-week virtual running challenge from Athlevo, designed to help you chase a sub-60-minute 10k. Choose your package and register online.",
+  description: "An 8-week virtual running challenge from Athlevo, designed to help you chase a sub-60-minute 10k. Run your own 10k, wherever you are.",
   ogTitle: "Athlevo Sub-1 10k Challenge",
   ogDescription: "8 weeks. One goal. Your fastest 10k. A structured virtual running challenge from Athlevo."
 };
@@ -242,7 +303,11 @@ export const HERO = {
   supporting: "A structured virtual running challenge designed to help you chase a sub-60-minute 10k.",
   primary: "Register now",
   secondary: "How it works",
-  factLabels: { dates: "Challenge dates", deadline: "Registration closes", format: "Format" },
+  factLabels: { dates: "Challenge dates", deadline: "Registration closes", registration: "Registration", format: "Format" },
+  /** The registration fact until the dates are confirmed and a deadline is set. */
+  registrationSoon: "Opening soon",
+  /** Shown instead of "Register now" while registration is not open. */
+  soon: { badge: "Registration opening soon", primary: "Join the priority list", nav: "Join the list" },
   format: "Virtual. Run your own 10k.",
   note: "Finish a 10k and you are a finisher. Run it in under 60 minutes, with a result we can verify, and you have earned Sub-1. The challenge gives you the structure to chase that time. It does not promise it."
 };
@@ -251,7 +316,7 @@ export const HERO = {
 export const STATES = {
   checking: "Checking registration.",
   open: "",
-  not_open: "Registration is not open yet. Check back soon.",
+  not_open: "Registration opens soon. Join the priority list to hear first.",
   closed: "Registration is closed.",
   sold_out: "This challenge is full.",
   unavailable: "We could not check registration right now. Please try again in a moment."
@@ -323,10 +388,22 @@ export const MERCH = {
   labels: { included: "Included with", sizes: "Sizes", part: "Part of" }
 };
 
+/** The answer to "when is it?": the confirmed dates, or an honest "not yet". */
+export function startAnswer(event = EVENT) {
+  if (event.datesConfirmed && event.startDate && event.endDate) {
+    return "The challenge runs for " + event.weeks + " weeks, from " + formatDay(event.startDate) + " to " + formatDay(event.endDate) + ".";
+  }
+  return DATES_TBA + ". The challenge is " + event.weeks + " weeks long. Join the priority list and we will email you as soon as the dates are confirmed.";
+}
+
 export const FAQ = {
   eyebrow: "Questions",
   heading: "Before you *register*.",
   items: [
+    {
+      q: "When is the challenge?",
+      a: startAnswer()
+    },
     {
       q: "Is this a live race?",
       a: "No. It is a virtual challenge. You train for eight weeks, then run your 10k yourself and submit your result."
@@ -360,6 +437,61 @@ export const FAQ = {
       a: "See a doctor or physiotherapist before you start. We share general guidance for healthy runners and cannot diagnose anything."
     }
   ]
+};
+
+/* =====================  PRIORITY LIST (people who want to hear first)  ===================== */
+export const WAITLIST = {
+  /** false hides the priority list. The registration form is not affected. */
+  enabled: true,
+  /**
+   * Recorded with every sign-up, with the time, so you can show which consent wording a person agreed to.
+   * Change it whenever the consent sentence below (or the privacy policy it points to) changes.
+   */
+  consentVersion: "2026-11-a",
+  eyebrow: "Registration opening soon",
+  heading: "Join the *priority* list.",
+  text: "Registration opens soon. Runners on the priority list get the registration link first. Add your name and email and we will write to you when it opens.",
+  points: ["Nothing to pay now.", "We ask only for your name and email.", "Leave the list whenever you like."],
+  labels: { fullName: "Full name", email: "Email address" },
+  consent: "Email me about the Athlevo Sub-1 10k Challenge, including when registration opens. I can unsubscribe at any time. I have read the {privacy}.",
+  privacyLink: "privacy policy",
+  submit: "Join the priority list",
+  sending: "Joining the list",
+  unavailable: "The priority list is not taking sign-ups right now. Check back soon or email {email}.",
+  noscript: "The priority list needs JavaScript. Turn it on, or email {email}.",
+  errors: {
+    fullName: "Enter your full name.",
+    email: "Enter a valid email address.",
+    consent: "Tick the box so we know we may email you.",
+    rate: "You have tried a few times. Please wait a few minutes and try again.",
+    failed: "We could not save that. Please try again in a moment, or email {email}."
+  },
+  done: {
+    heading: "You are on the *list*.",
+    text: "We will email you when registration opens. Nothing has been charged.",
+    note: "If you do not see our email, check your spam folder."
+  },
+  leave: {
+    heading: "Leave the priority list?",
+    text: "You will stop getting emails about the Athlevo Sub-1 10k Challenge.",
+    confirm: "Yes, remove me",
+    cancel: "Keep me on the list",
+    working: "Removing you",
+    doneHeading: "You have left the list.",
+    doneText: "You will not get more emails about the challenge. You can join again whenever you like.",
+    invalid: "That link is not complete or has already been used. Use the link in the latest email we sent you, or write to {email} and we will remove you.",
+    failed: "We could not do that just now. Please try again in a moment, or email {email}."
+  }
+};
+
+/** The e-mail a person gets after joining the priority list (lib/server/virtualRunWaitlist.js sends it). */
+export const WAITLIST_EMAIL = {
+  subject: "You are on the Athlevo Sub-1 10k Challenge priority list",
+  intro: "You are on the priority list for the Athlevo Sub-1 10k Challenge.",
+  next: "When registration opens we will email you the registration link first. Nothing has been charged.",
+  datesPending: "The challenge dates are still to be announced.",
+  leaveLine: "Changed your mind? You can leave the list here:",
+  why: "You are getting this because you joined the priority list at athlevo.org/virtual-run."
 };
 
 export const FORM = {

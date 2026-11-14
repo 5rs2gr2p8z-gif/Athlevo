@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Athlevo Sub-1 10k Challenge | 8-Week Virtual 10k Run</title>
-  <meta name="description" content="An 8-week virtual running challenge from Athlevo, designed to help you chase a sub-60-minute 10k. Choose your package and register online.">
+  <meta name="description" content="An 8-week virtual running challenge from Athlevo, designed to help you chase a sub-60-minute 10k. Run your own 10k, wherever you are.">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0a0a0b">
   <link rel="canonical" href="https://athlevo.org/virtual-run">
@@ -21,22 +21,30 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Inter:wght@400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/store.css">
-  <link rel="stylesheet" href="/virtual-run.css?v=2a489c9b">
+  <link rel="stylesheet" href="/virtual-run.css?v=57b4a029">
   <script>
     (function () {
       try {
-        var s = location.search;
-        var m = /[?&]ref=([^&#]*)/.exec(s);
-        if (!m) return;
-        if (/[?&]payment=success(&|#|$)/.test(s)) sessionStorage.setItem("athlevo.vr.ref", decodeURIComponent(m[1]).toUpperCase());
-        var rest = s.replace(/([?&])ref=[^&#]*&?/, "$1").replace(/[?&]$/, "");
-        history.replaceState(null, "", location.pathname + rest + location.hash);
+        var s = location.search, changed = false;
+        function drop(name) { return s.replace(new RegExp("([?&])" + name + "=[^&#]*&?"), "$1").replace(/[?&]$/, ""); }
+        var ref = /[?&]ref=([^&#]*)/.exec(s);
+        if (ref) {
+          if (/[?&]payment=success(&|#|$)/.test(s)) sessionStorage.setItem("athlevo.vr.ref", decodeURIComponent(ref[1]).toUpperCase());
+          s = drop("ref"); changed = true;
+        }
+        var leave = /[?&]leave=([^&#]*)/.exec(s);
+        if (leave && leave[1] !== "1") {
+          sessionStorage.setItem("athlevo.vr.leave", decodeURIComponent(leave[1]).toUpperCase());
+          s = drop("leave"); s += (s ? "&" : "?") + "leave=1"; changed = true;
+        }
+        if (changed) history.replaceState(null, "", location.pathname + s + location.hash);
       } catch (e) {}
     })();
   </script>
   <!-- ======================= META PIXEL =======================
        Paste your Meta Pixel base code here: the whole <script> block and the <noscript>
-       line from Events Manager. Keep the PageView line in. The page itself sends a Purchase
+       line from Events Manager. Keep the PageView line in. The page itself sends a Lead event
+       when someone joins the priority list (no name or email goes with it), and a Purchase
        event, with the package price, once a payment has been CONFIRMED by the server, so
        leave any Purchase or Lead line out of the snippet.
        Whatever sits between this comment and the closing marker below is kept when the
@@ -44,7 +52,7 @@
        ========================================================== -->
   <!-- /META PIXEL -->
 </head>
-<body class="vr">
+<body class="vr" data-mode="soon">
   <a class="skip" href="#main">Skip to main content</a>
   <header class="site-header">
     <div class="nav vr-nav">
@@ -55,7 +63,7 @@
         <li><a href="#rewards">Rewards</a></li>
         <li><a href="#faq">Questions</a></li>
       </ul>
-      <a class="btn btn-red vr-nav-cta" href="#register">Register now</a>
+      <a class="btn btn-red vr-nav-cta" id="vr-nav-cta" href="#waitlist">Join the list</a>
     </div>
   </header>
   <main id="main" tabindex="-1">
@@ -64,19 +72,46 @@
         <p class="vr-eyebrow">Athlevo Sub-1 10k Challenge</p>
         <h1 id="vr-hero-title">8 weeks. One goal. Your fastest <em>10k</em>.</h1>
         <p class="vr-hero-sub">A structured virtual running challenge designed to help you chase a sub-60-minute 10k.</p>
+        <p class="vr-soon-badge vr-only-soon" id="vr-hero-badge"><span class="vr-soon-dot" aria-hidden="true"></span>Registration opening soon</p>
         <div class="vr-hero-actions">
-          <a class="btn btn-red btn-lg" href="#register" id="vr-hero-register">Register now</a>
+          <a class="btn btn-red btn-lg" href="#waitlist" id="vr-hero-register">Join the priority list</a>
           <a class="btn btn-lg vr-btn-ghost" href="#how-it-works">How it works</a>
         </div>
         <p class="vr-hero-state" id="vr-hero-state" role="status" aria-live="polite"></p>
         <dl class="vr-facts">
-          <div><dt>Challenge dates</dt><dd>To be announced</dd></div>
-          <div><dt>Registration closes</dt><dd>To be announced</dd></div>
+          <div><dt>Challenge dates</dt><dd>Dates to Be Announced</dd></div>
+          <div><dt>Registration</dt><dd>Opening soon</dd></div>
           <div><dt>Format</dt><dd>Virtual. Run your own 10k.</dd></div>
         </dl>
         <p class="vr-hero-note">Finish a 10k and you are a finisher. Run it in under 60 minutes, with a result we can verify, and you have earned Sub-1. The challenge gives you the structure to chase that time. It does not promise it.</p>
       </div>
       <p class="vr-hero-mark" aria-hidden="true">60:00</p>
+    </section>
+    <section class="vr-section vr-section--tint vr-wl vr-only-soon" id="waitlist" aria-labelledby="waitlist-title">
+      <div class="wrap vr-wl-grid" id="vr-wl-grid">
+        <div class="vr-wl-intro" id="vr-wl-intro">
+          <p class="vr-label">Registration opening soon</p>
+          <h2 class="vr-title" id="waitlist-title">Join the <em>priority</em> list.</h2>
+          <p class="vr-lede">Registration opens soon. Runners on the priority list get the registration link first. Add your name and email and we will write to you when it opens.</p>
+          <ul class="vr-wl-points"><li>Nothing to pay now.</li><li>We ask only for your name and email.</li><li>Leave the list whenever you like.</li></ul>
+        </div>
+        <div class="vr-wl-card" id="vr-wl-card">
+          <noscript><p class="form-error" style="display:block">The priority list needs JavaScript. Turn it on, or email support@athlevo.org.</p></noscript>
+          <form class="vr-wl-form" id="vr-wl-form" method="post" action="/api/virtual-run/waitlist" novalidate aria-labelledby="waitlist-title"><div class="field" data-field="fullName"><label for="vr-wl-fullName">Full name</label><input id="vr-wl-fullName" name="fullName" type="text" autocomplete="name" maxlength="120" required><p class="field-error" id="vr-wl-fullName-error" hidden>Enter your full name.</p></div><div class="field" data-field="email"><label for="vr-wl-email">Email address</label><input id="vr-wl-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required><p class="field-error" id="vr-wl-email-error" hidden>Enter a valid email address.</p></div><div class="vr-consent field" data-field="consent"><label class="vr-check"><input type="checkbox" id="vr-wl-consent" name="consent"><span>Email me about the Athlevo Sub-1 10k Challenge, including when registration opens. I can unsubscribe at any time. I have read the <a href="/privacy" target="_blank">privacy policy</a>.</span></label><p class="field-error" id="vr-wl-consent-error" hidden>Tick the box so we know we may email you.</p></div><div class="hp" aria-hidden="true"><label for="vr-wl-website">Leave this field empty</label><input id="vr-wl-website" name="contact_website" type="text" tabindex="-1" autocomplete="off"></div><p class="form-error" id="vr-wl-form-error" role="alert"></p><button class="btn btn-red btn-lg vr-wl-submit" type="submit" id="vr-wl-submit">Join the priority list</button></form>
+          <p class="vr-wl-off" id="vr-wl-off" hidden>The priority list is not taking sign-ups right now. Check back soon or email support@athlevo.org.</p>
+          <div class="vr-wl-done" id="vr-wl-done" tabindex="-1" hidden>
+            <h3 class="vr-confirm-title">You are on the <em>list</em>.</h3>
+            <p>We will email you when registration opens. Nothing has been charged.</p>
+            <p class="vr-hint">If you do not see our email, check your spam folder.</p>
+          </div>
+          <div class="vr-wl-leave" id="vr-wl-leave" tabindex="-1" hidden>
+            <h3 class="vr-confirm-title" id="vr-wl-leave-title">Leave the priority list?</h3>
+            <p id="vr-wl-leave-text">You will stop getting emails about the Athlevo Sub-1 10k Challenge.</p>
+            <p class="form-error" id="vr-wl-leave-error" role="alert"></p>
+            <div class="vr-actions" id="vr-wl-leave-actions"><button class="btn btn-red" type="button" id="vr-wl-leave-confirm">Yes, remove me</button><button class="btn" type="button" id="vr-wl-leave-cancel">Keep me on the list</button></div>
+          </div>
+        </div>
+      </div>
     </section>
     <section class="vr-section" id="how-it-works" aria-labelledby="how-title">
       <div class="wrap">
@@ -127,7 +162,8 @@
               <li>Challenge leaderboard and result submission</li>
             </ul>
             <div class="vr-pkg-foot">
-              <button class="btn btn-red vr-choose" type="button" disabled data-choose="digital">Choose Digital Challenge</button>
+              <a class="btn btn-red vr-pkg-soon vr-only-soon" href="#waitlist">Join the priority list</a>
+              <button class="btn btn-red vr-choose vr-only-register" type="button" disabled data-choose="digital">Choose Digital Challenge</button>
               <p class="vr-pkg-state" data-state-for="digital" role="status"></p>
             </div>
           </article>
@@ -142,7 +178,8 @@
             </ul>
             <div class="vr-pkg-foot">
               <p class="vr-pkg-note">Delivery coverage: <strong>To be confirmed</strong>. Delivery timing is confirmed with the event dates.</p>
-              <button class="btn btn-red vr-choose" type="button" disabled data-choose="finisher-kit">Choose Finisher Kit</button>
+              <a class="btn btn-red vr-pkg-soon vr-only-soon" href="#waitlist">Join the priority list</a>
+              <button class="btn btn-red vr-choose vr-only-register" type="button" disabled data-choose="finisher-kit">Choose Finisher Kit</button>
               <p class="vr-pkg-state" data-state-for="finisher-kit" role="status"></p>
             </div>
           </article>
@@ -157,7 +194,8 @@
             </ul>
             <div class="vr-pkg-foot">
               <p class="vr-pkg-note">Delivery coverage: <strong>To be confirmed</strong>. Delivery timing is confirmed with the event dates.</p>
-              <button class="btn btn-red vr-choose" type="button" disabled data-choose="performance-bundle">Choose Performance Bundle</button>
+              <a class="btn btn-red vr-pkg-soon vr-only-soon" href="#waitlist">Join the priority list</a>
+              <button class="btn btn-red vr-choose vr-only-register" type="button" disabled data-choose="performance-bundle">Choose Performance Bundle</button>
               <p class="vr-pkg-state" data-state-for="performance-bundle" role="status"></p>
             </div>
           </article>
@@ -186,7 +224,7 @@
         </div>
       </div>
     </section>
-    <section class="vr-register" id="register" aria-labelledby="register-title">
+    <section class="vr-register vr-only-register" id="register" aria-labelledby="register-title">
       <div class="wrap vr-register-grid">
         <div class="vr-register-intro">
           <p class="vr-label vr-label--dark">Register</p>
@@ -216,6 +254,7 @@
         <p class="vr-label vr-center">Questions</p>
         <h2 class="vr-title vr-center" id="faq-title">Before you <em>register</em>.</h2>
         <div class="faq">
+          <details><summary>When is the challenge?</summary><p>Dates to Be Announced. The challenge is 8 weeks long. Join the priority list and we will email you as soon as the dates are confirmed.</p></details>
           <details><summary>Is this a live race?</summary><p>No. It is a virtual challenge. You train for eight weeks, then run your 10k yourself and submit your result.</p></details>
           <details><summary>What if I have never run a 10k?</summary><p>You can still register. The challenge is built to take you from where you are. Share your current 5k and 10k times if you have them, and leave them blank if you do not.</p></details>
           <details><summary>Is a sub-60 10k guaranteed?</summary><p>No. The plan gives you structure to chase it. Your result depends on your fitness, your consistency and the day you run.</p></details>
@@ -235,7 +274,7 @@
       <p class="copyright">General guidance for healthy runners. If something hurts or feels wrong, stop and see a doctor. We do not promise finish times or placings.</p>
     </div>
   </footer>
-  <script type="application/json" id="vr-config">{"api":{"register":"/api/virtual-run/register","status":"/api/virtual-run/status","availability":"/api/virtual-run/availability"},"event":"Athlevo Sub-1 10k Challenge","minAge":18,"support":"support@athlevo.org","packages":[{"id":"digital","name":"Digital Challenge","priceCents":39900,"price":"₱399","physical":false},{"id":"finisher-kit","name":"Finisher Kit","priceCents":129900,"price":"₱1,299","physical":true},{"id":"performance-bundle","name":"Performance Bundle","priceCents":249900,"price":"₱2,499","physical":true}],"sizes":["XS","S","M","L","XL","2XL","3XL"],"provinces":["Abra","Agusan del Norte","Agusan del Sur","Aklan","Albay","Antique","Apayao","Aurora","Basilan","Bataan","Batanes","Batangas","Benguet","Biliran","Bohol","Bukidnon","Bulacan","Cagayan","Camarines Norte","Camarines Sur","Camiguin","Capiz","Catanduanes","Cavite","Cebu","Cotabato","Davao de Oro","Davao del Norte","Davao del Sur","Davao Occidental","Davao Oriental","Dinagat Islands","Eastern Samar","Guimaras","Ifugao","Ilocos Norte","Ilocos Sur","Iloilo","Isabela","Kalinga","La Union","Laguna","Lanao del Norte","Lanao del Sur","Leyte","Maguindanao del Norte","Maguindanao del Sur","Marinduque","Masbate","Metro Manila","Misamis Occidental","Misamis Oriental","Mountain Province","Negros Occidental","Negros Oriental","Northern Samar","Nueva Ecija","Nueva Vizcaya","Occidental Mindoro","Oriental Mindoro","Palawan","Pampanga","Pangasinan","Quezon","Quirino","Rizal","Romblon","Samar","Sarangani","Siquijor","Sorsogon","South Cotabato","Southern Leyte","Sultan Kudarat","Sulu","Surigao del Norte","Surigao del Sur","Tarlac","Tawi-Tawi","Zambales","Zamboanga del Norte","Zamboanga del Sur","Zamboanga Sibugay"],"deliveryProvinces":null,"genders":["female","male","non-binary","prefer-not-to-say"],"frequencies":["0-1","2","3","4","5-plus"],"goals":["finish","faster","sub-60","habit"],"states":{"checking":"Checking registration.","open":"","not_open":"Registration is not open yet. Check back soon.","closed":"Registration is closed.","sold_out":"This challenge is full.","unavailable":"We could not check registration right now. Please try again in a moment."},"packageStates":{"available":"","soon":"Opens with registration","sold_out":"Sold out","closed":"Not available"},"form":{"stepTitles":["About you","Your running","Your package","Review and pay"],"stepLabel":"Step","of":"of","labels":{"fullName":"Full name","email":"Email address","mobile":"Mobile number","dob":"Date of birth","gender":"Gender (optional)","pb5k":"Current 5k personal best","pb10k":"Current 10k personal best","pbHint":"For example 24:30 or 1:05:00. Leave blank if you do not have one yet.","frequency":"How many days a week do you run?","goal":"Your main goal for the challenge","package":"Your package","shirtSize":"Shirt size","recipient":"Recipient name","address":"Street address, building or unit","province":"Province","city":"City or municipality","barangay":"Barangay","postal":"Postal code"},"errors":{"fullName":"Enter your full name.","email":"Enter a valid email address.","mobile":"Enter a mobile number we can reach.","dob":"Enter your date of birth.","dobAge":"You must be {age} or older to register here.","gender":"Choose one of the options, or leave it blank.","pb5k":"Enter a time like 24:30, or leave it blank.","pb10k":"Enter a time like 52:10 or 1:05:00, or leave it blank.","frequency":"Choose how many days a week you run.","goal":"Choose your main goal.","package":"Choose a package.","shirtSize":"Choose a shirt size.","recipient":"Enter the name of the person receiving the delivery.","address":"Enter your street address.","province":"Choose your province.","city":"Enter your city or municipality.","barangay":"Enter your barangay.","postal":"Enter a 4-digit postal code.","rules":"Agree to the event rules and waiver to continue.","privacy":"Agree to the privacy policy to continue.","summary":"Check the highlighted fields.","submit":"We could not start your payment. Please try again. If it keeps happening, email {email}.","closed":"Registration is not open right now.","full":"This package is full.","already":"This email is already registered for the challenge. Check your inbox for your confirmation, or email {email}.","rate":"You have tried a few times. Please wait a few minutes and try again.","delivery":"We cannot deliver to that province yet."},"next":"Continue","review":{"heading":"Check your details","edit":"Edit","labels":{"name":"Name","email":"Email","mobile":"Mobile","package":"Package","size":"Shirt size","ship":"Deliver to","total":"Total"},"rules":"I have read and agree to the {rules} and the {waiver}.","rulesLink":"official event rules","waiverLink":"waiver","privacy":"I have read the {privacy} and agree that Athlevo may use my details to run this challenge and deliver my rewards.","privacyLink":"privacy policy","pay":"Pay and register","payWith":"Pay {total} and register","paymentNote":"Payment is handled by PayMongo. You choose how to pay on the next screen. Your spot is confirmed only when your payment is.","processing":"Opening secure payment"},"delivery":"Delivery details"},"personalizedPackages":["performance-bundle"],"confirmation":{"checking":{"heading":"Confirming your payment.","text":"This usually takes a few seconds. Please keep this page open."},"paid":{"eyebrow":"Registration confirmed","heading":"You are *in*.","line":"Your payment is confirmed. Here is your registration.","labels":{"name":"Name","id":"Registration ID","package":"Package"},"emailSent":"We have emailed your confirmation.","stepsHeading":"What happens next","steps":["Keep your registration ID. It is your race bib number and how we find you.","Complete your running assessment. We will send you the link by email.","Your 8-week training program opens when the challenge starts. We will email you how to access it.","Run and record your 10k, then submit your result to claim your rewards."],"performanceStep":"Your personalized training plan is built from your assessment.","assessmentLink":"Open your running assessment","trainingLink":"Open your training guide"},"pending":{"heading":"We have not seen your payment yet.","text":"Your registration is saved. If you paid, it can take a few minutes to show. You will get an email when it is confirmed. If nothing arrives within an hour, email {email} with the name you registered under.","retry":"Check again"},"cancelled":{"heading":"Payment was not completed.","text":"Nothing was charged. Your spot is held for a short time. Choose your package again to pay."},"failed":{"heading":"We could not check your registration.","text":"Please try again in a moment, or email {email}."}}}</script>
-  <script src="/js/virtualRun.js?v=0deb79d1" defer></script>
+  <script type="application/json" id="vr-config">{"api":{"register":"/api/virtual-run/register","status":"/api/virtual-run/status","availability":"/api/virtual-run/availability"},"event":"Athlevo Sub-1 10k Challenge","minAge":18,"support":"support@athlevo.org","packages":[{"id":"digital","name":"Digital Challenge","priceCents":39900,"price":"₱399","physical":false},{"id":"finisher-kit","name":"Finisher Kit","priceCents":129900,"price":"₱1,299","physical":true},{"id":"performance-bundle","name":"Performance Bundle","priceCents":249900,"price":"₱2,499","physical":true}],"sizes":["XS","S","M","L","XL","2XL","3XL"],"provinces":["Abra","Agusan del Norte","Agusan del Sur","Aklan","Albay","Antique","Apayao","Aurora","Basilan","Bataan","Batanes","Batangas","Benguet","Biliran","Bohol","Bukidnon","Bulacan","Cagayan","Camarines Norte","Camarines Sur","Camiguin","Capiz","Catanduanes","Cavite","Cebu","Cotabato","Davao de Oro","Davao del Norte","Davao del Sur","Davao Occidental","Davao Oriental","Dinagat Islands","Eastern Samar","Guimaras","Ifugao","Ilocos Norte","Ilocos Sur","Iloilo","Isabela","Kalinga","La Union","Laguna","Lanao del Norte","Lanao del Sur","Leyte","Maguindanao del Norte","Maguindanao del Sur","Marinduque","Masbate","Metro Manila","Misamis Occidental","Misamis Oriental","Mountain Province","Negros Occidental","Negros Oriental","Northern Samar","Nueva Ecija","Nueva Vizcaya","Occidental Mindoro","Oriental Mindoro","Palawan","Pampanga","Pangasinan","Quezon","Quirino","Rizal","Romblon","Samar","Sarangani","Siquijor","Sorsogon","South Cotabato","Southern Leyte","Sultan Kudarat","Sulu","Surigao del Norte","Surigao del Sur","Tarlac","Tawi-Tawi","Zambales","Zamboanga del Norte","Zamboanga del Sur","Zamboanga Sibugay"],"deliveryProvinces":null,"genders":["female","male","non-binary","prefer-not-to-say"],"frequencies":["0-1","2","3","4","5-plus"],"goals":["finish","faster","sub-60","habit"],"states":{"checking":"Checking registration.","open":"","not_open":"Registration opens soon. Join the priority list to hear first.","closed":"Registration is closed.","sold_out":"This challenge is full.","unavailable":"We could not check registration right now. Please try again in a moment."},"modes":{"soon":{"cta":"Join the priority list","nav":"Join the list","href":"#waitlist"},"register":{"cta":"Register now","nav":"Register now","href":"#register"}},"waitlist":{"api":"/api/virtual-run/waitlist","errors":{"fullName":"Enter your full name.","email":"Enter a valid email address.","consent":"Tick the box so we know we may email you.","rate":"You have tried a few times. Please wait a few minutes and try again.","failed":"We could not save that. Please try again in a moment, or email {email}."},"sending":"Joining the list","submit":"Join the priority list","leave":{"heading":"Leave the priority list?","text":"You will stop getting emails about the Athlevo Sub-1 10k Challenge.","confirm":"Yes, remove me","cancel":"Keep me on the list","working":"Removing you","doneHeading":"You have left the list.","doneText":"You will not get more emails about the challenge. You can join again whenever you like.","invalid":"That link is not complete or has already been used. Use the link in the latest email we sent you, or write to {email} and we will remove you.","failed":"We could not do that just now. Please try again in a moment, or email {email}."},"unavailable":"The priority list is not taking sign-ups right now. Check back soon or email {email}."},"packageStates":{"available":"","soon":"Opens with registration","sold_out":"Sold out","closed":"Not available"},"form":{"stepTitles":["About you","Your running","Your package","Review and pay"],"stepLabel":"Step","of":"of","labels":{"fullName":"Full name","email":"Email address","mobile":"Mobile number","dob":"Date of birth","gender":"Gender (optional)","pb5k":"Current 5k personal best","pb10k":"Current 10k personal best","pbHint":"For example 24:30 or 1:05:00. Leave blank if you do not have one yet.","frequency":"How many days a week do you run?","goal":"Your main goal for the challenge","package":"Your package","shirtSize":"Shirt size","recipient":"Recipient name","address":"Street address, building or unit","province":"Province","city":"City or municipality","barangay":"Barangay","postal":"Postal code"},"errors":{"fullName":"Enter your full name.","email":"Enter a valid email address.","mobile":"Enter a mobile number we can reach.","dob":"Enter your date of birth.","dobAge":"You must be {age} or older to register here.","gender":"Choose one of the options, or leave it blank.","pb5k":"Enter a time like 24:30, or leave it blank.","pb10k":"Enter a time like 52:10 or 1:05:00, or leave it blank.","frequency":"Choose how many days a week you run.","goal":"Choose your main goal.","package":"Choose a package.","shirtSize":"Choose a shirt size.","recipient":"Enter the name of the person receiving the delivery.","address":"Enter your street address.","province":"Choose your province.","city":"Enter your city or municipality.","barangay":"Enter your barangay.","postal":"Enter a 4-digit postal code.","rules":"Agree to the event rules and waiver to continue.","privacy":"Agree to the privacy policy to continue.","summary":"Check the highlighted fields.","submit":"We could not start your payment. Please try again. If it keeps happening, email {email}.","closed":"Registration is not open right now.","full":"This package is full.","already":"This email is already registered for the challenge. Check your inbox for your confirmation, or email {email}.","rate":"You have tried a few times. Please wait a few minutes and try again.","delivery":"We cannot deliver to that province yet."},"next":"Continue","review":{"heading":"Check your details","edit":"Edit","labels":{"name":"Name","email":"Email","mobile":"Mobile","package":"Package","size":"Shirt size","ship":"Deliver to","total":"Total"},"rules":"I have read and agree to the {rules} and the {waiver}.","rulesLink":"official event rules","waiverLink":"waiver","privacy":"I have read the {privacy} and agree that Athlevo may use my details to run this challenge and deliver my rewards.","privacyLink":"privacy policy","pay":"Pay and register","payWith":"Pay {total} and register","paymentNote":"Payment is handled by PayMongo. You choose how to pay on the next screen. Your spot is confirmed only when your payment is.","processing":"Opening secure payment"},"delivery":"Delivery details"},"personalizedPackages":["performance-bundle"],"confirmation":{"checking":{"heading":"Confirming your payment.","text":"This usually takes a few seconds. Please keep this page open."},"paid":{"eyebrow":"Registration confirmed","heading":"You are *in*.","line":"Your payment is confirmed. Here is your registration.","labels":{"name":"Name","id":"Registration ID","package":"Package"},"emailSent":"We have emailed your confirmation.","stepsHeading":"What happens next","steps":["Keep your registration ID. It is your race bib number and how we find you.","Complete your running assessment. We will send you the link by email.","Your 8-week training program opens when the challenge starts. We will email you how to access it.","Run and record your 10k, then submit your result to claim your rewards."],"performanceStep":"Your personalized training plan is built from your assessment.","assessmentLink":"Open your running assessment","trainingLink":"Open your training guide"},"pending":{"heading":"We have not seen your payment yet.","text":"Your registration is saved. If you paid, it can take a few minutes to show. You will get an email when it is confirmed. If nothing arrives within an hour, email {email} with the name you registered under.","retry":"Check again"},"cancelled":{"heading":"Payment was not completed.","text":"Nothing was charged. Your spot is held for a short time. Choose your package again to pay."},"failed":{"heading":"We could not check your registration.","text":"Please try again in a moment, or email {email}."}}}</script>
+  <script src="/js/virtualRun.js?v=38a67aca" defer></script>
 </body>
 </html>
