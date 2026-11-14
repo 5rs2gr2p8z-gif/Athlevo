@@ -35,7 +35,7 @@ const section = (title) => console.log(`\n── ${title}`);
 
 const db = { virtual_run_registrations: [], plan_signups: [], rates: new Map() };
 const log = { emails: [], requests: [] };
-let dbMode = "ok"; // "ok" | "down" | "missing" | "throw"
+let dbMode = "ok"; // "ok" | "down" (500) | "missing" (404) | "reject" (400) | "throw"
 
 function evalCond(row, column, expression) {
   const dot = expression.indexOf(".");
@@ -110,6 +110,7 @@ globalThis.fetch = async (input, init = {}) => {
   if (dbMode === "throw") throw new TypeError("network down");
   if (dbMode === "down") return json({ message: "boom service-secret" }, 500);
   if (dbMode === "missing") return json({ code: "PGRST205", message: "Could not find the table" }, 404);
+  if (dbMode === "reject") return json({ code: "42703", message: "column does not exist" }, 400);
 
   const rows = db.virtual_run_registrations;
   if (method === "POST") {
@@ -130,9 +131,12 @@ globalThis.fetch = async (input, init = {}) => {
   }
   let hit = rows.filter((r) => matches(r, params));
   const total = hit.length;
-  if (params.get("order") === "created_at.desc") hit = hit.slice().sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
-  const limit = Number(params.get("limit"));
-  if (limit) hit = hit.slice(0, limit);
+  if (/^created_at\.desc/.test(params.get("order") || "")) hit = hit.slice().sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  const offset = Number(params.get("offset")) || 0;
+  if (offset) hit = hit.slice(offset);
+  // Like Supabase, one request never returns more than 1000 rows, whatever limit was asked for.
+  const limit = Math.min(1000, Number(params.get("limit")) || 1000);
+  hit = hit.slice(0, limit);
   const headers = prefer.includes("count=exact") ? { "content-range": `${hit.length ? `0-${hit.length - 1}` : "*"}/${total}` } : {};
   return json(hit, 200, headers);
 };
@@ -256,6 +260,17 @@ reset();
   for (const [label, cfg] of closedCfg) {
     t(`without ${label} registration is closed`, server.registrationGate({ env: process.env, now: NOW, cfg }).open === false);
   }
+  const strict = [
+    ["a deadline that is only a date (no time or zone)", { ...READY, REGISTRATION: { ...READY.REGISTRATION, deadline: "2026-11-30" } }],
+    ["a deadline that is not a date at all", { ...READY, REGISTRATION: { ...READY.REGISTRATION, deadline: "end of November" } }],
+    ["an opening time that is not a date", { ...READY, REGISTRATION: { ...READY.REGISTRATION, opensAt: "soon" } }],
+    ["a recorded version of the rules and waiver wording", { ...READY, LEGAL: { ...READY.LEGAL, version: "unpublished" } }],
+    ["any version of the rules and waiver wording", { ...READY, LEGAL: { ...READY.LEGAL, version: "" } }]
+  ];
+  for (const [label, cfg] of strict) {
+    t(`with ${label} registration is closed, not open for ever`, server.registrationGate({ env: process.env, now: NOW, cfg }).open === false);
+  }
+  t("a deadline with a time and zone is accepted", server.registrationGate({ env: process.env, now: NOW, cfg: READY }).open === true);
   t("a test PayMongo key on the production site closes registration (its QR codes are real money)",
     server.registrationGate({ env: { ...process.env, VERCEL_ENV: "production" }, now: NOW, cfg: READY }).open === false);
   t("a live key on production is fine", server.registrationGate({
@@ -370,6 +385,28 @@ reset();
   const wrongMethod = res();
   await server.registerHandler({ method: "GET", headers: {}, query: {} }, wrongMethod, { env: process.env, now: NOW, cfg: READY });
   t("only POST is accepted", wrongMethod.statusCode === 405 && wrongMethod.headers.Allow === "POST");
+}
+
+reset();
+{
+  await register({ ...DIGITAL, email: "family@example.com", fullName: "Maria Santos" });
+  const first = db.virtual_run_registrations[0];
+  first.payment_status = "paid"; first.provider_payment_id = "pay_fam_1";
+  const sibling = await register({ ...DIGITAL, email: "family@example.com", fullName: "Juan Santos" });
+  t("a family or couple can share one email: a different name is a different runner", sibling.statusCode === 200);
+  const same = await register({ ...DIGITAL, email: "family@example.com", fullName: "MARIA SANTOS" });
+  t("the same name on that email is the same runner, whatever the capitals", same.statusCode === 409 && same.body.error === "already_registered");
+}
+
+reset();
+{
+  await register({ ...DIGITAL, email: "retry@example.com" });
+  await register({ ...DIGITAL, email: "retry@example.com" });
+  const rows = db.virtual_run_registrations;
+  t("trying again releases the earlier unpaid attempt so it stops holding a spot",
+    rows.length === 2 && rows[0].payment_status === "cancelled" && rows[1].payment_status === "pending");
+  await register({ ...DIGITAL, email: "retry@example.com", fullName: "Juan Santos" });
+  t("and does not touch another runner's attempt on the same email", rows.length === 3 && rows[1].payment_status === "pending" && rows[2].payment_status === "pending");
 }
 
 reset();
@@ -593,6 +630,46 @@ reset();
 
 reset();
 {
+  // The same person opens a second checkout (the first is released) and ends up paying both.
+  await register({ ...DIGITAL, email: "twice@example.com" });
+  await register({ ...DIGITAL, email: "twice@example.com" });
+  const [firstTry, secondTry] = db.virtual_run_registrations;
+  const one = await deliver(paidEvent(firstTry, { paymentId: "pay_a", id: "evt_a", checkoutId: firstTry.provider_checkout_id }));
+  t("a payment for an attempt that was released is still recorded (the money was taken)", one.statusCode === 200 && firstTry.payment_status === "paid");
+  log.emails.length = 0;
+  const two = await deliver(paidEvent(secondTry, { paymentId: "pay_b", id: "evt_b", checkoutId: secondTry.provider_checkout_id }));
+  const alert = log.emails.find((e) => /second_registration_same_runner/.test(e.body.subject));
+  t("a second paid registration for the same runner is recorded, and nothing is undone", two.statusCode === 200 && secondTry.payment_status === "paid" && firstTry.payment_status === "paid");
+  t("the owner is told, with both registration ids, so one can be refunded by hand",
+    alert && alert.body.to.includes("owner@example.com") && alert.body.text.includes(firstTry.registration_id) && alert.body.text.includes(secondTry.registration_id));
+  const unrelated = await newRow({ ...DIGITAL, email: "solo@example.com" });
+  log.emails.length = 0;
+  await deliver(paidEvent(unrelated, { paymentId: "pay_c", id: "evt_c", checkoutId: unrelated.provider_checkout_id }));
+  t("an ordinary payment raises no such alert", !log.emails.some((e) => /second_registration_same_runner/.test(e.body.subject)) && log.emails.length === 2);
+}
+
+reset();
+{
+  // PayMongo delivers again because our first answer was lost, and the confirmation email never went out.
+  const row = await newRow();
+  await deliver(paidEvent(row));
+  t("the first delivery records the email as sent", row.confirmation_email_status === "sent");
+  row.confirmation_email_status = null; row.confirmation_sent_at = null;
+  row.updated_at = new Date(Date.now() - 120000).toISOString();
+  log.emails.length = 0;
+  const retry = await deliver(paidEvent(row));
+  t("a repeated delivery sends the confirmation that never went out", retry.body.result.duplicate === true &&
+    log.emails.some((e) => e.body.to.includes("maria@example.com")) && row.confirmation_email_status === "sent");
+  log.emails.length = 0;
+  await deliver(paidEvent(row));
+  t("once it is recorded as sent, a repeat sends nothing", log.emails.length === 0);
+  row.confirmation_email_status = null; row.updated_at = new Date().toISOString();
+  await deliver(paidEvent(row));
+  t("a repeat that arrives while the first is still working sends nothing of its own", log.emails.length === 0);
+}
+
+reset();
+{
   const row = await newRow();
   row.payment_status = "expired";
   const late = await deliver(paidEvent(row));
@@ -615,6 +692,23 @@ reset();
   t("a late 'paid' event never reverses a refund", late.statusCode === 200 && late.body.result.ignored === true && row.payment_status === "refunded");
   const repeat = await deliver(refund);
   t("a repeated refund event is a no-op", repeat.body.result.duplicate === true);
+}
+
+reset();
+{
+  const refundFor = (paymentId) => ({ data: { id: `evt_r_${paymentId}`, type: "event", attributes: { type: "payment.refunded", livemode: false, created_at: 1760000100,
+    data: { id: paymentId, type: "payment", attributes: { amount: 39900, status: "succeeded" } } } } });
+  dbMode = "reject";
+  errors.length = 0;
+  const rejected = await deliver(refundFor("pay_unrelated"));
+  t("a refund is not held up when the database refuses the Sub-1 10k lookup (the other handlers still get it)", rejected.statusCode === 200);
+  t("and the refusal is logged", errors.some((line) => /refund lookup rejected/.test(line)));
+  dbMode = "down";
+  const outage = await deliver(refundFor("pay_unrelated"));
+  t("a database outage is still an error, so PayMongo delivers the refund again", outage.statusCode === 500);
+  dbMode = "missing";
+  const noTable = await deliver(refundFor("pay_unrelated"));
+  t("before the migration is run the refund simply is not ours", noTable.statusCode === 200);
 }
 
 // ---- 6. other payments are unaffected --------------------------------------------
@@ -734,6 +828,51 @@ reset();
   t("Manila time is used for the CSV dates", text.includes("2026-11-21 10:30"));
   const allCsv = await call({ format: "csv" }, STAFF, staffEnv);
   t("an unfiltered export includes pending and refunded rows with their status", allCsv.sent.includes(",pending,") && allCsv.sent.includes(",refunded,"));
+}
+
+reset();
+{
+  // More registrations than one database request can return (Supabase answers at most 1000 rows at a time).
+  const kit = content.packageById("finisher-kit");
+  const many = (count, status, extra = () => ({})) => {
+    for (let i = 0; i < count; i++) {
+      const n = db.virtual_run_registrations.length;
+      db.virtual_run_registrations.push({
+        id: `m${n}`, registration_id: `SUB1-M${String(n).padStart(7, "0")}`, reference_number: `ATH-VR-${"B".repeat(10)}-${String(n).padStart(24, "D")}`,
+        event: content.EVENT.id, package_id: kit.id, package_name: kit.name, product_id: kit.productId, amount_cents: kit.priceCents, currency: "PHP",
+        payment_status: status, full_name: `Runner ${n}`, email: `runner${n}@example.com`, mobile: "09170000000", date_of_birth: "1990-01-01",
+        weekly_frequency: "3", primary_goal: "habit", shirt_size: "M", recipient_name: `Runner ${n}`, address_line: "1 Main St", province: "Pampanga",
+        city: "Angeles", barangay: "Pulung Maragul", postal_code: "2009", payment_method_type: "qrph", livemode: true,
+        paid_at: status === "paid" ? "2026-11-21T02:30:00Z" : null, created_at: new Date(Date.parse("2026-11-20T00:00:00Z") + n * 1000).toISOString(),
+        result_status: "not_submitted", confirmation_email_status: "sent", metadata: {}, ...extra(n)
+      });
+    }
+  };
+  many(2300, "paid");
+  const STAFF = { id: "11111111-aaaa-bbbb-cccc-000000000001", email: "staff@athlevo.org", email_confirmed_at: "2026-10-01T00:00:00Z" };
+  const call = async (query) => {
+    const r = res();
+    await admin.adminHandler(get(query, { authorization: "Bearer tok" }), r, { authenticate: async () => STAFF, env: { ...process.env, VIRTUAL_RUN_STAFF_USER_IDS: STAFF.id } });
+    return r;
+  };
+  const csv = await call({ format: "csv", fulfillment: "1" });
+  const csvLines = csv.sent.split("\r\n").filter(Boolean);
+  t("the CSV export holds every order, not just the first thousand", csvLines.length === 2301, `lines=${csvLines.length}`);
+  t("no order appears twice across the pages", new Set(csvLines.map((l) => l.split(",")[0])).size === 2301);
+  const list = await call({ limit: "5000" });
+  t("the on-screen list is capped at what the database can return in one request", list.body.rows.length === 1000 && list.body.truncated === true);
+  t("the counts are of all registrations, not of one page", list.body.summary.total === 2300 && list.body.summary.byStatus.paid === 2300 && list.body.summaryComplete === true);
+
+  reset();
+  const hour = 3600000;
+  const stamp = (offset) => new Date(Date.now() + offset).toISOString();
+  many(2, "pending", () => ({ hold_expires_at: stamp(hour) }));
+  many(3, "pending", () => ({ hold_expires_at: stamp(-hour) }));
+  many(1, "paid");
+  const strip = await call({});
+  t("a pending registration whose hold has run out is a lapsed hold, not awaiting payment",
+    strip.body.summary.byStatus.pending === 2 && strip.body.summary.lapsedHolds === 3 && strip.body.summary.byPackage["finisher-kit"].pending === 2);
+  t("lapsed holds are not counted as paid", strip.body.summary.byStatus.paid === 1 && strip.body.summary.total === 6);
 }
 
 // ---- 8. the gateway -----------------------------------------------------------------

@@ -761,7 +761,7 @@ section("6. App shell and service worker isolation");
     /aiPath === "\/ai" \|\| aiPath === "" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"/.test(indexHtml));
   t("store navigations are not written into the app-shell cache",
     /isAppShellNav/.test(sw) &&
-    /\/\(programs\|store\|landing-preview\)/.test(sw));
+    /\/\(programs\|store\|landing-preview(\|virtual-run)?\)/.test(sw));
   t("storefront loads the Brand DNA fonts (Barlow Condensed bold + Inter) and uses the Brand DNA red and black",
     /family=Barlow\+Condensed:wght@700&(amp;)?family=Inter:wght@400\.\.700/.test(storeHtml) &&
     /--display:\s*"Barlow Condensed"/.test(css) && /--sans:\s*"Inter"/.test(css) &&

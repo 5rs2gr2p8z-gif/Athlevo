@@ -83,7 +83,7 @@ create index if not exists virtual_run_registrations_event_status_idx
 create index if not exists virtual_run_registrations_package_idx
   on public.virtual_run_registrations (event, package_id, payment_status);
 create index if not exists virtual_run_registrations_email_idx
-  on public.virtual_run_registrations (event, lower(email));
+  on public.virtual_run_registrations (event, email);
 create index if not exists virtual_run_registrations_created_idx
   on public.virtual_run_registrations (created_at desc);
 

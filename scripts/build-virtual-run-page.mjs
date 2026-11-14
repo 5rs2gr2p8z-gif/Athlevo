@@ -437,6 +437,23 @@ function structuredData() {
   return '  <script type="application/ld+json">' + JSON.stringify(data).replace(/</g, "\\u003c") + "</script>\n";
 }
 
+// PayMongo sends the runner back with their secret registration reference in the address (?ref=...). Anything that
+// reads the address, an analytics pixel above all, would receive it. This runs first, before any pixel: it moves the
+// reference into this tab's session storage and takes it out of the address, leaving the other parameters alone.
+const KEEP_REF_OUT_OF_URL =
+  "  <script>\n" +
+  "    (function () {\n" +
+  "      try {\n" +
+  "        var s = location.search;\n" +
+  "        var m = /[?&]ref=([^&#]*)/.exec(s);\n" +
+  "        if (!m) return;\n" +
+  "        if (/[?&]payment=success(&|#|$)/.test(s)) sessionStorage.setItem(\"athlevo.vr.ref\", decodeURIComponent(m[1]).toUpperCase());\n" +
+  "        var rest = s.replace(/([?&])ref=[^&#]*&?/, \"$1\").replace(/[?&]$/, \"\");\n" +
+  "        history.replaceState(null, \"\", location.pathname + rest + location.hash);\n" +
+  "      } catch (e) {}\n" +
+  "    })();\n" +
+  "  </script>\n";
+
 export function buildPage(existingHtml = "") {
   const head =
     '<!doctype html>\n<html lang="en">\n<head>\n' +
@@ -461,6 +478,7 @@ export function buildPage(existingHtml = "") {
     '  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Inter:wght@400..700&display=swap" rel="stylesheet">\n' +
     '  <link rel="stylesheet" href="/store.css">\n' +
     '  <link rel="stylesheet" href="' + versioned("/virtual-run.css") + '">\n' +
+    KEEP_REF_OUT_OF_URL +
     PIXEL_INSTRUCTIONS + pastedPixel(existingHtml) + PIXEL_END + "\n" +
     structuredData() +
     "</head>\n";

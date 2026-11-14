@@ -174,7 +174,7 @@
   function renderStats(summary) {
     statsNode.textContent = "";
     var by = (summary && summary.byStatus) || {};
-    var other = (by.failed || 0) + (by.expired || 0) + (by.cancelled || 0) + (by.refunded || 0);
+    var other = (by.failed || 0) + (by.expired || 0) + (by.cancelled || 0) + (by.refunded || 0) + ((summary && summary.lapsedHolds) || 0);
     [["Paid", by.paid || 0], ["Awaiting payment", by.pending || 0], ["Not completed", other], ["Live revenue", formatPeso(summary && summary.paidCents)]]
       .forEach(function (pair) {
         var box = el("div", "vra-stat");

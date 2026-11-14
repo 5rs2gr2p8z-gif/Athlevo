@@ -617,12 +617,16 @@
     if (typeof global.fbq !== "function") return;
     var pkg = packageById(data.package && data.package.id);
     if (!pkg) return;
-    var key = "athlevo.vr.pixel." + ref;
+    // The secret reference never goes to an analytics service. The short public registration ID identifies the
+    // purchase for de-duplication.
+    var purchaseId = typeof data.registration_id === "string" ? data.registration_id : "";
+    if (!purchaseId) return;
+    var key = "athlevo.vr.pixel." + purchaseId;
     try { if (global.localStorage.getItem(key)) return; } catch (error) { /* storage blocked: send, the event id de-duplicates */ }
     try {
       global.fbq("track", "Purchase",
         { value: pkg.priceCents / 100, currency: "PHP", content_name: pkg.name, content_ids: [pkg.id], content_type: "product" },
-        { eventID: ref });
+        { eventID: purchaseId });
     } catch (error) { return; }
     try { global.localStorage.setItem(key, "1"); } catch (error) { /* ignore */ }
   }
@@ -706,7 +710,8 @@
       confirmParts.links.appendChild(link);
     });
     confirmNode.focus({ preventScroll: true });
-    try { global.sessionStorage.removeItem("athlevo.vr.ref"); } catch (error) { /* ignore */ }
+    // The reference stays in this tab's storage: the address no longer carries it, so a refresh needs it to
+    // show this confirmation again. It is replaced the next time this tab registers.
     trackPurchase(data, ref);
   }
 
@@ -742,6 +747,11 @@
     }
     var payment = param("payment");
     var ref = param("ref").toUpperCase();
+    // The page's first script moves the reference out of the address (so nothing that reads the address can see
+    // it) and into this tab's session storage. An address that still carries it is read as before.
+    if (payment === "success" && !REFERENCE.test(ref)) {
+      try { ref = String(global.sessionStorage.getItem("athlevo.vr.ref") || "").toUpperCase(); } catch (error) { ref = ""; }
+    }
     preselect = param("package");
     if (payment === "success" && REFERENCE.test(ref)) return { kind: "success", ref: ref };
     if (payment === "cancelled") return { kind: "cancelled" };

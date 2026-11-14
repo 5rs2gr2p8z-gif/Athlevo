@@ -224,6 +224,37 @@ section("6. The browser script");
   }
   t("the browser checks and the server checks accept and refuse the same " + cases.length + " submissions, with the same messages", mismatches.length === 0, mismatches.slice(0, 3).join(" ; "));
   t("the payload code sends no price, total or amount", !/priceCents|amountCents|total:|amount:/.test((script.match(/function payload[\s\S]*?\n  \}/) || [""])[0]));
+
+  // The secret registration reference comes back in the address after payment. Nothing that reads the address
+  // (an analytics pixel above all) may see it, so the page's first script moves it out before any pixel runs.
+  const headHtml = head(html);
+  const firstScript = (headHtml.match(/<script>([\s\S]*?)<\/script>/) || [, ""])[1];
+  t("a script that moves the reference out of the address runs in the head before the Meta Pixel spot",
+    /ref=/.test(firstScript) && /replaceState/.test(firstScript) && headHtml.indexOf(firstScript) < headHtml.indexOf("META PIXEL"));
+  const REF = "ATH-VR-0123456789ABCDEF-" + "A1B2C3D4".repeat(3);
+  function arrive(search, hash = "") {
+    const stored = {};
+    const state = { search, hash, pathname: "/virtual-run" };
+    const box = {
+      location: state, sessionStorage: { setItem: (k, v) => { stored[k] = v; }, getItem: (k) => (k in stored ? stored[k] : null) },
+      history: { replaceState: (a, b, url) => { const q = String(url).indexOf("?"); const h = String(url).indexOf("#"); state.search = q < 0 ? "" : String(url).slice(q, h < 0 ? undefined : h); } }
+    };
+    vm.createContext(box);
+    vm.runInContext(firstScript, box);
+    return { search: state.search, stored };
+  }
+  const back = arrive("?payment=success&ref=" + REF);
+  t("coming back from payment: the reference leaves the address and is kept for this tab only", !/ref=/.test(back.search) && /payment=success/.test(back.search) && back.stored["athlevo.vr.ref"] === REF);
+  const mixed = arrive("?package=finisher-kit&payment=success&ref=" + REF + "&utm_source=x");
+  t("other parameters are left exactly as they were", mixed.search === "?package=finisher-kit&payment=success&utm_source=x", mixed.search);
+  const cancelled = arrive("?payment=cancelled&ref=" + REF);
+  t("a cancelled return drops the reference and stores nothing", !/ref=/.test(cancelled.search) && Object.keys(cancelled.stored).length === 0);
+  t("an ordinary visit is left alone", arrive("?package=digital").search === "?package=digital" && arrive("").search === "");
+  t("the browser script reads the reference from this tab's storage when the address no longer carries it",
+    /getItem\("athlevo\.vr\.ref"\)/.test(script) && /payment === "success" && !REFERENCE\.test\(ref\)/.test(script));
+  const purchase = (script.match(/function trackPurchase[\s\S]*?\n  \}/) || [""])[0];
+  t("the Meta Pixel purchase is identified by the public registration id, never the secret reference",
+    /eventID: purchaseId/.test(purchase) && /data\.registration_id/.test(purchase) && !/eventID: ref/.test(purchase) && !/"athlevo\.vr\.pixel\." \+ ref/.test(purchase));
 }
 
 // ---- 7 ----------------------------------------------------------------------------------------
