@@ -89,7 +89,7 @@ self.addEventListener("fetch", event => {
   if (request.mode === "navigate") {
     const navPath = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
     const isAppShellNav = navPath === "/" || navPath === "/index.html" ||
-      !/^\/(programs|store|landing-preview|virtual-run)(\/|$)/.test(navPath);
+      !/^\/(programs|store|landing-preview|virtual-run|lessons)(\/|$)/.test(navPath);
     event.respondWith(
       fetch(request, { cache: "no-store" }).then(response => {
         if (response && response.ok && isAppShellNav) {

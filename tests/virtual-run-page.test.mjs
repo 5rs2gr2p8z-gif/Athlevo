@@ -303,7 +303,7 @@ section("8. Routing, sitemap and the local preview");
   const gateway = readFileSync("api/providers/index.js", "utf8");
   t("the gateway handles all four actions", ["register", "status", "availability", "admin"].every((a) => gateway.includes("virtual_run_" + a)));
   const worker = readFileSync("service-worker.js", "utf8");
-  t("the service worker does not treat /virtual-run as the app shell (it would overwrite the cached app with this page)", /!\/\^\\\/\(programs\|store\|landing-preview\|virtual-run\)\(\\\/\|\$\)\/\.test\(navPath\)/.test(worker));
+  t("the service worker does not treat /virtual-run as the app shell (it would overwrite the cached app with this page)", /!\/\^\\\/\(programs\|store\|landing-preview\|virtual-run(?:\|lessons)?\)\(\\\/\|\$\)\/\.test\(navPath\)/.test(worker));
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
   t("package.json has the build and test scripts", /build-virtual-run-page/.test(pkg.scripts["build:virtual-run"] || "") && /virtual-run-page\.test/.test(pkg.scripts["test:virtual-run"] || "") && /virtual-run-server\.test/.test(pkg.scripts["test:virtual-run"] || ""));
 }

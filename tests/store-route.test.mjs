@@ -761,7 +761,7 @@ section("6. App shell and service worker isolation");
     /aiPath === "\/ai" \|\| aiPath === "" \|\| aiPath === "\/signup" \|\| aiPath === "\/ai-signup"/.test(indexHtml));
   t("store navigations are not written into the app-shell cache",
     /isAppShellNav/.test(sw) &&
-    /\/\(programs\|store\|landing-preview(\|virtual-run)?\)/.test(sw));
+    /\/\(programs\|store\|landing-preview(\|virtual-run)?(\|lessons)?\)/.test(sw));
   t("storefront loads the Brand DNA fonts (Barlow Condensed bold + Inter) and uses the Brand DNA red and black",
     /family=Barlow\+Condensed:wght@700&(amp;)?family=Inter:wght@400\.\.700/.test(storeHtml) &&
     /--display:\s*"Barlow Condensed"/.test(css) && /--sans:\s*"Inter"/.test(css) &&
@@ -1437,11 +1437,15 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
       return r && r.missing.length === 1 && r.missing[0].type === "host" && r.missing[0].value === HOST &&
         vercel.rewrites.some(w => w.source === "/" + s && w.has && w.has[0].value === HOST && w.destination === "/store-pages/" + s + ".html");
     }));
-  t("every host rule is keyed on exactly programs.athlevo.org or athlevo.org, and every athlevo.org rule excludes programs.athlevo.org",
-    [...vercel.redirects, ...vercel.rewrites].every(r => [...(r.has || []), ...(r.missing || [])].every(c => c.type === "host" && (c.value === HOST || c.value === "athlevo.org"))) &&
+  // method.athlevo.org (see docs/method-site.md and tests/method-site.test.mjs) is the third host.
+  const METHOD_HOST = "method.athlevo.org";
+  const METHOD = "https://" + METHOD_HOST;
+  t("every host rule is keyed on exactly programs.athlevo.org, method.athlevo.org or athlevo.org, and every athlevo.org rule excludes the other host it sends traffic to",
+    [...vercel.redirects, ...vercel.rewrites].every(r => [...(r.has || []), ...(r.missing || [])].every(c => c.type === "host" && (c.value === HOST || c.value === METHOD_HOST || c.value === "athlevo.org"))) &&
     [...vercel.redirects, ...vercel.rewrites].filter(r => (r.has || []).some(c => c.value === "athlevo.org"))
-      .every(r => r.has.length === 1 && (r.missing || []).length === 1 && r.missing[0].value === HOST));
-  const apexRules = vercel.redirects.filter(r => (r.has || []).some(c => c.value === "athlevo.org"));
+      .every(r => r.has.length === 1 && (r.missing || []).length === 1 &&
+        r.missing[0].value === (r.destination.startsWith(METHOD) ? METHOD_HOST : HOST)));
+  const apexRules = vercel.redirects.filter(r => (r.has || []).some(c => c.value === "athlevo.org") && r.destination.startsWith(PROGRAMS + "/"));
   t("athlevo.org's redirects to the new host are the hub, the four offers (by /programs/<slug> and by short link) the rest of /programs/<x> and the four /webinar addresses: temporary, in one hop, query kept, before the legacy /store rules",
     apexRules.length === 1 + 4 + 1 + 4 + 4 && apexRules.every(r => r.permanent === false && r.destination.startsWith(PROGRAMS + "/")) &&
     SLUGS.every(s => apexRules.some(r => r.source === "/programs/" + s && r.destination === PROGRAMS + "/" + s) &&

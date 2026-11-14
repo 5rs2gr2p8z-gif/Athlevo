@@ -3,3 +3,4 @@ Allow: /
 
 Sitemap: https://athlevo.org/sitemap.xml
 Sitemap: https://programs.athlevo.org/sitemap-programs.xml
+Sitemap: https://method.athlevo.org/sitemap-method.xml

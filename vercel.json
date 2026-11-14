@@ -92,6 +92,28 @@
       "permanent": false
     },
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "method.athlevo.org"
+        }
+      ],
+      "destination": "/lessons",
+      "permanent": true
+    },
+    {
+      "source": "/:path((?!lessons(?:/|$)|(?:assets|athlevo-assets)/|(?:method\\.css|robots\\.txt|sitemap-method\\.xml|favicon\\.ico)$).+)",
+      "has": [
+        {
+          "type": "host",
+          "value": "method.athlevo.org"
+        }
+      ],
+      "destination": "https://athlevo.org/:path",
+      "permanent": false
+    },
+    {
       "source": "/programs",
       "has": [
         {
@@ -191,6 +213,40 @@
         }
       ],
       "destination": "https://programs.athlevo.org/programs/:slug",
+      "permanent": false
+    },
+    {
+      "source": "/lessons",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "method.athlevo.org"
+        }
+      ],
+      "destination": "https://method.athlevo.org/lessons",
+      "permanent": false
+    },
+    {
+      "source": "/lessons/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "athlevo.org"
+        }
+      ],
+      "missing": [
+        {
+          "type": "host",
+          "value": "method.athlevo.org"
+        }
+      ],
+      "destination": "https://method.athlevo.org/lessons/:slug",
       "permanent": false
     },
     {
@@ -628,6 +684,22 @@
     {
       "source": "/virtual-run/admin/",
       "destination": "/virtual-run-admin.html"
+    },
+    {
+      "source": "/lessons",
+      "destination": "/method-pages/lessons.html"
+    },
+    {
+      "source": "/lessons/",
+      "destination": "/method-pages/lessons.html"
+    },
+    {
+      "source": "/lessons/:slug",
+      "destination": "/method-pages/lessons/:slug.html"
+    },
+    {
+      "source": "/lessons/:slug/",
+      "destination": "/method-pages/lessons/:slug.html"
     }
   ]
 }

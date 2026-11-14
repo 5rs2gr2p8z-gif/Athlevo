@@ -15,6 +15,11 @@
  *   --host-resolver-rules="MAP programs.athlevo.org 127.0.0.1:4173"
  * and open http://programs.athlevo.org/
  *
+ * method.athlevo.org is mirrored the same way: its lessons are /lessons and /lessons/<slug>
+ * (static pages from scripts/build-method-pages.mjs), "/" goes to /lessons, and anything
+ * else goes to athlevo.org. athlevo.org sends /lessons... to the method host. Other hosts serve
+ * the lessons under /lessons.
+ *
  *   node scripts/serve-web.mjs
  */
 import http from "node:http";
@@ -63,6 +68,9 @@ const PROGRAMS_HOST = "programs.athlevo.org";
 const PROGRAMS_ORIGIN = "https://" + PROGRAMS_HOST;
 const APP_HOST = "athlevo.org";
 const APP_ORIGIN = "https://" + APP_HOST;
+// method.athlevo.org (see vercel.json): the Athlevo Method lessons.
+const METHOD_HOST = "method.athlevo.org";
+const METHOD_ORIGIN = "https://" + METHOD_HOST;
 
 // Addresses that no longer have a page, on every host (vercel.json has the same redirects). Elite
 // Coaching was renamed Athlevo VIP Coaching; Hybrid Programming was dropped from the lineup.
@@ -95,6 +103,21 @@ function appHostRedirect(pathname, search) {
   if (short && SHORT_LINKS.has(short[1])) return [307, PROGRAMS_ORIGIN + "/" + short[1] + search];
   // The free webinar pages (scripts/build-webinar-pages.mjs) live on the programs host too.
   if (/^\/webinar(?:\/thank-you)?\/?$/.test(pathname)) return [307, PROGRAMS_ORIGIN + pathname + search];
+  // The lessons live on the method host. Only the two real shapes are sent over.
+  if (pathname === "/lessons") return [307, METHOD_ORIGIN + "/lessons" + search];
+  const lesson = pathname.match(/^\/lessons\/([^/]+)$/);
+  if (lesson) return [307, METHOD_ORIGIN + "/lessons/" + lesson[1] + search];
+  return null;
+}
+
+// Paths the method host serves itself; everything else is the app, which stays on athlevo.org.
+const METHOD_HOST_KEEPS = /^\/(?:lessons(?:\/|$)|(?:assets|athlevo-assets)\/|(?:method\.css|robots\.txt|sitemap-method\.xml|favicon\.ico)$)/;
+
+// The method host's own redirects: [status, location], or null. "/" is permanent (308): the
+// lessons hub is the front page of the host.
+function methodHostRedirect(pathname, search) {
+  if (pathname === "/") return [308, "/lessons" + search];
+  if (!METHOD_HOST_KEEPS.test(pathname)) return [307, APP_ORIGIN + pathname + search];
   return null;
 }
 
@@ -119,6 +142,9 @@ function rewrite(pathname, host) {
   const offer = pathname.match(/^\/programs\/([a-z0-9-]+)\/?$/);
   if (offer && existsSync(join(root, "store-pages", offer[1] + ".html"))) return "/store-pages/" + offer[1] + ".html";
   if (/^\/programs\/[^/]+\/?$/.test(pathname)) return "/store.html";
+  if (pathname === "/lessons" || pathname === "/lessons/") return "/method-pages/lessons.html";
+  const lesson = pathname.match(/^\/lessons\/([^/]+?)\/?$/);
+  if (lesson) return "/method-pages/lessons/" + lesson[1] + ".html";
   if (pathname === "/landing-preview") return "/landing-preview.html";
   if (
     pathname === "/ai" || pathname === "/landing" || pathname === "/signup" ||
@@ -150,6 +176,14 @@ const server = http.createServer((req, res) => {
   }
   if (host === PROGRAMS_HOST) {
     const hop = programsHostRedirect(url.pathname, url.search);
+    if (hop) {
+      res.writeHead(hop[0], { location: hop[1] });
+      res.end();
+      return;
+    }
+  }
+  if (host === METHOD_HOST) {
+    const hop = methodHostRedirect(url.pathname, url.search);
     if (hop) {
       res.writeHead(hop[0], { location: hop[1] });
       res.end();
