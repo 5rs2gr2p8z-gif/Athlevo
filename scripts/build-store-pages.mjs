@@ -13,7 +13,7 @@
  *   store.html                  /programs (also the banner text, from catalog.notice())
  *   store-pages/<slug>.html     /programs/<slug>, one per offer
  *   sitemap-programs.xml        the hub and every offer, on programs.athlevo.org
- *   sitemap.xml                 the home page (athlevo.org); the program pages are not in it
+ *   sitemap.xml                 the home page and the Sub-1 10k Challenge page (athlevo.org); the program pages are not in it
  *
  * Run after changing js/storeCatalog.js, js/storefront.js or the shell in store.html:
  *   node scripts/build-store-pages.mjs          write the files
@@ -191,7 +191,8 @@ export function buildStorePages(root = ROOT) {
     urls.map((u) => "  <url><loc>" + escapeText(u) + "</loc></url>").join("\n") +
     "\n</urlset>\n";
   files.push({ path: "sitemap-programs.xml", content: sitemap(routes.map((r) => catalog.seo(r.slug).url)) });
-  files.push({ path: "sitemap.xml", content: sitemap([catalog.appUrl + "/"]) });
+  // /virtual-run (scripts/build-virtual-run-page.mjs) is served on the app's host too.
+  files.push({ path: "sitemap.xml", content: sitemap([catalog.appUrl + "/", catalog.appUrl + "/virtual-run"]) });
   return files;
 }
 

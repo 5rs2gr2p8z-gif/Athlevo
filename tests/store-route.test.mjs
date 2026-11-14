@@ -1016,8 +1016,8 @@ section("8. Crawler-readable pages");
   const sitemap = read("sitemap.xml");
   const programsSitemap = read("sitemap-programs.xml");
   const locsOf = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-  t("the app's sitemap lists only the home page on athlevo.org",
-    locsOf(sitemap).join("|") === "https://athlevo.org/" &&
+  t("the app's sitemap lists only the home page and the Sub-1 10k Challenge page, both on athlevo.org",
+    locsOf(sitemap).join("|") === "https://athlevo.org/|https://athlevo.org/virtual-run" &&
     /^<\?xml version="1\.0" encoding="UTF-8"\?>/.test(sitemap) && /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/.test(sitemap));
   t("the programs sitemap lists /programs and each offer on programs.athlevo.org (offers flat), and no old /store or athlevo.org URLs",
     locsOf(programsSitemap).join("|") === ["https://programs.athlevo.org/programs"].concat(catalog.products.map(p => "https://programs.athlevo.org/" + p.slug)).join("|") &&
@@ -1304,7 +1304,7 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
     // :path names the rest of the path in the catch-all; :slug the last segment.
     return dest.replace(/:path\b/, () => path.slice(1)).replace(/:slug\b/, () => path.split("/").pop());
   };
-  const STATIC_FILES = (p) => ["/", "/index.html", "/store.html", "/store.css", "/robots.txt", "/sitemap.xml", "/sitemap-programs.xml", "/webinar.css", "/webinar.html", "/webinar-thank-you.html"].includes(p) ||
+  const STATIC_FILES = (p) => ["/", "/index.html", "/store.html", "/store.css", "/robots.txt", "/sitemap.xml", "/sitemap-programs.xml", "/webinar.css", "/webinar.html", "/webinar-thank-you.html", "/virtual-run.css", "/virtual-run.html", "/virtual-run-admin.html"].includes(p) ||
     /^\/(assets|js|athlevo-assets|store-pages)\//.test(p);
   const viaVercel = (host, path) => {
     for (const r of vercel.redirects) {
@@ -1393,6 +1393,21 @@ section("11. programs.athlevo.org (the same pages, served from their own host)")
     [HOST, "/webinar.css", { status: 200, file: "/webinar.css" }],
     [HOST, "/js/webinar.js", { status: 200, file: "/js/webinar.js" }],
     [HOST, "/api/webinar/register", { status: 200, rewrite: "/api/providers" }],
+    // The Sub-1 10k Challenge (see docs/virtual-run.md) is served on athlevo.org, where it was asked for.
+    ["athlevo.org", "/virtual-run", { status: 200, rewrite: "/virtual-run.html" }],
+    ["athlevo.org", "/virtual-run/", { status: 200, rewrite: "/virtual-run.html" }],
+    ["athlevo.org", "/virtual-run/admin", { status: 200, rewrite: "/virtual-run-admin.html" }],
+    ["athlevo.org", "/virtual-run/admin/", { status: 200, rewrite: "/virtual-run-admin.html" }],
+    ["athlevo.org", "/virtual-run.css", { status: 200, file: "/virtual-run.css" }],
+    ["athlevo.org", "/js/virtualRun.js", { status: 200, file: "/js/virtualRun.js" }],
+    ["athlevo.org", "/js/virtualRunAdmin.js", { status: 200, file: "/js/virtualRunAdmin.js" }],
+    ["athlevo.org", "/api/virtual-run/register", { status: 200, rewrite: "/api/providers" }],
+    ["athlevo.org", "/api/virtual-run/status", { status: 200, rewrite: "/api/providers" }],
+    ["athlevo.org", "/api/virtual-run/availability", { status: 200, rewrite: "/api/providers" }],
+    ["athlevo.org", "/api/virtual-run/admin", { status: 200, rewrite: "/api/providers" }],
+    [HOST, "/virtual-run", { status: 307, location: APP + "/virtual-run" }],
+    [HOST, "/virtual-run/admin", { status: 307, location: APP + "/virtual-run/admin" }],
+    [PREVIEW, "/virtual-run", { status: 200, rewrite: "/virtual-run.html" }],
     [HOST, "/webinars", { status: 307, location: APP + "/webinars" }],
     [HOST, "/webinar.html", { status: 307, location: APP + "/webinar.html" }],
     ["athlevo.org", "/webinar", { status: 307, location: PROGRAMS + "/webinar" }],

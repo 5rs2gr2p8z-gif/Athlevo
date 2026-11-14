@@ -24,7 +24,9 @@
     "test:store": "node tests/store-route.test.mjs",
     "build:store": "node scripts/build-store-pages.mjs",
     "build:webinar": "node scripts/build-webinar-pages.mjs",
-    "test:webinar": "node tests/webinar-pages.test.mjs && node tests/webinar-registration.test.mjs"
+    "test:webinar": "node tests/webinar-pages.test.mjs && node tests/webinar-registration.test.mjs",
+    "build:virtual-run": "node scripts/build-virtual-run-page.mjs",
+    "test:virtual-run": "node tests/virtual-run-server.test.mjs && node tests/virtual-run-page.test.mjs"
   },
   "dependencies": {
     "@capacitor/app": "8.1.1",

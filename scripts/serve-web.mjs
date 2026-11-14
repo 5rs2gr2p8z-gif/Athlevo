@@ -111,6 +111,8 @@ function rewrite(pathname, host) {
     const flat = pathname.match(/^\/([a-z0-9-]+)$/);
     if (flat && SHORT_LINKS.has(flat[1])) return "/store-pages/" + flat[1] + ".html";
   }
+  if (pathname === "/virtual-run" || pathname === "/virtual-run/") return "/virtual-run.html";
+  if (pathname === "/virtual-run/admin" || pathname === "/virtual-run/admin/") return "/virtual-run-admin.html";
   if (pathname === "/webinar" || pathname === "/webinar/") return "/webinar.html";
   if (pathname === "/webinar/thank-you" || pathname === "/webinar/thank-you/") return "/webinar-thank-you.html";
   if (pathname === "/programs" || pathname === "/programs/") return "/store.html";

@@ -35,6 +35,12 @@ import {
   vipSignupCheckoutHandler, vipSignupStatusHandler
 } from "../../lib/server/planSignup.js";
 import webinarRegisterHandler from "../../lib/server/webinarRegistration.js";
+import {
+  availabilityHandler as virtualRunAvailabilityHandler,
+  registerHandler as virtualRunRegisterHandler,
+  statusHandler as virtualRunStatusHandler
+} from "../../lib/server/virtualRun.js";
+import { adminHandler as virtualRunAdminHandler } from "../../lib/server/virtualRunAdmin.js";
 import diagnosticChatHandler from "../../lib/server/diagnosticChatEndpoint.js";
 import coachAnonymousHandler from "../../lib/server/coachAnonymousEndpoint.js";
 import anonymousHandoffHandler from "../../lib/server/anonymousHandoffEndpoint.js";
@@ -4337,6 +4343,21 @@ export default async function handler(request, response) {
     // Free webinar registration on the public /webinar page (no Athlevo account).
     if (action === "webinar_register") {
       return webinarRegisterHandler(request, response);
+    }
+
+    // Athlevo Sub-1 10k Challenge registration (/virtual-run, no Athlevo account). The admin action is
+    // staff-only: the handler checks the caller's Supabase token against the staff list on every request.
+    if (action === "virtual_run_register") {
+      return virtualRunRegisterHandler(request, response);
+    }
+    if (action === "virtual_run_status") {
+      return virtualRunStatusHandler(request, response);
+    }
+    if (action === "virtual_run_availability") {
+      return virtualRunAvailabilityHandler(request, response);
+    }
+    if (action === "virtual_run_admin") {
+      return virtualRunAdminHandler(request, response, { authenticate: requireUser });
     }
 
     if (action === "diagnostic_chat") {

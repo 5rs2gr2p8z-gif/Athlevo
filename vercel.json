@@ -482,6 +482,22 @@
       "destination": "/api/providers?action=webinar_register"
     },
     {
+      "source": "/api/virtual-run/register",
+      "destination": "/api/providers?action=virtual_run_register"
+    },
+    {
+      "source": "/api/virtual-run/status",
+      "destination": "/api/providers?action=virtual_run_status"
+    },
+    {
+      "source": "/api/virtual-run/availability",
+      "destination": "/api/providers?action=virtual_run_availability"
+    },
+    {
+      "source": "/api/virtual-run/admin",
+      "destination": "/api/providers?action=virtual_run_admin"
+    },
+    {
       "source": "/api/diagnostic-chat",
       "destination": "/api/providers?action=diagnostic_chat"
     },
@@ -592,6 +608,22 @@
     {
       "source": "/webinar/thank-you/",
       "destination": "/webinar-thank-you.html"
+    },
+    {
+      "source": "/virtual-run",
+      "destination": "/virtual-run.html"
+    },
+    {
+      "source": "/virtual-run/",
+      "destination": "/virtual-run.html"
+    },
+    {
+      "source": "/virtual-run/admin",
+      "destination": "/virtual-run-admin.html"
+    },
+    {
+      "source": "/virtual-run/admin/",
+      "destination": "/virtual-run-admin.html"
     }
   ]
 }
